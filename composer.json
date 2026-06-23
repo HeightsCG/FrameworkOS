@@ -1,0 +1,10 @@
+{
+    "name": "hcg/framework",
+    "authors": [
+        {
+            "name": "Dr. Daniel Glauber",
+            "email": "dan.glauber@oliverwyman.com"
+        }
+    ],
+    "require": {}
+}
