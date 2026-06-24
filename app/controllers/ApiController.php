@@ -13,6 +13,71 @@ class ApiController extends Controller {
         $this->companiesModel = new Companies();
     }
 
+    public function registerAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        $u_name = isset($this->post['u_name']) ? trim((string) $this->post['u_name']) : '';
+        $email  = isset($this->post['user_email']) ? trim((string) $this->post['user_email']) : '';
+
+        if ($u_name === '') {
+            $response['message'] = 'Username is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!preg_match('/^[A-Za-z0-9_]{3,30}$/', $u_name)) {
+            $response['message'] = 'Username must be 3-30 characters: letters, numbers, or underscore';
+            echo json_encode($response);
+            exit;
+        }
+
+        if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $response['message'] = 'A valid email is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['p_word'])) {
+            $response['message'] = 'Password is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        // Reuse the existing framework password policy (no SQL).
+        $check = $this->userModel->validate_password($this->post['p_word']);
+        if (!$check['valid']) {
+            $response['message'] = $check['message'];
+            echo json_encode($response);
+            exit;
+        }
+
+        // Throttle registration per source IP (existing RateLimit).
+        $rate_key  = 'register:' . $this->get_ip_address();
+        $rateLimit = new RateLimit();
+        if ($rateLimit->is_locked($rate_key)) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            echo json_encode($response);
+            exit;
+        }
+        $rateLimit->register_failure($rate_key, 10, 15);
+
+        // All registration SQL lives in the product UsersModel.
+        $usersModel = new UsersModel();
+        if ($usersModel->username_exists($u_name) || $usersModel->email_exists($email)) {
+            // Neutral — do not reveal which field is already taken.
+            $response['message'] = 'Could not create an account with those details';
+            echo json_encode($response);
+            exit;
+        }
+
+        $response['success']  = true;
+        $response['message']  = 'Account created';
+        $response['reset_pw'] = 0;
+        echo json_encode($response);
+        exit;
+    }
+
     public function loginAction(){
 
         $response = array('success' => false, 'message' => 'Something went wrong');

@@ -7,7 +7,7 @@ class View {
     public $controller;
     public $method;
     public $config;
-    
+
     public function __construct($p) {
         $this->controller = preg_replace('/controller/', '', strtolower( Main::controller_name() ));
         $this->method = preg_replace('/action/', '', strtolower( Main::method_name() ));
