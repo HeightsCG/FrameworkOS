@@ -195,20 +195,81 @@ class ApiController extends Controller {
             exit;
         }
 
-        $user_id = (int) Session::get('user_id');
+        $user_account = $this->userModel->get_user_by_id(Session::get('user_id'));
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'User not found';
+            echo json_encode($response);
+            exit;
+        }
 
-        if (!$this->userModel->verify_current_password($user_id, $this->post['current_password'])) {
+        if (!password_verify($this->post['current_password'], $user_account[0]['p_word'])) {
             $response['message'] = 'Your current password is incorrect';
             echo json_encode($response);
             exit;
         }
 
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
-        $this->userModel->change_password($user_id, $enc_p_word);
+        $this->userModel->change_password(Session::get('user_id'), $enc_p_word, Session::get('user_id'));
         Session::set('reset_pw', 0);
 
         $response['success'] = true;
         $response['message'] = 'Your password has been updated';
+        echo json_encode($response);
+        exit;
+    }
+
+    public function update_profileAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['first_name'])) {
+            $response['message'] = 'First name is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['last_name'])) {
+            $response['message'] = 'Last name is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['user_email']) || !filter_var($this->post['user_email'], FILTER_VALIDATE_EMAIL)) {
+            $response['message'] = 'A valid email is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (strtolower($this->post['user_email']) !== strtolower((string) Session::get('user_email')) && $this->userModel->email_exists($this->post['user_email'])) {
+            $response['message'] = 'That email is already in use';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_phone = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
+
+        $this->userModel->update_profile(
+            (int) Session::get('user_id'),
+            $this->post['first_name'],
+            $this->post['last_name'],
+            $this->post['user_email'],
+            $user_phone,
+            (int) Session::get('user_id')
+        );
+
+        Session::set('first_name', $this->post['first_name']);
+        Session::set('last_name', $this->post['last_name']);
+        Session::set('user_email', $this->post['user_email']);
+        Session::set('user_phone', $user_phone);
+
+        $response['success'] = true;
+        $response['message'] = 'Your profile has been updated';
         echo json_encode($response);
         exit;
     }

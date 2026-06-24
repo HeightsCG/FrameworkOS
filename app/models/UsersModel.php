@@ -51,24 +51,27 @@ class UsersModel extends Model {
         return $candidate;
     }
 
-    public function create_user($u_name, $enc_p_word, $first_name, $last_name, $user_email){
+    public function create_user($u_name, $enc_p_word, $first_name, $last_name, $user_email, $created_by=0, $updated_by=0){
         return parent::insert('user_accounts', array(
             'u_name'      => $u_name,
             'p_word'      => $enc_p_word,
             'first_name'  => $first_name,
             'last_name'   => $last_name,
             'user_email'  => $user_email,
-            'user_status' => 'active',
+            'user_status' => 'Active',
+            'created_by'  => $created_by,
+            'updated_by'  => $updated_by,
+            'date_created' => date('Y-m-d H:i:s'),
+            'date_updated' => date('Y-m-d H:i:s'),
             'deleted'     => 0,
         ));
     }
 
     public function get_user_by_id($user_id){
         return parent::select(
-            "SELECT 
-                u.user_id,`
-                u.* 
-            FROM 
+            "SELECT
+                u.*
+            FROM
                 user_accounts u
             WHERE 
                 u.user_id = :user_id 
@@ -90,6 +93,36 @@ class UsersModel extends Model {
                 AND 
                 u.deleted = 0",
             array('u_name' => $u_name)
+        );
+    }
+
+    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $updated_by=0){
+        return parent::update(
+            'user_accounts',
+            array(
+                'first_name' => $first_name,
+                'last_name'  => $last_name,
+                'user_email' => $user_email,
+                'user_phone' => $user_phone,
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_by' => $updated_by,
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
+    public function change_password($user_id, $enc_password, $updated_by=0){
+        return parent::update(
+            'user_accounts',
+            array(
+                'p_word' => $enc_password, 
+                'reset_pw' => 0, 
+                'date_updated' => date('Y-m-d H:i:s'), 
+                'updated_by' => $updated_by
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
         );
     }
 
