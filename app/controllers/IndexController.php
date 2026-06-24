@@ -11,4 +11,10 @@ class IndexController extends Controller {
         $this->view->render();
     }
 
+    public function logoutAction(){
+        Main::do_logout();
+        header('Location: /');
+        exit;
+    }
+
 }
