@@ -9,6 +9,10 @@ class AccountController extends Controller {
         $this->userModel = new UsersModel();
     }
 
+    public function settingsAction(){
+        $this->view->render();
+    }
+
     public function billingAction(){
         $user = $this->userModel->get_user_by_id(Session::get('user_id'));
         if (is_array($user) && count($user) === 1) {

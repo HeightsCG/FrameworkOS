@@ -106,8 +106,22 @@ class StripeService {
             return array();
         }
 
-        $out = array();
+        $out  = array();
+        $seen = array();
         foreach ($methods->data as $pm) {
+            // Collapse duplicates (e.g. the same Link account or card attached more than once).
+            if ($pm->type === 'card' && isset($pm->card)) {
+                $key = 'card:' . ($pm->card->fingerprint ?? ($pm->card->last4 . $pm->card->exp_month . $pm->card->exp_year));
+            } elseif ($pm->type === 'link') {
+                $key = 'link:' . ($pm->link->email ?? $pm->id);
+            } else {
+                $key = $pm->type . ':' . $pm->id;
+            }
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+
             $row = array(
                 'id'         => $pm->id,
                 'type'       => (string) $pm->type,

@@ -33,4 +33,20 @@ class BillingModel extends Model {
         );
     }
 
+    public function clear_subscription($user_id){
+        return parent::update(
+            'user_accounts',
+            array(
+                'stripe_subscription_id'            => null,
+                'stripe_price_id'                   => null,
+                'subscription_status'               => null,
+                'subscription_current_period_end'   => null,
+                'subscription_cancel_at_period_end' => 0,
+                'updated_at'                        => date('Y-m-d H:i:s'),
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
 }

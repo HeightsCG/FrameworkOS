@@ -71,6 +71,23 @@ $(function () {
         });
     });
 
+    $('#cancel_now').on('click', function () {
+        $('#cancel_now_form').modal('show');
+    });
+
+    $('#confirm_cancel_now').on('click', function () {
+        $('#cancel_now_form').modal('hide');
+        ApiDataSvc.apiCall('post', 'cancel_now_subscription', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/billing'; }, 1200);
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
 });
 </script>
 
@@ -99,16 +116,17 @@ $(function () {
         <div class="billing__current-actions">
             <span class="billing__status billing__status--<?php echo $canceling ? 'canceling' : 'active'; ?>"><?php echo $canceling ? 'Canceling' : htmlspecialchars((string) $this->user['subscription_status'], ENT_QUOTES, 'UTF-8'); ?></span>
             <?php if ($canceling): ?>
-            <button type="button" class="btn btn-secondary" id="resume_subscription">Resume</button>
+            <button type="button" class="btn btn-secondary" id="resume_subscription">Resume Subscription</button>
+            <button type="button" class="btn btn-danger" id="cancel_now">Cancel Immediately</button>
             <?php else: ?>
-            <button type="button" class="btn btn-secondary" id="cancel_subscription">Cancel subscription</button>
+            <button type="button" class="btn btn-secondary" id="cancel_subscription">Cancel Subscription</button>
             <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>
 
     <div class="billing__head">
-        <h1 class="billing__title"><?php echo !empty($this->user['subscription_status']) ? 'Change plan' : 'Choose a plan'; ?></h1>
+        <h1 class="billing__title"><?php echo !empty($this->user['subscription_status']) ? 'Change Plan' : 'Choose a Plan'; ?></h1>
         <p class="billing__sub">Pick the plan that fits. Upgrade or downgrade anytime.</p>
     </div>
 
@@ -138,7 +156,7 @@ $(function () {
 
     <?php if (!empty($this->user['stripe_customer_id'])): ?>
     <div class="billing__section">
-        <h2 class="billing__section-title">Payment methods</h2>
+        <h2 class="billing__section-title">Payment Methods</h2>
         <?php if (empty($this->cards)): ?>
             <p class="billing__empty">No cards on file.</p>
         <?php else: ?>
@@ -165,7 +183,7 @@ $(function () {
     </div>
 
     <div class="billing__section">
-        <h2 class="billing__section-title">Billing history</h2>
+        <h2 class="billing__section-title">Billing History</h2>
         <?php if (empty($this->invoices)): ?>
             <p class="billing__empty">No invoices yet.</p>
         <?php else: ?>
@@ -211,15 +229,33 @@ $(function () {
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Cancel subscription</h5>
+                <h5 class="modal-title">Cancel Subscription</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="mb-0">Your subscription will remain active until the end of the current billing period, then it won't renew. You can resume any time before then.</p>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep subscription</button>
-                <button type="button" class="btn btn-danger" id="confirm_cancel">Cancel subscription</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Subscription</button>
+                <button type="button" class="btn btn-danger" id="confirm_cancel">Cancel Subscription</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="cancel_now_form" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Cancel Immediately</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">This ends your subscription right now and you'll lose access immediately. This can't be undone &mdash; you'd need to subscribe again.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Subscription</button>
+                <button type="button" class="btn btn-danger" id="confirm_cancel_now">Cancel Immediately</button>
             </div>
         </div>
     </div>

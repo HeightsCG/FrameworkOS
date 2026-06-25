@@ -22,4 +22,13 @@ $(document).ready(function() {
         });
     });
 
+    // Global loading bar — shows on every AJAX request so users see activity.
+    var $loadbar = $('<div id="app-loadbar"></div>').appendTo('body');
+    $(document).ajaxStart(function () {
+        $loadbar.removeClass('is-done').addClass('is-active');
+    });
+    $(document).ajaxStop(function () {
+        $loadbar.removeClass('is-active').addClass('is-done');
+    });
+
 });

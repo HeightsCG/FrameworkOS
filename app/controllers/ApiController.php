@@ -525,6 +525,43 @@ class ApiController extends Controller {
         exit;
     }
 
+    public function cancel_now_subscriptionAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        try {
+            $user_id = (int) Session::get('user_id');
+            $user    = $this->userModel->get_user_by_id($user_id)[0];
+            $sub_id  = $user['stripe_subscription_id'] ?? '';
+
+            if (empty($sub_id)) {
+                $response['message'] = 'No active subscription';
+                echo json_encode($response);
+                exit;
+            }
+
+            StripeService::client()->subscriptions->cancel($sub_id);
+            $this->billingModel->clear_subscription($user_id);
+
+            $response['success'] = true;
+            $response['message'] = 'Your subscription has been canceled';
+            echo json_encode($response);
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] cancel_now_subscription: ' . $e->getMessage());
+            $response['message'] = 'Could not cancel the subscription. Please try again.';
+            echo json_encode($response);
+            exit;
+        }
+    }
+
     private function set_cancel_at_period_end($cancel, $success_message){
         $response = array('success' => false, 'message' => 'Something went wrong');
 

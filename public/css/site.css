@@ -34,6 +34,11 @@ p{margin:0;}
 button,input,select,textarea{font-family:inherit;}
 img,svg{vertical-align:middle;}
 ::selection{background:rgba(91,75,224,.2);}
+
+/* Global AJAX loading bar */
+#app-loadbar{position:fixed; top:0; left:0; height:3px; width:0; background:var(--violet); box-shadow:0 0 8px rgba(91,75,224,.5); z-index:99999; opacity:0; pointer-events:none;}
+#app-loadbar.is-active{width:92%; opacity:1; transition:width 9s cubic-bezier(.12,.6,.25,1);}
+#app-loadbar.is-done{width:100%; opacity:0; transition:width .25s ease, opacity .4s ease .2s;}
 .app-shell{
     margin:0; min-height:100vh; color:var(--text); font-family:var(--font);
     -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
