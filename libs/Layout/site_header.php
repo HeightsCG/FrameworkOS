@@ -31,7 +31,7 @@
             <a href="/" class="app-nav-item app-nav-item-active"><i class="fa-solid fa-house"></i> Home</a>
         </nav>
         <span class="app-sidebar__spacer"></span>
-        <a href="/index/logout" class="app-signout"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
+        <a href="#" class="app-signout app-logout"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
         <span class="app-copy">&copy; <?php echo htmlspecialchars(date('Y'), ENT_QUOTES, 'UTF-8'); ?> <?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
     </aside>
 
@@ -57,7 +57,7 @@
                     </div>
                     <a href="/account/profile" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-user"></i> Profile</a>
                     <span class="app-account-menu__sep"></span>
-                    <a href="/index/logout" class="app-account-menu__item app-account-menu__item--danger" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
+                    <a href="#" class="app-account-menu__item app-account-menu__item--danger app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
                 </div>
             </div>
         </header>

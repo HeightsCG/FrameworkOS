@@ -100,6 +100,18 @@ class ApiController extends Controller {
         exit;
     }
 
+    public function logoutAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        Main::do_logout();
+
+        $response['success'] = true;
+        $response['message'] = 'You have been signed out';
+        echo json_encode($response);
+        exit;
+    }
+
     public function forgotAction(){
 
         $response = array('success' => false, 'message' => 'Something went wrong');
