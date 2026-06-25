@@ -5,6 +5,7 @@ class ApiController extends Controller {
     private $userModel;
     private $notificationsModel;
     private $loginAttemptsModel;
+    private $billingModel;
 
     public function __construct(){
         parent::__construct();
@@ -17,6 +18,7 @@ class ApiController extends Controller {
         $this->userModel = new UsersModel();
         $this->notificationsModel = new NotificationsModel();
         $this->loginAttemptsModel = new LoginAttemptsModel();
+        $this->billingModel = new BillingModel();
     }
 
     private function password_complexity_error($p){
@@ -403,6 +405,160 @@ class ApiController extends Controller {
         $response['message'] = 'Your account has been deleted';
         echo json_encode($response);
         exit;
+    }
+
+    public function create_subscriptionAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['price_id'])) {
+            $response['message'] = 'Please choose a plan';
+            echo json_encode($response);
+            exit;
+        }
+
+        try {
+            $stripe  = StripeService::client();
+            $user_id = (int) Session::get('user_id');
+            $user    = $this->userModel->get_user_by_id($user_id)[0];
+
+            $customer_id = $user['stripe_customer_id'] ?? '';
+            if (empty($customer_id)) {
+                $customer = $stripe->customers->create(array(
+                    'email'    => $user['user_email'],
+                    'name'     => trim($user['first_name'] . ' ' . $user['last_name']),
+                    'metadata' => array('user_id' => (string) $user_id),
+                ));
+                $customer_id = $customer->id;
+                $this->billingModel->set_customer_id($user_id, $customer_id);
+            }
+
+            $subscription = $stripe->subscriptions->create(array(
+                'customer'         => $customer_id,
+                'items'            => array(array('price' => $this->post['price_id'])),
+                'payment_behavior' => 'default_incomplete',
+                'payment_settings' => array('save_default_payment_method' => 'on_subscription'),
+                'expand'           => array('latest_invoice.confirmation_secret'),
+            ));
+
+            $client_secret = $subscription->latest_invoice->confirmation_secret->client_secret ?? null;
+            if (empty($client_secret)) {
+                $response['message'] = 'Could not initialize payment';
+                echo json_encode($response);
+                exit;
+            }
+
+            $period_end = $subscription->items->data[0]->current_period_end ?? null;
+            $this->billingModel->save_subscription($user_id, $subscription->id, $this->post['price_id'], $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
+
+            $response['success']         = true;
+            $response['client_secret']   = $client_secret;
+            $response['subscription_id'] = $subscription->id;
+            $response['message']         = 'Subscription started';
+            echo json_encode($response);
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_subscription: ' . $e->getMessage());
+            $response['message'] = 'Could not start the subscription. Please try again.';
+            echo json_encode($response);
+            exit;
+        }
+    }
+
+    public function sync_subscriptionAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong', 'status' => '');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        try {
+            $user_id = (int) Session::get('user_id');
+            $user    = $this->userModel->get_user_by_id($user_id)[0];
+            $sub_id  = $user['stripe_subscription_id'] ?? '';
+
+            if (empty($sub_id)) {
+                $response['success'] = true;
+                $response['status']  = '';
+                echo json_encode($response);
+                exit;
+            }
+
+            $stripe       = StripeService::client();
+            $subscription = $stripe->subscriptions->retrieve($sub_id);
+            $price_id     = $subscription->items->data[0]->price->id ?? ($user['stripe_price_id'] ?? '');
+            $period_end   = $subscription->items->data[0]->current_period_end ?? null;
+
+            $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
+
+            $response['success'] = true;
+            $response['status']  = $subscription->status;
+            $response['message'] = 'Subscription updated';
+            echo json_encode($response);
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] sync_subscription: ' . $e->getMessage());
+            $response['message'] = 'Could not refresh subscription';
+            echo json_encode($response);
+            exit;
+        }
+    }
+
+    public function cancel_subscriptionAction(){
+        echo json_encode($this->set_cancel_at_period_end(true, 'Your subscription will cancel at the end of the period'));
+        exit;
+    }
+
+    public function resume_subscriptionAction(){
+        echo json_encode($this->set_cancel_at_period_end(false, 'Your subscription has been resumed'));
+        exit;
+    }
+
+    private function set_cancel_at_period_end($cancel, $success_message){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            return $response;
+        }
+
+        try {
+            $user_id = (int) Session::get('user_id');
+            $user    = $this->userModel->get_user_by_id($user_id)[0];
+            $sub_id  = $user['stripe_subscription_id'] ?? '';
+
+            if (empty($sub_id)) {
+                $response['message'] = 'No active subscription';
+                return $response;
+            }
+
+            $stripe       = StripeService::client();
+            $subscription = $stripe->subscriptions->update($sub_id, array('cancel_at_period_end' => (bool) $cancel));
+            $price_id     = $subscription->items->data[0]->price->id ?? ($user['stripe_price_id'] ?? '');
+            $period_end   = $subscription->items->data[0]->current_period_end ?? null;
+
+            $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
+
+            $response['success'] = true;
+            $response['message'] = $success_message;
+            return $response;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] set_cancel_at_period_end: ' . $e->getMessage());
+            $response['message'] = 'Could not update the subscription. Please try again.';
+            return $response;
+        }
     }
 
 }

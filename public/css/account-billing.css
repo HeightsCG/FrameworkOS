@@ -1,0 +1,67 @@
+/* =====================================================================
+   Account / Billing — plan cards (page-specific)
+   ===================================================================== */
+
+.billing{max-width:980px; margin:0 auto;}
+
+.billing__head{margin-bottom:1.6rem;}
+.billing__title{font-size:1.5rem; font-weight:600; letter-spacing:-.03em; margin:0;}
+.billing__sub{color:var(--muted); font-size:.96rem; line-height:1.5; margin:.35rem 0 0;}
+
+/* current-plan summary */
+.billing__current{display:flex; align-items:center; justify-content:space-between; gap:1rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.1rem 1.3rem; margin-bottom:1.8rem;}
+.billing__current-name{font-size:.98rem; font-weight:600; color:var(--text);}
+.billing__current-meta{font-size:.85rem; color:var(--muted); margin-top:.15rem;}
+.billing__current-actions{display:flex; align-items:center; gap:.8rem; flex-shrink:0;}
+.billing__status{font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:.28rem .6rem; border-radius:2px;}
+.billing__status--active{color:var(--success); background:var(--success-bg);}
+.billing__status--canceling{color:var(--warning); background:var(--warning-bg);}
+
+/* plan grid */
+.plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.1rem; align-items:stretch;}
+.plan{position:relative; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.7rem 1.55rem; transition:border-color .15s, box-shadow .15s, transform .15s;}
+.plan:hover{border-color:rgba(91,75,224,.45); box-shadow:0 16px 36px -24px rgba(40,32,90,.34); transform:translateY(-2px);}
+.plan--current{border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset, var(--sh-xs);}
+.plan--current:hover{transform:none;}
+
+.plan__badge{position:absolute; top:1.2rem; right:1.2rem; font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.22rem .5rem; border-radius:2px;}
+.plan__name{font-size:1.02rem; font-weight:600; letter-spacing:-.01em; color:var(--text);}
+.plan__desc{color:var(--muted); font-size:.85rem; line-height:1.45; margin:.4rem 0 0;}
+.plan__price{display:flex; align-items:baseline; gap:.3rem; margin:1.15rem 0 1.45rem;}
+.plan__amount{font-size:2rem; font-weight:700; letter-spacing:-.03em; color:var(--text);}
+.plan__interval{font-size:.9rem; color:var(--muted);}
+.plan__btn{margin-top:auto; width:100%; padding-top:.55rem; padding-bottom:.55rem;}
+
+/* sections (payment methods + billing history) */
+.billing__section{margin-top:2.4rem;}
+.billing__section-title{font-size:1.05rem; font-weight:600; letter-spacing:-.02em; margin:0 0 1rem;}
+.billing__empty{color:var(--muted); font-size:.9rem; margin:0;}
+
+/* cards on file */
+.cards{display:flex; flex-direction:column; gap:.55rem;}
+.cardrow{display:flex; align-items:center; justify-content:space-between; gap:1rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:.85rem 1.1rem;}
+.cardrow__main{display:flex; align-items:center; gap:.7rem; min-width:0;}
+.cardrow__icon{color:var(--muted2); font-size:1rem;}
+.cardrow__brand{font-weight:600; color:var(--text); font-size:.92rem;}
+.cardrow__num{color:var(--t2); font-size:.9rem; letter-spacing:.06em;}
+.cardrow__default{font-size:.64rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.2rem .5rem; border-radius:2px;}
+.cardrow__exp{font-size:.85rem; color:var(--muted); white-space:nowrap;}
+
+/* billing history */
+.invoices{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--line); border-radius:2px;}
+.invoices th{text-align:left; font-size:.7rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:.7rem 1.1rem; border-bottom:1px solid var(--line2);}
+.invoices td{padding:.8rem 1.1rem; font-size:.9rem; color:var(--t2); border-bottom:1px solid var(--line2);}
+.invoices tbody tr:last-child td{border-bottom:0;}
+.invoices__action{text-align:right;}
+.invoices__action a{color:var(--violet7); font-weight:500; font-size:.85rem;}
+.invoices__action a:hover{text-decoration:underline;}
+.inv-status{font-size:.72rem; font-weight:600; padding:.2rem .5rem; border-radius:2px;}
+.inv-status--paid{color:var(--success); background:var(--success-bg);}
+.inv-status--open{color:var(--warning); background:var(--warning-bg);}
+.inv-status--void,.inv-status--uncollectible{color:var(--danger); background:var(--danger-bg);}
+.inv-status--draft{color:var(--muted); background:rgba(20,18,40,.05);}
+
+@media (max-width:820px){
+    .plans{grid-template-columns:1fr;}
+    .billing__current{flex-direction:column; align-items:flex-start;}
+}
