@@ -7,11 +7,11 @@
     <meta http-equiv="Pragma" content="no-cache">
     <?php echo CSRF::meta(); ?>
     <title><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <style>
     * { box-sizing: border-box; }
@@ -40,7 +40,7 @@
     .cos-main { flex: 1; display: flex; align-items: center; position: relative; z-index: 1; }
     .cos-grid { width: 100%; max-width: 1180px; margin: 0 auto; padding: 1.5rem 28px 2.5rem; display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
 
-    /* Left content + large soft abstract ContentOS shape */
+    /* Left content + large soft abstract brand shape */
     .cos-copy { position: relative; }
     .cos-anchor { position: absolute; z-index: 0; top: -150px; left: -160px; width: 620px; height: 620px; border-radius: 46% 54% 58% 42% / 52% 44% 56% 48%;
         background: radial-gradient(circle at 36% 34%, rgba(130,115,248,.55), rgba(91,75,224,.32) 46%, transparent 72%);
@@ -290,9 +290,8 @@
 
             <div class="cos-copy">
                 <span class="cos-anchor" aria-hidden="true"></span>
-                <span class="cos-kicker">Creator OS</span>
                 <h1 class="cos-headline">Create. Share. Earn. Keep it all connected.</h1>
-                <p class="cos-subcopy">ContentOS brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.</p>
+                <p class="cos-subcopy"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.</p>
                 <p class="cos-support">Built for creators who want less chaos between their tools.</p>
             </div>
 
