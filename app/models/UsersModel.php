@@ -61,8 +61,8 @@ class UsersModel extends Model {
             'user_status' => 'Active',
             'created_by'  => $created_by,
             'updated_by'  => $updated_by,
-            'date_created' => date('Y-m-d H:i:s'),
-            'date_updated' => date('Y-m-d H:i:s'),
+            'created_at'  => date('Y-m-d H:i:s'),
+            'updated_at'  => date('Y-m-d H:i:s'),
             'deleted'     => 0,
         ));
     }
@@ -96,7 +96,7 @@ class UsersModel extends Model {
         );
     }
 
-    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $updated_by=0){
+    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $u_name, $updated_by=0){
         return parent::update(
             'user_accounts',
             array(
@@ -104,6 +104,7 @@ class UsersModel extends Model {
                 'last_name'  => $last_name,
                 'user_email' => $user_email,
                 'user_phone' => $user_phone,
+                'u_name'     => $u_name,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => $updated_by,
             ),
@@ -116,9 +117,9 @@ class UsersModel extends Model {
         return parent::update(
             'user_accounts',
             array(
-                'p_word' => $enc_password, 
-                'reset_pw' => 0, 
-                'date_updated' => date('Y-m-d H:i:s'), 
+                'p_word' => $enc_password,
+                'reset_pw' => 0,
+                'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => $updated_by
             ),
             'user_id = :user_id',

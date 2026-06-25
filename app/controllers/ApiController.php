@@ -195,6 +195,36 @@ class ApiController extends Controller {
             exit;
         }
 
+        if (strlen($this->post['p_word']) < 8) {
+            $response['message'] = 'New password must be at least 8 characters';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!preg_match('/[A-Z]/', $this->post['p_word'])) {
+            $response['message'] = 'New password must include an uppercase letter';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!preg_match('/[a-z]/', $this->post['p_word'])) {
+            $response['message'] = 'New password must include a lowercase letter';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!preg_match('/[0-9]/', $this->post['p_word'])) {
+            $response['message'] = 'New password must include a number';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!preg_match('/[^A-Za-z0-9]/', $this->post['p_word'])) {
+            $response['message'] = 'New password must include a symbol';
+            echo json_encode($response);
+            exit;
+        }
+
         $user_account = $this->userModel->get_user_by_id(Session::get('user_id'));
         if (!is_array($user_account) || count($user_account) !== 1) {
             $response['message'] = 'User not found';
@@ -252,6 +282,18 @@ class ApiController extends Controller {
             exit;
         }
 
+        if (empty($this->post['u_name'])) {
+            $response['message'] = 'Username is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (strtolower($this->post['u_name']) !== strtolower((string) Session::get('u_name')) && $this->userModel->username_exists($this->post['u_name'])) {
+            $response['message'] = 'That username is already taken';
+            echo json_encode($response);
+            exit;
+        }
+
         $user_phone = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
 
         $this->userModel->update_profile(
@@ -260,6 +302,7 @@ class ApiController extends Controller {
             $this->post['last_name'],
             $this->post['user_email'],
             $user_phone,
+            $this->post['u_name'],
             (int) Session::get('user_id')
         );
 
@@ -267,6 +310,7 @@ class ApiController extends Controller {
         Session::set('last_name', $this->post['last_name']);
         Session::set('user_email', $this->post['user_email']);
         Session::set('user_phone', $user_phone);
+        Session::set('u_name', $this->post['u_name']);
 
         $response['success'] = true;
         $response['message'] = 'Your profile has been updated';
