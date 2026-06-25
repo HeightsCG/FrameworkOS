@@ -96,17 +96,19 @@ class UsersModel extends Model {
         );
     }
 
-    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $u_name, $updated_by=0){
+    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $u_name, $business_name, $website_url, $updated_by=0){
         return parent::update(
             'user_accounts',
             array(
-                'first_name' => $first_name,
-                'last_name'  => $last_name,
-                'user_email' => $user_email,
-                'user_phone' => $user_phone,
-                'u_name'     => $u_name,
-                'updated_at' => date('Y-m-d H:i:s'),
-                'updated_by' => $updated_by,
+                'first_name'    => $first_name,
+                'last_name'     => $last_name,
+                'user_email'    => $user_email,
+                'user_phone'    => $user_phone,
+                'u_name'        => $u_name,
+                'business_name' => $business_name,
+                'website_url'   => $website_url,
+                'updated_at'    => date('Y-m-d H:i:s'),
+                'updated_by'    => $updated_by,
             ),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
@@ -123,6 +125,19 @@ class UsersModel extends Model {
                 'reset_token_expires' => null,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => $updated_by
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
+    public function delete_account($user_id, $updated_by=0){
+        return parent::update(
+            'user_accounts',
+            array(
+                'deleted'    => 1,
+                'updated_at' => date('Y-m-d H:i:s'),
+                'updated_by' => $updated_by,
             ),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)

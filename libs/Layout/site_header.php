@@ -56,6 +56,7 @@
                         </span>
                     </div>
                     <a href="/account/profile" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-user"></i> Profile</a>
+                    <a href="/account/billing" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-credit-card"></i> Billing</a>
                     <span class="app-account-menu__sep"></span>
                     <a href="#" class="app-account-menu__item app-account-menu__item--danger app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
                 </div>

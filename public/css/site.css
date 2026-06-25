@@ -108,7 +108,7 @@ img,svg{vertical-align:middle;}
 .app-shell .form-floating > .form-control:hover{border-color:#bcbcc6;}
 .app-shell .form-floating > .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
 .app-shell .form-floating > label{font-size:.9rem; color:var(--muted); font-weight:500;}
-.app-shell .btn{border-radius:2px; font-weight:600; padding:.58rem 1.25rem;}
+.app-shell .btn{border-radius:2px; font-weight:600; font-size:.85rem; padding:.4rem .9rem;}
 .app-shell .btn-primary{--bs-btn-bg:var(--violet); --bs-btn-border-color:var(--violet); --bs-btn-color:#fff; --bs-btn-hover-bg:var(--violet7); --bs-btn-hover-border-color:var(--violet7); --bs-btn-hover-color:#fff; --bs-btn-active-bg:var(--violet7); --bs-btn-active-border-color:var(--violet7); background:var(--violet); border:1px solid var(--violet); color:#fff;}
 .app-shell .btn-primary:hover{background:var(--violet7); border-color:var(--violet7); color:#fff;}
 .app-shell .btn-secondary{--bs-btn-bg:#fff; --bs-btn-color:var(--text); --bs-btn-border-color:#d4d4dd; --bs-btn-hover-bg:#f5f5f8; --bs-btn-hover-color:var(--text); --bs-btn-hover-border-color:#bcbcc6; background:#fff; color:var(--text); border:1px solid #d4d4dd;}
@@ -118,6 +118,10 @@ img,svg{vertical-align:middle;}
 .app-shell .modal-title{font-size:1.05rem; font-weight:600; letter-spacing:-.01em;}
 .app-shell .modal-body{padding:1.3rem;}
 .app-shell .modal-footer{border-top:1px solid var(--line2); padding:.8rem 1.2rem; gap:.5rem; background:var(--bg);}
+.app-shell .card{border:1px solid #d4d4dd; box-shadow:var(--sh-xs); background:var(--surface);}
+.app-shell .card-header{padding:1rem 1.25rem;}
+.app-shell .card-title{font-size:1.05rem; font-weight:600; letter-spacing:-.01em; margin:0;}
+.app-shell .card-body{padding: 1rem 1.25rem .2rem 1.25rem; font-size:.85rem;}
 
 /* ---------- Responsive ---------- */
 @media (max-width:820px){

@@ -356,7 +356,9 @@ class ApiController extends Controller {
             exit;
         }
 
-        $user_phone = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
+        $user_phone    = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
+        $business_name = empty($this->post['business_name']) ? '' : $this->post['business_name'];
+        $website_url   = empty($this->post['website_url']) ? '' : $this->post['website_url'];
 
         $this->userModel->update_profile(
             (int) Session::get('user_id'),
@@ -365,6 +367,8 @@ class ApiController extends Controller {
             $this->post['user_email'],
             $user_phone,
             $this->post['u_name'],
+            $business_name,
+            $website_url,
             (int) Session::get('user_id')
         );
 
@@ -373,9 +377,30 @@ class ApiController extends Controller {
         Session::set('user_email', $this->post['user_email']);
         Session::set('user_phone', $user_phone);
         Session::set('u_name', $this->post['u_name']);
+        Session::set('business_name', $business_name);
+        Session::set('website_url', $website_url);
 
         $response['success'] = true;
         $response['message'] = 'Your profile has been updated';
+        echo json_encode($response);
+        exit;
+    }
+
+    public function delete_my_accountAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $this->userModel->delete_account((int) Session::get('user_id'), (int) Session::get('user_id'));
+        Main::do_logout();
+
+        $response['success'] = true;
+        $response['message'] = 'Your account has been deleted';
         echo json_encode($response);
         exit;
     }

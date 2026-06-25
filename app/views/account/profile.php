@@ -70,7 +70,9 @@ $(function () {
             last_name:  $('#last_name').val(),
             user_email: $('#user_email').val(),
             user_phone: $('#user_phone').val(),
-            u_name: $('#u_name').val()
+            u_name: $('#u_name').val(),
+            business_name: $('#business_name').val(),
+            website_url: $('#website_url').val()
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) {
@@ -153,6 +155,24 @@ $(function () {
         }, 600);
     });
 
+    $('#delete_account').on('click', function () {
+        $('#delete_account_form').modal('show');
+    });
+
+    $('#confirm_delete_account').on('click', function () {
+        $('#delete_account_form').modal('hide');
+        ApiDataSvc.apiCall('post', 'delete_my_account', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                setTimeout(function () {
+                    window.location.href = '/';
+                }, 1000);
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
     $(document).on('keydown', '#current_password, #new_password, #confirm_password', function(e) {
         if (e.keyCode === 13) {
             $("#update_password").trigger('click');
@@ -171,43 +191,97 @@ $(function () {
 <div class="container">
     <div class="row mb-3">
         <div class="col-md-12">
-            <h2>Profile</h2>
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h5 class="card-title">Profile Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="business_name" value="<?php echo htmlspecialchars((string) $this->user['business_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="business_name">Business Name (Optional)</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="user_phone" value="<?php echo htmlspecialchars((string) $this->user['user_phone'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="user_phone">Phone Number (Optional)</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="first_name" value="<?php echo htmlspecialchars((string) $this->user['first_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="first_name">First Name</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="last_name" value="<?php echo htmlspecialchars((string) $this->user['last_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="last_name">Last Name</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="email" class="form-control" id="user_email" value="<?php echo htmlspecialchars((string) $this->user['user_email'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="user_email">Email Address</label>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="u_name" value="<?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="u_name">Username</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12 mb-3">
+                            <div class="form-floating">
+                                <input type="text" class="form-control" id="website_url" value="<?php echo htmlspecialchars((string) $this->user['website_url'], ENT_QUOTES, 'UTF-8'); ?>">
+                                <label for="website_url">Website URL (Optional)</label>
+                            </div>
+                        </div>
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-primary" id="save_profile">Update Profile</button>
+                            <button type="button" class="btn btn-secondary float-end" id="change_password">Change Password</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
     <div class="row mb-3">
-        <div class="col-md-6 mb-3">
-            <div class="form-floating">
-                <input type="text" class="form-control" id="first_name" value="<?php echo htmlspecialchars((string) Session::get('first_name'), ENT_QUOTES, 'UTF-8'); ?>">
-                <label for="first_name">First Name</label>
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header d-flex align-items-center justify-content-between">
+                    <h5 class="card-title">Danger Zone</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12 mb-3">
+                            <p>This action is irreversible and will permanently delete your account and all associated data.</p>
+                        </div>
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-danger" id="delete_account">Delete Account</button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div class="col-md-6 mb-3">
-            <div class="form-floating">
-                <input type="text" class="form-control" id="last_name" value="<?php echo htmlspecialchars((string) Session::get('last_name'), ENT_QUOTES, 'UTF-8'); ?>">
-                <label for="last_name">Last Name</label>
+    </div>
+</div>
+
+<div class="modal fade" id="delete_account_form" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Account</h5>
             </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="form-floating">
-                <input type="email" class="form-control" id="user_email" value="<?php echo htmlspecialchars((string) Session::get('user_email'), ENT_QUOTES, 'UTF-8'); ?>">
-                <label for="user_email">Email Address</label>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action is irreversible and will permanently delete your account and all associated data.</p>
             </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="form-floating">
-                <input type="text" class="form-control" id="user_phone" value="<?php echo htmlspecialchars((string) Session::get('user_phone'), ENT_QUOTES, 'UTF-8'); ?>">
-                <label for="user_phone">Phone Number</label>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm_delete_account">Confirm</button>
             </div>
-        </div>
-        <div class="col-md-6 mb-3">
-            <div class="form-floating">
-                <input type="text" class="form-control" id="u_name" value="<?php echo htmlspecialchars((string) Session::get('u_name'), ENT_QUOTES, 'UTF-8'); ?>">
-                <label for="u_name">Username</label>
-            </div>
-        </div>
-        <div class="col-md-12 mb-3">
-            <button type="button" class="btn btn-primary" id="save_profile">Save</button>
-            <button type="button" class="btn btn-secondary" id="change_password">Change Password</button>
         </div>
     </div>
 </div>
