@@ -207,11 +207,42 @@
                 return;
             }
 
+            if ($("#register_p_word").val() !== $("#register_p_word_confirm").val()) {
+                toastr.error('Passwords do not match');
+                return;
+            }
+
+            if ($("#register_p_word").val().length < 8) {
+                toastr.error('Password must be at least 8 characters');
+                return;
+            }
+
+            if (!/[A-Z]/.test($("#register_p_word").val())) {
+                toastr.error('Password must include an uppercase letter');
+                return;
+            }
+
+            if (!/[a-z]/.test($("#register_p_word").val())) {
+                toastr.error('Password must include a lowercase letter');
+                return;
+            }
+
+            if (!/[0-9]/.test($("#register_p_word").val())) {
+                toastr.error('Password must include a number');
+                return;
+            }
+
+            if (!/[^A-Za-z0-9]/.test($("#register_p_word").val())) {
+                toastr.error('Password must include a symbol');
+                return;
+            }
+
             ApiDataSvc.apiCall('post', 'register', {
                 first_name: $('#register_first_name').val(),
                 last_name:  $('#register_last_name').val(),
                 user_email: $('#register_user_email').val(),
-                p_word:     $('#register_p_word').val()
+                p_word:     $('#register_p_word').val(),
+                p_word_confirm: $('#register_p_word_confirm').val()
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {

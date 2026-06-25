@@ -4,11 +4,38 @@ class ApiController extends Controller {
     public $protected = 1;
     private $userModel;
     private $notificationsModel;
+    private $loginAttemptsModel;
 
     public function __construct(){
         parent::__construct();
+
+        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !CSRF::validate()) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid or expired request token'));
+            exit;
+        }
+
         $this->userModel = new UsersModel();
         $this->notificationsModel = new NotificationsModel();
+        $this->loginAttemptsModel = new LoginAttemptsModel();
+    }
+
+    private function password_complexity_error($p){
+        if (strlen($p) < 8) {
+            return 'Password must be at least 8 characters';
+        }
+        if (!preg_match('/[A-Z]/', $p)) {
+            return 'Password must include an uppercase letter';
+        }
+        if (!preg_match('/[a-z]/', $p)) {
+            return 'Password must include a lowercase letter';
+        }
+        if (!preg_match('/[0-9]/', $p)) {
+            return 'Password must include a number';
+        }
+        if (!preg_match('/[^A-Za-z0-9]/', $p)) {
+            return 'Password must include a symbol';
+        }
+        return '';
     }
 
     public function registerAction(){
@@ -35,6 +62,19 @@ class ApiController extends Controller {
 
         if (empty($this->post['p_word'])) {
             $response['message'] = 'Password is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['p_word_confirm']) || $this->post['p_word'] !== $this->post['p_word_confirm']) {
+            $response['message'] = 'Passwords do not match';
+            echo json_encode($response);
+            exit;
+        }
+
+        $pw_error = $this->password_complexity_error($this->post['p_word']);
+        if ($pw_error !== '') {
+            $response['message'] = $pw_error;
             echo json_encode($response);
             exit;
         }
@@ -79,15 +119,25 @@ class ApiController extends Controller {
             exit;
         }
 
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'login', 15) >= 5) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            echo json_encode($response);
+            exit;
+        }
+
         $user_account = $this->userModel->get_user_by_username($this->post['u_name']);
         if (!is_array($user_account) || count($user_account) !== 1
             || !password_verify($this->post['p_word'], $user_account[0]['p_word'])) {
+            $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
             $response['message'] = 'Invalid username or password';
             echo json_encode($response);
             exit;
         }
 
         $user = $user_account[0];
+
+        session_regenerate_id(true);
 
         foreach ($user as $key => $value) {
             Session::set($key, $value);
@@ -122,6 +172,14 @@ class ApiController extends Controller {
             exit;
         }
 
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'forgot', 15) >= 5) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            echo json_encode($response);
+            exit;
+        }
+        $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'forgot');
+
         $user_account = $this->userModel->get_user_by_username($this->post['u_name']);
         if (is_array($user_account) && count($user_account) === 1) {
             $user  = $user_account[0];
@@ -129,7 +187,7 @@ class ApiController extends Controller {
 
             if (!empty($user['user_email'])) {
                 $reset_link = Main::get_base_domain() . '/account/reset?token=' . urlencode($token);
-                $to_name    = trim($this->post['first_name'] . ' ' . $this->post['last_name']);
+                $to_name    = trim($user['first_name'] . ' ' . $user['last_name']);
                 $this->notificationsModel->send_password_reset_email($user['user_email'], $to_name, $reset_link);
             }
         }
@@ -156,8 +214,23 @@ class ApiController extends Controller {
             exit;
         }
 
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'reset', 15) >= 5) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $pw_error = $this->password_complexity_error($this->post['p_word']);
+        if ($pw_error !== '') {
+            $response['message'] = $pw_error;
+            echo json_encode($response);
+            exit;
+        }
+
         $user_account = $this->userModel->get_user_by_reset_token($this->post['reset_token']);
         if (!is_array($user_account) || count($user_account) !== 1) {
+            $this->loginAttemptsModel->record($ip, null, 'reset');
             $response['message'] = 'This reset link is invalid or has expired';
             echo json_encode($response);
             exit;
@@ -207,32 +280,9 @@ class ApiController extends Controller {
             exit;
         }
 
-        if (strlen($this->post['p_word']) < 8) {
-            $response['message'] = 'New password must be at least 8 characters';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (!preg_match('/[A-Z]/', $this->post['p_word'])) {
-            $response['message'] = 'New password must include an uppercase letter';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (!preg_match('/[a-z]/', $this->post['p_word'])) {
-            $response['message'] = 'New password must include a lowercase letter';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (!preg_match('/[0-9]/', $this->post['p_word'])) {
-            $response['message'] = 'New password must include a number';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (!preg_match('/[^A-Za-z0-9]/', $this->post['p_word'])) {
-            $response['message'] = 'New password must include a symbol';
+        $pw_error = $this->password_complexity_error($this->post['p_word']);
+        if ($pw_error !== '') {
+            $response['message'] = $pw_error;
             echo json_encode($response);
             exit;
         }

@@ -111,5 +111,11 @@ class Main {
     {
         Session::destroy();
     }
-    
+
+    public static function get_base_domain(): string
+    {
+        $host = $_SERVER['HTTP_HOST'] ?? self::config('development', 'domain');
+        return self::site_protocol() . $host;
+    }
+
 }

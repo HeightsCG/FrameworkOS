@@ -21,6 +21,26 @@
                 toastr.error('Passwords do not match');
                 return;
             }
+            if ($('#p_word').val().length < 8) {
+                toastr.error('Password must be at least 8 characters');
+                return;
+            }
+            if (!/[A-Z]/.test($('#p_word').val())) {
+                toastr.error('Password must include an uppercase letter');
+                return;
+            }
+            if (!/[a-z]/.test($('#p_word').val())) {
+                toastr.error('Password must include a lowercase letter');
+                return;
+            }
+            if (!/[0-9]/.test($('#p_word').val())) {
+                toastr.error('Password must include a number');
+                return;
+            }
+            if (!/[^A-Za-z0-9]/.test($('#p_word').val())) {
+                toastr.error('Password must include a symbol');
+                return;
+            }
             ApiDataSvc.apiCall('post', 'reset', {
                 reset_token: token,
                 p_word:      $('#p_word').val()

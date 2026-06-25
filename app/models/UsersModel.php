@@ -119,11 +119,44 @@ class UsersModel extends Model {
             array(
                 'p_word' => $enc_password,
                 'reset_pw' => 0,
+                'reset_token' => null,
+                'reset_token_expires' => null,
                 'updated_at' => date('Y-m-d H:i:s'),
                 'updated_by' => $updated_by
             ),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
+        );
+    }
+
+    public function set_reset_token($user_id){
+        $token = bin2hex(random_bytes(32));
+        parent::update(
+            'user_accounts',
+            array(
+                'reset_token'         => $token,
+                'reset_token_expires' => date('Y-m-d H:i:s', strtotime('+1 hour')),
+                'updated_at'          => date('Y-m-d H:i:s'),
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+        return $token;
+    }
+
+    public function get_user_by_reset_token($reset_token){
+        return parent::select(
+            "SELECT
+                u.*
+            FROM
+                user_accounts u
+            WHERE
+                u.reset_token = :reset_token
+                AND
+                u.reset_token_expires > NOW()
+                AND
+                u.deleted = 0",
+            array('reset_token' => $reset_token)
         );
     }
 
