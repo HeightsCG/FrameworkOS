@@ -147,4 +147,20 @@ class StripeService {
         }
         return $out;
     }
+
+    /** True if the plan behind $price_id has product metadata social_posting = "true". */
+    public static function plan_allows_social_posting($price_id): bool
+    {
+        if (empty($price_id)) {
+            return false;
+        }
+        try {
+            $price = self::client()->prices->retrieve($price_id, array('expand' => array('product')));
+            $meta  = (isset($price->product) && isset($price->product->metadata)) ? $price->product->metadata : null;
+            return $meta && isset($meta['social_posting']) && (string) $meta['social_posting'] === 'true';
+        } catch (\Throwable $e) {
+            error_log('[stripe] plan_allows_social_posting: ' . $e->getMessage());
+            return false;
+        }
+    }
 }

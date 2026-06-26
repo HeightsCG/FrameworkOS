@@ -598,4 +598,151 @@ class ApiController extends Controller {
         }
     }
 
+    /* ---------- Social publishing (Post for Me) ---------- */
+
+    /** Auth + plan gate for all social endpoints. Returns the user array or exits with a JSON error. */
+    private function social_user(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+        $user = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+        $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
+        if (!$user || !Plan::can_social_post($user)) {
+            echo json_encode(array('success' => false, 'message' => 'Your plan does not include social posting'));
+            exit;
+        }
+        return $user;
+    }
+
+    public function connect_accountAction(){
+        $user = $this->social_user();
+        $platform = $this->post['platform'] ?? '';
+        if ($platform === '') {
+            echo json_encode(array('success' => false, 'message' => 'Platform is required'));
+            exit;
+        }
+        // Some platforms need extra connection data (keyed by platform).
+        // Instagram: connection_type ("instagram" = Login with Instagram, "facebook" = via a linked Page).
+        // LinkedIn: connection_type "organization" is required when using Post for Me's provided credentials.
+        $platform_data = null;
+        if ($platform === 'instagram') {
+            $platform_data = array('instagram' => array('connection_type' => 'instagram'));
+        } elseif ($platform === 'linkedin') {
+            $platform_data = array('linkedin' => array('connection_type' => 'organization'));
+        }
+        $url = PostForMeService::create_auth_url($platform, (int) $user['user_id'], array('posts'), $platform_data);
+        if ($url === '') {
+            echo json_encode(array('success' => false, 'message' => 'Could not start the connection. Please try again.'));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'url' => $url));
+        exit;
+    }
+
+    public function disconnect_accountAction(){
+        $user   = $this->social_user();
+        $pfm_id = $this->post['account_id'] ?? '';
+        if ($pfm_id === '') {
+            echo json_encode(array('success' => false, 'message' => 'Account is required'));
+            exit;
+        }
+        $accountsModel = new SocialAccountsModel();
+        $acct = $accountsModel->get_by_pfm_id($pfm_id);
+        if (!$acct || (int) $acct['user_id'] !== (int) $user['user_id']) {
+            echo json_encode(array('success' => false, 'message' => 'Account not found'));
+            exit;
+        }
+        PostForMeService::disconnect($pfm_id);
+        $accountsModel->mark_disconnected((int) $user['user_id'], $pfm_id);
+        echo json_encode(array('success' => true, 'message' => 'Account disconnected'));
+        exit;
+    }
+
+    public function upload_media_urlAction(){
+        $this->social_user();
+        $res = PostForMeService::create_upload_url();
+        if (!$res) {
+            echo json_encode(array('success' => false, 'message' => 'Could not prepare the upload'));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'media_url' => $res[0], 'upload_url' => $res[1]));
+        exit;
+    }
+
+    public function create_postAction(){
+        $user     = $this->social_user();
+        $caption  = $this->post['caption'] ?? '';
+        $ids      = $this->post['social_account_ids'] ?? array();
+        $media    = $this->post['media_url'] ?? '';
+        $schedule = $this->post['schedule'] ?? 'now';
+        $when     = $this->post['scheduled_at'] ?? '';
+
+        if (!is_array($ids) || count($ids) === 0) {
+            echo json_encode(array('success' => false, 'message' => 'Select at least one connected account'));
+            exit;
+        }
+        if (trim($caption) === '' && $media === '') {
+            echo json_encode(array('success' => false, 'message' => 'Add a caption or media'));
+            exit;
+        }
+
+        // Only allow this user's currently-connected accounts.
+        $accountsModel = new SocialAccountsModel();
+        $valid = array();
+        foreach ($accountsModel->get_connected_for_user((int) $user['user_id']) as $c) {
+            $valid[$c['post_for_me_social_account_id']] = true;
+        }
+        $target = array();
+        foreach ($ids as $id) {
+            if (isset($valid[$id])) { $target[] = $id; }
+        }
+        if (count($target) === 0) {
+            echo json_encode(array('success' => false, 'message' => 'No connected accounts selected'));
+            exit;
+        }
+
+        $sched = null;
+        if ($schedule === 'later' && $when !== '') {
+            $ts = strtotime($when);
+            if ($ts) { $sched = date('c', $ts); }
+        }
+        $media_urls = ($media !== '') ? array($media) : array();
+
+        $post = PostForMeService::create_post($target, $caption, $media_urls, $sched);
+        if (!$post || empty($post['id'])) {
+            echo json_encode(array('success' => false, 'message' => 'Could not create the post. Please try again.'));
+            exit;
+        }
+
+        $postsModel = new SocialPostsModel();
+        $postsModel->create((int) $user['user_id'], $post['id'], $caption, $post['status'] ?? 'processing', $sched, $target);
+
+        echo json_encode(array(
+            'success' => true,
+            'post_id' => $post['id'],
+            'status'  => $post['status'] ?? 'processing',
+            'message' => $sched ? 'Post scheduled' : 'Post submitted',
+        ));
+        exit;
+    }
+
+    public function post_statusAction(){
+        $this->social_user();
+        $pfm_post_id = $this->post['post_id'] ?? '';
+        if ($pfm_post_id === '') {
+            echo json_encode(array('success' => false, 'message' => 'Post id is required'));
+            exit;
+        }
+        $post = PostForMeService::get_post($pfm_post_id);
+        if (!$post) {
+            echo json_encode(array('success' => false, 'message' => 'Post not found'));
+            exit;
+        }
+        $status = $post['status'] ?? '';
+        (new SocialPostsModel())->update_status($pfm_post_id, $status);
+        echo json_encode(array('success' => true, 'status' => $status));
+        exit;
+    }
+
 }

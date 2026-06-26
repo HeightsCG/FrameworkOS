@@ -1,0 +1,84 @@
+/* =====================================================================
+   Account / Settings — connected accounts + composer (page-specific)
+   ===================================================================== */
+
+.settings{max-width:980px; margin:0 auto;}
+.settings__head{margin-bottom:1.9rem;}
+.settings__title{font-size:1.55rem; font-weight:600; letter-spacing:-.03em; margin:0;}
+.settings__sub{color:var(--muted); font-size:.96rem; line-height:1.5; margin:.35rem 0 0;}
+
+/* upgrade gate */
+.settings__upgrade{display:flex; align-items:center; gap:1.1rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.6rem 1.7rem;}
+.settings__upgrade-icon{font-size:1.5rem; color:var(--violet);}
+.settings__upgrade-title{font-size:1.02rem; font-weight:600; color:var(--text);}
+.settings__upgrade-text{color:var(--muted); font-size:.9rem; line-height:1.5; margin:.3rem 0 0; max-width:54ch;}
+.settings__upgrade .btn{margin-left:auto; white-space:nowrap;}
+
+/* sub-nav + content */
+.settings__body{display:grid; grid-template-columns:210px minmax(0,1fr); gap:2.6rem; align-items:start;}
+.settings__nav{position:sticky; top:80px; display:flex; flex-direction:column; gap:2px;}
+.settings__nav-item{display:flex; align-items:center; gap:.65rem; width:100%; text-align:left; padding:.55rem .7rem; border:0; border-radius:2px; background:none; font-family:inherit; font-size:.92rem; font-weight:500; color:var(--t2); cursor:pointer; transition:background .14s, color .14s;}
+.settings__nav-item i{width:16px; font-size:.9rem; color:var(--muted2); transition:color .14s;}
+.settings__nav-item:hover{background:rgba(20,18,40,.04); color:var(--text);}
+.settings__nav-item.is-active{background:var(--vsoft); color:var(--violet7); font-weight:600;}
+.settings__nav-item.is-active i{color:var(--violet);}
+
+.settings__section{display:none;}
+.settings__section.is-active{display:block;}
+.settings__section-head{margin-bottom:1.1rem;}
+.settings__section-head--spaced{margin-top:2.2rem;}
+.settings__section-title{font-size:1.12rem; font-weight:600; letter-spacing:-.02em; margin:0;}
+.settings__section-desc{color:var(--muted); font-size:.9rem; line-height:1.5; margin:.3rem 0 0;}
+.settings__empty{color:var(--muted); font-size:.9rem; margin:0;}
+
+/* connected-account cards */
+.conn-grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem;}
+.conn-card{display:flex; flex-direction:column; gap:.9rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.2rem;}
+.conn-card__head{display:flex; align-items:center; gap:.6rem;}
+.conn-card__icon{font-size:1.25rem; color:var(--t2); width:22px; text-align:center;}
+.conn-card__name{font-weight:600; font-size:.95rem; color:var(--text);}
+.conn-card__badge{margin-left:auto; font-size:.64rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); background:rgba(20,18,40,.05); padding:.2rem .5rem; border-radius:2px;}
+.conn-card__badge.is-on{color:var(--success); background:var(--success-bg);}
+.conn-card__acct{display:flex; align-items:center; justify-content:space-between; gap:.6rem;}
+.conn-card__handle{font-size:.88rem; color:var(--t2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.conn-card .btn{width:100%;}
+.conn-card__acct .btn{width:auto;}
+
+/* brand icon tints */
+.fa-linkedin{color:#0a66c2;} .fa-facebook{color:#1877f2;} .fa-instagram{color:#e1306c;}
+.fa-youtube{color:#ff0000;} .fa-pinterest{color:#bd081c;} .fa-x-twitter{color:#1d1d1f;}
+.fa-tiktok{color:#1d1d1f;} .fa-threads{color:#1d1d1f;} .fa-bluesky{color:#1185fe;}
+
+/* composer */
+.composer{background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.5rem; max-width:640px;}
+.compose-label{display:block; font-size:.82rem; font-weight:600; color:var(--t2); margin:1.1rem 0 .45rem;}
+.compose-label:first-child{margin-top:0;}
+.compose-optional{color:var(--muted2); font-weight:500;}
+.composer .form-control{border:1px solid #d4d4dd; border-radius:2px; font-size:.92rem; box-shadow:none;}
+.composer .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
+.compose-note{font-size:.82rem; color:var(--muted); margin-top:.4rem; min-height:1em;}
+.compose-accounts{display:flex; flex-direction:column; gap:.5rem;}
+.compose-acct{display:flex; align-items:center; gap:.6rem; font-size:.9rem; color:var(--text); cursor:pointer;}
+.compose-acct i{width:18px; text-align:center;}
+.compose-schedule{display:flex; align-items:center; gap:1.2rem; flex-wrap:wrap;}
+.compose-radio{display:flex; align-items:center; gap:.4rem; font-size:.9rem; color:var(--t2); cursor:pointer;}
+.compose-schedule .form-control{width:auto;}
+.compose-actions{margin-top:1.5rem; padding-top:1.3rem; border-top:1px solid var(--line2); display:flex; justify-content:flex-end;}
+
+/* recent posts */
+.posts{width:100%; border-collapse:collapse; background:var(--surface); border:1px solid var(--line); border-radius:2px;}
+.posts th{text-align:left; font-size:.7rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); padding:.7rem 1.1rem; border-bottom:1px solid var(--line2);}
+.posts td{padding:.8rem 1.1rem; font-size:.9rem; color:var(--t2); border-bottom:1px solid var(--line2);}
+.posts tbody tr:last-child td{border-bottom:0;}
+.post-status{font-size:.72rem; font-weight:600; padding:.2rem .55rem; border-radius:2px; color:var(--muted); background:rgba(20,18,40,.05);}
+.post-status--processed{color:var(--success); background:var(--success-bg);}
+.post-status--scheduled{color:var(--info); background:var(--info-bg);}
+.post-status--processing{color:var(--warning); background:var(--warning-bg);}
+.post-status--draft{color:var(--muted); background:rgba(20,18,40,.05);}
+
+@media (max-width:760px){
+    .settings__body{grid-template-columns:minmax(0,1fr); gap:1.4rem;}
+    .settings__nav{position:static; flex-direction:row; gap:.3rem; overflow-x:auto;}
+    .settings__upgrade{flex-direction:column; align-items:flex-start;}
+    .settings__upgrade .btn{margin-left:0;}
+}
