@@ -2,8 +2,11 @@
    Account / Settings — connected accounts + composer (page-specific)
    ===================================================================== */
 
-.settings{max-width:90%; margin:0 auto;}
-.settings__head{margin-bottom:1.9rem;}
+/* Fill the area under the app topbar and scroll internally, so the page header
+   stays put and content never slides under the fixed topbar.
+   (4.8rem = .app-content vertical padding: 2.2rem top + 2.6rem bottom.) */
+.settings{max-width:90%; margin:0 auto; height:calc(100vh - var(--topbar-h) - 4.8rem); display:flex; flex-direction:column; min-height:0;}
+.settings__head{flex:0 0 auto; margin-bottom:1.9rem;}
 .settings__title{font-size:1.55rem; font-weight:600; letter-spacing:-.03em; margin:0;}
 .settings__sub{color:var(--muted); font-size:.96rem; line-height:1.5; margin:.35rem 0 0;}
 
@@ -14,9 +17,10 @@
 .settings__upgrade-text{color:var(--muted); font-size:.9rem; line-height:1.5; margin:.3rem 0 0; max-width:54ch;}
 .settings__upgrade .btn{margin-left:auto; white-space:nowrap;}
 
-/* sub-nav + content */
-.settings__body{display:grid; grid-template-columns:210px minmax(0,1fr); gap:2.6rem; align-items:start;}
-.settings__nav{position:sticky; top:80px; display:flex; flex-direction:column; gap:2px;}
+/* sub-nav + content — body fills remaining height; only the content column scrolls */
+.settings__body{flex:1 1 auto; min-height:0; display:grid; grid-template-columns:210px minmax(0,1fr); gap:2.6rem; align-items:stretch;}
+.settings__nav{align-self:start; display:flex; flex-direction:column; gap:2px;}
+.settings__content{min-height:0; overflow-y:auto; padding-right:.6rem;}
 .settings__nav-item{display:flex; align-items:center; gap:.65rem; width:100%; text-align:left; padding:.55rem .7rem; border:0; border-radius:2px; background:none; font-family:inherit; font-size:.92rem; font-weight:500; color:var(--t2); cursor:pointer; transition:background .14s, color .14s;}
 .settings__nav-item i{width:16px; font-size:.9rem; color:var(--muted2); transition:color .14s;}
 .settings__nav-item:hover{background:rgba(20,18,40,.04); color:var(--text);}
@@ -121,16 +125,16 @@
 .creator-active__badge{font-size:.95rem; font-weight:600; color:var(--violet7);}
 .creator-active__badge i{color:var(--violet); margin-right:.3rem;}
 .creator-active__note{font-size:.85rem; color:var(--muted); margin:0;}
-.creator-danger{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; margin-top:1.2rem; padding:1.1rem 1.3rem; background:var(--surface); border:1px solid var(--danger); border-radius:2px;}
+.creator-danger{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; margin-top:1.5rem; padding:1.2rem 1.3rem; background:rgba(207,59,59,.04); border:1px solid rgba(207,59,59,.35); border-radius:2px;}
 .creator-danger__info{display:flex; flex-direction:column; gap:.15rem; min-width:0;}
 .creator-danger__title{font-size:.92rem; font-weight:600; color:var(--danger);}
 .creator-danger__desc{font-size:.82rem; color:var(--muted); line-height:1.45;}
 .creator-danger .btn{white-space:nowrap; flex:none;}
 
 /* creator profile / branding editor */
-.cprofile{max-width:600px;}
+.cprofile{max-width:600px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.5rem;}
 .cprofile__cover{position:relative; height:140px; border-radius:2px; background:var(--vsoft) center/cover no-repeat; border:1px solid var(--line);}
-.cprofile__cover-btn{position:absolute; top:.7rem; right:.7rem;}
+.cprofile__cover-actions{position:absolute; top:.7rem; right:.7rem; display:flex; gap:.4rem;}
 .cprofile__avatar-row{display:flex; align-items:center; gap:.9rem;}
 .cprofile__avatar{width:72px; height:72px; border-radius:50%; background:var(--vsoft) center/cover no-repeat; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted2); font-size:1.4rem; flex:none;}
 .cprofile__grid{display:grid; grid-template-columns:1fr 1fr; gap:1rem;}
@@ -139,9 +143,16 @@
 .cprofile .form-control{border:1px solid #d4d4dd; border-radius:2px; box-shadow:none; font-size:.92rem;}
 .cprofile .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
 .cprofile__hint{font-size:.78rem; color:var(--muted); margin-top:.35rem;}
-.cprofile__field--color{max-width:120px;}
-.cprofile__color{width:100%; height:38px; padding:2px; border:1px solid #d4d4dd; border-radius:2px; background:var(--surface); cursor:pointer;}
-.cprofile__actions{display:flex; justify-content:flex-end; margin-top:.5rem;}
+/* tag input — full-width field with chips listed below */
+.taglist{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem;}
+.taginput__chip{display:inline-flex; align-items:center; gap:.15rem; background:var(--vsoft); color:var(--violet7); font-size:.82rem; font-weight:500; padding:.25rem .3rem .25rem .55rem; border-radius:2px;}
+.taginput__remove{border:0; background:none; color:var(--violet7); font-size:1.05rem; line-height:1; cursor:pointer; padding:0 .2rem; opacity:.65; transition:opacity .12s;}
+.taginput__remove:hover{opacity:1;}
+/* image crop modal */
+.crop-hint{font-size:.82rem; color:var(--muted); margin:0 0 .8rem;}
+.crop-stage{max-height:56vh; background:#f4f4f7;}
+.crop-stage img{display:block; max-width:100%;}
+.cprofile__actions{display:flex; justify-content:flex-end; margin-top:1.4rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
 
 /* wallet & credits — everything shares one column width for a tidy left edge */
 .wallet{max-width:600px;}
@@ -187,8 +198,11 @@
 .ledger__neg{color:var(--danger); font-weight:600;}
 
 @media (max-width:760px){
+    /* On mobile the shell stacks and the whole page scrolls normally. */
+    .settings{height:auto; min-height:0;}
     .settings__body{grid-template-columns:minmax(0,1fr); gap:1.4rem;}
     .settings__nav{position:static; flex-direction:row; gap:.3rem; overflow-x:auto;}
+    .settings__content{overflow-y:visible; padding-right:0;}
     .settings__upgrade{flex-direction:column; align-items:flex-start;}
     .settings__upgrade .btn{margin-left:0;}
 }

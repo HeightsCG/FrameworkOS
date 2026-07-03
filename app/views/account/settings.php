@@ -1,5 +1,7 @@
 <link rel="stylesheet" href="/css/account-settings.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="https://js.stripe.com/v3/"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 
 <div class="settings">
     <header class="settings__head">
@@ -79,7 +81,10 @@
                     <div class="cprofile__field">
                         <label>Cover image</label>
                         <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
-                            <button type="button" class="btn btn-secondary cprofile__cover-btn" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload cover</button>
+                            <div class="cprofile__cover-actions">
+                                <button type="button" class="btn btn-secondary" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload cover</button>
+                                <button type="button" class="btn btn-secondary" id="cover_remove" <?php echo empty($cp['cover_url']) ? 'hidden' : ''; ?>>Remove</button>
+                            </div>
                         </div>
                     </div>
 
@@ -90,6 +95,7 @@
                                 <?php if (empty($cp['avatar_url'])): ?><i class="fa-solid fa-user"></i><?php endif; ?>
                             </div>
                             <button type="button" class="btn btn-secondary" id="avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload photo</button>
+                            <button type="button" class="btn btn-secondary" id="avatar_remove" <?php echo empty($cp['avatar_url']) ? 'hidden' : ''; ?>>Remove</button>
                         </div>
                     </div>
 
@@ -98,44 +104,33 @@
 
                     <div class="cprofile__grid">
                         <div class="cprofile__field">
-                            <label for="cp_display_name">Display name</label>
+                            <label for="cp_display_name">Display Name</label>
                             <input type="text" class="form-control" id="cp_display_name" maxlength="190" value="<?php echo htmlspecialchars((string) $cp['display_name'], ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                         <div class="cprofile__field">
-                            <label for="cp_location">Location</label>
+                            <label for="cp_location">Location (Optional)</label>
                             <input type="text" class="form-control" id="cp_location" maxlength="190" placeholder="City, Country" value="<?php echo htmlspecialchars((string) $cp['location'], ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                     </div>
 
                     <div class="cprofile__field">
-                        <label for="cp_bio">Bio</label>
+                        <label for="cp_bio">Bio (Optional)</label>
                         <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars((string) $cp['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                     </div>
 
                     <div class="cprofile__field">
-                        <label for="cp_tags">Tags</label>
-                        <input type="text" class="form-control" id="cp_tags" placeholder="fitness, coaching, nutrition" value="<?php echo htmlspecialchars((string) $cp['tags'], ENT_QUOTES, 'UTF-8'); ?>">
-                        <span class="cprofile__hint">Comma-separated keywords that describe your profile.</span>
-                    </div>
-
-                    <div class="cprofile__grid">
-                        <div class="cprofile__field cprofile__field--color">
-                            <label for="cp_brand_color">Brand color</label>
-                            <input type="color" class="cprofile__color" id="cp_brand_color" value="<?php echo htmlspecialchars($cp['brand_color'] !== '' ? $cp['brand_color'] : '#5b4be0', ENT_QUOTES, 'UTF-8'); ?>">
+                        <label for="tag_entry">Tags (Optional)</label>
+                        <input type="text" class="form-control" id="tag_entry" placeholder="Type a tag and press Enter" autocomplete="off">
+                        <div class="taglist" id="tag_list">
+                            <?php foreach (array_filter(array_map('trim', explode(',', (string) $cp['tags']))) as $t): ?>
+                            <span class="taginput__chip" data-tag="<?php echo htmlspecialchars($t, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($t, ENT_QUOTES, 'UTF-8'); ?><button type="button" class="taginput__remove" aria-label="Remove tag">&times;</button></span>
+                            <?php endforeach; ?>
                         </div>
-                        <div class="cprofile__field">
-                            <label for="cp_cta_label">Call-to-action label</label>
-                            <input type="text" class="form-control" id="cp_cta_label" maxlength="80" placeholder="Work with me" value="<?php echo htmlspecialchars((string) $cp['cta_label'], ENT_QUOTES, 'UTF-8'); ?>">
-                        </div>
-                    </div>
-
-                    <div class="cprofile__field">
-                        <label for="cp_cta_url">Call-to-action link</label>
-                        <input type="text" class="form-control" id="cp_cta_url" placeholder="https://..." value="<?php echo htmlspecialchars((string) $cp['cta_url'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <span class="cprofile__hint">Press Enter or comma to add a tag.</span>
                     </div>
 
                     <div class="cprofile__actions">
-                        <button type="button" class="btn btn-primary" id="cp_save">Save profile</button>
+                        <button type="button" class="btn btn-primary" id="cp_save">Save Changes</button>
                     </div>
                 </div>
 
@@ -144,7 +139,7 @@
                         <span class="creator-danger__title">Stop being a creator</span>
                         <span class="creator-danger__desc">This permanently deletes all your creator content. It cannot be undone.</span>
                     </div>
-                    <button type="button" class="btn btn-danger" id="leave_creator_btn">Stop being a creator</button>
+                    <button type="button" class="btn btn-danger" id="leave_creator_btn">Delete Account</button>
                 </div>
                 <?php endif; ?>
             </section>
@@ -316,6 +311,25 @@
                 <?php endif; ?>
             </section>
 
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="crop_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="crop_modal_title">Crop image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="crop-hint" id="crop_hint"></p>
+                <div class="crop-stage"><img id="crop_img" alt=""></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="crop_confirm">Crop &amp; upload</button>
+            </div>
         </div>
     </div>
 </div>
@@ -652,10 +666,10 @@ $(function () {
         });
     });
 
-    function uploadCreatorImage(kind, file, $preview) {
+    function uploadCreatorImage(kind, file, filename, $preview) {
         var fd = new FormData();
         fd.append('kind', kind);
-        fd.append('image', file);
+        fd.append('image', file, filename);
         $.ajax({
             url: ApiDataSvc.baseUrl + 'upload_creator_image',
             type: 'POST',
@@ -667,6 +681,7 @@ $(function () {
                 if (o.success) {
                     toastr.success(o.message);
                     $preview.css('background-image', "url('" + o.url + "')").find('i').remove();
+                    $('#' + kind + '_remove').removeAttr('hidden');
                 } else {
                     toastr.error(o.message);
                 }
@@ -675,20 +690,105 @@ $(function () {
         });
     }
 
+    // Required output sizes per image kind.
+    var CROP_SPEC = {
+        avatar: { ratio: 1,   width: 512,  height: 512, label: 'Square, 512×512' },
+        cover:  { ratio: 3,   width: 1500, height: 500, label: 'Wide banner, 1500×500' }
+    };
+    var cropper = null, cropKind = null, cropTarget = null;
+
+    function openCropper(kind, file, $preview) {
+        cropKind = kind;
+        cropTarget = $preview;
+        $('#crop_hint').text(CROP_SPEC[kind].label);
+        var reader = new FileReader();
+        reader.onload = function (e) { $('#crop_img').attr('src', e.target.result); $('#crop_modal').modal('show'); };
+        reader.readAsDataURL(file);
+    }
+
+    $('#crop_modal').on('shown.bs.modal', function () {
+        if (cropper) { cropper.destroy(); }
+        cropper = new Cropper(document.getElementById('crop_img'), {
+            aspectRatio: CROP_SPEC[cropKind].ratio,
+            viewMode: 1, autoCropArea: 1, background: false, responsive: true
+        });
+    }).on('hidden.bs.modal', function () {
+        if (cropper) { cropper.destroy(); cropper = null; }
+    });
+
+    $('#crop_confirm').on('click', function () {
+        if (!cropper) { return; }
+        var spec = CROP_SPEC[cropKind];
+        cropper.getCroppedCanvas({ width: spec.width, height: spec.height, imageSmoothingQuality: 'high' })
+            .toBlob(function (blob) {
+                uploadCreatorImage(cropKind, blob, cropKind + '.jpg', cropTarget);
+                $('#crop_modal').modal('hide');
+            }, 'image/jpeg', 0.9);
+    });
+
     $('#cover_upload_btn').on('click', function () { $('#cover_file').trigger('click'); });
     $('#avatar_upload_btn').on('click', function () { $('#avatar_file').trigger('click'); });
-    $('#cover_file').on('change', function () { if (this.files[0]) { uploadCreatorImage('cover', this.files[0], $('#cover_preview')); this.value = ''; } });
-    $('#avatar_file').on('change', function () { if (this.files[0]) { uploadCreatorImage('avatar', this.files[0], $('#avatar_preview')); this.value = ''; } });
+    $('#cover_file').on('change', function () { if (this.files[0]) { openCropper('cover', this.files[0], $('#cover_preview')); this.value = ''; } });
+    $('#avatar_file').on('change', function () { if (this.files[0]) { openCropper('avatar', this.files[0], $('#avatar_preview')); this.value = ''; } });
+
+    $('#avatar_remove, #cover_remove').on('click', function () {
+        var kind = this.id === 'avatar_remove' ? 'avatar' : 'cover';
+        ApiDataSvc.apiCall('post', 'remove_creator_image', { kind: kind }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            var $preview = $('#' + kind + '_preview').css('background-image', '');
+            if (kind === 'avatar' && !$preview.find('i').length) {
+                $preview.append('<i class="fa-solid fa-user"></i>');
+            }
+            $('#' + kind + '_remove').attr('hidden', 'hidden');
+        });
+    });
+
+    var $taglist = $('#tag_list');
+
+    function addTag(text) {
+        text = (text || '').replace(/,/g, '').trim();
+        if (text === '') { return; }
+        var dup = false;
+        $taglist.find('.taginput__chip').each(function () {
+            if (($(this).data('tag') + '').toLowerCase() === text.toLowerCase()) { dup = true; }
+        });
+        if (dup) { return; }
+        var $chip = $('<span class="taginput__chip"></span>').attr('data-tag', text).text(text);
+        $chip.append('<button type="button" class="taginput__remove" aria-label="Remove tag">×</button>');
+        $taglist.append($chip);
+    }
+
+    $('#tag_entry').on('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag(this.value);
+            this.value = '';
+        } else if (e.key === 'Backspace' && this.value === '') {
+            $taglist.find('.taginput__chip').last().remove();
+        }
+    }).on('blur', function () {
+        if (this.value.trim() !== '') { addTag(this.value); this.value = ''; }
+    });
+
+    $taglist.on('click', '.taginput__remove', function () { $(this).closest('.taginput__chip').remove(); });
+
+    function collectTags() {
+        return $taglist.find('.taginput__chip').map(function () { return $(this).data('tag'); }).get().join(',');
+    }
 
     $('#cp_save').on('click', function () {
+        if (($('#cp_display_name').val() || '').trim() === '') {
+            toastr.error('Display name is required');
+            $('#cp_display_name').focus();
+            return;
+        }
         ApiDataSvc.apiCall('post', 'save_creator_profile', {
             display_name: $('#cp_display_name').val(),
             bio:          $('#cp_bio').val(),
             location:     $('#cp_location').val(),
-            tags:         $('#cp_tags').val(),
-            brand_color:  $('#cp_brand_color').val(),
-            cta_label:    $('#cp_cta_label').val(),
-            cta_url:      $('#cp_cta_url').val()
+            tags:         collectTags()
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }

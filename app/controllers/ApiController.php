@@ -958,26 +958,17 @@ class ApiController extends Controller {
     public function save_creator_profileAction(){
         $this->require_creator();
 
-        $brand_color = trim((string) ($this->post['brand_color'] ?? ''));
-        if ($brand_color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $brand_color)) {
-            echo json_encode(array('success' => false, 'message' => 'Brand color must be a valid hex color'));
-            exit;
-        }
-
-        $cta_url = trim((string) ($this->post['cta_url'] ?? ''));
-        if ($cta_url !== '' && !filter_var($cta_url, FILTER_VALIDATE_URL)) {
-            echo json_encode(array('success' => false, 'message' => 'Enter a valid call-to-action URL'));
+        $display_name = trim((string) ($this->post['display_name'] ?? ''));
+        if ($display_name === '') {
+            echo json_encode(array('success' => false, 'message' => 'Display name is required'));
             exit;
         }
 
         (new CreatorProfileModel())->save((int) Session::get('user_id'), array(
-            'display_name' => trim((string) ($this->post['display_name'] ?? '')),
+            'display_name' => $display_name,
             'bio'          => trim((string) ($this->post['bio'] ?? '')),
             'location'     => trim((string) ($this->post['location'] ?? '')),
             'tags'         => trim((string) ($this->post['tags'] ?? '')),
-            'brand_color'  => $brand_color,
-            'cta_label'    => trim((string) ($this->post['cta_label'] ?? '')),
-            'cta_url'      => $cta_url,
         ));
 
         echo json_encode(array('success' => true, 'message' => 'Profile saved'));
@@ -1029,6 +1020,31 @@ class ApiController extends Controller {
         (new CreatorProfileModel())->set_image($user_id, $column, $url);
 
         echo json_encode(array('success' => true, 'url' => $url, 'message' => ucfirst($kind) . ' updated'));
+        exit;
+    }
+
+    public function remove_creator_imageAction(){
+        $this->require_creator();
+
+        $kind = (string) ($this->post['kind'] ?? '');
+        if (!in_array($kind, array('avatar', 'cover'), true)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid image type'));
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $column  = ($kind === 'avatar') ? 'avatar_url' : 'cover_url';
+
+        $model   = new CreatorProfileModel();
+        $current = $model->get_for_user($user_id);
+        $old_url = $current[$column] ?? '';
+
+        $model->set_image($user_id, $column, '');
+        if ($old_url !== '') {
+            S3Service::delete_by_url($old_url);
+        }
+
+        echo json_encode(array('success' => true, 'message' => ucfirst($kind) . ' removed'));
         exit;
     }
 

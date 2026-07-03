@@ -65,4 +65,24 @@ class S3Service {
         return 'https://' . self::bucket() . '.s3.' . self::region() . '.amazonaws.com/' . $key;
     }
 
+    /** Delete an object given a URL previously returned by upload_file(). */
+    public static function delete_by_url($url): bool
+    {
+        if (!self::configured() || $url === '') {
+            return false;
+        }
+        $prefix = 'https://' . self::bucket() . '.s3.' . self::region() . '.amazonaws.com/';
+        if (strpos($url, $prefix) !== 0) {
+            return false;
+        }
+        $key = substr($url, strlen($prefix));
+        try {
+            self::client()->deleteObject(array('Bucket' => self::bucket(), 'Key' => $key));
+        } catch (\Throwable $e) {
+            error_log('[s3] delete failed: ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
 }
