@@ -88,6 +88,7 @@ class AccountController extends Controller {
         $this->view->user               = $user;
         $this->view->is_creator          = $is_creator;
         $this->view->creator_profile     = $is_creator ? (new CreatorProfileModel())->get_for_user($user['user_id']) : array();
+        $this->view->creator_links       = $is_creator ? (new CreatorLinksModel())->get_for_user($user['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;
         $this->view->payouts             = $payouts;

@@ -1048,6 +1048,76 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ---------- Creator external links ---------- */
+
+    public function save_creator_linkAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+
+        $title = trim((string) ($this->post['title'] ?? ''));
+        $url   = trim((string) ($this->post['url'] ?? ''));
+        $id    = (int) ($this->post['id'] ?? 0);
+
+        if ($title === '') {
+            echo json_encode(array('success' => false, 'message' => 'A label is required'));
+            exit;
+        }
+        if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+            echo json_encode(array('success' => false, 'message' => 'Enter a valid URL (including https://)'));
+            exit;
+        }
+
+        $model = new CreatorLinksModel();
+        if ($id > 0) {
+            if (!$model->get_one($user_id, $id)) {
+                echo json_encode(array('success' => false, 'message' => 'Link not found'));
+                exit;
+            }
+            $model->update_link($user_id, $id, $title, $url);
+        } else {
+            $id = (int) $model->add($user_id, $title, $url);
+        }
+
+        echo json_encode(array('success' => true, 'message' => 'Link saved', 'id' => $id));
+        exit;
+    }
+
+    public function delete_creator_linkAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Link is required'));
+            exit;
+        }
+        (new CreatorLinksModel())->delete_link((int) Session::get('user_id'), $id);
+        echo json_encode(array('success' => true, 'message' => 'Link removed'));
+        exit;
+    }
+
+    public function toggle_creator_linkAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Link is required'));
+            exit;
+        }
+        (new CreatorLinksModel())->set_enabled((int) Session::get('user_id'), $id, !empty($this->post['enabled']));
+        echo json_encode(array('success' => true, 'message' => 'Link updated'));
+        exit;
+    }
+
+    public function reorder_creator_linksAction(){
+        $this->require_creator();
+        $ids = $this->post['ids'] ?? array();
+        if (!is_array($ids)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
+            exit;
+        }
+        (new CreatorLinksModel())->reorder((int) Session::get('user_id'), $ids);
+        echo json_encode(array('success' => true, 'message' => 'Order saved'));
+        exit;
+    }
+
     /* ---------- Payouts (Stripe Connect) ---------- */
 
     private function site_base_url(): string

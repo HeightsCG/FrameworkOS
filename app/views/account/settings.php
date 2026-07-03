@@ -2,6 +2,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
 
 <div class="settings">
     <header class="settings__head">
@@ -135,6 +136,27 @@
                     <div class="cprofile__actions">
                         <button type="button" class="btn btn-primary" id="cp_save">Save Changes</button>
                     </div>
+                </div>
+
+                <div class="links-head">
+                    <h3 class="links-head__title">Links</h3>
+                    <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add link</button>
+                </div>
+                <div class="links-card">
+                    <div class="links-list" id="links_list">
+                        <?php foreach ($this->creator_links as $lnk): ?>
+                        <div class="link-row" data-id="<?php echo (int) $lnk['id']; ?>">
+                            <span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>
+                            <div class="link-row__info">
+                                <span class="link-row__title"><?php echo htmlspecialchars((string) $lnk['title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <span class="link-row__url"><?php echo htmlspecialchars((string) $lnk['url'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                            <button type="button" class="link-row__btn link-edit" aria-label="Edit link"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="link-row__btn link-delete" aria-label="Remove link"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="settings__empty links-empty" id="links_empty" <?php echo empty($this->creator_links) ? '' : 'hidden'; ?>>No links yet. Add your website, socials, or anything you want to share.</p>
                 </div>
 
                 <div class="creator-danger">
@@ -381,6 +403,32 @@
                 <?php endif; ?>
             </section>
 
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="link_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="link_modal_title">Add link</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="link_id" value="0">
+                <div class="link-field">
+                    <label for="link_title">Label</label>
+                    <input type="text" class="form-control" id="link_title" maxlength="120" placeholder="My website">
+                </div>
+                <div class="link-field">
+                    <label for="link_url">URL</label>
+                    <input type="text" class="form-control" id="link_url" placeholder="https://...">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="link_save">Save link</button>
+            </div>
         </div>
     </div>
 </div>
@@ -933,6 +981,77 @@ $(function () {
                 $btn.prop('disabled', false);
                 $('#payout_disconnect_modal').modal('hide');
             }
+        });
+    });
+
+    function renderLinkRow(id, title, url, enabled) {
+        return '<div class="link-row" data-id="' + id + '">'
+            + '<span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>'
+            + '<div class="link-row__info"><span class="link-row__title">' + escapeHtml(title) + '</span>'
+            + '<span class="link-row__url">' + escapeHtml(url) + '</span></div>'
+            + '<button type="button" class="link-row__btn link-edit" aria-label="Edit link"><i class="fa-solid fa-pen"></i></button>'
+            + '<button type="button" class="link-row__btn link-delete" aria-label="Remove link"><i class="fa-solid fa-trash"></i></button>'
+            + '</div>';
+    }
+
+    if (window.Sortable && document.getElementById('links_list')) {
+        Sortable.create(document.getElementById('links_list'), {
+            handle: '.link-row__handle', animation: 150,
+            onEnd: function () {
+                var ids = $('#links_list .link-row').map(function () { return $(this).data('id'); }).get();
+                ApiDataSvc.apiCall('post', 'reorder_creator_links', { ids: ids }, function () {});
+            }
+        });
+    }
+
+    $('#link_add_btn').on('click', function () {
+        $('#link_id').val('0');
+        $('#link_title').val('');
+        $('#link_url').val('');
+        $('#link_modal_title').text('Add link');
+        $('#link_modal').modal('show');
+    });
+
+    $('#links_list').on('click', '.link-edit', function () {
+        var $row = $(this).closest('.link-row');
+        $('#link_id').val($row.data('id'));
+        $('#link_title').val($row.find('.link-row__title').text());
+        $('#link_url').val($row.find('.link-row__url').text());
+        $('#link_modal_title').text('Edit link');
+        $('#link_modal').modal('show');
+    });
+
+    $('#link_save').on('click', function () {
+        var id = $('#link_id').val();
+        var title = ($('#link_title').val() || '').trim();
+        var url = ($('#link_url').val() || '').trim();
+        if (title === '') { toastr.error('A label is required'); return; }
+        if (url === '') { toastr.error('A URL is required'); return; }
+        ApiDataSvc.apiCall('post', 'save_creator_link', { id: id, title: title, url: url }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            if (parseInt(id, 10) > 0) {
+                var $row = $('#links_list .link-row[data-id="' + id + '"]');
+                $row.find('.link-row__title').text(title);
+                $row.find('.link-row__url').text(url);
+            } else {
+                $('#links_empty').attr('hidden', 'hidden');
+                $('#links_list').append(renderLinkRow(o.id, title, url, true));
+            }
+            $('#link_modal').modal('hide');
+        });
+    });
+
+    $('#links_list').on('click', '.link-delete', function () {
+        var $row = $(this).closest('.link-row');
+        var id = $row.data('id');
+        ApiDataSvc.apiCall('post', 'delete_creator_link', { id: id }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            $row.remove();
+            if ($('#links_list .link-row').length === 0) { $('#links_empty').removeAttr('hidden'); }
         });
     });
 

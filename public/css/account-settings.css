@@ -154,6 +154,29 @@
 .crop-stage img{display:block; max-width:100%;}
 .cprofile__actions{display:flex; justify-content:flex-end; margin-top:1.4rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
 
+/* creator external links */
+.links-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; margin:1.9rem 0 .8rem;}
+.links-head__title{font-size:.95rem; font-weight:600; color:var(--text); margin:0;}
+.links-card{max-width:600px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs);}
+.link-row{display:flex; align-items:center; gap:.75rem; padding:.7rem 1rem; border-bottom:1px solid var(--line2);}
+.link-row:last-child{border-bottom:0;}
+.link-row__handle{color:var(--muted2); cursor:grab; flex:none;}
+.link-row__info{display:flex; flex-direction:column; gap:.1rem; min-width:0; flex:1 1 auto;}
+.link-row__title{font-size:.9rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.link-row__url{font-size:.8rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.link-row__toggle{flex:none; margin:0;}
+.link-row__btn{border:0; background:none; color:var(--muted); font-size:.85rem; cursor:pointer; padding:.3rem; flex:none; transition:color .12s;}
+.link-row__btn:hover{color:var(--text);}
+.link-row__btn.link-delete:hover{color:var(--danger);}
+.links-empty{padding:1rem;}
+.link-field{margin-bottom:1rem; display:flex; flex-direction:column;}
+.link-field label{font-size:.82rem; font-weight:600; color:var(--t2); margin-bottom:.4rem;}
+.link-field .form-control{border:1px solid #d4d4dd; border-radius:2px; box-shadow:none; font-size:.92rem;}
+.link-field .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
+.link-row.sortable-ghost{opacity:.4;}
+.link-row.sortable-chosen{background:var(--vsoft);}
+.link-row.sortable-drag{background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-lg); opacity:1;}
+
 /* payouts (Stripe Connect) */
 .payout-setup{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.2rem 1.3rem;}
 .payout-setup__info{display:flex; flex-direction:column; gap:.2rem; min-width:0;}
