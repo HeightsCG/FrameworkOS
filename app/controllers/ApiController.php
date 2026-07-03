@@ -745,4 +745,453 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ---------- Notification preferences ---------- */
+
+    public function save_notification_prefsAction(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+
+        $posted = $this->post['prefs'] ?? array();
+        if (!is_array($posted)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid preferences'));
+            exit;
+        }
+
+        // Normalize every known category from the posted set so unchecked boxes
+        // (absent from the payload) are saved as off, not left untouched.
+        $incoming = array();
+        foreach (array_keys(NotificationPrefsModel::$categories) as $category) {
+            $row = $posted[$category] ?? array();
+            $incoming[$category] = array(
+                'in_platform' => !empty($row['in_platform']),
+                'email'       => !empty($row['email']),
+            );
+        }
+
+        $prefsModel = new NotificationPrefsModel();
+        $prefsModel->save_prefs((int) Session::get('user_id'), $incoming);
+
+        echo json_encode(array('success' => true, 'message' => 'Notification preferences saved'));
+        exit;
+    }
+
+    /* ---------- Content preferences ---------- */
+
+    public function save_adult_content_prefAction(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+
+        $enabled = !empty($this->post['enabled']);
+
+        // Enabling adult content requires an explicit age confirmation (PRD 34.7).
+        if ($enabled && empty($this->post['age_confirmed'])) {
+            echo json_encode(array('success' => false, 'message' => 'Age confirmation is required'));
+            exit;
+        }
+
+        $this->userModel->set_adult_content_enabled((int) Session::get('user_id'), $enabled, (int) Session::get('user_id'));
+
+        echo json_encode(array(
+            'success' => true,
+            'message' => $enabled ? 'Adult content enabled' : 'Adult content hidden',
+        ));
+        exit;
+    }
+
+    /* ---------- Blocked accounts ---------- */
+
+    public function block_userAction(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+
+        $u_name = trim((string) ($this->post['u_name'] ?? ''));
+        $u_name = ltrim($u_name, '@');
+        if ($u_name === '') {
+            echo json_encode(array('success' => false, 'message' => 'A username is required'));
+            exit;
+        }
+
+        $target = $this->userModel->get_user_by_username($u_name);
+        if (!is_array($target) || count($target) !== 1) {
+            echo json_encode(array('success' => false, 'message' => 'No account found with that username'));
+            exit;
+        }
+        $target = $target[0];
+
+        if ((int) $target['user_id'] === (int) Session::get('user_id')) {
+            echo json_encode(array('success' => false, 'message' => 'You cannot block yourself'));
+            exit;
+        }
+
+        $blocksModel = new BlocksModel();
+        $blocksModel->add_block((int) Session::get('user_id'), (int) $target['user_id']);
+
+        $name = trim(($target['first_name'] ?? '') . ' ' . ($target['last_name'] ?? ''));
+
+        echo json_encode(array(
+            'success'         => true,
+            'message'         => 'Account blocked',
+            'blocked_user_id' => (int) $target['user_id'],
+            'u_name'          => $target['u_name'],
+            'name'            => $name,
+        ));
+        exit;
+    }
+
+    public function unblock_userAction(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+
+        $blocked_user_id = (int) ($this->post['blocked_user_id'] ?? 0);
+        if ($blocked_user_id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Account is required'));
+            exit;
+        }
+
+        $blocksModel = new BlocksModel();
+        $blocksModel->remove_block((int) Session::get('user_id'), $blocked_user_id);
+
+        echo json_encode(array('success' => true, 'message' => 'Account unblocked'));
+        exit;
+    }
+
+    /* ---------- Become a creator ---------- */
+
+    public function become_creatorAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['accept_agreement'])) {
+            $response['message'] = 'You must accept the Creator Agreement and Content Policy';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $result  = $this->userModel->make_creator($user_id, $user_id);
+        if ($result === false) {
+            $response['message'] = 'Could not activate your creator account';
+            echo json_encode($response);
+            exit;
+        }
+
+        // Reflect the new role on the session so gating updates without re-login.
+        $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
+        Session::set('role_id', $creator_role_id);
+        Session::set('creator_since', date('Y-m-d H:i:s'));
+
+        $response['success'] = true;
+        $response['message'] = 'Welcome — your creator account is active';
+        echo json_encode($response);
+        exit;
+    }
+
+    public function leave_creatorAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        // Guard against accidental calls — the UI requires an explicit confirmation.
+        if (empty($this->post['confirm'])) {
+            $response['message'] = 'Please confirm you want to stop being a creator';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+
+        // Hard delete all creator content first (irreversible, no soft delete),
+        // then revert the account to a regular User.
+        $this->userModel->hard_delete_creator_content($user_id);
+
+        $result = $this->userModel->revert_creator($user_id, $user_id);
+        if ($result === false) {
+            $response['message'] = 'Could not update your account';
+            echo json_encode($response);
+            exit;
+        }
+
+        Session::set('role_id', $this->userModel->get_role_id_by_name('User'));
+        Session::set('creator_since', null);
+
+        $response['success'] = true;
+        $response['message'] = 'Your creator account has been removed';
+        echo json_encode($response);
+        exit;
+    }
+
+    /* ---------- Creator profile / branding ---------- */
+
+    /** Auth + creator-role gate. Returns the user array or exits with a JSON error. */
+    private function require_creator(){
+        if (empty(Session::get('user_id'))) {
+            echo json_encode(array('success' => false, 'message' => 'Not authorized'));
+            exit;
+        }
+        $user = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+        $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
+        $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
+        if (!$user || (int) $user['role_id'] !== $creator_role_id) {
+            echo json_encode(array('success' => false, 'message' => 'Only creators can do that'));
+            exit;
+        }
+        return $user;
+    }
+
+    public function save_creator_profileAction(){
+        $this->require_creator();
+
+        $brand_color = trim((string) ($this->post['brand_color'] ?? ''));
+        if ($brand_color !== '' && !preg_match('/^#[0-9a-fA-F]{6}$/', $brand_color)) {
+            echo json_encode(array('success' => false, 'message' => 'Brand color must be a valid hex color'));
+            exit;
+        }
+
+        $cta_url = trim((string) ($this->post['cta_url'] ?? ''));
+        if ($cta_url !== '' && !filter_var($cta_url, FILTER_VALIDATE_URL)) {
+            echo json_encode(array('success' => false, 'message' => 'Enter a valid call-to-action URL'));
+            exit;
+        }
+
+        (new CreatorProfileModel())->save((int) Session::get('user_id'), array(
+            'display_name' => trim((string) ($this->post['display_name'] ?? '')),
+            'bio'          => trim((string) ($this->post['bio'] ?? '')),
+            'location'     => trim((string) ($this->post['location'] ?? '')),
+            'tags'         => trim((string) ($this->post['tags'] ?? '')),
+            'brand_color'  => $brand_color,
+            'cta_label'    => trim((string) ($this->post['cta_label'] ?? '')),
+            'cta_url'      => $cta_url,
+        ));
+
+        echo json_encode(array('success' => true, 'message' => 'Profile saved'));
+        exit;
+    }
+
+    public function upload_creator_imageAction(){
+        $this->require_creator();
+
+        $kind = (string) ($this->post['kind'] ?? '');
+        if (!in_array($kind, array('avatar', 'cover'), true)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid image type'));
+            exit;
+        }
+
+        $file = $_FILES['image'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            echo json_encode(array('success' => false, 'message' => 'No image was uploaded'));
+            exit;
+        }
+        if ((int) $file['size'] > 5 * 1024 * 1024) {
+            echo json_encode(array('success' => false, 'message' => 'Image must be 5MB or smaller'));
+            exit;
+        }
+
+        // Trust the actual bytes, not the client-supplied name/type.
+        $info = @getimagesize($file['tmp_name']);
+        $ext_map = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif');
+        if ($info === false || !isset($ext_map[$info['mime']])) {
+            echo json_encode(array('success' => false, 'message' => 'Unsupported image type (use JPG, PNG, WebP, or GIF)'));
+            exit;
+        }
+
+        if (!S3Service::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Image uploads are not available right now'));
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $key     = 'creator/u' . $user_id . '_' . $kind . '_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$info['mime']];
+
+        $url = S3Service::upload_file($key, $file['tmp_name'], $info['mime']);
+        if ($url === '') {
+            echo json_encode(array('success' => false, 'message' => 'Could not save the image'));
+            exit;
+        }
+
+        $column = ($kind === 'avatar') ? 'avatar_url' : 'cover_url';
+        (new CreatorProfileModel())->set_image($user_id, $column, $url);
+
+        echo json_encode(array('success' => true, 'url' => $url, 'message' => ucfirst($kind) . ' updated'));
+        exit;
+    }
+
+    /* ---------- Credits & wallet ---------- */
+
+    /** Ensure the logged-in user has a Stripe customer; returns [user, customer_id]. */
+    private function ensure_stripe_customer($stripe){
+        $user_id     = (int) Session::get('user_id');
+        $user        = $this->userModel->get_user_by_id($user_id)[0];
+        $customer_id = $user['stripe_customer_id'] ?? '';
+        if (empty($customer_id)) {
+            $customer = $stripe->customers->create(array(
+                'email'    => $user['user_email'],
+                'name'     => trim($user['first_name'] . ' ' . $user['last_name']),
+                'metadata' => array('user_id' => (string) $user_id),
+            ));
+            $customer_id = $customer->id;
+            $this->billingModel->set_customer_id($user_id, $customer_id);
+        }
+        return array($user, $customer_id);
+    }
+
+    public function buy_creditsAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $dollars = (int) ($this->post['dollars'] ?? 0);
+        $package = CreditsModel::package_for_dollars($dollars);
+        if (!$package) {
+            $response['message'] = 'Choose a valid credit package';
+            echo json_encode($response);
+            exit;
+        }
+
+        try {
+            $stripe = StripeService::client();
+            list($user, $customer_id) = $this->ensure_stripe_customer($stripe);
+
+            $intent = $stripe->paymentIntents->create(array(
+                'amount'                    => $package['dollars'] * 100,
+                'currency'                  => 'usd',
+                'customer'                  => $customer_id,
+                'automatic_payment_methods' => array('enabled' => true),
+                'metadata'                  => array(
+                    'user_id' => (string) $user['user_id'],
+                    'credits' => (string) $package['credits'],
+                    'type'    => 'credit_purchase',
+                ),
+            ));
+
+            $response['success']       = true;
+            $response['client_secret'] = $intent->client_secret;
+            $response['credits']       = $package['credits'];
+            $response['message']       = 'Payment ready';
+            echo json_encode($response);
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] buy_credits: ' . $e->getMessage());
+            $response['message'] = 'Could not start the purchase. Please try again.';
+            echo json_encode($response);
+            exit;
+        }
+    }
+
+    public function confirm_credit_purchaseAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $pi_id = (string) ($this->post['payment_intent_id'] ?? '');
+        if ($pi_id === '') {
+            $response['message'] = 'Payment reference is required';
+            echo json_encode($response);
+            exit;
+        }
+
+        try {
+            $user_id = (int) Session::get('user_id');
+            $user    = $this->userModel->get_user_by_id($user_id)[0];
+            $stripe  = StripeService::client();
+            $intent  = $stripe->paymentIntents->retrieve($pi_id);
+
+            // Trust the PaymentIntent, not the client: verify owner, status, and purpose.
+            if ((string) ($intent->metadata['type'] ?? '') !== 'credit_purchase'
+                || (int) ($intent->metadata['user_id'] ?? 0) !== $user_id
+                || (string) $intent->customer !== (string) ($user['stripe_customer_id'] ?? '')) {
+                $response['message'] = 'This payment could not be verified';
+                echo json_encode($response);
+                exit;
+            }
+            if ($intent->status !== 'succeeded') {
+                $response['message'] = 'Payment has not completed yet';
+                echo json_encode($response);
+                exit;
+            }
+
+            $credits     = (int) ($intent->metadata['credits'] ?? 0);
+            $creditsModel = new CreditsModel();
+            $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Purchased ' . $credits . ' credits');
+
+            $response['success'] = true;
+            $response['balance'] = (int) $balance;
+            $response['message'] = number_format($credits) . ' credits added';
+            echo json_encode($response);
+            exit;
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] confirm_credit_purchase: ' . $e->getMessage());
+            $response['message'] = 'Could not confirm the purchase';
+            echo json_encode($response);
+            exit;
+        }
+    }
+
+    public function save_autoreplenishmentAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $enabled   = !empty($this->post['enabled']);
+        $threshold = (int) ($this->post['threshold'] ?? 0);
+        $dollars   = (int) ($this->post['dollars'] ?? 0);
+        $pm_id     = (string) ($this->post['payment_method_id'] ?? '');
+
+        if ($enabled) {
+            if ($threshold <= 0) {
+                $response['message'] = 'Set a low-balance threshold above zero';
+                echo json_encode($response);
+                exit;
+            }
+            if (!CreditsModel::package_for_dollars($dollars)) {
+                $response['message'] = 'Choose a valid replenishment package';
+                echo json_encode($response);
+                exit;
+            }
+            if ($pm_id === '') {
+                $response['message'] = 'Choose a payment method';
+                echo json_encode($response);
+                exit;
+            }
+        }
+
+        $creditsModel = new CreditsModel();
+        $creditsModel->save_autoreplenishment((int) Session::get('user_id'), $enabled, $threshold, $dollars * 100, $pm_id);
+
+        $response['success'] = true;
+        $response['message'] = 'Auto-replenishment saved';
+        echo json_encode($response);
+        exit;
+    }
+
 }

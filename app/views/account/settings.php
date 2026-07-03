@@ -1,59 +1,299 @@
 <link rel="stylesheet" href="/css/account-settings.css">
-
-<?php
-    $platform_meta = array(
-        'linkedin'  => array('LinkedIn',    'fa-linkedin'),
-        'bluesky'   => array('Bluesky',     'fa-bluesky'),
-        'x'         => array('X (Twitter)', 'fa-x-twitter'),
-        'facebook'  => array('Facebook',    'fa-facebook'),
-        'instagram' => array('Instagram',   'fa-instagram'),
-        'threads'   => array('Threads',     'fa-threads'),
-        'tiktok'    => array('TikTok',      'fa-tiktok'),
-        'youtube'   => array('YouTube',     'fa-youtube'),
-        'pinterest' => array('Pinterest',   'fa-pinterest'),
-    );
-    $connected = array();
-    $connected_accounts = array();
-    foreach ($this->accounts as $a) {
-        if (($a['status'] ?? '') === 'connected') {
-            $connected[$a['platform']][] = $a;
-            $connected_accounts[] = $a;
-        }
-    }
-?>
+<script src="https://js.stripe.com/v3/"></script>
 
 <div class="settings">
     <header class="settings__head">
         <h1 class="settings__title">Settings</h1>
-        <p class="settings__sub">Connect your social accounts and publish from one place.</p>
     </header>
 
-    <?php if (!$this->can_social_post): ?>
-        <div class="settings__upgrade">
-            <i class="fa-solid fa-lock settings__upgrade-icon"></i>
-            <div>
-                <div class="settings__upgrade-title">Social posting is a premium feature</div>
-                <p class="settings__upgrade-text">Upgrade to a plan that includes social posting to connect your accounts and publish to Instagram, TikTok, LinkedIn and more.</p>
-            </div>
-            <a href="/account/billing" class="btn btn-primary">View plans</a>
-        </div>
-    <?php else: ?>
     <div class="settings__body">
         <nav class="settings__nav" id="settings_nav">
-            <button type="button" class="settings__nav-item is-active" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Connected Accounts</span></button>
-            <button type="button" class="settings__nav-item" data-section="compose"><i class="fa-solid fa-pen-to-square"></i><span>Create Post</span></button>
+            <button type="button" class="settings__nav-item is-active" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
+            <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator' : 'Become a Creator'; ?></span></button>
+            <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>My Wallet</span></button>
+            <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
+            <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
+            <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
         </nav>
 
         <div class="settings__content">
 
-            <section class="settings__section is-active" data-section="connected">
+            <section class="settings__section is-active" data-section="notifications">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Notifications</h2>
+                    <p class="settings__section-desc">Choose how you want to hear from us. These apply to your account.</p>
+                </div>
+
+                <div class="notif">
+                    <div class="notif__row notif__row--head">
+                        <span class="notif__label">Notify me about</span>
+                        <span class="notif__toggle-label">In-app</span>
+                        <span class="notif__toggle-label">Email</span>
+                    </div>
+                    <?php foreach ($this->notification_meta as $key => $meta): ?>
+                    <?php $pref = $this->notification_prefs[$key] ?? array('in_platform' => true, 'email' => true); ?>
+                    <div class="notif__row">
+                        <div class="notif__label">
+                            <span class="notif__name"><?php echo htmlspecialchars($meta[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="notif__desc"><?php echo htmlspecialchars($meta[1], ENT_QUOTES, 'UTF-8'); ?></span>
+                        </div>
+                        <label class="notif__switch">
+                            <input type="checkbox" class="notif-pref" data-category="<?php echo $key; ?>" data-channel="in_platform" <?php echo !empty($pref['in_platform']) ? 'checked' : ''; ?>>
+                            <span class="notif__slider"></span>
+                        </label>
+                        <label class="notif__switch">
+                            <input type="checkbox" class="notif-pref" data-category="<?php echo $key; ?>" data-channel="email" <?php echo !empty($pref['email']) ? 'checked' : ''; ?>>
+                            <span class="notif__slider"></span>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="creator">
+                <?php if (!$this->is_creator): ?>
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Become a Creator</h2>
+                    <p class="settings__section-desc">Turn your profile into a creator business — publish content, sell services and events, and offer subscriptions.</p>
+                </div>
+
+                <div class="creator-cta">
+                    <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
+                    <textarea id="creator_terms" class="creator-cta__terms form-control" rows="10" readonly><?php echo htmlspecialchars($this->creator_terms, ENT_QUOTES, 'UTF-8'); ?></textarea>
+
+                    <label class="creator-cta__agree">
+                        <input type="checkbox" id="creator_agree">
+                        <span>I have read and accept the Creator Agreement and Content Policy.</span>
+                    </label>
+
+                    <button type="button" class="btn btn-primary" id="become_creator_btn">Become a Creator</button>
+                </div>
+                <?php else: ?>
+                <?php $cp = $this->creator_profile; ?>
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Creator Profile</h2>
+                    <p class="settings__section-desc">Customize your public profile and branding.<?php if (!empty($this->user['creator_since'])): ?> Creator since <?php echo htmlspecialchars(date('M j, Y', strtotime((string) $this->user['creator_since'])), ENT_QUOTES, 'UTF-8'); ?>.<?php endif; ?></p>
+                </div>
+
+                <div class="cprofile">
+                    <div class="cprofile__field">
+                        <label>Cover image</label>
+                        <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
+                            <button type="button" class="btn btn-secondary cprofile__cover-btn" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload cover</button>
+                        </div>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label>Profile photo</label>
+                        <div class="cprofile__avatar-row">
+                            <div class="cprofile__avatar" id="avatar_preview" style="<?php echo !empty($cp['avatar_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
+                                <?php if (empty($cp['avatar_url'])): ?><i class="fa-solid fa-user"></i><?php endif; ?>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload photo</button>
+                        </div>
+                    </div>
+
+                    <input type="file" id="cover_file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                    <input type="file" id="avatar_file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+
+                    <div class="cprofile__grid">
+                        <div class="cprofile__field">
+                            <label for="cp_display_name">Display name</label>
+                            <input type="text" class="form-control" id="cp_display_name" maxlength="190" value="<?php echo htmlspecialchars((string) $cp['display_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="cp_location">Location</label>
+                            <input type="text" class="form-control" id="cp_location" maxlength="190" placeholder="City, Country" value="<?php echo htmlspecialchars((string) $cp['location'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label for="cp_bio">Bio</label>
+                        <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars((string) $cp['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label for="cp_tags">Tags</label>
+                        <input type="text" class="form-control" id="cp_tags" placeholder="fitness, coaching, nutrition" value="<?php echo htmlspecialchars((string) $cp['tags'], ENT_QUOTES, 'UTF-8'); ?>">
+                        <span class="cprofile__hint">Comma-separated keywords that describe your profile.</span>
+                    </div>
+
+                    <div class="cprofile__grid">
+                        <div class="cprofile__field cprofile__field--color">
+                            <label for="cp_brand_color">Brand color</label>
+                            <input type="color" class="cprofile__color" id="cp_brand_color" value="<?php echo htmlspecialchars($cp['brand_color'] !== '' ? $cp['brand_color'] : '#5b4be0', ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="cp_cta_label">Call-to-action label</label>
+                            <input type="text" class="form-control" id="cp_cta_label" maxlength="80" placeholder="Work with me" value="<?php echo htmlspecialchars((string) $cp['cta_label'], ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label for="cp_cta_url">Call-to-action link</label>
+                        <input type="text" class="form-control" id="cp_cta_url" placeholder="https://..." value="<?php echo htmlspecialchars((string) $cp['cta_url'], ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
+
+                    <div class="cprofile__actions">
+                        <button type="button" class="btn btn-primary" id="cp_save">Save profile</button>
+                    </div>
+                </div>
+
+                <div class="creator-danger">
+                    <div class="creator-danger__info">
+                        <span class="creator-danger__title">Stop being a creator</span>
+                        <span class="creator-danger__desc">This permanently deletes all your creator content. It cannot be undone.</span>
+                    </div>
+                    <button type="button" class="btn btn-danger" id="leave_creator_btn">Stop being a creator</button>
+                </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="settings__section" data-section="wallet">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Wallet &amp; Credits</h2>
+                    <p class="settings__section-desc">Buy credits to purchase content, services, and events.</p>
+                </div>
+
+                <?php
+                    $ar     = $this->autoreplenishment;
+                    $ar_on  = !empty($ar['enabled']);
+                    $ar_dollars = (int) round($ar['amount_cents'] / 100);
+                    $ar_credits = 0;
+                    foreach ($this->credit_packages as $pkg) {
+                        if ((int) $pkg['dollars'] === $ar_dollars) { $ar_credits = (int) $pkg['credits']; }
+                    }
+                    $ar_status = $ar_on
+                        ? 'Buy ' . number_format($ar_credits) . ' credits when balance drops below ' . number_format((int) $ar['threshold'])
+                        : 'Automatically top up when your balance runs low.';
+                ?>
+                <div class="wallet">
+                    <div class="wallet__balance">
+                        <span class="wallet__balance-label">Current Balance</span>
+                        <span class="wallet__balance-value"><i class="fa-solid fa-coins"></i> <span id="credit_balance"><?php echo number_format((int) $this->credit_balance); ?></span> credits</span>
+                    </div>
+
+                    <h3 class="wallet__subhead">Buy Credits</h3>
+                    <div class="credit-packs">
+                        <?php foreach ($this->credit_packages as $pkg): ?>
+                        <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
+                            <span class="credit-pack__credits"><?php echo number_format((int) $pkg['credits']); ?></span>
+                            <span class="credit-pack__label">credits</span>
+                            <span class="credit-pack__price">$<?php echo number_format((int) $pkg['dollars']); ?></span>
+                        </button>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <h3 class="wallet__subhead">Auto-Replenishment</h3>
+                    <div class="wallet__ar-summary">
+                        <div class="wallet__ar-summary-info">
+                            <span class="wallet__ar-summary-badge <?php echo $ar_on ? 'is-on' : ''; ?>" id="ar_badge"><?php echo $ar_on ? 'On' : 'Off'; ?></span>
+                            <span class="wallet__ar-summary-status" id="ar_status"><?php echo htmlspecialchars($ar_status, ENT_QUOTES, 'UTF-8'); ?></span>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="ar_manage">Manage</button>
+                    </div>
+
+                    <h3 class="wallet__subhead">Transaction History</h3>
+                    <div id="credit_history">
+                    <?php if (empty($this->credit_transactions)): ?>
+                        <p class="settings__empty">No credit activity yet.</p>
+                    <?php else: ?>
+                    <?php $stripe_payment_url = (strpos((string) $this->stripe_pk, 'pk_test') === 0) ? 'https://dashboard.stripe.com/test/payments/' : 'https://dashboard.stripe.com/payments/'; ?>
+                    <table class="ledger">
+                        <thead><tr><th>Date</th><th>Activity</th><th class="ledger__num">Credits</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($this->credit_transactions as $t): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars(date('M j, Y', strtotime($t['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td>
+                                    <?php if (!empty($t['stripe_payment_intent_id'])): ?>
+                                        <a href="<?php echo htmlspecialchars($stripe_payment_url . $t['stripe_payment_intent_id'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?></a>
+                                    <?php else: ?>
+                                        <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php echo ((int) $t['credits'] >= 0 ? '+' : '') . number_format((int) $t['credits']); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php endif; ?>
+                    </div>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="privacy">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Restricted Content</h2>
+                    <p class="settings__section-desc">Control what content you see.</p>
+                </div>
+
+                <div class="notif">
+                    <div class="notif__row notif__row--single">
+                        <div class="notif__label">
+                            <span class="notif__name">Show adult content</span>
+                            <span class="notif__desc">Adult content is hidden by default. You must be 18 or older and in a permitted region to enable it.</span>
+                        </div>
+                        <label class="notif__switch">
+                            <input type="checkbox" id="adult_content_toggle" <?php echo !empty($this->user['adult_content_enabled']) ? 'checked' : ''; ?>>
+                            <span class="notif__slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="blocked">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Blocked Accounts</h2>
+                    <p class="settings__section-desc">Blocked accounts can't message, follow, or interact with you.</p>
+                </div>
+
+                <div class="acct-add">
+                    <div class="acct-add__field">
+                        <span class="acct-add__at">@</span>
+                        <input type="text" class="form-control" id="block_username" placeholder="username" autocomplete="off">
+                    </div>
+                    <button type="button" class="btn btn-primary" id="block_add_btn">Block</button>
+                </div>
+
+                <div class="acct-list" id="block_list">
+                    <?php if (empty($this->blocked_users)): ?>
+                        <p class="settings__empty" id="block_empty">You haven't blocked anyone.</p>
+                    <?php else: ?>
+                        <?php foreach ($this->blocked_users as $b): ?>
+                        <div class="acct-row" data-user-id="<?php echo (int) $b['blocked_user_id']; ?>">
+                            <div class="acct-row__who">
+                                <span class="acct-row__handle">@<?php echo htmlspecialchars((string) $b['u_name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php $name = trim(($b['first_name'] ?? '') . ' ' . ($b['last_name'] ?? '')); ?>
+                                <?php if ($name !== ''): ?>
+                                <span class="acct-row__name"><?php echo htmlspecialchars($name, ENT_QUOTES, 'UTF-8'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <button type="button" class="btn btn-secondary block-unblock" data-user-id="<?php echo (int) $b['blocked_user_id']; ?>">Unblock</button>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="connected">
                 <div class="settings__section-head">
                     <h2 class="settings__section-title">Connected Accounts</h2>
                     <p class="settings__section-desc">Connect the platforms you want to publish to.</p>
                 </div>
+                <?php if (!$this->can_social_post): ?>
+                    <div class="settings__upgrade">
+                        <i class="fa-solid fa-lock settings__upgrade-icon"></i>
+                        <div>
+                            <div class="settings__upgrade-title">Social posting is a premium feature</div>
+                            <p class="settings__upgrade-text">Upgrade to a plan that includes social posting to connect your accounts and publish to Instagram, TikTok, LinkedIn and more.</p>
+                        </div>
+                        <a href="/account/billing" class="btn btn-primary">View plans</a>
+                    </div>
+                <?php else: ?>
                 <div class="conn-grid">
-                    <?php foreach ($this->platforms as $p): ?>
-                    <?php $meta = $platform_meta[$p]; $accts = $connected[$p] ?? array(); ?>
+                    <?php foreach ($this->platform_meta as $p => $meta): ?>
+                    <?php $accts = $this->connected[$p] ?? array(); ?>
                     <div class="conn-card">
                         <div class="conn-card__head">
                             <i class="fa-brands <?php echo $meta[1]; ?> conn-card__icon"></i>
@@ -73,76 +313,136 @@
                     </div>
                     <?php endforeach; ?>
                 </div>
-            </section>
-
-            <section class="settings__section" data-section="compose">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Create Post</h2>
-                    <p class="settings__section-desc">Write once, publish to your connected accounts.</p>
-                </div>
-
-                <?php if (empty($connected_accounts)): ?>
-                    <p class="settings__empty">Connect an account first to start posting.</p>
-                <?php else: ?>
-                <div class="composer">
-                    <label class="compose-label" for="post_caption">Caption</label>
-                    <textarea id="post_caption" class="form-control" rows="4" placeholder="What's new?"></textarea>
-
-                    <label class="compose-label" for="post_media">Media <span class="compose-optional">(optional)</span></label>
-                    <input type="file" id="post_media" class="form-control" accept="image/*,video/*">
-                    <input type="hidden" id="post_media_url" value="">
-                    <div id="media_status" class="compose-note"></div>
-
-                    <label class="compose-label">Publish to</label>
-                    <div class="compose-accounts">
-                        <?php foreach ($connected_accounts as $a): ?>
-                        <?php $meta = $platform_meta[$a['platform']]; ?>
-                        <label class="compose-acct">
-                            <input type="checkbox" class="post-account" value="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">
-                            <i class="fa-brands <?php echo $meta[1]; ?>"></i>
-                            <span><?php echo $meta[0]; ?><?php echo ($a['username'] !== '' && $a['username'] !== null) ? ' &middot; @' . htmlspecialchars($a['username'], ENT_QUOTES, 'UTF-8') : ''; ?></span>
-                        </label>
-                        <?php endforeach; ?>
-                    </div>
-
-                    <label class="compose-label">Schedule</label>
-                    <div class="compose-schedule">
-                        <label class="compose-radio"><input type="radio" name="schedule" value="now" checked> Now</label>
-                        <label class="compose-radio"><input type="radio" name="schedule" value="later"> Later</label>
-                        <input type="datetime-local" id="post_when" class="form-control" style="display:none;">
-                    </div>
-
-                    <div class="compose-actions">
-                        <button type="button" class="btn btn-primary" id="publish_post">Publish</button>
-                    </div>
-                </div>
-                <?php endif; ?>
-
-                <div class="settings__section-head settings__section-head--spaced">
-                    <h2 class="settings__section-title">Recent posts</h2>
-                </div>
-                <?php if (empty($this->recent_posts)): ?>
-                    <p class="settings__empty">No posts yet.</p>
-                <?php else: ?>
-                <table class="posts">
-                    <thead><tr><th>Caption</th><th>Platforms</th><th>Status</th><th>Created</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($this->recent_posts as $post): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars(mb_strimwidth((string) $post['caption'], 0, 48, '…'), ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td><?php echo (int) $post['platform_count']; ?></td>
-                            <td><span class="post-status post-status--<?php echo htmlspecialchars($post['status'], ENT_QUOTES, 'UTF-8'); ?>" data-post-id="<?php echo htmlspecialchars((string) $post['post_for_me_post_id'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars(ucfirst($post['status']), ENT_QUOTES, 'UTF-8'); ?></span></td>
-                            <td><?php echo htmlspecialchars(date('M j, g:ia', strtotime($post['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
                 <?php endif; ?>
             </section>
 
         </div>
     </div>
-    <?php endif; ?>
+</div>
+
+<div class="modal fade" id="leave_creator_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Stop being a creator?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>This will <strong>permanently delete all of your creator content</strong> — it will not be recoverable. Your account will return to a regular user account.</p>
+                <p class="mb-0">Are you sure you want to continue?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="leave_creator_confirm">Delete and stop being a creator</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="ar_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Auto-Replenishment</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="wallet__note">Automatically buy more credits when your balance runs low.</p>
+
+                <div class="wallet__ar-modal-toggle">
+                    <label class="notif__switch wallet__ar-switch">
+                        <input type="checkbox" id="ar_enabled" <?php echo $ar_on ? 'checked' : ''; ?>>
+                        <span class="notif__slider"></span>
+                    </label>
+                    <span>Enable Auto-Replenishment</span>
+                </div>
+
+                <div class="wallet__ar-body<?php echo $ar_on ? '' : ' is-hidden'; ?>" id="ar_fields">
+                    <div class="wallet__ar-field">
+                        <label for="ar_threshold">When my credits drop below</label>
+                        <div class="wallet__ar-input">
+                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" value="<?php echo (int) $ar['threshold'] > 0 ? (int) $ar['threshold'] : 100; ?>">
+                            <span class="wallet__ar-unit">Credits</span>
+                        </div>
+                    </div>
+                    <div class="wallet__ar-field">
+                        <label for="ar_package">Automatically Buy</label>
+                        <select class="form-select" id="ar_package">
+                            <?php foreach ($this->credit_packages as $pkg): ?>
+                            <option value="<?php echo (int) $pkg['dollars']; ?>" data-credits="<?php echo (int) $pkg['credits']; ?>" <?php echo ((int) $ar['amount_cents'] === (int) $pkg['dollars'] * 100) ? 'selected' : ''; ?>>
+                                <?php echo number_format((int) $pkg['credits']); ?> credits &mdash; $<?php echo number_format((int) $pkg['dollars']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="wallet__ar-field">
+                        <label for="ar_pm">Charge To</label>
+                        <?php if (empty($this->cards)): ?>
+                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then buy credits once to save a card.</p>
+                        <?php else: ?>
+                        <select class="form-select" id="ar_pm">
+                            <?php foreach ($this->cards as $card): ?>
+                            <?php
+                                if ($card['type'] === 'card') {
+                                    $label = $card['brand'] . ' •••• ' . $card['last4'];
+                                } elseif ($card['detail'] !== '') {
+                                    $label = $card['brand'] . ' · ' . $card['detail'];
+                                } else {
+                                    $label = $card['brand'];
+                                }
+                            ?>
+                            <option value="<?php echo htmlspecialchars($card['id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo ($card['id'] === $ar['pm_id']) ? 'selected' : ''; ?>>
+                                <?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="ar_save">Save</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="credit_payment_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Buy Credits</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="wallet__pay-summary" id="credit_pay_summary"></p>
+                <div id="credit_payment_element"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="credit_pay_button">Pay</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="adult_confirm_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Enable Adult Content</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Adult content may include mature and explicit material. By continuing you confirm that you are 18 years of age or older and that viewing this content is permitted in your region.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="adult_confirm_yes">I am 18 or older</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -151,19 +451,267 @@ $(function () {
     var params = new URLSearchParams(window.location.search);
     if (params.get('connected') === '1') { toastr.success('Account connected'); }
     if (params.get('error') === '1') { toastr.error('Connection was not completed'); }
-    if (params.get('section') === 'compose') {
+
+    function activateSection(section) {
         $('#settings_nav .settings__nav-item').removeClass('is-active');
-        $('#settings_nav .settings__nav-item[data-section="compose"]').addClass('is-active');
+        $('#settings_nav .settings__nav-item[data-section="' + section + '"]').addClass('is-active');
         $('.settings__section').removeClass('is-active');
-        $('.settings__section[data-section="compose"]').addClass('is-active');
+        $('.settings__section[data-section="' + section + '"]').addClass('is-active');
+    }
+
+    var deepLink = (params.get('section') || '').replace(/[^a-z_]/gi, '');
+    if (deepLink && $('#settings_nav .settings__nav-item[data-section="' + deepLink + '"]').length) {
+        activateSection(deepLink);
     }
 
     $('#settings_nav').on('click', '.settings__nav-item', function () {
-        var section = $(this).data('section');
-        $('#settings_nav .settings__nav-item').removeClass('is-active');
-        $(this).addClass('is-active');
-        $('.settings__section').removeClass('is-active');
-        $('.settings__section[data-section="' + section + '"]').addClass('is-active');
+        activateSection($(this).data('section'));
+    });
+
+    $('.notif-pref').on('change', function () {
+        var prefs = {};
+        $('.notif-pref:checked').each(function () {
+            var cat = $(this).data('category');
+            var ch  = $(this).data('channel');
+            if (!prefs[cat]) { prefs[cat] = {}; }
+            prefs[cat][ch] = 1;
+        });
+        ApiDataSvc.apiCall('post', 'save_notification_prefs', { prefs: prefs }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    var adultConfirmed = false;
+
+    function saveAdultContent(enabled, ageConfirmed) {
+        ApiDataSvc.apiCall('post', 'save_adult_content_pref', {
+            enabled: enabled ? 1 : 0,
+            age_confirmed: ageConfirmed ? 1 : 0
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+            } else {
+                toastr.error(o.message);
+                $('#adult_content_toggle').prop('checked', false);
+            }
+        });
+    }
+
+    $('#adult_content_toggle').on('change', function () {
+        if (this.checked) {
+            adultConfirmed = false;
+            $('#adult_confirm_modal').modal('show');
+        } else {
+            saveAdultContent(false, false);
+        }
+    });
+
+    $('#adult_confirm_yes').on('click', function () {
+        adultConfirmed = true;
+        $('#adult_confirm_modal').modal('hide');
+        saveAdultContent(true, true);
+    });
+
+    // Cancelling the confirmation reverts the toggle back to off.
+    $('#adult_confirm_modal').on('hidden.bs.modal', function () {
+        if (!adultConfirmed) {
+            $('#adult_content_toggle').prop('checked', false);
+        }
+    });
+
+    function escapeHtml(s) {
+        return $('<div>').text(s == null ? '' : s).html();
+    }
+
+    function renderAcctRow(id, u_name, name, btnClass, btnLabel) {
+        var nameHtml = name ? '<span class="acct-row__name">' + escapeHtml(name) + '</span>' : '';
+        return '<div class="acct-row" data-user-id="' + id + '">'
+            + '<div class="acct-row__who">'
+            + '<span class="acct-row__handle">@' + escapeHtml(u_name) + '</span>' + nameHtml
+            + '</div>'
+            + '<button type="button" class="btn btn-secondary ' + btnClass + '" data-user-id="' + id + '">' + btnLabel + '</button>'
+            + '</div>';
+    }
+
+    $('#block_add_btn').on('click', function () {
+        var u_name = ($('#block_username').val() || '').trim().replace(/^@+/, '');
+        if (u_name == '') { toastr.error('Enter a username to block'); return; }
+
+        ApiDataSvc.apiCall('post', 'block_user', { u_name: u_name }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            $('#block_username').val('');
+            $('#block_empty').remove();
+            if ($('#block_list .acct-row[data-user-id="' + o.blocked_user_id + '"]').length === 0) {
+                $('#block_list').prepend(renderAcctRow(o.blocked_user_id, o.u_name, o.name, 'block-unblock', 'Unblock'));
+            }
+        });
+    });
+
+    $('#block_list').on('click', '.block-unblock', function () {
+        var $row = $(this).closest('.acct-row');
+        var id   = $row.data('user-id');
+        ApiDataSvc.apiCall('post', 'unblock_user', { blocked_user_id: id }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            $row.remove();
+            if ($('#block_list .acct-row').length === 0) {
+                $('#block_list').html('<p class="settings__empty" id="block_empty">You haven\'t blocked anyone.</p>');
+            }
+        });
+    });
+
+    var stripe = <?php echo !empty($this->stripe_pk) ? "Stripe('" . htmlspecialchars((string) $this->stripe_pk, ENT_QUOTES, 'UTF-8') . "')" : 'null'; ?>;
+    var creditElements = null;
+
+    $('.buy-credits').on('click', function () {
+        if (!stripe) { toastr.error('Payments are not available right now'); return; }
+        var dollars = $(this).data('dollars');
+        ApiDataSvc.apiCall('post', 'buy_credits', { dollars: dollars }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            $('#credit_pay_summary').text('$' + dollars + ' for ' + Number(o.credits).toLocaleString() + ' credits');
+            $('#credit_payment_element').html('');
+            $('#credit_pay_button').prop('disabled', false);
+            creditElements = stripe.elements({ clientSecret: o.client_secret });
+            creditElements.create('payment').mount('#credit_payment_element');
+            $('#credit_payment_modal').modal('show');
+        });
+    });
+
+    $('#credit_pay_button').on('click', function () {
+        if (!creditElements) { return; }
+        $('#credit_pay_button').prop('disabled', true);
+        stripe.confirmPayment({ elements: creditElements, redirect: 'if_required' }).then(function (result) {
+            if (result.error) {
+                $('#credit_pay_button').prop('disabled', false);
+                toastr.error(result.error.message);
+                return;
+            }
+            ApiDataSvc.apiCall('post', 'confirm_credit_purchase', { payment_intent_id: result.paymentIntent.id }, function (data) {
+                var o = JSON.parse(data);
+                if (!o.success) { toastr.error(o.message); return; }
+                toastr.success(o.message);
+                $('#credit_payment_modal').modal('hide');
+                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 1000);
+            });
+        });
+    });
+
+    $('#ar_manage').on('click', function () {
+        $('#ar_modal').modal('show');
+    });
+
+    $('#ar_enabled').on('change', function () {
+        $('#ar_fields').toggleClass('is-hidden', !this.checked);
+    });
+
+    function arStatusText() {
+        if (!$('#ar_enabled').is(':checked')) { return 'Automatically top up when your balance runs low.'; }
+        var credits = Number($('#ar_package option:selected').data('credits')) || 0;
+        var thr = parseInt($('#ar_threshold').val(), 10) || 0;
+        return 'Buy ' + credits.toLocaleString() + ' credits when credits drop below ' + thr.toLocaleString();
+    }
+
+    $('#ar_save').on('click', function () {
+        ApiDataSvc.apiCall('post', 'save_autoreplenishment', {
+            enabled: $('#ar_enabled').is(':checked') ? 1 : 0,
+            threshold: parseInt($('#ar_threshold').val(), 10) || 0,
+            dollars: parseInt($('#ar_package').val(), 10) || 0,
+            payment_method_id: $('#ar_pm').val() || ''
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            var on = $('#ar_enabled').is(':checked');
+            $('#ar_badge').text(on ? 'On' : 'Off').toggleClass('is-on', on);
+            $('#ar_status').text(arStatusText());
+            $('#ar_modal').modal('hide');
+        });
+    });
+
+    $('#become_creator_btn').on('click', function () {
+        if (!$('#creator_agree').is(':checked')) {
+            toastr.error('Please accept the Creator Agreement and Content Policy');
+            return;
+        }
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'become_creator', { accept_agreement: 1 }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=creator'; }, 1000);
+            } else {
+                toastr.error(o.message);
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
+    function uploadCreatorImage(kind, file, $preview) {
+        var fd = new FormData();
+        fd.append('kind', kind);
+        fd.append('image', file);
+        $.ajax({
+            url: ApiDataSvc.baseUrl + 'upload_creator_image',
+            type: 'POST',
+            data: fd,
+            processData: false,
+            contentType: false,
+            success: function (data) {
+                var o = JSON.parse(data);
+                if (o.success) {
+                    toastr.success(o.message);
+                    $preview.css('background-image', "url('" + o.url + "')").find('i').remove();
+                } else {
+                    toastr.error(o.message);
+                }
+            },
+            error: function () { toastr.error('Upload failed'); }
+        });
+    }
+
+    $('#cover_upload_btn').on('click', function () { $('#cover_file').trigger('click'); });
+    $('#avatar_upload_btn').on('click', function () { $('#avatar_file').trigger('click'); });
+    $('#cover_file').on('change', function () { if (this.files[0]) { uploadCreatorImage('cover', this.files[0], $('#cover_preview')); this.value = ''; } });
+    $('#avatar_file').on('change', function () { if (this.files[0]) { uploadCreatorImage('avatar', this.files[0], $('#avatar_preview')); this.value = ''; } });
+
+    $('#cp_save').on('click', function () {
+        ApiDataSvc.apiCall('post', 'save_creator_profile', {
+            display_name: $('#cp_display_name').val(),
+            bio:          $('#cp_bio').val(),
+            location:     $('#cp_location').val(),
+            tags:         $('#cp_tags').val(),
+            brand_color:  $('#cp_brand_color').val(),
+            cta_label:    $('#cp_cta_label').val(),
+            cta_url:      $('#cp_cta_url').val()
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    $('#leave_creator_btn').on('click', function () {
+        $('#leave_creator_modal').modal('show');
+    });
+
+    $('#leave_creator_confirm').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'leave_creator', { confirm: 1 }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=creator'; }, 1000);
+            } else {
+                toastr.error(o.message);
+                $btn.prop('disabled', false);
+                $('#leave_creator_modal').modal('hide');
+            }
+        });
     });
 
     $('.conn-connect').on('click', function () {
@@ -189,74 +737,6 @@ $(function () {
                 toastr.error(o.message);
             }
         });
-    });
-
-    $('input[name="schedule"]').on('change', function () {
-        $('#post_when').toggle($(this).val() === 'later');
-    });
-
-    $('#post_media').on('change', function () {
-        var file = this.files[0];
-        if (!file) { return; }
-        $('#media_status').text('Uploading...');
-        ApiDataSvc.apiCall('post', 'upload_media_url', {}, function (data) {
-            var o = JSON.parse(data);
-            if (!o.success) { $('#media_status').text(''); toastr.error(o.message); return; }
-            fetch(o.upload_url, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file })
-                .then(function (r) {
-                    if (r.ok) {
-                        $('#post_media_url').val(o.media_url);
-                        $('#media_status').text(file.name + ' ready');
-                    } else {
-                        $('#media_status').text('');
-                        toastr.error('Upload failed');
-                    }
-                })
-                .catch(function () { $('#media_status').text(''); toastr.error('Upload failed'); });
-        });
-    });
-
-    $('#publish_post').on('click', function () {
-        var ids = $('.post-account:checked').map(function () { return $(this).val(); }).get();
-        if (ids.length === 0) { toastr.error('Select at least one account'); return; }
-        var caption = $('#post_caption').val();
-        var media_url = $('#post_media_url').val();
-        if (caption.trim() === '' && media_url === '') { toastr.error('Add a caption or media'); return; }
-        var schedule = $('input[name="schedule"]:checked').val();
-        var when = $('#post_when').val();
-        if (schedule === 'later' && when === '') { toastr.error('Choose a date and time'); return; }
-
-        ApiDataSvc.apiCall('post', 'create_post', {
-            caption: caption,
-            social_account_ids: ids,
-            media_url: media_url,
-            schedule: schedule,
-            scheduled_at: when
-        }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=compose'; }, 1000);
-            } else {
-                toastr.error(o.message);
-            }
-        });
-    });
-
-    $('.post-status').each(function () {
-        var $el = $(this);
-        var st = ($el.text() || '').toLowerCase();
-        if (st === 'processing' || st === 'scheduled') {
-            var pid = $el.data('post-id');
-            setTimeout(function () {
-                ApiDataSvc.apiCall('post', 'post_status', { post_id: pid }, function (data) {
-                    var o = JSON.parse(data);
-                    if (o.success && o.status) {
-                        $el.text(o.status.charAt(0).toUpperCase() + o.status.slice(1));
-                    }
-                });
-            }, 4000);
-        }
     });
 
 });
