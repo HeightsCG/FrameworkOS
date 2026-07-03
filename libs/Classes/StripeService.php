@@ -163,4 +163,137 @@ class StripeService {
             return false;
         }
     }
+
+    /* ---------- Connect (creator payouts) ---------- */
+
+    /** Create an Express connected account for a creator. Returns account id or ''. */
+    public static function create_connect_account($user): string
+    {
+        try {
+            // @-suppress the SDK's "use Accounts v2" E_USER_WARNING (we intentionally
+            // use v1 Express); real failures still throw and are caught below.
+            $account = @self::client()->accounts->create(array(
+                'type'         => 'express',
+                'email'        => $user['user_email'] ?? null,
+                'capabilities' => array('transfers' => array('requested' => true)),
+                'business_type'=> 'individual',
+                'metadata'     => array('user_id' => (string) ($user['user_id'] ?? '')),
+            ));
+            return $account->id;
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_connect_account: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /** Hosted onboarding link for a connected account. Returns URL or ''. */
+    public static function account_onboarding_link($account_id, $refresh_url, $return_url): string
+    {
+        try {
+            $link = self::client()->accountLinks->create(array(
+                'account'     => $account_id,
+                'refresh_url' => $refresh_url,
+                'return_url'  => $return_url,
+                'type'        => 'account_onboarding',
+            ));
+            return $link->url;
+        } catch (\Throwable $e) {
+            error_log('[stripe] account_onboarding_link: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /** Onboarding/capability status for a connected account. */
+    public static function connect_account_status($account_id): array
+    {
+        $out = array('exists' => false, 'details_submitted' => false, 'payouts_enabled' => false, 'requirements_due' => false);
+        if (empty($account_id)) {
+            return $out;
+        }
+        try {
+            $acct = @self::client()->accounts->retrieve($account_id, array());
+            $due  = isset($acct->requirements->currently_due) ? $acct->requirements->currently_due : array();
+            $out['exists']            = true;
+            $out['details_submitted'] = (bool) $acct->details_submitted;
+            $out['payouts_enabled']   = (bool) $acct->payouts_enabled;
+            $out['requirements_due']  = is_array($due) ? count($due) > 0 : (count((array) $due) > 0);
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_account_status: ' . $e->getMessage());
+        }
+        return $out;
+    }
+
+    /** Delete a connected account (best effort). Returns true if deleted. */
+    public static function delete_connect_account($account_id): bool
+    {
+        if (empty($account_id)) {
+            return false;
+        }
+        try {
+            @self::client()->accounts->delete($account_id);
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[stripe] delete_connect_account: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /** Express dashboard login link for a connected account. Returns URL or ''. */
+    public static function connect_login_link($account_id): string
+    {
+        try {
+            $link = @self::client()->accounts->createLoginLink($account_id);
+            return $link->url;
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_login_link: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /** Available + pending balance (cents) held for a connected account. */
+    public static function connect_balance($account_id): array
+    {
+        $out = array('available' => 0, 'pending' => 0, 'currency' => 'USD');
+        if (empty($account_id)) {
+            return $out;
+        }
+        try {
+            $bal = self::client()->balance->retrieve(array(), array('stripe_account' => $account_id));
+            if (!empty($bal->available[0])) {
+                $out['available'] = (int) $bal->available[0]->amount;
+                $out['currency']  = strtoupper((string) $bal->available[0]->currency);
+            }
+            if (!empty($bal->pending[0])) {
+                $out['pending'] = (int) $bal->pending[0]->amount;
+            }
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_balance: ' . $e->getMessage());
+        }
+        return $out;
+    }
+
+    /** Recent payouts for a connected account, shaped for the view. */
+    public static function connect_payouts($account_id, $limit = 10): array
+    {
+        if (empty($account_id)) {
+            return array();
+        }
+        try {
+            $payouts = self::client()->payouts->all(array('limit' => $limit), array('stripe_account' => $account_id));
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_payouts: ' . $e->getMessage());
+            return array();
+        }
+        $out = array();
+        foreach ($payouts->data as $p) {
+            $out[] = array(
+                'amount'   => (int) $p->amount,
+                'currency' => strtoupper((string) $p->currency),
+                'status'   => (string) $p->status,
+                'arrival'  => (int) $p->arrival_date,
+                'created'  => (int) $p->created,
+            );
+        }
+        return $out;
+    }
 }

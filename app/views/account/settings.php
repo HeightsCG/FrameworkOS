@@ -12,6 +12,9 @@
         <nav class="settings__nav" id="settings_nav">
             <button type="button" class="settings__nav-item is-active" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
             <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator' : 'Become a Creator'; ?></span></button>
+            <?php if ($this->is_creator): ?>
+            <button type="button" class="settings__nav-item" data-section="payouts"><i class="fa-solid fa-money-bill-transfer"></i><span>Payouts</span></button>
+            <?php endif; ?>
             <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>My Wallet</span></button>
             <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
@@ -136,13 +139,73 @@
 
                 <div class="creator-danger">
                     <div class="creator-danger__info">
-                        <span class="creator-danger__title">Stop being a creator</span>
+                        <span class="creator-danger__title">Stop Being a Creator</span>
                         <span class="creator-danger__desc">This permanently deletes all your creator content. It cannot be undone.</span>
                     </div>
                     <button type="button" class="btn btn-danger" id="leave_creator_btn">Delete Account</button>
                 </div>
                 <?php endif; ?>
             </section>
+
+            <?php if ($this->is_creator): ?>
+            <?php $ps = $this->payout_status; ?>
+            <section class="settings__section" data-section="payouts">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Payouts</h2>
+                </div>
+
+                <?php if (empty($ps['payouts_enabled'])): ?>
+                <div class="payout-setup">
+                    <div class="payout-setup__info">
+                        <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
+                        <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can receive payouts.' : 'Connect a Stripe account to receive payouts from your sales. This is required before you can be paid.'; ?></span>
+                    </div>
+                    <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
+                </div>
+                <?php else: ?>
+                <?php $pb = $this->payout_balance; ?>
+                <div class="payout-status">
+                    <span class="payout-status__badge">Payouts Enabled</span>
+                    <button type="button" class="btn btn-secondary" id="payout_disconnect_btn">Disconnect Account</button>
+                </div>
+
+                <div class="payout-balance">
+                    <div class="payout-balance__card">
+                        <span class="payout-balance__label">Available</span>
+                        <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
+                    </div>
+                    <div class="payout-balance__card">
+                        <span class="payout-balance__label">Pending</span>
+                        <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
+                    </div>
+                </div>
+
+                <h3 class="wallet__subhead">Payout history</h3>
+                <?php if (empty($this->payouts)): ?>
+                    <p class="settings__empty">No payouts yet.</p>
+                <?php else: ?>
+                <table class="ledger">
+                    <thead><tr><th>Date</th><th>Status</th><th class="ledger__num">Amount</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($this->payouts as $p): ?>
+                        <tr>
+                            <td><?php echo htmlspecialchars(date('M j, Y', $p['arrival'] ?: $p['created']), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td><?php echo htmlspecialchars(ucfirst($p['status']), ENT_QUOTES, 'UTF-8'); ?></td>
+                            <td class="ledger__num">$<?php echo number_format($p['amount'] / 100, 2); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <?php endif; ?>
+                <?php endif; ?>
+
+                <?php if ($this->has_connect && empty($ps['payouts_enabled'])): ?>
+                <div class="payout-disconnect">
+                    <button type="button" class="btn btn-secondary" id="payout_disconnect_btn">Disconnect Stripe account</button>
+                </div>
+                <?php endif; ?>
+            </section>
+            <?php endif; ?>
 
             <section class="settings__section" data-section="wallet">
                 <div class="settings__section-head">
@@ -315,6 +378,24 @@
     </div>
 </div>
 
+<div class="modal fade" id="payout_disconnect_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Disconnect Stripe account?</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">This unlinks your Stripe payout account. You won't be able to receive payouts until you set up payouts again.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="payout_disconnect_confirm">Disconnect</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="crop_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -465,6 +546,7 @@ $(function () {
     var params = new URLSearchParams(window.location.search);
     if (params.get('connected') === '1') { toastr.success('Account connected'); }
     if (params.get('error') === '1') { toastr.error('Connection was not completed'); }
+    if (params.get('payout_return') === '1') { toastr.success('Payout details updated'); }
 
     function activateSection(section) {
         $('#settings_nav .settings__nav-item').removeClass('is-active');
@@ -476,6 +558,12 @@ $(function () {
     var deepLink = (params.get('section') || '').replace(/[^a-z_]/gi, '');
     if (deepLink && $('#settings_nav .settings__nav-item[data-section="' + deepLink + '"]').length) {
         activateSection(deepLink);
+    }
+
+    // Consume one-time query params (deep-link section, Stripe/social returns) on
+    // this load, then strip them so a refresh doesn't re-fire toasts or re-force a tab.
+    if (window.location.search) {
+        history.replaceState({}, '', window.location.pathname);
     }
 
     $('#settings_nav').on('click', '.settings__nav-item', function () {
@@ -792,6 +880,38 @@ $(function () {
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    $('#payout_setup_btn').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'start_payout_onboarding', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                window.location = o.url;
+            } else {
+                toastr.error(o.message);
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
+    $('#payout_disconnect_btn').on('click', function () {
+        $('#payout_disconnect_modal').modal('show');
+    });
+
+    $('#payout_disconnect_confirm').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'disconnect_payout_account', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=payouts'; }, 900);
+            } else {
+                toastr.error(o.message);
+                $btn.prop('disabled', false);
+                $('#payout_disconnect_modal').modal('hide');
+            }
         });
     });
 

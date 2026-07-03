@@ -73,9 +73,25 @@ class AccountController extends Controller {
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         $is_creator      = ((int) $user['role_id'] === $creator_role_id);
 
+        // Payouts (Stripe Connect) — only query Stripe for creators.
+        $payout_status  = array('exists' => false, 'details_submitted' => false, 'payouts_enabled' => false, 'requirements_due' => false);
+        $payout_balance = array('available' => 0, 'pending' => 0, 'currency' => 'USD');
+        $payouts        = array();
+        if ($is_creator && !empty($user['stripe_connect_account_id'])) {
+            $payout_status = StripeService::connect_account_status($user['stripe_connect_account_id']);
+            if (!empty($payout_status['payouts_enabled'])) {
+                $payout_balance = StripeService::connect_balance($user['stripe_connect_account_id']);
+                $payouts        = StripeService::connect_payouts($user['stripe_connect_account_id']);
+            }
+        }
+
         $this->view->user               = $user;
         $this->view->is_creator          = $is_creator;
         $this->view->creator_profile     = $is_creator ? (new CreatorProfileModel())->get_for_user($user['user_id']) : array();
+        $this->view->payout_status       = $payout_status;
+        $this->view->payout_balance      = $payout_balance;
+        $this->view->payouts             = $payouts;
+        $this->view->has_connect         = ($is_creator && !empty($user['stripe_connect_account_id']));
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;

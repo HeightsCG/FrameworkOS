@@ -154,6 +154,20 @@
 .crop-stage img{display:block; max-width:100%;}
 .cprofile__actions{display:flex; justify-content:flex-end; margin-top:1.4rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
 
+/* payouts (Stripe Connect) */
+.payout-setup{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.2rem 1.3rem;}
+.payout-setup__info{display:flex; flex-direction:column; gap:.2rem; min-width:0;}
+.payout-setup__title{font-size:.95rem; font-weight:600; color:var(--text);}
+.payout-setup__desc{font-size:.85rem; color:var(--muted); line-height:1.45;}
+.payout-setup .btn{white-space:nowrap; flex:none;}
+.payout-status{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:600px; margin-bottom:1.3rem;}
+.payout-status__badge{font-size:.78rem; font-weight:600; color:var(--success); background:var(--success-bg); padding:.3rem .7rem; border-radius:2px;}
+.payout-balance{display:grid; grid-template-columns:1fr 1fr; gap:.8rem; max-width:600px; margin-bottom:.5rem;}
+.payout-balance__card{display:flex; flex-direction:column; gap:.2rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1rem 1.1rem;}
+.payout-balance__label{font-size:.8rem; color:var(--muted); font-weight:500;}
+.payout-balance__value{font-size:1.3rem; font-weight:700; color:var(--text);}
+.payout-disconnect{max-width:600px; margin-top:1.5rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
+
 /* wallet & credits — everything shares one column width for a tidy left edge */
 .wallet{max-width:600px;}
 .wallet__balance{display:flex; align-items:center; justify-content:space-between; gap:1rem; background:var(--vsoft); border:1px solid var(--line); border-radius:2px; padding:1.1rem 1.3rem;}

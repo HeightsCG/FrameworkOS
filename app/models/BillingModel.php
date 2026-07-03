@@ -17,6 +17,18 @@ class BillingModel extends Model {
         );
     }
 
+    public function set_connect_account_id($user_id, $account_id){
+        return parent::update(
+            'user_accounts',
+            array(
+                'stripe_connect_account_id' => $account_id,
+                'updated_at'                => date('Y-m-d H:i:s'),
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
     public function save_subscription($user_id, $subscription_id, $price_id, $status, $current_period_end, $cancel_at_period_end = 0){
         return parent::update(
             'user_accounts',

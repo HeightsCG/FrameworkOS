@@ -1048,6 +1048,71 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ---------- Payouts (Stripe Connect) ---------- */
+
+    private function site_base_url(): string
+    {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        return $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+    }
+
+    public function start_payout_onboardingAction(){
+        $user = $this->require_creator();
+
+        $account_id = $user['stripe_connect_account_id'] ?? '';
+        if (empty($account_id)) {
+            $account_id = StripeService::create_connect_account($user);
+            if ($account_id === '') {
+                echo json_encode(array('success' => false, 'message' => 'Payouts are not available yet. Please try again later.'));
+                exit;
+            }
+            $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);
+        }
+
+        $base = $this->site_base_url();
+        $url  = StripeService::account_onboarding_link(
+            $account_id,
+            $base . '/account/settings?section=payouts&payout_refresh=1',
+            $base . '/account/settings?section=payouts&payout_return=1'
+        );
+        if ($url === '') {
+            echo json_encode(array('success' => false, 'message' => 'Could not start payout setup. Please try again.'));
+            exit;
+        }
+
+        echo json_encode(array('success' => true, 'url' => $url));
+        exit;
+    }
+
+    public function payout_login_linkAction(){
+        $user       = $this->require_creator();
+        $account_id = $user['stripe_connect_account_id'] ?? '';
+        if (empty($account_id)) {
+            echo json_encode(array('success' => false, 'message' => 'Set up payouts first'));
+            exit;
+        }
+        $url = StripeService::connect_login_link($account_id);
+        if ($url === '') {
+            echo json_encode(array('success' => false, 'message' => 'Could not open the payouts dashboard'));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'url' => $url));
+        exit;
+    }
+
+    public function disconnect_payout_accountAction(){
+        $user       = $this->require_creator();
+        $account_id = $user['stripe_connect_account_id'] ?? '';
+
+        if ($account_id !== '') {
+            StripeService::delete_connect_account($account_id);
+        }
+        $this->billingModel->set_connect_account_id((int) $user['user_id'], null);
+
+        echo json_encode(array('success' => true, 'message' => 'Payout account disconnected'));
+        exit;
+    }
+
     /* ---------- Credits & wallet ---------- */
 
     /** Ensure the logged-in user has a Stripe customer; returns [user, customer_id]. */
