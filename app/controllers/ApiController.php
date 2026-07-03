@@ -1100,6 +1100,30 @@ class ApiController extends Controller {
         exit;
     }
 
+    public function request_payoutAction(){
+        $user       = $this->require_creator();
+        $account_id = $user['stripe_connect_account_id'] ?? '';
+        if (empty($account_id)) {
+            echo json_encode(array('success' => false, 'message' => 'Set up payouts first'));
+            exit;
+        }
+
+        $balance = StripeService::connect_balance($account_id);
+        if ((int) $balance['available'] <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'No funds available to pay out'));
+            exit;
+        }
+
+        $result = StripeService::create_payout($account_id, (int) $balance['available'], $balance['currency']);
+        if (empty($result['ok'])) {
+            echo json_encode(array('success' => false, 'message' => 'Could not request the payout. Make sure a bank account is connected.'));
+            exit;
+        }
+
+        echo json_encode(array('success' => true, 'message' => 'Payout of $' . number_format($balance['available'] / 100, 2) . ' requested'));
+        exit;
+    }
+
     public function disconnect_payout_accountAction(){
         $user       = $this->require_creator();
         $account_id = $user['stripe_connect_account_id'] ?? '';

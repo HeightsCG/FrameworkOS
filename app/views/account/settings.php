@@ -180,23 +180,30 @@
                     </div>
                 </div>
 
+                <div class="payout-actions">
+                    <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $pb['available'] <= 0 ? 'disabled' : ''; ?>>Request payout</button>
+                    <?php if ($pb['available'] <= 0): ?><span class="payout-actions__note">No funds available to pay out yet.</span><?php endif; ?>
+                </div>
+
                 <h3 class="wallet__subhead">Payout history</h3>
-                <?php if (empty($this->payouts)): ?>
-                    <p class="settings__empty">No payouts yet.</p>
-                <?php else: ?>
-                <table class="ledger">
-                    <thead><tr><th>Date</th><th>Status</th><th class="ledger__num">Amount</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($this->payouts as $p): ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars(date('M j, Y', $p['arrival'] ?: $p['created']), ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td><?php echo htmlspecialchars(ucfirst($p['status']), ENT_QUOTES, 'UTF-8'); ?></td>
-                            <td class="ledger__num">$<?php echo number_format($p['amount'] / 100, 2); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-                <?php endif; ?>
+                <div class="payout-history">
+                    <?php if (empty($this->payouts)): ?>
+                        <p class="settings__empty">No payouts yet.</p>
+                    <?php else: ?>
+                    <table class="ledger ledger--flush">
+                        <thead><tr><th>Date</th><th>Status</th><th class="ledger__num">Amount</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($this->payouts as $p): ?>
+                            <tr>
+                                <td><?php echo htmlspecialchars(date('M j, Y', $p['arrival'] ?: $p['created']), ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td><?php echo htmlspecialchars(ucfirst($p['status']), ENT_QUOTES, 'UTF-8'); ?></td>
+                                <td class="ledger__num">$<?php echo number_format($p['amount'] / 100, 2); ?></td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                    <?php endif; ?>
+                </div>
                 <?php endif; ?>
 
                 <?php if ($this->has_connect && empty($ps['payouts_enabled'])): ?>
@@ -889,6 +896,20 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 window.location = o.url;
+            } else {
+                toastr.error(o.message);
+                $btn.prop('disabled', false);
+            }
+        });
+    });
+
+    $('#payout_request_btn').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'request_payout', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=payouts'; }, 1000);
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);

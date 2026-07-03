@@ -272,6 +272,21 @@ class StripeService {
         return $out;
     }
 
+    /** Create a manual payout of $amount_cents to the connected account's bank. Returns [ok, error]. */
+    public static function create_payout($account_id, $amount_cents, $currency = 'usd'): array
+    {
+        try {
+            @self::client()->payouts->create(
+                array('amount' => (int) $amount_cents, 'currency' => strtolower($currency)),
+                array('stripe_account' => $account_id)
+            );
+            return array('ok' => true, 'error' => '');
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_payout: ' . $e->getMessage());
+            return array('ok' => false, 'error' => $e->getMessage());
+        }
+    }
+
     /** Recent payouts for a connected account, shaped for the view. */
     public static function connect_payouts($account_id, $limit = 10): array
     {

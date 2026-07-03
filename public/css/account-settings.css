@@ -166,6 +166,11 @@
 .payout-balance__card{display:flex; flex-direction:column; gap:.2rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1rem 1.1rem;}
 .payout-balance__label{font-size:.8rem; color:var(--muted); font-weight:500;}
 .payout-balance__value{font-size:1.3rem; font-weight:700; color:var(--text);}
+.payout-actions{display:flex; align-items:center; gap:.8rem; max-width:600px; margin-bottom:.5rem;}
+.payout-actions__note{font-size:.82rem; color:var(--muted);}
+.payout-history{max-width:600px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:.4rem 0;}
+.payout-history .settings__empty{padding:1rem 1.2rem;}
+.ledger--flush{border:0; box-shadow:none;}
 .payout-disconnect{max-width:600px; margin-top:1.5rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
 
 /* wallet & credits — everything shares one column width for a tidy left edge */
