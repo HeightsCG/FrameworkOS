@@ -51,6 +51,12 @@ class Main {
         return self::config('global', 'site_name');
     }
 
+    /** Public-facing brand domain for creator profile URLs (distinct from the infra host). */
+    public static function public_domain(): string
+    {
+        return self::config('global', 'public_domain');
+    }
+
     public static function get_url(): array
     {
         $url = array();

@@ -144,12 +144,82 @@
                 p_word: $('#p_word').val()
             }, function(data) {
                 var obj = JSON.parse(data);
+                if (obj.success && obj.mfa_required) {
+                    startMfa(obj.methods || {});
+                } else if (obj.success) {
+                    window.location = obj.reset_pw == 1 ? '/account/force_reset' : '/';
+                } else {
+                    toastr.error(obj.message);
+                }
+            });
+        });
+
+        var mfaMethods = { totp: false, email: false };
+
+        function startMfa(methods) {
+            mfaMethods = methods;
+            $('#login_form').hide();
+            $('#forgot_form').hide();
+            $('#register_form').hide();
+            $('#mfa_form').show();
+            setMfaMethod(mfaMethods.totp ? 'totp' : 'email');
+        }
+
+        function setMfaMethod(method) {
+            $('#mfa_method').val(method);
+            $('#mfa_code').val('').focus();
+
+            if (method === 'totp') {
+                $('#mfa_help').text('Enter the 6-digit code from your authenticator app.');
+            } else if (method === 'email') {
+                $('#mfa_help').text('We emailed you a verification code. Enter it below.');
+            } else {
+                $('#mfa_help').text('Enter one of your saved backup codes.');
+            }
+
+            // Alternate-method links, contextual to the current method.
+            $('#mfa_use_email').toggle(method !== 'email' && !!mfaMethods.email);
+            $('#mfa_resend_email').toggle(method === 'email');
+            $('#mfa_use_totp').toggle(method !== 'totp' && !!mfaMethods.totp);
+            $('#mfa_use_backup').toggle(method !== 'backup');
+        }
+
+        $('#do_mfa_verify').on('click', function() {
+            var code = ($('#mfa_code').val() || '').trim();
+            if (code === '') { toastr.error('Enter your verification code'); return; }
+            ApiDataSvc.apiCall('post', 'mfa_verify', {
+                method: $('#mfa_method').val(),
+                code:   code
+            }, function(data) {
+                var obj = JSON.parse(data);
                 if (obj.success) {
                     window.location = obj.reset_pw == 1 ? '/account/force_reset' : '/';
                 } else {
                     toastr.error(obj.message);
                 }
             });
+        });
+
+        $('#mfa_use_email').on('click', function() {
+            ApiDataSvc.apiCall('post', 'mfa_send_login_code', {}, function(data) {
+                var obj = JSON.parse(data);
+                if (obj.success) { toastr.success(obj.message); setMfaMethod('email'); }
+                else { toastr.error(obj.message); }
+            });
+        });
+
+        $('#mfa_resend_email').on('click', function() {
+            ApiDataSvc.apiCall('post', 'mfa_send_login_code', {}, function(data) {
+                var obj = JSON.parse(data);
+                if (obj.success) { toastr.success(obj.message); } else { toastr.error(obj.message); }
+            });
+        });
+
+        $('#mfa_use_totp').on('click', function() { setMfaMethod('totp'); });
+        $('#mfa_use_backup').on('click', function() { setMfaMethod('backup'); });
+
+        $(document).on('keydown', '#mfa_code', function(e) {
+            if (e.keyCode === 13) { $('#do_mfa_verify').trigger('click'); }
         });
 
         $('#forgot_password').on('click', function() {
@@ -313,6 +383,23 @@
                         <div class="cos-links">
                             <a id="forgot_password" class="cos-link">Forgot password?</a>
                             <a id="register" class="cos-link accent">Create account</a>
+                        </div>
+                    </div>
+
+                    <div id="mfa_form" style="display:none;">
+                        <h2 class="cos-form-title">Verify it's you</h2>
+                        <p class="cos-help" id="mfa_help">Enter your verification code to finish signing in.</p>
+                        <div class="form-floating mb-3">
+                            <input type="text" id="mfa_code" class="form-control" placeholder="Verification code" inputmode="numeric" autocomplete="one-time-code">
+                            <label for="mfa_code">Verification code</label>
+                        </div>
+                        <input type="hidden" id="mfa_method" value="">
+                        <button type="button" id="do_mfa_verify" class="cos-submit">Verify</button>
+                        <div class="cos-links" style="flex-wrap:wrap; gap:.75rem;">
+                            <a id="mfa_use_email" class="cos-link" style="display:none;">Email me a code</a>
+                            <a id="mfa_resend_email" class="cos-link" style="display:none;">Resend code</a>
+                            <a id="mfa_use_totp" class="cos-link" style="display:none;">Use authenticator app</a>
+                            <a id="mfa_use_backup" class="cos-link">Use a backup code</a>
                         </div>
                     </div>
 

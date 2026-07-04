@@ -55,7 +55,6 @@
                             <span class="app-account-menu__em d-block"><?php echo htmlspecialchars(Session::get('user_email'), ENT_QUOTES, 'UTF-8'); ?></span>
                         </span>
                     </div>
-                    <a href="/account/profile" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-user"></i> Profile</a>
                     <a href="/account/billing" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-credit-card"></i> Billing</a>
                     <a href="/account/settings" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-gear"></i> Settings</a>
                     <span class="app-account-menu__sep"></span>

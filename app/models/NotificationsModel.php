@@ -19,4 +19,18 @@ class NotificationsModel extends Model {
         $notifications->send_email($to, 0, $subject, $message);
     }
 
+    public function send_mfa_code_email($to_email, $to_name, $code){
+        $subject = 'Your verification code';
+        $message = '<p>Your verification code is:</p>'
+                 . '<p style="font-size:22px; font-weight:700; letter-spacing:3px;">' . htmlspecialchars($code, ENT_QUOTES, 'UTF-8') . '</p>'
+                 . '<p>This code expires in 10 minutes. If you did not request it, you can ignore this email.</p>';
+
+        $to = array(
+            array('email' => $to_email, 'name' => $to_name),
+        );
+
+        $notifications = new Notifications();
+        $notifications->send_email($to, 0, $subject, $message);
+    }
+
 }

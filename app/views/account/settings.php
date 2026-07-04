@@ -3,15 +3,15 @@
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 
 <div class="settings">
-    <header class="settings__head">
-        <h1 class="settings__title">Settings</h1>
-    </header>
 
     <div class="settings__body">
         <nav class="settings__nav" id="settings_nav">
-            <button type="button" class="settings__nav-item is-active" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
+            <button type="button" class="settings__nav-item is-active" data-section="account"><i class="fa-solid fa-user"></i><span>Account</span></button>
+            <button type="button" class="settings__nav-item" data-section="security"><i class="fa-solid fa-lock"></i><span>Security</span></button>
+            <button type="button" class="settings__nav-item" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
             <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator' : 'Become a Creator'; ?></span></button>
             <?php if ($this->is_creator): ?>
             <button type="button" class="settings__nav-item" data-section="payouts"><i class="fa-solid fa-money-bill-transfer"></i><span>Payouts</span></button>
@@ -24,11 +24,115 @@
 
         <div class="settings__content">
 
-            <section class="settings__section is-active" data-section="notifications">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Notifications</h2>
-                    <p class="settings__section-desc">Choose how you want to hear from us. These apply to your account.</p>
+            <section class="settings__section is-active" data-section="account">
+                <?php $next_change = $this->username_next_change; ?>
+                <div class="uname">
+                    <label class="uname__label" for="account_username">Username</label>
+                    <p class="uname__hint">Your public handle: <span class="uname__url"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span></span></p>
+                    <div class="uname__row">
+                        <div class="uname__field">
+                            <span class="uname__at">@</span>
+                            <input type="text" class="form-control" id="account_username" maxlength="30" autocomplete="off" value="<?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $next_change != '' ? 'disabled' : ''; ?>>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="username_save_btn" <?php echo $next_change != '' ? 'disabled' : ''; ?>>Save</button>
+                    </div>
+                    <p class="uname__rules" id="uname_rules">
+                        <?php if ($next_change != ''): ?>
+                        You can change your username again on <strong><?php echo htmlspecialchars($next_change, ENT_QUOTES, 'UTF-8'); ?></strong>.
+                        <?php else: ?>
+                        3–30 characters — lowercase letters, numbers, and underscores. You can change your username once every 30 days.
+                        <?php endif; ?>
+                    </p>
                 </div>
+
+                <div class="acct-card">
+                    <h3 class="acct-card__title">Profile details</h3>
+                    <div class="acct-grid">
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="first_name" value="<?php echo htmlspecialchars((string) $this->user['first_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="first_name">First Name</label>
+                        </div>
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="last_name" value="<?php echo htmlspecialchars((string) $this->user['last_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="last_name">Last Name</label>
+                        </div>
+                        <div class="form-floating">
+                            <input type="email" class="form-control" id="user_email" value="<?php echo htmlspecialchars((string) $this->user['user_email'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="user_email">Email Address</label>
+                        </div>
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="user_phone" value="<?php echo htmlspecialchars((string) $this->user['user_phone'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="user_phone">Phone Number (Optional)</label>
+                        </div>
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="business_name" value="<?php echo htmlspecialchars((string) $this->user['business_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="business_name">Business Name (Optional)</label>
+                        </div>
+                        <div class="form-floating">
+                            <input type="text" class="form-control" id="website_url" value="<?php echo htmlspecialchars((string) $this->user['website_url'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <label for="website_url">Website URL (Optional)</label>
+                        </div>
+                    </div>
+                    <div class="acct-card__actions">
+                        <button type="button" class="btn btn-primary" id="save_profile">Update Profile</button>
+                    </div>
+                </div>
+
+                <div class="acct-danger">
+                    <div class="acct-danger__info">
+                        <span class="acct-danger__title">Delete account</span>
+                        <span class="acct-danger__desc">This is irreversible and permanently deletes your account and all associated data.</span>
+                    </div>
+                    <button type="button" class="btn btn-danger" id="delete_account">Delete Account</button>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="security">
+                <div class="acct-card">
+                    <h3 class="acct-card__title">Password</h3>
+                    <p class="acct-card__desc">Change the password you use to sign in.</p>
+                    <button type="button" class="btn btn-secondary" id="change_password">Change Password</button>
+                </div>
+
+                <div class="acct-card">
+                    <h3 class="acct-card__title">Two-factor authentication</h3>
+                    <p class="acct-card__desc">Add a second step at sign-in to keep your account secure.</p>
+
+                    <div class="mfa-method">
+                        <div class="mfa-method__info">
+                            <span class="mfa-method__name"><i class="fa-solid fa-mobile-screen-button"></i> Authenticator app</span>
+                            <span class="mfa-method__desc">Use Google Authenticator, Authy, or 1Password to generate codes.</span>
+                        </div>
+                        <div class="mfa-method__state">
+                            <span class="mfa-method__badge <?php echo $this->mfa_totp_enabled ? 'is-on' : ''; ?>" id="totp_badge"><?php echo $this->mfa_totp_enabled ? 'On' : 'Off'; ?></span>
+                            <button type="button" class="btn btn-secondary" id="totp_toggle_btn"><?php echo $this->mfa_totp_enabled ? 'Disable' : 'Set up'; ?></button>
+                        </div>
+                    </div>
+
+                    <div class="mfa-method">
+                        <div class="mfa-method__info">
+                            <span class="mfa-method__name"><i class="fa-solid fa-envelope"></i> Email verification</span>
+                            <span class="mfa-method__desc">We email a one-time code to <?php echo htmlspecialchars((string) $this->user['user_email'], ENT_QUOTES, 'UTF-8'); ?> at sign-in.</span>
+                        </div>
+                        <div class="mfa-method__state">
+                            <span class="mfa-method__badge <?php echo $this->mfa_email_enabled ? 'is-on' : ''; ?>" id="email_badge"><?php echo $this->mfa_email_enabled ? 'On' : 'Off'; ?></span>
+                            <button type="button" class="btn btn-secondary" id="email_toggle_btn"><?php echo $this->mfa_email_enabled ? 'Disable' : 'Set up'; ?></button>
+                        </div>
+                    </div>
+
+                    <div class="mfa-backup" id="mfa_backup_row" <?php echo ($this->mfa_totp_enabled || $this->mfa_email_enabled) ? '' : 'hidden'; ?>>
+                        <div class="mfa-method__info">
+                            <span class="mfa-method__name"><i class="fa-solid fa-key"></i> Backup codes</span>
+                            <span class="mfa-method__desc"><span id="backup_count"><?php echo (int) $this->mfa_backup_count; ?></span> unused codes remaining. Each can be used once if you lose access to your other methods.</span>
+                        </div>
+                        <div class="mfa-method__state">
+                            <button type="button" class="btn btn-secondary" id="regen_backup_btn">Regenerate</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section class="settings__section" data-section="notifications">
 
                 <div class="notif">
                     <div class="notif__row notif__row--head">
@@ -58,11 +162,6 @@
 
             <section class="settings__section" data-section="creator">
                 <?php if (!$this->is_creator): ?>
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Become a Creator</h2>
-                    <p class="settings__section-desc">Turn your profile into a creator business — publish content, sell services and events, and offer subscriptions.</p>
-                </div>
-
                 <div class="creator-cta">
                     <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
                     <textarea id="creator_terms" class="creator-cta__terms form-control" rows="10" readonly><?php echo htmlspecialchars($this->creator_terms, ENT_QUOTES, 'UTF-8'); ?></textarea>
@@ -76,11 +175,6 @@
                 </div>
                 <?php else: ?>
                 <?php $cp = $this->creator_profile; ?>
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Creator Profile</h2>
-                    <p class="settings__section-desc">Customize your public profile and branding.<?php if (!empty($this->user['creator_since'])): ?> Creator since <?php echo htmlspecialchars(date('M j, Y', strtotime((string) $this->user['creator_since'])), ENT_QUOTES, 'UTF-8'); ?>.<?php endif; ?></p>
-                </div>
-
                 <div class="cprofile">
                     <div class="cprofile__field">
                         <label>Cover image</label>
@@ -172,10 +266,6 @@
             <?php if ($this->is_creator): ?>
             <?php $ps = $this->payout_status; ?>
             <section class="settings__section" data-section="payouts">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Payouts</h2>
-                </div>
-
                 <?php if (empty($ps['payouts_enabled'])): ?>
                 <div class="payout-setup">
                     <div class="payout-setup__info">
@@ -186,17 +276,16 @@
                 </div>
                 <?php else: ?>
                 <?php $pb = $this->payout_balance; ?>
-                <div class="payout-status">
-                    <span class="payout-status__badge">Payouts Enabled</span>
-                    <button type="button" class="btn btn-secondary" id="payout_disconnect_btn">Disconnect Account</button>
+                <div class="payout__head">
+                    <span class="payout-status__badge"><i class="fa-solid fa-circle-check"></i> Payouts Enabled</span>
                 </div>
 
                 <div class="payout-balance">
-                    <div class="payout-balance__card">
+                    <div class="payout-balance__cell">
                         <span class="payout-balance__label">Available</span>
                         <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
                     </div>
-                    <div class="payout-balance__card">
+                    <div class="payout-balance__cell">
                         <span class="payout-balance__label">Pending</span>
                         <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
                     </div>
@@ -226,6 +315,10 @@
                     </table>
                     <?php endif; ?>
                 </div>
+
+                <div class="payout-disconnect">
+                    <button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button>
+                </div>
                 <?php endif; ?>
 
                 <?php if ($this->has_connect && empty($ps['payouts_enabled'])): ?>
@@ -237,11 +330,6 @@
             <?php endif; ?>
 
             <section class="settings__section" data-section="wallet">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Wallet &amp; Credits</h2>
-                    <p class="settings__section-desc">Buy credits to purchase content, services, and events.</p>
-                </div>
-
                 <?php
                     $ar     = $this->autoreplenishment;
                     $ar_on  = !empty($ar['enabled']);
@@ -310,11 +398,6 @@
             </section>
 
             <section class="settings__section" data-section="privacy">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Restricted Content</h2>
-                    <p class="settings__section-desc">Control what content you see.</p>
-                </div>
-
                 <div class="notif">
                     <div class="notif__row notif__row--single">
                         <div class="notif__label">
@@ -330,19 +413,7 @@
             </section>
 
             <section class="settings__section" data-section="blocked">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Blocked Accounts</h2>
-                    <p class="settings__section-desc">Blocked accounts can't message, follow, or interact with you.</p>
-                </div>
-
-                <div class="acct-add">
-                    <div class="acct-add__field">
-                        <span class="acct-add__at">@</span>
-                        <input type="text" class="form-control" id="block_username" placeholder="username" autocomplete="off">
-                    </div>
-                    <button type="button" class="btn btn-primary" id="block_add_btn">Block</button>
-                </div>
-
+                <div class="acct-panel">
                 <div class="acct-list" id="block_list">
                     <?php if (empty($this->blocked_users)): ?>
                         <p class="settings__empty" id="block_empty">You haven't blocked anyone.</p>
@@ -361,13 +432,10 @@
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+                </div>
             </section>
 
             <section class="settings__section" data-section="connected">
-                <div class="settings__section-head">
-                    <h2 class="settings__section-title">Connected Accounts</h2>
-                    <p class="settings__section-desc">Connect the platforms you want to publish to.</p>
-                </div>
                 <?php if (!$this->can_social_post): ?>
                     <div class="settings__upgrade">
                         <i class="fa-solid fa-lock settings__upgrade-icon"></i>
@@ -595,6 +663,153 @@
     </div>
 </div>
 
+<div class="modal fade" id="change_password_form" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Change Password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="current_password" autocomplete="current-password" placeholder="Current Password">
+                    <label for="current_password">Current Password</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="password" class="form-control" id="new_password" autocomplete="new-password" placeholder="New Password">
+                    <label for="new_password">New Password</label>
+                </div>
+                <div class="password-meter mb-3" id="meter">
+                    <div class="password-meter__bar mb-2"><span></span><span></span><span></span><span></span></div>
+                    <p class="password-meter__label mb-2" id="meterLabel">Password Strength</p>
+                    <ul class="password-reqs" id="password-reqs">
+                        <li data-rule="length"><i class="password-reqs__dot"></i>At least 8 characters</li>
+                        <li data-rule="upper"><i class="password-reqs__dot"></i>An uppercase letter</li>
+                        <li data-rule="lower"><i class="password-reqs__dot"></i>A lowercase letter</li>
+                        <li data-rule="number"><i class="password-reqs__dot"></i>A number</li>
+                        <li data-rule="symbol"><i class="password-reqs__dot"></i>A symbol</li>
+                        <li data-rule="match"><i class="password-reqs__dot"></i>Matches the confirm password</li>
+                    </ul>
+                </div>
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="confirm_password" autocomplete="new-password" placeholder="Confirm Password">
+                    <label for="confirm_password">Confirm Password</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="update_password">Update Password</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="delete_account_form" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Account</h5>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete your account? This action is irreversible and will permanently delete your account and all associated data.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirm_delete_account">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="totp_enroll_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Set up authenticator app</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mfa-modal__step">1. Scan this QR code with your authenticator app.</p>
+                <div class="mfa-qr" id="totp_qr"></div>
+                <p class="mfa-modal__step">Can't scan? Enter this key manually:</p>
+                <p class="mfa-secret" id="totp_secret"></p>
+                <p class="mfa-modal__step">2. Enter the 6-digit code from your app.</p>
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="totp_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+                    <label for="totp_code">6-digit code</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="totp_confirm_btn">Verify &amp; enable</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="email_enroll_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Set up email verification</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mfa-modal__step">We emailed a 6-digit code to <strong><?php echo htmlspecialchars((string) $this->user['user_email'], ENT_QUOTES, 'UTF-8'); ?></strong>. Enter it below to turn on email verification.</p>
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="email_code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="000000">
+                    <label for="email_code">6-digit code</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-link" id="email_resend_btn">Resend code</button>
+                <button type="button" class="btn btn-primary" id="email_confirm_btn">Verify &amp; enable</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mfa_disable_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm your password</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p id="mfa_disable_prompt">Enter your current password to disable this method.</p>
+                <div class="form-floating">
+                    <input type="password" class="form-control" id="mfa_disable_password" autocomplete="current-password" placeholder="Current Password">
+                    <label for="mfa_disable_password">Current Password</label>
+                </div>
+                <input type="hidden" id="mfa_disable_method" value="">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="mfa_disable_confirm">Disable</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="backup_codes_modal" tabindex="-1" aria-hidden="true" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Save your backup codes</h5>
+            </div>
+            <div class="modal-body">
+                <p>Store these somewhere safe. Each code works once if you lose access to your other methods. They won't be shown again.</p>
+                <div class="mfa-codes" id="backup_codes_list"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="backup_copy_btn">Copy codes</button>
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I've saved them</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
 $(function () {
 
@@ -608,6 +823,8 @@ $(function () {
         $('#settings_nav .settings__nav-item[data-section="' + section + '"]').addClass('is-active');
         $('.settings__section').removeClass('is-active');
         $('.settings__section[data-section="' + section + '"]').addClass('is-active');
+        $('.settings__content').scrollTop(0);
+        window.scrollTo(0, 0);
     }
 
     var deepLink = (params.get('section') || '').replace(/[^a-z_]/gi, '');
@@ -682,31 +899,256 @@ $(function () {
         return $('<div>').text(s == null ? '' : s).html();
     }
 
-    function renderAcctRow(id, u_name, name, btnClass, btnLabel) {
-        var nameHtml = name ? '<span class="acct-row__name">' + escapeHtml(name) + '</span>' : '';
-        return '<div class="acct-row" data-user-id="' + id + '">'
-            + '<div class="acct-row__who">'
-            + '<span class="acct-row__handle">@' + escapeHtml(u_name) + '</span>' + nameHtml
-            + '</div>'
-            + '<button type="button" class="btn btn-secondary ' + btnClass + '" data-user-id="' + id + '">' + btnLabel + '</button>'
-            + '</div>';
-    }
+    $('#username_save_btn').on('click', function () {
+        var u_name = ($('#account_username').val() || '').trim().toLowerCase().replace(/^@+/, '');
+        if (u_name == '') { toastr.error('Enter a username'); return; }
 
-    $('#block_add_btn').on('click', function () {
-        var u_name = ($('#block_username').val() || '').trim().replace(/^@+/, '');
-        if (u_name == '') { toastr.error('Enter a username to block'); return; }
-
-        ApiDataSvc.apiCall('post', 'block_user', { u_name: u_name }, function (data) {
+        ApiDataSvc.apiCall('post', 'change_username', { u_name: u_name }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
-            $('#block_username').val('');
-            $('#block_empty').remove();
-            if ($('#block_list .acct-row[data-user-id="' + o.blocked_user_id + '"]').length === 0) {
-                $('#block_list').prepend(renderAcctRow(o.blocked_user_id, o.u_name, o.name, 'block-unblock', 'Unblock'));
+            $('#account_username').val(o.u_name).prop('disabled', true);
+            $('#username_save_btn').prop('disabled', true);
+            $('#uname_preview').text(o.u_name);
+            if (o.next_change_date) {
+                $('#uname_rules').html('You can change your username again on <strong>' + escapeHtml(o.next_change_date) + '</strong>.');
             }
         });
     });
+
+    /* ---- profile details ---- */
+    $('#save_profile').on('click', function () {
+        if ($('#first_name').val() == '') { toastr.error('First name is required'); return; }
+        if ($('#last_name').val() == '') { toastr.error('Last name is required'); return; }
+        if ($('#user_email').val() == '') { toastr.error('Email is required'); return; }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('#user_email').val())) { toastr.error('A valid email is required'); return; }
+
+        ApiDataSvc.apiCall('post', 'update_profile', {
+            first_name:    $('#first_name').val(),
+            last_name:     $('#last_name').val(),
+            user_email:    $('#user_email').val(),
+            user_phone:    $('#user_phone').val(),
+            business_name: $('#business_name').val(),
+            website_url:   $('#website_url').val()
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    $('#delete_account').on('click', function () {
+        new bootstrap.Modal(document.getElementById('delete_account_form')).show();
+    });
+
+    $('#confirm_delete_account').on('click', function () {
+        bootstrap.Modal.getInstance(document.getElementById('delete_account_form')).hide();
+        ApiDataSvc.apiCall('post', 'delete_my_account', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { setTimeout(function () { window.location.href = '/'; }, 800); }
+            else { toastr.error(o.message); }
+        });
+    });
+
+    /* ---- change password (Security) ---- */
+    var password_rules = {
+        length: function (v) { return v.length >= 8; },
+        upper:  function (v) { return /[A-Z]/.test(v); },
+        lower:  function (v) { return /[a-z]/.test(v); },
+        number: function (v) { return /[0-9]/.test(v); },
+        symbol: function (v) { return /[^A-Za-z0-9]/.test(v); },
+        match:  function (v) { return v === $('#confirm_password').val(); }
+    };
+    var password_labels  = ['Strength', 'Weak', 'Fair', 'Good', 'Strong'];
+    var password_classes = ['', 'is-weak', 'is-fair', 'is-good', 'is-strong'];
+    var password_bucket  = [0, 1, 1, 2, 3, 4];
+
+    function password_render() {
+        var v = $('#new_password').val() || '';
+        var score = 0;
+        $.each(password_rules, function (rule, test) {
+            var ok = test(v);
+            if (ok) { score++; }
+            $('#password-reqs li[data-rule="' + rule + '"]').toggleClass('is-met', ok);
+        });
+        var bucket = v.length ? password_bucket[score] : 0;
+        $('#meter').removeClass('is-weak is-fair is-good is-strong').addClass(password_classes[bucket]);
+        $('#meterLabel').text(password_labels[bucket]);
+    }
+
+    $('#new_password, #confirm_password').on('keyup', password_render);
+
+    $('#change_password').on('click', function () {
+        $('#current_password, #new_password, #confirm_password').val('');
+        $('#password-reqs li').removeClass('is-met');
+        $('#meter').removeClass('is-weak is-fair is-good is-strong');
+        $('#meterLabel').text(password_labels[0]);
+        new bootstrap.Modal(document.getElementById('change_password_form')).show();
+    });
+
+    $('#update_password').on('click', function () {
+        if ($('#current_password').val() == '') { toastr.error('Current password is required'); return; }
+        if ($('#new_password').val() == '') { toastr.error('New password is required'); return; }
+        if ($('#confirm_password').val() == '') { toastr.error('Confirm password is required'); return; }
+        if ($('#new_password').val() !== $('#confirm_password').val()) { toastr.error('New passwords do not match'); return; }
+        if (!password_rules.length($('#new_password').val())) { toastr.error('New password must be at least 8 characters'); return; }
+        if (!password_rules.upper($('#new_password').val()))  { toastr.error('New password must include an uppercase letter'); return; }
+        if (!password_rules.lower($('#new_password').val()))  { toastr.error('New password must include a lowercase letter'); return; }
+        if (!password_rules.number($('#new_password').val())) { toastr.error('New password must include a number'); return; }
+        if (!password_rules.symbol($('#new_password').val())) { toastr.error('New password must include a symbol'); return; }
+
+        ApiDataSvc.apiCall('post', 'change_password', {
+            current_password: $('#current_password').val(),
+            p_word:           $('#new_password').val(),
+            confirm_password: $('#confirm_password').val()
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                bootstrap.Modal.getInstance(document.getElementById('change_password_form')).hide();
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
+    /* ---- MFA ---- */
+    function setMethodOn(method, on) {
+        var badge = method === 'totp' ? $('#totp_badge') : $('#email_badge');
+        var btn   = method === 'totp' ? $('#totp_toggle_btn') : $('#email_toggle_btn');
+        badge.toggleClass('is-on', on).text(on ? 'On' : 'Off');
+        btn.text(on ? 'Disable' : 'Set up');
+        var anyOn = $('#totp_badge').hasClass('is-on') || $('#email_badge').hasClass('is-on');
+        $('#mfa_backup_row').prop('hidden', !anyOn);
+    }
+
+    function showBackupCodes(codes) {
+        if (!codes || !codes.length) { return; }
+        $('#backup_count').text(codes.length);
+        $('#backup_codes_list').html(codes.map(function (c) {
+            return '<span class="mfa-codes__code">' + escapeHtml(c) + '</span>';
+        }).join(''));
+        setTimeout(function () {
+            new bootstrap.Modal(document.getElementById('backup_codes_modal')).show();
+        }, 300);
+    }
+
+    var pwConfirmCb = null;
+    function openPasswordConfirm(promptText, btnLabel, cb) {
+        pwConfirmCb = cb;
+        $('#mfa_disable_prompt').text(promptText);
+        $('#mfa_disable_confirm').text(btnLabel);
+        $('#mfa_disable_password').val('');
+        new bootstrap.Modal(document.getElementById('mfa_disable_modal')).show();
+    }
+    $('#mfa_disable_confirm').on('click', function () {
+        var pw = $('#mfa_disable_password').val();
+        if (pw == '') { toastr.error('Enter your current password'); return; }
+        if (pwConfirmCb) { pwConfirmCb(pw); }
+    });
+
+    // Authenticator app
+    $('#totp_toggle_btn').on('click', function () {
+        if ($('#totp_badge').hasClass('is-on')) {
+            openPasswordConfirm('Enter your current password to disable the authenticator app.', 'Disable', function (pw) {
+                ApiDataSvc.apiCall('post', 'mfa_totp_disable', { current_password: pw }, function (data) {
+                    var o = JSON.parse(data);
+                    if (!o.success) { toastr.error(o.message); return; }
+                    bootstrap.Modal.getInstance(document.getElementById('mfa_disable_modal')).hide();
+                    toastr.success(o.message);
+                    setMethodOn('totp', false);
+                });
+            });
+            return;
+        }
+        ApiDataSvc.apiCall('post', 'mfa_totp_begin', {}, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            $('#totp_secret').text(o.secret);
+            $('#totp_qr').empty();
+            new QRCode(document.getElementById('totp_qr'), { text: o.otpauth_uri, width: 176, height: 176 });
+            $('#totp_code').val('');
+            new bootstrap.Modal(document.getElementById('totp_enroll_modal')).show();
+        });
+    });
+
+    $('#totp_confirm_btn').on('click', function () {
+        var code = ($('#totp_code').val() || '').trim();
+        if (code == '') { toastr.error('Enter the 6-digit code'); return; }
+        ApiDataSvc.apiCall('post', 'mfa_totp_confirm', { code: code }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            bootstrap.Modal.getInstance(document.getElementById('totp_enroll_modal')).hide();
+            setMethodOn('totp', true);
+            showBackupCodes(o.backup_codes);
+        });
+    });
+
+    // Email verification
+    $('#email_toggle_btn').on('click', function () {
+        if ($('#email_badge').hasClass('is-on')) {
+            openPasswordConfirm('Enter your current password to disable email verification.', 'Disable', function (pw) {
+                ApiDataSvc.apiCall('post', 'mfa_email_disable', { current_password: pw }, function (data) {
+                    var o = JSON.parse(data);
+                    if (!o.success) { toastr.error(o.message); return; }
+                    bootstrap.Modal.getInstance(document.getElementById('mfa_disable_modal')).hide();
+                    toastr.success(o.message);
+                    setMethodOn('email', false);
+                });
+            });
+            return;
+        }
+        ApiDataSvc.apiCall('post', 'mfa_email_send_enroll', {}, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            $('#email_code').val('');
+            new bootstrap.Modal(document.getElementById('email_enroll_modal')).show();
+        });
+    });
+
+    $('#email_resend_btn').on('click', function () {
+        ApiDataSvc.apiCall('post', 'mfa_email_send_enroll', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    $('#email_confirm_btn').on('click', function () {
+        var code = ($('#email_code').val() || '').trim();
+        if (code == '') { toastr.error('Enter the 6-digit code'); return; }
+        ApiDataSvc.apiCall('post', 'mfa_email_confirm', { code: code }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            bootstrap.Modal.getInstance(document.getElementById('email_enroll_modal')).hide();
+            setMethodOn('email', true);
+            showBackupCodes(o.backup_codes);
+        });
+    });
+
+    // Backup codes
+    $('#regen_backup_btn').on('click', function () {
+        openPasswordConfirm('Enter your current password to generate new backup codes. Your old codes will stop working.', 'Regenerate', function (pw) {
+            ApiDataSvc.apiCall('post', 'mfa_regenerate_backup_codes', { current_password: pw }, function (data) {
+                var o = JSON.parse(data);
+                if (!o.success) { toastr.error(o.message); return; }
+                bootstrap.Modal.getInstance(document.getElementById('mfa_disable_modal')).hide();
+                toastr.success(o.message);
+                showBackupCodes(o.backup_codes);
+            });
+        });
+    });
+
+    $('#backup_copy_btn').on('click', function () {
+        var text = $('#backup_codes_list .mfa-codes__code').map(function () { return $(this).text(); }).get().join('\n');
+        if (navigator.clipboard) {
+            navigator.clipboard.writeText(text).then(function () { toastr.success('Copied'); }, function () { toastr.error('Copy failed'); });
+        }
+    });
+
+    $(document).on('keydown', '#totp_code', function (e) { if (e.keyCode === 13) { $('#totp_confirm_btn').click(); } });
+    $(document).on('keydown', '#email_code', function (e) { if (e.keyCode === 13) { $('#email_confirm_btn').click(); } });
 
     $('#block_list').on('click', '.block-unblock', function () {
         var $row = $(this).closest('.acct-row');

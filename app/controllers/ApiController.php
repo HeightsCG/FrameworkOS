@@ -141,6 +141,22 @@ class ApiController extends Controller {
 
         session_regenerate_id(true);
 
+        // MFA gate: if a second factor is enabled, defer full login until verified.
+        if (!empty($user['mfa_totp_enabled']) || !empty($user['mfa_email_enabled'])) {
+            Session::set('mfa_pending_user_id', (int) $user['user_id']);
+            $has_totp = !empty($user['mfa_totp_enabled']);
+            // No authenticator app → email a code straight away.
+            if (!$has_totp && !empty($user['mfa_email_enabled'])) {
+                $this->issue_and_send_login_code($user);
+            }
+            $response['success']      = true;
+            $response['message']      = 'Verification required';
+            $response['mfa_required'] = true;
+            $response['methods']      = array('totp' => $has_totp, 'email' => !empty($user['mfa_email_enabled']));
+            echo json_encode($response);
+            exit;
+        }
+
         foreach ($user as $key => $value) {
             Session::set($key, $value);
         }
@@ -312,6 +328,329 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ================================================================
+     * Multi-factor authentication (MFA)
+     * ================================================================ */
+
+    /** Issue and email a login verification code for a user row. */
+    private function issue_and_send_login_code($user){
+        $mfa  = new MfaModel();
+        $code = $mfa->issue_email_code((int) $user['user_id'], 'login');
+        if (!empty($user['user_email'])) {
+            $to_name = trim($user['first_name'] . ' ' . $user['last_name']);
+            $this->notificationsModel->send_mfa_code_email($user['user_email'], $to_name, $code);
+        }
+    }
+
+    /** Begin authenticator-app enrollment: mint a pending secret, return its otpauth URI. */
+    public function mfa_totp_beginAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $secret = TotpService::generate_secret();
+        Session::set('mfa_totp_pending', $secret);
+
+        $label = (string) Session::get('user_email');
+        $uri   = TotpService::otpauth_uri($secret, $label !== '' ? $label : (string) Session::get('u_name'), Main::site_name());
+
+        $response['success']     = true;
+        $response['secret']      = $secret;
+        $response['otpauth_uri'] = $uri;
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Confirm authenticator enrollment by verifying a code against the pending secret. */
+    public function mfa_totp_confirmAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $pending = (string) Session::get('mfa_totp_pending');
+        if ($pending === '') {
+            $response['message'] = 'Start the setup again';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!TotpService::verify($pending, (string) ($this->post['code'] ?? ''))) {
+            $response['message'] = 'That code is incorrect. Check your authenticator app and try again.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $first   = empty(Session::get('mfa_totp_enabled')) && empty(Session::get('mfa_email_enabled'));
+
+        $mfa = new MfaModel();
+        $mfa->set_totp($user_id, $pending);
+        Session::set('mfa_totp_pending', null);
+        Session::set('mfa_totp_enabled', 1);
+        Session::set('mfa_totp_secret', $pending);
+
+        $response['success']      = true;
+        $response['message']      = 'Authenticator app enabled';
+        $response['backup_codes'] = $first ? $mfa->generate_backup_codes($user_id) : array();
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Disable the authenticator app (requires the current password). */
+    public function mfa_totp_disableAction(){
+        echo json_encode($this->disable_mfa_method('totp'));
+        exit;
+    }
+
+    /** Email a code to confirm the user controls their inbox before enabling email MFA. */
+    public function mfa_email_send_enrollAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_account = $this->userModel->get_user_by_id(Session::get('user_id'));
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'Account not found';
+            echo json_encode($response);
+            exit;
+        }
+        $user = $user_account[0];
+
+        $mfa  = new MfaModel();
+        $code = $mfa->issue_email_code((int) $user['user_id'], 'enroll');
+        if (!empty($user['user_email'])) {
+            $to_name = trim($user['first_name'] . ' ' . $user['last_name']);
+            $this->notificationsModel->send_mfa_code_email($user['user_email'], $to_name, $code);
+        }
+
+        $response['success'] = true;
+        $response['message'] = 'We sent a code to your email';
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Confirm the emailed enrollment code and turn on email MFA. */
+    public function mfa_email_confirmAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $mfa     = new MfaModel();
+
+        if (!$mfa->verify_email_code($user_id, (string) ($this->post['code'] ?? ''), 'enroll')) {
+            $response['message'] = 'That code is incorrect or expired';
+            echo json_encode($response);
+            exit;
+        }
+
+        $first = empty(Session::get('mfa_totp_enabled')) && empty(Session::get('mfa_email_enabled'));
+        $mfa->set_email_enabled($user_id, true);
+        Session::set('mfa_email_enabled', 1);
+
+        $response['success']      = true;
+        $response['message']      = 'Email verification enabled';
+        $response['backup_codes'] = $first ? $mfa->generate_backup_codes($user_id) : array();
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Disable email MFA (requires the current password). */
+    public function mfa_email_disableAction(){
+        echo json_encode($this->disable_mfa_method('email'));
+        exit;
+    }
+
+    /** Shared disable path for a method; re-authenticates with the current password. */
+    private function disable_mfa_method($method){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            return $response;
+        }
+
+        $user_account = $this->userModel->get_user_by_id(Session::get('user_id'));
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'Account not found';
+            return $response;
+        }
+        $user = $user_account[0];
+
+        if (empty($this->post['current_password']) || !password_verify($this->post['current_password'], $user['p_word'])) {
+            $response['message'] = 'Your current password is incorrect';
+            return $response;
+        }
+
+        $user_id = (int) $user['user_id'];
+        $mfa     = new MfaModel();
+
+        if ($method === 'totp') {
+            $mfa->disable_totp($user_id);
+            Session::set('mfa_totp_enabled', 0);
+            Session::set('mfa_totp_secret', null);
+            $still_on = !empty($user['mfa_email_enabled']);
+        } else {
+            $mfa->set_email_enabled($user_id, false);
+            Session::set('mfa_email_enabled', 0);
+            $still_on = !empty($user['mfa_totp_enabled']);
+        }
+
+        // No factors left → the backup codes have nothing to protect.
+        if (!$still_on) {
+            $mfa->clear_backup_codes($user_id);
+        }
+
+        $response['success'] = true;
+        $response['message'] = 'Two-factor method disabled';
+        return $response;
+    }
+
+    /** Regenerate backup codes (requires the current password); returns the new set once. */
+    public function mfa_regenerate_backup_codesAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_account = $this->userModel->get_user_by_id(Session::get('user_id'));
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'Account not found';
+            echo json_encode($response);
+            exit;
+        }
+        $user = $user_account[0];
+
+        if (empty($user['mfa_totp_enabled']) && empty($user['mfa_email_enabled'])) {
+            $response['message'] = 'Enable two-factor authentication first';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (empty($this->post['current_password']) || !password_verify($this->post['current_password'], $user['p_word'])) {
+            $response['message'] = 'Your current password is incorrect';
+            echo json_encode($response);
+            exit;
+        }
+
+        $mfa = new MfaModel();
+        $response['success']      = true;
+        $response['message']      = 'New backup codes generated';
+        $response['backup_codes'] = $mfa->generate_backup_codes((int) $user['user_id']);
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Complete a login that was gated by MFA. Reads the pending user from the session. */
+    public function mfa_verifyAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        $pending = (int) Session::get('mfa_pending_user_id');
+        if ($pending <= 0) {
+            $response['message'] = 'Your session has expired. Please sign in again.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'mfa', 15) >= 8) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_account = $this->userModel->get_user_by_id($pending);
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'Please sign in again.';
+            echo json_encode($response);
+            exit;
+        }
+        $user = $user_account[0];
+
+        $method = $this->post['method'] ?? '';
+        $code   = (string) ($this->post['code'] ?? '');
+        $mfa    = new MfaModel();
+        $ok     = false;
+
+        if ($method === 'totp' && !empty($user['mfa_totp_enabled'])) {
+            $ok = TotpService::verify((string) $user['mfa_totp_secret'], $code);
+        } elseif ($method === 'email' && !empty($user['mfa_email_enabled'])) {
+            $ok = $mfa->verify_email_code($pending, $code, 'login');
+        } elseif ($method === 'backup') {
+            $ok = $mfa->verify_and_consume_backup($pending, $code);
+        }
+
+        if (!$ok) {
+            $this->loginAttemptsModel->record($ip, $user['u_name'], 'mfa');
+            $response['message'] = 'That code is incorrect or expired';
+            echo json_encode($response);
+            exit;
+        }
+
+        Session::set('mfa_pending_user_id', null);
+        session_regenerate_id(true);
+        foreach ($user as $key => $value) {
+            Session::set($key, $value);
+        }
+
+        $response['success']  = true;
+        $response['message']  = 'Login successful';
+        $response['reset_pw'] = (int) ($user['reset_pw'] ?? 0);
+        echo json_encode($response);
+        exit;
+    }
+
+    /** (Re)send an email login code for the pending MFA login. */
+    public function mfa_send_login_codeAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        $pending = (int) Session::get('mfa_pending_user_id');
+        if ($pending <= 0) {
+            $response['message'] = 'Your session has expired. Please sign in again.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_account = $this->userModel->get_user_by_id($pending);
+        if (!is_array($user_account) || count($user_account) !== 1) {
+            $response['message'] = 'Please sign in again.';
+            echo json_encode($response);
+            exit;
+        }
+        $user = $user_account[0];
+
+        if (empty($user['mfa_email_enabled'])) {
+            $response['message'] = 'Email verification is not enabled for this account';
+            echo json_encode($response);
+            exit;
+        }
+
+        $this->issue_and_send_login_code($user);
+        $response['success'] = true;
+        $response['message'] = 'We sent a code to your email';
+        echo json_encode($response);
+        exit;
+    }
+
     public function update_profileAction(){
 
         $response = array('success' => false, 'message' => 'Something went wrong');
@@ -346,18 +685,6 @@ class ApiController extends Controller {
             exit;
         }
 
-        if (empty($this->post['u_name'])) {
-            $response['message'] = 'Username is required';
-            echo json_encode($response);
-            exit;
-        }
-
-        if (strtolower($this->post['u_name']) !== strtolower((string) Session::get('u_name')) && $this->userModel->username_exists($this->post['u_name'])) {
-            $response['message'] = 'That username is already taken';
-            echo json_encode($response);
-            exit;
-        }
-
         $user_phone    = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
         $business_name = empty($this->post['business_name']) ? '' : $this->post['business_name'];
         $website_url   = empty($this->post['website_url']) ? '' : $this->post['website_url'];
@@ -368,7 +695,6 @@ class ApiController extends Controller {
             $this->post['last_name'],
             $this->post['user_email'],
             $user_phone,
-            $this->post['u_name'],
             $business_name,
             $website_url,
             (int) Session::get('user_id')
@@ -378,12 +704,72 @@ class ApiController extends Controller {
         Session::set('last_name', $this->post['last_name']);
         Session::set('user_email', $this->post['user_email']);
         Session::set('user_phone', $user_phone);
-        Session::set('u_name', $this->post['u_name']);
         Session::set('business_name', $business_name);
         Session::set('website_url', $website_url);
 
         $response['success'] = true;
         $response['message'] = 'Your profile has been updated';
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Change the signed-in user's username, enforcing the PRD 6.4 rules. */
+    public function change_usernameAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $new     = ltrim(strtolower(trim((string) ($this->post['u_name'] ?? ''))), '@');
+
+        $user = $this->userModel->get_user_by_id($user_id);
+        if (!is_array($user) || count($user) !== 1) {
+            $response['message'] = 'Account not found';
+            echo json_encode($response);
+            exit;
+        }
+        $user    = $user[0];
+        $current = (string) $user['u_name'];
+
+        if ($new === strtolower($current)) {
+            $response['message'] = 'That is already your username';
+            echo json_encode($response);
+            exit;
+        }
+
+        $usernameModel = new UsernameModel();
+
+        if ($usernameModel->cooldown_days_left($user['u_name_changed_at']) > 0) {
+            $response['message'] = 'You can change your username again on ' . $usernameModel->next_change_date($user['u_name_changed_at']);
+            echo json_encode($response);
+            exit;
+        }
+
+        $format_error = $usernameModel->validate_format($new);
+        if ($format_error !== '') {
+            $response['message'] = $format_error;
+            echo json_encode($response);
+            exit;
+        }
+
+        if ($usernameModel->is_taken($new, $user_id)) {
+            $response['message'] = 'That username is not available';
+            echo json_encode($response);
+            exit;
+        }
+
+        $usernameModel->change($user_id, $current, $new);
+        Session::set('u_name', $new);
+
+        $response['success']          = true;
+        $response['message']          = 'Your username has been updated';
+        $response['u_name']           = $new;
+        $response['next_change_date'] = $usernameModel->next_change_date(date('Y-m-d H:i:s'));
         echo json_encode($response);
         exit;
     }

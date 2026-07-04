@@ -106,6 +106,13 @@ class AccountController extends Controller {
         $this->view->autoreplenishment   = $creditsModel->get_autoreplenishment($user['user_id']);
         $this->view->cards               = $cards;
         $this->view->stripe_pk           = StripeService::publishable_key();
+        $this->view->username_next_change = (new UsernameModel())->next_change_date($user['u_name_changed_at']);
+        $this->view->public_domain        = Main::public_domain();
+
+        $mfaModel = new MfaModel();
+        $this->view->mfa_totp_enabled  = !empty($user['mfa_totp_enabled']);
+        $this->view->mfa_email_enabled = !empty($user['mfa_email_enabled']);
+        $this->view->mfa_backup_count  = $mfaModel->count_unused_backup($user['user_id']);
 
         $this->view->render();
     }
@@ -154,15 +161,9 @@ class AccountController extends Controller {
     }
 
     public function profileAction(){
-        $user = $this->userModel->get_user_by_id(Session::get('user_id'));
-        if (is_array($user) && count($user) === 1) {
-            $this->view->user = $user[0];
-            $this->view->render();
-        } else {
-            Header('Location: /');
-            exit;
-        }
-
+        // Profile has been consolidated into Account settings.
+        Header('Location: /account/settings');
+        exit;
     }
 
     /** Plain-text Creator Terms & Conditions with the site name substituted in. */

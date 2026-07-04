@@ -96,7 +96,7 @@ class UsersModel extends Model {
         );
     }
 
-    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $u_name, $business_name, $website_url, $updated_by=0){
+    public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $business_name, $website_url, $updated_by=0){
         return parent::update(
             'user_accounts',
             array(
@@ -104,7 +104,6 @@ class UsersModel extends Model {
                 'last_name'     => $last_name,
                 'user_email'    => $user_email,
                 'user_phone'    => $user_phone,
-                'u_name'        => $u_name,
                 'business_name' => $business_name,
                 'website_url'   => $website_url,
                 'updated_at'    => date('Y-m-d H:i:s'),
