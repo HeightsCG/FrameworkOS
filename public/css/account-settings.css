@@ -40,6 +40,9 @@
 .uname__label{display:block; font-size:.82rem; font-weight:600; color:var(--t2); margin-bottom:.3rem;}
 .uname__hint{font-size:.85rem; color:var(--muted); margin:0 0 .9rem;}
 .uname__url{color:var(--t2); font-weight:600;}
+.uname__url--link{color:var(--violet7); text-decoration:none; transition:color .14s;}
+.uname__url--link:hover{color:var(--violet); text-decoration:underline;}
+.uname__url-icon{font-size:.72rem; margin-left:.15rem;}
 .uname__row{display:flex; gap:.6rem; align-items:center;}
 .uname__field{position:relative; flex:1; max-width:340px;}
 .uname__at{position:absolute; left:.7rem; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.92rem;}
@@ -244,10 +247,43 @@
 .link-field{margin-bottom:1rem; display:flex; flex-direction:column;}
 .link-field label{font-size:.82rem; font-weight:600; color:var(--t2); margin-bottom:.4rem;}
 .link-field .form-control{border:1px solid #d4d4dd; border-radius:2px; box-shadow:none; font-size:.92rem;}
+
+/* my subscriptions */
+.subs-list{display:flex; flex-direction:column; gap:.7rem; max-width:100%;}
+.sub-row{display:flex; align-items:center; justify-content:space-between; gap:1rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1rem 1.2rem;}
+.sub-row__info{display:flex; flex-direction:column; gap:.15rem; min-width:0;}
+.sub-row__creator{font-size:.95rem; font-weight:600; color:var(--text); text-decoration:none;}
+.sub-row__creator:hover{color:var(--violet7); text-decoration:underline;}
+.sub-row__plan{font-size:.85rem; color:var(--t2);}
+.sub-row__status{font-size:.8rem; color:var(--muted);}
+.sub-row__actions{flex:none;}
+.sub-row__actions .btn{white-space:nowrap;}
+
+/* membership plan rows */
+.plan-row{display:flex; align-items:center; gap:.75rem; padding:.7rem 1rem; border-bottom:1px solid var(--line2);}
+.plan-row:last-child{border-bottom:0;}
+.plan-row.is-inactive .plan-row__info{opacity:.5;}
+.plan-row__info{display:flex; align-items:baseline; gap:.6rem; min-width:0; flex:1 1 auto;}
+.plan-row__name{font-size:.9rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.plan-row__price{font-size:.88rem; font-weight:700; color:var(--violet7); flex:none;}
+.plan-row__unit{font-size:.76rem; font-weight:500; color:var(--muted);}
+.plan-row__switch{position:relative; display:inline-block; width:38px; height:22px; margin:0; cursor:pointer; flex:none;}
+.plan-row__switch input{position:absolute; opacity:0; width:0; height:0;}
+.plan-row__slider{position:absolute; inset:0; background:#d4d4dd; border-radius:2px; transition:background .16s;}
+.plan-row__slider::before{content:""; position:absolute; height:16px; width:16px; left:3px; top:3px; background:#fff; border-radius:2px; box-shadow:0 1px 2px rgba(20,18,40,.25); transition:transform .16s;}
+.plan-row__switch input:checked + .plan-row__slider{background:var(--violet);}
+.plan-row__switch input:checked + .plan-row__slider::before{transform:translateX(16px);}
+.plan-free-toggle{display:flex; align-items:center; gap:.5rem; font-size:.9rem; font-weight:500; color:var(--t2); margin-bottom:1rem; cursor:pointer;}
+.plan-field-row{display:grid; grid-template-columns:1fr 1fr; gap:.9rem;}
+.plan-price-input .form-control:disabled{background:#f4f4f7; color:var(--muted);}
+.plan-optional{color:var(--muted2); font-weight:500;}
+.plan-price-input{position:relative;}
+.plan-price-input__prefix{position:absolute; left:.7rem; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.92rem;}
+.plan-price-input .form-control{padding-left:1.5rem;}
 .link-field .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
-.link-row.sortable-ghost{opacity:.4;}
-.link-row.sortable-chosen{background:var(--vsoft);}
-.link-row.sortable-drag{background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-lg); opacity:1;}
+.link-row.sortable-ghost, .plan-row.sortable-ghost{opacity:.4;}
+.link-row.sortable-chosen, .plan-row.sortable-chosen{background:var(--vsoft);}
+.link-row.sortable-drag, .plan-row.sortable-drag{background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-lg); opacity:1;}
 
 /* payouts (Stripe Connect) */
 .payout-setup{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:100%; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.2rem 1.3rem;}

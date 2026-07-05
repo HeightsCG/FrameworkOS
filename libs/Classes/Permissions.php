@@ -27,10 +27,7 @@ class Permissions {
         if (self::is_logged_in()) {
             $role_id = (int) Session::get('role_id');
             if ($role_id > 0) {
-                $rows = (new Roles())->get_role_by_id($role_id);
-                if (is_array($rows) && count($rows) === 1) {
-                    self::$role_cache = (string) $rows[0]['role_name'];
-                }
+                self::$role_cache = (new UsersModel())->get_role_name_by_id($role_id);
             }
         }
         return self::$role_cache;

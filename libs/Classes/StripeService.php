@@ -311,4 +311,102 @@ class StripeService {
         }
         return $out;
     }
+
+    /* ---------- Creator subscriptions (direct charges on the connected account) ---------- */
+
+    /** Create a recurring Product + Price on the creator's connected account. */
+    public static function create_connect_price($account_id, $plan): array
+    {
+        try {
+            $opts = array('stripe_account' => $account_id);
+            // Idempotency keys dedupe concurrent first-subscribes so a plan can't
+            // spawn duplicate products/prices; keyed on the values that define them.
+            $sig     = $plan['id'] . '_' . $plan['price_cents'] . '_' . $plan['billing_interval'];
+            $product = self::client()->products->create(
+                array('name' => (string) $plan['name']),
+                $opts + array('idempotency_key' => 'clsprod_' . $sig)
+            );
+            $price = self::client()->prices->create(array(
+                'unit_amount' => (int) $plan['price_cents'],
+                'currency'    => 'usd',
+                'recurring'   => array('interval' => (string) $plan['billing_interval']),
+                'product'     => $product->id,
+            ), $opts + array('idempotency_key' => 'clsprice_' . $sig));
+            return array('product_id' => (string) $product->id, 'price_id' => (string) $price->id);
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_connect_price: ' . $e->getMessage());
+            return array('product_id' => '', 'price_id' => '', 'error' => $e->getMessage());
+        }
+    }
+
+    /**
+     * Hosted Checkout for a subscription on the connected account, collecting the
+     * platform's application fee. $metadata ties the session back to a subscriber/plan.
+     */
+    public static function create_subscription_checkout($account_id, $price_id, $fee_percent, $success_url, $cancel_url, $metadata = array(), $email = ''): array
+    {
+        try {
+            $params = array(
+                'mode'       => 'subscription',
+                'line_items' => array(array('price' => $price_id, 'quantity' => 1)),
+                'success_url' => $success_url,
+                'cancel_url'  => $cancel_url,
+                'subscription_data' => array(
+                    'application_fee_percent' => (float) $fee_percent,
+                    'metadata'                => $metadata,
+                ),
+                'metadata' => $metadata,
+            );
+            if ($email !== '') {
+                $params['customer_email'] = $email;
+            }
+            $session = self::client()->checkout->sessions->create($params, array('stripe_account' => $account_id));
+            return array('id' => (string) $session->id, 'url' => (string) $session->url);
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_subscription_checkout: ' . $e->getMessage());
+            return array('id' => '', 'url' => '', 'error' => $e->getMessage());
+        }
+    }
+
+    /** Schedule (or undo) cancellation of a subscription at period end, on the connected account. */
+    public static function set_subscription_cancel_at_period_end($account_id, $subscription_id, $cancel): bool
+    {
+        try {
+            self::client()->subscriptions->update(
+                $subscription_id,
+                array('cancel_at_period_end' => (bool) $cancel),
+                array('stripe_account' => $account_id)
+            );
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[stripe] set_subscription_cancel_at_period_end: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /** Retrieve a completed Checkout session (with its subscription) from the connected account. */
+    public static function retrieve_checkout_session($account_id, $session_id): array
+    {
+        try {
+            $session = self::client()->checkout->sessions->retrieve(
+                $session_id,
+                array('expand' => array('subscription')),
+                array('stripe_account' => $account_id)
+            );
+            $sub    = $session->subscription;
+            $sub_id = is_object($sub) ? (string) $sub->id : (string) $sub;
+            $period = (is_object($sub) && isset($sub->current_period_end)) ? (int) $sub->current_period_end : 0;
+            return array(
+                'status'             => (string) $session->status,
+                'payment_status'     => (string) $session->payment_status,
+                'subscription_id'    => $sub_id,
+                'customer_id'        => (string) $session->customer,
+                'metadata'           => $session->metadata ? $session->metadata->toArray() : array(),
+                'current_period_end' => $period,
+            );
+        } catch (\Throwable $e) {
+            error_log('[stripe] retrieve_checkout_session: ' . $e->getMessage());
+            return array('status' => '', 'error' => $e->getMessage());
+        }
+    }
 }

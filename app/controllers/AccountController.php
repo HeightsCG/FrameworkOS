@@ -89,6 +89,7 @@ class AccountController extends Controller {
         $this->view->is_creator          = $is_creator;
         $this->view->creator_profile     = $is_creator ? (new CreatorProfileModel())->get_for_user($user['user_id']) : array();
         $this->view->creator_links       = $is_creator ? (new CreatorLinksModel())->get_for_user($user['user_id']) : array();
+        $this->view->creator_plans       = $is_creator ? (new CreatorPlansModel())->get_for_user($user['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;
         $this->view->payouts             = $payouts;
@@ -108,6 +109,8 @@ class AccountController extends Controller {
         $this->view->stripe_pk           = StripeService::publishable_key();
         $this->view->username_next_change = (new UsernameModel())->next_change_date($user['u_name_changed_at']);
         $this->view->public_domain        = Main::public_domain();
+
+        $this->view->my_subscriptions = (new CreatorSubscriptionsModel())->get_for_subscriber($user['user_id']);
 
         $mfaModel = new MfaModel();
         $this->view->mfa_totp_enabled  = !empty($user['mfa_totp_enabled']);

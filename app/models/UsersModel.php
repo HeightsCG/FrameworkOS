@@ -122,6 +122,14 @@ class UsersModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['id'] : 0;
     }
 
+    public function get_role_name_by_id($role_id){
+        $rows = parent::select(
+            "SELECT role_name FROM user_roles WHERE id = :id",
+            array('id' => (int) $role_id)
+        );
+        return (is_array($rows) && count($rows) === 1) ? (string) $rows[0]['role_name'] : '';
+    }
+
     /** Promote a user to the Creator role and record agreement acceptance + start date. */
     public function make_creator($user_id, $updated_by=0){
         $creator_role_id = $this->get_role_id_by_name('Creator');

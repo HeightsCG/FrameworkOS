@@ -774,6 +774,274 @@ class ApiController extends Controller {
         exit;
     }
 
+    /** Follow a creator (auth required). */
+    public function follow_creatorAction(){
+        echo json_encode($this->set_follow(true));
+        exit;
+    }
+
+    /** Unfollow a creator (auth required). */
+    public function unfollow_creatorAction(){
+        echo json_encode($this->set_follow(false));
+        exit;
+    }
+
+    private function set_follow($following){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message']    = 'Sign in to follow creators';
+            $response['need_login'] = true;
+            return $response;
+        }
+
+        $user_id    = (int) Session::get('user_id');
+        $creator_id = (int) ($this->post['creator_id'] ?? 0);
+
+        if ($creator_id <= 0 || $creator_id === $user_id) {
+            $response['message'] = 'You cannot follow this account';
+            return $response;
+        }
+
+        $follows = new FollowsModel();
+        if ($following) {
+            $follows->follow($user_id, $creator_id);
+        } else {
+            $follows->unfollow($user_id, $creator_id);
+        }
+
+        $response['success']        = true;
+        $response['message']        = $following ? 'Following' : 'Unfollowed';
+        $response['following']      = $following;
+        $response['follower_count'] = $follows->count_followers($creator_id);
+        return $response;
+    }
+
+    /** Join a free membership tier (auth required). Paid tiers go through checkout. */
+    public function join_free_planAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message']    = 'Sign in to join';
+            $response['need_login'] = true;
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $plan    = (new CreatorPlansModel())->get_public((int) ($this->post['plan_id'] ?? 0));
+
+        if (!$plan) {
+            $response['message'] = 'That plan is no longer available';
+            echo json_encode($response);
+            exit;
+        }
+        if ((int) $plan['price_cents'] !== 0) {
+            $response['message'] = 'This is a paid plan';
+            echo json_encode($response);
+            exit;
+        }
+        if ((int) $plan['user_id'] === $user_id) {
+            $response['message'] = 'You cannot join your own plan';
+            echo json_encode($response);
+            exit;
+        }
+
+        (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
+
+        $response['success'] = true;
+        $response['message'] = 'You joined ' . $plan['name'];
+        $response['plan_id'] = (int) $plan['id'];
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Start Stripe Checkout for a paid membership on the creator's connected account. */
+    public function subscribe_planAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message']    = 'Sign in to subscribe';
+            $response['need_login'] = true;
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id    = (int) Session::get('user_id');
+        $plansModel = new CreatorPlansModel();
+        $plan       = $plansModel->get_public((int) ($this->post['plan_id'] ?? 0));
+
+        if (!$plan) {
+            $response['message'] = 'That plan is no longer available';
+            echo json_encode($response);
+            exit;
+        }
+        if ((int) $plan['price_cents'] === 0) {
+            $response['message'] = 'This is a free plan';
+            echo json_encode($response);
+            exit;
+        }
+
+        $creator_id = (int) $plan['user_id'];
+        if ($creator_id === $user_id) {
+            $response['message'] = 'You cannot subscribe to your own plan';
+            echo json_encode($response);
+            exit;
+        }
+        $subsModel = new CreatorSubscriptionsModel();
+        if ($subsModel->is_subscribed_to_plan($user_id, (int) $plan['id'])) {
+            $response['message'] = 'You are already a member of this plan';
+            echo json_encode($response);
+            exit;
+        }
+        // One paid membership per creator — switching tiers is done from My Subscriptions.
+        if ($subsModel->has_active_paid_for_creator($user_id, $creator_id)) {
+            $response['message'] = 'You already have a paid membership with this creator. Manage or switch it in My Subscriptions.';
+            echo json_encode($response);
+            exit;
+        }
+
+        // The creator must have a payments-enabled Connect account.
+        $creator    = $this->userModel->get_user_by_id($creator_id);
+        $creator    = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
+        $connect_id = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
+        if (!$creator || $connect_id === '' || empty(StripeService::connect_account_status($connect_id)['payouts_enabled'])) {
+            $response['message'] = "This creator isn't set up to accept payments yet";
+            echo json_encode($response);
+            exit;
+        }
+
+        // Create the Stripe price on first subscribe, then cache it on the plan.
+        $price_id = (string) ($plan['stripe_price_id'] ?? '');
+        if ($price_id === '') {
+            $created = StripeService::create_connect_price($connect_id, $plan);
+            if (empty($created['price_id'])) {
+                $response['message'] = 'Could not start checkout. Please try again.';
+                echo json_encode($response);
+                exit;
+            }
+            $price_id = $created['price_id'];
+            $plansModel->set_stripe_ids((int) $plan['id'], $created['product_id'], $price_id);
+        }
+
+        $base    = Main::get_base_domain();
+        $handle  = rawurlencode((string) $creator['u_name']);
+        $success = $base . '/@' . $handle . '?sub=success&session_id={CHECKOUT_SESSION_ID}';
+        $cancel  = $base . '/@' . $handle . '?sub=cancel';
+        $meta    = array('subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']);
+
+        $session = StripeService::create_subscription_checkout(
+            $connect_id, $price_id, Main::platform_fee_percent(), $success, $cancel, $meta, (string) Session::get('user_email')
+        );
+        if (empty($session['url'])) {
+            $response['message'] = 'Could not start checkout. Please try again.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $response['success'] = true;
+        $response['url']     = $session['url'];
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Cancel a creator membership. Free → immediate; paid → at period end (via Stripe). */
+    public function cancel_creator_subscriptionAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $subs    = new CreatorSubscriptionsModel();
+        $sub     = $subs->get_owned($user_id, (int) ($this->post['id'] ?? 0));
+
+        if (!$sub || $sub['status'] !== 'active') {
+            $response['message'] = 'Subscription not found';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!empty($sub['is_free'])) {
+            $subs->set_status($user_id, (int) $sub['id'], 'canceled');
+            $response['state']   = 'canceled';
+            $response['message'] = 'Membership canceled';
+        } else {
+            $creator = $this->userModel->get_user_by_id((int) $sub['creator_id']);
+            $creator = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
+            $connect = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
+            if ($connect === '' || empty($sub['stripe_subscription_id'])
+                || !StripeService::set_subscription_cancel_at_period_end($connect, $sub['stripe_subscription_id'], true)) {
+                $response['message'] = 'Could not cancel. Please try again.';
+                echo json_encode($response);
+                exit;
+            }
+            $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], true);
+            $response['state']   = 'canceling';
+            $response['message'] = 'Your membership will end at the current billing period';
+        }
+
+        $response['success'] = true;
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Resume a creator membership: free → reactivate; paid → undo the scheduled cancellation. */
+    public function reactivate_creator_subscriptionAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $subs    = new CreatorSubscriptionsModel();
+        $sub     = $subs->get_owned($user_id, (int) ($this->post['id'] ?? 0));
+
+        if (!$sub) {
+            $response['message'] = 'Subscription not found';
+            echo json_encode($response);
+            exit;
+        }
+
+        if (!empty($sub['is_free'])) {
+            $plan = (new CreatorPlansModel())->get_public((int) $sub['plan_id']);
+            if (!$plan || (int) $plan['price_cents'] !== 0) {
+                $response['message'] = 'This plan is no longer available';
+                echo json_encode($response);
+                exit;
+            }
+            $subs->set_status($user_id, (int) $sub['id'], 'active');
+        } else {
+            if ($sub['status'] !== 'active') {
+                $response['message'] = 'This membership has ended — subscribe again from the profile';
+                echo json_encode($response);
+                exit;
+            }
+            $creator = $this->userModel->get_user_by_id((int) $sub['creator_id']);
+            $creator = (is_array($creator) && count($creator) === 1) ? $creator[0] : null;
+            $connect = $creator ? (string) ($creator['stripe_connect_account_id'] ?? '') : '';
+            if ($connect === '' || empty($sub['stripe_subscription_id'])
+                || !StripeService::set_subscription_cancel_at_period_end($connect, $sub['stripe_subscription_id'], false)) {
+                $response['message'] = 'Could not resume. Please try again.';
+                echo json_encode($response);
+                exit;
+            }
+            $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], false);
+        }
+
+        $response['success'] = true;
+        $response['state']   = 'active';
+        $response['message'] = 'Membership resumed';
+        echo json_encode($response);
+        exit;
+    }
+
     public function delete_my_accountAction(){
 
         $response = array('success' => false, 'message' => 'Something went wrong');
@@ -1501,6 +1769,469 @@ class ApiController extends Controller {
         }
         (new CreatorLinksModel())->reorder((int) Session::get('user_id'), $ids);
         echo json_encode(array('success' => true, 'message' => 'Order saved'));
+        exit;
+    }
+
+    /* ---------- Creator membership plans ---------- */
+
+    public function save_creator_planAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+
+        $name             = trim((string) ($this->post['name'] ?? ''));
+        $billing_interval = (string) ($this->post['billing_interval'] ?? 'month');
+        if (!in_array($billing_interval, array('week', 'month', 'year'), true)) {
+            $billing_interval = 'month';
+        }
+        $description      = trim((string) ($this->post['description'] ?? ''));
+        $perks            = trim((string) ($this->post['perks'] ?? ''));
+        $id               = (int) ($this->post['id'] ?? 0);
+
+        if ($name === '') {
+            echo json_encode(array('success' => false, 'message' => 'A plan name is required'));
+            exit;
+        }
+
+        // Price arrives as dollars; store integer cents. A free tier is 0; any
+        // paid tier must be at least $1.00 (Stripe won't charge sub-dollar reliably).
+        $is_free     = !empty($this->post['is_free']);
+        $price       = (float) ($this->post['price'] ?? 0);
+        $price_cents = $is_free ? 0 : (int) round($price * 100);
+        if ($price_cents !== 0 && $price_cents < 100) {
+            echo json_encode(array('success' => false, 'message' => 'Enter a price of at least $1.00, or make it a free tier'));
+            exit;
+        }
+
+        $fields = array(
+            'name'             => $name,
+            'price_cents'      => $price_cents,
+            'billing_interval' => $billing_interval,
+            'description'      => $description,
+            'perks'            => $perks,
+        );
+
+        $model = new CreatorPlansModel();
+        if ($id > 0) {
+            if (!$model->get_one($user_id, $id)) {
+                echo json_encode(array('success' => false, 'message' => 'Plan not found'));
+                exit;
+            }
+            $model->update_plan($user_id, $id, $fields);
+        } else {
+            $id = (int) $model->add($user_id, $fields);
+        }
+
+        echo json_encode(array('success' => true, 'message' => 'Plan saved', 'id' => $id));
+        exit;
+    }
+
+    public function delete_creator_planAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Plan is required'));
+            exit;
+        }
+        (new CreatorPlansModel())->delete_plan((int) Session::get('user_id'), $id);
+        echo json_encode(array('success' => true, 'message' => 'Plan removed'));
+        exit;
+    }
+
+    public function toggle_creator_planAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Plan is required'));
+            exit;
+        }
+        (new CreatorPlansModel())->set_active((int) Session::get('user_id'), $id, !empty($this->post['active']));
+        echo json_encode(array('success' => true, 'message' => 'Plan updated'));
+        exit;
+    }
+
+    public function reorder_creator_plansAction(){
+        $this->require_creator();
+        $ids = $this->post['ids'] ?? array();
+        if (!is_array($ids)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
+            exit;
+        }
+        (new CreatorPlansModel())->reorder((int) Session::get('user_id'), $ids);
+        echo json_encode(array('success' => true, 'message' => 'Order saved'));
+        exit;
+    }
+
+    /* ---------- Content Studio ---------- */
+
+    public function save_contentAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+
+        // clean_post_data() html-encodes all input; decode so we store raw text and
+        // escape exactly once at render (avoids double-encoded &mdash; / &#039;).
+        $dec = function ($k) { return html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8'); };
+        $title       = trim($dec('title'));
+        $description = trim($dec('description'));
+        $body        = $dec('body');
+        $tags        = trim($dec('tags'));
+        $access      = (string) ($this->post['access'] ?? 'public');
+        $id          = (int) ($this->post['id'] ?? 0);
+
+        if ($title === '') {
+            echo json_encode(array('success' => false, 'message' => 'A title is required'));
+            exit;
+        }
+        if (!in_array($access, array('public', 'subscribers', 'paid'), true)) {
+            $access = 'public';
+        }
+
+        $required_plan_id = 0;
+        $price_credits    = 0;
+        $plansModel       = new CreatorPlansModel();
+
+        if ($access === 'subscribers') {
+            $required_plan_id = (int) ($this->post['required_plan_id'] ?? 0);
+            if ($required_plan_id <= 0 || !$plansModel->get_one($user_id, $required_plan_id)) {
+                echo json_encode(array('success' => false, 'message' => 'Choose which tier can access this'));
+                exit;
+            }
+        } elseif ($access === 'paid') {
+            $price_credits = (int) ($this->post['price'] ?? 0);
+            if ($price_credits < 1) {
+                echo json_encode(array('success' => false, 'message' => 'Set a credit price of at least 1'));
+                exit;
+            }
+        }
+
+        $fields = array(
+            'title'            => $title,
+            'description'      => $description,
+            'body'             => $body,
+            'tags'             => $tags,
+            'access'           => $access,
+            'required_plan_id' => $required_plan_id,
+            'price_credits'    => $price_credits,
+            'comments_enabled' => !empty($this->post['comments_enabled']) ? 1 : 0,
+        );
+
+        $model = new ContentItemsModel();
+        if ($id > 0) {
+            if (!$model->get_one($user_id, $id)) {
+                echo json_encode(array('success' => false, 'message' => 'Content not found'));
+                exit;
+            }
+            $model->update_item($user_id, $id, $fields);
+        } else {
+            $id = (int) $model->add($user_id, $fields);
+        }
+
+        // Optional publish state: draft (default) | publish (now) | schedule (future).
+        $publish = (string) ($this->post['publish'] ?? '');
+        $status  = 'draft';
+        if ($publish === 'publish') {
+            $model->set_status($user_id, $id, 'published');
+            $status = 'published';
+        } elseif ($publish === 'schedule') {
+            $when = strtotime((string) ($this->post['scheduled_at'] ?? ''));
+            if (!$when || $when <= time()) {
+                echo json_encode(array('success' => false, 'message' => 'Pick a schedule time in the future', 'id' => $id));
+                exit;
+            }
+            $model->set_status($user_id, $id, 'scheduled', date('Y-m-d H:i:s', $when));
+            $status = 'scheduled';
+        } elseif ($publish === 'draft') {
+            $model->set_status($user_id, $id, 'draft');
+        }
+
+        echo json_encode(array('success' => true, 'message' => 'Content saved', 'id' => $id, 'status' => $status));
+        exit;
+    }
+
+    /** List an owned item's media assets (for the editor). */
+    public function get_content_assetsAction(){
+        $this->require_creator();
+        $user_id    = (int) Session::get('user_id');
+        $content_id = (int) ($this->post['content_id'] ?? 0);
+
+        if (!(new ContentItemsModel())->get_one($user_id, $content_id)) {
+            echo json_encode(array('success' => false, 'message' => 'Content not found'));
+            exit;
+        }
+        $assets = array();
+        foreach ((new ContentAssetsModel())->get_for_content($content_id) as $a) {
+            $assets[] = array('id' => (int) $a['id'], 'type' => $a['type'], 'url' => $a['url']);
+        }
+        echo json_encode(array('success' => true, 'assets' => $assets));
+        exit;
+    }
+
+    /** Allowed content media: real mime => [content_assets.type, extension, max bytes]. */
+    private static $content_media = array(
+        'image/jpeg'      => array('image', 'jpg',  5242880),
+        'image/png'       => array('image', 'png',  5242880),
+        'image/webp'      => array('image', 'webp', 5242880),
+        'image/gif'       => array('image', 'gif',  5242880),
+        'video/mp4'       => array('video', 'mp4',  209715200),
+        'video/webm'      => array('video', 'webm', 209715200),
+        'video/quicktime' => array('video', 'mov',  209715200),
+        'audio/mpeg'      => array('audio', 'mp3',  31457280),
+        'audio/mp4'       => array('audio', 'm4a',  31457280),
+        'audio/x-m4a'     => array('audio', 'm4a',  31457280),
+        'audio/wav'       => array('audio', 'wav',  31457280),
+        'audio/x-wav'     => array('audio', 'wav',  31457280),
+        'audio/ogg'       => array('audio', 'ogg',  31457280),
+        'application/pdf' => array('document', 'pdf', 26214400),
+    );
+
+    /** Upload a media asset (kind=media) or the locked preview image (kind=preview) for a content item. */
+    public function upload_content_assetAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+
+        $content_id = (int) ($this->post['content_id'] ?? 0);
+        $kind       = (string) ($this->post['kind'] ?? '');
+        if (!in_array($kind, array('media', 'preview'), true)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid upload'));
+            exit;
+        }
+
+        $itemModel = new ContentItemsModel();
+        $item      = $itemModel->get_one($user_id, $content_id);
+        if (!$item) {
+            echo json_encode(array('success' => false, 'message' => 'Save the content first'));
+            exit;
+        }
+
+        $file = $_FILES['file'] ?? ($_FILES['image'] ?? null);
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            echo json_encode(array('success' => false, 'message' => 'No file was uploaded'));
+            exit;
+        }
+        if (!S3Service::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Uploads are not available right now'));
+            exit;
+        }
+
+        // The locked preview is always an image.
+        if ($kind === 'preview') {
+            $info = @getimagesize($file['tmp_name']);
+            $img  = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif');
+            if ($info === false || !isset($img[$info['mime']])) {
+                echo json_encode(array('success' => false, 'message' => 'Preview must be an image (JPG, PNG, WebP, GIF)'));
+                exit;
+            }
+            if ((int) $file['size'] > 5242880) {
+                echo json_encode(array('success' => false, 'message' => 'Preview must be 5MB or smaller'));
+                exit;
+            }
+            $mime = $info['mime'];
+            $key  = 'content/u' . $user_id . '_c' . $content_id . '_preview_' . bin2hex(random_bytes(8)) . '.' . $img[$mime];
+            $url  = S3Service::upload_file($key, $file['tmp_name'], $mime);
+            if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the image')); exit; }
+            $old = (string) ($item['preview_url'] ?? '');
+            $itemModel->set_preview($user_id, $content_id, $url);
+            if ($old !== '') { S3Service::delete_by_url($old); }
+            echo json_encode(array('success' => true, 'kind' => 'preview', 'url' => $url));
+            exit;
+        }
+
+        // kind = media: trust the bytes, not the filename/client type.
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = (string) $finfo->file($file['tmp_name']);
+        if (!isset(self::$content_media[$mime])) {
+            echo json_encode(array('success' => false, 'message' => 'Unsupported file type (images, MP4/WebM/MOV video, MP3/M4A/WAV/OGG audio, or PDF)'));
+            exit;
+        }
+        list($type, $ext, $max) = self::$content_media[$mime];
+        if ((int) $file['size'] > $max) {
+            echo json_encode(array('success' => false, 'message' => ucfirst($type) . ' is too large (max ' . round($max / 1048576) . 'MB)'));
+            exit;
+        }
+
+        $key = 'content/u' . $user_id . '_c' . $content_id . '_' . $type . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        $url = S3Service::upload_file($key, $file['tmp_name'], $mime);
+        if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the file')); exit; }
+
+        $asset_id = (new ContentAssetsModel())->add($user_id, $content_id, $type, $url, $mime);
+        echo json_encode(array('success' => true, 'kind' => 'media', 'url' => $url, 'type' => $type, 'asset_id' => (int) $asset_id));
+        exit;
+    }
+
+    public function delete_content_assetAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+        $id      = (int) ($this->post['id'] ?? 0);
+
+        $assets = new ContentAssetsModel();
+        $asset  = $assets->get_one($user_id, $id);
+        if (!$asset) {
+            echo json_encode(array('success' => false, 'message' => 'Asset not found'));
+            exit;
+        }
+        $assets->delete_asset($user_id, $id);
+        S3Service::delete_by_url((string) $asset['url']);
+        echo json_encode(array('success' => true, 'message' => 'Removed'));
+        exit;
+    }
+
+    public function toggle_publish_contentAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Content is required'));
+            exit;
+        }
+        $status = !empty($this->post['published']) ? 'published' : 'draft';
+        (new ContentItemsModel())->set_status((int) Session::get('user_id'), $id, $status);
+        echo json_encode(array('success' => true, 'status' => $status));
+        exit;
+    }
+
+    public function delete_contentAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+        $id      = (int) ($this->post['id'] ?? 0);
+
+        $itemModel = new ContentItemsModel();
+        $item      = $itemModel->get_one($user_id, $id);
+        if (!$item) {
+            echo json_encode(array('success' => false, 'message' => 'Content not found'));
+            exit;
+        }
+
+        // Clean up the stored S3 assets + preview before removing the rows.
+        $assetsModel = new ContentAssetsModel();
+        foreach ($assetsModel->get_for_content($id) as $a) {
+            S3Service::delete_by_url((string) $a['url']);
+        }
+        if (!empty($item['preview_url'])) {
+            S3Service::delete_by_url((string) $item['preview_url']);
+        }
+        $assetsModel->delete_for_content($user_id, $id);
+        $itemModel->delete_item($user_id, $id);
+
+        echo json_encode(array('success' => true, 'message' => 'Content removed'));
+        exit;
+    }
+
+    public function reorder_contentAction(){
+        $this->require_creator();
+        $ids = $this->post['ids'] ?? array();
+        if (!is_array($ids)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
+            exit;
+        }
+        (new ContentItemsModel())->reorder((int) Session::get('user_id'), $ids);
+        echo json_encode(array('success' => true, 'message' => 'Order saved'));
+        exit;
+    }
+
+    public function pin_contentAction(){
+        $this->require_creator();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Content is required'));
+            exit;
+        }
+        $pinned = !empty($this->post['pinned']);
+        (new ContentItemsModel())->set_pinned((int) Session::get('user_id'), $id, $pinned);
+        echo json_encode(array('success' => true, 'pinned' => $pinned));
+        exit;
+    }
+
+    public function reorder_content_assetsAction(){
+        $this->require_creator();
+        $ids = $this->post['ids'] ?? array();
+        if (!is_array($ids)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
+            exit;
+        }
+        (new ContentAssetsModel())->reorder((int) Session::get('user_id'), $ids);
+        echo json_encode(array('success' => true, 'message' => 'Order saved'));
+        exit;
+    }
+
+    /** Unlock paid content by spending credits (any authenticated viewer). Idempotent. */
+    public function unlock_contentAction(){
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message']    = 'Sign in to unlock';
+            $response['need_login'] = true;
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id  = (int) Session::get('user_id');
+        $itemModel = new ContentItemsModel();
+        $item     = $itemModel->get_public_by_id((int) ($this->post['content_id'] ?? 0));
+
+        if (!$item || $item['access'] !== 'paid') {
+            $response['message'] = 'That content is not available to unlock';
+            echo json_encode($response);
+            exit;
+        }
+        $creator_id = (int) $item['creator_id'];
+        if ($creator_id === $user_id) {
+            $response['message'] = 'This is your own content';
+            echo json_encode($response);
+            exit;
+        }
+
+        $unlocks = new ContentUnlocksModel();
+        $content_id = (int) $item['id'];
+
+        // Already owned → reveal without charging (idempotent, §16.3).
+        if ($unlocks->is_unlocked($user_id, $content_id)) {
+            $this->respond_unlocked($item);
+        }
+
+        $price = (int) $item['price_credits'];
+
+        // Insert the ownership row first; the UNIQUE key makes concurrent unlocks safe.
+        if ($unlocks->record($user_id, $content_id, $creator_id, $price) === false) {
+            // Lost the race → someone else's request already recorded it; reveal.
+            $this->respond_unlocked($item);
+        }
+
+        // Atomic spend (FOR UPDATE, rejects a negative balance).
+        $new_balance = (new CreditsModel())->apply_delta($user_id, -$price, 'content_unlock', 'Unlocked content #' . $content_id);
+        if ($new_balance === false) {
+            $unlocks->remove($user_id, $content_id);
+            $response['message']      = 'Not enough credits';
+            $response['need_credits'] = true;
+            echo json_encode($response);
+            exit;
+        }
+
+        // TODO: credit the creator's earnings wallet (§18.7) here once it exists.
+        $this->respond_unlocked($item, $new_balance);
+    }
+
+    /** Emit the revealed content (original assets + body). Only reached post-entitlement (§11.6). */
+    private function respond_unlocked($item, $balance = null){
+        $assets = array();
+        foreach ((new ContentAssetsModel())->get_for_content((int) $item['id']) as $a) {
+            $assets[] = array('type' => $a['type'], 'url' => $a['url']);
+        }
+        $tags = array();
+        foreach (explode(',', (string) ($item['tags'] ?? '')) as $t) {
+            $t = trim($t);
+            if ($t !== '') { $tags[] = $t; }
+        }
+        $out = array(
+            'success'     => true,
+            'unlocked'    => true,
+            'message'     => 'Unlocked',
+            'description' => (string) ($item['description'] ?? ''),
+            'body'        => (string) $item['body'],
+            'tags'        => $tags,
+            'assets'      => $assets,
+        );
+        if ($balance !== null) {
+            $out['balance'] = (int) $balance;
+        }
+        echo json_encode($out);
         exit;
     }
 

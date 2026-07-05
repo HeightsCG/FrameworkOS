@@ -24,6 +24,15 @@ class Bootstrap
         ini_set('session.cookie_secure',   $isHttps ? '1' : '0');
         ini_set('session.cookie_samesite', 'Lax');
         Session::init();
+
+        // Public creator profiles live at /@handle. The "@" namespaces them away
+        // from real app routes, so intercept before normal controller resolution.
+        $url = Main::get_url();
+        if (isset($url[0][0]) && $url[0][0] === '@') {
+            (new ProfileController())->viewAction();
+            return;
+        }
+
         $c = Main::controller_name();
         $m = Main::method_name();
         if (class_exists($c)) {

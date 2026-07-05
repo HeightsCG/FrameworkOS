@@ -12,10 +12,12 @@
             <button type="button" class="settings__nav-item is-active" data-section="account"><i class="fa-solid fa-user"></i><span>Account</span></button>
             <button type="button" class="settings__nav-item" data-section="security"><i class="fa-solid fa-lock"></i><span>Security</span></button>
             <button type="button" class="settings__nav-item" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
-            <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator' : 'Become a Creator'; ?></span></button>
+            <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator Profile' : 'Become a Creator'; ?></span></button>
             <?php if ($this->is_creator): ?>
+            <button type="button" class="settings__nav-item" data-section="plans"><i class="fa-solid fa-gem"></i><span>Membership Plans</span></button>
             <button type="button" class="settings__nav-item" data-section="payouts"><i class="fa-solid fa-money-bill-transfer"></i><span>Payouts</span></button>
             <?php endif; ?>
+            <button type="button" class="settings__nav-item" data-section="subscriptions"><i class="fa-solid fa-heart"></i><span>My Subscriptions</span></button>
             <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>My Wallet</span></button>
             <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
@@ -28,7 +30,13 @@
                 <?php $next_change = $this->username_next_change; ?>
                 <div class="uname">
                     <label class="uname__label" for="account_username">Username</label>
-                    <p class="uname__hint">Your public handle: <span class="uname__url"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span></span></p>
+                    <p class="uname__hint">Your public handle:
+                        <?php if ($this->is_creator): ?>
+                        <a class="uname__url uname__url--link" id="uname_link" href="/@<?php echo htmlspecialchars(rawurlencode((string) $this->user['u_name']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span> <i class="fa-solid fa-arrow-up-right-from-square uname__url-icon"></i></a>
+                        <?php else: ?>
+                        <span class="uname__url"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span></span>
+                        <?php endif; ?>
+                    </p>
                     <div class="uname__row">
                         <div class="uname__field">
                             <span class="uname__at">@</span>
@@ -264,6 +272,40 @@
             </section>
 
             <?php if ($this->is_creator): ?>
+            <section class="settings__section" data-section="plans">
+                <div class="links-head">
+                    <h3 class="links-head__title">Membership Plans</h3>
+                    <button type="button" class="btn btn-secondary" id="plan_add_btn"><i class="fa-solid fa-plus"></i> Add Plan</button>
+                </div>
+                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Create tiers your fans can subscribe to. Drag to reorder; toggle to show or hide a tier on your profile.</p>
+                <div class="links-card">
+                    <div class="plans-list" id="plans_list">
+                        <?php foreach ($this->creator_plans as $plan): ?>
+                        <?php $unit = $plan['billing_interval'] === 'year' ? 'yr' : ($plan['billing_interval'] === 'week' ? 'wk' : 'mo'); ?>
+                        <div class="plan-row<?php echo empty($plan['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $plan['id']; ?>"
+                             data-name="<?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-price="<?php echo htmlspecialchars(number_format($plan['price_cents'] / 100, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"
+                             data-interval="<?php echo htmlspecialchars((string) $plan['billing_interval'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-description="<?php echo htmlspecialchars((string) $plan['description'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-perks="<?php echo htmlspecialchars((string) $plan['perks'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>
+                            <div class="plan-row__info">
+                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <span class="plan-row__price"><?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="plan-row__unit">/<?php echo $unit; ?></span><?php endif; ?></span>
+                            </div>
+                            <label class="plan-row__switch" title="Active">
+                                <input type="checkbox" class="plan-toggle" <?php echo !empty($plan['is_active']) ? 'checked' : ''; ?>>
+                                <span class="plan-row__slider"></span>
+                            </label>
+                            <button type="button" class="link-row__btn plan-edit" aria-label="Edit plan"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="link-row__btn plan-delete" aria-label="Remove plan"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="settings__empty links-empty" id="plans_empty" <?php echo empty($this->creator_plans) ? '' : 'hidden'; ?>>No membership plans yet. Add a tier your fans can subscribe to.</p>
+                </div>
+            </section>
+
             <?php $ps = $this->payout_status; ?>
             <section class="settings__section" data-section="payouts">
                 <?php if (empty($ps['payouts_enabled'])): ?>
@@ -328,6 +370,46 @@
                 <?php endif; ?>
             </section>
             <?php endif; ?>
+
+            <section class="settings__section" data-section="subscriptions">
+                <p class="acct-card__desc" style="margin:0 0 1.1rem;">Creators you support. Cancel or resume anytime.</p>
+                <div class="subs-list" id="subs_list">
+                    <?php foreach ($this->my_subscriptions as $sub): ?>
+                    <?php
+                        $s_free   = !empty($sub['is_free']);
+                        $s_unit   = $sub['billing_interval'] === 'year' ? 'year' : ($sub['billing_interval'] === 'week' ? 'week' : 'month');
+                        $s_period = !empty($sub['current_period_end']) ? date('M j, Y', strtotime((string) $sub['current_period_end'])) : '';
+                        $s_active = ($sub['status'] === 'active');
+                        $s_cancel = $s_active && !empty($sub['cancel_at_period_end']);
+                        $s_handle = (string) $sub['creator_handle'];
+                    ?>
+                    <div class="sub-row" data-id="<?php echo (int) $sub['id']; ?>" data-free="<?php echo $s_free ? 1 : 0; ?>" data-period="<?php echo htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); ?>" data-handle="<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>">
+                        <div class="sub-row__info">
+                            <a class="sub-row__creator" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $sub['creator_name'], ENT_QUOTES, 'UTF-8'); ?></a>
+                            <span class="sub-row__plan"><?php echo htmlspecialchars((string) $sub['plan_name'], ENT_QUOTES, 'UTF-8'); ?> · <?php echo $s_free ? 'Free' : '$' . number_format($sub['price_cents'] / 100, 2) . '/' . $s_unit; ?></span>
+                            <span class="sub-row__status" data-status><?php
+                                if (!$s_active) { echo 'Canceled'; }
+                                elseif ($s_cancel) { echo 'Ends ' . htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); }
+                                elseif ($s_free) { echo 'Active'; }
+                                elseif ($s_period !== '') { echo 'Renews ' . htmlspecialchars($s_period, ENT_QUOTES, 'UTF-8'); }
+                                else { echo 'Active'; }
+                            ?></span>
+                        </div>
+                        <div class="sub-row__actions" data-actions>
+                            <?php if (!$s_active): ?>
+                                <?php if ($s_free): ?><button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>
+                                <?php else: ?><a class="btn btn-secondary" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Subscribe again</a><?php endif; ?>
+                            <?php elseif ($s_cancel): ?>
+                                <button type="button" class="btn btn-secondary sub-reactivate">Resume</button>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-secondary sub-cancel"><?php echo $s_free ? 'Leave' : 'Cancel'; ?></button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <p class="settings__empty" id="subs_empty" <?php echo empty($this->my_subscriptions) ? '' : 'hidden'; ?>>You're not subscribed to any creators yet.</p>
+            </section>
 
             <section class="settings__section" data-section="wallet">
                 <?php
@@ -496,6 +578,56 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="link_save">Save link</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="plan_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="plan_modal_title">Add plan</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="plan_id" value="0">
+                <div class="link-field">
+                    <label for="plan_name">Plan name</label>
+                    <input type="text" class="form-control" id="plan_name" maxlength="120" placeholder="Supporter">
+                </div>
+                <label class="plan-free-toggle">
+                    <input type="checkbox" id="plan_free"> This is a free tier
+                </label>
+                <div class="plan-field-row">
+                    <div class="link-field">
+                        <label for="plan_price">Price (USD)</label>
+                        <div class="plan-price-input">
+                            <span class="plan-price-input__prefix">$</span>
+                            <input type="number" class="form-control" id="plan_price" min="0" step="0.01" placeholder="9.99">
+                        </div>
+                    </div>
+                    <div class="link-field">
+                        <label for="plan_interval">Billed</label>
+                        <select class="form-control" id="plan_interval">
+                            <option value="week">Weekly</option>
+                            <option value="month">Monthly</option>
+                            <option value="year">Yearly</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="link-field">
+                    <label for="plan_description">Short description <span class="plan-optional">(optional)</span></label>
+                    <input type="text" class="form-control" id="plan_description" maxlength="255" placeholder="Behind-the-scenes access and more">
+                </div>
+                <div class="link-field">
+                    <label for="plan_perks">Perks <span class="plan-optional">(one per line)</span></label>
+                    <textarea class="form-control" id="plan_perks" rows="4" placeholder="Exclusive posts&#10;Members-only chat&#10;Early access"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="plan_save">Save plan</button>
             </div>
         </div>
     </div>
@@ -910,6 +1042,7 @@ $(function () {
             $('#account_username').val(o.u_name).prop('disabled', true);
             $('#username_save_btn').prop('disabled', true);
             $('#uname_preview').text(o.u_name);
+            $('#uname_link').attr('href', '/@' + encodeURIComponent(o.u_name));
             if (o.next_change_date) {
                 $('#uname_rules').html('You can change your username again on <strong>' + escapeHtml(o.next_change_date) + '</strong>.');
             }
@@ -1494,6 +1627,156 @@ $(function () {
             toastr.success(o.message);
             $row.remove();
             if ($('#links_list .link-row').length === 0) { $('#links_empty').removeAttr('hidden'); }
+        });
+    });
+
+    /* ---- membership plans ---- */
+    function intervalAbbr(interval) { return interval === 'year' ? 'yr' : (interval === 'week' ? 'wk' : 'mo'); }
+    function planPriceLabel(price, interval) {
+        if (parseFloat(price) === 0) { return 'Free'; }
+        return '$' + parseFloat(price).toFixed(2) + '<span class="plan-row__unit">/' + intervalAbbr(interval) + '</span>';
+    }
+    function setPlanFreeState(free) {
+        $('#plan_price').prop('disabled', free);
+        $('#plan_interval').prop('disabled', free);
+        if (free) { $('#plan_price').val('0'); }
+    }
+    $('#plan_free').on('change', function () { setPlanFreeState($(this).is(':checked')); });
+    function renderPlanRow(p) {
+        return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
+            + ' data-name="' + escapeHtml(p.name) + '" data-price="' + escapeHtml(p.price) + '"'
+            + ' data-interval="' + escapeHtml(p.interval) + '" data-description="' + escapeHtml(p.description) + '"'
+            + ' data-perks="' + escapeHtml(p.perks) + '">'
+            + '<span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>'
+            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.name) + '</span>'
+            + '<span class="plan-row__price">' + planPriceLabel(p.price, p.interval) + '</span></div>'
+            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="plan-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
+            + '<button type="button" class="link-row__btn plan-edit" aria-label="Edit plan"><i class="fa-solid fa-pen"></i></button>'
+            + '<button type="button" class="link-row__btn plan-delete" aria-label="Remove plan"><i class="fa-solid fa-trash"></i></button>'
+            + '</div>';
+    }
+
+    if (window.Sortable && document.getElementById('plans_list')) {
+        Sortable.create(document.getElementById('plans_list'), {
+            handle: '.link-row__handle', animation: 150,
+            onEnd: function () {
+                var ids = $('#plans_list .plan-row').map(function () { return $(this).data('id'); }).get();
+                ApiDataSvc.apiCall('post', 'reorder_creator_plans', { ids: ids }, function () {});
+            }
+        });
+    }
+
+    $('#plan_add_btn').on('click', function () {
+        $('#plan_id').val(0);
+        $('#plan_name').val(''); $('#plan_price').val(''); $('#plan_interval').val('month');
+        $('#plan_description').val(''); $('#plan_perks').val('');
+        $('#plan_free').prop('checked', false); setPlanFreeState(false);
+        $('#plan_modal_title').text('Add plan');
+        $('#plan_modal').modal('show');
+    });
+
+    $('#plans_list').on('click', '.plan-edit', function () {
+        var $row = $(this).closest('.plan-row');
+        var isFree = parseFloat($row.data('price')) === 0;
+        $('#plan_id').val($row.data('id'));
+        $('#plan_name').val($row.data('name'));
+        $('#plan_price').val($row.data('price'));
+        $('#plan_interval').val($row.data('interval'));
+        $('#plan_description').val($row.data('description'));
+        $('#plan_perks').val($row.data('perks'));
+        $('#plan_free').prop('checked', isFree); setPlanFreeState(isFree);
+        $('#plan_modal_title').text('Edit plan');
+        $('#plan_modal').modal('show');
+    });
+
+    $('#plan_save').on('click', function () {
+        var id = $('#plan_id').val();
+        var name = ($('#plan_name').val() || '').trim();
+        var free = $('#plan_free').is(':checked');
+        var price = free ? '0' : $('#plan_price').val();
+        var interval = $('#plan_interval').val();
+        var description = ($('#plan_description').val() || '').trim();
+        var perks = $('#plan_perks').val() || '';
+        if (name == '') { toastr.error('Enter a plan name'); return; }
+        if (!free && !(parseFloat(price) >= 1)) { toastr.error('Enter a price of at least $1.00, or make it a free tier'); return; }
+
+        ApiDataSvc.apiCall('post', 'save_creator_plan', { id: id, name: name, price: price, is_free: free ? 1 : 0, billing_interval: interval, description: description, perks: perks }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            var $existing = $('#plans_list .plan-row[data-id="' + o.id + '"]');
+            var p = { id: o.id, name: name, price: (free ? '0.00' : parseFloat(price).toFixed(2)), interval: interval, description: description, perks: perks, active: true };
+            if ($existing.length) {
+                p.active = !$existing.hasClass('is-inactive');
+                $existing.replaceWith(renderPlanRow(p));
+            } else {
+                $('#plans_list').append(renderPlanRow(p));
+                $('#plans_empty').attr('hidden', true);
+            }
+            $('#plan_modal').modal('hide');
+        });
+    });
+
+    $('#plans_list').on('change', '.plan-toggle', function () {
+        var $row = $(this).closest('.plan-row');
+        var active = $(this).is(':checked');
+        $row.toggleClass('is-inactive', !active);
+        ApiDataSvc.apiCall('post', 'toggle_creator_plan', { id: $row.data('id'), active: active ? 1 : 0 }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); }
+        });
+    });
+
+    $('#plans_list').on('click', '.plan-delete', function () {
+        var $row = $(this).closest('.plan-row');
+        ApiDataSvc.apiCall('post', 'delete_creator_plan', { id: $row.data('id') }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            $row.remove();
+            if ($('#plans_list .plan-row').length === 0) { $('#plans_empty').removeAttr('hidden'); }
+        });
+    });
+
+    /* ---- my subscriptions ---- */
+    function subApply($row, state) {
+        var isFree = $row.data('free') == 1;
+        var period = $row.data('period') || '';
+        var handle = $row.data('handle') || '';
+        var status, action;
+        if (state === 'canceled') {
+            status = 'Canceled';
+            action = isFree
+                ? '<button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>'
+                : '<a class="btn btn-secondary" href="/@' + handle + '" target="_blank" rel="noopener">Subscribe again</a>';
+        } else if (state === 'canceling') {
+            status = period ? 'Ends ' + period : 'Ending';
+            action = '<button type="button" class="btn btn-secondary sub-reactivate">Resume</button>';
+        } else {
+            status = isFree ? 'Active' : (period ? 'Renews ' + period : 'Active');
+            action = '<button type="button" class="btn btn-secondary sub-cancel">' + (isFree ? 'Leave' : 'Cancel') + '</button>';
+        }
+        $row.find('[data-status]').text(status);
+        $row.find('[data-actions]').html(action);
+    }
+
+    $('#subs_list').on('click', '.sub-cancel', function () {
+        var $row = $(this).closest('.sub-row');
+        ApiDataSvc.apiCall('post', 'cancel_creator_subscription', { id: $row.data('id') }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            subApply($row, o.state);
+        });
+    });
+
+    $('#subs_list').on('click', '.sub-reactivate', function () {
+        var $row = $(this).closest('.sub-row');
+        ApiDataSvc.apiCall('post', 'reactivate_creator_subscription', { id: $row.data('id') }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            subApply($row, o.state);
         });
     });
 

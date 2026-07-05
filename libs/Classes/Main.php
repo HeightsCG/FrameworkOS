@@ -57,6 +57,13 @@ class Main {
         return self::config('global', 'public_domain');
     }
 
+    /** Platform's percentage cut of paid creator subscriptions (Stripe application fee). */
+    public static function platform_fee_percent(): float
+    {
+        $config = self::get_config();
+        return (float) ($config['global']['platform_fee_percent'] ?? 10);
+    }
+
     public static function get_url(): array
     {
         $url = array();
