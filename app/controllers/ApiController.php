@@ -1941,6 +1941,10 @@ class ApiController extends Controller {
             $status = 'scheduled';
         } elseif ($publish === 'draft') {
             $model->set_status($user_id, $id, 'draft');
+        } else {
+            // No publish change (e.g. an auto-save when attaching media) — report the real status.
+            $cur    = $model->get_one($user_id, $id);
+            $status = $cur ? (string) $cur['status'] : 'draft';
         }
 
         echo json_encode(array('success' => true, 'message' => 'Content saved', 'id' => $id, 'status' => $status));
@@ -2025,7 +2029,8 @@ class ApiController extends Controller {
                 exit;
             }
             $mime = $info['mime'];
-            $key  = 'content/u' . $user_id . '_c' . $content_id . '_preview_' . bin2hex(random_bytes(8)) . '.' . $img[$mime];
+            // Under the creator/ prefix so the bucket's public-read policy serves it (random key = unguessable).
+            $key  = 'creator/content/u' . $user_id . '_c' . $content_id . '_preview_' . bin2hex(random_bytes(8)) . '.' . $img[$mime];
             $url  = S3Service::upload_file($key, $file['tmp_name'], $mime);
             if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the image')); exit; }
             $old = (string) ($item['preview_url'] ?? '');
@@ -2048,7 +2053,8 @@ class ApiController extends Controller {
             exit;
         }
 
-        $key = 'content/u' . $user_id . '_c' . $content_id . '_' . $type . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
+        // Under the creator/ prefix so the bucket's public-read policy serves it (random key = unguessable).
+        $key = 'creator/content/u' . $user_id . '_c' . $content_id . '_' . $type . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
         $url = S3Service::upload_file($key, $file['tmp_name'], $mime);
         if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the file')); exit; }
 

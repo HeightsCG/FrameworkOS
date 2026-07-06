@@ -207,6 +207,11 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         </footer>
     </div>
 
+    <div class="pf-lightbox" id="pf_lightbox" aria-hidden="true">
+        <button type="button" class="pf-lightbox__close" id="pf_lightbox_close" aria-label="Close">&times;</button>
+        <img class="pf-lightbox__img" id="pf_lightbox_img" src="" alt="">
+    </div>
+
     <script>
     (function () {
         var CREATOR_ID = <?php echo (int) $user['user_id']; ?>;
@@ -371,6 +376,18 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         var dock = document.getElementById('pf_dock');
         function onScroll() { dock.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < 8); }
         window.addEventListener('scroll', onScroll, { passive: true });
+
+        // Click any unlocked post image to view it larger.
+        var lb = document.getElementById('pf_lightbox');
+        var lbImg = document.getElementById('pf_lightbox_img');
+        function closeLightbox() { lb.classList.remove('is-open'); lbImg.src = ''; document.body.style.overflow = ''; }
+        document.addEventListener('click', function (e) {
+            var img = e.target.closest && e.target.closest('.pf-post__img');
+            if (img && img.src) { lbImg.src = img.src; lb.classList.add('is-open'); document.body.style.overflow = 'hidden'; }
+        });
+        lb.addEventListener('click', function (e) { if (e.target !== lbImg) { closeLightbox(); } });
+        document.getElementById('pf_lightbox_close').addEventListener('click', closeLightbox);
+        document.addEventListener('keydown', function (e) { if (e.key === 'Escape') { closeLightbox(); } });
 
         renderActions();
         onScroll();
