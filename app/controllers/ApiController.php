@@ -1969,6 +1969,67 @@ class ApiController extends Controller {
         exit;
     }
 
+    /** The creator's posts, for the Studio list. */
+    public function get_my_contentAction(){
+        $user  = $this->require_creator();
+        $model = new ContentItemsModel();
+        $model->publish_due($user['user_id']); // flip any now-due scheduled posts live
+        $items = array();
+        foreach ($model->get_for_creator($user['user_id']) as $it) {
+            $items[] = array(
+                'id'               => (int) $it['id'],
+                'title'            => html_entity_decode((string) $it['title'], ENT_QUOTES, 'UTF-8'),
+                'access'           => (string) $it['access'],
+                'required_plan_id' => (int) $it['required_plan_id'],
+                'price_credits'    => (int) $it['price_credits'],
+                'status'           => (string) $it['status'],
+                'scheduled_at'     => (string) $it['scheduled_at'],
+                'preview_url'      => (string) $it['preview_url'],
+                'pinned'           => (int) $it['pinned'],
+            );
+        }
+        echo json_encode(array('success' => true, 'items' => $items));
+        exit;
+    }
+
+    /** The creator's subscription tiers, for the audience picker. */
+    public function get_my_plansAction(){
+        $user  = $this->require_creator();
+        $plans = array();
+        foreach ((new CreatorPlansModel())->get_for_user($user['user_id']) as $p) {
+            $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
+        }
+        echo json_encode(array('success' => true, 'plans' => $plans));
+        exit;
+    }
+
+    /** One post's full data + media, for the editor. */
+    public function get_contentAction(){
+        $this->require_creator();
+        $user_id = (int) Session::get('user_id');
+        $item    = (new ContentItemsModel())->get_one($user_id, (int) ($this->post['id'] ?? 0));
+        if (!$item) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
+
+        $assets = array();
+        foreach ((new ContentAssetsModel())->get_for_content((int) $item['id']) as $a) {
+            $assets[] = array('id' => (int) $a['id'], 'type' => $a['type'], 'url' => $a['url']);
+        }
+        echo json_encode(array('success' => true, 'assets' => $assets, 'item' => array(
+            'id'               => (int) $item['id'],
+            'title'            => html_entity_decode((string) $item['title'], ENT_QUOTES, 'UTF-8'),
+            'body'             => html_entity_decode((string) $item['body'], ENT_QUOTES, 'UTF-8'),
+            'tags'             => html_entity_decode((string) $item['tags'], ENT_QUOTES, 'UTF-8'),
+            'access'           => (string) $item['access'],
+            'required_plan_id' => (int) $item['required_plan_id'],
+            'price_credits'    => (int) $item['price_credits'],
+            'comments_enabled' => (int) $item['comments_enabled'],
+            'status'           => (string) $item['status'],
+            'scheduled_at'     => (string) $item['scheduled_at'],
+            'preview_url'      => (string) $item['preview_url'],
+        )));
+        exit;
+    }
+
     /** Allowed content media: real mime => [content_assets.type, extension, max bytes]. */
     private static $content_media = array(
         'image/jpeg'      => array('image', 'jpg',  5242880),
