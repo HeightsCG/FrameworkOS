@@ -2357,6 +2357,209 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ---------- Content Studio: post composer ---------- */
+
+    private function post_audience($v){ return $v === 'subscribers' ? 'subscribers' : 'free'; }
+
+    /** Convert a creator-local 'YYYY-MM-DDTHH:MM' to a UTC 'Y-m-d H:i:s', or null. */
+    private function to_utc($local, $tz){
+        if ((string) $local === '') { return null; }
+        try {
+            $d = new DateTime((string) $local, new DateTimeZone($tz ?: 'UTC'));
+            $d->setTimezone(new DateTimeZone('UTC'));
+            return $d->format('Y-m-d H:i:s');
+        } catch (\Throwable $e) { return null; }
+    }
+
+    /** Convert a stored UTC datetime to a creator-local 'YYYY-MM-DDTHH:MM' for pickers. */
+    private function from_utc($utc, $tz){
+        if ((string) $utc === '' || $utc === null) { return ''; }
+        try {
+            $d = new DateTime((string) $utc, new DateTimeZone('UTC'));
+            $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+            return $d->format('Y-m-d\TH:i');
+        } catch (\Throwable $e) { return ''; }
+    }
+
+    /** Shape a post + its media (with signed preview URLs) for the composer/preview. */
+    private function studio_post_json(array $post, array $user){
+        $creator_id = (int) $user['user_id'];
+        $tz         = (string) ($user['content_timezone'] ?? 'UTC');
+        $model      = new PostsModel();
+        $assets     = $model->get_assets((int) $post['id']);
+
+        $out = array(); $cover = null;
+        foreach ($assets as $a) {
+            $signable = array('creator_id' => $creator_id, 'type' => $a['type'],
+                'thumb_key' => $a['thumb_key'], 'blurred_key' => $a['blurred_key'],
+                'display_key' => $a['display_key'], 'poster_key' => $a['poster_key']);
+            $out[] = array(
+                'id'       => (int) $a['asset_id'],
+                'type'     => $a['type'],
+                'status'   => $a['status'],
+                'duration' => $a['duration_sec'] !== null ? (int) $a['duration_sec'] : null,
+                'is_cover' => (int) $a['is_cover'],
+                'missing'  => !empty($a['deleted_at']),
+                'thumb_url'=> ($a['status'] === 'ready' && empty($a['deleted_at'])) ? MediaService::signed_url($signable, 'thumb', $creator_id) : '',
+            );
+            if ((int) $a['is_cover'] === 1 && $cover === null) { $cover = $signable; }
+        }
+        if ($cover === null && !empty($assets)) {
+            $f = $assets[0];
+            $cover = array('creator_id' => $creator_id, 'type' => $f['type'],
+                'thumb_key' => $f['thumb_key'], 'blurred_key' => $f['blurred_key'],
+                'display_key' => $f['display_key'], 'poster_key' => $f['poster_key']);
+        }
+        $cover_display = ''; $cover_blurred = '';
+        if ($cover) {
+            $cover_display = MediaService::signed_url($cover, $cover['type'] === 'video' ? 'poster' : 'display', $creator_id);
+            $cover_blurred = MediaService::signed_url($cover, 'blurred', $creator_id);
+        }
+        return array(
+            'id'                => (int) $post['id'],
+            'caption'           => (string) $post['caption'],
+            'audience'          => $post['audience'],
+            'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
+            'state'             => $post['state'],
+            'scheduled_local'   => $this->from_utc($post['scheduled_at'] ?? '', $tz),
+            'timezone'          => $tz,
+            'assets'            => $out,
+            'cover_display_url' => $cover_display,
+            'cover_blurred_url' => $cover_blurred,
+        );
+    }
+
+    /** Why a post can't publish yet (plain words), or ok. */
+    private function post_validation(array $post){
+        $model  = new PostsModel();
+        $assets = $model->get_assets((int) $post['id']);
+        $has_caption = trim((string) $post['caption']) !== '';
+        if (empty($assets) && !$has_caption) {
+            return array('ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.');
+        }
+        foreach ($assets as $a) {
+            if (empty($a['deleted_at']) && $a['status'] !== 'ready') {
+                return array('ok' => false, 'reason' => "Some media is still processing. It'll be ready in a moment.");
+            }
+        }
+        if ($model->count_missing_assets((int) $post['id']) > 0) {
+            return array('ok' => false, 'reason' => 'Some media was removed from your library. Take it off the post to publish.');
+        }
+        return array('ok' => true, 'reason' => '');
+    }
+
+    /** Create or update a draft (also powers autosave). */
+    public function post_saveAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
+        $tier_id    = ($audience === 'subscribers') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+        $asset_ids  = $this->post['asset_ids'] ?? array();
+        if (!is_array($asset_ids)) { $asset_ids = array(); }
+        $asset_ids  = array_values(array_map('intval', $asset_ids));
+        $cover_id   = (int) ($this->post['cover_id'] ?? 0);
+
+        // Don't create an empty draft: a brand-new post with no caption and no media
+        // isn't worth saving yet (avoids junk drafts from just toggling options).
+        if ($id === 0 && trim($caption) === '' && empty($asset_ids)) {
+            echo json_encode(array('success' => true, 'id' => 0, 'post' => array(
+                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'state' => 'draft',
+                'scheduled_local' => '', 'timezone' => (string) ($user['content_timezone'] ?? 'UTC'),
+                'assets' => array(), 'cover_display_url' => '', 'cover_blurred_url' => '',
+                'validation' => array('ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.'),
+            )));
+            exit;
+        }
+
+        $model  = new PostsModel();
+        $fields = array('caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id);
+        if ($id > 0) {
+            if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+            $model->update_fields($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create_draft($creator_id, $caption, $audience);
+            $model->update_fields($creator_id, $id, $fields);
+        }
+        $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
+        $post = $model->get_one($creator_id, $id);
+        $json = $this->studio_post_json($post, $user);
+        $json['validation'] = $this->post_validation($post);
+        echo json_encode(array('success' => true, 'id' => $id, 'post' => $json));
+        exit;
+    }
+
+    /** Load a post (edit / reopen draft). */
+    public function post_getAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($_GET['id'] ?? 0);
+        $post       = (new PostsModel())->get_one($creator_id, $id);
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        $json = $this->studio_post_json($post, $user);
+        $json['validation'] = $this->post_validation($post);
+        echo json_encode(array('success' => true, 'post' => $json));
+        exit;
+    }
+
+    /** The creator's most recent open draft (for the "resume draft?" offer). */
+    public function post_open_draftAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $draft      = (new PostsModel())->get_open_draft($creator_id);
+        if (!$draft) { echo json_encode(array('success' => true, 'draft' => null)); exit; }
+        // Only offer it if it actually has content worth resuming.
+        $json = $this->studio_post_json($draft, $user);
+        $has = trim((string) $draft['caption']) !== '' || !empty($json['assets']);
+        echo json_encode(array('success' => true, 'draft' => $has ? $json : null));
+        exit;
+    }
+
+    public function post_publishAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $model      = new PostsModel();
+        $post       = $model->get_one($creator_id, $id);
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        $v = $this->post_validation($post);
+        if (!$v['ok']) { echo json_encode(array('success' => false, 'message' => $v['reason'])); exit; }
+        $model->set_state($creator_id, $id, 'published');
+        echo json_encode(array('success' => true, 'message' => 'Published', 'state' => 'published'));
+        exit;
+    }
+
+    public function post_scheduleAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $model      = new PostsModel();
+        $post       = $model->get_one($creator_id, $id);
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        $v = $this->post_validation($post);
+        if (!$v['ok']) { echo json_encode(array('success' => false, 'message' => $v['reason'])); exit; }
+        $utc = $this->to_utc((string) ($this->post['scheduled_at'] ?? ''), (string) ($user['content_timezone'] ?? 'UTC'));
+        if (!$utc || strtotime($utc) <= time()) {
+            echo json_encode(array('success' => false, 'message' => 'Pick a date and time in the future.')); exit;
+        }
+        $model->set_state($creator_id, $id, 'scheduled', $utc);
+        // The durable publish job + worker are wired at the scheduling checkpoint.
+        echo json_encode(array('success' => true, 'message' => 'Scheduled', 'state' => 'scheduled'));
+        exit;
+    }
+
+    public function post_save_draftAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $model      = new PostsModel();
+        if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        $model->set_state($creator_id, $id, 'draft');
+        echo json_encode(array('success' => true, 'message' => 'Saved as draft', 'state' => 'draft'));
+        exit;
+    }
+
     /* ---------- Payouts (Stripe Connect) ---------- */
 
     private function site_base_url(): string

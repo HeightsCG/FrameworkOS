@@ -17,9 +17,9 @@
             <p class="cs-head__sub">Upload once, use everywhere. Everything for your content lives here.</p>
         </div>
         <div class="cs-head__actions">
-            <button type="button" class="btn btn-primary" id="csUploadBtn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload media</button>
-            <button type="button" class="btn btn-primary" id="csNewPostBtn"><i class="fa-solid fa-plus"></i> New post</button>
-            <button type="button" class="btn btn-primary" id="csCreateCollectionBtn"><i class="fa-solid fa-folder-plus"></i> Create collection</button>
+            <button type="button" class="btn btn-primary" id="csUploadBtn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Media</button>
+            <button type="button" class="btn btn-primary" id="csNewPostBtn"><i class="fa-solid fa-plus"></i> New Post</button>
+            <button type="button" class="btn btn-primary" id="csCreateCollectionBtn"><i class="fa-solid fa-folder-plus"></i> Create Collection</button>
         </div>
     </header>
 
@@ -41,6 +41,28 @@
 
         <!-- ============ LIBRARY ============ -->
         <div class="tab-pane fade show active" id="csPaneLibrary" role="tabpanel">
+            <div class="cs-toolbar">
+                <div class="input-group cs-search">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="search" class="form-control" id="csSearch" placeholder="Search files…" autocomplete="off">
+                </div>
+                <select id="csFilterType" class="form-select cs-filter" aria-label="Filter by type">
+                    <option value="">All types</option>
+                    <option value="image">Images</option>
+                    <option value="video">Videos</option>
+                    <option value="gif">GIFs</option>
+                </select>
+                <select id="csFilterCollection" class="form-select cs-filter" aria-label="Filter by collection">
+                    <option value="">All collections</option>
+                </select>
+                <select id="csFilterUsage" class="form-select cs-filter" aria-label="Filter by usage">
+                    <option value="">Used &amp; unused</option>
+                    <option value="used">Used in posts</option>
+                    <option value="unused">Not used yet</option>
+                </select>
+                <button type="button" class="btn btn-link cs-clear" id="csClearFilters" hidden>Clear</button>
+            </div>
+
             <div class="cs-dropzone" id="csDropzone">
                 <div class="cs-drophint" id="csDropHint"><i class="fa-solid fa-cloud-arrow-up"></i> Drop files to upload</div>
 
@@ -84,11 +106,34 @@
 
         <!-- ============ COLLECTIONS ============ -->
         <div class="tab-pane fade" id="csPaneCollections" role="tabpanel">
-            <div class="cs-collections" id="csCollections"></div>
-            <div class="cs-empty" id="csColEmpty" hidden>
-                <i class="fa-solid fa-folder-open cs-empty__icon"></i>
-                <h2 class="cs-empty__title">No collections yet</h2>
-                <p class="cs-empty__text">Group related files so they're easy to find when you post. Create your first one above.</p>
+            <!-- list of collections -->
+            <div id="csColList">
+                <div class="cs-collections" id="csCollections"></div>
+                <div class="cs-empty" id="csColEmpty" hidden>
+                    <i class="fa-solid fa-folder-open cs-empty__icon"></i>
+                    <h2 class="cs-empty__title">No collections yet</h2>
+                    <p class="cs-empty__text">Group related files so they're easy to find when you post. Use “Create collection” up top to make your first one.</p>
+                </div>
+            </div>
+            <!-- one collection's contents (shown after clicking a collection) -->
+            <div id="csColDetail" hidden>
+                <div class="cs-coldetail__head">
+                    <button type="button" class="btn btn-link cs-coldetail__back" id="csColBack"><i class="fa-solid fa-arrow-left"></i> All collections</button>
+                    <div class="cs-coldetail__title">
+                        <h2 class="cs-coldetail__name" id="csColName"></h2>
+                        <span class="cs-coldetail__count" id="csColCountLbl"></span>
+                    </div>
+                    <div class="cs-coldetail__actions">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" id="csColRename"><i class="fa-solid fa-pen"></i> Rename</button>
+                        <button type="button" class="btn btn-sm btn-outline-danger" id="csColDelete"><i class="fa-solid fa-trash"></i> Delete</button>
+                    </div>
+                </div>
+                <div class="cs-grid" id="csColGrid"></div>
+                <div class="cs-empty" id="csColGridEmpty" hidden>
+                    <i class="fa-solid fa-folder-open cs-empty__icon"></i>
+                    <h2 class="cs-empty__title">This collection is empty</h2>
+                    <p class="cs-empty__text">Add files from the Library — select files and choose “Add to collection”.</p>
+                </div>
             </div>
         </div>
 
@@ -139,12 +184,101 @@
 
 <input type="file" id="csFileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden>
 
+<!-- ============ POST COMPOSER (modal) ============ -->
+<div class="modal fade cs-composer" id="csComposer" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header cs-comp__head">
+                <h5 class="modal-title" id="csCompTitle">New post</h5>
+                <span class="cs-comp__save" id="csCompSave"></span>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body cs-comp__body">
+
+                <!-- editing controls -->
+                <div class="cs-comp__edit">
+                    <label class="cs-dv__label">Media</label>
+                    <div class="cs-comp__media" id="csCompMedia"></div>
+                    <div class="cs-comp__mediaactions">
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompAdd"><i class="fa-solid fa-photo-film"></i> Add from library</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload</button>
+                    </div>
+
+                    <label class="cs-dv__label mt-3" for="csCompCaption">Caption</label>
+                    <textarea id="csCompCaption" class="form-control" rows="4" maxlength="3000" placeholder="Write a caption…"></textarea>
+                    <div class="cs-comp__count"><span id="csCompCount">0</span> / 3000</div>
+
+                    <label class="cs-dv__label mt-3">Who can see this</label>
+                    <div class="cs-seg" id="csCompAudience">
+                        <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i> <span><strong>Everyone</strong><small>Anyone can see it</small></span></button>
+                        <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers only</strong><small>Members only</small></span></button>
+                    </div>
+                    <div class="cs-comp__tier" id="csCompTier" hidden>
+                        <label class="cs-dv__label mt-3" for="csCompTierSel">Available to</label>
+                        <select id="csCompTierSel" class="form-select"><option value="">All Subscribers</option></select>
+                    </div>
+
+                    <label class="cs-dv__label mt-3">Publishing</label>
+                    <div class="cs-comp__sched" id="csCompSchedule" hidden>
+                        <input type="datetime-local" id="csCompSchedAt" class="form-control">
+                        <small class="text-muted">Times are in your timezone (<span id="csCompTz">UTC</span>).</small>
+                    </div>
+                    <div class="cs-comp__validation" id="csCompValidation" hidden></div>
+                    <div class="cs-comp__actions">
+                        <button type="button" class="btn btn-primary" id="csPublishNow">Publish Now</button>
+                        <button type="button" class="btn btn-outline-secondary" id="csSchedule">Schedule</button>
+                        <button type="button" class="btn btn-outline-secondary" id="csSaveDraft">Save as Draft</button>
+                    </div>
+                </div>
+
+                <!-- live preview -->
+                <div class="cs-comp__preview">
+                    <div class="cs-comp__pvhead">
+                        <span class="cs-dv__label mb-0">Preview</span>
+                        <div class="cs-seg cs-seg--sm" id="csCompView">
+                            <button type="button" class="cs-seg__opt is-on" data-view="sub">Subscriber</button>
+                            <button type="button" class="cs-seg__opt" data-view="pub">Non-Subscribers</button>
+                        </div>
+                    </div>
+                    <div class="cs-preview-wrap">
+                        <div class="cs-preview-card" id="csPreviewCard"></div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ MEDIA PICKER (modal) ============ -->
+<div class="modal fade" id="csPicker" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add media from your library</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="cs-grid cs-grid--picker" id="csPickerGrid"></div>
+                <div class="cs-empty" id="csPickerEmpty" hidden>
+                    <i class="fa-solid fa-photo-film cs-empty__icon"></i>
+                    <p class="cs-empty__text">Your library is empty. Upload some media first, then add it to a post.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="me-auto text-body-secondary"><strong id="csPickerCount">0</strong> selected</span>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="csPickerAdd">Add to post</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 window.CS_CONFIG = <?php echo json_encode(array(
     'creator'  => $this->creator,
+    'plans'    => $this->plans,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
 <script src="/js/studio.js"></script>
-
 <?php endif; ?>

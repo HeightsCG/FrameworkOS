@@ -21,6 +21,14 @@ class StudioController extends Controller {
             $rows = $this->userModel->get_user_by_id((int) Session::get('user_id'));
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
 
+            // Active paid subscription tiers, for the composer's audience targeting.
+            $plans = array();
+            foreach ((new CreatorPlansModel())->get_active_for_user((int) ($user['user_id'] ?? 0)) as $p) {
+                if ((int) ($p['price_cents'] ?? 0) > 0) {
+                    $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
+                }
+            }
+            $this->view->plans    = $plans;
             $this->view->s3_ready = S3Service::configured();
             $this->view->creator  = array(
                 'user_id'            => (int) ($user['user_id'] ?? 0),

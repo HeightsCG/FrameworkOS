@@ -82,8 +82,83 @@ jQuery(function ($) {
     // =====================================================================
     // Tabs (Bootstrap) — lazy-render collections when shown
     // =====================================================================
-    $('#csTabCollections').on('shown.bs.tab', renderCollections);
+    $('#csTabCollections').on('shown.bs.tab', showCollectionsList);
     function gotoLibraryTab() { bootstrap.Tab.getOrCreateInstance(document.getElementById('csTabLibrary')).show(); }
+
+    var openCol = null;   // the collection currently being viewed in the Collections tab
+
+    function showCollectionsList() {
+        openCol = null;
+        $('#csColDetail').prop('hidden', true);
+        $('#csColList').prop('hidden', false);
+        renderCollections();
+    }
+
+    // Open a collection's contents in place (inside the Collections tab).
+    function openCollectionView(c) {
+        openCol = c;
+        $('#csColList').prop('hidden', true);
+        $('#csColDetail').prop('hidden', false);
+        $('#csColName').text(c.name);
+        $('#csColCountLbl').text('');
+        $('#csColGridEmpty').prop('hidden', true);
+        $('#csColGrid').prop('hidden', false).html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
+        apiGet('media_list', { collection: c.id }).done(function (o) {
+            var assets = (o && o.success) ? o.assets : [];
+            $('#csColCountLbl').text(assets.length + (assets.length === 1 ? ' file' : ' files'));
+            renderColGrid(assets);
+        }).fail(function () {
+            $('#csColGrid').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load this collection.</p></div>');
+        });
+    }
+
+    function renderColGrid(assets) {
+        var $g = $('#csColGrid').empty();
+        if (!assets.length) { $g.prop('hidden', true); $('#csColGridEmpty').prop('hidden', false); return; }
+        $g.prop('hidden', false); $('#csColGridEmpty').prop('hidden', true);
+        assets.forEach(function (a, i) {
+            var $t = $('<div class="cs-tile" tabindex="0">').attr('data-id', a.id).css('animation-delay', Math.min(i * 18, 360) + 'ms');
+            if (a.thumb_url) $t.append($('<img class="cs-tile__img" loading="lazy">').attr('src', a.thumb_url)); else $t.append('<div class="cs-tile__ph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>');
+            $t.append('<span class="cs-tile__type"><i class="fa-solid ' + typeIcon(a.type) + '"></i></span>');
+            if (a.type === 'video' && a.duration) $t.append('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>');
+            $t.append('<button type="button" class="cs-tile__rmcol" title="Remove from this collection"><i class="fa-solid fa-xmark"></i></button>');
+            $g.append($t);
+        });
+        $g.find('.cs-tile__img').on('error', function () {
+            var img = this; if (img.dataset.retried) return; img.dataset.retried = '1';
+            apiGet('media_sign', { id: $(img).closest('.cs-tile').data('id'), variant: 'thumb' }).done(function (o) { if (o && o.success && o.url) img.src = o.url; });
+        });
+    }
+
+    $('#csColGrid')
+        .on('click', '.cs-tile__rmcol', function (e) {
+            e.stopPropagation();
+            if (!openCol) return;
+            var id = $(this).closest('.cs-tile').data('id');
+            apiPost('collection_remove_assets', { id: openCol.id, ids: [id] }).done(function (o) {
+                if (o.success) { toastr.success('Removed from ' + openCol.name); openCollectionView(openCol); } else err(o);
+            });
+        })
+        .on('click', '.cs-tile', function () { openDetail($(this).data('id')); });
+
+    $('#csColBack').on('click', showCollectionsList);
+    $('#csColRename').on('click', function () {
+        if (!openCol) return;
+        promptDialog('Rename collection', 'Give this collection a clearer name.', 'Collection name', openCol.name, function (name) {
+            if (!name.trim() || name === openCol.name) return;
+            apiPost('collection_save', { id: openCol.id, name: name }).done(function (o) {
+                if (o.success) { openCol.name = name; $('#csColName').text(name); toastr.success('Collection renamed'); } else err(o);
+            });
+        });
+    });
+    $('#csColDelete').on('click', function () {
+        if (!openCol) return;
+        confirmDialog('Delete “' + openCol.name + '”?', 'The collection is removed. Your files stay in your library.', 'Delete', true, function () {
+            apiPost('collection_delete', { id: openCol.id }).done(function (o) {
+                if (o.success) { toastr.success('Collection deleted'); showCollectionsList(); } else err(o);
+            });
+        });
+    });
 
     // =====================================================================
     // Library
@@ -212,12 +287,13 @@ jQuery(function ($) {
     // =====================================================================
     // Uploads (button + drag/drop) → tray with progress + retry
     // =====================================================================
+    var uploadOnComplete = null;   // set when an upload should also attach to the composer
     function pickFiles() {
         if (!S3_READY) { toastr.info("Media storage isn't set up yet, so uploads are off."); return; }
         $('#csFileInput').val('').trigger('click');
     }
-    $('#csUploadBtn, #csEmptyUpload').on('click', pickFiles);
-    $('#csFileInput').on('change', function () { handleFiles(this.files); });
+    $('#csUploadBtn, #csEmptyUpload').on('click', function () { uploadOnComplete = null; pickFiles(); });
+    $('#csFileInput').on('change', function () { var cb = uploadOnComplete; uploadOnComplete = null; handleFiles(this.files, cb); });
     $('#csTrayClose').on('click', function () { $('#csTray').prop('hidden', true); });
 
     var $dz = $('#csDropzone');
@@ -230,11 +306,11 @@ jQuery(function ($) {
         if (dt && dt.files) handleFiles(dt.files);
     });
 
-    function handleFiles(list) {
+    function handleFiles(list, onComplete) {
         var files = Array.prototype.slice.call(list);
         if (!files.length) return;
         $('#csTray').prop('hidden', false);
-        files.forEach(startUpload);
+        files.forEach(function (f) { startUpload(f, onComplete); });
     }
 
     function trayItem(file) {
@@ -257,35 +333,35 @@ jQuery(function ($) {
         };
     }
 
-    function startUpload(file) {
+    function startUpload(file, onComplete) {
         var ui = trayItem(file);
-        if (file.type.indexOf('video') === 0) uploadVideo(file, ui); else uploadImage(file, ui);
+        if (file.type.indexOf('video') === 0) uploadVideo(file, ui, onComplete); else uploadImage(file, ui, onComplete);
     }
 
-    function uploadImage(file, ui) {
+    function uploadImage(file, ui, onComplete) {
         var fd = new FormData(); fd.append('file', file);
         ui.setStatus('Uploading…');
         apiForm('media_upload', fd, function (e) { if (e.lengthComputable) ui.setProgress(e.loaded / e.total * 92); })
             .done(function (o) {
-                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); }
-                else { ui.setStatus((o && o.message) || 'Upload failed', 'failed'); ui.retry(function () { uploadImage(file, ui); }); }
+                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
+                else { ui.setStatus((o && o.message) || 'Upload failed', 'failed'); ui.retry(function () { uploadImage(file, ui, onComplete); }); }
             })
-            .fail(function () { ui.setStatus('Upload failed — check your connection', 'failed'); ui.retry(function () { uploadImage(file, ui); }); });
+            .fail(function () { ui.setStatus('Upload failed — check your connection', 'failed'); ui.retry(function () { uploadImage(file, ui, onComplete); }); });
     }
 
-    function uploadVideo(file, ui) {
+    function uploadVideo(file, ui, onComplete) {
         var token = file.name + '|' + file.size + '|' + file.lastModified;
         ui.setStatus('Preparing…');
         apiPost('media_upload_init', { filename: file.name, mime: file.type, bytes_total: file.size, client_token: token })
             .done(function (init) {
-                if (!init || !init.success) { ui.setStatus((init && init.message) || 'Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); return; }
+                if (!init || !init.success) { ui.setStatus((init && init.message) || 'Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); return; }
                 var partSize = init.part_size || PART, done = {};
                 (init.uploaded_parts || []).forEach(function (p) { done[p] = true; });
                 var total = Math.ceil(file.size / partSize);
                 if (init.resumed) ui.setStatus('Resuming…');
 
                 function sendPart(p) {
-                    if (p > total) { finishVideo(init.session_id, file, ui); return; }
+                    if (p > total) { finishVideo(init.session_id, file, ui, onComplete); return; }
                     if (done[p]) { ui.setProgress(p / total * 96); return sendPart(p + 1); }
                     var blob = file.slice((p - 1) * partSize, Math.min(p * partSize, file.size));
                     var fd = new FormData(); fd.append('session_id', init.session_id); fd.append('part_number', p); fd.append('chunk', blob);
@@ -297,27 +373,27 @@ jQuery(function ($) {
                             .done(function (o) {
                                 if (o && o.success) { ui.setProgress(o.bytes_received / file.size * 96); sendPart(p + 1); }
                                 else if (attempts < 3) setTimeout(attempt, 800 * attempts);
-                                else { ui.setStatus((o && o.message) || 'A chunk failed', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); }
+                                else { ui.setStatus((o && o.message) || 'A chunk failed', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
                             })
                             .fail(function () {
                                 if (attempts < 4) setTimeout(attempt, 1000 * attempts);
-                                else { ui.setStatus('Connection dropped — you can resume', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); }
+                                else { ui.setStatus('Connection dropped — you can resume', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
                             });
                     })();
                 }
                 sendPart(1);
             })
-            .fail(function () { ui.setStatus('Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); });
+            .fail(function () { ui.setStatus('Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
     }
 
-    function finishVideo(sessionId, file, ui) {
+    function finishVideo(sessionId, file, ui, onComplete) {
         ui.setStatus('Finishing…'); ui.setProgress(98);
         apiPost('media_upload_complete', { session_id: sessionId })
             .done(function (o) {
-                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); }
-                else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); }
+                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
+                else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
             })
-            .fail(function () { ui.setStatus('Could not finish — you can resume', 'failed'); ui.retry(function () { uploadVideo(file, ui); }); });
+            .fail(function () { ui.setStatus('Could not finish — you can resume', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
     }
 
     function injectAsset(asset) {
@@ -376,10 +452,7 @@ jQuery(function ($) {
                 $row.find('.cs-col__count').text(c.asset_count + ' file' + (c.asset_count === 1 ? '' : 's'));
                 $row.on('click', function (e) {
                     if ($(e.target).closest('.cs-col__menu').length) { collectionMenu(c); return; }
-                    state.filters.collection = String(c.id);
-                    $('#csFilterCollection').val(String(c.id));
-                    gotoLibraryTab();
-                    loadLibrary();
+                    openCollectionView(c);
                 });
                 $wrap.append($row);
             });
@@ -438,8 +511,8 @@ jQuery(function ($) {
             : '<dt>Dimensions</dt><dd>' + dims + '</dd><dt>Type</dt><dd>' + esc(String(a.type).toUpperCase()) + '</dd>';
         var cols = state.collections.map(function (c) {
             var on = (a.collection_ids || []).indexOf(c.id) >= 0;
-            return '<button type="button" class="cs-chip' + (on ? ' is-on' : '') + '" data-col="' + c.id + '">' + (on ? '<i class="fa-solid fa-check"></i> ' : '') + esc(c.name) + '</button>';
-        }).join('') || '<span class="cs-col__count">No collections yet.</span>';
+            return '<button type="button" class="cs-chip' + (on ? ' is-on' : '') + '" data-col="' + c.id + '"><i class="fa-solid ' + (on ? 'fa-check' : 'fa-plus') + '"></i> ' + esc(c.name) + '</button>';
+        }).join('') || '<span class="cs-col__count">No collections yet — create one to group this file.</span>';
         var posts = (a.posts && a.posts.length)
             ? '<ul class="cs-dv__posts">' + a.posts.map(function (p) { return '<li><i class="fa-solid fa-rectangle-list"></i> ' + esc(p.excerpt) + ' <em>· ' + esc(p.state) + '</em></li>'; }).join('') + '</ul>'
             : '<p class="cs-col__count">Not used in any post yet.</p>';
@@ -454,7 +527,7 @@ jQuery(function ($) {
             '<button type="button" class="btn btn-outline-secondary w-100 mb-3" id="csDvSave">Save description</button>' +
             '<dl class="cs-dv__meta">' + meta + '<dt>Size</dt><dd>' + fmtBytes(a.bytes) + '</dd><dt>Uploaded</dt><dd>' + fmtDate(a.created_at) + '</dd></dl>' +
             wm +
-            '<label class="form-label cs-dv__label">Collections</label><div class="cs-dv__cols">' + cols + '</div>' +
+            '<label class="form-label cs-dv__label">Add to a collection</label><div class="cs-dv__cols">' + cols + '</div>' +
             '<label class="form-label cs-dv__label">Used in</label>' + posts +
             '<button type="button" class="btn btn-outline-danger w-100 mt-3" id="csDvDelete"><i class="fa-solid fa-trash"></i> Remove file</button>'
         );
@@ -487,7 +560,8 @@ jQuery(function ($) {
                 if (o.success) {
                     $chip.toggleClass('is-on');
                     var nm = state.collections.filter(function (c) { return String(c.id) === String(colId); })[0].name;
-                    $chip.html((!on ? '<i class="fa-solid fa-check"></i> ' : '') + esc(nm));
+                    $chip.html('<i class="fa-solid ' + (!on ? 'fa-check' : 'fa-plus') + '"></i> ' + esc(nm));
+                    toastr.success(!on ? 'Added to ' + nm : 'Removed from ' + nm);
                     loadCollections();
                 } else err(o);
             });
@@ -512,7 +586,232 @@ jQuery(function ($) {
     // =====================================================================
     // Misc + init
     // =====================================================================
-    $('#csNewPostBtn').on('click', function () { toastr.info('The post composer arrives in the next step.'); });
+    // =====================================================================
+    // Post composer
+    // =====================================================================
+    var composer = { id: null, caption: '', audience: 'free', tier_id: '', assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composerModal = bootstrap.Modal.getOrCreateInstance('#csComposer');
+    var pickerModal = bootstrap.Modal.getOrCreateInstance('#csPicker');
+    var pickerAssets = [], pickerSel = new Set();
+    var TZ = (CFG.creator && CFG.creator.timezone) ? CFG.creator.timezone : 'UTC';
+    $('#csCompTz').text(TZ);
+    // subscription tiers for audience targeting
+    (CFG.plans || []).forEach(function (p) { $('#csCompTierSel').append($('<option>').val(String(p.id)).text(p.name + ' · $' + (p.price_cents / 100).toFixed(2) + '/mo')); });
+
+    $('#csNewPostBtn').on('click', function () { openComposer(null); });
+
+    function openComposer(postId) {
+        if (postId) { composerModal.show(); loadPost(postId); return; }
+        apiGet('post_open_draft').done(function (o) {
+            if (o && o.success && o.draft) {
+                dialog({
+                    title: 'Resume your draft?',
+                    bodyHtml: '<p class="text-body-secondary mb-0">You have an unfinished post. Pick up where you left off, or start fresh.</p>',
+                    okText: 'Resume Draft',
+                    extra: { text: 'Start New', onClick: function () { newComposer(); composerModal.show(); } },
+                    onOk: function () { setComposer(o.draft); composerModal.show(); }
+                });
+            } else { newComposer(); composerModal.show(); }
+        }).fail(function () { newComposer(); composerModal.show(); });
+    }
+
+    function resetScheduleUI() { $('#csCompSchedule').prop('hidden', true); $('#csSchedule').text('Schedule'); }
+    function newComposer() {
+        composer = { id: null, caption: '', audience: 'free', tier_id: '', assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+        $('#csCompTitle').text('New Post');
+        $('#csCompSchedAt').val('');
+        resetScheduleUI();
+        setSaveStatus('');
+        renderComposer();
+    }
+    function setComposer(p) {
+        composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
+        composer.tier_id = p.tier_id ? String(p.tier_id) : '';
+        composer.assets = p.assets || []; composer.coverDisplay = p.cover_display_url || ''; composer.coverBlurred = p.cover_blurred_url || '';
+        composer.validation = p.validation || { ok: true, reason: '' };
+        $('#csCompTitle').text(p.state === 'published' ? 'Edit Post' : 'New Post');
+        resetScheduleUI();
+        if (p.scheduled_local) $('#csCompSchedAt').val(p.scheduled_local);
+        setSaveStatus('Saved');
+        renderComposer();
+    }
+    function loadPost(id) {
+        $('#csPreviewCard').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
+        apiGet('post_get', { id: id }).done(function (o) { if (o && o.success) setComposer(o.post); else { toastr.error((o && o.message) || 'Could not open that post.'); composerModal.hide(); } });
+    }
+
+    function coverId() { return composer.assets.length ? composer.assets[0].id : 0; }
+
+    function renderComposer() {
+        $('#csCompCaption').val(composer.caption);
+        $('#csCompCount').text(composer.caption.length);
+        $('#csCompAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === composer.audience); });
+        $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
+        $('#csCompTierSel').val(composer.tier_id || '');
+        renderCompMedia();
+        renderPreview();
+        updateValidation();
+    }
+
+    function renderCompMedia() {
+        var $m = $('#csCompMedia').empty();
+        if (!composer.assets.length) { $m.append('<div class="cs-comp__mediaempty">No media yet — add from your library or upload.</div>'); return; }
+        composer.assets.forEach(function (a, i) {
+            var $it = $('<div class="cs-comp__item" draggable="true">').attr('data-id', a.id).attr('data-i', i);
+            if (a.missing) { $it.addClass('is-missing').append('<div class="cs-comp__itemph"><i class="fa-solid fa-triangle-exclamation"></i></div>'); }
+            else if (a.thumb_url) { $it.append($('<img>').attr('src', a.thumb_url)); }
+            else { $it.append('<div class="cs-comp__itemph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>'); }
+            if (i === 0) $it.append('<span class="cs-comp__cover">Cover</span>');
+            if (a.type === 'video') $it.append('<span class="cs-comp__vid"><i class="fa-solid fa-play"></i></span>');
+            $it.append('<button type="button" class="cs-comp__rm" title="Remove from post"><i class="fa-solid fa-xmark"></i></button>');
+            $m.append($it);
+        });
+    }
+
+    var dragIdx = null;
+    $('#csCompMedia')
+        .on('dragstart', '.cs-comp__item', function (e) { dragIdx = $(this).data('i'); e.originalEvent.dataTransfer.effectAllowed = 'move'; })
+        .on('dragover', '.cs-comp__item', function (e) { e.preventDefault(); })
+        .on('drop', '.cs-comp__item', function (e) {
+            e.preventDefault(); var to = $(this).data('i');
+            if (dragIdx === null || to === dragIdx) return;
+            var m = composer.assets.splice(dragIdx, 1)[0]; composer.assets.splice(to, 0, m); dragIdx = null;
+            renderCompMedia(); renderPreview(); scheduleSave();
+        })
+        .on('click', '.cs-comp__rm', function (e) {
+            e.stopPropagation(); var id = $(this).closest('.cs-comp__item').data('id');
+            composer.assets = composer.assets.filter(function (a) { return a.id != id; });
+            renderCompMedia(); renderPreview(); scheduleSave();
+        });
+
+    function setSaveStatus(t) { $('#csCompSave').text(t); }
+    function scheduleSave() { clearTimeout(composer.saveTimer); setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
+    function saveNow(cb) {
+        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId() };
+        apiPost('post_save', data)
+            .done(function (o) {
+                if (o && o.success) {
+                    composer.id = o.id;
+                    composer.coverDisplay = o.post.cover_display_url; composer.coverBlurred = o.post.cover_blurred_url;
+                    composer.assets = o.post.assets; composer.validation = o.post.validation;
+                    setSaveStatus('Saved'); renderCompMedia(); renderPreview(); updateValidation();
+                    if (cb) cb(true);
+                } else { setSaveStatus('Not saved'); if (cb) cb(false); }
+            })
+            .fail(function () { setSaveStatus('Couldn’t save — will retry'); if (cb) cb(false); });
+    }
+
+    function renderPreview() {
+        // The preview shows exactly what a fan sees — no creator-facing badges.
+        // Subscriber view = the real media; non-subscriber view of a subscribers-only
+        // post = the locked, blurred variant.
+        var locked = (composer.view === 'pub' && composer.audience === 'subscribers');
+        var img = locked ? composer.coverBlurred : composer.coverDisplay;
+        var more = (composer.assets.length > 1) ? '<span class="cs-pv__more"><i class="fa-solid fa-layer-group"></i> ' + composer.assets.length + '</span>' : '';
+        var media = img
+            ? '<div class="cs-pv__media">' + more + (locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to unlock</span></div>' : '') + '<img src="' + esc(img) + '"></div>'
+            : '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i><span>Add media to see it here</span></div>';
+        var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
+        $('#csPreviewCard').html(media + '<div class="cs-pv__body">' + cap + '</div>');
+    }
+
+    function updateValidation() {
+        var v = composer.validation || { ok: true, reason: '' };
+        if (v.ok) $('#csCompValidation').prop('hidden', true).text('');
+        else $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info"></i> ' + esc(v.reason));
+    }
+
+    $('#csCompCaption').on('input', function () { composer.caption = this.value; $('#csCompCount').text(this.value.length); renderPreview(); scheduleSave(); });
+    $('#csCompAudience').on('click', '.cs-seg__opt', function () {
+        composer.audience = $(this).data('aud');
+        if (composer.audience !== 'subscribers') composer.tier_id = '';
+        $('#csCompAudience .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on');
+        $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
+        renderPreview(); updateValidation(); scheduleSave();
+    });
+    $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; scheduleSave(); });
+    $('#csCompView').on('click', '.cs-seg__opt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on'); renderPreview(); });
+
+    // inline upload straight into the post
+    $('#csCompUpload').on('click', function () { uploadOnComplete = composerAddAsset; pickFiles(); });
+    function composerAddAsset(asset) {
+        if (!asset || composer.assets.some(function (a) { return a.id === asset.id; })) return;
+        composer.assets.push({ id: asset.id, type: asset.type, thumb_url: asset.thumb_url, duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
+        renderCompMedia(); renderPreview(); scheduleSave();
+    }
+
+    // media picker
+    $('#csCompAdd').on('click', openPicker);
+    function openPicker() {
+        pickerSel = new Set();
+        $('#csPickerGrid').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>').prop('hidden', false);
+        $('#csPickerEmpty').prop('hidden', true);
+        $('#csPickerCount').text('0');
+        pickerModal.show();
+        apiGet('media_list').done(function (o) {
+            pickerAssets = (o && o.success ? o.assets : []).filter(function (a) { return a.status === 'ready'; });
+            renderPicker();
+        }).fail(function () { $('#csPickerGrid').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load your library.</p></div>'); });
+    }
+    function renderPicker() {
+        var $g = $('#csPickerGrid').empty();
+        if (!pickerAssets.length) { $g.prop('hidden', true); $('#csPickerEmpty').prop('hidden', false); return; }
+        $g.prop('hidden', false);
+        var inPost = {}; composer.assets.forEach(function (a) { inPost[a.id] = true; });
+        pickerAssets.forEach(function (a) {
+            var $t = $('<div class="cs-tile cs-tile--pick" tabindex="0">').attr('data-id', a.id);
+            if (a.thumb_url) $t.append($('<img class="cs-tile__img">').attr('src', a.thumb_url)); else $t.append('<div class="cs-tile__ph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>');
+            if (a.type === 'video' && a.duration) $t.append('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>');
+            if (inPost[a.id]) $t.addClass('is-added').append('<span class="cs-tile__added">Added</span>');
+            $t.append('<span class="cs-tile__check"><i class="fa-solid fa-check"></i></span>');
+            $g.append($t);
+        });
+    }
+    $('#csPickerGrid').on('click', '.cs-tile--pick', function () {
+        var $t = $(this); if ($t.hasClass('is-added')) return;
+        var id = $t.data('id');
+        if (pickerSel.has(id)) pickerSel.delete(id); else pickerSel.add(id);
+        $t.toggleClass('is-selected', pickerSel.has(id));
+        $('#csPickerCount').text(pickerSel.size);
+    });
+    $('#csPickerAdd').on('click', function () {
+        Array.from(pickerSel).forEach(function (id) {
+            var a = pickerAssets.filter(function (x) { return x.id === id; })[0];
+            if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, type: a.type, thumb_url: a.thumb_url, duration: a.duration, status: a.status, is_cover: 0, missing: false });
+        });
+        pickerModal.hide(); renderCompMedia(); renderPreview(); scheduleSave();
+    });
+
+    // three explicit actions: publish now / schedule / save draft
+    function runAction(kind) {
+        var $btns = $('#csPublishNow, #csSchedule, #csSaveDraft').prop('disabled', true);
+        function done() { $btns.prop('disabled', false); }
+        function fail(o) { done(); $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info"></i> ' + esc((o && o.message) || 'Something went wrong.')); }
+        saveNow(function (ok) {
+            if (!ok) { done(); toastr.error('Could not save the post. Please try again.'); return; }
+            if (kind === 'draft') apiPost('post_save_draft', { id: composer.id }).done(function (o) { done(); if (o.success) { toastr.success('Saved as draft'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+            else if (kind === 'schedule') apiPost('post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val() }).done(function (o) { done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+            else apiPost('post_publish', { id: composer.id }).done(function (o) { done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+        });
+    }
+    $('#csPublishNow').on('click', function () { runAction('publish'); });
+    $('#csSaveDraft').on('click', function () { runAction('draft'); });
+    $('#csSchedule').on('click', function () {
+        if ($('#csCompSchedule').prop('hidden')) {
+            // first click reveals the picker (prefilled +1h); a second click schedules
+            if (!$('#csCompSchedAt').val()) {
+                var d = new Date(Date.now() + 3600000); d.setSeconds(0, 0);
+                var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+                $('#csCompSchedAt').val(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+            }
+            $('#csCompSchedule').prop('hidden', false);
+            $('#csSchedule').text('Schedule for this time');
+            $('#csCompSchedAt').trigger('focus');
+            return;
+        }
+        runAction('schedule');
+    });
+    function afterComposer() { loadLibrary(); }
 
     if (typeof toastr !== 'undefined') {
         toastr.options = $.extend(toastr.options || {}, { positionClass: 'toast-bottom-right', timeOut: 3200, preventDuplicates: true });
