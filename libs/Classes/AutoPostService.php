@@ -2,7 +2,7 @@
 /**
  * Executes one Scheduler automation: generate an on-brand image, write a caption,
  * create a post, publish it, and (best-effort) cross-post to social. Shared by the
- * CLI worker (bin/scheduler.php) and the "Run now" endpoint. Never throws — returns
+ * CLI worker (cron/scheduler.php) and the "Run now" endpoint. Never throws — returns
  * ['ok'=>bool, 'post_id'=>int|null, 'message'=>string].
  */
 class AutoPostService {

@@ -306,8 +306,8 @@
 .cs-queue--ok i{ color:var(--violet); }
 .cs-cal__dow{ display:grid; grid-template-columns:repeat(7,1fr); gap:.4rem; margin-bottom:.4rem; }
 .cs-cal__dow > div{ font-size:.74rem; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.03em; padding:0 .3rem; }
-.cs-cal__grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:.4rem; }
-.cs-cal__cell{ min-height:104px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); padding:.35rem; cursor:pointer; display:flex; flex-direction:column; gap:.25rem; transition:background .12s, border-color .12s; }
+.cs-cal__grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:.4rem; }
+.cs-cal__cell{ min-height:104px; min-width:0; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); padding:.35rem; cursor:pointer; display:flex; flex-direction:column; gap:.25rem; transition:background .12s, border-color .12s; }
 .cs-cal__cell:hover{ border-color:var(--muted2); }
 .cs-cal__cell.is-out{ background:transparent; }
 .cs-cal__cell.is-out .cs-cal__daynum{ color:var(--muted2); }
@@ -316,7 +316,7 @@
 .cs-cal__cell.is-drop{ background:var(--vsoft); border-color:var(--violet); border-style:dashed; }
 .cs-cal__daynum{ font-size:.76rem; font-weight:600; color:var(--t2); padding:0 .1rem; }
 .cs-cal__items{ display:flex; flex-direction:column; gap:.25rem; overflow:hidden; }
-.cs-cal__grid--week{ grid-template-columns:repeat(7,1fr); }
+.cs-cal__grid--week{ grid-template-columns:repeat(7, minmax(0,1fr)); }
 .cs-cal__cell--week{ min-height:340px; }
 
 .cs-cchip{ display:flex; align-items:center; gap:.35rem; padding:.2rem; border-radius:var(--r-sm); background:var(--vsoft); border:1px solid transparent; cursor:pointer; overflow:hidden; }

@@ -2995,25 +2995,31 @@ class ApiController extends Controller {
             }
         }
 
-        // Upcoming automations — surface each active rule's next scheduled run.
-        foreach ((new SchedulerRulesModel())->list_for_creator($creator_id) as $rule) {
+        // Upcoming automations — expand each active rule into its occurrences over the
+        // next ~2 months so a daily rule shows on every day, weekly on each matching day.
+        $rulesModel = new SchedulerRulesModel();
+        $horizon    = (new DateTime('now', new DateTimeZone('UTC')))->modify('+62 days');
+        foreach ($rulesModel->list_for_creator($creator_id) as $rule) {
             if ((int) $rule['active'] !== 1 || empty($rule['next_run_at'])) { continue; }
-            try {
-                $d = new DateTime((string) $rule['next_run_at'], new DateTimeZone('UTC'));
-                $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
-            } catch (\Throwable $e) { continue; }
-            $items[] = array(
-                'id'            => 0,
-                'rule_id'       => (int) $rule['id'],
-                'state'         => 'automation',
-                'caption'       => (string) $rule['name'],
-                'cover_url'     => '',
-                'cover_type'    => '',
-                'date'          => $d->format('Y-m-d'),
-                'time'          => $d->format('g:i A'),
-                'iso'           => $d->format('Y-m-d\TH:i'),
-                'media_missing' => 0,
-            );
+            try { $cursor = new DateTime((string) $rule['next_run_at'], new DateTimeZone('UTC')); }
+            catch (\Throwable $e) { continue; }
+            for ($guard = 0; $cursor <= $horizon && $guard < 90; $guard++) {
+                $local = (clone $cursor)->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+                $items[] = array(
+                    'id'            => 0,
+                    'rule_id'       => (int) $rule['id'],
+                    'state'         => 'automation',
+                    'caption'       => (string) $rule['name'],
+                    'cover_url'     => '',
+                    'cover_type'    => '',
+                    'date'          => $local->format('Y-m-d'),
+                    'time'          => $local->format('g:i A'),
+                    'iso'           => $local->format('Y-m-d\TH:i'),
+                    'media_missing' => 0,
+                );
+                try { $cursor = new DateTime($rulesModel->compute_next_run($rule, $cursor), new DateTimeZone('UTC')); }
+                catch (\Throwable $e) { break; }
+            }
         }
 
         $queue = array('scheduled_count' => $scheduled_count, 'days_ahead' => 0, 'reaches' => '');
