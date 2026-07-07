@@ -106,6 +106,12 @@ class ProfileController extends Controller {
             $plan_prices[(int) $pl['id']] = (int) $pl['price_cents'];
         }
 
+        // Which of these posts the viewer has already liked.
+        $post_ids  = array_map(function ($p) { return (int) $p['id']; }, $published);
+        $liked_map = ($viewer_logged_in && !empty($post_ids))
+            ? (new PostLikesModel())->liked_map($viewer_id, $post_ids)
+            : array();
+
         $content_cards = array();
         foreach ($published as $p) {
             $audience = $p['audience'];
@@ -136,6 +142,11 @@ class ProfileController extends Controller {
                 'media_count'  => count($assets),
                 'has_video'    => false,
                 'cover'        => '',   // uniform grid thumbnail
+                'likes'        => (int) $p['likes'],
+                'liked'        => isset($liked_map[(int) $p['id']]),
+                'comments'     => (int) $p['comments'],
+                'views'        => (int) $p['views'],
+                'comments_enabled' => (int) $p['comments_enabled'],
             );
 
             if ($entitled) {

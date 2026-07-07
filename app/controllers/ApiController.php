@@ -817,6 +817,131 @@ class ApiController extends Controller {
         return $response;
     }
 
+    // ---------- Public post engagement (likes / comments / views) ----------
+
+    /** Whether this viewer is allowed to see — and thus engage with — the post. */
+    private function post_engagement_ok($post, $viewer_id){
+        if (!$post || ($post['state'] ?? '') !== 'published') { return false; }
+        $creator_id = (int) $post['creator_id'];
+        if ($viewer_id === $creator_id) { return true; }
+        if (($post['audience'] ?? 'free') === 'free') { return true; }
+        if ($viewer_id <= 0) { return false; }
+        $subs    = new CreatorSubscriptionsModel();
+        $tier_id = (int) ($post['tier_id'] ?? 0);
+        if ($tier_id > 0) {
+            $max  = $subs->max_active_tier_price($viewer_id, $creator_id);
+            $plan = (new CreatorPlansModel())->get_public($tier_id);
+            return ($max !== null && $max >= (int) ($plan['price_cents'] ?? 0));
+        }
+        return !empty($subs->active_plan_ids($viewer_id, $creator_id));
+    }
+
+    private function time_ago($dt){
+        $t = strtotime((string) $dt); if (!$t) { return ''; }
+        $s = time() - $t;
+        if ($s < 60) { return 'just now'; }
+        $m = intdiv($s, 60); if ($m < 60) { return $m . 'm ago'; }
+        $h = intdiv($m, 60); if ($h < 24) { return $h . 'h ago'; }
+        $d = intdiv($h, 24); if ($d < 7) { return $d . 'd ago'; }
+        return date('M j, Y', $t);
+    }
+
+    private function commenter_name($row){
+        $name = trim((string) ($row['first_name'] ?? '') . ' ' . (string) ($row['last_name'] ?? ''));
+        return ($name === '') ? ('@' . (string) ($row['u_name'] ?? 'user')) : $name;
+    }
+
+    /** Toggle the viewer's like on a published post. */
+    public function post_likeAction(){
+        if (empty(Session::get('user_id'))) { echo json_encode(array('success' => false, 'message' => 'Sign in to like posts', 'need_login' => true)); exit; }
+        $viewer = (int) Session::get('user_id');
+        $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
+        if (!$this->post_engagement_ok($post, $viewer)) { echo json_encode(array('success' => false, 'message' => 'You cannot like this post')); exit; }
+        $likes = new PostLikesModel();
+        $liked = $likes->toggle((int) $post['id'], $viewer);
+        $count = $likes->count((int) $post['id']);
+        (new PostsModel())->set_counter((int) $post['id'], 'likes', $count);
+        echo json_encode(array('success' => true, 'liked' => $liked, 'likes' => $count)); exit;
+    }
+
+    /** List a post's comments (only for entitled viewers). */
+    public function post_commentsAction(){
+        $viewer = (int) Session::get('user_id');
+        $post   = (new PostsModel())->get_by_id((int) ($_GET['id'] ?? 0));
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
+        if (!$this->post_engagement_ok($post, $viewer)) { echo json_encode(array('success' => true, 'comments' => array(), 'can_comment' => false, 'comments_enabled' => (int) $post['comments_enabled'])); exit; }
+        $out = array();
+        foreach ((new PostCommentsModel())->list_for_post((int) $post['id']) as $r) {
+            $name = $this->commenter_name($r);
+            $out[] = array(
+                'id'         => (int) $r['id'],
+                'name'       => $name,
+                'initial'    => strtoupper(mb_substr(ltrim($name, '@'), 0, 1)),
+                'body'       => (string) $r['body'],
+                'when'       => $this->time_ago($r['created_at']),
+                'can_delete' => ($viewer > 0 && ($viewer === (int) $r['user_id'] || $viewer === (int) $post['creator_id'])),
+            );
+        }
+        echo json_encode(array('success' => true, 'comments' => $out,
+            'can_comment' => ($viewer > 0 && (int) $post['comments_enabled'] === 1),
+            'comments_enabled' => (int) $post['comments_enabled'])); exit;
+    }
+
+    /** Add a comment to a post. */
+    public function post_comment_addAction(){
+        if (empty(Session::get('user_id'))) { echo json_encode(array('success' => false, 'message' => 'Sign in to comment', 'need_login' => true)); exit; }
+        $viewer = (int) Session::get('user_id');
+        $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
+        if ((int) $post['comments_enabled'] !== 1) { echo json_encode(array('success' => false, 'message' => 'Comments are turned off for this post')); exit; }
+        if (!$this->post_engagement_ok($post, $viewer)) { echo json_encode(array('success' => false, 'message' => 'You cannot comment on this post')); exit; }
+        $body = html_entity_decode(trim((string) ($this->post['body'] ?? '')), ENT_QUOTES);
+        if ($body === '') { echo json_encode(array('success' => false, 'message' => 'Write something first')); exit; }
+        $comments = new PostCommentsModel();
+        $comments->add((int) $post['id'], $viewer, mb_substr($body, 0, 2000));
+        $count = $comments->count((int) $post['id']);
+        (new PostsModel())->set_counter((int) $post['id'], 'comments', $count);
+        echo json_encode(array('success' => true, 'count' => $count)); exit;
+    }
+
+    /** Delete a comment (its author, or the post's creator). */
+    public function post_comment_deleteAction(){
+        if (empty(Session::get('user_id'))) { echo json_encode(array('success' => false, 'message' => 'Sign in first', 'need_login' => true)); exit; }
+        $viewer   = (int) Session::get('user_id');
+        $comments = new PostCommentsModel();
+        $c        = $comments->get_one((int) ($this->post['comment_id'] ?? 0));
+        if (!$c) { echo json_encode(array('success' => false, 'message' => 'Comment not found')); exit; }
+        $post = (new PostsModel())->get_by_id((int) $c['post_id']);
+        if ($viewer !== (int) $c['user_id'] && !($post && $viewer === (int) $post['creator_id'])) {
+            echo json_encode(array('success' => false, 'message' => 'Not allowed')); exit;
+        }
+        $comments->soft_delete((int) $c['id']);
+        $count = $comments->count((int) $c['post_id']);
+        (new PostsModel())->set_counter((int) $c['post_id'], 'comments', $count);
+        echo json_encode(array('success' => true, 'count' => $count)); exit;
+    }
+
+    /** Record a view, deduped per unique viewer. Creator's own views don't count. */
+    public function post_viewAction(){
+        $viewer = (int) Session::get('user_id');
+        $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
+        if (!$post) { echo json_encode(array('success' => false)); exit; }
+        if (!$this->post_engagement_ok($post, $viewer) || $viewer === (int) $post['creator_id']) {
+            echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
+        }
+        $key = $viewer > 0
+            ? ('u:' . $viewer)
+            : ('ip:' . substr(hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . ($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 40));
+        $views = new PostViewsModel();
+        if ($views->record((int) $post['id'], $key)) {
+            $count = $views->count((int) $post['id']);
+            (new PostsModel())->set_counter((int) $post['id'], 'views', $count);
+            echo json_encode(array('success' => true, 'views' => $count)); exit;
+        }
+        echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
+    }
+
     /** Join a free membership tier (auth required). Paid tiers go through checkout. */
     public function join_free_planAction(){
         $response = array('success' => false, 'message' => 'Something went wrong');

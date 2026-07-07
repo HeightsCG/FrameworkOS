@@ -204,6 +204,17 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         var SUB_NOTICE = '<?php echo $sub_notice; ?>';
         var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
+        function pfPost(action, params) {
+            var body = new URLSearchParams();
+            Object.keys(params || {}).forEach(function (k) { body.set(k, params[k]); });
+            body.set('csrf_token', csrf);
+            return fetch('/api/' + action, {
+                method: 'POST',
+                headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString()
+            }).then(function (r) { return r.json(); });
+        }
+
         // Self-view has no follow/subscribe actions.
         function actionsHtml() {
             if (IS_SELF) { return ''; }
@@ -397,7 +408,12 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                              '<div class="pf-plb__dots">' + assets.map(function (a, i) { return '<span class="pf-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
                     }
                     h += '</div>';
-                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>' + (p.published_at ? '<span class="pf-plb__date">' + e(p.published_at) + '</span>' : '') + '</div>'; }
+                    h += '<div class="pf-plb__body">';
+                    if (p.caption) { h += '<p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>'; }
+                    if (p.published_at) { h += '<span class="pf-plb__date">' + e(p.published_at) + '</span>'; }
+                    h += '<div class="pf-plb__engage" id="pfLbEngage"></div>';
+                    h += '<div class="pf-plb__comments" id="pfLbComments"></div>';
+                    h += '</div>';
                 } else {
                     h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Subscribers-only post</span>' +
                         '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAct">' + (LOGGED_IN ? 'Subscribe to unlock' : 'Log in to view') + '</button></div></div>';
@@ -408,6 +424,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 var act = document.getElementById('pfLbAct');
                 if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
                 plbAutoplay();
+                plbPost = p;
+                if (p.entitled) { renderEngage(p); recordView(p); loadComments(p); }
             }
             function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
             document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });
@@ -420,9 +438,12 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 else if (ev.key === 'ArrowRight') { plbGo(1); plbAutoplay(); }
             });
             inner.addEventListener('click', function (ev) {
-                var nav = ev.target.closest('.pf-plb__nav'); if (!nav) { return; }
-                plbGo(nav.getAttribute('data-plb') === 'next' ? 1 : -1);
-                plbAutoplay(); // restart the countdown after a manual move
+                var like = ev.target.closest('[data-plb-like]');
+                if (like) { doLike(); return; }
+                var del = ev.target.closest('[data-plb-cdel]');
+                if (del) { doDeleteComment(del.getAttribute('data-plb-cdel')); return; }
+                var nav = ev.target.closest('.pf-plb__nav');
+                if (nav) { plbGo(nav.getAttribute('data-plb') === 'next' ? 1 : -1); plbAutoplay(); }
             });
             function plbGo(dir) {
                 var slides = inner.querySelectorAll('.pf-plb__slide'); var n = slides.length; if (n < 2) { return; }
@@ -442,6 +463,81 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         plbGo(1);
                     }, 4500);
                 }
+            }
+
+            // ---- engagement: likes, views, comments ----
+            var plbPost = null;
+            function renderEngage(p) {
+                var bar = document.getElementById('pfLbEngage'); if (!bar) { return; }
+                bar.innerHTML =
+                    '<button type="button" class="pf-plb__like' + (p.liked ? ' is-liked' : '') + '" data-plb-like>' +
+                        '<i class="fa-' + (p.liked ? 'solid' : 'regular') + ' fa-heart"></i> <span>' + (p.likes || 0) + '</span></button>' +
+                    '<span class="pf-plb__estat"><i class="fa-regular fa-comment"></i> ' + (p.comments || 0) + '</span>' +
+                    '<span class="pf-plb__estat pf-plb__estat--views"><i class="fa-regular fa-eye"></i> ' + (p.views || 0) + '</span>';
+            }
+            function doLike() {
+                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!plbPost) { return; }
+                pfPost('post_like', { id: plbPost.id }).then(function (o) {
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (!o.success) { pfToast(o.message || 'Could not like'); return; }
+                    plbPost.liked = o.liked; plbPost.likes = o.likes; renderEngage(plbPost);
+                });
+            }
+            function recordView(p) {
+                pfPost('post_view', { id: p.id }).then(function (o) {
+                    if (o && o.success && typeof o.views === 'number') {
+                        p.views = o.views;
+                        var v = document.querySelector('#pfLbEngage .pf-plb__estat--views');
+                        if (v) { v.innerHTML = '<i class="fa-regular fa-eye"></i> ' + o.views; }
+                    }
+                });
+            }
+            function loadComments(p) {
+                var box = document.getElementById('pfLbComments'); if (!box) { return; }
+                box.innerHTML = '<div class="pf-plb__cload">Loading comments…</div>';
+                fetch('/api/post_comments?id=' + p.id).then(function (r) { return r.json(); }).then(function (o) {
+                    if (!o || !o.success) { box.innerHTML = ''; return; }
+                    renderComments(o);
+                });
+            }
+            function renderComments(o) {
+                var box = document.getElementById('pfLbComments'); if (!box) { return; }
+                var html = '<div class="pf-plb__clist">';
+                if (!o.comments.length) { html += '<p class="pf-plb__cempty">No comments yet' + (o.can_comment ? ' — be the first.' : '.') + '</p>'; }
+                o.comments.forEach(function (c) {
+                    html += '<div class="pf-plb__c">' +
+                        '<span class="pf-plb__cav">' + e(c.initial) + '</span>' +
+                        '<div class="pf-plb__cmain"><div class="pf-plb__chead"><span class="pf-plb__cname">' + e(c.name) + '</span><span class="pf-plb__cwhen">' + e(c.when) + '</span>' +
+                        (c.can_delete ? '<button type="button" class="pf-plb__cdel" data-plb-cdel="' + c.id + '" aria-label="Delete comment"><i class="fa-solid fa-xmark"></i></button>' : '') +
+                        '</div><p class="pf-plb__cbody">' + e(c.body).replace(/\n/g, '<br>') + '</p></div></div>';
+                });
+                html += '</div>';
+                if (o.can_comment) {
+                    html += '<form class="pf-plb__cform" id="pfLbCform"><input type="text" class="pf-plb__cinput" id="pfLbCinput" placeholder="Add a comment…" maxlength="2000" autocomplete="off"><button type="submit" class="pf-btn pf-btn--follow pf-plb__csend">Post</button></form>';
+                } else if (!LOGGED_IN && o.comments_enabled) {
+                    html += '<p class="pf-plb__cnote"><a href="/">Log in</a> to comment.</p>';
+                } else if (!o.comments_enabled) {
+                    html += '<p class="pf-plb__cnote">Comments are turned off for this post.</p>';
+                }
+                box.innerHTML = html;
+                var form = document.getElementById('pfLbCform');
+                if (form) { form.onsubmit = function (ev) { ev.preventDefault(); doComment(); }; }
+            }
+            function doComment() {
+                var input = document.getElementById('pfLbCinput'); if (!input || !plbPost) { return; }
+                var body = input.value.trim(); if (body === '') { return; }
+                pfPost('post_comment_add', { id: plbPost.id, body: body }).then(function (o) {
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (!o.success) { pfToast(o.message || 'Could not post'); return; }
+                    input.value = ''; plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost);
+                });
+            }
+            function doDeleteComment(id) {
+                pfPost('post_comment_delete', { comment_id: id }).then(function (o) {
+                    if (!o.success) { pfToast(o.message || 'Could not delete'); return; }
+                    if (plbPost) { plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost); }
+                });
             }
         })();
 

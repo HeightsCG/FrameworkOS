@@ -95,6 +95,18 @@ class PostsModel extends Model {
         );
     }
 
+    /** A post by id regardless of owner — for public engagement (like/comment/view). */
+    public function get_by_id($id){
+        $rows = parent::select("SELECT * FROM posts WHERE id = :id", array('id' => (int) $id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
+    /** Sync a denormalized counter (likes|comments|views) to an exact value. */
+    public function set_counter($id, $column, $value){
+        if (!in_array($column, array('likes', 'comments', 'views'), true)) { return 0; }
+        return parent::update('posts', array($column => (int) $value), 'id = :id', array('id' => (int) $id));
+    }
+
     /** Published posts for a creator's public profile, newest first. */
     public function get_published_for_creator($creator_id){
         return parent::select(
