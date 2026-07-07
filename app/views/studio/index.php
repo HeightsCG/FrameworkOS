@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/studio.css">
+<link rel="stylesheet" href="/css/studio.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/studio.css'); ?>">
 
 <?php if (empty($this->is_creator)): ?>
     <div class="cs-gate">
@@ -377,5 +377,5 @@ window.CS_CONFIG = <?php echo json_encode(array(
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
-<script src="/js/studio.js"></script>
+<script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/studio.js'); ?>"></script>
 <?php endif; ?>

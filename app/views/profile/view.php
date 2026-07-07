@@ -383,12 +383,19 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 var p = byId[id]; if (!p) { return; }
                 var h = '';
                 if (p.entitled) {
-                    h += '<div class="pf-plb__media">';
-                    (p.assets || []).forEach(function (a) {
-                        h += (a.type === 'video')
+                    var assets = p.assets || [];
+                    h += '<div class="pf-plb__media' + (assets.length > 1 ? ' pf-plb__media--carousel' : '') + '">';
+                    assets.forEach(function (a, i) {
+                        var slide = (a.type === 'video')
                             ? '<video src="' + e(a.url) + '"' + (a.poster ? ' poster="' + e(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
                             : '<img src="' + e(a.url) + '" alt="" oncontextmenu="return false">';
+                        h += '<div class="pf-plb__slide' + (i === 0 ? ' is-on' : '') + '">' + slide + '</div>';
                     });
+                    if (assets.length > 1) {
+                        h += '<button type="button" class="pf-plb__nav pf-plb__nav--prev" data-plb="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
+                             '<button type="button" class="pf-plb__nav pf-plb__nav--next" data-plb="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
+                             '<div class="pf-plb__dots">' + assets.map(function (a, i) { return '<span class="pf-plb__dot' + (i === 0 ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
+                    }
                     h += '</div>';
                     if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>' + (p.published_at ? '<span class="pf-plb__date">' + e(p.published_at) + '</span>' : '') + '</div>'; }
                 } else {
@@ -400,12 +407,42 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 lb.hidden = false; document.body.style.overflow = 'hidden';
                 var act = document.getElementById('pfLbAct');
                 if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
+                plbAutoplay();
             }
-            function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; }
+            function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
             document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });
             document.getElementById('pfLbClose').addEventListener('click', closePlb);
             lb.addEventListener('click', function (ev) { if (ev.target === lb) { closePlb(); } });
-            document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !lb.hidden) { closePlb(); } });
+            document.addEventListener('keydown', function (ev) {
+                if (lb.hidden) { return; }
+                if (ev.key === 'Escape') { closePlb(); }
+                else if (ev.key === 'ArrowLeft') { plbGo(-1); plbAutoplay(); }
+                else if (ev.key === 'ArrowRight') { plbGo(1); plbAutoplay(); }
+            });
+            inner.addEventListener('click', function (ev) {
+                var nav = ev.target.closest('.pf-plb__nav'); if (!nav) { return; }
+                plbGo(nav.getAttribute('data-plb') === 'next' ? 1 : -1);
+                plbAutoplay(); // restart the countdown after a manual move
+            });
+            function plbGo(dir) {
+                var slides = inner.querySelectorAll('.pf-plb__slide'); var n = slides.length; if (n < 2) { return; }
+                var cur = 0; slides.forEach(function (s, i) { if (s.classList.contains('is-on')) { cur = i; } });
+                var next = (cur + dir + n) % n;
+                slides.forEach(function (s, i) { var on = i === next; s.classList.toggle('is-on', on); if (!on) { var v = s.querySelector('video'); if (v) { v.pause(); } } });
+                var dots = inner.querySelectorAll('.pf-plb__dot'); dots.forEach(function (d, i) { d.classList.toggle('is-on', i === next); });
+            }
+            var plbTimer = null;
+            function plbAutoplay() {
+                clearInterval(plbTimer);
+                if (inner.querySelectorAll('.pf-plb__slide').length > 1) {
+                    plbTimer = setInterval(function () {
+                        if (lb.hidden) { clearInterval(plbTimer); return; }
+                        var v = inner.querySelector('.pf-plb__slide.is-on video');
+                        if (v && !v.paused) { return; } // don't interrupt a playing video
+                        plbGo(1);
+                    }, 4500);
+                }
+            }
         })();
 
         // Content search — filter the grid by caption.

@@ -806,18 +806,56 @@ jQuery(function ($) {
 
     function renderPreview() {
         var locked = (composer.view === 'pub' && composer.audience === 'subscribers');
-        var hasMedia = composer.assets.length > 0;
-        // No media → empty preview. Clear view falls back to the current cover's thumb when
-        // the signed display URL is stale (e.g. right after removing/reordering); locked view
-        // uses only the blurred variant so a clear thumb never leaks.
-        var img = !hasMedia ? '' : (locked ? composer.coverBlurred : (composer.coverDisplay || (composer.assets[0] && composer.assets[0].thumb_url) || ''));
-        var more = (composer.assets.length > 1) ? '<span class="cs-pv__more"><i class="fa-solid fa-layer-group"></i> ' + composer.assets.length + '</span>' : '';
-        var media = img
-            ? '<div class="cs-pv__media">' + more + (locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to Unlock</span></div>' : '') + '<img src="' + esc(img) + '"></div>'
-            : '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i></div>';
+        var assets = composer.assets;
+        var media;
+        if (!assets.length) {
+            media = '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i></div>';
+        } else {
+            if (composer.pvIdx == null || composer.pvIdx >= assets.length || composer.pvIdx < 0) composer.pvIdx = 0;
+            // Preview from each asset's (watermarked) thumb; the locked view CSS-blurs them so the
+            // creator sees roughly what a non-subscriber gets. Real delivery uses server variants.
+            var slides = assets.map(function (a, i) {
+                var inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
+                if (a.type === 'video') inner += '<span class="cs-pv__play"><i class="fa-solid fa-play"></i></span>';
+                return '<div class="cs-pv__slide' + (i === composer.pvIdx ? ' is-on' : '') + '">' + inner + '</div>';
+            }).join('');
+            var nav = '';
+            if (assets.length > 1) {
+                nav = '<button type="button" class="cs-pv__nav cs-pv__nav--prev" data-pv="prev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>' +
+                      '<button type="button" class="cs-pv__nav cs-pv__nav--next" data-pv="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
+                      '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
+            }
+            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to Unlock</span></div>' : '';
+            media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
+        }
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
         $('#csPreviewCard').html(media + '<div class="cs-pv__body">' + cap + '</div>');
+        pvAutoplay();
     }
+
+    // Carousel nav — toggle the active slide/dot without re-rendering (no image refetch).
+    var pvTimer = null;
+    function pvGo(dir) {
+        var $slides = $('#csPreviewCard .cs-pv__slide'); var n = $slides.length; if (n < 2) return;
+        var cur = $slides.index($slides.filter('.is-on'));
+        var next = (cur + dir + n) % n;
+        $slides.removeClass('is-on').eq(next).addClass('is-on');
+        $('#csPreviewCard .cs-pv__dot').removeClass('is-on').eq(next).addClass('is-on');
+        composer.pvIdx = next;
+    }
+    function pvAutoplay() {
+        clearInterval(pvTimer);
+        if ($('#csPreviewCard .cs-pv__slide').length > 1) {
+            pvTimer = setInterval(function () {
+                if ($('#csPreviewCard .cs-pv__slide').length > 1) { pvGo(1); } else { clearInterval(pvTimer); }
+            }, 3500);
+        }
+    }
+    $('#csPreviewCard').on('click', '.cs-pv__nav', function () {
+        pvGo($(this).data('pv') === 'next' ? 1 : -1);
+        pvAutoplay(); // restart the countdown after a manual move
+    });
+    $('#csComposer').on('hidden.bs.modal', function () { clearInterval(pvTimer); });
 
     // Update ONLY the caption in the preview — never rebuild the <img> (that refetch
     // is what made the image flicker on every keystroke).
