@@ -1861,444 +1861,499 @@ class ApiController extends Controller {
         exit;
     }
 
-    /* ---------- Content Studio ---------- */
+    /* ---------- Content Studio: media vault ---------- */
 
-    public function save_contentAction(){
-        $this->require_creator();
-        $user_id = (int) Session::get('user_id');
-
-        // clean_post_data() html-encodes all input; decode so we store raw text and
-        // escape exactly once at render (avoids double-encoded &mdash; / &#039;).
-        $dec = function ($k) { return html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8'); };
-        $title       = trim($dec('title'));
-        $description = trim($dec('description'));
-        $body        = $dec('body');
-        $tags        = trim($dec('tags'));
-        $access      = (string) ($this->post['access'] ?? 'public');
-        $id          = (int) ($this->post['id'] ?? 0);
-
-        if ($title === '') {
-            echo json_encode(array('success' => false, 'message' => 'A title is required'));
-            exit;
-        }
-        if (!in_array($access, array('public', 'subscribers', 'paid'), true)) {
-            $access = 'public';
-        }
-
-        $required_plan_id = 0;
-        $price_credits    = 0;
-        $plansModel       = new CreatorPlansModel();
-
-        if ($access === 'subscribers') {
-            $required_plan_id = (int) ($this->post['required_plan_id'] ?? 0);
-            if ($required_plan_id <= 0 || !$plansModel->get_one($user_id, $required_plan_id)) {
-                echo json_encode(array('success' => false, 'message' => 'Choose which tier can access this'));
-                exit;
-            }
-        } elseif ($access === 'paid') {
-            $price_credits = (int) ($this->post['price'] ?? 0);
-            if ($price_credits < 1) {
-                echo json_encode(array('success' => false, 'message' => 'Set a credit price of at least 1'));
-                exit;
-            }
-        }
-
-        $fields = array(
-            'title'            => $title,
-            'description'      => $description,
-            'body'             => $body,
-            'tags'             => $tags,
-            'access'           => $access,
-            'required_plan_id' => $required_plan_id,
-            'price_credits'    => $price_credits,
-            'comments_enabled' => !empty($this->post['comments_enabled']) ? 1 : 0,
+    /** Accepted vault media: real mime => [type, extension, max bytes]. */
+    private function studio_media_types(){
+        return array(
+            // images (processed server-side via GD)
+            'image/jpeg' => array('image', 'jpg',  15728640),
+            'image/png'  => array('image', 'png',  15728640),
+            'image/webp' => array('image', 'webp', 15728640),
+            'image/gif'  => array('gif',   'gif',  15728640),
+            // videos (resumable multipart; poster + duration extracted via ffmpeg)
+            'video/mp4'       => array('video', 'mp4',  4294967296),
+            'video/quicktime' => array('video', 'mov',  4294967296),
+            'video/webm'      => array('video', 'webm', 4294967296),
         );
-
-        $model = new ContentItemsModel();
-        if ($id > 0) {
-            if (!$model->get_one($user_id, $id)) {
-                echo json_encode(array('success' => false, 'message' => 'Content not found'));
-                exit;
-            }
-            $model->update_item($user_id, $id, $fields);
-        } else {
-            $id = (int) $model->add($user_id, $fields);
-        }
-
-        // Optional publish state: draft (default) | publish (now) | schedule (future).
-        $publish = (string) ($this->post['publish'] ?? '');
-        $status  = 'draft';
-        if ($publish === 'publish') {
-            $model->set_status($user_id, $id, 'published');
-            $status = 'published';
-        } elseif ($publish === 'schedule') {
-            $when = strtotime((string) ($this->post['scheduled_at'] ?? ''));
-            if (!$when || $when <= time()) {
-                echo json_encode(array('success' => false, 'message' => 'Pick a schedule time in the future', 'id' => $id));
-                exit;
-            }
-            $model->set_status($user_id, $id, 'scheduled', date('Y-m-d H:i:s', $when));
-            $status = 'scheduled';
-        } elseif ($publish === 'draft') {
-            $model->set_status($user_id, $id, 'draft');
-        } else {
-            // No publish change (e.g. an auto-save when attaching media) — report the real status.
-            $cur    = $model->get_one($user_id, $id);
-            $status = $cur ? (string) $cur['status'] : 'draft';
-        }
-
-        echo json_encode(array('success' => true, 'message' => 'Content saved', 'id' => $id, 'status' => $status));
-        exit;
     }
 
-    /** List an owned item's media assets (for the editor). */
-    public function get_content_assetsAction(){
-        $this->require_creator();
-        $user_id    = (int) Session::get('user_id');
-        $content_id = (int) ($this->post['content_id'] ?? 0);
-
-        if (!(new ContentItemsModel())->get_one($user_id, $content_id)) {
-            echo json_encode(array('success' => false, 'message' => 'Content not found'));
-            exit;
-        }
-        $assets = array();
-        foreach ((new ContentAssetsModel())->get_for_content($content_id) as $a) {
-            $assets[] = array('id' => (int) $a['id'], 'type' => $a['type'], 'url' => $a['url']);
-        }
-        echo json_encode(array('success' => true, 'assets' => $assets));
-        exit;
-    }
-
-    /** The creator's posts, for the Studio list. */
-    public function get_my_contentAction(){
-        $user  = $this->require_creator();
-        $model = new ContentItemsModel();
-        $model->publish_due($user['user_id']); // flip any now-due scheduled posts live
-        $items = array();
-        foreach ($model->get_for_creator($user['user_id']) as $it) {
-            $items[] = array(
-                'id'               => (int) $it['id'],
-                'title'            => html_entity_decode((string) $it['title'], ENT_QUOTES, 'UTF-8'),
-                'access'           => (string) $it['access'],
-                'required_plan_id' => (int) $it['required_plan_id'],
-                'price_credits'    => (int) $it['price_credits'],
-                'status'           => (string) $it['status'],
-                'scheduled_at'     => (string) $it['scheduled_at'],
-                'preview_url'      => (string) $it['preview_url'],
-                'pinned'           => (int) $it['pinned'],
-            );
-        }
-        echo json_encode(array('success' => true, 'items' => $items));
-        exit;
-    }
-
-    /** The creator's subscription tiers, for the audience picker. */
-    public function get_my_plansAction(){
-        $user  = $this->require_creator();
-        $plans = array();
-        foreach ((new CreatorPlansModel())->get_for_user($user['user_id']) as $p) {
-            $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
-        }
-        echo json_encode(array('success' => true, 'plans' => $plans));
-        exit;
-    }
-
-    /** One post's full data + media, for the editor. */
-    public function get_contentAction(){
-        $this->require_creator();
-        $user_id = (int) Session::get('user_id');
-        $item    = (new ContentItemsModel())->get_one($user_id, (int) ($this->post['id'] ?? 0));
-        if (!$item) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
-
-        $assets = array();
-        foreach ((new ContentAssetsModel())->get_for_content((int) $item['id']) as $a) {
-            $assets[] = array('id' => (int) $a['id'], 'type' => $a['type'], 'url' => $a['url']);
-        }
-        echo json_encode(array('success' => true, 'assets' => $assets, 'item' => array(
-            'id'               => (int) $item['id'],
-            'title'            => html_entity_decode((string) $item['title'], ENT_QUOTES, 'UTF-8'),
-            'body'             => html_entity_decode((string) $item['body'], ENT_QUOTES, 'UTF-8'),
-            'tags'             => html_entity_decode((string) $item['tags'], ENT_QUOTES, 'UTF-8'),
-            'access'           => (string) $item['access'],
-            'required_plan_id' => (int) $item['required_plan_id'],
-            'price_credits'    => (int) $item['price_credits'],
-            'comments_enabled' => (int) $item['comments_enabled'],
-            'status'           => (string) $item['status'],
-            'scheduled_at'     => (string) $item['scheduled_at'],
-            'preview_url'      => (string) $item['preview_url'],
-        )));
-        exit;
-    }
-
-    /** Allowed content media: real mime => [content_assets.type, extension, max bytes]. */
-    private static $content_media = array(
-        'image/jpeg'      => array('image', 'jpg',  5242880),
-        'image/png'       => array('image', 'png',  5242880),
-        'image/webp'      => array('image', 'webp', 5242880),
-        'image/gif'       => array('image', 'gif',  5242880),
-        'video/mp4'       => array('video', 'mp4',  209715200),
-        'video/webm'      => array('video', 'webm', 209715200),
-        'video/quicktime' => array('video', 'mov',  209715200),
-        'audio/mpeg'      => array('audio', 'mp3',  31457280),
-        'audio/mp4'       => array('audio', 'm4a',  31457280),
-        'audio/x-m4a'     => array('audio', 'm4a',  31457280),
-        'audio/wav'       => array('audio', 'wav',  31457280),
-        'audio/x-wav'     => array('audio', 'wav',  31457280),
-        'audio/ogg'       => array('audio', 'ogg',  31457280),
-        'application/pdf' => array('document', 'pdf', 26214400),
-    );
-
-    /** Upload a media asset (kind=media) or the locked preview image (kind=preview) for a content item. */
-    public function upload_content_assetAction(){
-        $this->require_creator();
-        $user_id = (int) Session::get('user_id');
-
-        $content_id = (int) ($this->post['content_id'] ?? 0);
-        $kind       = (string) ($this->post['kind'] ?? '');
-        if (!in_array($kind, array('media', 'preview'), true)) {
-            echo json_encode(array('success' => false, 'message' => 'Invalid upload'));
-            exit;
-        }
-
-        $itemModel = new ContentItemsModel();
-        $item      = $itemModel->get_one($user_id, $content_id);
-        if (!$item) {
-            echo json_encode(array('success' => false, 'message' => 'Save the content first'));
-            exit;
-        }
-
-        $file = $_FILES['file'] ?? ($_FILES['image'] ?? null);
-        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
-            echo json_encode(array('success' => false, 'message' => 'No file was uploaded'));
-            exit;
-        }
-        if (!S3Service::configured()) {
-            echo json_encode(array('success' => false, 'message' => 'Uploads are not available right now'));
-            exit;
-        }
-
-        // The locked preview is always an image.
-        if ($kind === 'preview') {
-            $info = @getimagesize($file['tmp_name']);
-            $img  = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif');
-            if ($info === false || !isset($img[$info['mime']])) {
-                echo json_encode(array('success' => false, 'message' => 'Preview must be an image (JPG, PNG, WebP, GIF)'));
-                exit;
-            }
-            if ((int) $file['size'] > 5242880) {
-                echo json_encode(array('success' => false, 'message' => 'Preview must be 5MB or smaller'));
-                exit;
-            }
-            $mime = $info['mime'];
-            // Under the creator/ prefix so the bucket's public-read policy serves it (random key = unguessable).
-            $key  = 'creator/content/u' . $user_id . '_c' . $content_id . '_preview_' . bin2hex(random_bytes(8)) . '.' . $img[$mime];
-            $url  = S3Service::upload_file($key, $file['tmp_name'], $mime);
-            if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the image')); exit; }
-            $old = (string) ($item['preview_url'] ?? '');
-            $itemModel->set_preview($user_id, $content_id, $url);
-            if ($old !== '') { S3Service::delete_by_url($old); }
-            echo json_encode(array('success' => true, 'kind' => 'preview', 'url' => $url));
-            exit;
-        }
-
-        // kind = media: trust the bytes, not the filename/client type.
-        $finfo = new finfo(FILEINFO_MIME_TYPE);
-        $mime  = (string) $finfo->file($file['tmp_name']);
-        if (!isset(self::$content_media[$mime])) {
-            echo json_encode(array('success' => false, 'message' => 'Unsupported file type (images, MP4/WebM/MOV video, MP3/M4A/WAV/OGG audio, or PDF)'));
-            exit;
-        }
-        list($type, $ext, $max) = self::$content_media[$mime];
-        if ((int) $file['size'] > $max) {
-            echo json_encode(array('success' => false, 'message' => ucfirst($type) . ' is too large (max ' . round($max / 1048576) . 'MB)'));
-            exit;
-        }
-
-        // Under the creator/ prefix so the bucket's public-read policy serves it (random key = unguessable).
-        $key = 'creator/content/u' . $user_id . '_c' . $content_id . '_' . $type . '_' . bin2hex(random_bytes(8)) . '.' . $ext;
-        $url = S3Service::upload_file($key, $file['tmp_name'], $mime);
-        if ($url === '') { echo json_encode(array('success' => false, 'message' => 'Could not save the file')); exit; }
-
-        $asset_id = (new ContentAssetsModel())->add($user_id, $content_id, $type, $url, $mime);
-        echo json_encode(array('success' => true, 'kind' => 'media', 'url' => $url, 'type' => $type, 'asset_id' => (int) $asset_id));
-        exit;
-    }
-
-    public function delete_content_assetAction(){
-        $this->require_creator();
-        $user_id = (int) Session::get('user_id');
-        $id      = (int) ($this->post['id'] ?? 0);
-
-        $assets = new ContentAssetsModel();
-        $asset  = $assets->get_one($user_id, $id);
-        if (!$asset) {
-            echo json_encode(array('success' => false, 'message' => 'Asset not found'));
-            exit;
-        }
-        $assets->delete_asset($user_id, $id);
-        S3Service::delete_by_url((string) $asset['url']);
-        echo json_encode(array('success' => true, 'message' => 'Removed'));
-        exit;
-    }
-
-    public function toggle_publish_contentAction(){
-        $this->require_creator();
-        $id = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) {
-            echo json_encode(array('success' => false, 'message' => 'Content is required'));
-            exit;
-        }
-        $status = !empty($this->post['published']) ? 'published' : 'draft';
-        (new ContentItemsModel())->set_status((int) Session::get('user_id'), $id, $status);
-        echo json_encode(array('success' => true, 'status' => $status));
-        exit;
-    }
-
-    public function delete_contentAction(){
-        $this->require_creator();
-        $user_id = (int) Session::get('user_id');
-        $id      = (int) ($this->post['id'] ?? 0);
-
-        $itemModel = new ContentItemsModel();
-        $item      = $itemModel->get_one($user_id, $id);
-        if (!$item) {
-            echo json_encode(array('success' => false, 'message' => 'Content not found'));
-            exit;
-        }
-
-        // Clean up the stored S3 assets + preview before removing the rows.
-        $assetsModel = new ContentAssetsModel();
-        foreach ($assetsModel->get_for_content($id) as $a) {
-            S3Service::delete_by_url((string) $a['url']);
-        }
-        if (!empty($item['preview_url'])) {
-            S3Service::delete_by_url((string) $item['preview_url']);
-        }
-        $assetsModel->delete_for_content($user_id, $id);
-        $itemModel->delete_item($user_id, $id);
-
-        echo json_encode(array('success' => true, 'message' => 'Content removed'));
-        exit;
-    }
-
-    public function reorder_contentAction(){
-        $this->require_creator();
-        $ids = $this->post['ids'] ?? array();
-        if (!is_array($ids)) {
-            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
-            exit;
-        }
-        (new ContentItemsModel())->reorder((int) Session::get('user_id'), $ids);
-        echo json_encode(array('success' => true, 'message' => 'Order saved'));
-        exit;
-    }
-
-    public function pin_contentAction(){
-        $this->require_creator();
-        $id = (int) ($this->post['id'] ?? 0);
-        if ($id <= 0) {
-            echo json_encode(array('success' => false, 'message' => 'Content is required'));
-            exit;
-        }
-        $pinned = !empty($this->post['pinned']);
-        (new ContentItemsModel())->set_pinned((int) Session::get('user_id'), $id, $pinned);
-        echo json_encode(array('success' => true, 'pinned' => $pinned));
-        exit;
-    }
-
-    public function reorder_content_assetsAction(){
-        $this->require_creator();
-        $ids = $this->post['ids'] ?? array();
-        if (!is_array($ids)) {
-            echo json_encode(array('success' => false, 'message' => 'Invalid order'));
-            exit;
-        }
-        (new ContentAssetsModel())->reorder((int) Session::get('user_id'), $ids);
-        echo json_encode(array('success' => true, 'message' => 'Order saved'));
-        exit;
-    }
-
-    /** Unlock paid content by spending credits (any authenticated viewer). Idempotent. */
-    public function unlock_contentAction(){
-        $response = array('success' => false, 'message' => 'Something went wrong');
-
-        if (empty(Session::get('user_id'))) {
-            $response['message']    = 'Sign in to unlock';
-            $response['need_login'] = true;
-            echo json_encode($response);
-            exit;
-        }
-
-        $user_id  = (int) Session::get('user_id');
-        $itemModel = new ContentItemsModel();
-        $item     = $itemModel->get_public_by_id((int) ($this->post['content_id'] ?? 0));
-
-        if (!$item || $item['access'] !== 'paid') {
-            $response['message'] = 'That content is not available to unlock';
-            echo json_encode($response);
-            exit;
-        }
-        $creator_id = (int) $item['creator_id'];
-        if ($creator_id === $user_id) {
-            $response['message'] = 'This is your own content';
-            echo json_encode($response);
-            exit;
-        }
-
-        $unlocks = new ContentUnlocksModel();
-        $content_id = (int) $item['id'];
-
-        // Already owned → reveal without charging (idempotent, §16.3).
-        if ($unlocks->is_unlocked($user_id, $content_id)) {
-            $this->respond_unlocked($item);
-        }
-
-        $price = (int) $item['price_credits'];
-
-        // Insert the ownership row first; the UNIQUE key makes concurrent unlocks safe.
-        if ($unlocks->record($user_id, $content_id, $creator_id, $price) === false) {
-            // Lost the race → someone else's request already recorded it; reveal.
-            $this->respond_unlocked($item);
-        }
-
-        // Atomic spend (FOR UPDATE, rejects a negative balance).
-        $new_balance = (new CreditsModel())->apply_delta($user_id, -$price, 'content_unlock', 'Unlocked content #' . $content_id);
-        if ($new_balance === false) {
-            $unlocks->remove($user_id, $content_id);
-            $response['message']      = 'Not enough credits';
-            $response['need_credits'] = true;
-            echo json_encode($response);
-            exit;
-        }
-
-        // TODO: credit the creator's earnings wallet (§18.7) here once it exists.
-        $this->respond_unlocked($item, $new_balance);
-    }
-
-    /** Emit the revealed content (original assets + body). Only reached post-entitlement (§11.6). */
-    private function respond_unlocked($item, $balance = null){
-        $assets = array();
-        foreach ((new ContentAssetsModel())->get_for_content((int) $item['id']) as $a) {
-            $assets[] = array('type' => $a['type'], 'url' => $a['url']);
-        }
+    /** Shape a media_assets row for the client, with a fresh signed thumbnail URL. */
+    private function studio_asset_json(array $a, $creator_id){
+        $name = (isset($a['display_name']) && $a['display_name'] !== null && $a['display_name'] !== '')
+            ? $a['display_name'] : $a['filename'];
         $tags = array();
-        foreach (explode(',', (string) ($item['tags'] ?? '')) as $t) {
+        foreach (explode(',', (string) ($a['tags'] ?? '')) as $t) {
             $t = trim($t);
             if ($t !== '') { $tags[] = $t; }
         }
-        $out = array(
-            'success'     => true,
-            'unlocked'    => true,
-            'message'     => 'Unlocked',
-            'description' => (string) ($item['description'] ?? ''),
-            'body'        => (string) $item['body'],
-            'tags'        => $tags,
-            'assets'      => $assets,
+        $thumb = ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id) : '';
+        return array(
+            'id'                => (int) $a['id'],
+            'type'              => $a['type'],
+            'status'            => $a['status'],
+            'name'              => $name,
+            'filename'          => $a['filename'],
+            'description'       => (string) ($a['description'] ?? ''),
+            'tags'              => $tags,
+            'duration'          => isset($a['duration_sec']) && $a['duration_sec'] !== null ? (int) $a['duration_sec'] : null,
+            'width'             => isset($a['width'])  && $a['width']  !== null ? (int) $a['width']  : null,
+            'height'            => isset($a['height']) && $a['height'] !== null ? (int) $a['height'] : null,
+            'bytes'             => isset($a['bytes'])  && $a['bytes']  !== null ? (int) $a['bytes']  : null,
+            'watermark_applied' => (int) ($a['watermark_applied'] ?? 0),
+            'usage_count'       => (int) ($a['usage_count'] ?? 0),
+            'failure_reason'    => (string) ($a['failure_reason'] ?? ''),
+            'created_at'        => $a['created_at'],
+            'thumb_url'         => $thumb,
         );
-        if ($balance !== null) {
-            $out['balance'] = (int) $balance;
+    }
+
+    /** Single-request upload for images/gifs (small enough for one POST). */
+    public function media_uploadAction(){
+        @ini_set('memory_limit', '512M');
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+
+        if (!S3Service::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Uploads are unavailable right now. Please try again shortly.')); exit;
         }
-        echo json_encode($out);
+        $file = $_FILES['file'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            echo json_encode(array('success' => false, 'message' => 'No file was received. Please pick a file and try again.')); exit;
+        }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = (string) $finfo->file($file['tmp_name']);
+        $types = $this->studio_media_types();
+        if (!isset($types[$mime]) || $types[$mime][0] === 'video') {
+            echo json_encode(array('success' => false, 'message' => 'That file type is not supported here. Use JPG, PNG, WebP, or GIF.')); exit;
+        }
+        list($type, $ext, $max) = $types[$mime];
+        if ((int) $file['size'] > $max) {
+            echo json_encode(array('success' => false, 'message' => 'That image is too large. Images can be up to 15 MB.')); exit;
+        }
+
+        $orig_name = (string) ($file['name'] ?? 'upload.' . $ext);
+        $model     = new MediaAssetsModel();
+        $asset_id  = (int) $model->add($creator_id, $type, $orig_name, $mime, 'processing');
+        if ($asset_id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Could not start the upload. Please try again.')); exit;
+        }
+
+        $watermark = !empty($user['watermark_enabled']);
+        $res = MediaService::process_image($creator_id, $asset_id, $file['tmp_name'], $ext, $mime, $user, $watermark);
+        if (isset($res['error'])) {
+            $model->set_failed($creator_id, $asset_id, $res['error']);
+            $a = $model->get_one($creator_id, $asset_id);
+            echo json_encode(array('success' => false, 'message' => $res['error'], 'asset' => $a ? $this->studio_asset_json($a, $creator_id) : null)); exit;
+        }
+        $model->set_ready($creator_id, $asset_id, $res);
+        $a = $model->get_one($creator_id, $asset_id);
+        echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($a, $creator_id)));
+        exit;
+    }
+
+    /** Begin (or resume) a resumable multipart video upload. */
+    public function media_upload_initAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        if (!S3Service::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Uploads are unavailable right now. Please try again shortly.')); exit;
+        }
+        $filename = trim(html_entity_decode((string) ($this->post['filename'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $mime     = (string) ($this->post['mime'] ?? '');
+        $bytes    = (int) ($this->post['bytes_total'] ?? 0);
+        $token    = (string) ($this->post['client_token'] ?? '');
+        $types    = $this->studio_media_types();
+        if (!isset($types[$mime]) || $types[$mime][0] !== 'video') {
+            echo json_encode(array('success' => false, 'message' => 'That video format is not supported. Use MP4, MOV, or WebM.')); exit;
+        }
+        list($type, $ext, $max) = $types[$mime];
+        if ($bytes <= 0 || $bytes > $max) {
+            echo json_encode(array('success' => false, 'message' => 'That video is too large. Videos can be up to 4 GB.')); exit;
+        }
+
+        $sessions = new UploadSessionsModel();
+        // Resume an existing active session for the same file if we have one.
+        if ($token !== '') {
+            $existing = $sessions->get_active_by_token($creator_id, $token);
+            if ($existing) {
+                $nums = array();
+                foreach ($sessions->parts($existing) as $p) { $nums[] = (int) $p['PartNumber']; }
+                echo json_encode(array(
+                    'success'         => true,
+                    'session_id'      => (int) $existing['id'],
+                    'asset_id'        => (int) $existing['asset_id'],
+                    'part_size'       => 8388608,
+                    'uploaded_parts'  => $nums,
+                    'bytes_received'  => (int) $existing['bytes_received'],
+                    'resumed'         => true,
+                )); exit;
+            }
+        }
+
+        $model    = new MediaAssetsModel();
+        $asset_id = (int) $model->add($creator_id, 'video', $filename !== '' ? $filename : ('video.' . $ext), $mime, 'uploading');
+        if ($asset_id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Could not start the upload. Please try again.')); exit;
+        }
+        $key       = MediaService::key($creator_id, $asset_id, 'original', $ext);
+        $upload_id = S3Service::create_multipart($key, $mime);
+        if ($upload_id === '') {
+            $model->set_failed($creator_id, $asset_id, 'Could not begin the upload');
+            echo json_encode(array('success' => false, 'message' => 'Could not begin the upload. Please try again.')); exit;
+        }
+        $session_id = (int) $sessions->create($creator_id, $filename, $mime, $bytes, $key, $upload_id, $token, $asset_id);
+
+        echo json_encode(array(
+            'success'        => true,
+            'session_id'     => $session_id,
+            'asset_id'       => $asset_id,
+            'part_size'      => 8388608,
+            'uploaded_parts' => array(),
+            'bytes_received' => 0,
+            'resumed'        => false,
+        ));
+        exit;
+    }
+
+    /** Upload one ~8 MB part of a resumable video upload. */
+    public function media_upload_chunkAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $session_id = (int) ($this->post['session_id'] ?? 0);
+        $part_no    = (int) ($this->post['part_number'] ?? 0);
+        $sessions   = new UploadSessionsModel();
+        $session    = $sessions->get_one($creator_id, $session_id);
+        if (!$session || $session['status'] !== 'active') {
+            echo json_encode(array('success' => false, 'message' => 'This upload session is no longer active. Please restart the upload.')); exit;
+        }
+        if ($part_no < 1) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid upload chunk.')); exit;
+        }
+        $chunk = $_FILES['chunk'] ?? null;
+        if (!$chunk || ($chunk['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($chunk['tmp_name'])) {
+            echo json_encode(array('success' => false, 'message' => 'That chunk did not arrive. It will be retried.')); exit;
+        }
+        $body = @file_get_contents($chunk['tmp_name']);
+        $size = strlen((string) $body);
+        $etag = S3Service::upload_part($session['storage_key'], $session['s3_upload_id'], $part_no, $body);
+        if ($etag === '') {
+            echo json_encode(array('success' => false, 'message' => 'That chunk failed to store. It will be retried.')); exit;
+        }
+        $sessions->add_part($creator_id, $session_id, $part_no, $etag, $size);
+        $fresh = $sessions->get_one($creator_id, $session_id);
+        echo json_encode(array('success' => true, 'bytes_received' => (int) $fresh['bytes_received']));
+        exit;
+    }
+
+    /** Report resume state for a file fingerprint (uploaded part numbers). */
+    public function media_upload_statusAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $token      = (string) ($_GET['client_token'] ?? '');
+        $session    = $token !== '' ? (new UploadSessionsModel())->get_active_by_token($creator_id, $token) : null;
+        if (!$session) {
+            echo json_encode(array('success' => true, 'active' => false)); exit;
+        }
+        $nums = array();
+        foreach ((new UploadSessionsModel())->parts($session) as $p) { $nums[] = (int) $p['PartNumber']; }
+        echo json_encode(array(
+            'success'        => true,
+            'active'         => true,
+            'session_id'     => (int) $session['id'],
+            'asset_id'       => (int) $session['asset_id'],
+            'part_size'      => 8388608,
+            'uploaded_parts' => $nums,
+            'bytes_received' => (int) $session['bytes_received'],
+        ));
+        exit;
+    }
+
+    /** Finish a multipart video upload: assemble in S3, extract poster+duration, go ready. */
+    public function media_upload_completeAction(){
+        @ini_set('memory_limit', '512M');
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $session_id = (int) ($this->post['session_id'] ?? 0);
+        $sessions   = new UploadSessionsModel();
+        $session    = $sessions->get_one($creator_id, $session_id);
+        if (!$session || $session['status'] !== 'active') {
+            echo json_encode(array('success' => false, 'message' => 'This upload session is no longer active. Please restart the upload.')); exit;
+        }
+        $asset_id = (int) $session['asset_id'];
+        $model    = new MediaAssetsModel();
+
+        $parts = $sessions->parts($session);
+        if (empty($parts)) {
+            echo json_encode(array('success' => false, 'message' => 'No video data was received. Please try the upload again.')); exit;
+        }
+        $s3parts = array();
+        foreach ($parts as $p) { $s3parts[] = array('PartNumber' => (int) $p['PartNumber'], 'ETag' => (string) $p['ETag']); }
+        if (!S3Service::complete_multipart($session['storage_key'], $session['s3_upload_id'], $s3parts)) {
+            $model->set_failed($creator_id, $asset_id, 'Could not assemble the uploaded video');
+            echo json_encode(array('success' => false, 'message' => 'The upload could not be finalized. Please try again.')); exit;
+        }
+
+        // Read the assembled original back through a short-lived signed URL and let
+        // ffmpeg/ffprobe (server-side) extract the poster frame + duration/dimensions.
+        $src   = S3Service::presigned_get_url($session['storage_key'], 900);
+        $probe = MediaService::probe_video($src);
+        $res   = MediaService::process_video($creator_id, $asset_id, $src, $user);
+        if (isset($res['error'])) {
+            $model->set_failed($creator_id, $asset_id, $res['error']);
+            echo json_encode(array('success' => false, 'message' => $res['error'])); exit;
+        }
+        $fields = array_merge($res, array(
+            'original_key' => $session['storage_key'],
+            'bytes'        => (int) $session['bytes_received'],
+            'duration_sec' => (int) ($probe['duration'] ?? 0),
+            'width'        => (int) ($probe['width'] ?? 0),
+            'height'       => (int) ($probe['height'] ?? 0),
+        ));
+        $model->set_ready($creator_id, $asset_id, $fields);
+        $sessions->mark_completed($creator_id, $session_id, $asset_id);
+        $a = $model->get_one($creator_id, $asset_id);
+        echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($a, $creator_id)));
+        exit;
+    }
+
+    /** Vault listing with filters (type, collection, usage, search). */
+    public function media_listAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $filters = array(
+            'type'       => (string) ($_GET['type'] ?? ''),
+            'collection' => (int) ($_GET['collection'] ?? 0),
+            'usage'      => (string) ($_GET['usage'] ?? ''),
+            'search'     => (string) ($_GET['search'] ?? ''),
+        );
+        $rows = (new MediaAssetsModel())->get_for_creator($creator_id, $filters);
+        $assets = array();
+        foreach ($rows as $a) { $assets[] = $this->studio_asset_json($a, $creator_id); }
+        echo json_encode(array('success' => true, 'assets' => $assets, 'total' => count($assets)));
+        exit;
+    }
+
+    /** Full detail for one asset: signed preview, metadata, usage, collections. */
+    public function media_getAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($_GET['id'] ?? 0);
+        $model      = new MediaAssetsModel();
+        $a          = $model->get_one($creator_id, $id);
+        if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
+
+        $preview = ($a['type'] === 'video')
+            ? MediaService::signed_url($a, 'poster', $creator_id)
+            : MediaService::signed_url($a, 'display', $creator_id);
+        $video_url = ($a['type'] === 'video') ? MediaService::signed_url($a, 'original', $creator_id) : '';
+        $usage = $model->get_posts_using($creator_id, $id);
+        $out = $this->studio_asset_json($a, $creator_id);
+        $out['preview_url']    = $preview;
+        $out['video_url']      = $video_url;
+        $out['collection_ids'] = $model->get_collection_ids($id);
+        $out['posts']          = array();
+        foreach ($usage as $p) {
+            $cap = trim((string) $p['caption']);
+            $out['posts'][] = array(
+                'id'      => (int) $p['id'],
+                'excerpt' => $cap === '' ? '(no caption)' : mb_substr($cap, 0, 60),
+                'state'   => $p['state'],
+            );
+        }
+        echo json_encode(array('success' => true, 'asset' => $out));
+        exit;
+    }
+
+    /** Rename + retag an asset. */
+    public function media_updateAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $model      = new MediaAssetsModel();
+        if (!$model->get_one($creator_id, $id)) {
+            echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit;
+        }
+        $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $model->set_description($creator_id, $id, $description);
+        $a = $model->get_one($creator_id, $id);
+        echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($a, $creator_id)));
+        exit;
+    }
+
+    /** Mint a fresh signed URL for a variant (used when a grid thumb URL expires). */
+    public function media_signAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($_GET['id'] ?? 0);
+        $variant    = (string) ($_GET['variant'] ?? 'thumb');
+        $a          = (new MediaAssetsModel())->get_one($creator_id, $id);
+        if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
+        echo json_encode(array('success' => true, 'url' => MediaService::signed_url($a, $variant, $creator_id)));
+        exit;
+    }
+
+    /** Toggle the baked watermark on an image by re-processing from the original. */
+    public function media_watermarkAction(){
+        @ini_set('memory_limit', '512M');
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $enabled    = ((string) ($this->post['enabled'] ?? '1')) === '1';
+        $model      = new MediaAssetsModel();
+        $a          = $model->get_one($creator_id, $id);
+        if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
+        if ($a['type'] === 'video') {
+            echo json_encode(array('success' => false, 'message' => 'Video watermarks show as an overlay on the player and cannot be turned off per-file.')); exit;
+        }
+        if (empty($a['original_key'])) {
+            echo json_encode(array('success' => false, 'message' => 'The original file is unavailable, so the watermark cannot be changed.')); exit;
+        }
+        // Pull the original down to a temp file, then re-run the image pipeline.
+        $url = S3Service::presigned_get_url($a['original_key'], 300);
+        $tmp = tempnam(sys_get_temp_dir(), 'wm');
+        $bytes = $url !== '' ? @file_get_contents($url) : false;
+        if ($bytes === false || $bytes === '') {
+            @unlink($tmp);
+            echo json_encode(array('success' => false, 'message' => 'Could not read the original file. Please try again.')); exit;
+        }
+        file_put_contents($tmp, $bytes);
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = (string) $finfo->file($tmp);
+        $types = $this->studio_media_types();
+        $ext   = isset($types[$mime]) ? $types[$mime][1] : 'jpg';
+        $res   = MediaService::process_image($creator_id, $id, $tmp, $ext, $mime, $user, $enabled);
+        @unlink($tmp);
+        if (isset($res['error'])) {
+            echo json_encode(array('success' => false, 'message' => $res['error'])); exit;
+        }
+        $model->set_ready($creator_id, $id, $res);
+        $a = $model->get_one($creator_id, $id);
+        echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($a, $creator_id)));
+        exit;
+    }
+
+    /** Soft-delete an asset (recoverable). Removes it from all collections. */
+    public function media_deleteAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $model      = new MediaAssetsModel();
+        $a          = $model->get_one($creator_id, $id);
+        if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
+        $affected = count($model->get_posts_using($creator_id, $id));
+        $model->soft_delete($creator_id, $id);
+        (new CollectionsModel())->remove_asset_everywhere($id);
+        echo json_encode(array('success' => true, 'affected_posts' => $affected, 'message' => 'File removed.'));
+        exit;
+    }
+
+    /** Bulk actions over selected assets: add to collection, tag, or delete. */
+    public function media_bulkAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $action     = (string) ($this->post['bulk_action'] ?? '');
+        $ids        = $this->post['ids'] ?? array();
+        if (!is_array($ids)) { $ids = array(); }
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (empty($ids)) { echo json_encode(array('success' => false, 'message' => 'No files were selected.')); exit; }
+
+        $model = new MediaAssetsModel();
+        // Ownership: keep only assets that belong to this creator.
+        $owned = array();
+        foreach ($ids as $id) { if ($model->get_one($creator_id, $id)) { $owned[] = $id; } }
+        if (empty($owned)) { echo json_encode(array('success' => false, 'message' => 'No matching files were found.')); exit; }
+
+        if ($action === 'collection_add') {
+            $col = (int) ($this->post['collection_id'] ?? 0);
+            if (!(new CollectionsModel())->get_one($creator_id, $col)) {
+                echo json_encode(array('success' => false, 'message' => 'That collection was not found.')); exit;
+            }
+            (new CollectionsModel())->add_assets($col, $owned);
+            echo json_encode(array('success' => true, 'message' => count($owned) . ' file(s) added.')); exit;
+        }
+        if ($action === 'delete') {
+            $col = new CollectionsModel();
+            foreach ($owned as $id) { $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id); }
+            echo json_encode(array('success' => true, 'message' => count($owned) . ' file(s) removed.')); exit;
+        }
+        echo json_encode(array('success' => false, 'message' => 'Unknown action.'));
+        exit;
+    }
+
+    /* ---------- Content Studio: collections ---------- */
+
+    public function collections_listAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $rows = (new CollectionsModel())->get_for_creator($creator_id);
+        $out = array();
+        foreach ($rows as $c) {
+            $out[] = array(
+                'id'          => (int) $c['id'],
+                'name'        => $c['name'],
+                'asset_count' => (int) $c['asset_count'],
+            );
+        }
+        echo json_encode(array('success' => true, 'collections' => $out));
+        exit;
+    }
+
+    public function collection_saveAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $name       = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($name === '') { echo json_encode(array('success' => false, 'message' => 'Give the collection a name.')); exit; }
+        $model = new CollectionsModel();
+        if ($id > 0) {
+            if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That collection was not found.')); exit; }
+            $model->rename($creator_id, $id, $name);
+        } else {
+            $id = (int) $model->add($creator_id, $name);
+        }
+        echo json_encode(array('success' => true, 'id' => $id, 'name' => $name));
+        exit;
+    }
+
+    public function collection_deleteAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        (new CollectionsModel())->delete_collection($creator_id, $id);
+        echo json_encode(array('success' => true, 'message' => 'Collection deleted.'));
+        exit;
+    }
+
+    public function collection_add_assetsAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $ids        = $this->post['ids'] ?? array();
+        if (!is_array($ids)) { $ids = array(); }
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        $model = new CollectionsModel();
+        if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That collection was not found.')); exit; }
+        // Only add assets this creator owns.
+        $ma = new MediaAssetsModel();
+        $owned = array();
+        foreach ($ids as $aid) { if ($ma->get_one($creator_id, $aid)) { $owned[] = $aid; } }
+        $model->add_assets($id, $owned);
+        echo json_encode(array('success' => true, 'message' => count($owned) . ' file(s) added.'));
+        exit;
+    }
+
+    public function collection_remove_assetsAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $ids        = $this->post['ids'] ?? array();
+        if (!is_array($ids)) { $ids = array(); }
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        $model = new CollectionsModel();
+        if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That collection was not found.')); exit; }
+        $model->remove_assets($id, $ids);
+        echo json_encode(array('success' => true, 'message' => 'Removed from collection.'));
         exit;
     }
 

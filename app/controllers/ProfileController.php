@@ -100,55 +100,11 @@ class ProfileController extends Controller {
             ? (new CreatorSubscriptionsModel())->active_plan_ids($viewer_id, $user['user_id'])
             : array();
 
-        // Published content, gated per §11.6: the original body/assets are attached to a
-        // card ONLY when the viewer is entitled, so a locked card can never leak them.
-        $items         = (new ContentItemsModel())->get_published_for_creator($user['user_id']);
-        $max_tier_price = ($viewer_logged_in && !$is_self)
-            ? (new CreatorSubscriptionsModel())->max_active_tier_price($viewer_id, $user['user_id'])
-            : null;
-        $unlocked_ids  = ($viewer_logged_in && !$is_self)
-            ? (new ContentUnlocksModel())->unlocked_content_ids($viewer_id, $user['user_id'])
-            : array();
-
+        // Content feed temporarily disabled: the old content_items/content_assets system
+        // was removed in the Content Studio rewrite. Fans will see the new posts once the
+        // profile is rewired to the new schema (tracked as a separate task). Until then the
+        // profile renders with no content cards rather than referencing removed models.
         $content_cards = array();
-        foreach ($items as $it) {
-            $access = $it['access'];
-            if ($is_self) {
-                $entitled = true;
-            } elseif ($access === 'public') {
-                $entitled = $viewer_logged_in;
-            } elseif ($access === 'subscribers') {
-                $entitled = ($max_tier_price !== null && $max_tier_price >= (int) $it['required_plan_price']);
-            } else { // paid
-                $entitled = in_array((int) $it['id'], $unlocked_ids, true);
-            }
-
-            // Title/description/tags are safe metadata even on locked content (§11.5).
-            $tags = array();
-            foreach (explode(',', (string) ($it['tags'] ?? '')) as $t) {
-                $t = trim($t);
-                if ($t !== '') { $tags[] = $t; }
-            }
-            $card = array(
-                'id'            => (int) $it['id'],
-                'title'         => $it['title'],
-                'description'   => (string) ($it['description'] ?? ''),
-                'tags'          => $tags,
-                'access'        => $access,
-                'price_credits' => (int) $it['price_credits'],
-                'required_name' => (string) ($it['required_plan_name'] ?? ''),
-                'preview_url'   => (string) ($it['preview_url'] ?? ''),
-                'entitled'      => $entitled,
-            );
-            if ($entitled) {
-                $card['body']   = (string) ($it['body'] ?? '');
-                $card['assets'] = array();
-                foreach ((new ContentAssetsModel())->get_for_content((int) $it['id']) as $a) {
-                    $card['assets'][] = array('type' => $a['type'], 'url' => $a['url']);
-                }
-            }
-            $content_cards[] = $card;
-        }
         $viewer_credit_balance = $viewer_logged_in ? (new CreditsModel())->get_balance($viewer_id) : 0;
 
         require Main::app_path() . '/app/views/profile/view.php';
