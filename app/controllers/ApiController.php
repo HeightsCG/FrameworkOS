@@ -1628,6 +1628,46 @@ class ApiController extends Controller {
         exit;
     }
 
+    /** Generate brand details from a website URL (Claude). Does not persist. */
+    public function generate_brand_identityAction(){
+        $this->require_creator();
+        $url = html_entity_decode(trim((string) ($this->post['url'] ?? '')), ENT_QUOTES);
+        if ($url === '') {
+            echo json_encode(array('success' => false, 'message' => 'Enter your website URL first.'));
+            exit;
+        }
+        $result = BrandService::generate_from_url($url);
+        if (empty($result['ok'])) {
+            echo json_encode(array('success' => false, 'message' => $result['error'] ?? 'Generation failed. Try again.'));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'brand' => $result['data']));
+        exit;
+    }
+
+    /** Persist the reviewed/edited brand identity for this creator. */
+    public function save_brand_identityAction(){
+        $this->require_creator();
+        $split = function ($v) {
+            if (is_array($v)) { return array_values(array_filter(array_map('trim', $v), 'strlen')); }
+            $v = html_entity_decode((string) $v, ENT_QUOTES);
+            return array_values(array_filter(array_map('trim', explode(',', $v)), 'strlen'));
+        };
+        $dec = function ($k) { return html_entity_decode(trim((string) ($this->post[$k] ?? '')), ENT_QUOTES); };
+
+        (new CreatorBrandModel())->save((int) Session::get('user_id'), array(
+            'source_url'  => $dec('source_url'),
+            'brand_name'  => $dec('brand_name'),
+            'tagline'     => $dec('tagline'),
+            'description' => $dec('description'),
+            'voice'       => $dec('voice'),
+            'colors'      => $split($this->post['colors'] ?? ''),
+            'keywords'    => $split($this->post['keywords'] ?? ''),
+        ));
+        echo json_encode(array('success' => true, 'message' => 'Brand identity saved'));
+        exit;
+    }
+
     public function upload_creator_imageAction(){
         $this->require_creator();
 
@@ -1949,6 +1989,75 @@ class ApiController extends Controller {
         $a = $model->get_one($creator_id, $asset_id);
         echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($a, $creator_id)));
         exit;
+    }
+
+    /** Generate an image with OpenAI, folding in the creator's brand, and ingest it as a vault asset. */
+    public function media_generateAction(){
+        @set_time_limit(180);
+        @ini_set('memory_limit', '512M');
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+
+        if (!S3Service::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Image generation is unavailable right now. Please try again shortly.')); exit;
+        }
+        $prompt = html_entity_decode(trim((string) ($this->post['prompt'] ?? '')), ENT_QUOTES);
+        if ($prompt === '') {
+            echo json_encode(array('success' => false, 'message' => 'Describe the image you want to generate.')); exit;
+        }
+        $size_key  = (string) ($this->post['size'] ?? 'square');
+        $use_brand = ((string) ($this->post['use_brand'] ?? '1')) !== '0';
+
+        $final = $prompt; $brand_used = false;
+        if ($use_brand) {
+            $cb = (new CreatorBrandModel())->get_for_user($creator_id);
+            if (!empty($cb['brand_name']) || !empty($cb['colors']) || !empty($cb['voice']) || !empty($cb['keywords'])) {
+                $final = $this->brand_image_prompt($prompt, $cb);
+                $brand_used = true;
+            }
+        }
+
+        $res = ImageGenService::generate($final, ImageGenService::dimensions($size_key));
+        if (empty($res['ok'])) {
+            echo json_encode(array('success' => false, 'message' => $res['error'] ?? 'Generation failed. Try again.')); exit;
+        }
+
+        $tmp = tempnam(sys_get_temp_dir(), 'gen');
+        if ($tmp === false || file_put_contents($tmp, $res['bytes']) === false) {
+            echo json_encode(array('success' => false, 'message' => 'Could not process the generated image. Try again.')); exit;
+        }
+
+        $model    = new MediaAssetsModel();
+        $label    = 'Generated · ' . mb_substr($prompt, 0, 40);
+        $asset_id = (int) $model->add($creator_id, 'image', $label . '.png', 'image/png', 'processing');
+        if ($asset_id <= 0) { @unlink($tmp); echo json_encode(array('success' => false, 'message' => 'Could not save the image. Try again.')); exit; }
+
+        $watermark = !empty($user['watermark_enabled']);
+        $r = MediaService::process_image($creator_id, $asset_id, $tmp, 'png', 'image/png', $user, $watermark);
+        @unlink($tmp);
+        if (isset($r['error'])) {
+            $model->set_failed($creator_id, $asset_id, $r['error']);
+            echo json_encode(array('success' => false, 'message' => $r['error'])); exit;
+        }
+        $model->set_ready($creator_id, $asset_id, $r);
+        $a = $model->get_one($creator_id, $asset_id);
+        echo json_encode(array('success' => true, 'brand_used' => $brand_used, 'asset' => $this->studio_asset_json($a, $creator_id)));
+        exit;
+    }
+
+    /** Weave the creator's brand into an image prompt. */
+    private function brand_image_prompt($prompt, $cb){
+        $style = array();
+        if (!empty($cb['voice']))    { $style[] = 'mood and tone: ' . $cb['voice']; }
+        if (!empty($cb['keywords'])) { $style[] = 'themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)); }
+        if (!empty($cb['colors']))   { $style[] = 'colour palette: ' . implode(', ', array_slice((array) $cb['colors'], 0, 5)); }
+        $name  = !empty($cb['brand_name']) ? (' for the brand "' . $cb['brand_name'] . '"') : '';
+        $guide = $prompt;
+        if ($style) {
+            $guide .= "\n\nMake it a polished, on-brand image" . $name . '. Style guidance — ' . implode('; ', $style)
+                    . '. Avoid rendering any text, words, or logos unless explicitly requested.';
+        }
+        return $guide;
     }
 
     /** Begin (or resume) a resumable multipart video upload. */

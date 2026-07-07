@@ -389,6 +389,91 @@ jQuery(function ($) {
     }
 
     // =====================================================================
+    // AI image generation
+    // =====================================================================
+    var genModal, lastGenAsset = null;
+    var GEN_LABEL = '<i class="fa-solid fa-wand-magic-sparkles"></i> Generate';
+    var REGEN_LABEL = '<i class="fa-solid fa-rotate"></i> Regenerate';
+    // 'edit' → inputs + [Generate/Regenerate]; 'busy' → all disabled; 'result' → image + [Regenerate][Use in a post].
+    function setGenState(s) {
+        if (s === 'busy') { $('#csGenRun, #csGenEdit, #csGenUse').prop('disabled', true); return; }
+        if (s === 'result') {
+            $('#csGenInputs').prop('hidden', true);
+            $('#csGenPreview, #csGenResult').prop('hidden', false);
+            $('#csGenStatus').prop('hidden', true);
+            $('#csGenRun').prop('hidden', true);
+            $('#csGenEdit, #csGenUse').prop('hidden', false).prop('disabled', false);
+        } else { // edit
+            $('#csGenInputs').prop('hidden', false);
+            $('#csGenPreview, #csGenResult').prop('hidden', true);
+            $('#csGenStatus').prop('hidden', true).removeClass('is-error');
+            $('#csGenRun').prop('hidden', false).prop('disabled', false).html(lastGenAsset ? REGEN_LABEL : GEN_LABEL);
+            $('#csGenEdit, #csGenUse').prop('hidden', true);
+        }
+    }
+    function genError(msg) {
+        $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
+        setGenState('edit');
+        $('#csGenStatus').prop('hidden', false).addClass('is-error').text(msg);
+    }
+    $('#csGenerateBtn').on('click', function () {
+        if (!genModal) genModal = bootstrap.Modal.getOrCreateInstance('#csGenerate');
+        var b = CFG.brand || {};
+        if (b.has_brand) {
+            $('#csGenBrandName').text(b.brand_name ? ('“' + b.brand_name + '”') : '');
+            $('#csGenBrandRow').prop('hidden', false);
+        } else {
+            $('#csGenBrandRow').prop('hidden', true);
+        }
+        lastGenAsset = null;
+        $('#csGenStatus').empty();
+        setGenState('edit');
+        genModal.show();
+    });
+
+    function runGeneration() {
+        var prompt = ($('#csGenPrompt').val() || '').trim();
+        if (prompt === '') { toastr.info('Describe the image you want.'); $('#csGenPrompt').focus(); return; }
+        var b = CFG.brand || {};
+        var useBrand = (b.has_brand && $('#csGenBrand').is(':checked')) ? '1' : '0';
+        $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', true);
+        setGenState('busy');
+        $('#csGenStatus').prop('hidden', false).removeClass('is-error')
+            .html('<span class="spinner-border spinner-border-sm text-primary"></span> Creating your image — this can take up to a minute.');
+
+        $.ajax({ url: '/api/media_generate', method: 'POST', dataType: 'json', timeout: 180000,
+                 data: { prompt: prompt, size: $('#csGenSize').val(), use_brand: useBrand } })
+            .done(function (o) {
+                $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
+                if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
+                lastGenAsset = o.asset;
+                injectAsset(o.asset);
+                var url = (o.asset && o.asset.thumb_url) || '';
+                if (url) { $('#csGenPreviewImg').attr('src', url); }
+                $('#csGenSavedMsg').text('Saved to your Library' + (o.brand_used ? ' · matched to your brand' : '') + '.');
+                setGenState('result');
+                toastr.success('Image added to your Library.');
+            })
+            .fail(function (xhr, st) {
+                genError(st === 'timeout' ? 'That took too long — please try again.' : 'Generation failed. Try again.');
+            });
+    }
+    $('#csGenRun').on('click', runGeneration);
+
+    // "Regenerate" from the result view → bring the inputs back to tweak (button now reads "Regenerate").
+    $('#csGenEdit').on('click', function () { setGenState('edit'); $('#csGenPrompt').focus(); });
+
+    // Take the generated image straight into a fresh post.
+    $('#csGenUse').on('click', function () {
+        if (!lastGenAsset) return;
+        var asset = lastGenAsset;
+        if (genModal) genModal.hide();
+        newComposer();
+        composerModal.show();
+        composerAddAsset(asset);
+    });
+
+    // =====================================================================
     // Filters
     // =====================================================================
     var searchTimer;
@@ -680,12 +765,16 @@ jQuery(function ($) {
         .on('drop', '.cs-comp__item', function (e) {
             e.preventDefault(); var to = $(this).data('i');
             if (dragIdx === null || to === dragIdx) return;
-            var m = composer.assets.splice(dragIdx, 1)[0]; composer.assets.splice(to, 0, m); dragIdx = null;
+            var m = composer.assets.splice(dragIdx, 1)[0]; composer.assets.splice(to, 0, m);
+            if (to === 0 || dragIdx === 0) { composer.coverDisplay = ''; composer.coverBlurred = ''; } // cover changed
+            dragIdx = null;
             renderCompMedia(); renderPreview(); scheduleSave();
         })
         .on('click', '.cs-comp__rm', function (e) {
             e.stopPropagation(); var id = $(this).closest('.cs-comp__item').data('id');
+            var wasCover = composer.assets.length && composer.assets[0].id == id;
             composer.assets = composer.assets.filter(function (a) { return a.id != id; });
+            if (wasCover) { composer.coverDisplay = ''; composer.coverBlurred = ''; } // stale cover — let it refresh
             renderCompMedia(); renderPreview(); scheduleSave();
         });
 
@@ -717,7 +806,11 @@ jQuery(function ($) {
 
     function renderPreview() {
         var locked = (composer.view === 'pub' && composer.audience === 'subscribers');
-        var img = locked ? composer.coverBlurred : composer.coverDisplay;
+        var hasMedia = composer.assets.length > 0;
+        // No media → empty preview. Clear view falls back to the current cover's thumb when
+        // the signed display URL is stale (e.g. right after removing/reordering); locked view
+        // uses only the blurred variant so a clear thumb never leaks.
+        var img = !hasMedia ? '' : (locked ? composer.coverBlurred : (composer.coverDisplay || (composer.assets[0] && composer.assets[0].thumb_url) || ''));
         var more = (composer.assets.length > 1) ? '<span class="cs-pv__more"><i class="fa-solid fa-layer-group"></i> ' + composer.assets.length + '</span>' : '';
         var media = img
             ? '<div class="cs-pv__media">' + more + (locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to Unlock</span></div>' : '') + '<img src="' + esc(img) + '"></div>'

@@ -44,6 +44,13 @@ class StudioController extends Controller {
                 'can_post' => Plan::can_social_post($user),
             );
 
+            // Brand identity — used to steer AI image generation on-brand.
+            $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));
+            $this->view->brand = array(
+                'has_brand'  => (!empty($brand['brand_name']) || !empty($brand['colors']) || !empty($brand['voice']) || !empty($brand['keywords'])),
+                'brand_name' => (string) ($brand['brand_name'] ?? ''),
+            );
+
             $this->view->s3_ready = S3Service::configured();
             $this->view->creator  = array(
                 'user_id'            => (int) ($user['user_id'] ?? 0),

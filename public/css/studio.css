@@ -336,3 +336,20 @@
     .cs-cchip__body{ display:none; }
     .cs-cal__cell--week{ min-height:120px; }
 }
+
+/* ===================== GENERATE IMAGE ===================== */
+.cs-gen{ display:flex; flex-direction:column; gap:1rem; }
+.cs-gen__field{ display:flex; flex-direction:column; gap:.35rem; }
+.cs-gen__field label{ font-size:.82rem; font-weight:600; color:var(--t2); }
+.cs-gen__field .form-control, .cs-gen__field .form-select{ border-radius:var(--r-sm); }
+.cs-gen__brand{ display:flex; align-items:flex-start; gap:.5rem; font-size:.88rem; line-height:1.4; color:var(--t2); background:var(--vsoft); border-radius:var(--r-sm); padding:.6rem .75rem; cursor:pointer; margin:0; }
+.cs-gen__brand input{ margin-top:.15rem; flex:none; }
+.cs-gen__preview{ border-radius:var(--r-sm); overflow:hidden; border:1px solid var(--line); }
+.cs-gen__preview img{ display:block; width:100%; }
+.cs-gen__status{ display:flex; align-items:center; gap:.5rem; font-size:.88rem; color:var(--t2); }
+.cs-gen__status.is-error{ color:var(--danger); }
+.cs-gen__result{ display:flex; flex-direction:column; gap:.7rem; }
+.cs-gen__saved{ display:flex; align-items:center; gap:.5rem; font-size:.92rem; font-weight:600; color:var(--t2); margin:0; }
+.cs-gen__saved i{ color:#1a9d55; }
+.cs-gen__resultbtns{ display:flex; gap:.6rem; flex-wrap:wrap; }
+.cs-gen__hint{ font-size:.82rem; color:var(--muted); margin:0; }

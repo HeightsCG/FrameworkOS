@@ -14,6 +14,7 @@
             <button type="button" class="settings__nav-item" data-section="notifications"><i class="fa-solid fa-bell"></i><span>Notifications</span></button>
             <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span><?php echo $this->is_creator ? 'Creator Profile' : 'Become a Creator'; ?></span></button>
             <?php if ($this->is_creator): ?>
+            <button type="button" class="settings__nav-item" data-section="brand"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Brand Identity</span></button>
             <button type="button" class="settings__nav-item" data-section="plans"><i class="fa-solid fa-gem"></i><span>Membership Plans</span></button>
             <button type="button" class="settings__nav-item" data-section="payouts"><i class="fa-solid fa-money-bill-transfer"></i><span>Payouts</span></button>
             <?php endif; ?>
@@ -259,6 +260,65 @@
                 </div>
                 <?php endif; ?>
             </section>
+
+            <?php if ($this->is_creator): $cb = $this->creator_brand; ?>
+            <section class="settings__section" data-section="brand">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Brand Identity</h2>
+                    <p class="settings__section-desc">Paste your website and we'll draft a brand kit — name, tagline, voice, colours, and keywords — from your own content. Review, tweak, then save.</p>
+                </div>
+                <div class="cprofile">
+                    <div class="cprofile__field">
+                        <label for="brand_url">Website URL</label>
+                        <div class="brand-gen__row">
+                            <input type="url" class="form-control" id="brand_url" placeholder="https://yoursite.com" value="<?php echo htmlspecialchars((string) ($cb['source_url'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                            <button type="button" class="btn btn-primary" id="brand_generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+                        </div>
+                        <span class="cprofile__hint">We read the page and draft an identity. Nothing is saved until you hit Save.</span>
+                    </div>
+
+                    <div class="brand-result" id="brand_result" <?php echo (empty($cb['brand_name']) && empty($cb['tagline'])) ? 'hidden' : ''; ?>>
+                        <div class="cprofile__grid">
+                            <div class="cprofile__field">
+                                <label for="brand_name">Brand name</label>
+                                <input type="text" class="form-control" id="brand_name" maxlength="190" value="<?php echo htmlspecialchars((string) ($cb['brand_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                            </div>
+                            <div class="cprofile__field">
+                                <label for="brand_tagline">Tagline</label>
+                                <input type="text" class="form-control" id="brand_tagline" maxlength="255" value="<?php echo htmlspecialchars((string) ($cb['tagline'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                            </div>
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="brand_description">Description</label>
+                            <textarea class="form-control" id="brand_description" rows="2"><?php echo htmlspecialchars((string) ($cb['description'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="brand_voice">Voice &amp; tone</label>
+                            <textarea class="form-control" id="brand_voice" rows="2"><?php echo htmlspecialchars((string) ($cb['voice'] ?? ''), ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        </div>
+                        <div class="cprofile__field">
+                            <label>Colours</label>
+                            <div class="brand-colors" id="brand_colors">
+                                <?php foreach (($cb['colors'] ?? array()) as $hex): $h = htmlspecialchars($hex, ENT_QUOTES, 'UTF-8'); ?>
+                                <span class="brand-swatch" data-hex="<?php echo $h; ?>"><span class="brand-swatch__dot" style="background:<?php echo $h; ?>"></span><?php echo $h; ?><button type="button" class="brand-swatch__x" aria-label="Remove colour">&times;</button></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="cprofile__field">
+                            <label>Keywords</label>
+                            <div class="brand-keywords" id="brand_keywords">
+                                <?php foreach (($cb['keywords'] ?? array()) as $kw): $k = htmlspecialchars($kw, ENT_QUOTES, 'UTF-8'); ?>
+                                <span class="brand-chip" data-kw="<?php echo $k; ?>"><?php echo $k; ?><button type="button" class="brand-chip__x" aria-label="Remove keyword">&times;</button></span>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="cprofile__actions">
+                            <button type="button" class="btn btn-primary" id="brand_save">Save Brand Identity</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <?php endif; ?>
 
             <?php if ($this->is_creator): ?>
             <section class="settings__section" data-section="plans">
@@ -1462,6 +1522,53 @@ $(function () {
             display_name: $('#cp_display_name').val(),
             bio:          $('#cp_bio').val(),
             location:     $('#cp_location').val()
+        }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    // ----- Brand Identity -----
+    function brandEsc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    function brandSwatch(h) { h = String(h); return '<span class="brand-swatch" data-hex="' + brandEsc(h) + '"><span class="brand-swatch__dot" style="background:' + brandEsc(h) + '"></span>' + brandEsc(h) + '<button type="button" class="brand-swatch__x" aria-label="Remove colour">&times;</button></span>'; }
+    function brandChip(w) { w = String(w); return '<span class="brand-chip" data-kw="' + brandEsc(w) + '">' + brandEsc(w) + '<button type="button" class="brand-chip__x" aria-label="Remove keyword">&times;</button></span>'; }
+    function fillBrand(b) {
+        $('#brand_name').val(b.brand_name || '');
+        $('#brand_tagline').val(b.tagline || '');
+        $('#brand_description').val(b.description || '');
+        $('#brand_voice').val(b.voice || '');
+        var $c = $('#brand_colors').empty();   (b.colors   || []).forEach(function (h) { $c.append(brandSwatch(h)); });
+        var $k = $('#brand_keywords').empty(); (b.keywords || []).forEach(function (w) { $k.append(brandChip(w)); });
+    }
+
+    $('#brand_generate').on('click', function () {
+        var url = ($('#brand_url').val() || '').trim();
+        if (url === '') { toastr.error('Enter your website URL first.'); $('#brand_url').focus(); return; }
+        var $b = $(this).prop('disabled', true).html('<i class="fa-solid fa-spinner fa-spin"></i> Generating…');
+        ApiDataSvc.apiCall('post', 'generate_brand_identity', { url: url }, function (data) {
+            $b.prop('disabled', false).html('<i class="fa-solid fa-wand-magic-sparkles"></i> Generate');
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            fillBrand(o.brand);
+            $('#brand_result').prop('hidden', false);
+            toastr.success('Brand identity generated — review and save.');
+        });
+    });
+
+    $('#brand_colors').on('click', '.brand-swatch__x', function () { $(this).closest('.brand-swatch').remove(); });
+    $('#brand_keywords').on('click', '.brand-chip__x', function () { $(this).closest('.brand-chip').remove(); });
+
+    $('#brand_save').on('click', function () {
+        var colors   = $('#brand_colors .brand-swatch').map(function () { return $(this).attr('data-hex'); }).get().join(',');
+        var keywords = $('#brand_keywords .brand-chip').map(function () { return $(this).attr('data-kw'); }).get().join(',');
+        ApiDataSvc.apiCall('post', 'save_brand_identity', {
+            source_url:  $('#brand_url').val(),
+            brand_name:  $('#brand_name').val(),
+            tagline:     $('#brand_tagline').val(),
+            description: $('#brand_description').val(),
+            voice:       $('#brand_voice').val(),
+            colors:      colors,
+            keywords:    keywords
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }

@@ -18,6 +18,7 @@
         </div>
         <div class="cs-head__actions">
             <button type="button" class="btn btn-primary" id="csUploadBtn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Media</button>
+            <button type="button" class="btn btn-primary" id="csGenerateBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Image</button>
             <button type="button" class="btn btn-primary" id="csNewPostBtn"><i class="fa-solid fa-plus"></i> New Post</button>
             <button type="button" class="btn btn-primary" id="csCreateCollectionBtn"><i class="fa-solid fa-folder-plus"></i> Create Collection</button>
         </div>
@@ -240,7 +241,7 @@
                     <label class="cs-dv__label">Media</label>
                     <div class="cs-comp__media" id="csCompMedia"></div>
                     <div class="cs-comp__mediaactions">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompAdd"><i class="fa-solid fa-photo-film"></i> Add from library</button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompAdd"><i class="fa-solid fa-photo-film"></i> Add from Library</button>
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload</button>
                     </div>
 
@@ -322,11 +323,57 @@
         </div>
     </div>
 </div>
+<!-- ============ GENERATE IMAGE ============ -->
+<div class="modal fade" id="csGenerate" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate an image</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="cs-gen">
+                    <div id="csGenInputs">
+                        <div class="cs-gen__field">
+                            <label for="csGenPrompt">Describe the image</label>
+                            <textarea class="form-control" id="csGenPrompt" rows="3" placeholder="e.g. a cozy oat-milk latte on a marble counter, soft morning light"></textarea>
+                        </div>
+                        <div class="cs-gen__field">
+                            <label for="csGenSize">Shape</label>
+                            <select class="form-select" id="csGenSize">
+                                <option value="square">Square (1:1)</option>
+                                <option value="portrait">Portrait (2:3)</option>
+                                <option value="landscape">Landscape (3:2)</option>
+                            </select>
+                        </div>
+                        <label class="cs-gen__brand" id="csGenBrandRow" hidden>
+                            <input type="checkbox" class="form-check-input" id="csGenBrand" checked>
+                            <span>Use my brand <strong id="csGenBrandName"></strong> — its colours, voice, and keywords steer the look.</span>
+                        </label>
+                    </div>
+                    <div class="cs-gen__preview" id="csGenPreview" hidden>
+                        <img id="csGenPreviewImg" alt="Generated image">
+                    </div>
+                    <div class="cs-gen__status" id="csGenStatus" hidden></div>
+                    <div class="cs-gen__result" id="csGenResult" hidden>
+                        <p class="cs-gen__saved"><i class="fa-solid fa-circle-check"></i> <span id="csGenSavedMsg">Saved to your Library.</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+                <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
+                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a post</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 window.CS_CONFIG = <?php echo json_encode(array(
     'creator'  => $this->creator,
     'plans'    => $this->plans,
     'social'   => $this->social,
+    'brand'    => $this->brand,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
