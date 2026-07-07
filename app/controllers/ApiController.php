@@ -2069,6 +2069,7 @@ class ApiController extends Controller {
             'failure_reason'    => (string) ($a['failure_reason'] ?? ''),
             'created_at'        => $a['created_at'],
             'thumb_url'         => $thumb,
+            'video_url'         => ($a['type'] === 'video' && $a['status'] === 'ready') ? MediaService::signed_url($a, 'original', $creator_id) : '',
         );
     }
 
@@ -2122,6 +2123,8 @@ class ApiController extends Controller {
         @ini_set('memory_limit', '512M');
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
+        // Long job (~40s) — release the session lock so other tabs aren't blocked behind it.
+        if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
 
         if (!S3Service::configured()) {
             echo json_encode(array('success' => false, 'message' => 'Image generation is unavailable right now. Please try again shortly.')); exit;
@@ -2170,19 +2173,152 @@ class ApiController extends Controller {
         exit;
     }
 
-    /** Weave the creator's brand into an image prompt. */
+    /** Weave the creator's brand into an image prompt (shared with the Scheduler). */
     private function brand_image_prompt($prompt, $cb){
-        $style = array();
-        if (!empty($cb['voice']))    { $style[] = 'mood and tone: ' . $cb['voice']; }
-        if (!empty($cb['keywords'])) { $style[] = 'themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)); }
-        if (!empty($cb['colors']))   { $style[] = 'colour palette: ' . implode(', ', array_slice((array) $cb['colors'], 0, 5)); }
-        $name  = !empty($cb['brand_name']) ? (' for the brand "' . $cb['brand_name'] . '"') : '';
-        $guide = $prompt;
-        if ($style) {
-            $guide .= "\n\nMake it a polished, on-brand image" . $name . '. Style guidance — ' . implode('; ', $style)
-                    . '. Avoid rendering any text, words, or logos unless explicitly requested.';
+        return BrandService::image_prompt($prompt, (array) $cb);
+    }
+
+    /** Validate an IANA timezone id (rejects the 'UTC' default sentinel). Returns '' if invalid. */
+    private function valid_tz($tz){
+        $tz = trim((string) $tz);
+        if ($tz === '' || strtoupper($tz) === 'UTC') { return ''; }
+        try { new DateTimeZone($tz); return $tz; } catch (\Throwable $e) { return ''; }
+    }
+
+    /** Persist the creator's real timezone (auto-detected from their browser). */
+    public function set_timezoneAction(){
+        $user = $this->require_creator();
+        $tz   = $this->valid_tz($this->post['timezone'] ?? '');
+        if ($tz === '') { echo json_encode(array('success' => false, 'message' => 'Invalid timezone')); exit; }
+        (new UsersModel())->set_content_timezone((int) $user['user_id'], $tz);
+        echo json_encode(array('success' => true, 'timezone' => $tz));
+        exit;
+    }
+
+    // ---------- Scheduler (automations) ----------
+
+    private function cadence_summary($r){
+        $t = date('g:i A', strtotime('2000-01-01 ' . (string) $r['run_time']));
+        if (($r['cadence'] ?? 'daily') === 'weekly') {
+            $names = array('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
+            $days  = array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; });
+            $lbl   = empty($days) ? 'Weekly' : implode(', ', array_map(function ($d) use ($names) { return $names[$d]; }, $days));
+            return $lbl . ' · ' . $t;
         }
-        return $guide;
+        return 'Daily · ' . $t;
+    }
+
+    private function scheduler_next_human($utc, $tz){
+        if ((string) $utc === '' || $utc === null) { return ''; }
+        try {
+            $d = new DateTime((string) $utc, new DateTimeZone('UTC'));
+            $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+            return $d->format('M j, g:i A');
+        } catch (\Throwable $e) { return ''; }
+    }
+
+    private function scheduler_rule_json($r, $tz){
+        $accounts = json_decode((string) ($r['social_accounts'] ?? '[]'), true) ?: array();
+        $days     = array_values(array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; }));
+        return array(
+            'id'               => (int) $r['id'],
+            'name'             => (string) $r['name'],
+            'active'           => (int) $r['active'],
+            'topic'            => (string) $r['topic'],
+            'size'             => (string) $r['size'],
+            'audience'         => (string) $r['audience'],
+            'tier_id'          => $r['tier_id'] !== null ? (int) $r['tier_id'] : null,
+            'comments_enabled' => (int) $r['comments_enabled'],
+            'use_brand'        => (int) $r['use_brand'],
+            'social_accounts'  => array_map('strval', (array) $accounts),
+            'cadence'          => (string) $r['cadence'],
+            'days_of_week'     => $days,
+            'run_time'         => substr((string) $r['run_time'], 0, 5),
+            'cadence_summary'  => $this->cadence_summary($r),
+            'next_run'         => $this->scheduler_next_human($r['next_run_at'] ?? '', $tz),
+            'last_status'      => (string) $r['last_status'],
+            'last_run'         => $this->scheduler_next_human($r['last_run_at'] ?? '', $tz),
+        );
+    }
+
+    public function scheduler_listAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $tz         = (string) ($user['content_timezone'] ?? 'UTC');
+        $out        = array();
+        foreach ((new SchedulerRulesModel())->list_for_creator($creator_id) as $r) {
+            $out[] = $this->scheduler_rule_json($r, $tz);
+        }
+        echo json_encode(array('success' => true, 'rules' => $out, 'can_social' => Plan::can_social_post($user)));
+        exit;
+    }
+
+    public function scheduler_saveAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $name       = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES));
+        $topic      = trim(html_entity_decode((string) ($this->post['topic'] ?? ''), ENT_QUOTES));
+        if ($name === '')  { echo json_encode(array('success' => false, 'message' => 'Give your automation a name.')); exit; }
+        if ($topic === '') { echo json_encode(array('success' => false, 'message' => 'Describe what to post (the topic).')); exit; }
+
+        $fields = array(
+            'name'             => $name,
+            'topic'            => $topic,
+            'active'           => ((string) ($this->post['active'] ?? '1')) !== '0',
+            'size'             => (string) ($this->post['size'] ?? 'square'),
+            'audience'         => (string) ($this->post['audience'] ?? 'free'),
+            'tier_id'          => (int) ($this->post['tier_id'] ?? 0),
+            'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',
+            'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
+            'social_accounts'  => $this->post['social_accounts'] ?? array(),
+            'cadence'          => (string) ($this->post['cadence'] ?? 'daily'),
+            'days_of_week'     => $this->post['days_of_week'] ?? array(),
+            'run_time'         => (string) ($this->post['run_time'] ?? '09:00'),
+            'timezone'         => $this->valid_tz($this->post['timezone'] ?? '') ?: (string) ($user['content_timezone'] ?? 'UTC'),
+        );
+        $model = new SchedulerRulesModel();
+        if ($id > 0 && $model->get_one($creator_id, $id)) {
+            $model->update_rule($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create($creator_id, $fields);
+        }
+        echo json_encode(array('success' => true, 'message' => 'Automation saved', 'id' => $id));
+        exit;
+    }
+
+    public function scheduler_toggleAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $active     = ((string) ($this->post['active'] ?? '0')) === '1';
+        (new SchedulerRulesModel())->set_active($creator_id, (int) ($this->post['id'] ?? 0), $active);
+        echo json_encode(array('success' => true, 'active' => $active ? 1 : 0));
+        exit;
+    }
+
+    public function scheduler_deleteAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        (new SchedulerRulesModel())->delete_rule($creator_id, (int) ($this->post['id'] ?? 0));
+        echo json_encode(array('success' => true, 'message' => 'Automation removed'));
+        exit;
+    }
+
+    /** Run an automation immediately (test path) — same pipeline the worker uses. */
+    public function scheduler_run_nowAction(){
+        @set_time_limit(180);
+        @ini_set('memory_limit', '512M');
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        // Long job (~40s) — release the session lock so other tabs aren't blocked behind it.
+        if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
+        $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
+        if (!$rule) { echo json_encode(array('success' => false, 'message' => 'Automation not found')); exit; }
+        $res = AutoPostService::run_rule($rule, $user);
+        (new SchedulerRunsModel())->add((int) $rule['id'], $creator_id, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+        (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
+        echo json_encode(array('success' => $res['ok'], 'message' => $res['message'], 'post_id' => $res['post_id']));
+        exit;
     }
 
     /** Begin (or resume) a resumable multipart video upload. */
@@ -2625,7 +2761,9 @@ class ApiController extends Controller {
         foreach ($assets as $a) {
             $signable = array('creator_id' => $creator_id, 'type' => $a['type'],
                 'thumb_key' => $a['thumb_key'], 'blurred_key' => $a['blurred_key'],
-                'display_key' => $a['display_key'], 'poster_key' => $a['poster_key']);
+                'display_key' => $a['display_key'], 'poster_key' => $a['poster_key'],
+                'original_key' => $a['original_key'] ?? '');
+            $ready = ($a['status'] === 'ready' && empty($a['deleted_at']));
             $out[] = array(
                 'id'       => (int) $a['asset_id'],
                 'type'     => $a['type'],
@@ -2633,7 +2771,8 @@ class ApiController extends Controller {
                 'duration' => $a['duration_sec'] !== null ? (int) $a['duration_sec'] : null,
                 'is_cover' => (int) $a['is_cover'],
                 'missing'  => !empty($a['deleted_at']),
-                'thumb_url'=> ($a['status'] === 'ready' && empty($a['deleted_at'])) ? MediaService::signed_url($signable, 'thumb', $creator_id) : '',
+                'thumb_url'=> $ready ? MediaService::signed_url($signable, 'thumb', $creator_id) : '',
+                'video_url'=> ($ready && $a['type'] === 'video') ? MediaService::signed_url($signable, 'original', $creator_id) : '',
             );
             if ((int) $a['is_cover'] === 1 && $cover === null) { $cover = $signable; }
         }
@@ -2767,57 +2906,7 @@ class ApiController extends Controller {
      * variant for subscriber posts) + a link back — never the subscriber media.
      */
     private function share_post_to_social(array $user, array $post, array $account_ids, $scheduled_iso = null){
-        try {
-            if (empty($account_ids) || !Plan::can_social_post($user)) { return; }
-            $valid = array(); $req = array_map('strval', $account_ids);
-            foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
-                $pfm = (string) $a['post_for_me_social_account_id'];
-                if (in_array($pfm, $req, true)) { $valid[] = $pfm; }
-            }
-            if (empty($valid)) { return; }
-
-            $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
-            $cap   = trim((string) $post['caption']);
-            $promo = ($cap !== '' ? $cap . "\n\n" : '') . 'See more: ' . $link;
-
-            $media_urls = array();
-            $assets = (new PostsModel())->get_assets((int) $post['id']);
-            $cover = null;
-            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
-            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
-            if ($cover) {
-                $variant = ($post['audience'] === 'subscribers') ? 'blurred' : (($cover['type'] === 'video') ? 'poster' : 'display');
-                $col = array('blurred' => 'blurred_key', 'poster' => 'poster_key', 'display' => 'display_key');
-                $key = (string) ($cover[$col[$variant]] ?? ($cover['blurred_key'] ?? ''));
-                if ($key !== '') {
-                    $src = S3Service::presigned_get_url($key, 300);
-                    $bytes = ($src !== '') ? @file_get_contents($src) : false;
-                    if ($bytes !== false && $bytes !== '') {
-                        $up = PostForMeService::create_upload_url();
-                        if (is_array($up) && count($up) === 2) {
-                            list($media_url, $upload_url) = $up;
-                            $ch = curl_init($upload_url);
-                            curl_setopt_array($ch, array(
-                                CURLOPT_CUSTOMREQUEST => 'PUT', CURLOPT_POSTFIELDS => $bytes,
-                                CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => array('Content-Type: image/jpeg'),
-                            ));
-                            curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-                            if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
-                        }
-                    }
-                }
-            }
-
-            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false);
-            if (is_array($res)) {
-                (new SocialPostsModel())->create(
-                    (int) $user['user_id'], (string) ($res['id'] ?? ''), $promo,
-                    (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
-                );
-            }
-        } catch (\Throwable $e) {
-            error_log('[studio] social share failed: ' . $e->getMessage());
-        }
+        SocialShareService::share($user, $post, $account_ids, $scheduled_iso);
     }
 
     public function post_publishAction(){
@@ -2849,7 +2938,9 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Pick a date and time in the future.')); exit;
         }
         $model->set_state($creator_id, $id, 'scheduled', $utc);
-        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), gmdate('Y-m-d\TH:i:s\Z', strtotime($utc)));
+        // $utc is already 'Y-m-d H:i:s' in UTC — build the ISO directly (strtotime would
+        // misread it in the server's America/New_York default zone and send a wrong time).
+        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), str_replace(' ', 'T', $utc) . 'Z');
         echo json_encode(array('success' => true, 'message' => 'Scheduled', 'state' => 'scheduled'));
         exit;
     }
@@ -2902,6 +2993,27 @@ class ApiController extends Controller {
                 $scheduled_count++;
                 if ($furthest === null || $when_utc > $furthest) { $furthest = $when_utc; }
             }
+        }
+
+        // Upcoming automations — surface each active rule's next scheduled run.
+        foreach ((new SchedulerRulesModel())->list_for_creator($creator_id) as $rule) {
+            if ((int) $rule['active'] !== 1 || empty($rule['next_run_at'])) { continue; }
+            try {
+                $d = new DateTime((string) $rule['next_run_at'], new DateTimeZone('UTC'));
+                $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+            } catch (\Throwable $e) { continue; }
+            $items[] = array(
+                'id'            => 0,
+                'rule_id'       => (int) $rule['id'],
+                'state'         => 'automation',
+                'caption'       => (string) $rule['name'],
+                'cover_url'     => '',
+                'cover_type'    => '',
+                'date'          => $d->format('Y-m-d'),
+                'time'          => $d->format('g:i A'),
+                'iso'           => $d->format('Y-m-d\TH:i'),
+                'media_missing' => 0,
+            );
         }
 
         $queue = array('scheduled_count' => $scheduled_count, 'days_ahead' => 0, 'reaches' => '');

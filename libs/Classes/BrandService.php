@@ -10,6 +10,58 @@ class BrandService {
     const MODEL = 'claude-sonnet-5';
     const API   = 'https://api.anthropic.com/v1/messages';
 
+    /**
+     * Weave a creator's brand ($cb from CreatorBrandModel::get_for_user) into an image
+     * generation prompt. Shared by the Studio "Generate Image" flow and the Scheduler.
+     */
+    public static function image_prompt($prompt, array $cb){
+        $style = array();
+        if (!empty($cb['voice']))    { $style[] = 'mood and tone: ' . $cb['voice']; }
+        if (!empty($cb['keywords'])) { $style[] = 'themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)); }
+        if (!empty($cb['colors']))   { $style[] = 'colour palette: ' . implode(', ', array_slice((array) $cb['colors'], 0, 5)); }
+        $name  = !empty($cb['brand_name']) ? (' for the brand "' . $cb['brand_name'] . '"') : '';
+
+        $guide  = trim((string) $prompt) . '.';
+        $guide .= ' Render this as a high-quality, photorealistic, professional photograph — natural lighting, sharp focus,'
+                . ' rich detail, tasteful composition, editorial / magazine quality that a creator would be proud to sell' . $name . '.';
+        if ($style) { $guide .= ' Style guidance — ' . implode('; ', $style) . '.'; }
+        $guide .= ' Absolutely NO text, words, letters, captions, titles, typography, logos, watermarks, infographics,'
+                . ' posters, memes, clip-art, cartoons or flat vector illustrations. It must be a real photographic image, not a graphic containing words.';
+        return $guide;
+    }
+
+    /**
+     * Write a short social caption for a topic, in the creator's brand voice. Returns the
+     * caption string, or '' on any failure (caller can fall back to the topic).
+     */
+    public static function caption_for($topic, array $cb){
+        $key = (string) Main::config('global', 'anthropic_api_key');
+        if ($key === '') { $key = (string) Main::config('global', 'claude_api_key'); }
+        if ($key === '' || trim((string) $topic) === '') { return ''; }
+
+        $brand = array();
+        if (!empty($cb['brand_name'])) { $brand[] = 'Brand: ' . $cb['brand_name'] . '.'; }
+        if (!empty($cb['voice']))      { $brand[] = 'Voice/tone: ' . $cb['voice']; }
+        if (!empty($cb['keywords']))   { $brand[] = 'Themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)) . '.'; }
+        $prompt = "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
+            . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
+            . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
+            . "no hashtags unless they feel natural. Respond with ONLY the caption text — no quotes, no preamble.";
+
+        $body = array('model' => self::MODEL, 'max_tokens' => 400,
+            'messages' => array(array('role' => 'user', 'content' => $prompt)));
+        $ch = curl_init(self::API);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => 45,
+            CURLOPT_HTTPHEADER => array('x-api-key: ' . $key, 'anthropic-version: 2023-06-01', 'content-type: application/json'),
+            CURLOPT_POSTFIELDS => json_encode($body),
+        ));
+        $raw = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if ($raw === false || $code >= 400) { error_log('[caption] http ' . $code . ': ' . substr((string) $raw, 0, 300)); return ''; }
+        $d = json_decode($raw, true);
+        return trim((string) ($d['content'][0]['text'] ?? ''));
+    }
+
     /** Generate brand details from a public URL. Returns ['ok'=>bool, 'data'|'error']. */
     public static function generate_from_url($url){
         $clean = self::safe_url((string) $url);

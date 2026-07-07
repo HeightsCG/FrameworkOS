@@ -123,7 +123,7 @@
 #csDetail .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
 
 /* ---- upload tray ---- */
-.cs-tray{ position:fixed; right:1.4rem; bottom:1.4rem; width:340px; max-width:calc(100vw - 2rem); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); box-shadow:var(--sh-lg); z-index:1050; overflow:hidden; }
+.cs-tray{ position:fixed; right:1.4rem; bottom:1.4rem; width:340px; max-width:calc(100vw - 2rem); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); box-shadow:var(--sh-lg); z-index:1080; overflow:hidden; }
 .cs-tray__head{ display:flex; align-items:center; justify-content:space-between; padding:.7rem .9rem; border-bottom:1px solid var(--line); font-weight:700; font-size:.88rem; }
 .cs-tray__list{ max-height:300px; overflow-y:auto; }
 .cs-up{ display:flex; align-items:center; gap:.65rem; padding:.6rem .9rem; border-bottom:1px solid var(--line2); }
@@ -366,3 +366,57 @@
 .cs-pv__dots{ position:absolute; bottom:8px; left:0; right:0; z-index:3; display:flex; justify-content:center; gap:5px; }
 .cs-pv__dot{ width:6px; height:6px; border-radius:50%; background:rgba(255,255,255,.5); }
 .cs-pv__dot.is-on{ background:#fff; }
+
+/* ===================== COMPOSER POLISH ===================== */
+/* Section markers — a small violet tick anchors each section for rhythm */
+.cs-comp__body .cs-dv__label{ color:var(--t2); display:inline-flex; align-items:center; gap:.5rem; }
+.cs-comp__body .cs-dv__label::before{ content:""; width:3px; height:.7rem; border-radius:2px; background:var(--violet); flex:none; }
+.cs-comp__pvhead .cs-dv__label::before{ display:none; }
+
+/* Fields — violet focus ring */
+.cs-comp__edit .form-control:focus, .cs-comp__edit .form-select:focus, .cs-comp__sched input:focus{ border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.15); }
+.cs-comp__edit textarea.form-control{ resize:vertical; }
+
+/* Inviting media drop state */
+.cs-comp__mediaempty{ display:flex; flex-direction:column; align-items:center; gap:.35rem; padding:1.9rem 1.2rem; text-align:center; border:1.5px dashed #d7d3ee; background:linear-gradient(180deg, rgba(91,75,224,.04), rgba(91,75,224,.015)); color:var(--t2); border-radius:var(--r-sm); }
+.cs-comp__mediaempty i{ font-size:1.5rem; color:var(--violet); }
+.cs-comp__mediaempty span{ font-size:.9rem; font-weight:600; color:var(--text); }
+.cs-comp__mediaempty small{ font-size:.78rem; color:var(--muted); max-width:36ch; line-height:1.4; }
+
+/* Live preview as a real post card (the signature) */
+.cs-preview-card{ box-shadow:0 16px 36px -18px rgba(40,30,96,.42); border-color:var(--line2); }
+.cs-pv__head{ display:flex; align-items:center; gap:.6rem; padding:.7rem .85rem .65rem; border-bottom:1px solid var(--line2); }
+.cs-pv__avatar{ width:34px; height:34px; flex:none; border-radius:50%; background:#ece9fb center/cover no-repeat; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.9rem; color:var(--violet); }
+.cs-pv__who{ display:flex; flex-direction:column; line-height:1.15; min-width:0; }
+.cs-pv__name{ font-size:.88rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cs-pv__handle{ font-size:.76rem; color:var(--muted); }
+.cs-pv__media--carousel .cs-pv__slide video{ width:100%; height:100%; object-fit:cover; display:block; background:#0d0b18; }
+
+/* ===================== SCHEDULER ===================== */
+.cs-sched{ display:flex; flex-direction:column; gap:.8rem; }
+.cs-sched__card{ display:flex; align-items:flex-start; gap:1rem; padding:1rem 1.1rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); transition:border-color .12s, box-shadow .12s; }
+.cs-sched__card:hover{ border-color:var(--muted2); box-shadow:var(--sh-xs); }
+.cs-sched__card.is-paused{ opacity:.6; }
+.cs-sched__body{ flex:1 1 auto; min-width:0; }
+.cs-sched__top{ display:flex; align-items:center; gap:.7rem; }
+.cs-sched__name{ font-size:1rem; font-weight:700; color:var(--text); }
+.cs-sched__switch{ margin-left:auto !important; }
+.cs-sched__topic{ font-size:.88rem; color:var(--t2); margin:.3rem 0 .5rem; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+.cs-sched__meta{ display:flex; flex-wrap:wrap; align-items:center; gap:.4rem 1rem; font-size:.82rem; color:var(--muted); }
+.cs-sched__meta i{ color:var(--muted2); margin-right:.2rem; }
+.cs-sched__pill{ font-size:.72rem; font-weight:700; padding:.15rem .5rem; border-radius:var(--r-pill); }
+.cs-sched__pill--ok{ background:var(--success-bg); color:var(--success); }
+.cs-sched__pill--fail{ background:rgba(207,59,59,.1); color:var(--danger); }
+.cs-sched__actions{ display:flex; align-items:center; gap:.4rem; flex:none; }
+.cs-sched__actions .btn{ display:inline-flex; align-items:center; gap:.35rem; }
+.cs-sched__brand{ display:flex; align-items:flex-start; gap:.5rem; font-size:.88rem; line-height:1.4; color:var(--t2); background:var(--vsoft); border-radius:var(--r-sm); padding:.6rem .75rem; cursor:pointer; margin:1rem 0 0; }
+.cs-sched__brand input{ margin-top:.15rem; flex:none; }
+.cs-sched__days{ display:flex; gap:.4rem; margin-top:.6rem; flex-wrap:wrap; }
+.cs-sched__day{ width:40px; height:38px; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); color:var(--t2); font-size:.82rem; font-weight:600; cursor:pointer; transition:border-color .12s, background .12s; }
+.cs-sched__day.is-on{ border-color:var(--violet); background:var(--vsoft); color:var(--violet7); }
+.cs-sched__time{ display:flex; align-items:center; gap:.6rem; margin-top:.7rem; flex-wrap:wrap; }
+.cs-sched__time .form-control{ max-width:160px; }
+.cs-sched__tz{ font-size:.82rem; color:var(--muted); }
+.cs-cchip--automation{ background:rgba(91,75,224,.06); border:1px dashed rgba(91,75,224,.42); }
+.cs-cchip--automation .cs-cchip__cover{ background:var(--vsoft); color:var(--violet); }
+.cs-cchip--automation .cs-cchip__time{ color:var(--violet7); font-weight:700; }

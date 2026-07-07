@@ -1,0 +1,65 @@
+<?php
+/**
+ * Cross-post the PROMOTIONAL version of a post to selected connected social accounts.
+ * Best-effort — never throws. Always sends the public caption + a SAFE preview image
+ * (blurred variant for subscriber posts) + a link back — never the subscriber media.
+ *
+ * Extracted from ApiController so both the manual publish/schedule flow and the
+ * Scheduler worker can share one implementation.
+ */
+class SocialShareService {
+
+    public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null){
+        try {
+            if (empty($account_ids) || !Plan::can_social_post($user)) { return; }
+            $valid = array(); $req = array_map('strval', $account_ids);
+            foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
+                $pfm = (string) $a['post_for_me_social_account_id'];
+                if (in_array($pfm, $req, true)) { $valid[] = $pfm; }
+            }
+            if (empty($valid)) { return; }
+
+            $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
+            $cap   = trim((string) $post['caption']);
+            $promo = ($cap !== '' ? $cap . "\n\n" : '') . 'See more: ' . $link;
+
+            $media_urls = array();
+            $assets = (new PostsModel())->get_assets((int) $post['id']);
+            $cover = null;
+            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
+            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+            if ($cover) {
+                $variant = ($post['audience'] === 'subscribers') ? 'blurred' : (($cover['type'] === 'video') ? 'poster' : 'display');
+                $col = array('blurred' => 'blurred_key', 'poster' => 'poster_key', 'display' => 'display_key');
+                $key = (string) ($cover[$col[$variant]] ?? ($cover['blurred_key'] ?? ''));
+                if ($key !== '') {
+                    $src = S3Service::presigned_get_url($key, 300);
+                    $bytes = ($src !== '') ? @file_get_contents($src) : false;
+                    if ($bytes !== false && $bytes !== '') {
+                        $up = PostForMeService::create_upload_url();
+                        if (is_array($up) && count($up) === 2) {
+                            list($media_url, $upload_url) = $up;
+                            $ch = curl_init($upload_url);
+                            curl_setopt_array($ch, array(
+                                CURLOPT_CUSTOMREQUEST => 'PUT', CURLOPT_POSTFIELDS => $bytes,
+                                CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => array('Content-Type: image/jpeg'),
+                            ));
+                            curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+                            if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
+                        }
+                    }
+                }
+            }
+
+            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false);
+            if (is_array($res)) {
+                (new SocialPostsModel())->create(
+                    (int) $user['user_id'], (string) ($res['id'] ?? ''), $promo,
+                    (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('[social share] failed: ' . $e->getMessage());
+        }
+    }
+}

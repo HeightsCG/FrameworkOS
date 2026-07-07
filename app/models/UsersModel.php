@@ -200,6 +200,19 @@ class UsersModel extends Model {
         );
     }
 
+    public function set_content_timezone($user_id, $tz, $updated_by=0){
+        return parent::update(
+            'user_accounts',
+            array(
+                'content_timezone' => (string) $tz,
+                'updated_at'       => date('Y-m-d H:i:s'),
+                'updated_by'       => $updated_by,
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
     public function change_password($user_id, $enc_password, $updated_by=0){
         return parent::update(
             'user_accounts',

@@ -23,10 +23,11 @@ class ImageGenService {
         if ($key === '') { return array('ok' => false, 'error' => 'Image generation is not configured.'); }
 
         $body = array(
-            'model'  => self::MODEL,
-            'prompt' => $prompt,
-            'size'   => $size,
-            'n'      => 1,
+            'model'   => self::MODEL,
+            'prompt'  => $prompt,
+            'size'    => $size,
+            'quality' => 'high',
+            'n'       => 1,
         );
         $ch = curl_init(self::API);
         curl_setopt_array($ch, array(

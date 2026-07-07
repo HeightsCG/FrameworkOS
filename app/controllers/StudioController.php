@@ -51,10 +51,14 @@ class StudioController extends Controller {
                 'brand_name' => (string) ($brand['brand_name'] ?? ''),
             );
 
+            $cp = (new CreatorProfileModel())->get_for_user((int) ($user['user_id'] ?? 0));
+            $profile_name = trim((string) ($cp['display_name'] ?? ''));
+
             $this->view->s3_ready = S3Service::configured();
             $this->view->creator  = array(
                 'user_id'            => (int) ($user['user_id'] ?? 0),
-                'display_name'       => trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')),
+                'display_name'       => $profile_name !== '' ? $profile_name : trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')),
+                'avatar_url'         => (string) ($cp['avatar_url'] ?? ''),
                 'u_name'             => (string) ($user['u_name'] ?? ''),
                 'timezone'           => (string) ($user['content_timezone'] ?? 'UTC'),
                 'watermark_enabled'  => !empty($user['watermark_enabled']),

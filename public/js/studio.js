@@ -20,6 +20,18 @@ jQuery(function ($) {
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
     function apiGet(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'GET', data: data || {}, dataType: 'json' }); }
     function apiPost(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'POST', data: data || {}, dataType: 'json' }); }
+
+    // Never trust the stored UTC default — detect the creator's real timezone and persist it
+    // so scheduling, the calendar and automations all use the right zone.
+    var USER_TZ = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })();
+    (function () {
+        if (!CFG.creator) { CFG.creator = {}; }
+        var cur = CFG.creator.timezone || '';
+        if (USER_TZ && USER_TZ !== 'UTC' && (cur === '' || cur === 'UTC')) {
+            CFG.creator.timezone = USER_TZ;
+            apiPost('set_timezone', { timezone: USER_TZ });
+        }
+    })();
     function apiForm(ep, fd, onProgress) {
         return $.ajax({
             url: '/api/' + ep, method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false,
@@ -745,7 +757,7 @@ jQuery(function ($) {
 
     function renderCompMedia() {
         var $m = $('#csCompMedia').empty();
-        if (!composer.assets.length) { $m.append('<div class="cs-comp__mediaempty">No media yet — add from your library or upload.</div>'); return; }
+        if (!composer.assets.length) { $m.append('<div class="cs-comp__mediaempty"><i class="fa-solid fa-cloud-arrow-up"></i><span>Add photos or video</span><small>Pick from your library or upload — drag to reorder, first is the cover.</small></div>'); return; }
         composer.assets.forEach(function (a, i) {
             var $it = $('<div class="cs-comp__item" draggable="true">').attr('data-id', a.id).attr('data-i', i);
             if (a.missing) { $it.addClass('is-missing').append('<div class="cs-comp__itemph"><i class="fa-solid fa-triangle-exclamation"></i></div>'); }
@@ -815,8 +827,13 @@ jQuery(function ($) {
             // Preview from each asset's (watermarked) thumb; the locked view CSS-blurs them so the
             // creator sees roughly what a non-subscriber gets. Real delivery uses server variants.
             var slides = assets.map(function (a, i) {
-                var inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
-                if (a.type === 'video') inner += '<span class="cs-pv__play"><i class="fa-solid fa-play"></i></span>';
+                var inner;
+                if (a.type === 'video' && a.video_url && !locked) {
+                    inner = '<video src="' + esc(a.video_url) + '"' + (a.thumb_url ? ' poster="' + esc(a.thumb_url) + '"' : '') + ' controls preload="metadata" playsinline></video>';
+                } else {
+                    inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
+                    if (a.type === 'video') { inner += '<span class="cs-pv__play"><i class="fa-solid fa-play"></i></span>'; }
+                }
                 return '<div class="cs-pv__slide' + (i === composer.pvIdx ? ' is-on' : '') + '">' + inner + '</div>';
             }).join('');
             var nav = '';
@@ -829,7 +846,14 @@ jQuery(function ($) {
             media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
         }
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
-        $('#csPreviewCard').html(media + '<div class="cs-pv__body">' + cap + '</div>');
+        var cr = CFG.creator || {};
+        var avStyle = cr.avatar_url ? (' style="background-image:url(\'' + esc(cr.avatar_url) + '\')"') : '';
+        var avInit  = cr.avatar_url ? '' : esc((cr.display_name || '?').charAt(0).toUpperCase());
+        var head = '<div class="cs-pv__head">' +
+            '<span class="cs-pv__avatar"' + avStyle + '>' + avInit + '</span>' +
+            '<span class="cs-pv__who"><span class="cs-pv__name">' + esc(cr.display_name || 'Your name') + '</span>' +
+            '<span class="cs-pv__handle">@' + esc(cr.u_name || 'handle') + '</span></span></div>';
+        $('#csPreviewCard').html(head + media + '<div class="cs-pv__body">' + cap + '</div>');
         pvAutoplay();
     }
 
@@ -847,7 +871,10 @@ jQuery(function ($) {
         clearInterval(pvTimer);
         if ($('#csPreviewCard .cs-pv__slide').length > 1) {
             pvTimer = setInterval(function () {
-                if ($('#csPreviewCard .cs-pv__slide').length > 1) { pvGo(1); } else { clearInterval(pvTimer); }
+                if ($('#csPreviewCard .cs-pv__slide').length < 2) { clearInterval(pvTimer); return; }
+                var v = document.querySelector('#csPreviewCard .cs-pv__slide.is-on video');
+                if (v && !v.paused) { return; } // don't interrupt a playing video
+                pvGo(1);
             }, 3500);
         }
     }
@@ -884,7 +911,7 @@ jQuery(function ($) {
     $('#csCompUpload').on('click', function () { uploadOnComplete = composerAddAsset; pickFiles(); });
     function composerAddAsset(asset) {
         if (!asset || composer.assets.some(function (a) { return a.id === asset.id; })) return;
-        composer.assets.push({ id: asset.id, type: asset.type, thumb_url: asset.thumb_url, duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
+        composer.assets.push({ id: asset.id, type: asset.type, thumb_url: asset.thumb_url, video_url: asset.video_url || '', duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
         renderCompMedia(); renderPreview(); scheduleSave();
     }
 
@@ -924,7 +951,7 @@ jQuery(function ($) {
     $('#csPickerAdd').on('click', function () {
         Array.from(pickerSel).forEach(function (id) {
             var a = pickerAssets.filter(function (x) { return x.id === id; })[0];
-            if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, type: a.type, thumb_url: a.thumb_url, duration: a.duration, status: a.status, is_cover: 0, missing: false });
+            if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, type: a.type, thumb_url: a.thumb_url, video_url: a.video_url || '', duration: a.duration, status: a.status, is_cover: 0, missing: false });
         });
         pickerModal.hide(); renderCompMedia(); renderPreview(); scheduleSave();
     });
@@ -1181,9 +1208,13 @@ jQuery(function ($) {
     function renderCalendar() { var map = itemsByDate(); if (calView === 'month') renderMonth(map); else renderWeek(map); }
 
     function calChip(it) {
-        var cover = it.cover_url ? '<img src="' + esc(it.cover_url) + '" onerror="this.remove()">' : '<i class="fa-solid ' + typeIcon(it.cover_type || 'image') + '"></i>';
-        var cap = it.caption ? esc(it.caption) : 'Untitled';
-        return '<div class="cs-cchip cs-cchip--' + it.state + '"' + (it.state === 'scheduled' ? ' draggable="true"' : '') + ' data-id="' + it.id + '" data-date="' + it.date + '" title="' + esc(it.time + ' · ' + cap) + '">' +
+        var isAuto = it.state === 'automation';
+        var cover = isAuto ? '<i class="fa-solid fa-robot"></i>'
+            : (it.cover_url ? '<img src="' + esc(it.cover_url) + '" onerror="this.remove()">' : '<i class="fa-solid ' + typeIcon(it.cover_type || 'image') + '"></i>');
+        var cap = it.caption ? esc(it.caption) : (isAuto ? 'Automation' : 'Untitled');
+        return '<div class="cs-cchip cs-cchip--' + it.state + '"' + (it.state === 'scheduled' ? ' draggable="true"' : '') +
+            ' data-id="' + it.id + '"' + (isAuto ? ' data-rule="' + it.rule_id + '"' : '') + ' data-date="' + it.date +
+            '" title="' + esc(it.time + ' · ' + cap + (isAuto ? ' (automation)' : '')) + '">' +
             '<span class="cs-cchip__cover">' + cover + '</span>' +
             '<span class="cs-cchip__body"><span class="cs-cchip__time">' + esc(it.time) + '</span><span class="cs-cchip__cap">' + cap + '</span></span>' +
             (it.media_missing ? '<i class="fa-solid fa-triangle-exclamation cs-cchip__warn" title="Media removed"></i>' : '') +
@@ -1224,7 +1255,11 @@ jQuery(function ($) {
     }
 
     $('#csCal')
-        .on('click', '.cs-cchip', function (e) { e.stopPropagation(); openComposer(+$(this).data('id')); })
+        .on('click', '.cs-cchip', function (e) {
+            e.stopPropagation();
+            if ($(this).hasClass('cs-cchip--automation')) { bootstrap.Tab.getOrCreateInstance(document.getElementById('csTabScheduler')).show(); return; }
+            openComposer(+$(this).data('id'));
+        })
         .on('click', '.cs-cal__cell', function () { openComposerScheduled($(this).data('date')); })
         .on('dragstart', '.cs-cchip', function (e) { calDragId = +$(this).data('id'); calDragFrom = String($(this).data('date')); e.originalEvent.dataTransfer.effectAllowed = 'move'; })
         .on('dragover', '.cs-cal__cell', function (e) { e.preventDefault(); $(this).addClass('is-drop'); })
@@ -1252,6 +1287,185 @@ jQuery(function ($) {
         $('#csCompSchedule').prop('hidden', false);
         $('#csSchedule').text('Schedule for this time');
     }
+
+
+
+    // =====================================================================
+    // Scheduler (automations)
+    // =====================================================================
+    var schedModal, schedRules = [];
+    var DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    var schedForm = { audience: 'free', cadence: 'daily' };
+
+    $('#csTabScheduler').on('shown.bs.tab', loadScheduler);
+    $('#csSchedRetry').on('click', loadScheduler);
+
+    function loadScheduler() {
+        $('#csSchedLoading').prop('hidden', false);
+        $('#csSchedError, #csSchedEmpty, #csSchedList').prop('hidden', true);
+        apiGet('scheduler_list')
+            .done(function (o) {
+                $('#csSchedLoading').prop('hidden', true);
+                if (!o || !o.success) { $('#csSchedError').prop('hidden', false); return; }
+                schedRules = o.rules || [];
+                renderSchedRules();
+            })
+            .fail(function () { $('#csSchedLoading').prop('hidden', true); $('#csSchedError').prop('hidden', false); });
+    }
+
+    function renderSchedRules() {
+        var $list = $('#csSchedList');
+        if (!schedRules.length) { $list.prop('hidden', true).empty(); $('#csSchedEmpty').prop('hidden', false); return; }
+        $('#csSchedEmpty').prop('hidden', true);
+        $list.prop('hidden', false).empty();
+        schedRules.forEach(function (r) { $list.append(schedCard(r)); });
+    }
+
+    function schedCard(r) {
+        var aud = r.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
+        var pill = r.last_status === 'success' ? '<span class="cs-sched__pill cs-sched__pill--ok">Last run OK</span>'
+            : (r.last_status === 'failed' ? '<span class="cs-sched__pill cs-sched__pill--fail">Last run failed</span>' : '');
+        return $(
+            '<div class="cs-sched__card' + (r.active ? '' : ' is-paused') + '" data-id="' + r.id + '">' +
+            '<div class="cs-sched__body">' +
+                '<div class="cs-sched__top">' +
+                    '<span class="cs-sched__name">' + esc(r.name) + '</span>' +
+                    '<label class="cs-sched__switch form-check form-switch m-0" title="Active"><input class="form-check-input" type="checkbox" data-sched-toggle' + (r.active ? ' checked' : '') + '></label>' +
+                '</div>' +
+                '<p class="cs-sched__topic">' + esc(r.topic) + '</p>' +
+                '<div class="cs-sched__meta">' +
+                    '<span><i class="fa-regular fa-clock"></i> ' + esc(r.cadence_summary) + '</span>' +
+                    '<span><i class="fa-solid fa-' + (r.audience === 'subscribers' ? 'lock' : 'globe') + '"></i> ' + aud + '</span>' +
+                    (r.next_run ? '<span><i class="fa-solid fa-forward"></i> Next: ' + esc(r.next_run) + '</span>' : '') +
+                    pill +
+                '</div>' +
+            '</div>' +
+            '<div class="cs-sched__actions">' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary" data-sched-run><i class="fa-solid fa-bolt"></i> Run now</button>' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary" data-sched-edit aria-label="Edit"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="btn btn-sm btn-outline-danger" data-sched-del aria-label="Delete"><i class="fa-solid fa-trash"></i></button>' +
+            '</div>' +
+            '</div>'
+        );
+    }
+
+    $('#csSchedNew, #csSchedEmptyNew').on('click', function () { openSchedForm(null); });
+    $('#csSchedList').on('click', '[data-sched-edit]', function () {
+        var id = $(this).closest('.cs-sched__card').data('id');
+        openSchedForm(schedRules.filter(function (r) { return r.id == id; })[0] || null);
+    });
+
+    function openSchedForm(rule) {
+        if (!schedModal) schedModal = bootstrap.Modal.getOrCreateInstance('#csSchedulerModal');
+        var b = CFG.brand || {};
+        if (b.has_brand) { $('#csSchedBrandName').text(b.brand_name ? ('“' + b.brand_name + '”') : ''); $('#csSchedBrandRow').prop('hidden', false); }
+        else { $('#csSchedBrandRow').prop('hidden', true); }
+        $('#csSchedTz').text((CFG.creator && CFG.creator.timezone) || USER_TZ || 'UTC');
+        renderSchedTiers();
+        renderSchedSocial(rule ? rule.social_accounts : []);
+        renderSchedDays(rule ? rule.days_of_week : []);
+
+        $('#csSchedModalTitle').html('<i class="fa-solid fa-robot"></i> ' + (rule ? 'Edit automation' : 'New automation'));
+        $('#csSchedId').val(rule ? rule.id : 0);
+        $('#csSchedName').val(rule ? rule.name : '');
+        $('#csSchedTopic').val(rule ? rule.topic : '');
+        $('#csSchedSize').val(rule ? rule.size : 'square');
+        $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
+        $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
+        $('#csSchedTime').val(rule ? rule.run_time : '09:00');
+        schedForm.audience = rule ? rule.audience : 'free';
+        schedForm.cadence  = rule ? rule.cadence : 'daily';
+        setSchedAudience(schedForm.audience);
+        setSchedCadence(schedForm.cadence);
+        if (rule && rule.audience === 'subscribers') { $('#csSchedTierSel').val(rule.tier_id || ''); }
+        schedModal.show();
+    }
+
+    function renderSchedTiers() {
+        var $sel = $('#csSchedTierSel').empty().append('<option value="">All Subscribers</option>');
+        (CFG.plans || []).forEach(function (p) { $sel.append('<option value="' + p.id + '">' + esc(p.name) + '</option>'); });
+    }
+    function renderSchedSocial(selected) {
+        var soc = CFG.social || { accounts: [] };
+        var $wrap = $('#csSchedSocial').empty();
+        var sel = new Set((selected || []).map(String));
+        if (!soc.accounts || !soc.accounts.length) { $wrap.append('<p class="cs-comp__socialnote">No connected social accounts.</p>'); return; }
+        soc.accounts.forEach(function (a) {
+            var on = sel.has(String(a.id));
+            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
+        });
+    }
+    function renderSchedDays(selected) {
+        var sel = new Set((selected || []).map(Number));
+        var $wrap = $('#csSchedDays').empty();
+        DOW_LABELS.forEach(function (lbl, i) {
+            $wrap.append('<button type="button" class="cs-sched__day' + (sel.has(i) ? ' is-on' : '') + '" data-day="' + i + '">' + lbl + '</button>');
+        });
+    }
+
+    $('#csSchedAudience').on('click', '.cs-seg__opt', function () { setSchedAudience($(this).data('aud')); });
+    function setSchedAudience(a) {
+        schedForm.audience = (a === 'subscribers') ? 'subscribers' : 'free';
+        $('#csSchedAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === schedForm.audience); });
+        $('#csSchedTier').prop('hidden', schedForm.audience !== 'subscribers');
+    }
+    $('#csSchedCadence').on('click', '.cs-seg__opt', function () { setSchedCadence($(this).data('cad')); });
+    function setSchedCadence(c) {
+        schedForm.cadence = (c === 'weekly') ? 'weekly' : 'daily';
+        $('#csSchedCadence .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('cad') === schedForm.cadence); });
+        $('#csSchedDays').prop('hidden', schedForm.cadence !== 'weekly');
+    }
+    $('#csSchedDays').on('click', '.cs-sched__day', function () { $(this).toggleClass('is-on'); });
+
+    $('#csSchedSave').on('click', function () {
+        var name = ($('#csSchedName').val() || '').trim();
+        var topic = ($('#csSchedTopic').val() || '').trim();
+        if (name === '')  { toastr.info('Give your automation a name.'); $('#csSchedName').focus(); return; }
+        if (topic === '') { toastr.info('Describe what to post.'); $('#csSchedTopic').focus(); return; }
+        var days = $('#csSchedDays .cs-sched__day.is-on').map(function () { return $(this).data('day'); }).get();
+        if (schedForm.cadence === 'weekly' && !days.length) { toastr.info('Pick at least one day of the week.'); return; }
+        var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return this.value; }).get();
+        var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');
+        apiPost('scheduler_save', {
+            id: $('#csSchedId').val(), name: name, topic: topic,
+            size: $('#csSchedSize').val(), audience: schedForm.audience,
+            tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
+            comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
+            use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
+            social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
+            run_time: $('#csSchedTime').val() || '09:00',
+            timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'
+        }).done(function (o) {
+            $btn.prop('disabled', false).text('Save automation');
+            if (!o.success) { toastr.error(o.message); return; }
+            schedModal.hide(); toastr.success('Automation saved'); loadScheduler();
+        }).fail(function () { $btn.prop('disabled', false).text('Save automation'); toastr.error('Could not save.'); });
+    });
+
+    $('#csSchedList').on('change', '[data-sched-toggle]', function () {
+        var id = $(this).closest('.cs-sched__card').data('id');
+        apiPost('scheduler_toggle', { id: id, active: this.checked ? '1' : '0' }).done(function (o) { if (o.success) loadScheduler(); });
+    });
+
+    $('#csSchedList').on('click', '[data-sched-del]', function () {
+        var id = $(this).closest('.cs-sched__card').data('id');
+        var r = schedRules.filter(function (x) { return x.id == id; })[0];
+        confirmDialog('Delete automation?', 'Remove “' + esc((r && r.name) || 'this automation') + '”? Posts it already published stay.', 'Delete', true, function () {
+            apiPost('scheduler_delete', { id: id }).done(function (o) { if (o.success) { toastr.success('Removed'); loadScheduler(); } });
+        });
+    });
+
+    $('#csSchedList').on('click', '[data-sched-run]', function () {
+        var $btn = $(this), id = $btn.closest('.cs-sched__card').data('id');
+        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Generating…');
+        $.ajax({ url: '/api/scheduler_run_now', method: 'POST', dataType: 'json', timeout: 180000, data: { id: id } })
+            .done(function (o) {
+                $btn.prop('disabled', false).html('<i class="fa-solid fa-bolt"></i> Run now');
+                if (o.success) { toastr.success('Published a new post.'); loadScheduler(); }
+                else { toastr.error(o.message || 'Run failed.'); }
+            })
+            .fail(function (x, st) { $btn.prop('disabled', false).html('<i class="fa-solid fa-bolt"></i> Run now'); toastr.error(st === 'timeout' ? 'That took too long — try again.' : 'Run failed.'); });
+    });
 
 
     loadCollections();

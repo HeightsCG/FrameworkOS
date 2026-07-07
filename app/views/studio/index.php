@@ -36,6 +36,7 @@
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabPosts" data-bs-toggle="tab" data-bs-target="#csPanePosts" type="button" role="tab"><i class="fa-solid fa-rectangle-list"></i> Posts</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCalendar" data-bs-toggle="tab" data-bs-target="#csPaneCalendar" type="button" role="tab"><i class="fa-solid fa-calendar-days"></i> Calendar</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCollections" data-bs-toggle="tab" data-bs-target="#csPaneCollections" type="button" role="tab"><i class="fa-solid fa-folder"></i> Collections</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="csTabScheduler" data-bs-toggle="tab" data-bs-target="#csPaneScheduler" type="button" role="tab"><i class="fa-solid fa-robot"></i> Scheduler</button></li>
     </ul>
 
     <div class="tab-content cs-tabcontent">
@@ -166,6 +167,27 @@
                     <p class="cs-empty__text">Add files from the Library — select files and choose “Add to collection”.</p>
                 </div>
             </div>
+        </div>
+
+        <!-- ============ SCHEDULER ============ -->
+        <div class="tab-pane fade" id="csPaneScheduler" role="tabpanel">
+            <div class="cs-coltoolbar">
+                <p class="cs-coltoolbar__hint">Automations generate an on-brand image + caption and publish on a schedule — hands-off.</p>
+                <button type="button" class="btn btn-primary" id="csSchedNew"><i class="fa-solid fa-plus"></i> New automation</button>
+            </div>
+            <div class="cs-loading" id="csSchedLoading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading your automations…</div>
+            <div class="cs-error" id="csSchedError" hidden>
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <p>We couldn't load your automations.</p>
+                <button type="button" class="btn btn-outline-secondary" id="csSchedRetry">Try again</button>
+            </div>
+            <div class="cs-empty" id="csSchedEmpty" hidden>
+                <i class="fa-solid fa-robot cs-empty__icon"></i>
+                <h2 class="cs-empty__title">No automations yet</h2>
+                <p class="cs-empty__text">Set one up and the Studio will generate on-brand content and publish it on your schedule, even while you're away.</p>
+                <button type="button" class="btn btn-primary" id="csSchedEmptyNew"><i class="fa-solid fa-plus"></i> New automation</button>
+            </div>
+            <div class="cs-sched" id="csSchedList" hidden></div>
         </div>
 
     </div>
@@ -364,6 +386,74 @@
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
                 <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a post</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============ SCHEDULER — automation form ============ -->
+<div class="modal fade" id="csSchedulerModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="csSchedModalTitle"><i class="fa-solid fa-robot"></i> New automation</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body cs-comp__edit">
+                <input type="hidden" id="csSchedId" value="0">
+
+                <label class="cs-dv__label" for="csSchedName">Name</label>
+                <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="e.g. Daily Orlando tip">
+
+                <label class="cs-dv__label mt-3" for="csSchedTopic">What to post each time</label>
+                <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A theme to generate from — e.g. a scenic Orlando spot with a short, upbeat travel tip"></textarea>
+                <span class="cs-comp__count">Each run makes a fresh on-brand image + caption from this.</span>
+
+                <label class="cs-dv__label mt-3" for="csSchedSize">Image shape</label>
+                <select id="csSchedSize" class="form-select">
+                    <option value="square">Square (1:1)</option>
+                    <option value="portrait">Portrait (2:3)</option>
+                    <option value="landscape">Landscape (3:2)</option>
+                </select>
+
+                <label class="cs-sched__brand" id="csSchedBrandRow" hidden>
+                    <input type="checkbox" class="form-check-input" id="csSchedBrand" checked>
+                    <span>Use my brand <strong id="csSchedBrandName"></strong> for the image and caption.</span>
+                </label>
+
+                <label class="cs-dv__label mt-3">Who can see this</label>
+                <div class="cs-seg" id="csSchedAudience">
+                    <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i> <span><strong>Everyone</strong><small>Anyone can see it</small></span></button>
+                    <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers only</strong><small>Members only</small></span></button>
+                </div>
+                <div class="cs-comp__tier" id="csSchedTier" hidden>
+                    <label class="cs-dv__label mt-3" for="csSchedTierSel">Available to</label>
+                    <select id="csSchedTierSel" class="form-select"><option value="">All Subscribers</option></select>
+                </div>
+
+                <label class="cs-comp__opt mt-3" for="csSchedComments">
+                    <span>Allow comments<small>Fans can comment on these posts.</small></span>
+                    <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedComments" checked></span>
+                </label>
+
+                <label class="cs-dv__label mt-3">Share to social</label>
+                <div id="csSchedSocial" class="cs-comp__social"></div>
+
+                <label class="cs-dv__label mt-3">Schedule</label>
+                <div class="cs-seg cs-seg--sm" id="csSchedCadence">
+                    <button type="button" class="cs-seg__opt is-on" data-cad="daily">Daily</button>
+                    <button type="button" class="cs-seg__opt" data-cad="weekly">Weekly</button>
+                </div>
+                <div class="cs-sched__days" id="csSchedDays" hidden></div>
+                <div class="cs-sched__time">
+                    <label class="cs-dv__label" for="csSchedTime">Time</label>
+                    <input type="time" id="csSchedTime" class="form-control" value="09:00">
+                    <span class="cs-sched__tz">in your timezone (<span id="csSchedTz">UTC</span>)</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="csSchedSave">Save automation</button>
             </div>
         </div>
     </div>
