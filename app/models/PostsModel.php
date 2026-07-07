@@ -44,6 +44,7 @@ class PostsModel extends Model {
         if (array_key_exists('caption', $fields))  { $data['caption'] = (string) $fields['caption']; }
         if (array_key_exists('audience', $fields)) { $data['audience'] = $fields['audience'] === 'subscribers' ? 'subscribers' : 'free'; }
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
+        if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
         return parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
@@ -85,12 +86,21 @@ class PostsModel extends Model {
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
                     ma.creator_id, ma.type, ma.status, ma.duration_sec,
-                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.deleted_at
+                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.deleted_at
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id = :p
              ORDER BY pa.sort_order ASC",
             array('p' => (int) $post_id)
+        );
+    }
+
+    /** Published posts for a creator's public profile, newest first. */
+    public function get_published_for_creator($creator_id){
+        return parent::select(
+            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published'
+             ORDER BY published_at DESC, id DESC",
+            array('c' => (int) $creator_id)
         );
     }
 
@@ -121,6 +131,72 @@ class PostsModel extends Model {
             array('media_missing' => $missing ? 1 : 0, 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /**
+     * Posts for the list, newest first, with the cover asset's keys + an asset
+     * count. Optional filters: state, search (caption).
+     */
+    public function list_for_creator($creator_id, array $filters = array()){
+        $params = array('c' => (int) $creator_id);
+        $where  = array('p.creator_id = :c');
+        if (!empty($filters['state']) && in_array($filters['state'], array('draft','scheduled','published','archived'), true)) {
+            $where[] = 'p.state = :state';
+            $params['state'] = $filters['state'];
+        }
+        if (isset($filters['search']) && trim((string) $filters['search']) !== '') {
+            $where[] = 'p.caption LIKE :q';
+            $params['q'] = '%' . trim((string) $filters['search']) . '%';
+        }
+        $sql = "SELECT p.*,
+                    (SELECT COUNT(*) FROM post_assets pa WHERE pa.post_id = p.id) AS asset_count,
+                    (SELECT ma.thumb_key FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                       WHERE pa.post_id = p.id ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1) AS cover_thumb_key,
+                    (SELECT ma.type FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                       WHERE pa.post_id = p.id ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1) AS cover_type
+                FROM posts p
+                WHERE " . implode(' AND ', $where) . "
+                ORDER BY p.created_at DESC, p.id DESC";
+        return parent::select($sql, $params);
+    }
+
+    /** Count posts by state (for filter tabs). */
+    public function counts_by_state($creator_id){
+        $rows = parent::select(
+            "SELECT state, COUNT(*) AS n FROM posts WHERE creator_id = :c GROUP BY state",
+            array('c' => (int) $creator_id)
+        );
+        $out = array('all' => 0, 'draft' => 0, 'scheduled' => 0, 'published' => 0, 'archived' => 0);
+        foreach ($rows as $r) { $out[$r['state']] = (int) $r['n']; $out['all'] += (int) $r['n']; }
+        return $out;
+    }
+
+    /** Duplicate a post into a new draft (same caption, options, and media). */
+    public function duplicate($creator_id, $id){
+        $src = $this->get_one($creator_id, $id);
+        if (!$src) { return 0; }
+        $new_id = (int) $this->create_draft($creator_id, (string) $src['caption'], $src['audience']);
+        $this->update_fields($creator_id, $new_id, array(
+            'caption' => (string) $src['caption'], 'audience' => $src['audience'],
+            'tier_id' => $src['tier_id'], 'comments_enabled' => $src['comments_enabled'],
+        ));
+        $assets = $this->get_assets($id);
+        $ids = array(); $cover = 0;
+        foreach ($assets as $a) { $ids[] = (int) $a['asset_id']; if ((int) $a['is_cover'] === 1) { $cover = (int) $a['asset_id']; } }
+        $this->set_assets($creator_id, $new_id, $ids, $cover);
+        return $new_id;
+    }
+
+    /** Publish any scheduled posts whose time has arrived (cron-less fallback). */
+    public function publish_due($creator_id){
+        $now = date('Y-m-d H:i:s');
+        return parent::sql(
+            "UPDATE posts SET state = 'published',
+                    published_at = COALESCE(published_at, :n1), scheduled_at = NULL, updated_at = :n2
+             WHERE creator_id = :c AND state = 'scheduled' AND scheduled_at <= :n3
+               AND media_missing = 0",
+            array('c' => (int) $creator_id, 'n1' => $now, 'n2' => $now, 'n3' => $now)
+        );
     }
 
     public function delete_post($creator_id, $id){

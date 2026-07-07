@@ -30,7 +30,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="/css/profile.css">
+    <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
 </head>
 <body class="pf">
 
@@ -87,46 +87,25 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         <p class="pf-empty__text">When <?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> shares something, it'll show up here. Follow to get notified.</p>
                     </div>
                     <?php else: ?>
-                    <div class="pf-posts">
-                        <?php foreach ($content_cards as $c): ?>
-                        <article class="pf-post" data-content-id="<?php echo (int) $c['id']; ?>">
-                            <?php if ($c['entitled']): ?>
-                            <?php foreach ($c['assets'] as $a): $au = htmlspecialchars($a['url'], ENT_QUOTES, 'UTF-8'); ?>
-                                <?php if ($a['type'] === 'image'): ?>
-                                <img class="pf-post__img" src="<?php echo $au; ?>" alt="" loading="lazy">
-                                <?php elseif ($a['type'] === 'video'): ?>
-                                <video class="pf-post__video" src="<?php echo $au; ?>" controls preload="metadata"></video>
-                                <?php elseif ($a['type'] === 'audio'): ?>
-                                <div class="pf-post__audiowrap"><audio class="pf-post__audio" src="<?php echo $au; ?>" controls preload="none"></audio></div>
-                                <?php else: ?>
-                                <a class="pf-post__doc" href="<?php echo $au; ?>" target="_blank" rel="noopener"><i class="fa-solid fa-file-pdf"></i> Open document</a>
-                                <?php endif; ?>
-                            <?php endforeach; ?>
-                            <div class="pf-post__body">
-                                <h3 class="pf-post__title"><?php echo htmlspecialchars((string) $c['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
-                                <?php if (trim((string) $c['description']) !== ''): ?><p class="pf-post__desc"><?php echo htmlspecialchars((string) $c['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-                                <?php if (trim((string) $c['body']) !== ''): ?><p class="pf-post__text"><?php echo nl2br(htmlspecialchars((string) $c['body'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
-                                <?php if (!empty($c['tags'])): ?><div class="pf-post__tags"><?php foreach ($c['tags'] as $t): ?><span class="pf-post__tag"><?php echo htmlspecialchars($t, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?></div><?php endif; ?>
-                            </div>
-                            <?php else: ?>
-                            <div class="pf-post__locked"<?php echo $c['preview_url'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars($c['preview_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
-                                <div class="pf-post__lockmeta">
-                                    <i class="fa-solid fa-lock pf-post__lockicon"></i>
-                                    <span class="pf-post__title pf-post__title--onlock"><?php echo htmlspecialchars((string) $c['title'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <?php if (trim((string) $c['description']) !== ''): ?><span class="pf-post__desc pf-post__desc--onlock"><?php echo htmlspecialchars((string) $c['description'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
-                                    <?php if (!$viewer_logged_in): ?>
-                                    <button type="button" class="pf-btn pf-btn--follow pf-post__cta" data-content-login>Log in to view</button>
-                                    <?php elseif ($c['access'] === 'subscribers'): ?>
-                                    <button type="button" class="pf-btn pf-btn--follow pf-post__cta" data-content-subscribe>Subscribe to <?php echo htmlspecialchars((string) $c['required_name'], ENT_QUOTES, 'UTF-8'); ?></button>
-                                    <?php else: ?>
-                                    <button type="button" class="pf-btn pf-btn--subscribe pf-post__cta" data-unlock-content="<?php echo (int) $c['id']; ?>"><i class="fa-solid fa-lock-open"></i> Unlock for <?php echo number_format((int) $c['price_credits']); ?> credits</button>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <?php endif; ?>
-                        </article>
+                    <div class="pf-feed">
+                        <?php foreach ($content_cards as $c): $cov = htmlspecialchars((string) $c['cover'], ENT_QUOTES, 'UTF-8'); ?>
+                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" data-post-id="<?php echo (int) $c['id']; ?>">
+                            <span class="pf-pc__thumb"<?php echo $cov !== '' ? ' style="background-image:url(\'' . $cov . '\')"' : ''; ?>>
+                                <?php if (!$c['entitled']): ?><span class="pf-pc__lockbadge"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
+                                <?php if ($c['entitled'] && $c['has_video']): ?><span class="pf-pc__play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
+                                <?php if ((int) $c['media_count'] > 1): ?><span class="pf-pc__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $c['media_count']; ?></span><?php endif; ?>
+                            </span>
+                            <?php if (trim((string) $c['excerpt']) !== ''): ?><span class="pf-pc__cap"><?php echo htmlspecialchars((string) $c['excerpt'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
+                        </button>
                         <?php endforeach; ?>
                     </div>
+
+                    <!-- full-post lightbox -->
+                    <div class="pf-plb" id="pfLightbox" hidden>
+                        <button type="button" class="pf-plb__close" id="pfLbClose" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+                        <div class="pf-plb__inner" id="pfLbInner"></div>
+                    </div>
+                    <script>window.PROFILE_POSTS = <?php echo json_encode($content_cards, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>;</script>
                     <?php endif; ?>
                 </section>
 
@@ -391,6 +370,40 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
 
         renderActions();
         onScroll();
+
+        // Content grid → full-post lightbox
+        (function () {
+            var byId = {}; (window.PROFILE_POSTS || []).forEach(function (p) { byId[p.id] = p; });
+            var lb = document.getElementById('pfLightbox'), inner = document.getElementById('pfLbInner');
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            function openPost(id) {
+                var p = byId[id]; if (!p) { return; }
+                var h = '';
+                if (p.entitled) {
+                    h += '<div class="pf-plb__media">';
+                    (p.assets || []).forEach(function (a) {
+                        h += (a.type === 'video')
+                            ? '<video src="' + e(a.url) + '"' + (a.poster ? ' poster="' + e(a.poster) + '"' : '') + ' controls preload="metadata" controlsList="nodownload"></video>'
+                            : '<img src="' + e(a.url) + '" alt="" oncontextmenu="return false">';
+                    });
+                    h += '</div>';
+                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p>' + (p.published_at ? '<span class="pf-plb__date">' + e(p.published_at) + '</span>' : '') + '</div>'; }
+                } else {
+                    h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Subscribers-only post</span>' +
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAct">' + (LOGGED_IN ? 'Subscribe to unlock' : 'Log in to view') + '</button></div></div>';
+                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
+                }
+                inner.innerHTML = h;
+                lb.hidden = false; document.body.style.overflow = 'hidden';
+                var act = document.getElementById('pfLbAct');
+                if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
+            }
+            function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; }
+            document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });
+            document.getElementById('pfLbClose').addEventListener('click', closePlb);
+            lb.addEventListener('click', function (ev) { if (ev.target === lb) { closePlb(); } });
+            document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !lb.hidden) { closePlb(); } });
+        })();
 
         // Returned from Stripe Checkout — show the outcome, land on Membership, tidy the URL.
         if (SUB_NOTICE === 'success') {

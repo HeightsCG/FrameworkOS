@@ -100,11 +100,76 @@ class ProfileController extends Controller {
             ? (new CreatorSubscriptionsModel())->active_plan_ids($viewer_id, $user['user_id'])
             : array();
 
-        // Content feed temporarily disabled: the old content_items/content_assets system
-        // was removed in the Content Studio rewrite. Fans will see the new posts once the
-        // profile is rewired to the new schema (tracked as a separate task). Until then the
-        // profile renders with no content cards rather than referencing removed models.
+        // Published Content Studio posts, gated per audience. Entitlement is decided
+        // HERE (server-side): the real media URL is signed only for entitled viewers;
+        // everyone else gets only the blurred locked preview — the clear rendition is
+        // never signed for them, so it never reaches the browser.
+        $posts_model    = new PostsModel();
+        $published      = $posts_model->get_published_for_creator($user['user_id']);
+        $max_tier_price = ($viewer_logged_in && !$is_self)
+            ? (new CreatorSubscriptionsModel())->max_active_tier_price($viewer_id, $user['user_id'])
+            : null;
+        $plan_prices = array();
+        foreach ((new CreatorPlansModel())->get_for_user($user['user_id']) as $pl) {
+            $plan_prices[(int) $pl['id']] = (int) $pl['price_cents'];
+        }
+
         $content_cards = array();
+        foreach ($published as $p) {
+            $audience = $p['audience'];
+            if ($is_self || $audience === 'free') {
+                $entitled = true;
+            } else { // subscribers-only
+                $tier_id = (int) ($p['tier_id'] ?? 0);
+                if ($tier_id > 0) {
+                    $entitled = ($max_tier_price !== null && $max_tier_price >= (int) ($plan_prices[$tier_id] ?? 0));
+                } else {
+                    $entitled = !empty($subscribed_plan_ids);
+                }
+            }
+
+            $assets = $posts_model->get_assets((int) $p['id']);
+            $cover  = null;
+            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
+            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+            $cap = trim((string) $p['caption']);
+
+            $card = array(
+                'id'           => (int) $p['id'],
+                'caption'      => $cap,
+                'excerpt'      => mb_substr($cap, 0, 120),
+                'audience'     => $audience,
+                'entitled'     => $entitled,
+                'published_at' => !empty($p['published_at']) ? date('M j, Y', strtotime((string) $p['published_at'])) : '',
+                'media_count'  => count($assets),
+                'has_video'    => false,
+                'cover'        => '',   // uniform grid thumbnail
+            );
+
+            if ($entitled) {
+                $card['assets'] = array();
+                foreach ($assets as $a) {
+                    if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
+                    if ($a['type'] === 'video') {
+                        $card['has_video'] = true;
+                        $card['assets'][] = array('type' => 'video',
+                            'url' => MediaService::signed_variant($a, 'original', 900),
+                            'poster' => MediaService::signed_variant($a, 'poster', 900));
+                    } else {
+                        $card['assets'][] = array('type' => 'image',
+                            'url' => MediaService::signed_variant($a, 'display', 900), 'poster' => '');
+                    }
+                }
+                // Grid card uses a small, uniform thumbnail (poster for a video cover).
+                $card['cover'] = $cover ? MediaService::signed_variant($cover, ($cover['type'] === 'video' ? 'poster' : 'thumb'), 900) : '';
+            } else {
+                // Non-entitled: only the blurred variant is ever signed.
+                $card['cover'] = $cover ? MediaService::signed_variant($cover, 'blurred', 900) : '';
+                $card['locked_url'] = $card['cover'];
+            }
+            $content_cards[] = $card;
+        }
+
         $viewer_credit_balance = $viewer_logged_in ? (new CreditsModel())->get_balance($viewer_id) : 0;
 
         require Main::app_path() . '/app/views/profile/view.php';

@@ -1,10 +1,7 @@
-/* Content Studio — Library, uploads, collections, detail.
-   Built on jQuery + Bootstrap (Offcanvas, Modal, Tabs). CSRF header is added
-   globally for POSTs in api.data.js. */
 jQuery(function ($) {
     "use strict";
 
-    if (!$('#cs').length) return; // gate page (non-creator) — nothing to wire
+    if (!$('#cs').length) return;
 
     var CFG = window.CS_CONFIG || { creator: {}, s3_ready: false };
     var S3_READY = !!CFG.s3_ready;
@@ -20,7 +17,6 @@ jQuery(function ($) {
 
     var detailOC = bootstrap.Offcanvas.getOrCreateInstance('#csDetail');
 
-    // ---- helpers ----
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
     function apiGet(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'GET', data: data || {}, dataType: 'json' }); }
     function apiPost(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'POST', data: data || {}, dataType: 'json' }); }
@@ -42,9 +38,6 @@ jQuery(function ($) {
     function typeIcon(t) { return t === 'video' ? 'fa-play' : (t === 'gif' ? 'fa-clapperboard' : 'fa-image'); }
     function err(o, fallback) { toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.'); }
 
-    // =====================================================================
-    // Reusable Bootstrap dialogs
-    // =====================================================================
     function dialog(opts) {
         var m = bootstrap.Modal.getOrCreateInstance('#csModal');
         $('#csModalTitle').text(opts.title);
@@ -67,9 +60,8 @@ jQuery(function ($) {
     function confirmDialog(title, text, okText, danger, onOk) {
         dialog({ title: title, bodyHtml: '<p class="mb-0 text-body-secondary">' + esc(text) + '</p>', okText: okText, danger: danger, onOk: onOk });
     }
-    function promptDialog(title, text, label, value, onOk, extraText, onExtra) {
-        var body = '<p class="text-body-secondary">' + esc(text) + '</p>' +
-            '<label class="form-label cs-dv__label">' + esc(label) + '</label>' +
+    function promptDialog(title, label, value, onOk, extraText, onExtra) {
+        var body = '<label class="form-label cs-dv__label">' + esc(label) + '</label>' +
             '<input class="form-control" id="csPrompt" value="' + esc(value) + '">';
         var ok = dialog({
             title: title, bodyHtml: body, okText: 'Save',
@@ -79,13 +71,10 @@ jQuery(function ($) {
         $('#csModal').on('keydown', '#csPrompt', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.trigger('click'); } });
     }
 
-    // =====================================================================
-    // Tabs (Bootstrap) — lazy-render collections when shown
-    // =====================================================================
     $('#csTabCollections').on('shown.bs.tab', showCollectionsList);
     function gotoLibraryTab() { bootstrap.Tab.getOrCreateInstance(document.getElementById('csTabLibrary')).show(); }
 
-    var openCol = null;   // the collection currently being viewed in the Collections tab
+    var openCol = null;
 
     function showCollectionsList() {
         openCol = null;
@@ -94,7 +83,6 @@ jQuery(function ($) {
         renderCollections();
     }
 
-    // Open a collection's contents in place (inside the Collections tab).
     function openCollectionView(c) {
         openCol = c;
         $('#csColList').prop('hidden', true);
@@ -144,7 +132,7 @@ jQuery(function ($) {
     $('#csColBack').on('click', showCollectionsList);
     $('#csColRename').on('click', function () {
         if (!openCol) return;
-        promptDialog('Rename collection', 'Give this collection a clearer name.', 'Collection name', openCol.name, function (name) {
+        promptDialog('Rename Collection', 'Collection Name', openCol.name, function (name) {
             if (!name.trim() || name === openCol.name) return;
             apiPost('collection_save', { id: openCol.id, name: name }).done(function (o) {
                 if (o.success) { openCol.name = name; $('#csColName').text(name); toastr.success('Collection renamed'); } else err(o);
@@ -160,9 +148,6 @@ jQuery(function ($) {
         });
     });
 
-    // =====================================================================
-    // Library
-    // =====================================================================
     function hasFilters() { var f = state.filters; return !!(f.search || f.type || f.collection || f.usage); }
 
     function loadLibrary() {
@@ -205,7 +190,6 @@ jQuery(function ($) {
         $('#csLibEmpty').prop('hidden', true);
         $('#csGrid').prop('hidden', false);
         state.assets.forEach(function (a, i) { $grid.append(buildTile(a, i)); });
-        // image error → refresh signed URL once
         $grid.find('.cs-tile__img').on('error', function () {
             var img = this;
             if (img.dataset.retried) return;
@@ -460,7 +444,7 @@ jQuery(function ($) {
     }
 
     function collectionMenu(c) {
-        promptDialog('Rename collection', 'Give this collection a clearer name, or delete it below.', 'Collection name', c.name,
+        promptDialog('Update Collection', 'Collection Name', c.name,
             function (name) {
                 if (name.trim() && name !== c.name) apiPost('collection_save', { id: c.id, name: name }).done(function (o) { if (o.success) { toastr.success('Collection renamed'); renderCollections(); } else err(o); });
             },
@@ -472,7 +456,7 @@ jQuery(function ($) {
     }
 
     $('#csNewCollectionBtn, #csCreateCollectionBtn').on('click', function () {
-        promptDialog('New collection', 'Name a folder to group related files.', 'Collection name', '', function (name) {
+        promptDialog('New Collection', 'Collection Name', '', function (name) {
             if (!name.trim()) return;
             apiPost('collection_save', { name: name }).done(function (o) { if (o.success) { toastr.success('Collection created'); renderCollections(); } else err(o); });
         });
@@ -480,7 +464,7 @@ jQuery(function ($) {
 
     function chooseCollection(onPick) {
         if (!state.collections.length) {
-            promptDialog('Add to a new collection', 'You have no collections yet. Name one to create it.', 'Collection name', '', function (name) {
+            promptDialog('Add to a New Collection', 'Collection Name', '', function (name) {
                 if (!name.trim()) return;
                 apiPost('collection_save', { name: name }).done(function (o) { if (o.success) { loadCollections(); onPick(o.id); } else err(o); });
             });
@@ -490,9 +474,6 @@ jQuery(function ($) {
         dialog({ title: 'Add to collection', okText: 'Add', bodyHtml: '<label class="form-label cs-dv__label">Collection</label><select id="csColPick" class="form-select">' + opts + '</select>', onOk: function () { onPick($('#csColPick').val()); } });
     }
 
-    // =====================================================================
-    // Detail (Bootstrap offcanvas)
-    // =====================================================================
     function openDetail(id) {
         $('#csDetailBody').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
         detailOC.show();
@@ -589,7 +570,20 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_id: '', assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', audience: 'free', tier_id: '', comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    composer.share = new Set();
+    function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram'}; return m[pl]||'fa-share-nodes'; }
+    function renderSocial(){
+        var $wrap = $('#csCompSocial').empty();
+        var soc = CFG.social || { accounts: [], can_post: false };
+        if (!soc.accounts || !soc.accounts.length) { $wrap.html('<p class="cs-comp__socialnote">No accounts connected yet — <a href="/account/settings?section=connected">connect your accounts</a> to cross-post.</p>'); return; }
+        if (!soc.can_post) { $wrap.html('<p class="cs-comp__socialnote">Sharing to social is not part of your current plan. <a href="/account/billing">See plans</a>.</p>'); return; }
+        soc.accounts.forEach(function (a) {
+            var on = composer.share.has(a.id);
+            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
+        });
+    }
+    $('#csCompSocial').on('change', 'input[data-acct]', function () { var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id); });
     var composerModal = bootstrap.Modal.getOrCreateInstance('#csComposer');
     var pickerModal = bootstrap.Modal.getOrCreateInstance('#csPicker');
     var pickerAssets = [], pickerSel = new Set();
@@ -617,7 +611,9 @@ jQuery(function ($) {
 
     function resetScheduleUI() { $('#csCompSchedule').prop('hidden', true); $('#csSchedule').text('Schedule'); }
     function newComposer() {
-        composer = { id: null, caption: '', audience: 'free', tier_id: '', assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+        composer = { id: null, caption: '', audience: 'free', tier_id: '', comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+        composer.share = new Set();
+        composer.state = 'draft';
         $('#csCompTitle').text('New Post');
         $('#csCompSchedAt').val('');
         resetScheduleUI();
@@ -627,6 +623,9 @@ jQuery(function ($) {
     function setComposer(p) {
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
         composer.tier_id = p.tier_id ? String(p.tier_id) : '';
+        composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
+        composer.share = new Set((p.shared_accounts || []).map(String));
+        composer.state = p.state || 'draft';
         composer.assets = p.assets || []; composer.coverDisplay = p.cover_display_url || ''; composer.coverBlurred = p.cover_blurred_url || '';
         composer.validation = p.validation || { ok: true, reason: '' };
         $('#csCompTitle').text(p.state === 'published' ? 'Edit Post' : 'New Post');
@@ -644,13 +643,19 @@ jQuery(function ($) {
 
     function renderComposer() {
         $('#csCompCaption').val(composer.caption);
+        
         $('#csCompCount').text(composer.caption.length);
         $('#csCompAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === composer.audience); });
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
         $('#csCompTierSel').val(composer.tier_id || '');
+        $('#csCompComments').prop('checked', composer.comments_enabled != 0);
+        renderSocial();
         renderCompMedia();
         renderPreview();
         updateValidation();
+        var pub = composer.state === 'published';
+        $('#csPublishNow').text(pub ? 'Update post' : 'Publish Now');
+        $('#csSchedule, #csSaveDraft').toggle(!pub);
     }
 
     function renderCompMedia() {
@@ -687,14 +692,23 @@ jQuery(function ($) {
     function setSaveStatus(t) { $('#csCompSave').text(t); }
     function scheduleSave() { clearTimeout(composer.saveTimer); setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
-        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId() };
+        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
         apiPost('post_save', data)
             .done(function (o) {
                 if (o && o.success) {
                     composer.id = o.id;
+                    var oldIds = composer.assets.map(function (a) { return a.id; }).join(',');
+                    var newIds = (o.post.assets || []).map(function (a) { return a.id; }).join(',');
+                    var hadCover = !!composer.coverDisplay;
                     composer.coverDisplay = o.post.cover_display_url; composer.coverBlurred = o.post.cover_blurred_url;
                     composer.assets = o.post.assets; composer.validation = o.post.validation;
-                    setSaveStatus('Saved'); renderCompMedia(); renderPreview(); updateValidation();
+                    setSaveStatus('Saved');
+                    // Only rebuild the media (which re-fetches images) when the media set
+                    // actually changed, or the cover just became available. Otherwise a
+                    // caption-only autosave leaves the images untouched.
+                    if (oldIds !== newIds || (!hadCover && composer.coverDisplay)) { renderCompMedia(); renderPreview(); }
+                    else { updatePreviewCaption(); }
+                    updateValidation();
                     if (cb) cb(true);
                 } else { setSaveStatus('Not saved'); if (cb) cb(false); }
             })
@@ -702,26 +716,29 @@ jQuery(function ($) {
     }
 
     function renderPreview() {
-        // The preview shows exactly what a fan sees — no creator-facing badges.
-        // Subscriber view = the real media; non-subscriber view of a subscribers-only
-        // post = the locked, blurred variant.
         var locked = (composer.view === 'pub' && composer.audience === 'subscribers');
         var img = locked ? composer.coverBlurred : composer.coverDisplay;
         var more = (composer.assets.length > 1) ? '<span class="cs-pv__more"><i class="fa-solid fa-layer-group"></i> ' + composer.assets.length + '</span>' : '';
         var media = img
-            ? '<div class="cs-pv__media">' + more + (locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to unlock</span></div>' : '') + '<img src="' + esc(img) + '"></div>'
-            : '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i><span>Add media to see it here</span></div>';
+            ? '<div class="cs-pv__media">' + more + (locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to Unlock</span></div>' : '') + '<img src="' + esc(img) + '"></div>'
+            : '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i></div>';
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
         $('#csPreviewCard').html(media + '<div class="cs-pv__body">' + cap + '</div>');
     }
 
-    function updateValidation() {
-        var v = composer.validation || { ok: true, reason: '' };
-        if (v.ok) $('#csCompValidation').prop('hidden', true).text('');
-        else $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info"></i> ' + esc(v.reason));
+    // Update ONLY the caption in the preview — never rebuild the <img> (that refetch
+    // is what made the image flicker on every keystroke).
+    function updatePreviewCaption() {
+        var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
+        var $body = $('#csPreviewCard .cs-pv__body');
+        if ($body.length) { $body.html(cap); } else { renderPreview(); }
     }
 
-    $('#csCompCaption').on('input', function () { composer.caption = this.value; $('#csCompCount').text(this.value.length); renderPreview(); scheduleSave(); });
+    function updateValidation() {
+        $('#csCompValidation').prop('hidden', true).text('');
+    }
+
+    $('#csCompCaption').on('input', function () { composer.caption = this.value; $('#csCompCount').text(this.value.length); updatePreviewCaption(); scheduleSave(); });
     $('#csCompAudience').on('click', '.cs-seg__opt', function () {
         composer.audience = $(this).data('aud');
         if (composer.audience !== 'subscribers') composer.tier_id = '';
@@ -730,9 +747,9 @@ jQuery(function ($) {
         renderPreview(); updateValidation(); scheduleSave();
     });
     $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; scheduleSave(); });
+    $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; scheduleSave(); });
     $('#csCompView').on('click', '.cs-seg__opt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on'); renderPreview(); });
 
-    // inline upload straight into the post
     $('#csCompUpload').on('click', function () { uploadOnComplete = composerAddAsset; pickFiles(); });
     function composerAddAsset(asset) {
         if (!asset || composer.assets.some(function (a) { return a.id === asset.id; })) return;
@@ -740,7 +757,6 @@ jQuery(function ($) {
         renderCompMedia(); renderPreview(); scheduleSave();
     }
 
-    // media picker
     $('#csCompAdd').on('click', openPicker);
     function openPicker() {
         pickerSel = new Set();
@@ -782,23 +798,29 @@ jQuery(function ($) {
         pickerModal.hide(); renderCompMedia(); renderPreview(); scheduleSave();
     });
 
-    // three explicit actions: publish now / schedule / save draft
     function runAction(kind) {
         var $btns = $('#csPublishNow, #csSchedule, #csSaveDraft').prop('disabled', true);
         function done() { $btns.prop('disabled', false); }
         function fail(o) { done(); $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info"></i> ' + esc((o && o.message) || 'Something went wrong.')); }
         saveNow(function (ok) {
             if (!ok) { done(); toastr.error('Could not save the post. Please try again.'); return; }
+            // Empty post: nothing was saved (id 0), so there's nothing to publish/schedule.
+            if (!composer.id) {
+                done();
+                if (kind === 'draft') { toastr.info('Add a caption or media before saving a draft.'); }
+                else { fail({ message: 'Add a photo, video, or caption before publishing.' }); }
+                return;
+            }
+            if (kind === 'update') { done(); toastr.success('Post updated'); composerModal.hide(); afterComposer(); return; }
             if (kind === 'draft') apiPost('post_save_draft', { id: composer.id }).done(function (o) { done(); if (o.success) { toastr.success('Saved as draft'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
-            else if (kind === 'schedule') apiPost('post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val() }).done(function (o) { done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
-            else apiPost('post_publish', { id: composer.id }).done(function (o) { done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+            else if (kind === 'schedule') apiPost('post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }).done(function (o) { done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+            else apiPost('post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }).done(function (o) { done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
         });
     }
-    $('#csPublishNow').on('click', function () { runAction('publish'); });
+    $('#csPublishNow').on('click', function () { runAction(composer.state === 'published' ? 'update' : 'publish'); });
     $('#csSaveDraft').on('click', function () { runAction('draft'); });
     $('#csSchedule').on('click', function () {
         if ($('#csCompSchedule').prop('hidden')) {
-            // first click reveals the picker (prefilled +1h); a second click schedules
             if (!$('#csCompSchedAt').val()) {
                 var d = new Date(Date.now() + 3600000); d.setSeconds(0, 0);
                 var pad = function (n) { return (n < 10 ? '0' : '') + n; };
@@ -811,11 +833,295 @@ jQuery(function ($) {
         }
         runAction('schedule');
     });
-    function afterComposer() { loadLibrary(); }
+    function afterComposer() { loadLibrary(); loadPosts(); loadCalendar(); }
 
     if (typeof toastr !== 'undefined') {
         toastr.options = $.extend(toastr.options || {}, { positionClass: 'toast-bottom-right', timeOut: 3200, preventDuplicates: true });
     }
+
+    var postFilters = { state: '', search: '' };
+    var postSel = new Set();
+
+    $('#csTabPosts').on('shown.bs.tab', loadPosts);
+    $('#csPostsRetry').on('click', loadPosts);
+    $('#csPostsEmptyNew').on('click', function () { openComposer(null); });
+
+    function fmtMoney(c) { return (Math.max(0, c || 0) / 100).toFixed(2); }
+    function sharePostDialog(id) {
+        var soc = CFG.social || { accounts: [], can_post: false };
+        if (!soc.accounts || !soc.accounts.length) { toastr.info('Connect social accounts in Settings first.'); return; }
+        if (!soc.can_post) { toastr.info('Sharing to social is not part of your current plan.'); return; }
+        var boxes = soc.accounts.map(function (a) {
+            return '<label class="cs-social"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>';
+        }).join('');
+        dialog({
+            title: 'Share to Social', okText: 'Share',
+            bodyHtml: '<div class="cs-comp__social" id="csShareBoxes">' + boxes + '</div>',
+            onOk: function () {
+                var ids = $('#csShareBoxes input:checked').map(function () { return this.value; }).get();
+                if (!ids.length) { toastr.info('Pick at least one account.'); return false; }
+                apiPost('post_share', { id: id, share_accounts: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            }
+        });
+    }
+    function hasPostFilters() { return !!(postFilters.state || postFilters.search); }
+
+    function loadPosts() {
+        $('#csPostsLoading').prop('hidden', false);
+        $('#csPostsError, #csPostsEmpty, #csPostsList').prop('hidden', true);
+        apiGet('posts_list', postFilters)
+            .done(function (o) {
+                $('#csPostsLoading').prop('hidden', true);
+                if (!o || !o.success) { $('#csPostsError').prop('hidden', false); return; }
+                renderPosts(o.posts || []);
+            })
+            .fail(function () { $('#csPostsLoading').prop('hidden', true); $('#csPostsError').prop('hidden', false); });
+    }
+
+    function renderPosts(posts) {
+        var $list = $('#csPostsList').empty();
+        clearPostSel();
+        if (!posts.length) {
+            $('#csPostsList').prop('hidden', true);
+            var $e = $('#csPostsEmpty').prop('hidden', false);
+            if (hasPostFilters()) {
+                $e.find('.cs-empty__title').text('No posts match');
+                $e.find('.cs-empty__text').text('Try a different search or status.');
+                $('#csPostsEmptyNew').prop('hidden', true);
+            } else {
+                $e.find('.cs-empty__title').text('No posts yet');
+                $e.find('.cs-empty__text').text('Create your first post — publish it now, schedule it, or save a draft.');
+                $('#csPostsEmptyNew').prop('hidden', false);
+            }
+            return;
+        }
+        $('#csPostsEmpty').prop('hidden', true);
+        $('#csPostsList').prop('hidden', false);
+        posts.forEach(function (p) { $list.append(buildPostRow(p)); });
+        $list.find('.cs-post__cover img').on('error', function () { $(this).hide(); });
+    }
+
+    function buildPostRow(p) {
+        var cover = p.cover_url
+            ? '<img src="' + esc(p.cover_url) + '" alt="">'
+            : '<i class="fa-solid ' + typeIcon(p.cover_type || 'image') + '"></i>';
+        if (p.asset_count > 1) cover += '<span class="cs-post__num">' + p.asset_count + '</span>';
+        var badge = '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
+        var aud = p.audience === 'subscribers'
+            ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
+            : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>';
+        var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
+        var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
+        var cap = p.caption ? esc(p.caption) : '<em class="cs-post__nocap">No caption</em>';
+        var stats =
+            '<span class="cs-post__stat"><i class="fa-regular fa-eye"></i> ' + p.views + '</span>' +
+            '<span class="cs-post__stat"><i class="fa-regular fa-comment"></i> ' + p.comments + '</span>' +
+            '<span class="cs-post__stat cs-post__earn">$' + fmtMoney(p.earnings_cents) + '</span>' +
+            (p.shared_count > 0 ? '<span class="cs-post__stat"><i class="fa-solid fa-share-nodes"></i> ' + p.shared_count + '</span>' : '');
+        var reschedule = (p.state === 'scheduled')
+            ? '<li><button class="dropdown-item" data-post-act="reschedule"><i class="fa-solid fa-clock"></i> Reschedule</button></li>' : '';
+        var arch = (p.state === 'archived')
+            ? '<li><button class="dropdown-item" data-post-act="unarchive"><i class="fa-solid fa-box-open"></i> Unarchive</button></li>'
+            : '<li><button class="dropdown-item" data-post-act="archive"><i class="fa-solid fa-box-archive"></i> Archive</button></li>';
+        return '<div class="cs-post" data-id="' + p.id + '">' +
+            '<label class="cs-post__check"><input type="checkbox"></label>' +
+            '<div class="cs-post__cover" data-post-edit>' + cover + '</div>' +
+            '<div class="cs-post__main" data-post-edit>' +
+                '<div class="cs-post__cap">' + cap + '</div>' +
+                '<div class="cs-post__meta">' + badge + aud + when + missing + '</div>' +
+            '</div>' +
+            '<div class="cs-post__stats">' + stats + '</div>' +
+            '<div class="cs-post__act">' +
+                '<button type="button" class="btn btn-sm btn-outline-secondary" data-post-edit>Edit</button>' +
+                '<div class="dropdown">' +
+                    '<button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
+                    '<ul class="dropdown-menu dropdown-menu-end">' +
+                        reschedule +
+                        '<li><button class="dropdown-item" data-post-act="duplicate"><i class="fa-solid fa-copy"></i> Duplicate</button></li>' +
+                        '<li><button class="dropdown-item" data-post-act="share"><i class="fa-solid fa-share-nodes"></i> Share to Social</button></li>' +
+                        arch +
+                        '<li><hr class="dropdown-divider"></li>' +
+                        '<li><button class="dropdown-item text-danger" data-post-act="delete"><i class="fa-solid fa-trash"></i> Remove</button></li>' +
+                    '</ul>' +
+                '</div>' +
+            '</div>' +
+        '</div>';
+    }
+
+    $('#csPostsList')
+        .on('change', '.cs-post__check input', function () {
+            var id = +$(this).closest('.cs-post').data('id');
+            if (this.checked) postSel.add(id); else postSel.delete(id);
+            $(this).closest('.cs-post').toggleClass('is-selected', this.checked);
+            updatePostSelbar();
+        })
+        .on('click', '[data-post-edit]', function (e) { e.stopPropagation(); openComposer(+$(this).closest('.cs-post').data('id')); })
+        .on('click', '[data-post-act]', function (e) { e.stopPropagation(); postAction($(this).data('post-act'), +$(this).closest('.cs-post').data('id')); });
+
+    function postAction(act, id) {
+        if (act === 'duplicate') {
+            apiPost('post_duplicate', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+        } else if (act === 'archive') {
+            apiPost('post_archive', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+        } else if (act === 'unarchive') {
+            apiPost('post_archive', { id: id, unarchive: '1' }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+        } else if (act === 'share') {
+            sharePostDialog(id);
+        } else if (act === 'reschedule') {
+            dialog({
+                title: 'Reschedule post', okText: 'Schedule',
+                bodyHtml: '<label class="form-label cs-dv__label">New date & time</label><input type="datetime-local" class="form-control" id="csReschedAt"><small class="text-muted">In your timezone (' + esc(TZ) + ').</small>',
+                onOk: function () { var v = $('#csReschedAt').val(); if (!v) return false; apiPost('post_schedule', { id: id, scheduled_at: v }).done(function (o) { if (o.success) { toastr.success('Rescheduled'); loadPosts(); } else err(o); }); }
+            });
+        } else if (act === 'delete') {
+            confirmDialog('Remove this post?', 'It will be permanently removed. This cannot be undone.', 'Remove', true, function () {
+                apiPost('post_delete', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            });
+        }
+    }
+
+    var postSearchTimer;
+    $('#csPostSearch').on('input', function () { var v = this.value.trim(); clearTimeout(postSearchTimer); postSearchTimer = setTimeout(function () { postFilters.search = v; loadPosts(); }, 220); });
+    $('#csPostFilter').on('change', function () { postFilters.state = this.value; loadPosts(); });
+
+    function clearPostSel() { postSel.clear(); $('.cs-post.is-selected').removeClass('is-selected'); $('.cs-post__check input').prop('checked', false); updatePostSelbar(); }
+    function updatePostSelbar() { var n = postSel.size; $('#csPostSelbar').prop('hidden', n === 0); $('#csPostSelCount').text(n); }
+    $('#csPostSelClear').on('click', clearPostSel);
+    $('[data-pbulk]').on('click', function () {
+        var act = $(this).data('pbulk'), ids = Array.from(postSel);
+        if (!ids.length) return;
+        if (act === 'delete') {
+            confirmDialog('Remove ' + ids.length + ' post' + (ids.length > 1 ? 's' : '') + '?', 'They will be permanently removed. This cannot be undone.', 'Remove', true, function () {
+                apiPost('posts_bulk', { bulk_action: 'delete', ids: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            });
+        } else {
+            confirmDialog('Archive ' + ids.length + ' post' + (ids.length > 1 ? 's' : '') + '?', 'Archived posts are hidden from your active list but not deleted.', 'Archive', false, function () {
+                apiPost('posts_bulk', { bulk_action: 'archive', ids: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            });
+        }
+    });
+
+
+
+    // =====================================================================
+    // Calendar
+    // =====================================================================
+    var calView = 'month';
+    var calAnchor = (function () { var d = new Date(); d.setHours(0, 0, 0, 0); return d; })();
+    var calItems = [];
+    var calDragId = null, calDragFrom = null;
+    var DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+    $('#csTabCalendar').on('shown.bs.tab', loadCalendar);
+    $('#csCalPrev').on('click', function () { shiftCal(-1); });
+    $('#csCalNext').on('click', function () { shiftCal(1); });
+    $('#csCalToday').on('click', function () { calAnchor = startOfToday(); renderCalendar(); });
+    $('#csCalView').on('click', '.cs-seg__opt', function () { calView = $(this).data('cal'); $('#csCalView .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on'); renderCalendar(); });
+
+    function startOfToday() { var d = new Date(); d.setHours(0, 0, 0, 0); return d; }
+    function ymd(d) { var m = d.getMonth() + 1, day = d.getDate(); return d.getFullYear() + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day; }
+    function shiftCal(dir) { if (calView === 'month') calAnchor.setMonth(calAnchor.getMonth() + dir); else calAnchor.setDate(calAnchor.getDate() + dir * 7); renderCalendar(); }
+
+    function loadCalendar() {
+        $('#csCal').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
+        apiGet('posts_calendar')
+            .done(function (o) {
+                if (!o || !o.success) { $('#csCal').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load the calendar.</p></div>'); return; }
+                calItems = o.items || [];
+                renderQueue(o.queue || {});
+                renderCalendar();
+            })
+            .fail(function () { $('#csCal').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load the calendar.</p></div>'); });
+    }
+
+    function renderQueue(q) {
+        var $q = $('#csCalQueue').prop('hidden', false);
+        if (!q.scheduled_count) { $q.removeClass('cs-queue--ok').html('<i class="fa-solid fa-circle-info"></i> No scheduled posts — your queue is empty. Click any day to schedule one.'); return; }
+        $q.addClass('cs-queue--ok').html('<i class="fa-solid fa-layer-group"></i> <strong>' + q.scheduled_count + '</strong> scheduled · queue reaches <strong>' + esc(q.reaches) + '</strong> (' + q.days_ahead + ' day' + (q.days_ahead === 1 ? '' : 's') + ' out)');
+    }
+
+    function itemsByDate() {
+        var map = {};
+        calItems.forEach(function (it) { (map[it.date] = map[it.date] || []).push(it); });
+        Object.keys(map).forEach(function (k) { map[k].sort(function (a, b) { return a.iso < b.iso ? -1 : 1; }); });
+        return map;
+    }
+
+    function renderCalendar() { var map = itemsByDate(); if (calView === 'month') renderMonth(map); else renderWeek(map); }
+
+    function calChip(it) {
+        var cover = it.cover_url ? '<img src="' + esc(it.cover_url) + '" onerror="this.remove()">' : '<i class="fa-solid ' + typeIcon(it.cover_type || 'image') + '"></i>';
+        var cap = it.caption ? esc(it.caption) : 'Untitled';
+        return '<div class="cs-cchip cs-cchip--' + it.state + '"' + (it.state === 'scheduled' ? ' draggable="true"' : '') + ' data-id="' + it.id + '" data-date="' + it.date + '" title="' + esc(it.time + ' · ' + cap) + '">' +
+            '<span class="cs-cchip__cover">' + cover + '</span>' +
+            '<span class="cs-cchip__body"><span class="cs-cchip__time">' + esc(it.time) + '</span><span class="cs-cchip__cap">' + cap + '</span></span>' +
+            (it.media_missing ? '<i class="fa-solid fa-triangle-exclamation cs-cchip__warn" title="Media removed"></i>' : '') +
+            '</div>';
+    }
+
+    function renderMonth(map) {
+        var year = calAnchor.getFullYear(), month = calAnchor.getMonth();
+        $('#csCalTitle').text(new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }));
+        var startDow = new Date(year, month, 1).getDay();
+        var gridStart = new Date(year, month, 1 - startDow);
+        var todayStr = ymd(startOfToday());
+        var html = '<div class="cs-cal__dow">' + DOW.map(function (d) { return '<div>' + d + '</div>'; }).join('') + '</div><div class="cs-cal__grid">';
+        for (var i = 0; i < 42; i++) {
+            var d = new Date(gridStart); d.setDate(gridStart.getDate() + i);
+            var ds = ymd(d), items = (map[ds] || []);
+            html += '<div class="cs-cal__cell' + (d.getMonth() === month ? '' : ' is-out') + (ds === todayStr ? ' is-today' : '') + '" data-date="' + ds + '">' +
+                '<div class="cs-cal__daynum">' + d.getDate() + '</div>' +
+                '<div class="cs-cal__items">' + items.map(calChip).join('') + '</div></div>';
+        }
+        $('#csCal').html(html + '</div>');
+    }
+
+    function renderWeek(map) {
+        var start = new Date(calAnchor); start.setDate(calAnchor.getDate() - calAnchor.getDay());
+        var end = new Date(start); end.setDate(start.getDate() + 6);
+        $('#csCalTitle').text(start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' – ' + end.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }));
+        var todayStr = ymd(startOfToday());
+        var head = '<div class="cs-cal__dow cs-cal__dow--week">';
+        for (var j = 0; j < 7; j++) { var dd = new Date(start); dd.setDate(start.getDate() + j); head += '<div>' + DOW[dd.getDay()] + ' ' + dd.getDate() + '</div>'; }
+        var html = head + '</div><div class="cs-cal__grid cs-cal__grid--week">';
+        for (var k = 0; k < 7; k++) {
+            var d = new Date(start); d.setDate(start.getDate() + k);
+            var ds = ymd(d), items = (map[ds] || []);
+            html += '<div class="cs-cal__cell cs-cal__cell--week' + (ds === todayStr ? ' is-today' : '') + '" data-date="' + ds + '"><div class="cs-cal__items">' + items.map(calChip).join('') + '</div></div>';
+        }
+        $('#csCal').html(html + '</div>');
+    }
+
+    $('#csCal')
+        .on('click', '.cs-cchip', function (e) { e.stopPropagation(); openComposer(+$(this).data('id')); })
+        .on('click', '.cs-cal__cell', function () { openComposerScheduled($(this).data('date')); })
+        .on('dragstart', '.cs-cchip', function (e) { calDragId = +$(this).data('id'); calDragFrom = String($(this).data('date')); e.originalEvent.dataTransfer.effectAllowed = 'move'; })
+        .on('dragover', '.cs-cal__cell', function (e) { e.preventDefault(); $(this).addClass('is-drop'); })
+        .on('dragleave', '.cs-cal__cell', function () { $(this).removeClass('is-drop'); })
+        .on('drop', '.cs-cal__cell', function (e) {
+            e.preventDefault(); var to = String($(this).data('date')); $(this).removeClass('is-drop');
+            if (calDragId && to && to !== calDragFrom) rescheduleTo(calDragId, to);
+            calDragId = null; calDragFrom = null;
+        });
+
+    function rescheduleTo(id, dateStr) {
+        var it = calItems.filter(function (x) { return x.id === id; })[0];
+        if (!it) return;
+        var timePart = (it.iso.split('T')[1] || '12:00');
+        var human = new Date(dateStr + 'T' + timePart).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+        confirmDialog('Reschedule to ' + human + '?', 'This post will publish on ' + human + ' at ' + it.time + ' (your timezone).', 'Reschedule', false, function () {
+            apiPost('post_schedule', { id: id, scheduled_at: dateStr + 'T' + timePart }).done(function (o) { if (o.success) { toastr.success('Rescheduled'); loadCalendar(); } else err(o); });
+        });
+    }
+
+    function openComposerScheduled(dateStr) {
+        newComposer();
+        composerModal.show();
+        $('#csCompSchedAt').val(dateStr + 'T12:00');
+        $('#csCompSchedule').prop('hidden', false);
+        $('#csSchedule').text('Schedule for this time');
+    }
+
 
     loadCollections();
     loadLibrary();

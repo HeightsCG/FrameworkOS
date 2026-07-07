@@ -67,6 +67,18 @@ class MediaService {
         return $key === '' ? '' : S3Service::presigned_get_url($key, $ttl);
     }
 
+    /**
+     * Presign a specific variant's key directly, WITHOUT an entitlement check.
+     * The CALLER must have already decided the viewer is entitled to this variant
+     * (e.g. the profile controller signs 'display' only for entitled fans, and
+     * 'blurred' for everyone else). Returns '' if that key doesn't exist.
+     */
+    public static function signed_variant(array $asset, $variant, $ttl = 900): string
+    {
+        $key = (string) ($asset[self::variant_column($variant)] ?? '');
+        return $key === '' ? '' : S3Service::presigned_get_url($key, $ttl);
+    }
+
     private static function variant_column($variant): string
     {
         $map = array(
@@ -302,15 +314,27 @@ class MediaService {
         return $out;
     }
 
-    /** Heavily downscaled, blurred and darkened locked-preview image. */
+    /**
+     * Locked-preview image: destroy all recognizable detail. Downscale to a tiny
+     * size (so features are gone), blur, darken, then upscale that smoothly and
+     * blur again — the result reads as soft color blocks, not the photo.
+     */
     private static function blurred($img)
     {
-        $small = self::resized($img, self::MAX_BLUR);
-        for ($i = 0; $i < 12; $i++) {
-            imagefilter($small, IMG_FILTER_GAUSSIAN_BLUR);
-        }
-        imagefilter($small, IMG_FILTER_BRIGHTNESS, -40);
-        return $small;
+        // 1) Crush to ~24px longest side — this alone removes recognizable detail.
+        $tiny = self::resized($img, 24);
+        for ($i = 0; $i < 4; $i++) { imagefilter($tiny, IMG_FILTER_GAUSSIAN_BLUR); }
+
+        // 2) Upscale the smear back to delivery size (smoothly), then blur again.
+        $tw = imagesx($tiny); $th = imagesy($tiny);
+        $ow = self::MAX_BLUR;
+        $oh = max(1, (int) round($ow * $th / $tw));
+        $out = imagecreatetruecolor($ow, $oh);
+        imagecopyresampled($out, $tiny, 0, 0, 0, 0, $ow, $oh, $tw, $th);
+        imagedestroy($tiny);
+        for ($i = 0; $i < 10; $i++) { imagefilter($out, IMG_FILTER_GAUSSIAN_BLUR); }
+        imagefilter($out, IMG_FILTER_BRIGHTNESS, -30);
+        return $out;
     }
 
     /** Encode a GD image to JPEG bytes. */

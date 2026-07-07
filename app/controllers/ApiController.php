@@ -2420,12 +2420,14 @@ class ApiController extends Controller {
             'caption'           => (string) $post['caption'],
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
+            'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
             'state'             => $post['state'],
             'scheduled_local'   => $this->from_utc($post['scheduled_at'] ?? '', $tz),
             'timezone'          => $tz,
             'assets'            => $out,
             'cover_display_url' => $cover_display,
             'cover_blurred_url' => $cover_blurred,
+            'shared_accounts'   => (new SocialPostsModel())->account_ids_for_post((int) $post['id']),
         );
     }
 
@@ -2456,6 +2458,7 @@ class ApiController extends Controller {
         $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
         $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
         $tier_id    = ($audience === 'subscribers') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+        $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
         $asset_ids  = $this->post['asset_ids'] ?? array();
         if (!is_array($asset_ids)) { $asset_ids = array(); }
         $asset_ids  = array_values(array_map('intval', $asset_ids));
@@ -2465,7 +2468,7 @@ class ApiController extends Controller {
         // isn't worth saving yet (avoids junk drafts from just toggling options).
         if ($id === 0 && trim($caption) === '' && empty($asset_ids)) {
             echo json_encode(array('success' => true, 'id' => 0, 'post' => array(
-                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'state' => 'draft',
+                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'comments_enabled' => $comments, 'state' => 'draft',
                 'scheduled_local' => '', 'timezone' => (string) ($user['content_timezone'] ?? 'UTC'),
                 'assets' => array(), 'cover_display_url' => '', 'cover_blurred_url' => '',
                 'validation' => array('ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.'),
@@ -2474,9 +2477,11 @@ class ApiController extends Controller {
         }
 
         $model  = new PostsModel();
-        $fields = array('caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id);
+        $fields = array('caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments);
+        // If the post was removed elsewhere while the composer had it open, don't
+        // hard-fail — fall back to creating a fresh draft so nothing is lost.
+        if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
         if ($id > 0) {
-            if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
             $model->update_fields($creator_id, $id, $fields);
         } else {
             $id = (int) $model->create_draft($creator_id, $caption, $audience);
@@ -2516,6 +2521,72 @@ class ApiController extends Controller {
         exit;
     }
 
+    private function share_accounts_from_request(){
+        $a = $this->post['share_accounts'] ?? array();
+        if (!is_array($a)) { $a = array(); }
+        return array_values(array_filter(array_map('strval', $a)));
+    }
+
+    /**
+     * Cross-post the PROMOTIONAL version of a post to the selected connected
+     * social accounts. Best-effort — never fails the publish/schedule if sharing
+     * errors. Always sends the public caption + a SAFE preview image (the blurred
+     * variant for subscriber posts) + a link back — never the subscriber media.
+     */
+    private function share_post_to_social(array $user, array $post, array $account_ids, $scheduled_iso = null){
+        try {
+            if (empty($account_ids) || !Plan::can_social_post($user)) { return; }
+            $valid = array(); $req = array_map('strval', $account_ids);
+            foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
+                $pfm = (string) $a['post_for_me_social_account_id'];
+                if (in_array($pfm, $req, true)) { $valid[] = $pfm; }
+            }
+            if (empty($valid)) { return; }
+
+            $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
+            $cap   = trim((string) $post['caption']);
+            $promo = ($cap !== '' ? $cap . "\n\n" : '') . 'See more: ' . $link;
+
+            $media_urls = array();
+            $assets = (new PostsModel())->get_assets((int) $post['id']);
+            $cover = null;
+            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
+            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+            if ($cover) {
+                $variant = ($post['audience'] === 'subscribers') ? 'blurred' : (($cover['type'] === 'video') ? 'poster' : 'display');
+                $col = array('blurred' => 'blurred_key', 'poster' => 'poster_key', 'display' => 'display_key');
+                $key = (string) ($cover[$col[$variant]] ?? ($cover['blurred_key'] ?? ''));
+                if ($key !== '') {
+                    $src = S3Service::presigned_get_url($key, 300);
+                    $bytes = ($src !== '') ? @file_get_contents($src) : false;
+                    if ($bytes !== false && $bytes !== '') {
+                        $up = PostForMeService::create_upload_url();
+                        if (is_array($up) && count($up) === 2) {
+                            list($media_url, $upload_url) = $up;
+                            $ch = curl_init($upload_url);
+                            curl_setopt_array($ch, array(
+                                CURLOPT_CUSTOMREQUEST => 'PUT', CURLOPT_POSTFIELDS => $bytes,
+                                CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => array('Content-Type: image/jpeg'),
+                            ));
+                            curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+                            if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
+                        }
+                    }
+                }
+            }
+
+            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false);
+            if (is_array($res)) {
+                (new SocialPostsModel())->create(
+                    (int) $user['user_id'], (string) ($res['id'] ?? ''), $promo,
+                    (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
+                );
+            }
+        } catch (\Throwable $e) {
+            error_log('[studio] social share failed: ' . $e->getMessage());
+        }
+    }
+
     public function post_publishAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
@@ -2526,6 +2597,7 @@ class ApiController extends Controller {
         $v = $this->post_validation($post);
         if (!$v['ok']) { echo json_encode(array('success' => false, 'message' => $v['reason'])); exit; }
         $model->set_state($creator_id, $id, 'published');
+        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), null);
         echo json_encode(array('success' => true, 'message' => 'Published', 'state' => 'published'));
         exit;
     }
@@ -2544,7 +2616,7 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Pick a date and time in the future.')); exit;
         }
         $model->set_state($creator_id, $id, 'scheduled', $utc);
-        // The durable publish job + worker are wired at the scheduling checkpoint.
+        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), gmdate('Y-m-d\TH:i:s\Z', strtotime($utc)));
         echo json_encode(array('success' => true, 'message' => 'Scheduled', 'state' => 'scheduled'));
         exit;
     }
@@ -2557,6 +2629,191 @@ class ApiController extends Controller {
         if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
         $model->set_state($creator_id, $id, 'draft');
         echo json_encode(array('success' => true, 'message' => 'Saved as draft', 'state' => 'draft'));
+        exit;
+    }
+
+    /** Scheduled + published posts placed on their local date, plus queue health. */
+    public function posts_calendarAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $tz         = (string) ($user['content_timezone'] ?? 'UTC');
+        $model      = new PostsModel();
+        $model->publish_due($creator_id);
+
+        $items = array();
+        $furthest = null; $scheduled_count = 0;
+        foreach ($model->list_for_creator($creator_id, array()) as $p) {
+            $when_utc = ($p['state'] === 'scheduled') ? ($p['scheduled_at'] ?? '') : (($p['state'] === 'published') ? ($p['published_at'] ?? '') : '');
+            if ($when_utc === '' || $when_utc === null) { continue; }
+            try {
+                $d = new DateTime((string) $when_utc, new DateTimeZone('UTC'));
+                $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+            } catch (\Throwable $e) { continue; }
+            $cover = '';
+            if (!empty($p['cover_thumb_key'])) {
+                $cover = MediaService::signed_url(array('creator_id' => $creator_id, 'type' => $p['cover_type'], 'thumb_key' => $p['cover_thumb_key']), 'thumb', $creator_id);
+            }
+            $cap = trim((string) $p['caption']);
+            $items[] = array(
+                'id'         => (int) $p['id'],
+                'state'      => $p['state'],
+                'caption'    => ($cap === '') ? '' : mb_substr($cap, 0, 60),
+                'cover_url'  => $cover,
+                'cover_type' => (string) ($p['cover_type'] ?? ''),
+                'date'       => $d->format('Y-m-d'),
+                'time'       => $d->format('g:i A'),
+                'iso'        => $d->format('Y-m-d\TH:i'),
+                'media_missing' => (int) $p['media_missing'],
+            );
+            if ($p['state'] === 'scheduled') {
+                $scheduled_count++;
+                if ($furthest === null || $when_utc > $furthest) { $furthest = $when_utc; }
+            }
+        }
+
+        $queue = array('scheduled_count' => $scheduled_count, 'days_ahead' => 0, 'reaches' => '');
+        if ($furthest !== null) {
+            try {
+                $f = new DateTime((string) $furthest, new DateTimeZone('UTC'));
+                $f->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+                $today = new DateTime('now', new DateTimeZone($tz ?: 'UTC'));
+                $queue['reaches']    = $f->format('M j, Y');
+                $queue['days_ahead'] = (int) $today->diff($f)->days;
+            } catch (\Throwable $e) {}
+        }
+        echo json_encode(array('success' => true, 'items' => $items, 'queue' => $queue, 'timezone' => $tz));
+        exit;
+    }
+
+    /** Share an existing post to selected connected accounts (from the Posts list). */
+    public function post_shareAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $post       = (new PostsModel())->get_one($creator_id, $id);
+        if (!$post) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        if (!Plan::can_social_post($user)) { echo json_encode(array('success' => false, 'message' => 'Sharing to social is not part of your current plan.')); exit; }
+        $accounts = $this->share_accounts_from_request();
+        if (empty($accounts)) { echo json_encode(array('success' => false, 'message' => 'Pick at least one account.')); exit; }
+        $req = array_map('strval', $accounts); $n = 0;
+        foreach ((new SocialAccountsModel())->get_connected_for_user($creator_id) as $a) {
+            if (in_array((string) $a['post_for_me_social_account_id'], $req, true)) { $n++; }
+        }
+        if ($n === 0) { echo json_encode(array('success' => false, 'message' => 'Those accounts are not connected.')); exit; }
+        $this->share_post_to_social($user, $post, $accounts, null);
+        echo json_encode(array('success' => true, 'message' => 'Shared to ' . $n . ' account' . ($n > 1 ? 's' : '') . '.'));
+        exit;
+    }
+
+    /* ---------- Content Studio: posts list ---------- */
+
+    /** Human display of a UTC datetime in the creator's timezone. */
+    private function fmt_local($utc, $tz){
+        if ((string) $utc === '' || $utc === null) { return ''; }
+        try {
+            $d = new DateTime((string) $utc, new DateTimeZone('UTC'));
+            $d->setTimezone(new DateTimeZone($tz ?: 'UTC'));
+            return $d->format('M j, Y · g:i A');
+        } catch (\Throwable $e) { return ''; }
+    }
+
+    /** Shape a post row for the Posts list. */
+    private function studio_post_row(array $p, array $user){
+        $creator_id = (int) $user['user_id'];
+        $tz         = (string) ($user['content_timezone'] ?? 'UTC');
+        $cover = '';
+        if (!empty($p['cover_thumb_key'])) {
+            $cover = MediaService::signed_url(array(
+                'creator_id' => $creator_id, 'type' => $p['cover_type'], 'thumb_key' => $p['cover_thumb_key'],
+            ), 'thumb', $creator_id);
+        }
+        $cap = trim((string) $p['caption']);
+        if ($p['state'] === 'published') { $when_label = 'Published'; $when = $this->fmt_local($p['published_at'] ?? '', $tz); }
+        elseif ($p['state'] === 'scheduled') { $when_label = 'Publishes'; $when = $this->fmt_local($p['scheduled_at'] ?? '', $tz); }
+        elseif ($p['state'] === 'archived') { $when_label = 'Archived'; $when = $this->fmt_local($p['updated_at'] ?? '', $tz); }
+        else { $when_label = 'Edited'; $when = $this->fmt_local($p['updated_at'] ?? $p['created_at'], $tz); }
+
+        return array(
+            'id'             => (int) $p['id'],
+            'state'          => $p['state'],
+            'audience'       => $p['audience'],
+            'caption'        => ($cap === '') ? '' : mb_substr($cap, 0, 140),
+            'cover_url'      => $cover,
+            'cover_type'     => (string) ($p['cover_type'] ?? ''),
+            'asset_count'    => (int) $p['asset_count'],
+            'media_missing'  => (int) $p['media_missing'],
+            'when_label'     => $when_label,
+            'when'           => $when,
+            'views'          => (int) $p['views'],
+            'likes'          => (int) $p['likes'],
+            'comments'       => (int) $p['comments'],
+            'earnings_cents' => (int) $p['earnings_cents'],
+            'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']),
+        );
+    }
+
+    public function posts_listAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $model      = new PostsModel();
+        $model->publish_due($creator_id);   // cron-less: flip any now-due scheduled posts
+        $filters = array('state' => (string) ($_GET['state'] ?? ''), 'search' => (string) ($_GET['search'] ?? ''));
+        $rows = $model->list_for_creator($creator_id, $filters);
+        $posts = array();
+        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user); }
+        echo json_encode(array('success' => true, 'posts' => $posts, 'counts' => $model->counts_by_state($creator_id)));
+        exit;
+    }
+
+    /** Archive / unarchive a post. */
+    public function post_archiveAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $unarchive  = ((string) ($this->post['unarchive'] ?? '0')) === '1';
+        $model      = new PostsModel();
+        if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        $model->set_state($creator_id, $id, $unarchive ? 'draft' : 'archived');
+        echo json_encode(array('success' => true, 'message' => $unarchive ? 'Moved to drafts' : 'Archived'));
+        exit;
+    }
+
+    public function post_duplicateAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $new_id     = (int) (new PostsModel())->duplicate($creator_id, $id);
+        if ($new_id <= 0) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
+        echo json_encode(array('success' => true, 'id' => $new_id, 'message' => 'Duplicated to a new draft'));
+        exit;
+    }
+
+    public function post_deleteAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        (new PostsModel())->delete_post($creator_id, $id);
+        echo json_encode(array('success' => true, 'message' => 'Post removed'));
+        exit;
+    }
+
+    public function posts_bulkAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $action     = (string) ($this->post['bulk_action'] ?? '');
+        $ids        = $this->post['ids'] ?? array();
+        if (!is_array($ids)) { $ids = array(); }
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (empty($ids)) { echo json_encode(array('success' => false, 'message' => 'No posts were selected.')); exit; }
+        $model = new PostsModel();
+        $done = 0;
+        foreach ($ids as $id) {
+            if (!$model->get_one($creator_id, $id)) { continue; }
+            if ($action === 'archive') { $model->set_state($creator_id, $id, 'archived'); $done++; }
+            elseif ($action === 'delete') { $model->delete_post($creator_id, $id); $done++; }
+        }
+        if ($done === 0) { echo json_encode(array('success' => false, 'message' => 'Nothing to update.')); exit; }
+        echo json_encode(array('success' => true, 'message' => $done . ' post' . ($done > 1 ? 's' : '') . ($action === 'delete' ? ' removed' : ' archived')));
         exit;
     }
 

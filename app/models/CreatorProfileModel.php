@@ -19,9 +19,6 @@ class CreatorProfileModel extends Model {
             'bio'          => '',
             'location'     => '',
             'tags'         => '',
-            'brand_color'  => '',
-            'cta_label'    => '',
-            'cta_url'      => '',
             'avatar_url'   => '',
             'cover_url'    => '',
         );
@@ -43,9 +40,6 @@ class CreatorProfileModel extends Model {
             'bio'          => (string) ($fields['bio'] ?? ''),
             'location'     => (string) ($fields['location'] ?? ''),
             'tags'         => (string) ($fields['tags'] ?? ''),
-            'brand_color'  => (string) ($fields['brand_color'] ?? ''),
-            'cta_label'    => (string) ($fields['cta_label'] ?? ''),
-            'cta_url'      => (string) ($fields['cta_url'] ?? ''),
             'updated_at'   => $now,
         );
 

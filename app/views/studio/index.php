@@ -86,22 +86,52 @@
             </div>
         </div>
 
-        <!-- ============ POSTS (next checkpoint) ============ -->
         <div class="tab-pane fade" id="csPanePosts" role="tabpanel">
-            <div class="cs-empty">
-                <i class="fa-solid fa-rectangle-list cs-empty__icon"></i>
-                <h2 class="cs-empty__title">Posts arrive in the next step</h2>
-                <p class="cs-empty__text">The Library is ready to verify now. Post creating, publishing, and scheduling come next.</p>
+            <div class="cs-toolbar">
+                <div class="input-group cs-search">
+                    <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
+                    <input type="search" class="form-control" id="csPostSearch" placeholder="Search posts..." autocomplete="off">
+                </div>
+                <select id="csPostFilter" class="form-select cs-filter" aria-label="Filter by status">
+                    <option value="">All statuses</option>
+                    <option value="draft">Drafts</option>
+                    <option value="scheduled">Scheduled</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                </select>
             </div>
+
+            <div class="cs-loading" id="csPostsLoading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading your posts…</div>
+            <div class="cs-error" id="csPostsError" hidden>
+                <i class="fa-solid fa-circle-exclamation"></i>
+                <p>We couldn't load your posts.</p>
+                <button type="button" class="btn btn-outline-secondary" id="csPostsRetry">Try again</button>
+            </div>
+            <div class="cs-empty" id="csPostsEmpty" hidden>
+                <i class="fa-solid fa-rectangle-list cs-empty__icon"></i>
+                <h2 class="cs-empty__title">No posts yet</h2>
+                <p class="cs-empty__text">Create your first post — publish it now, schedule it, or save a draft.</p>
+                <button type="button" class="btn btn-primary" id="csPostsEmptyNew"><i class="fa-solid fa-plus"></i> New post</button>
+            </div>
+            <div class="cs-posts" id="csPostsList" hidden></div>
         </div>
 
-        <!-- ============ CALENDAR (later checkpoint) ============ -->
+        <!-- ============ CALENDAR ============ -->
         <div class="tab-pane fade" id="csPaneCalendar" role="tabpanel">
-            <div class="cs-empty">
-                <i class="fa-solid fa-calendar-days cs-empty__icon"></i>
-                <h2 class="cs-empty__title">Calendar is coming soon</h2>
-                <p class="cs-empty__text">Once posts and scheduling are in, your whole release schedule shows up here.</p>
+            <div class="cs-calhead">
+                <div class="cs-calnav">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="csCalPrev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+                    <h2 class="cs-calnav__title" id="csCalTitle">—</h2>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="csCalNext" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
+                    <button type="button" class="btn btn-sm btn-link" id="csCalToday">Today</button>
+                </div>
+                <div class="cs-seg cs-seg--sm" id="csCalView">
+                    <button type="button" class="cs-seg__opt is-on" data-cal="month">Month</button>
+                    <button type="button" class="cs-seg__opt" data-cal="week">Week</button>
+                </div>
             </div>
+            <div class="cs-queue" id="csCalQueue" hidden></div>
+            <div class="cs-cal" id="csCal"></div>
         </div>
 
         <!-- ============ COLLECTIONS ============ -->
@@ -148,6 +178,16 @@
             <button type="button" class="btn btn-sm btn-link cs-selbar__cancel" id="csSelClear">Cancel</button>
         </div>
     </div>
+
+    <!-- posts bulk-selection bar -->
+    <div class="cs-selbar" id="csPostSelbar" hidden>
+        <span class="cs-selbar__count"><strong id="csPostSelCount">0</strong> selected</span>
+        <div class="cs-selbar__actions">
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-pbulk="archive"><i class="fa-solid fa-box-archive"></i> Archive</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-pbulk="delete"><i class="fa-solid fa-trash"></i> Remove</button>
+            <button type="button" class="btn btn-sm btn-link cs-selbar__cancel" id="csPostSelClear">Cancel</button>
+        </div>
+    </div>
 </div>
 
 <!-- ============ DETAIL — Bootstrap offcanvas ============ -->
@@ -186,7 +226,7 @@
 
 <!-- ============ POST COMPOSER (modal) ============ -->
 <div class="modal fade cs-composer" id="csComposer" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-fullscreen">
         <div class="modal-content">
             <div class="modal-header cs-comp__head">
                 <h5 class="modal-title" id="csCompTitle">New post</h5>
@@ -217,6 +257,15 @@
                         <label class="cs-dv__label mt-3" for="csCompTierSel">Available to</label>
                         <select id="csCompTierSel" class="form-select"><option value="">All Subscribers</option></select>
                     </div>
+
+                    <label class="cs-dv__label mt-3">Options</label>
+                    <label class="cs-comp__opt" for="csCompComments">
+                        <span>Allow comments<small>Fans can comment on this post.</small></span>
+                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csCompComments" checked></span>
+                    </label>
+
+                    <label class="cs-dv__label mt-3">Share to social</label>
+                    <div id="csCompSocial" class="cs-comp__social"></div>
 
                     <label class="cs-dv__label mt-3">Publishing</label>
                     <div class="cs-comp__sched" id="csCompSchedule" hidden>
@@ -277,6 +326,7 @@
 window.CS_CONFIG = <?php echo json_encode(array(
     'creator'  => $this->creator,
     'plans'    => $this->plans,
+    'social'   => $this->social,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>

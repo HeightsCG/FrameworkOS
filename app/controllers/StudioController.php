@@ -29,6 +29,21 @@ class StudioController extends Controller {
                 }
             }
             $this->view->plans    = $plans;
+
+            // Connected social accounts, for the composer's cross-post checkboxes.
+            $accounts = array();
+            foreach ((new SocialAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0)) as $a) {
+                $accounts[] = array(
+                    'id'       => (string) $a['post_for_me_social_account_id'],
+                    'platform' => (string) $a['platform'],
+                    'username' => (string) ($a['username'] ?? ''),
+                );
+            }
+            $this->view->social = array(
+                'accounts' => $accounts,
+                'can_post' => Plan::can_social_post($user),
+            );
+
             $this->view->s3_ready = S3Service::configured();
             $this->view->creator  = array(
                 'user_id'            => (int) ($user['user_id'] ?? 0),
