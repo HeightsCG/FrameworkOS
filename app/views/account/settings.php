@@ -224,27 +224,16 @@
                         <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars((string) $cp['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                     </div>
 
-                    <div class="cprofile__field">
-                        <label for="tag_entry">Tags (Optional)</label>
-                        <input type="text" class="form-control" id="tag_entry" placeholder="Type a tag and press Enter" autocomplete="off">
-                        <div class="taglist" id="tag_list">
-                            <?php foreach (array_filter(array_map('trim', explode(',', (string) $cp['tags']))) as $t): ?>
-                            <span class="taginput__chip" data-tag="<?php echo htmlspecialchars($t, ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($t, ENT_QUOTES, 'UTF-8'); ?><button type="button" class="taginput__remove" aria-label="Remove tag">&times;</button></span>
-                            <?php endforeach; ?>
-                        </div>
-                        <span class="cprofile__hint">Press Enter or comma to add a tag.</span>
-                    </div>
-
                     <div class="cprofile__actions">
                         <button type="button" class="btn btn-primary" id="cp_save">Save Changes</button>
                     </div>
-                </div>
 
-                <div class="links-head">
-                    <h3 class="links-head__title">Links</h3>
-                    <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add link</button>
-                </div>
-                <div class="links-card">
+                    <div class="cprofile__divider"></div>
+
+                    <div class="cprofile__subhead">
+                        <h3 class="cprofile__subtitle">Links</h3>
+                        <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add link</button>
+                    </div>
                     <div class="links-list" id="links_list">
                         <?php foreach ($this->creator_links as $lnk): ?>
                         <div class="link-row" data-id="<?php echo (int) $lnk['id']; ?>">
@@ -1463,39 +1452,6 @@ $(function () {
         });
     });
 
-    var $taglist = $('#tag_list');
-
-    function addTag(text) {
-        text = (text || '').replace(/,/g, '').trim();
-        if (text === '') { return; }
-        var dup = false;
-        $taglist.find('.taginput__chip').each(function () {
-            if (($(this).data('tag') + '').toLowerCase() === text.toLowerCase()) { dup = true; }
-        });
-        if (dup) { return; }
-        var $chip = $('<span class="taginput__chip"></span>').attr('data-tag', text).text(text);
-        $chip.append('<button type="button" class="taginput__remove" aria-label="Remove tag">×</button>');
-        $taglist.append($chip);
-    }
-
-    $('#tag_entry').on('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ',') {
-            e.preventDefault();
-            addTag(this.value);
-            this.value = '';
-        } else if (e.key === 'Backspace' && this.value === '') {
-            $taglist.find('.taginput__chip').last().remove();
-        }
-    }).on('blur', function () {
-        if (this.value.trim() !== '') { addTag(this.value); this.value = ''; }
-    });
-
-    $taglist.on('click', '.taginput__remove', function () { $(this).closest('.taginput__chip').remove(); });
-
-    function collectTags() {
-        return $taglist.find('.taginput__chip').map(function () { return $(this).data('tag'); }).get().join(',');
-    }
-
     $('#cp_save').on('click', function () {
         if (($('#cp_display_name').val() || '').trim() === '') {
             toastr.error('Display name is required');
@@ -1505,8 +1461,7 @@ $(function () {
         ApiDataSvc.apiCall('post', 'save_creator_profile', {
             display_name: $('#cp_display_name').val(),
             bio:          $('#cp_bio').val(),
-            location:     $('#cp_location').val(),
-            tags:         collectTags()
+            location:     $('#cp_location').val()
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }

@@ -68,14 +68,6 @@ class ProfileController extends Controller {
             $display_name = '@' . $user['u_name'];
         }
 
-        $tags = array();
-        foreach (explode(',', (string) ($profile['tags'] ?? '')) as $tag) {
-            $tag = trim($tag);
-            if ($tag !== '') {
-                $tags[] = $tag;
-            }
-        }
-
         $handle        = $user['u_name'];
         $public_domain = Main::public_domain();
 

@@ -1622,7 +1622,6 @@ class ApiController extends Controller {
             'display_name' => $display_name,
             'bio'          => trim((string) ($this->post['bio'] ?? '')),
             'location'     => trim((string) ($this->post['location'] ?? '')),
-            'tags'         => trim((string) ($this->post['tags'] ?? '')),
         ));
 
         echo json_encode(array('success' => true, 'message' => 'Profile saved'));

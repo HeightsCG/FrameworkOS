@@ -18,7 +18,6 @@ class CreatorProfileModel extends Model {
             'display_name' => '',
             'bio'          => '',
             'location'     => '',
-            'tags'         => '',
             'avatar_url'   => '',
             'cover_url'    => '',
         );
@@ -39,7 +38,6 @@ class CreatorProfileModel extends Model {
             'display_name' => (string) ($fields['display_name'] ?? ''),
             'bio'          => (string) ($fields['bio'] ?? ''),
             'location'     => (string) ($fields['location'] ?? ''),
-            'tags'         => (string) ($fields['tags'] ?? ''),
             'updated_at'   => $now,
         );
 

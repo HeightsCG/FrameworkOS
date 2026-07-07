@@ -218,22 +218,18 @@
 .cprofile .form-control{border:1px solid #d4d4dd; border-radius:2px; box-shadow:none; font-size:.92rem;}
 .cprofile .form-control:focus{border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.18);}
 .cprofile__hint{font-size:.78rem; color:var(--muted); margin-top:.35rem;}
-/* tag input — full-width field with chips listed below */
-.taglist{display:flex; flex-wrap:wrap; gap:.4rem; margin-top:.55rem;}
-.taginput__chip{display:inline-flex; align-items:center; gap:.15rem; background:var(--vsoft); color:var(--violet7); font-size:.82rem; font-weight:500; padding:.25rem .3rem .25rem .55rem; border-radius:2px;}
-.taginput__remove{border:0; background:none; color:var(--violet7); font-size:1.05rem; line-height:1; cursor:pointer; padding:0 .2rem; opacity:.65; transition:opacity .12s;}
-.taginput__remove:hover{opacity:1;}
 /* image crop modal */
 .crop-hint{font-size:.82rem; color:var(--muted); margin:0 0 .8rem;}
 .crop-stage{max-height:56vh; background:#f4f4f7;}
 .crop-stage img{display:block; max-width:100%;}
-.cprofile__actions{display:flex; justify-content:flex-end; margin-top:1.4rem; padding-top:1.3rem; border-top:1px solid var(--line2);}
+.cprofile__actions{display:flex; justify-content:flex-end;}
 
 /* creator external links */
-.links-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:100%; margin:1.9rem 0 .8rem;}
-.links-head__title{font-size:.95rem; font-weight:600; color:var(--text); margin:0;}
-.links-card{max-width:100%; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs);}
-.link-row{display:flex; align-items:center; gap:.75rem; padding:.7rem 1rem; border-bottom:1px solid var(--line2);}
+/* Links — a sub-section inside the profile card */
+.cprofile__divider{height:1px; background:var(--line2); margin:.6rem -1.5rem 1.3rem;}
+.cprofile__subhead{display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:0 0 .5rem;}
+.cprofile__subtitle{font-size:.95rem; font-weight:600; color:var(--text); margin:0;}
+.link-row{display:flex; align-items:center; gap:.75rem; padding:.75rem 0; border-bottom:1px solid var(--line2);}
 .link-row:last-child{border-bottom:0;}
 .link-row__handle{color:var(--muted2); cursor:grab; flex:none;}
 .link-row__info{display:flex; flex-direction:column; gap:.1rem; min-width:0; flex:1 1 auto;}
@@ -243,7 +239,11 @@
 .link-row__btn{border:0; background:none; color:var(--muted); font-size:.85rem; cursor:pointer; padding:.3rem; flex:none; transition:color .12s;}
 .link-row__btn:hover{color:var(--text);}
 .link-row__btn.link-delete:hover{color:var(--danger);}
-.links-empty{padding:1rem;}
+.links-empty{padding:.5rem 0 0;}
+/* Standalone list-card shell — still used by the Membership Plans section */
+.links-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:100%; margin:1.9rem 0 .8rem;}
+.links-head__title{font-size:.95rem; font-weight:600; color:var(--text); margin:0;}
+.links-card{max-width:100%; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs);}
 .link-field{margin-bottom:1rem; display:flex; flex-direction:column;}
 .link-field label{font-size:.82rem; font-weight:600; color:var(--t2); margin-bottom:.4rem;}
 .link-field .form-control{border:1px solid #d4d4dd; border-radius:2px; box-shadow:none; font-size:.92rem;}

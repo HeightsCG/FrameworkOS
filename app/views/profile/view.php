@@ -2,7 +2,7 @@
 /**
  * Public creator storefront (self-contained page). Locals from
  * ProfileController::viewAction(): $user, $profile, $links, $display_name,
- * $tags, $handle, $public_domain, $is_self, $viewer_logged_in, $is_following,
+ * $handle, $public_domain, $is_self, $viewer_logged_in, $is_following,
  * $follower_count, $member_since.
  */
 $has_cover  = trim((string) ($profile['cover_url'] ?? ''))  !== '';
@@ -64,12 +64,6 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 <div class="pf-actions" id="pf_actions"></div>
             </div>
 
-            <?php if ($bio !== ''): ?><p class="pf-bio"><?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
-            <?php if (!empty($tags)): ?>
-            <div class="pf-tags">
-                <?php foreach ($tags as $tag): ?><span class="pf-tag"><?php echo htmlspecialchars($tag, ENT_QUOTES, 'UTF-8'); ?></span><?php endforeach; ?>
-            </div>
-            <?php endif; ?>
         </header>
 
         <div class="pf-grid">
@@ -77,6 +71,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
                     <button class="pf-tab" data-panel="plans" role="tab">Membership</button>
+                    <button class="pf-tab" data-panel="about" role="tab">About</button>
+                    <?php if (!empty($links)): ?><button class="pf-tab" data-panel="links" role="tab">Links</button><?php endif; ?>
                 </nav>
 
                 <section class="pf-panel is-active" data-panel="content">
@@ -87,9 +83,15 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         <p class="pf-empty__text">When <?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> shares something, it'll show up here. Follow to get notified.</p>
                     </div>
                     <?php else: ?>
+                    <div class="pf-toolbar">
+                        <div class="pf-search">
+                            <i class="fa-solid fa-magnifying-glass pf-search__icon"></i>
+                            <input type="search" id="pfSearch" class="pf-search__input" placeholder="Search posts…" autocomplete="off" aria-label="Search posts">
+                        </div>
+                    </div>
                     <div class="pf-feed">
                         <?php foreach ($content_cards as $c): $cov = htmlspecialchars((string) $c['cover'], ENT_QUOTES, 'UTF-8'); ?>
-                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" data-post-id="<?php echo (int) $c['id']; ?>">
+                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" data-post-id="<?php echo (int) $c['id']; ?>" data-search="<?php echo htmlspecialchars(strtolower((string) $c['caption']), ENT_QUOTES, 'UTF-8'); ?>">
                             <span class="pf-pc__thumb"<?php echo $cov !== '' ? ' style="background-image:url(\'' . $cov . '\')"' : ''; ?>>
                                 <?php if (!$c['entitled']): ?><span class="pf-pc__lockbadge"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
                                 <?php if ($c['entitled'] && $c['has_video']): ?><span class="pf-pc__play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
@@ -99,6 +101,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         </button>
                         <?php endforeach; ?>
                     </div>
+                    <p class="pf-feed__none" id="pfNoResults" hidden>No posts match your search.</p>
 
                     <!-- full-post lightbox -->
                     <div class="pf-plb" id="pfLightbox" hidden>
@@ -150,32 +153,33 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     </div>
                     <?php endif; ?>
                 </section>
-            </div>
 
-            <aside class="pf-aside">
-                <div class="pf-card">
-                    <h2 class="pf-card__title">About</h2>
-                    <?php if ($bio !== ''): ?><p class="pf-card__bio"><?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
-                    <dl class="pf-facts">
-                        <?php if ($location !== ''): ?><div class="pf-fact"><dt><i class="fa-solid fa-location-dot"></i></dt><dd><?php echo htmlspecialchars($location, ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endif; ?>
-                        <?php if ($member_since !== ''): ?><div class="pf-fact"><dt><i class="fa-regular fa-calendar"></i></dt><dd>Creator since <?php echo htmlspecialchars($member_since, ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endif; ?>
-                    </dl>
-                </div>
+                <section class="pf-panel" data-panel="about">
+                    <div class="pf-info">
+                        <?php if ($bio !== ''): ?><p class="pf-info__bio"><?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
+                        <dl class="pf-facts">
+                            <?php if ($location !== ''): ?><div class="pf-fact"><dt><i class="fa-solid fa-location-dot"></i></dt><dd><?php echo htmlspecialchars($location, ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endif; ?>
+                            <?php if ($member_since !== ''): ?><div class="pf-fact"><dt><i class="fa-regular fa-calendar"></i></dt><dd>Creator since <?php echo htmlspecialchars($member_since, ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endif; ?>
+                        </dl>
+                        <?php if ($bio === '' && $location === '' && $member_since === ''): ?><p class="pf-info__empty">Nothing here yet.</p><?php endif; ?>
+                    </div>
+                </section>
 
                 <?php if (!empty($links)): ?>
-                <div class="pf-card">
-                    <h2 class="pf-card__title">Links</h2>
-                    <div class="pf-links">
-                        <?php foreach ($links as $link): ?>
-                        <a class="pf-link" href="<?php echo htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow">
-                            <span class="pf-link__title"><?php echo htmlspecialchars($link['title'], ENT_QUOTES, 'UTF-8'); ?></span>
-                            <i class="fa-solid fa-arrow-up-right-from-square pf-link__icon"></i>
-                        </a>
-                        <?php endforeach; ?>
+                <section class="pf-panel" data-panel="links">
+                    <div class="pf-info">
+                        <div class="pf-links">
+                            <?php foreach ($links as $link): ?>
+                            <a class="pf-link" href="<?php echo htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow">
+                                <span class="pf-link__title"><?php echo htmlspecialchars($link['title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <i class="fa-solid fa-arrow-up-right-from-square pf-link__icon"></i>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
-                </div>
+                </section>
                 <?php endif; ?>
-            </aside>
+            </div>
         </div>
 
         <footer class="pf-foot">
@@ -346,7 +350,6 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             if (title) { var h = document.createElement('h3'); h.className = 'pf-post__title'; h.textContent = title; wrap.appendChild(h); }
             if (o.description) { var d = document.createElement('p'); d.className = 'pf-post__desc'; d.textContent = o.description; wrap.appendChild(d); }
             if (o.body) { var p = document.createElement('p'); p.className = 'pf-post__text'; p.textContent = o.body; wrap.appendChild(p); }
-            if (o.tags && o.tags.length) { var tw = document.createElement('div'); tw.className = 'pf-post__tags'; o.tags.forEach(function (t) { var s = document.createElement('span'); s.className = 'pf-post__tag'; s.textContent = t; tw.appendChild(s); }); wrap.appendChild(tw); }
             article.appendChild(wrap);
         }
 
@@ -404,6 +407,22 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             lb.addEventListener('click', function (ev) { if (ev.target === lb) { closePlb(); } });
             document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape' && !lb.hidden) { closePlb(); } });
         })();
+
+        // Content search — filter the grid by caption.
+        var pfSearch = document.getElementById('pfSearch');
+        if (pfSearch) {
+            pfSearch.addEventListener('input', function () {
+                var q = this.value.trim().toLowerCase();
+                var shown = 0;
+                document.querySelectorAll('.pf-feed .pf-pc').forEach(function (c) {
+                    var hit = (q === '') || (c.getAttribute('data-search') || '').indexOf(q) >= 0;
+                    c.hidden = !hit;
+                    if (hit) { shown++; }
+                });
+                var none = document.getElementById('pfNoResults');
+                if (none) { none.hidden = (q === '' || shown > 0); }
+            });
+        }
 
         // Returned from Stripe Checkout — show the outcome, land on Membership, tidy the URL.
         if (SUB_NOTICE === 'success') {
