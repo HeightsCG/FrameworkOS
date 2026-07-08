@@ -1818,6 +1818,103 @@ class ApiController extends Controller {
         exit;
     }
 
+    // ---------- Releases (co-star registry, 2257 support) ----------
+
+    /** Shape a co-star for the creator (their own record — legal fields decrypted). */
+    private function co_star_json(array $r){
+        return array(
+            'id'             => (int) $r['id'],
+            'stage_name'     => (string) $r['stage_name'],
+            'legal_name'     => Crypto::decrypt($r['legal_name_enc'] ?? null),
+            'dob'            => Crypto::decrypt($r['dob_enc'] ?? null),
+            'status'         => (string) $r['status'],
+            'has_id_doc'     => !empty($r['id_doc_key']),
+            'has_release_doc'=> !empty($r['release_doc_key']),
+            'verified_at'    => $r['verified_at'] ?? null,
+            'expires_at'     => $r['expires_at'] ?? null,
+        );
+    }
+
+    public function co_stars_listAction(){
+        $user = $this->require_creator();
+        $out  = array();
+        foreach ((new CoStarsModel())->list_for_creator((int) $user['user_id']) as $r) { $out[] = $this->co_star_json($r); }
+        echo json_encode(array('success' => true, 'co_stars' => $out));
+        exit;
+    }
+
+    public function co_star_saveAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $stage      = trim(html_entity_decode((string) ($this->post['stage_name'] ?? ''), ENT_QUOTES));
+        $legal      = trim(html_entity_decode((string) ($this->post['legal_name'] ?? ''), ENT_QUOTES));
+        $dob        = trim((string) ($this->post['dob'] ?? ''));
+        if ($stage === '') { echo json_encode(array('success' => false, 'message' => 'A stage name is required.')); exit; }
+
+        $model = new CoStarsModel();
+        $fields = array('stage_name' => $stage, 'legal_name' => $legal, 'dob' => $dob);
+        if ($id > 0 && $model->get_one($creator_id, $id)) {
+            $model->update_costar($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create($creator_id, $fields);
+        }
+        echo json_encode(array('success' => true, 'id' => $id, 'message' => 'Saved'));
+        exit;
+    }
+
+    public function co_star_upload_docAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $which      = ((string) ($this->post['doc'] ?? '') === 'release') ? 'release_doc_key' : 'id_doc_key';
+        $model      = new CoStarsModel();
+        if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'Co-star not found')); exit; }
+        if (!S3Service::configured()) { echo json_encode(array('success' => false, 'message' => 'Document storage is not available right now')); exit; }
+
+        $file = $_FILES['doc'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            echo json_encode(array('success' => false, 'message' => 'No file was uploaded')); exit;
+        }
+        if ((int) $file['size'] > 15 * 1024 * 1024) { echo json_encode(array('success' => false, 'message' => 'File must be 15MB or smaller')); exit; }
+
+        // Accept images or PDF; trust the bytes, not the client name.
+        $mime = (string) (@mime_content_type($file['tmp_name']) ?: '');
+        $ext_map = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'application/pdf' => 'pdf');
+        if (!isset($ext_map[$mime])) { echo json_encode(array('success' => false, 'message' => 'Upload a JPG, PNG, WebP, or PDF')); exit; }
+
+        // Private, segregated prefix — never public, never on the CDN.
+        $key = 'releases/c' . $creator_id . '/costar' . $id . '/' . ($which === 'release_doc_key' ? 'release' : 'id')
+             . '_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$mime];
+        if (!S3Service::put_private($key, $file['tmp_name'], $mime)) {
+            echo json_encode(array('success' => false, 'message' => 'Could not save the document')); exit;
+        }
+        $model->set_doc($creator_id, $id, $which, $key);
+        $model->log_access($id, $creator_id, 'upload_' . ($which === 'release_doc_key' ? 'release' : 'id'));
+        echo json_encode(array('success' => true, 'message' => 'Document uploaded'));
+        exit;
+    }
+
+    /** Short-lived signed URL to view a co-star doc (owner only, access-logged). */
+    public function co_star_doc_urlAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $id         = (int) ($this->post['id'] ?? 0);
+        $which      = ((string) ($this->post['doc'] ?? '') === 'release') ? 'release_doc_key' : 'id_doc_key';
+        $row        = (new CoStarsModel())->get_one($creator_id, $id);
+        if (!$row || empty($row[$which])) { echo json_encode(array('success' => false, 'message' => 'No document on file')); exit; }
+        (new CoStarsModel())->log_access($id, $creator_id, 'view_' . ($which === 'release_doc_key' ? 'release' : 'id'));
+        echo json_encode(array('success' => true, 'url' => S3Service::presigned_get_url((string) $row[$which], 300)));
+        exit;
+    }
+
+    public function co_star_deleteAction(){
+        $user = $this->require_creator();
+        (new CoStarsModel())->delete_costar((int) $user['user_id'], (int) ($this->post['id'] ?? 0));
+        echo json_encode(array('success' => true, 'message' => 'Removed'));
+        exit;
+    }
+
     public function save_creator_profileAction(){
         $this->require_creator();
 
@@ -2886,6 +2983,7 @@ class ApiController extends Controller {
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
             'moderation'        => (string) ((new PostsModel())->moderation_map(array((int) $post['id']))[(int) $post['id']] ?? 'ok'),
+            'co_star_ids'       => (int) $post['id'] > 0 ? (new CoStarsModel())->post_costar_ids((int) $post['id']) : array(),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
@@ -2911,6 +3009,10 @@ class ApiController extends Controller {
             if (empty($a['deleted_at']) && $a['status'] !== 'ready') {
                 return array('ok' => false, 'reason' => "Some media is still processing. It'll be ready in a moment.");
             }
+            // Hard stop: content the moderator blocked (suspected sexual/minors) can never publish.
+            if (empty($a['deleted_at']) && ($a['moderation_status'] ?? '') === 'blocked') {
+                return array('ok' => false, 'reason' => 'This media was blocked by our content check and cannot be published. Remove it to continue.');
+            }
         }
         if ($model->count_missing_assets((int) $post['id']) > 0) {
             return array('ok' => false, 'reason' => 'Some media was removed from your library. Take it off the post to publish.');
@@ -2919,6 +3021,17 @@ class ApiController extends Controller {
             $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
             if (empty($live)) { return array('ok' => false, 'reason' => 'Pay-per-view posts need at least one photo or video to sell.'); }
             if ((int) ($post['ppv_price_credits'] ?? 0) <= 0) { return array('ok' => false, 'reason' => 'Set a price for this pay-per-view post.'); }
+        }
+        // Compliance: can't publish content tagged with a co-star who isn't verified.
+        $csModel   = new CoStarsModel();
+        $tagged     = $csModel->post_costar_ids((int) $post['id']);
+        if (!empty($tagged)) {
+            $verified = $csModel->verified_ids((int) $post['creator_id']);
+            foreach ($tagged as $cid) {
+                if (empty($verified[$cid])) {
+                    return array('ok' => false, 'reason' => 'A co-star tagged in this post isn\'t verified yet. Verify their release in the Releases tab before publishing.');
+                }
+            }
         }
         return array('ok' => true, 'reason' => '');
     }
@@ -2973,6 +3086,10 @@ class ApiController extends Controller {
             }
         }
         $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
+        // Co-star tags (compliance): store which registered co-stars appear in this post.
+        $co_star_ids = $this->post['co_star_ids'] ?? array();
+        if (!is_array($co_star_ids)) { $co_star_ids = array(); }
+        (new CoStarsModel())->set_post_costars($id, array_map('intval', $co_star_ids));
         $post = $model->get_one($creator_id, $id);
         $json = $this->studio_post_json($post, $user);
         $json['validation'] = $this->post_validation($post);

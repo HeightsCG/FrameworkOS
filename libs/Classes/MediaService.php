@@ -152,7 +152,14 @@ class MediaService {
         $moderation = array('status' => 'pending', 'score' => null, 'labels' => null);
         $mod = ModerationService::classify_image(S3Service::presigned_get_url($display_key, 600));
         if (!empty($mod['ok'])) {
-            $moderation['status'] = !empty($mod['adult']) ? 'flagged' : 'approved';
+            // 'blocked' (suspected minors) is a hard stop — quarantined from EVERYONE and
+            // unpublishable; 'flagged' is adult (allowed, shown only to adult-on viewers).
+            if (!empty($mod['minors'])) {
+                $moderation['status'] = 'blocked';
+                error_log('[MODERATION][BLOCKED] asset ' . $asset_id . ' creator ' . $creator_id . ' — suspected sexual/minors, quarantined.');
+            } else {
+                $moderation['status'] = !empty($mod['adult']) ? 'flagged' : 'approved';
+            }
             $moderation['score']  = $mod['score'];
             $moderation['labels'] = empty($mod['labels']) ? null : implode(',', $mod['labels']);
         }

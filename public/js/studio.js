@@ -221,10 +221,12 @@ jQuery(function ($) {
             .css('animation-delay', Math.min(i * 18, 360) + 'ms');
         if (state.selection.has(a.id)) $t.addClass('is-selected');
 
-        if (a.status === 'ready' && a.thumb_url) {
+        var blocked = a.moderation === 'blocked';
+        // A blocked asset never re-displays its content — show a placeholder, not the thumbnail.
+        if (a.status === 'ready' && a.thumb_url && !blocked) {
             $('<img class="cs-tile__img" loading="lazy">').attr('alt', a.name || '').attr('src', a.thumb_url).appendTo($t);
         } else {
-            $('<div class="cs-tile__ph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>').appendTo($t);
+            $('<div class="cs-tile__ph"><i class="fa-solid ' + (blocked ? 'fa-ban' : typeIcon(a.type)) + '"></i></div>').appendTo($t);
         }
         $('<span class="cs-tile__type"><i class="fa-solid ' + typeIcon(a.type) + '"></i></span>').appendTo($t);
         if (a.type === 'video' && a.duration) $('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>').appendTo($t);
@@ -233,6 +235,7 @@ jQuery(function ($) {
         if (a.usage_count > 0) $('<span class="cs-tile__use">In ' + a.usage_count + '</span>').appendTo($t);
         if (a.status === 'processing' || a.status === 'uploading') $('<div class="cs-tile__state"><span class="spinner-border spinner-border-sm"></span> Processing…</div>').appendTo($t);
         else if (a.status === 'failed') $('<div class="cs-tile__state cs-tile__state--failed"><i class="fa-solid fa-circle-exclamation"></i> Upload failed</div>').appendTo($t);
+        else if (blocked) $('<div class="cs-tile__state cs-tile__state--blocked"><i class="fa-solid fa-ban"></i> Blocked</div>').appendTo($t);
         $('<span class="cs-tile__check"><i class="fa-solid fa-check"></i></span>').appendTo($t);
         return $t;
     }
@@ -753,7 +756,10 @@ jQuery(function ($) {
             if (!$anchor.length) { $anchor = $('#csCompAudience'); }
             $note = $('<div id="csCompModNote" class="cs-comp__modnote" hidden></div>').insertBefore($anchor);
         }
-        if (composer.moderation === 'flagged') {
+        if (composer.moderation === 'blocked') {
+            $note.attr('class', 'cs-comp__modnote cs-comp__modnote--blocked').prop('hidden', false)
+                .html('<i class="fa-solid fa-ban"></i> This post contains media that was <strong>blocked</strong> by our content check and can\'t be published. Remove it to continue.');
+        } else if (composer.moderation === 'flagged') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--adult').prop('hidden', false)
                 .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.');
         } else if (composer.moderation === 'pending') {
@@ -1108,7 +1114,8 @@ jQuery(function ($) {
             : (p.audience === 'ppv'
                 ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-dollar-sign"></i> PPV · $' + (p.ppv_price_dollars || 0) + '</span>'
                 : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
-        var adult = (p.moderation === 'flagged') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>' : '';
+        var adult = (p.moderation === 'flagged') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>'
+            : (p.moderation === 'blocked') ? '<span class="cs-post__blocked" title="Blocked by content check — cannot be published"><i class="fa-solid fa-ban"></i> Blocked</span>' : '';
         var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
         var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
         var cap = p.caption ? esc(p.caption) : '<em class="cs-post__nocap">No caption</em>';
@@ -1531,6 +1538,160 @@ jQuery(function ($) {
             if (o.success) { toastr.success('Published a new post.'); }
             else { toastr.error((o && o.message) || 'Run failed.'); }
             loadScheduler();
+        });
+    });
+
+
+
+    // =====================================================================
+    // Releases (co-star registry / 2257)
+    // =====================================================================
+    var csModal, csList = [];
+    var CS_STATUS = {
+        pending:  { label: 'Pending review', cls: 'is-pending' },
+        verified: { label: 'Verified',        cls: 'is-verified' },
+        rejected: { label: 'Rejected',        cls: 'is-rejected' },
+        expired:  { label: 'Expired',         cls: 'is-expired' }
+    };
+
+    $('#csTabReleases').on('shown.bs.tab', loadReleases);
+    $('#csCsRetry').on('click', loadReleases);
+
+    function loadReleases() {
+        $('#csCsLoading').prop('hidden', false);
+        $('#csCsError, #csCsEmpty, #csCsList').prop('hidden', true);
+        apiGet('co_stars_list')
+            .done(function (o) {
+                $('#csCsLoading').prop('hidden', true);
+                if (!o || !o.success) { $('#csCsError').prop('hidden', false); return; }
+                csList = o.co_stars || [];
+                renderCsList();
+            })
+            .fail(function () { $('#csCsLoading').prop('hidden', true); $('#csCsError').prop('hidden', false); });
+    }
+
+    function renderCsList() {
+        var $list = $('#csCsList');
+        if (!csList.length) { $list.prop('hidden', true).empty(); $('#csCsEmpty').prop('hidden', false); return; }
+        $('#csCsEmpty').prop('hidden', true);
+        $list.prop('hidden', false).empty();
+        csList.forEach(function (c) { $list.append(csCard(c)); });
+    }
+
+    function csCard(c) {
+        var st = CS_STATUS[c.status] || CS_STATUS.pending;
+        var docs = (c.has_id_doc ? 1 : 0) + (c.has_release_doc ? 1 : 0);
+        return $(
+            '<div class="cs-costar" data-id="' + c.id + '">' +
+            '<div class="cs-costar__main">' +
+                '<span class="cs-costar__name">' + esc(c.stage_name) + '</span>' +
+                '<span class="cs-costar__meta">' +
+                    '<span class="cs-costar__docs"><i class="fa-solid fa-paperclip"></i> ' + docs + '/2 documents</span>' +
+                '</span>' +
+            '</div>' +
+            '<span class="cs-costar__status ' + st.cls + '">' + st.label + '</span>' +
+            '<button type="button" class="btn btn-sm btn-outline-secondary" data-cs-edit>Manage</button>' +
+            '</div>'
+        );
+    }
+
+    $('#csCsNew, #csCsEmptyNew').on('click', function () { openCsForm(null); });
+    $('#csCsList').on('click', '[data-cs-edit]', function () {
+        var id = $(this).closest('.cs-costar').data('id');
+        openCsForm(csList.filter(function (c) { return c.id == id; })[0] || null);
+    });
+
+    function openCsForm(c) {
+        if (!csModal) csModal = bootstrap.Modal.getOrCreateInstance('#csCsModal');
+        $('#csCsModalTitle').html('<i class="fa-solid fa-id-card"></i> ' + (c ? 'Manage co-star' : 'Add co-star'));
+        $('#csCsId').val(c ? c.id : 0);
+        $('#csCsStage').val(c ? c.stage_name : '');
+        $('#csCsLegal').val(c ? c.legal_name : '');
+        $('#csCsDob').val(c ? (c.dob || '') : '');
+        $('#csCsDelete').prop('hidden', !c);
+        // status banner
+        if (c) {
+            var st = CS_STATUS[c.status] || CS_STATUS.pending;
+            $('#csCsStatusRow').prop('hidden', false)
+                .attr('class', 'cs-cs__status ' + st.cls)
+                .html('<i class="fa-solid ' + (c.status === 'verified' ? 'fa-circle-check' : c.status === 'rejected' ? 'fa-circle-xmark' : 'fa-clock') + '"></i> '
+                    + st.label + (c.status === 'pending' ? ' — a reviewer will verify this release. You can\'t publish content featuring this co-star until it\'s verified.' : ''));
+        } else {
+            $('#csCsStatusRow').prop('hidden', true);
+        }
+        // docs state (only usable once saved)
+        var saved = !!c;
+        $('#csCsSaveFirst').prop('hidden', saved);
+        renderCsDoc('id', c && c.has_id_doc);
+        renderCsDoc('release', c && c.has_release_doc);
+        $('[data-cs-upload]').prop('disabled', !saved);
+        csModal.show();
+    }
+
+    function renderCsDoc(which, has) {
+        var stateEl = which === 'id' ? '#csCsIdState' : '#csCsRelState';
+        $(stateEl).text(has ? 'Uploaded' : 'Not uploaded').toggleClass('is-on', !!has);
+        $('[data-cs-view="' + which + '"]').prop('hidden', !has);
+    }
+
+    $('#csCsSave').on('click', function () {
+        var stage = ($('#csCsStage').val() || '').trim();
+        if (stage === '') { toastr.info('Enter a stage name.'); $('#csCsStage').focus(); return; }
+        var $btn = $(this).prop('disabled', true).text('Saving…');
+        apiPost('co_star_save', {
+            id: $('#csCsId').val(), stage_name: stage,
+            legal_name: ($('#csCsLegal').val() || '').trim(), dob: $('#csCsDob').val() || ''
+        }).done(function (o) {
+            $btn.prop('disabled', false).text('Save co-star');
+            if (!o.success) { toastr.error(o.message); return; }
+            $('#csCsId').val(o.id);
+            $('#csCsSaveFirst').prop('hidden', true);
+            $('[data-cs-upload]').prop('disabled', false);
+            $('#csCsDelete').prop('hidden', false);
+            toastr.success('Saved');
+            loadReleases();
+        }).fail(function () { $btn.prop('disabled', false).text('Save co-star'); toastr.error('Could not save.'); });
+    });
+
+    // Document upload
+    var csUploadWhich = null;
+    $('[data-cs-upload]').on('click', function () {
+        if ($('#csCsId').val() === '0') { toastr.info('Save the co-star first.'); return; }
+        csUploadWhich = $(this).data('cs-upload');
+        $('#csCsFile').val('').trigger('click');
+    });
+    $('#csCsFile').on('change', function () {
+        if (!this.files || !this.files[0] || !csUploadWhich) return;
+        var fd = new FormData();
+        fd.append('id', $('#csCsId').val());
+        fd.append('doc', csUploadWhich);
+        fd.append('doc', this.files[0]);   // field name 'doc' for the file (endpoint reads $_FILES['doc'])
+        var which = csUploadWhich;
+        $(stateSel(which)).text('Uploading…');
+        apiForm('co_star_upload_doc', fd).done(function (o) {
+            if (!o.success) { toastr.error(o.message); $(stateSel(which)).text('Not uploaded'); return; }
+            renderCsDoc(which, true);
+            toastr.success('Document uploaded');
+            loadReleases();
+        }).fail(function () { toastr.error('Upload failed'); $(stateSel(which)).text('Not uploaded'); });
+    });
+    function stateSel(which) { return which === 'id' ? '#csCsIdState' : '#csCsRelState'; }
+
+    // View a document (short-lived signed URL)
+    $('[data-cs-view]').on('click', function () {
+        var which = $(this).data('cs-view');
+        apiPost('co_star_doc_url', { id: $('#csCsId').val(), doc: which }).done(function (o) {
+            if (o.success && o.url) { window.open(o.url, '_blank', 'noopener'); }
+            else { toastr.error(o.message || 'No document on file'); }
+        });
+    });
+
+    $('#csCsDelete').on('click', function () {
+        var id = $('#csCsId').val();
+        confirmDialog('Delete co-star?', 'Remove this co-star and untag them from any posts? Their stored documents are removed too.', 'Delete', true, function () {
+            apiPost('co_star_delete', { id: id }).done(function (o) {
+                if (o.success) { csModal.hide(); toastr.success('Removed'); loadReleases(); }
+            });
         });
     });
 

@@ -47,10 +47,16 @@ foreach ($due as $a) {
         continue;
     }
 
-    $status = !empty($res['adult']) ? 'flagged' : 'approved';
+    // 'blocked' (suspected minors) is a hard stop — quarantined and unpublishable.
+    if (!empty($res['minors'])) {
+        $status = 'blocked';
+        error_log('[MODERATION][BLOCKED] asset ' . $id . ' creator ' . $a['creator_id'] . ' — suspected sexual/minors, quarantined.');
+    } else {
+        $status = !empty($res['adult']) ? 'flagged' : 'approved';
+    }
     $media->set_moderation($id, $status, $res['score'], $res['labels']);
     fwrite(STDOUT, date('c') . " asset {$id}: {$status} (sexual " . $res['score'] . ')'
-        . (!empty($res['minors']) ? ' [SEXUAL/MINORS]' : '') . "\n");
+        . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
 }
 
 exit(0);

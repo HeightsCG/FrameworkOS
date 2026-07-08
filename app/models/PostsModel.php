@@ -99,7 +99,7 @@ class PostsModel extends Model {
     public function get_assets($post_id){
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
-                    ma.creator_id, ma.type, ma.status, ma.duration_sec,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status,
                     ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.deleted_at
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
@@ -124,7 +124,9 @@ class PostsModel extends Model {
     /** Published posts for a creator's public profile, newest first. */
     /**
      * Per-post moderation gate for the given posts, considering IMAGES only (videos are
-     * not scanned, so they never gate a post). Returns post_id => 'pending' | 'flagged':
+     * not scanned, so they never gate a post). Returns post_id => 'blocked'|'pending'|'flagged':
+     *   - 'blocked'  → has an image the moderator blocked (suspected sexual/minors):
+     *                  hide from EVERYONE (incl. the creator) and never publishable.
      *   - 'pending'  → has an image not yet cleared (unscanned/error): hide from everyone
      *                  but the creator until it's scanned ("scanned before available").
      *   - 'flagged'  → all images scanned and at least one is adult: hide from viewers with
@@ -137,7 +139,8 @@ class PostsModel extends Model {
         $in = implode(',', $ids);
         $rows = parent::select(
             "SELECT pa.post_id,
-                    SUM(ma.moderation_status NOT IN ('approved','flagged')) AS unscanned_n,
+                    SUM(ma.moderation_status = 'blocked') AS blocked_n,
+                    SUM(ma.moderation_status NOT IN ('approved','flagged','blocked')) AS unscanned_n,
                     SUM(ma.moderation_status = 'flagged') AS flagged_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
@@ -145,7 +148,8 @@ class PostsModel extends Model {
         );
         $out = array();
         foreach ((array) $rows as $r) {
-            if ((int) $r['unscanned_n'] > 0)    { $out[(int) $r['post_id']] = 'pending'; }
+            if ((int) $r['blocked_n'] > 0)      { $out[(int) $r['post_id']] = 'blocked'; }
+            elseif ((int) $r['unscanned_n'] > 0){ $out[(int) $r['post_id']] = 'pending'; }
             elseif ((int) $r['flagged_n'] > 0)  { $out[(int) $r['post_id']] = 'flagged'; }
         }
         return $out;

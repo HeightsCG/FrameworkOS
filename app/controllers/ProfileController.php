@@ -129,12 +129,15 @@ class ProfileController extends Controller {
             $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
             $show_adult  = !empty($viewer_row['adult_content_enabled']);
         }
-        $moderation_map = (!$is_self && !empty($post_ids)) ? $posts_model->moderation_map($post_ids) : array();
+        // Always compute the gate (even for the creator) so 'blocked' content is hidden
+        // from EVERYONE, including the creator's own public profile.
+        $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : array();
 
         $content_cards = array();
         foreach ($published as $p) {
             $mod = $moderation_map[(int) $p['id']] ?? '';
-            if ($mod === 'pending') { continue; }                       // not yet scanned — not available
+            if ($mod === 'blocked') { continue; }                       // quarantined — never shown to anyone
+            if ($mod === 'pending' && !$is_self) { continue; }          // not yet scanned — not available
             if ($mod === 'flagged' && !$show_adult) { continue; }       // adult — viewer opted out
             $audience = $p['audience'];
             if ($is_self || $audience === 'free') {
