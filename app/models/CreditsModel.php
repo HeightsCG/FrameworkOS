@@ -39,6 +39,27 @@ class CreditsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['credit_balance'] : 0;
     }
 
+    /** Cash-out history (the 'payout' ledger rows), shaped for the Payouts view. */
+    public function get_payout_history($user_id, $limit = 12){
+        $limit = (int) $limit;
+        $rows = parent::select(
+            "SELECT credits, created_at FROM credit_transactions
+             WHERE user_id = :u AND type = 'payout'
+             ORDER BY id DESC LIMIT $limit",
+            array('u' => (int) $user_id)
+        );
+        $out = array();
+        foreach ((array) $rows as $r) {
+            $out[] = array(
+                'amount'  => abs((int) $r['credits']) * 10,   // credits -> cents ($1 = 10 credits)
+                'status'  => 'sent',
+                'created' => strtotime((string) $r['created_at']),
+                'arrival' => 0,
+            );
+        }
+        return $out;
+    }
+
     public function get_transactions($user_id, $limit = 25){
         $limit = (int) $limit;
         return parent::select(

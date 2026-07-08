@@ -39,10 +39,24 @@ class PostsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** Add to a post's cumulative earnings (cents). Used when a PPV unlock is sold. */
+    public function add_earnings($post_id, $cents){
+        return parent::sql(
+            "UPDATE posts SET earnings_cents = earnings_cents + :c, updated_at = :now WHERE id = :id",
+            array('c' => (int) $cents, 'now' => date('Y-m-d H:i:s'), 'id' => (int) $post_id)
+        );
+    }
+
     public function update_fields($creator_id, $id, array $fields){
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         if (array_key_exists('caption', $fields))  { $data['caption'] = (string) $fields['caption']; }
-        if (array_key_exists('audience', $fields)) { $data['audience'] = $fields['audience'] === 'subscribers' ? 'subscribers' : 'free'; }
+        if (array_key_exists('audience', $fields)) {
+            $aud = in_array($fields['audience'], array('subscribers', 'ppv'), true) ? $fields['audience'] : 'free';
+            $data['audience'] = $aud;
+            // Price is meaningful only for PPV; clear it otherwise.
+            $data['ppv_price_credits'] = ($aud === 'ppv' && (int) ($fields['ppv_price_credits'] ?? 0) > 0)
+                ? (int) $fields['ppv_price_credits'] : null;
+        }
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
         return parent::update('posts', $data, 'id = :id AND creator_id = :c',
@@ -191,6 +205,7 @@ class PostsModel extends Model {
         $this->update_fields($creator_id, $new_id, array(
             'caption' => (string) $src['caption'], 'audience' => $src['audience'],
             'tier_id' => $src['tier_id'], 'comments_enabled' => $src['comments_enabled'],
+            'ppv_price_credits' => (int) ($src['ppv_price_credits'] ?? 0),
         ));
         $assets = $this->get_assets($id);
         $ids = array(); $cover = 0;

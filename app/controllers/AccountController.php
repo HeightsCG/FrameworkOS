@@ -80,9 +80,20 @@ class AccountController extends Controller {
         if ($is_creator && !empty($user['stripe_connect_account_id'])) {
             $payout_status = StripeService::connect_account_status($user['stripe_connect_account_id']);
             if (!empty($payout_status['payouts_enabled'])) {
-                $payout_balance = StripeService::connect_balance($user['stripe_connect_account_id']);
-                $payouts        = StripeService::connect_payouts($user['stripe_connect_account_id']);
+                // "Pending" = money already transferred to their account, in transit to the bank.
+                $stripe_bal = StripeService::connect_balance($user['stripe_connect_account_id']);
+                $payout_balance['pending']  = (int) $stripe_bal['pending'];
+                $payout_balance['currency'] = $stripe_bal['currency'];
             }
+        }
+        // "Available" to cash out is the creator's earned credit wallet ($1 = 10 credits),
+        // not the Stripe balance — credits are the platform's internal currency. History
+        // is the creator's own cash-out events (the Stripe bank payout lags on a schedule).
+        if ($is_creator) {
+            $payout_credits = (int) $creditsModel->get_balance($user['user_id']);
+            $payout_balance['available']         = $payout_credits * 10;
+            $payout_balance['available_credits'] = $payout_credits;
+            $payouts = $creditsModel->get_payout_history($user['user_id']);
         }
 
         $this->view->user               = $user;

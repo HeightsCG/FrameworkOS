@@ -417,6 +417,10 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     h += '<div class="pf-plb__engage" id="pfLbEngage"></div>';
                     h += '<div class="pf-plb__comments" id="pfLbComments"></div>';
                     h += '</div>';
+                } else if (p.audience === 'ppv') {
+                    h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Pay-per-view post</span>' +
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">' + (LOGGED_IN ? ('Unlock — ' + p.ppv_price_credits + ' credits · $' + p.ppv_price_dollars) : 'Log in to unlock') + '</button></div></div>';
+                    if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
                 } else {
                     h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Subscribers-only post</span>' +
                         '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAct">' + (LOGGED_IN ? 'Subscribe to unlock' : 'Log in to view') + '</button></div></div>';
@@ -426,9 +430,36 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 lb.hidden = false; document.body.style.overflow = 'hidden';
                 var act = document.getElementById('pfLbAct');
                 if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
+                var ppvBtn = document.getElementById('pfLbPpv');
+                if (ppvBtn) { ppvBtn.onclick = function () { unlockPpv(p, ppvBtn); }; }
                 plbAutoplay();
                 plbPost = p;
                 if (p.entitled) { renderEngage(p); recordView(p); loadComments(p); }
+            }
+            function unlockPpv(p, btn) {
+                if (!LOGGED_IN) { window.location = '/'; return; }
+                var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
+                var body = new URLSearchParams();
+                body.set('post_id', p.id); body.set('csrf_token', csrf);
+                fetch('/api/ppv_unlock', {
+                    method: 'POST',
+                    headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: body.toString()
+                }).then(function (r) { return r.json(); }).then(function (o) {
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_credits) {
+                        btn.disabled = false; btn.textContent = orig;
+                        pfToast(o.message || 'Not enough credits — add some to your wallet.');
+                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
+                        return;
+                    }
+                    if (!o.success) { btn.disabled = false; btn.textContent = orig; pfToast(o.message || 'Could not unlock'); return; }
+                    p.entitled = true; p.assets = o.assets || []; p.unlocked = true; byId[p.id] = p;
+                    var card = document.querySelector('.pf-pc[data-post-id="' + p.id + '"]');
+                    if (card) { card.classList.remove('pf-pc--locked'); }
+                    pfToast('Unlocked!');
+                    openPost(p.id);
+                }).catch(function () { btn.disabled = false; btn.textContent = orig; pfToast('Could not unlock'); });
             }
             function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
             document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });

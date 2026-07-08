@@ -669,7 +669,7 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_id: '', comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram'}; return m[pl]||'fa-share-nodes'; }
     function renderSocial(){
@@ -710,7 +710,7 @@ jQuery(function ($) {
 
     function resetScheduleUI() { $('#csCompSchedule').prop('hidden', true); $('#csSchedule').text('Schedule'); }
     function newComposer() {
-        composer = { id: null, caption: '', audience: 'free', tier_id: '', comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+        composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
         composer.share = new Set();
         composer.state = 'draft';
         $('#csCompTitle').text('New Post');
@@ -722,6 +722,7 @@ jQuery(function ($) {
     function setComposer(p) {
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
         composer.tier_id = p.tier_id ? String(p.tier_id) : '';
+        composer.ppv_price = p.ppv_price_dollars || 5;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
         composer.state = p.state || 'draft';
@@ -747,6 +748,9 @@ jQuery(function ($) {
         $('#csCompAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === composer.audience); });
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
         $('#csCompTierSel').val(composer.tier_id || '');
+        $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
+        $('#csCompPpvPrice').val(composer.ppv_price || 5);
+        renderPpvCredits();
         $('#csCompComments').prop('checked', composer.comments_enabled != 0);
         renderSocial();
         renderCompMedia();
@@ -795,7 +799,7 @@ jQuery(function ($) {
     function setSaveStatus(t) { $('#csCompSave').text(t); }
     function scheduleSave() { clearTimeout(composer.saveTimer); setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
-        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
+        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
         apiPost('post_save', data)
             .done(function (o) {
                 if (o && o.success) {
@@ -819,7 +823,9 @@ jQuery(function ($) {
     }
 
     function renderPreview() {
-        var locked = (composer.view === 'pub' && composer.audience === 'subscribers');
+        var isPpv = composer.audience === 'ppv';
+        // PPV is locked for everyone until purchased, so it shows locked in both preview views.
+        var locked = isPpv || (composer.view === 'pub' && composer.audience === 'subscribers');
         var assets = composer.assets;
         var media;
         if (!assets.length) {
@@ -844,7 +850,8 @@ jQuery(function ($) {
                       '<button type="button" class="cs-pv__nav cs-pv__nav--next" data-pv="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
                       '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
             }
-            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>Subscribe to Unlock</span></div>' : '';
+            var lockLabel = isPpv ? ('Unlock for $' + Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0))) : 'Subscribe to Unlock';
+            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid ' + (isPpv ? 'fa-dollar-sign' : 'fa-lock') + '"></i><span>' + lockLabel + '</span></div>' : '';
             media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
         }
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
@@ -904,9 +911,14 @@ jQuery(function ($) {
         if (composer.audience !== 'subscribers') composer.tier_id = '';
         $('#csCompAudience .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on');
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
+        $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
         renderPreview(); updateValidation(); scheduleSave();
     });
     $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; scheduleSave(); });
+    // PPV price (dollars). Clamp $3–$500; show the credits equivalent ($1 = 10 credits).
+    function renderPpvCredits() { $('#csCompPpvCredits').text('= ' + (Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0)) * 10) + ' credits'); }
+    $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; renderPpvCredits(); updateValidation(); scheduleSave(); });
+    $('#csCompPpvPrice').on('blur', function () { var d = Math.max(3, Math.min(500, parseInt(this.value, 10) || 3)); composer.ppv_price = d; this.value = d; renderPpvCredits(); scheduleSave(); });
     $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; scheduleSave(); });
     $('#csCompView').on('click', '.cs-seg__opt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on'); renderPreview(); });
 
@@ -1069,13 +1081,16 @@ jQuery(function ($) {
         var badge = '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
         var aud = p.audience === 'subscribers'
             ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
-            : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>';
+            : (p.audience === 'ppv'
+                ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-dollar-sign"></i> PPV · $' + (p.ppv_price_dollars || 0) + '</span>'
+                : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
         var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
         var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
         var cap = p.caption ? esc(p.caption) : '<em class="cs-post__nocap">No caption</em>';
         var stats =
             '<span class="cs-post__stat"><i class="fa-regular fa-eye"></i> ' + p.views + '</span>' +
             '<span class="cs-post__stat"><i class="fa-regular fa-comment"></i> ' + p.comments + '</span>' +
+            (p.audience === 'ppv' ? '<span class="cs-post__stat" title="Unlocks"><i class="fa-solid fa-lock-open"></i> ' + p.ppv_unlocks + '</span>' : '') +
             '<span class="cs-post__stat cs-post__earn">$' + fmtMoney(p.earnings_cents) + '</span>' +
             (p.shared_count > 0 ? '<span class="cs-post__stat"><i class="fa-solid fa-share-nodes"></i> ' + p.shared_count + '</span>' : '');
         var reschedule = (p.state === 'scheduled')

@@ -281,13 +281,23 @@
                     <div class="cs-comp__count"><span id="csCompCount">0</span> / 3000</div>
 
                     <label class="cs-dv__label mt-3">Who can see this</label>
-                    <div class="cs-seg" id="csCompAudience">
+                    <div class="cs-seg cs-seg--3" id="csCompAudience">
                         <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i> <span><strong>Everyone</strong><small>Anyone can see it</small></span></button>
-                        <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers only</strong><small>Members only</small></span></button>
+                        <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers</strong><small>Members only</small></span></button>
+                        <button type="button" class="cs-seg__opt" data-aud="ppv"><i class="fa-solid fa-dollar-sign"></i> <span><strong>Pay-per-view</strong><small>Unlock to view</small></span></button>
                     </div>
                     <div class="cs-comp__tier" id="csCompTier" hidden>
                         <label class="cs-dv__label mt-3" for="csCompTierSel">Available to</label>
                         <select id="csCompTierSel" class="form-select"><option value="">All Subscribers</option></select>
+                    </div>
+                    <div class="cs-comp__ppv" id="csCompPpv" hidden>
+                        <label class="cs-dv__label mt-3" for="csCompPpvPrice">Unlock price</label>
+                        <div class="cs-ppvprice">
+                            <span class="cs-ppvprice__cur">$</span>
+                            <input type="number" class="form-control" id="csCompPpvPrice" min="3" max="500" step="1" value="5" inputmode="numeric">
+                            <span class="cs-ppvprice__hint" id="csCompPpvCredits">= 50 credits</span>
+                        </div>
+                        <p class="cs-ppvprice__note">Fans spend credits to unlock this post. $3–$500.</p>
                     </div>
 
                     <label class="cs-dv__label mt-3">Options</label>

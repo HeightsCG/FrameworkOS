@@ -287,6 +287,31 @@ class StripeService {
         }
     }
 
+    /**
+     * Move money from the platform balance to a connected account (separate charges
+     * & transfers). Used to cash out a creator's earned credits as real money — Stripe
+     * then pays the connected account out to its bank on its schedule.
+     */
+    public static function create_transfer($account_id, $amount_cents, $currency = 'usd', $idempotency_key = ''): array
+    {
+        try {
+            $opts = array();
+            if ($idempotency_key !== '') { $opts['idempotency_key'] = $idempotency_key; }
+            self::client()->transfers->create(
+                array(
+                    'amount'      => (int) $amount_cents,
+                    'currency'    => strtolower($currency),
+                    'destination' => $account_id,
+                ),
+                $opts
+            );
+            return array('ok' => true, 'error' => '');
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_transfer: ' . $e->getMessage());
+            return array('ok' => false, 'error' => $e->getMessage());
+        }
+    }
+
     /** Recent payouts for a connected account, shaped for the view. */
     public static function connect_payouts($account_id, $limit = 10): array
     {

@@ -452,3 +452,16 @@
 .cs-create__menu .dropdown-item:hover, .cs-create__menu .dropdown-item:focus{ background:var(--vsoft); }
 .cs-create__menu .dropdown-item:hover .cs-create__ic, .cs-create__menu .dropdown-item:focus .cs-create__ic{ background:var(--violet); color:#fff; }
 .cs-create .dropdown-toggle{ display:inline-flex; align-items:center; gap:.4rem; }
+
+/* ---- composer: PPV (pay-per-view) ---- */
+.cs-seg--3{ gap:.4rem; }
+.cs-seg--3 .cs-seg__opt{ padding:.6rem .55rem; gap:.45rem; }
+.cs-seg--3 .cs-seg__opt small{ font-size:.7rem; }
+.cs-comp__ppv{ margin-top:.75rem; }
+.cs-ppvprice{ display:flex; align-items:center; gap:.5rem; }
+.cs-ppvprice__cur{ font-size:1.05rem; font-weight:700; color:var(--t2); }
+.cs-ppvprice .form-control{ max-width:110px; font-weight:600; }
+.cs-ppvprice__hint{ font-size:.82rem; color:var(--muted); font-weight:600; }
+.cs-ppvprice__note{ font-size:.78rem; color:var(--muted); margin:.4rem 0 0; }
+.cs-post__aud--ppv{ color:var(--violet7); font-weight:600; }
+.cs-post__aud--ppv i{ color:var(--violet); }

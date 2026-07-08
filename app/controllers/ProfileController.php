@@ -115,12 +115,18 @@ class ProfileController extends Controller {
         $liked_map = ($viewer_logged_in && !empty($post_ids))
             ? (new PostLikesModel())->liked_map($viewer_id, $post_ids)
             : array();
+        $unlocked_map = ($viewer_logged_in && !empty($post_ids))
+            ? (new PpvUnlocksModel())->unlocked_map($viewer_id, $post_ids)
+            : array();
 
         $content_cards = array();
         foreach ($published as $p) {
             $audience = $p['audience'];
             if ($is_self || $audience === 'free') {
                 $entitled = true;
+            } elseif ($audience === 'ppv') {
+                // PPV is locked for everyone (incl. subscribers) until purchased.
+                $entitled = isset($unlocked_map[(int) $p['id']]);
             } else { // subscribers-only
                 $tier_id = (int) ($p['tier_id'] ?? 0);
                 if ($tier_id > 0) {
@@ -152,6 +158,11 @@ class ProfileController extends Controller {
                 'views'        => (int) $p['views'],
                 'comments_enabled' => (int) $p['comments_enabled'],
             );
+            if ($audience === 'ppv') {
+                $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
+                $card['ppv_price_dollars'] = (int) round(((int) $p['ppv_price_credits']) / 10);
+                $card['unlocked']          = isset($unlocked_map[(int) $p['id']]);
+            }
 
             if ($entitled) {
                 $card['assets'] = array();

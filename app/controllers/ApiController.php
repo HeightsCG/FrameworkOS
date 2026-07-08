@@ -942,6 +942,78 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
     }
 
+    /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it. */
+    private function ppv_reveal_assets(array $post){
+        $out = array();
+        foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) {
+            if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
+            if ($a['type'] === 'video') {
+                $out[] = array('type' => 'video',
+                    'url'    => MediaService::signed_variant($a, 'original', 900),
+                    'poster' => MediaService::signed_variant($a, 'poster', 900));
+            } else {
+                $out[] = array('type' => 'image',
+                    'url' => MediaService::signed_variant($a, 'display', 900), 'poster' => '');
+            }
+        }
+        return $out;
+    }
+
+    /** Spend credits to unlock a pay-per-view post. Records the unlock and pays the creator. */
+    public function ppv_unlockAction(){
+        $viewer = (int) Session::get('user_id');
+        if ($viewer <= 0) {
+            echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to unlock this post.')); exit;
+        }
+        $post_id = (int) ($this->post['post_id'] ?? 0);
+        $post    = (new PostsModel())->get_by_id($post_id);
+        if (!$post || $post['state'] !== 'published' || $post['audience'] !== 'ppv') {
+            echo json_encode(array('success' => false, 'message' => 'That post is not available.')); exit;
+        }
+        $creator_id = (int) $post['creator_id'];
+        $price      = (int) $post['ppv_price_credits'];
+
+        // The creator sees their own PPV posts unlocked, for free.
+        if ($creator_id === $viewer) {
+            echo json_encode(array('success' => true, 'assets' => $this->ppv_reveal_assets($post))); exit;
+        }
+        if ($price <= 0) { echo json_encode(array('success' => false, 'message' => 'This post is not for sale.')); exit; }
+
+        $unlocks = new PpvUnlocksModel();
+        $credits = new CreditsModel();
+
+        if ($unlocks->has_unlocked($post_id, $viewer)) {
+            echo json_encode(array('success' => true, 'already' => true, 'assets' => $this->ppv_reveal_assets($post))); exit;
+        }
+        $balance = $credits->get_balance($viewer);
+        if ($balance < $price) {
+            echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $balance,
+                'price' => $price, 'shortfall' => $price - $balance,
+                'message' => 'You need ' . ($price - $balance) . ' more credits to unlock this.')); exit;
+        }
+
+        // Record first: the UNIQUE(post_id, fan_id) key is the mutex that prevents a
+        // double charge from concurrent clicks. Then debit; roll the row back if it fails.
+        if (!$unlocks->record($post_id, $creator_id, $viewer, $price)) {
+            echo json_encode(array('success' => true, 'already' => true, 'assets' => $this->ppv_reveal_assets($post))); exit;
+        }
+        if ($credits->apply_delta($viewer, -$price, 'ppv_unlock', 'Unlocked a post') === false) {
+            $unlocks->remove($post_id, $viewer);
+            echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $credits->get_balance($viewer),
+                'price' => $price, 'message' => 'Not enough credits.')); exit;
+        }
+
+        // Pay the creator their share (net of the platform fee) and record per-post revenue.
+        $net = (int) round($price * (100 - Main::platform_fee_percent()) / 100);
+        if ($net > 0) {
+            $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
+            (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
+        }
+
+        echo json_encode(array('success' => true, 'assets' => $this->ppv_reveal_assets($post),
+            'balance' => $credits->get_balance($viewer))); exit;
+    }
+
     /** Join a free membership tier (auth required). Paid tiers go through checkout. */
     public function join_free_planAction(){
         $response = array('success' => false, 'message' => 'Something went wrong');
@@ -2740,7 +2812,15 @@ class ApiController extends Controller {
 
     /* ---------- Content Studio: post composer ---------- */
 
-    private function post_audience($v){ return $v === 'subscribers' ? 'subscribers' : 'free'; }
+    private function post_audience($v){ return in_array($v, array('subscribers', 'ppv'), true) ? $v : 'free'; }
+
+    /** Clamp a dollar PPV price ($3–$500) to credits ($1 = 10 credits). 0 if invalid. */
+    private function ppv_credits_from_dollars($dollars){
+        $d = (int) $dollars;
+        if ($d < 3) { $d = 3; }
+        if ($d > 500) { $d = 500; }
+        return $d * 10;
+    }
 
     /** Convert a creator-local 'YYYY-MM-DDTHH:MM' to a UTC 'Y-m-d H:i:s', or null. */
     private function to_utc($local, $tz){
@@ -2804,6 +2884,8 @@ class ApiController extends Controller {
             'caption'           => (string) $post['caption'],
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
+            'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
+            'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
             'state'             => $post['state'],
             'scheduled_local'   => $this->from_utc($post['scheduled_at'] ?? '', $tz),
@@ -2831,6 +2913,11 @@ class ApiController extends Controller {
         if ($model->count_missing_assets((int) $post['id']) > 0) {
             return array('ok' => false, 'reason' => 'Some media was removed from your library. Take it off the post to publish.');
         }
+        if (($post['audience'] ?? '') === 'ppv') {
+            $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
+            if (empty($live)) { return array('ok' => false, 'reason' => 'Pay-per-view posts need at least one photo or video to sell.'); }
+            if ((int) ($post['ppv_price_credits'] ?? 0) <= 0) { return array('ok' => false, 'reason' => 'Set a price for this pay-per-view post.'); }
+        }
         return array('ok' => true, 'reason' => '');
     }
 
@@ -2842,6 +2929,7 @@ class ApiController extends Controller {
         $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
         $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
         $tier_id    = ($audience === 'subscribers') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+        $ppv_credits = ($audience === 'ppv') ? $this->ppv_credits_from_dollars($this->post['ppv_price'] ?? 0) : 0;
         $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
         $asset_ids  = $this->post['asset_ids'] ?? array();
         if (!is_array($asset_ids)) { $asset_ids = array(); }
@@ -2861,7 +2949,7 @@ class ApiController extends Controller {
         }
 
         $model  = new PostsModel();
-        $fields = array('caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments);
+        $fields = array('caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments, 'ppv_price_credits' => $ppv_credits);
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
@@ -2870,6 +2958,17 @@ class ApiController extends Controller {
         } else {
             $id = (int) $model->create_draft($creator_id, $caption, $audience);
             $model->update_fields($creator_id, $id, $fields);
+        }
+        // PPV integrity: once a post has buyers you may ADD media but not remove what
+        // they paid for. (Adding is fine; removals are blocked.)
+        if ($audience === 'ppv') {
+            $sold = (new PpvUnlocksModel())->stats_for_posts(array($id));
+            if (!empty($sold[$id]['unlocks'])) {
+                $current = array_map(function ($a) { return (int) $a['asset_id']; }, $model->get_assets($id));
+                if (array_diff($current, $asset_ids)) {
+                    echo json_encode(array('success' => false, 'message' => 'This post has buyers — you can add media but not remove what they paid for.')); exit;
+                }
+            }
         }
         $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
         $post = $model->get_one($creator_id, $id);
@@ -3081,7 +3180,7 @@ class ApiController extends Controller {
     }
 
     /** Shape a post row for the Posts list. */
-    private function studio_post_row(array $p, array $user){
+    private function studio_post_row(array $p, array $user, array $ppv_stats = array()){
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $cover = '';
@@ -3111,6 +3210,8 @@ class ApiController extends Controller {
             'likes'          => (int) $p['likes'],
             'comments'       => (int) $p['comments'],
             'earnings_cents' => (int) $p['earnings_cents'],
+            'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) round($p['ppv_price_credits'] / 10) : null,
+            'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
             'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']),
         );
     }
@@ -3123,7 +3224,10 @@ class ApiController extends Controller {
         $filters = array('state' => (string) ($_GET['state'] ?? ''), 'search' => (string) ($_GET['search'] ?? ''));
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = array();
-        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user); }
+        $ppv_ids = array();
+        foreach ($rows as $p) { if ($p['audience'] === 'ppv') { $ppv_ids[] = (int) $p['id']; } }
+        $ppv_stats = !empty($ppv_ids) ? (new PpvUnlocksModel())->stats_for_posts($ppv_ids) : array();
+        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user, $ppv_stats); }
         echo json_encode(array('success' => true, 'posts' => $posts, 'counts' => $model->counts_by_state($creator_id)));
         exit;
     }
@@ -3204,8 +3308,8 @@ class ApiController extends Controller {
         $base = $this->site_base_url();
         $url  = StripeService::account_onboarding_link(
             $account_id,
-            $base . '/account/settings?section=payouts&payout_refresh=1',
-            $base . '/account/settings?section=payouts&payout_return=1'
+            $base . '/account/settings?section=wallet&payout_refresh=1',
+            $base . '/account/settings?section=wallet&payout_return=1'
         );
         if ($url === '') {
             echo json_encode(array('success' => false, 'message' => 'Could not start payout setup. Please try again.'));
@@ -3232,27 +3336,43 @@ class ApiController extends Controller {
         exit;
     }
 
+    /** Cash out the creator's earned credits: convert to $, deduct, and send via Stripe. */
     public function request_payoutAction(){
         $user       = $this->require_creator();
-        $account_id = $user['stripe_connect_account_id'] ?? '';
-        if (empty($account_id)) {
+        $creator_id = (int) $user['user_id'];
+        $account_id = (string) ($user['stripe_connect_account_id'] ?? '');
+        if ($account_id === '') {
             echo json_encode(array('success' => false, 'message' => 'Set up payouts first'));
             exit;
         }
 
-        $balance = StripeService::connect_balance($account_id);
-        if ((int) $balance['available'] <= 0) {
-            echo json_encode(array('success' => false, 'message' => 'No funds available to pay out'));
+        $credits = new CreditsModel();
+        $balance = (int) $credits->get_balance($creator_id);      // credits
+        $min     = 100;                                           // $10.00 minimum ($1 = 10 credits)
+        if ($balance < $min) {
+            echo json_encode(array('success' => false,
+                'message' => 'You need at least ' . $min . ' credits ($' . number_format($min / 10, 2) . ') to cash out.'));
+            exit;
+        }
+        $cents = $balance * 10;                                   // 1 credit = 10 cents
+
+        // Deduct first (this also prevents a double-payout from a double-click: the second
+        // request sees a zero balance). Roll the credits back if the Stripe transfer fails.
+        if ($credits->apply_delta($creator_id, -$balance, 'payout', 'Cash out to bank') === false) {
+            echo json_encode(array('success' => false, 'message' => 'Could not start the payout. Please try again.'));
+            exit;
+        }
+        $idem = 'payout_' . $creator_id . '_' . $balance . '_' . substr(hash('sha256', uniqid('', true)), 0, 16);
+        $res  = StripeService::create_transfer($account_id, $cents, 'usd', $idem);
+        if (empty($res['ok'])) {
+            $credits->apply_delta($creator_id, $balance, 'payout_refund', 'Payout failed — credits returned');
+            echo json_encode(array('success' => false, 'message' => 'Could not send the payout. Make sure your bank account is connected.'));
             exit;
         }
 
-        $result = StripeService::create_payout($account_id, (int) $balance['available'], $balance['currency']);
-        if (empty($result['ok'])) {
-            echo json_encode(array('success' => false, 'message' => 'Could not request the payout. Make sure a bank account is connected.'));
-            exit;
-        }
-
-        echo json_encode(array('success' => true, 'message' => 'Payout of $' . number_format($balance['available'] / 100, 2) . ' requested'));
+        echo json_encode(array('success' => true,
+            'message' => 'Payout of $' . number_format($cents / 100, 2) . ' is on its way to your bank.',
+            'balance' => 0));
         exit;
     }
 

@@ -16,10 +16,9 @@
             <?php if ($this->is_creator): ?>
             <button type="button" class="settings__nav-item" data-section="brand"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Brand Identity</span></button>
             <button type="button" class="settings__nav-item" data-section="plans"><i class="fa-solid fa-gem"></i><span>Membership Plans</span></button>
-            <button type="button" class="settings__nav-item" data-section="payouts"><i class="fa-solid fa-money-bill-transfer"></i><span>Payouts</span></button>
             <?php endif; ?>
             <button type="button" class="settings__nav-item" data-section="subscriptions"><i class="fa-solid fa-heart"></i><span>My Subscriptions</span></button>
-            <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>My Wallet</span></button>
+            <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>Wallet</span></button>
             <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
@@ -355,69 +354,6 @@
                 </div>
             </section>
 
-            <?php $ps = $this->payout_status; ?>
-            <section class="settings__section" data-section="payouts">
-                <?php if (empty($ps['payouts_enabled'])): ?>
-                <div class="payout-setup">
-                    <div class="payout-setup__info">
-                        <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
-                        <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can receive payouts.' : 'Connect a Stripe account to receive payouts from your sales. This is required before you can be paid.'; ?></span>
-                    </div>
-                    <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
-                </div>
-                <?php else: ?>
-                <?php $pb = $this->payout_balance; ?>
-                <div class="payout__head">
-                    <span class="payout-status__badge"><i class="fa-solid fa-circle-check"></i> Payouts Enabled</span>
-                </div>
-
-                <div class="payout-balance">
-                    <div class="payout-balance__cell">
-                        <span class="payout-balance__label">Available</span>
-                        <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
-                    </div>
-                    <div class="payout-balance__cell">
-                        <span class="payout-balance__label">Pending</span>
-                        <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
-                    </div>
-                </div>
-
-                <div class="payout-actions">
-                    <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $pb['available'] <= 0 ? 'disabled' : ''; ?>>Request payout</button>
-                    <?php if ($pb['available'] <= 0): ?><span class="payout-actions__note">No funds available to pay out yet.</span><?php endif; ?>
-                </div>
-
-                <h3 class="wallet__subhead">Payout history</h3>
-                <div class="payout-history">
-                    <?php if (empty($this->payouts)): ?>
-                        <p class="settings__empty">No payouts yet.</p>
-                    <?php else: ?>
-                    <table class="ledger ledger--flush">
-                        <thead><tr><th>Date</th><th>Status</th><th class="ledger__num">Amount</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($this->payouts as $p): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars(date('M j, Y', $p['arrival'] ?: $p['created']), ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td><?php echo htmlspecialchars(ucfirst($p['status']), ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td class="ledger__num">$<?php echo number_format($p['amount'] / 100, 2); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    <?php endif; ?>
-                </div>
-
-                <div class="payout-disconnect">
-                    <button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button>
-                </div>
-                <?php endif; ?>
-
-                <?php if ($this->has_connect && empty($ps['payouts_enabled'])): ?>
-                <div class="payout-disconnect">
-                    <button type="button" class="btn btn-secondary" id="payout_disconnect_btn">Disconnect Stripe account</button>
-                </div>
-                <?php endif; ?>
-            </section>
             <?php endif; ?>
 
             <section class="settings__section" data-section="subscriptions">
@@ -489,6 +425,40 @@
                         </button>
                         <?php endforeach; ?>
                     </div>
+
+                    <?php if ($this->is_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>
+                    <h3 class="wallet__subhead">Cash Out</h3>
+                    <?php if (empty($ps['payouts_enabled'])): ?>
+                    <div class="payout-setup">
+                        <div class="payout-setup__info">
+                            <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
+                            <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash your credits out to your bank.'; ?></span>
+                        </div>
+                        <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
+                    </div>
+                    <?php if ($this->has_connect): ?>
+                    <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
+                    <?php endif; ?>
+                    <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = 100; ?>
+                    <div class="payout-balance">
+                        <div class="payout-balance__cell">
+                            <span class="payout-balance__label">Available to cash out</span>
+                            <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
+                            <span class="payout-balance__sub"><?php echo number_format($avail_credits); ?> credits</span>
+                        </div>
+                        <div class="payout-balance__cell">
+                            <span class="payout-balance__label">In transit</span>
+                            <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
+                            <span class="payout-balance__sub">on the way to your bank</span>
+                        </div>
+                    </div>
+                    <div class="payout-actions">
+                        <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash out</button>
+                        <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo $min_credits; ?> credits ($<?php echo number_format($min_credits / 10, 2); ?>) to cash out.</span><?php endif; ?>
+                    </div>
+                    <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
+                    <?php endif; ?>
+                    <?php endif; ?>
 
                     <h3 class="wallet__subhead">Auto-Replenishment</h3>
                     <div class="wallet__ar-summary">
@@ -1594,7 +1564,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=payouts'; }, 1000);
+                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 1000);
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);
@@ -1612,7 +1582,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=payouts'; }, 900);
+                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 900);
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);
