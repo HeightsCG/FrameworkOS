@@ -374,3 +374,18 @@
     .settings__upgrade{flex-direction:column; align-items:flex-start;}
     .settings__upgrade .btn{margin-left:0;}
 }
+
+/* Wallet in-page tabs (balance stays pinned above) */
+.wallet-tabs{ display:flex; gap:.1rem; border-bottom:1px solid var(--line); margin:1.25rem 0; flex-wrap:wrap; }
+.wallet-tab{ border:0; background:none; border-bottom:2px solid transparent; color:var(--muted); font-weight:600; font-size:.9rem; padding:.6rem .9rem; margin-bottom:-1px; cursor:pointer; transition:color .12s, border-color .12s; }
+.wallet-tab:hover{ color:var(--text); }
+.wallet-tab.is-active{ color:var(--violet7); border-bottom-color:var(--violet); }
+.wallet-panel{ display:none; }
+.wallet-panel.is-active{ display:block; }
+
+/* Credit purchase fee transparency */
+.credit-pack__fee{ display:block; font-size:.7rem; color:var(--muted); margin-top:.25rem; line-height:1.3; }
+.wallet__fee-note{ font-size:.82rem; color:var(--muted); margin:.8rem 0 0; }
+.wallet__pay-summary .pay-line{ display:flex; justify-content:space-between; gap:1rem; font-size:.9rem; color:var(--t2); padding:.28rem 0; }
+.wallet__pay-summary .pay-line--head{ display:block; font-weight:700; color:var(--text); font-size:1.02rem; margin-bottom:.5rem; }
+.wallet__pay-summary .pay-line--total{ border-top:1px solid var(--line); margin-top:.35rem; padding-top:.55rem; font-weight:700; color:var(--text); font-size:1rem; }

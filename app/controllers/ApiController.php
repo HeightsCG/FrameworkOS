@@ -3308,8 +3308,8 @@ class ApiController extends Controller {
         $base = $this->site_base_url();
         $url  = StripeService::account_onboarding_link(
             $account_id,
-            $base . '/account/settings?section=wallet&payout_refresh=1',
-            $base . '/account/settings?section=wallet&payout_return=1'
+            $base . '/account/settings?section=wallet&tab=cashout&payout_refresh=1',
+            $base . '/account/settings?section=wallet&tab=cashout&payout_return=1'
         );
         if ($url === '') {
             echo json_encode(array('success' => false, 'message' => 'Could not start payout setup. Please try again.'));
@@ -3429,21 +3429,33 @@ class ApiController extends Controller {
             $stripe = StripeService::client();
             list($user, $customer_id) = $this->ensure_stripe_customer($stripe);
 
+            // Buyer pays the package price PLUS a processing (merchant service) fee.
+            $base_cents  = $package['dollars'] * 100;
+            $fee_percent = Main::credit_fee_percent();
+            $fee_cents   = (int) round($base_cents * $fee_percent / 100);
+            $total_cents = $base_cents + $fee_cents;
+
             $intent = $stripe->paymentIntents->create(array(
-                'amount'                    => $package['dollars'] * 100,
+                'amount'                    => $total_cents,
                 'currency'                  => 'usd',
                 'customer'                  => $customer_id,
                 'automatic_payment_methods' => array('enabled' => true),
                 'metadata'                  => array(
-                    'user_id' => (string) $user['user_id'],
-                    'credits' => (string) $package['credits'],
-                    'type'    => 'credit_purchase',
+                    'user_id'    => (string) $user['user_id'],
+                    'credits'    => (string) $package['credits'],
+                    'type'       => 'credit_purchase',
+                    'base_cents' => (string) $base_cents,
+                    'fee_cents'  => (string) $fee_cents,
                 ),
             ));
 
             $response['success']       = true;
             $response['client_secret'] = $intent->client_secret;
             $response['credits']       = $package['credits'];
+            $response['base_cents']    = $base_cents;
+            $response['fee_cents']     = $fee_cents;
+            $response['total_cents']   = $total_cents;
+            $response['fee_percent']   = $fee_percent;
             $response['message']       = 'Payment ready';
             echo json_encode($response);
             exit;

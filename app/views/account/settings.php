@@ -410,90 +410,112 @@
                         : 'Automatically top up when your balance runs low.';
                 ?>
                 <div class="wallet">
+                    <!-- Balance is always pinned at the top of the Wallet. -->
                     <div class="wallet__balance">
                         <span class="wallet__balance-label">Current Balance</span>
                         <span class="wallet__balance-value"><i class="fa-solid fa-coins"></i> <span id="credit_balance"><?php echo number_format((int) $this->credit_balance); ?></span> credits</span>
                     </div>
 
-                    <h3 class="wallet__subhead">Buy Credits</h3>
-                    <div class="credit-packs">
-                        <?php foreach ($this->credit_packages as $pkg): ?>
-                        <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
-                            <span class="credit-pack__credits"><?php echo number_format((int) $pkg['credits']); ?></span>
-                            <span class="credit-pack__label">credits</span>
-                            <span class="credit-pack__price">$<?php echo number_format((int) $pkg['dollars']); ?></span>
-                        </button>
-                        <?php endforeach; ?>
+                    <div class="wallet-tabs" role="tablist">
+                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Buy Credits</button>
+                        <?php if ($this->is_creator): ?><button type="button" class="wallet-tab" data-wtab="cashout">Cash Out</button><?php endif; ?>
+                        <button type="button" class="wallet-tab" data-wtab="history">History</button>
+                        <button type="button" class="wallet-tab" data-wtab="auto">Auto-Replenishment</button>
+                    </div>
+
+                    <div class="wallet-panel is-active" data-wpanel="buy">
+                        <div class="credit-packs">
+                            <?php foreach ($this->credit_packages as $pkg): $pkg_fee = (int) $pkg['dollars'] * Main::credit_fee_percent() / 100; ?>
+                            <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
+                                <span class="credit-pack__credits"><?php echo number_format((int) $pkg['credits']); ?></span>
+                                <span class="credit-pack__label">credits</span>
+                                <span class="credit-pack__price">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
+                                <span class="credit-pack__fee">+ $<?php echo number_format($pkg_fee, 2); ?> fee · $<?php echo number_format((int) $pkg['dollars'] + $pkg_fee, 2); ?> total</span>
+                            </button>
+                            <?php endforeach; ?>
+                        </div>
+                        <p class="wallet__fee-note">A <?php echo (int) Main::credit_fee_percent(); ?>% processing fee is added at checkout.</p>
                     </div>
 
                     <?php if ($this->is_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>
-                    <h3 class="wallet__subhead">Cash Out</h3>
-                    <?php if (empty($ps['payouts_enabled'])): ?>
-                    <div class="payout-setup">
-                        <div class="payout-setup__info">
-                            <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
-                            <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash your credits out to your bank.'; ?></span>
+                    <div class="wallet-panel" data-wpanel="cashout">
+                        <?php if (empty($ps['payouts_enabled'])): ?>
+                        <div class="payout-setup">
+                            <div class="payout-setup__info">
+                                <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
+                                <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash your credits out to your bank.'; ?></span>
+                            </div>
+                            <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
                         </div>
-                        <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
-                    </div>
-                    <?php if ($this->has_connect): ?>
-                    <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
-                    <?php endif; ?>
-                    <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = 100; ?>
-                    <div class="payout-balance">
-                        <div class="payout-balance__cell">
-                            <span class="payout-balance__label">Available to cash out</span>
-                            <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
-                            <span class="payout-balance__sub"><?php echo number_format($avail_credits); ?> credits</span>
+                        <?php if ($this->has_connect): ?>
+                        <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
+                        <?php endif; ?>
+                        <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = 100; ?>
+                        <div class="payout-balance">
+                            <div class="payout-balance__cell">
+                                <span class="payout-balance__label">Available to cash out</span>
+                                <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
+                                <span class="payout-balance__sub"><?php echo number_format($avail_credits); ?> credits</span>
+                            </div>
+                            <div class="payout-balance__cell">
+                                <span class="payout-balance__label">In transit</span>
+                                <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
+                                <span class="payout-balance__sub">on the way to your bank</span>
+                            </div>
                         </div>
-                        <div class="payout-balance__cell">
-                            <span class="payout-balance__label">In transit</span>
-                            <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
-                            <span class="payout-balance__sub">on the way to your bank</span>
+                        <div class="payout-actions">
+                            <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash out</button>
+                            <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo $min_credits; ?> credits ($<?php echo number_format($min_credits / 10, 2); ?>) to cash out.</span><?php endif; ?>
                         </div>
+                        <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
+                        <?php endif; ?>
                     </div>
-                    <div class="payout-actions">
-                        <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash out</button>
-                        <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo $min_credits; ?> credits ($<?php echo number_format($min_credits / 10, 2); ?>) to cash out.</span><?php endif; ?>
-                    </div>
-                    <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
-                    <?php endif; ?>
                     <?php endif; ?>
 
-                    <h3 class="wallet__subhead">Auto-Replenishment</h3>
-                    <div class="wallet__ar-summary">
-                        <div class="wallet__ar-summary-info">
-                            <span class="wallet__ar-summary-badge <?php echo $ar_on ? 'is-on' : ''; ?>" id="ar_badge"><?php echo $ar_on ? 'On' : 'Off'; ?></span>
-                            <span class="wallet__ar-summary-status" id="ar_status"><?php echo htmlspecialchars($ar_status, ENT_QUOTES, 'UTF-8'); ?></span>
+                    <div class="wallet-panel" data-wpanel="history">
+                        <div id="credit_history">
+                        <?php if (empty($this->credit_transactions)): ?>
+                            <p class="settings__empty">No credit activity yet.</p>
+                        <?php else: ?>
+                        <?php $stripe_payment_url = (strpos((string) $this->stripe_pk, 'pk_test') === 0) ? 'https://dashboard.stripe.com/test/payments/' : 'https://dashboard.stripe.com/payments/'; ?>
+                        <table class="ledger">
+                            <thead><tr><th>Date</th><th>Activity</th><th class="ledger__num">Amount</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($this->credit_transactions as $t): ?>
+                                <tr>
+                                    <td><?php echo htmlspecialchars(date('M j, Y', strtotime($t['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td>
+                                        <?php if (!empty($t['stripe_payment_intent_id'])): ?>
+                                            <a href="<?php echo htmlspecialchars($stripe_payment_url . $t['stripe_payment_intent_id'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?></a>
+                                        <?php else: ?>
+                                            <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php
+                                        $c = (int) $t['credits'];
+                                        // A cash-out leaves the credit economy as real money — show it in dollars.
+                                        if (($t['type'] ?? '') === 'payout') {
+                                            echo '-$' . number_format(abs($c) / 10, 2);
+                                        } else {
+                                            echo ($c >= 0 ? '+' : '') . number_format($c) . ' cr';
+                                        }
+                                    ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php endif; ?>
                         </div>
-                        <button type="button" class="btn btn-secondary" id="ar_manage">Manage</button>
                     </div>
 
-                    <h3 class="wallet__subhead">Transaction History</h3>
-                    <div id="credit_history">
-                    <?php if (empty($this->credit_transactions)): ?>
-                        <p class="settings__empty">No credit activity yet.</p>
-                    <?php else: ?>
-                    <?php $stripe_payment_url = (strpos((string) $this->stripe_pk, 'pk_test') === 0) ? 'https://dashboard.stripe.com/test/payments/' : 'https://dashboard.stripe.com/payments/'; ?>
-                    <table class="ledger">
-                        <thead><tr><th>Date</th><th>Activity</th><th class="ledger__num">Credits</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($this->credit_transactions as $t): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars(date('M j, Y', strtotime($t['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
-                                <td>
-                                    <?php if (!empty($t['stripe_payment_intent_id'])): ?>
-                                        <a href="<?php echo htmlspecialchars($stripe_payment_url . $t['stripe_payment_intent_id'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?></a>
-                                    <?php else: ?>
-                                        <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php echo ((int) $t['credits'] >= 0 ? '+' : '') . number_format((int) $t['credits']); ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                    <?php endif; ?>
+                    <div class="wallet-panel" data-wpanel="auto">
+                        <div class="wallet__ar-summary">
+                            <div class="wallet__ar-summary-info">
+                                <span class="wallet__ar-summary-badge <?php echo $ar_on ? 'is-on' : ''; ?>" id="ar_badge"><?php echo $ar_on ? 'On' : 'Off'; ?></span>
+                                <span class="wallet__ar-summary-status" id="ar_status"><?php echo htmlspecialchars($ar_status, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </div>
+                            <button type="button" class="btn btn-secondary" id="ar_manage">Manage</button>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -1319,15 +1341,32 @@ $(function () {
     var stripe = <?php echo !empty($this->stripe_pk) ? "Stripe('" . htmlspecialchars((string) $this->stripe_pk, ENT_QUOTES, 'UTF-8') . "')" : 'null'; ?>;
     var creditElements = null;
 
+    // Wallet in-page tabs (balance stays pinned above them).
+    $('.wallet-tab').on('click', function () {
+        var t = $(this).data('wtab');
+        $('.wallet-tab').removeClass('is-active');
+        $(this).addClass('is-active');
+        $('.wallet-panel').removeClass('is-active').filter('[data-wpanel="' + t + '"]').addClass('is-active');
+    });
+    (function () {
+        var m = (window.location.search.match(/[?&]tab=([a-z]+)/) || [])[1];
+        if (m && $('.wallet-tab[data-wtab="' + m + '"]').length) { $('.wallet-tab[data-wtab="' + m + '"]').trigger('click'); }
+    })();
+
     $('.buy-credits').on('click', function () {
         if (!stripe) { toastr.error('Payments are not available right now'); return; }
         var dollars = $(this).data('dollars');
         ApiDataSvc.apiCall('post', 'buy_credits', { dollars: dollars }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
-            $('#credit_pay_summary').text('$' + dollars + ' for ' + Number(o.credits).toLocaleString() + ' credits');
+            $('#credit_pay_summary').html(
+                '<span class="pay-line pay-line--head">' + Number(o.credits).toLocaleString() + ' credits</span>' +
+                '<span class="pay-line"><span>Subtotal</span><span>$' + (o.base_cents / 100).toFixed(2) + '</span></span>' +
+                '<span class="pay-line"><span>Processing fee (' + o.fee_percent + '%)</span><span>$' + (o.fee_cents / 100).toFixed(2) + '</span></span>' +
+                '<span class="pay-line pay-line--total"><span>Total</span><span>$' + (o.total_cents / 100).toFixed(2) + '</span></span>'
+            );
             $('#credit_payment_element').html('');
-            $('#credit_pay_button').prop('disabled', false);
+            $('#credit_pay_button').prop('disabled', false).text('Pay $' + (o.total_cents / 100).toFixed(2));
             creditElements = stripe.elements({ clientSecret: o.client_secret });
             creditElements.create('payment').mount('#credit_payment_element');
             $('#credit_payment_modal').modal('show');
@@ -1564,7 +1603,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 1000);
+                setTimeout(function () { window.location.href = '/account/settings?section=wallet&tab=cashout'; }, 1000);
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);
@@ -1582,7 +1621,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=wallet'; }, 900);
+                setTimeout(function () { window.location.href = '/account/settings?section=wallet&tab=cashout'; }, 900);
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);

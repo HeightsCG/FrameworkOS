@@ -64,6 +64,13 @@ class Main {
         return (float) ($config['global']['platform_fee_percent'] ?? 10);
     }
 
+    /** Processing (merchant service) fee % added on top of a credit purchase. */
+    public static function credit_fee_percent(): float
+    {
+        $config = self::get_config();
+        return (float) ($config['global']['credit_fee_percent'] ?? 5);
+    }
+
     public static function get_url(): array
     {
         $url = array();
