@@ -440,3 +440,15 @@
 .cs-cchip--automation{ background:rgba(91,75,224,.06); border:1px dashed rgba(91,75,224,.42); }
 .cs-cchip--automation .cs-cchip__cover{ background:var(--vsoft); color:var(--violet); }
 .cs-cchip--automation .cs-cchip__time{ color:var(--violet7); font-weight:700; }
+
+/* ===================== HEADER "CREATE" DROPDOWN ===================== */
+.cs-create__menu{ min-width:290px; padding:.4rem; border:1px solid var(--line); border-radius:var(--r-sm); box-shadow:0 12px 34px -12px rgba(28,24,60,.3); }
+.cs-create__label{ font-size:.68rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); padding:.5rem .6rem .25rem; }
+.cs-create__menu .dropdown-item{ display:flex; align-items:center; gap:.7rem; padding:.5rem .55rem; border-radius:var(--r-sm); white-space:normal; }
+.cs-create__ic{ width:36px; height:36px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:var(--r-sm); background:var(--vsoft); color:var(--violet); font-size:.92rem; transition:background .12s, color .12s; }
+.cs-create__menu .dropdown-item > span:last-child{ display:flex; flex-direction:column; line-height:1.25; min-width:0; }
+.cs-create__menu .dropdown-item strong{ font-size:.9rem; font-weight:600; color:var(--text); }
+.cs-create__menu .dropdown-item small{ font-size:.78rem; color:var(--muted); }
+.cs-create__menu .dropdown-item:hover, .cs-create__menu .dropdown-item:focus{ background:var(--vsoft); }
+.cs-create__menu .dropdown-item:hover .cs-create__ic, .cs-create__menu .dropdown-item:focus .cs-create__ic{ background:var(--violet); color:#fff; }
+.cs-create .dropdown-toggle{ display:inline-flex; align-items:center; gap:.4rem; }

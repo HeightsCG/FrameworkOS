@@ -17,11 +17,21 @@
             <p class="cs-head__sub">Upload once, use everywhere. Everything for your content lives here.</p>
         </div>
         <div class="cs-head__actions">
-            <button type="button" class="btn btn-primary" id="csUploadBtn"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload Media</button>
-            <button type="button" class="btn btn-primary" id="csGenerateBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Image</button>
-            <button type="button" class="btn btn-primary" id="csNewPostBtn"><i class="fa-solid fa-plus"></i> New Post</button>
-            <button type="button" class="btn btn-primary" id="csCreateCollectionBtn"><i class="fa-solid fa-folder-plus"></i> Create Collection</button>
-            <button type="button" class="btn btn-primary" id="csSchedNew"><i class="fa-solid fa-plus"></i> New Automation</button>
+            <div class="dropdown cs-create">
+                <button type="button" class="btn btn-primary dropdown-toggle" id="csCreateBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fa-solid fa-plus"></i> Create
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end cs-create__menu">
+                    <li class="cs-create__label">Content</li>
+                    <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New post</strong><small>Write, schedule &amp; publish</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate image</strong><small>Create an on-brand image with AI</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li class="cs-create__label">Library</li>
+                    <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload media</strong><small>Add files to your library</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csCreateCollectionBtn"><span class="cs-create__ic"><i class="fa-solid fa-folder-plus"></i></span><span><strong>Create collection</strong><small>Group related files</small></span></button></li>
+                </ul>
+            </div>
         </div>
     </header>
 
