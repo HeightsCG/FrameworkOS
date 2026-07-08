@@ -2151,6 +2151,7 @@ class ApiController extends Controller {
             'watermark_applied' => (int) ($a['watermark_applied'] ?? 0),
             'usage_count'       => (int) ($a['usage_count'] ?? 0),
             'failure_reason'    => (string) ($a['failure_reason'] ?? ''),
+            'moderation'        => ($a['type'] === 'image') ? (string) ($a['moderation_status'] ?? 'pending') : 'n/a',
             'created_at'        => $a['created_at'],
             'thumb_url'         => $thumb,
             'video_url'         => ($a['type'] === 'video' && $a['status'] === 'ready') ? MediaService::signed_url($a, 'original', $creator_id) : '',
@@ -2884,6 +2885,7 @@ class ApiController extends Controller {
             'caption'           => (string) $post['caption'],
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
+            'moderation'        => (string) ((new PostsModel())->moderation_map(array((int) $post['id']))[(int) $post['id']] ?? 'ok'),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
@@ -3180,7 +3182,7 @@ class ApiController extends Controller {
     }
 
     /** Shape a post row for the Posts list. */
-    private function studio_post_row(array $p, array $user, array $ppv_stats = array()){
+    private function studio_post_row(array $p, array $user, array $ppv_stats = array(), array $mod_map = array()){
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $cover = '';
@@ -3212,6 +3214,7 @@ class ApiController extends Controller {
             'earnings_cents' => (int) $p['earnings_cents'],
             'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) round($p['ppv_price_credits'] / 10) : null,
             'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
+            'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'flagged'|'pending'|'ok'
             'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']),
         );
     }
@@ -3227,7 +3230,8 @@ class ApiController extends Controller {
         $ppv_ids = array();
         foreach ($rows as $p) { if ($p['audience'] === 'ppv') { $ppv_ids[] = (int) $p['id']; } }
         $ppv_stats = !empty($ppv_ids) ? (new PpvUnlocksModel())->stats_for_posts($ppv_ids) : array();
-        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user, $ppv_stats); }
+        $mod_map   = $model->moderation_map(array_map(function ($p) { return (int) $p['id']; }, $rows));
+        foreach ($rows as $p) { $posts[] = $this->studio_post_row($p, $user, $ppv_stats, $mod_map); }
         echo json_encode(array('success' => true, 'posts' => $posts, 'counts' => $model->counts_by_state($creator_id)));
         exit;
     }

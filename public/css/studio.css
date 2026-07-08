@@ -48,6 +48,8 @@
 .cs-tile:hover::after, .cs-tile.is-selected::after{ opacity:1; }
 .cs-tile__badge{ position:absolute; left:.4rem; bottom:.4rem; z-index:2; display:inline-flex; align-items:center; gap:.25rem; background:rgba(12,10,25,.72); color:#fff; font-size:.72rem; font-weight:600; padding:.15rem .4rem; border-radius:var(--r-sm); backdrop-filter:blur(4px); }
 .cs-tile__type{ position:absolute; right:.4rem; top:.4rem; z-index:2; background:rgba(12,10,25,.6); color:#fff; width:22px; height:22px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; font-size:.7rem; }
+.cs-tile__adult{ position:absolute; left:.4rem; bottom:.4rem; z-index:2; background:#c0392b; color:#fff; font-size:.66rem; font-weight:800; letter-spacing:.02em; padding:.14rem .34rem; border-radius:var(--r-sm); }
+.cs-tile__scan{ position:absolute; left:.4rem; bottom:.4rem; z-index:2; background:rgba(12,10,25,.55); color:#fff; width:22px; height:22px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; font-size:.62rem; }
 .cs-tile__use{ position:absolute; left:.4rem; top:.4rem; z-index:2; background:rgba(12,10,25,.6); color:#fff; font-size:.68rem; font-weight:600; padding:.12rem .38rem; border-radius:var(--r-sm); }
 .cs-tile__check{ position:absolute; right:.4rem; bottom:.4rem; z-index:3; width:24px; height:24px; border-radius:50%; background:rgba(255,255,255,.85); border:1.5px solid #fff; display:flex; align-items:center; justify-content:center; color:var(--violet); font-size:.75rem; opacity:0; transition:opacity .12s; }
 .cs-tile:hover .cs-tile__check, .cs-tile.is-selected .cs-tile__check{ opacity:1; }
@@ -465,3 +467,10 @@
 .cs-ppvprice__note{ font-size:.78rem; color:var(--muted); margin:.4rem 0 0; }
 .cs-post__aud--ppv{ color:var(--violet7); font-weight:600; }
 .cs-post__aud--ppv i{ color:var(--violet); }
+
+/* Adult-content indicators (posts list + composer) */
+.cs-post__adult{ display:inline-flex; align-items:center; background:#c0392b; color:#fff; font-size:.66rem; font-weight:800; letter-spacing:.02em; padding:.08rem .3rem; border-radius:var(--r-sm); }
+.cs-comp__modnote{ display:flex; align-items:flex-start; gap:.5rem; font-size:.84rem; line-height:1.4; border-radius:var(--r-sm); padding:.6rem .75rem; margin:0 0 1rem; }
+.cs-comp__modnote i{ margin-top:.1rem; flex:none; }
+.cs-comp__modnote--adult{ background:rgba(207,59,59,.08); color:#a5301f; border:1px solid rgba(207,59,59,.3); }
+.cs-comp__modnote--scan{ background:var(--vsoft); color:var(--t2); border:1px solid var(--line); }

@@ -19,6 +19,8 @@ class MediaAssetsModel extends Model {
             'filename'   => (string) $filename,
             'mime'       => (string) $mime,
             'status'     => (string) $status,
+            // Only images are content-moderated; videos/gifs aren't scanned.
+            'moderation_status' => ($type === 'image') ? 'pending' : 'n_a',
             'created_at' => $now,
             'updated_at' => $now,
         ));

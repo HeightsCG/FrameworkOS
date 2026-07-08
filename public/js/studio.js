@@ -228,6 +228,8 @@ jQuery(function ($) {
         }
         $('<span class="cs-tile__type"><i class="fa-solid ' + typeIcon(a.type) + '"></i></span>').appendTo($t);
         if (a.type === 'video' && a.duration) $('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>').appendTo($t);
+        if (a.moderation === 'flagged') $('<span class="cs-tile__adult" title="Marked adult — shown only to fans with adult content on">18+</span>').appendTo($t);
+        else if (a.moderation === 'pending' && a.status === 'ready') $('<span class="cs-tile__scan" title="Checking content…"><i class="fa-solid fa-shield-halved"></i></span>').appendTo($t);
         if (a.usage_count > 0) $('<span class="cs-tile__use">In ' + a.usage_count + '</span>').appendTo($t);
         if (a.status === 'processing' || a.status === 'uploading') $('<div class="cs-tile__state"><span class="spinner-border spinner-border-sm"></span> Processing…</div>').appendTo($t);
         else if (a.status === 'failed') $('<div class="cs-tile__state cs-tile__state--failed"><i class="fa-solid fa-circle-exclamation"></i> Upload failed</div>').appendTo($t);
@@ -722,6 +724,7 @@ jQuery(function ($) {
     function setComposer(p) {
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
         composer.tier_id = p.tier_id ? String(p.tier_id) : '';
+        composer.moderation = p.moderation || 'ok';
         composer.ppv_price = p.ppv_price_dollars || 5;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
@@ -741,6 +744,26 @@ jQuery(function ($) {
 
     function coverId() { return composer.assets.length ? composer.assets[0].id : 0; }
 
+    // Notice shown in the composer when the post's media is flagged adult (or still scanning).
+    function renderModNote() {
+        var $note = $('#csCompModNote');
+        if (!$note.length) {
+            // Place it above the "Who can see this" label that precedes the audience control.
+            var $anchor = $('#csCompAudience').prevAll('.cs-dv__label').first();
+            if (!$anchor.length) { $anchor = $('#csCompAudience'); }
+            $note = $('<div id="csCompModNote" class="cs-comp__modnote" hidden></div>').insertBefore($anchor);
+        }
+        if (composer.moderation === 'flagged') {
+            $note.attr('class', 'cs-comp__modnote cs-comp__modnote--adult').prop('hidden', false)
+                .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.');
+        } else if (composer.moderation === 'pending') {
+            $note.attr('class', 'cs-comp__modnote cs-comp__modnote--scan').prop('hidden', false)
+                .html('<i class="fa-solid fa-shield-halved"></i> Checking your media for adult content — it won\'t be visible to fans until the check finishes.');
+        } else {
+            $note.prop('hidden', true).empty();
+        }
+    }
+
     function renderComposer() {
         $('#csCompCaption').val(composer.caption);
         
@@ -752,6 +775,7 @@ jQuery(function ($) {
         $('#csCompPpvPrice').val(composer.ppv_price || 5);
         renderPpvCredits();
         $('#csCompComments').prop('checked', composer.comments_enabled != 0);
+        renderModNote();
         renderSocial();
         renderCompMedia();
         renderPreview();
@@ -1084,6 +1108,7 @@ jQuery(function ($) {
             : (p.audience === 'ppv'
                 ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-dollar-sign"></i> PPV · $' + (p.ppv_price_dollars || 0) + '</span>'
                 : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
+        var adult = (p.moderation === 'flagged') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>' : '';
         var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
         var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
         var cap = p.caption ? esc(p.caption) : '<em class="cs-post__nocap">No caption</em>';
@@ -1103,7 +1128,7 @@ jQuery(function ($) {
             '<div class="cs-post__cover" data-post-edit>' + cover + '</div>' +
             '<div class="cs-post__main" data-post-edit>' +
                 '<div class="cs-post__cap">' + cap + '</div>' +
-                '<div class="cs-post__meta">' + badge + aud + when + missing + '</div>' +
+                '<div class="cs-post__meta">' + badge + aud + adult + when + missing + '</div>' +
             '</div>' +
             '<div class="cs-post__stats">' + stats + '</div>' +
             '<div class="cs-post__act">' +
