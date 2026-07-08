@@ -21,6 +21,7 @@
             <button type="button" class="btn btn-primary" id="csGenerateBtn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Image</button>
             <button type="button" class="btn btn-primary" id="csNewPostBtn"><i class="fa-solid fa-plus"></i> New Post</button>
             <button type="button" class="btn btn-primary" id="csCreateCollectionBtn"><i class="fa-solid fa-folder-plus"></i> Create Collection</button>
+            <button type="button" class="btn btn-primary" id="csSchedNew"><i class="fa-solid fa-plus"></i> New Automation</button>
         </div>
     </header>
 
@@ -122,10 +123,12 @@
         <div class="tab-pane fade" id="csPaneCalendar" role="tabpanel">
             <div class="cs-calhead">
                 <div class="cs-calnav">
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="csCalPrev" aria-label="Previous"><i class="fa-solid fa-chevron-left"></i></button>
+                    <button type="button" class="cs-calnav__today" id="csCalToday">Today</button>
+                    <div class="cs-calnav__arrows">
+                        <button type="button" id="csCalPrev" aria-label="Previous month"><i class="fa-solid fa-chevron-left"></i></button>
+                        <button type="button" id="csCalNext" aria-label="Next month"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
                     <h2 class="cs-calnav__title" id="csCalTitle">—</h2>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" id="csCalNext" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>
-                    <button type="button" class="btn btn-sm btn-link" id="csCalToday">Today</button>
                 </div>
                 <div class="cs-seg cs-seg--sm" id="csCalView">
                     <button type="button" class="cs-seg__opt is-on" data-cal="month">Month</button>
@@ -171,10 +174,6 @@
 
         <!-- ============ SCHEDULER ============ -->
         <div class="tab-pane fade" id="csPaneScheduler" role="tabpanel">
-            <div class="cs-coltoolbar">
-                <p class="cs-coltoolbar__hint">Automations generate an on-brand image + caption and publish on a schedule — hands-off.</p>
-                <button type="button" class="btn btn-primary" id="csSchedNew"><i class="fa-solid fa-plus"></i> New automation</button>
-            </div>
             <div class="cs-loading" id="csSchedLoading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading your automations…</div>
             <div class="cs-error" id="csSchedError" hidden>
                 <i class="fa-solid fa-circle-exclamation"></i>

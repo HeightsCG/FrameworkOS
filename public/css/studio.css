@@ -299,8 +299,14 @@
 
 /* ===================== CALENDAR ===================== */
 .cs-calhead{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.9rem; flex-wrap:wrap; }
-.cs-calnav{ display:flex; align-items:center; gap:.5rem; }
-.cs-calnav__title{ font-size:1.15rem; font-weight:700; margin:0; min-width:180px; }
+.cs-calnav{ display:flex; align-items:center; gap:.6rem; }
+.cs-calnav__today{ height:34px; padding:0 .9rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); color:var(--t2); font-size:.82rem; font-weight:600; cursor:pointer; transition:background .12s, border-color .12s, color .12s; }
+.cs-calnav__today:hover{ background:rgba(15,17,26,.03); border-color:var(--muted2); color:var(--text); }
+.cs-calnav__arrows{ display:inline-flex; border:1px solid var(--line); border-radius:var(--r-sm); overflow:hidden; }
+.cs-calnav__arrows button{ width:34px; height:34px; border:0; background:var(--surface); color:var(--t2); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; font-size:.78rem; transition:background .12s, color .12s; }
+.cs-calnav__arrows button:hover{ background:rgba(15,17,26,.04); color:var(--text); }
+.cs-calnav__arrows button:first-child{ border-right:1px solid var(--line); }
+.cs-calnav__title{ font-size:1.2rem; font-weight:700; letter-spacing:-.01em; margin:0 0 0 .25rem; }
 .cs-queue{ display:flex; align-items:center; gap:.5rem; font-size:.85rem; color:var(--t2); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); padding:.5rem .8rem; margin-bottom:.9rem; }
 .cs-queue i{ color:var(--muted2); }
 .cs-queue--ok i{ color:var(--violet); }
@@ -394,21 +400,35 @@
 
 /* ===================== SCHEDULER ===================== */
 .cs-sched{ display:flex; flex-direction:column; gap:.8rem; }
-.cs-sched__card{ display:flex; align-items:flex-start; gap:1rem; padding:1rem 1.1rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); transition:border-color .12s, box-shadow .12s; }
+.cs-sched__card{ display:flex; align-items:center; gap:1.1rem; padding:1.05rem 1.2rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); transition:border-color .14s, box-shadow .14s; }
 .cs-sched__card:hover{ border-color:var(--muted2); box-shadow:var(--sh-xs); }
-.cs-sched__card.is-paused{ opacity:.6; }
+.cs-sched__card.is-paused{ background:var(--vsoft2, #fafafc); }
 .cs-sched__body{ flex:1 1 auto; min-width:0; }
-.cs-sched__top{ display:flex; align-items:center; gap:.7rem; }
-.cs-sched__name{ font-size:1rem; font-weight:700; color:var(--text); }
-.cs-sched__switch{ margin-left:auto !important; }
-.cs-sched__topic{ font-size:.88rem; color:var(--t2); margin:.3rem 0 .5rem; display:-webkit-box; -webkit-line-clamp:2; line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
-.cs-sched__meta{ display:flex; flex-wrap:wrap; align-items:center; gap:.4rem 1rem; font-size:.82rem; color:var(--muted); }
-.cs-sched__meta i{ color:var(--muted2); margin-right:.2rem; }
-.cs-sched__pill{ font-size:.72rem; font-weight:700; padding:.15rem .5rem; border-radius:var(--r-pill); }
-.cs-sched__pill--ok{ background:var(--success-bg); color:var(--success); }
-.cs-sched__pill--fail{ background:rgba(207,59,59,.1); color:var(--danger); }
+.cs-sched__top{ display:flex; align-items:center; gap:.6rem; margin-bottom:.3rem; }
+.cs-sched__name{ font-size:1.02rem; font-weight:700; color:var(--text); }
+.cs-sched__card.is-paused .cs-sched__name{ color:var(--t2); }
+/* Status = the active/paused control: a labelled pill, not a naked switch. */
+.cs-sched__status{ display:inline-flex; align-items:center; gap:.4rem; height:23px; padding:0 .6rem 0 .55rem; border:1px solid var(--line); border-radius:999px; background:var(--surface); font-size:.68rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:var(--muted); cursor:pointer; transition:background .12s, border-color .12s, color .12s, filter .12s; }
+.cs-sched__status:hover{ border-color:var(--muted2); color:var(--t2); }
+.cs-sched__dot{ width:7px; height:7px; border-radius:50%; background:var(--muted2); flex:none; }
+.cs-sched__status.is-active{ background:var(--success-bg); border-color:transparent; color:var(--success); }
+.cs-sched__status.is-active .cs-sched__dot{ background:var(--success); box-shadow:0 0 0 3px var(--success-bg); }
+.cs-sched__status.is-active:hover{ filter:brightness(.96); }
+.cs-sched__topic{ font-size:.88rem; color:var(--t2); margin:0 0 .5rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cs-sched__meta{ display:flex; flex-wrap:wrap; align-items:center; gap:.3rem .95rem; font-size:.8rem; color:var(--muted); }
+.cs-sched__metaitem{ display:inline-flex; align-items:center; gap:.35rem; }
+.cs-sched__metaitem i{ color:var(--muted2); font-size:.76rem; }
+.cs-sched__metaitem--ok{ color:var(--success); } .cs-sched__metaitem--ok i{ color:var(--success); }
+.cs-sched__metaitem--fail{ color:var(--danger); } .cs-sched__metaitem--fail i{ color:var(--danger); }
 .cs-sched__actions{ display:flex; align-items:center; gap:.4rem; flex:none; }
-.cs-sched__actions .btn{ display:inline-flex; align-items:center; gap:.35rem; }
+.cs-sched__btn{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; height:36px; padding:0 .85rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); color:var(--t2); font-size:.83rem; font-weight:600; line-height:1; cursor:pointer; transition:background .12s, border-color .12s, color .12s; }
+.cs-sched__btn:hover{ border-color:var(--muted2); background:rgba(15,17,26,.03); color:var(--text); }
+.cs-sched__btn:disabled{ opacity:.55; cursor:default; }
+.cs-sched__btn--icon{ width:36px; padding:0; color:var(--muted); }
+.cs-sched__btn--run i{ color:var(--violet); font-size:.8rem; }
+.cs-sched__btn--run:hover{ background:var(--vsoft); border-color:var(--violet); color:var(--violet7); }
+.cs-sched__btn--run:hover i{ color:var(--violet7); }
+.cs-sched__btn--danger:hover{ background:rgba(207,59,59,.08); border-color:rgba(207,59,59,.45); color:var(--danger); }
 .cs-sched__brand{ display:flex; align-items:flex-start; gap:.5rem; font-size:.88rem; line-height:1.4; color:var(--t2); background:var(--vsoft); border-radius:var(--r-sm); padding:.6rem .75rem; cursor:pointer; margin:1rem 0 0; }
 .cs-sched__brand input{ margin-top:.15rem; flex:none; }
 .cs-sched__days{ display:flex; gap:.4rem; margin-top:.6rem; flex-wrap:wrap; }

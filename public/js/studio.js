@@ -1194,8 +1194,17 @@ jQuery(function ($) {
 
     function renderQueue(q) {
         var $q = $('#csCalQueue').prop('hidden', false);
-        if (!q.scheduled_count) { $q.removeClass('cs-queue--ok').html('<i class="fa-solid fa-circle-info"></i> No scheduled posts — your queue is empty. Click any day to schedule one.'); return; }
-        $q.addClass('cs-queue--ok').html('<i class="fa-solid fa-layer-group"></i> <strong>' + q.scheduled_count + '</strong> scheduled · queue reaches <strong>' + esc(q.reaches) + '</strong> (' + q.days_ahead + ' day' + (q.days_ahead === 1 ? '' : 's') + ' out)');
+        var autoIds = {};
+        calItems.forEach(function (it) { if (it.state === 'automation' && it.rule_id) { autoIds[it.rule_id] = 1; } });
+        var autoN = Object.keys(autoIds).length;
+        var autoTxt = '<i class="fa-solid fa-robot"></i> <strong>' + autoN + '</strong> automation' + (autoN === 1 ? '' : 's') + ' posting on schedule';
+
+        if (q.scheduled_count) {
+            $q.addClass('cs-queue--ok').html('<i class="fa-solid fa-layer-group"></i> <strong>' + q.scheduled_count + '</strong> scheduled · queue reaches <strong>' + esc(q.reaches) + '</strong> (' + q.days_ahead + ' day' + (q.days_ahead === 1 ? '' : 's') + ' out)' + (autoN ? ' · ' + autoTxt : ''));
+            return;
+        }
+        if (autoN) { $q.addClass('cs-queue--ok').html(autoTxt); return; }
+        $q.removeClass('cs-queue--ok').html('<i class="fa-solid fa-circle-info"></i> No scheduled posts — your queue is empty. Click any day to schedule one.');
     }
 
     function itemsByDate() {
@@ -1293,7 +1302,7 @@ jQuery(function ($) {
     // =====================================================================
     // Scheduler (automations)
     // =====================================================================
-    var schedModal, schedRules = [];
+    var schedModal, schedRules = [], schedRunning = {};
     var DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     var schedForm = { audience: 'free', cadence: 'daily' };
 
@@ -1322,28 +1331,36 @@ jQuery(function ($) {
     }
 
     function schedCard(r) {
-        var aud = r.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
-        var pill = r.last_status === 'success' ? '<span class="cs-sched__pill cs-sched__pill--ok">Last run OK</span>'
-            : (r.last_status === 'failed' ? '<span class="cs-sched__pill cs-sched__pill--fail">Last run failed</span>' : '');
+        var aud = r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone';
+        var lastRun = r.last_status === 'success'
+            ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
+            : (r.last_status === 'failed'
+                ? '<span class="cs-sched__metaitem cs-sched__metaitem--fail"><i class="fa-solid fa-circle-exclamation"></i>Last run failed</span>'
+                : '');
+        var stTitle = r.active ? 'Active — posting on schedule. Click to pause.' : 'Paused. Click to activate.';
         return $(
             '<div class="cs-sched__card' + (r.active ? '' : ' is-paused') + '" data-id="' + r.id + '">' +
             '<div class="cs-sched__body">' +
                 '<div class="cs-sched__top">' +
                     '<span class="cs-sched__name">' + esc(r.name) + '</span>' +
-                    '<label class="cs-sched__switch form-check form-switch m-0" title="Active"><input class="form-check-input" type="checkbox" data-sched-toggle' + (r.active ? ' checked' : '') + '></label>' +
+                    '<button type="button" class="cs-sched__status' + (r.active ? ' is-active' : '') + '" data-sched-toggle title="' + stTitle + '">' +
+                        '<span class="cs-sched__dot"></span>' + (r.active ? 'Active' : 'Paused') +
+                    '</button>' +
                 '</div>' +
                 '<p class="cs-sched__topic">' + esc(r.topic) + '</p>' +
                 '<div class="cs-sched__meta">' +
-                    '<span><i class="fa-regular fa-clock"></i> ' + esc(r.cadence_summary) + '</span>' +
-                    '<span><i class="fa-solid fa-' + (r.audience === 'subscribers' ? 'lock' : 'globe') + '"></i> ' + aud + '</span>' +
-                    (r.next_run ? '<span><i class="fa-solid fa-forward"></i> Next: ' + esc(r.next_run) + '</span>' : '') +
-                    pill +
+                    '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
+                    '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (r.audience === 'subscribers' ? 'lock' : 'globe') + '"></i>' + aud + '</span>' +
+                    (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
+                    lastRun +
                 '</div>' +
             '</div>' +
             '<div class="cs-sched__actions">' +
-                '<button type="button" class="btn btn-sm btn-outline-secondary" data-sched-run><i class="fa-solid fa-bolt"></i> Run now</button>' +
-                '<button type="button" class="btn btn-sm btn-outline-secondary" data-sched-edit aria-label="Edit"><i class="fa-solid fa-pen"></i></button>' +
-                '<button type="button" class="btn btn-sm btn-outline-danger" data-sched-del aria-label="Delete"><i class="fa-solid fa-trash"></i></button>' +
+                (schedRunning[r.id]
+                    ? '<button type="button" class="cs-sched__btn cs-sched__btn--run" data-sched-run disabled><span class="spinner-border spinner-border-sm"></span> Generating…</button>'
+                    : '<button type="button" class="cs-sched__btn cs-sched__btn--run" data-sched-run><i class="fa-solid fa-bolt"></i> Run now</button>') +
+                '<button type="button" class="cs-sched__btn cs-sched__btn--icon" data-sched-edit aria-label="Edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' +
+                '<button type="button" class="cs-sched__btn cs-sched__btn--icon cs-sched__btn--danger" data-sched-del aria-label="Delete" title="Delete"><i class="fa-solid fa-trash-can"></i></button>' +
             '</div>' +
             '</div>'
         );
@@ -1442,9 +1459,13 @@ jQuery(function ($) {
         }).fail(function () { $btn.prop('disabled', false).text('Save automation'); toastr.error('Could not save.'); });
     });
 
-    $('#csSchedList').on('change', '[data-sched-toggle]', function () {
-        var id = $(this).closest('.cs-sched__card').data('id');
-        apiPost('scheduler_toggle', { id: id, active: this.checked ? '1' : '0' }).done(function (o) { if (o.success) loadScheduler(); });
+    $('#csSchedList').on('click', '[data-sched-toggle]', function () {
+        var $b = $(this), id = $b.closest('.cs-sched__card').data('id');
+        var makeActive = !$b.hasClass('is-active');
+        $b.prop('disabled', true);
+        apiPost('scheduler_toggle', { id: id, active: makeActive ? '1' : '0' })
+            .done(function (o) { if (o.success) { loadScheduler(); } else { $b.prop('disabled', false); } })
+            .fail(function () { $b.prop('disabled', false); });
     });
 
     $('#csSchedList').on('click', '[data-sched-del]', function () {
@@ -1456,15 +1477,24 @@ jQuery(function ($) {
     });
 
     $('#csSchedList').on('click', '[data-sched-run]', function () {
-        var $btn = $(this), id = $btn.closest('.cs-sched__card').data('id');
-        $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Generating…');
+        var id = $(this).closest('.cs-sched__card').data('id');
+        if (schedRunning[id]) { return; }              // already generating — ignore double-clicks
+        schedRunning[id] = true;
+        renderSchedRules();                            // show the generating state immediately
+        // The request keeps running even if the creator switches tabs; schedRunning keeps
+        // the card in its "Generating…" state across re-renders until it completes.
         $.ajax({ url: '/api/scheduler_run_now', method: 'POST', dataType: 'json', timeout: 180000, data: { id: id } })
             .done(function (o) {
-                $btn.prop('disabled', false).html('<i class="fa-solid fa-bolt"></i> Run now');
-                if (o.success) { toastr.success('Published a new post.'); loadScheduler(); }
+                delete schedRunning[id];
+                if (o.success) { toastr.success('Published a new post.'); }
                 else { toastr.error(o.message || 'Run failed.'); }
+                loadScheduler();
             })
-            .fail(function (x, st) { $btn.prop('disabled', false).html('<i class="fa-solid fa-bolt"></i> Run now'); toastr.error(st === 'timeout' ? 'That took too long — try again.' : 'Run failed.'); });
+            .fail(function (x, st) {
+                delete schedRunning[id];
+                toastr.error(st === 'timeout' ? 'That took too long — try again.' : 'Run failed.');
+                renderSchedRules();
+            });
     });
 
 
