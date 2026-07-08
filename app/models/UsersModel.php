@@ -200,6 +200,16 @@ class UsersModel extends Model {
         );
     }
 
+    /** Record that the creator was just active (presence). Stored in UTC. */
+    public function touch_last_active($user_id){
+        return parent::update(
+            'user_accounts',
+            array('last_active_at' => gmdate('Y-m-d H:i:s')),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+    }
+
     public function set_content_timezone($user_id, $tz, $updated_by=0){
         return parent::update(
             'user_accounts',

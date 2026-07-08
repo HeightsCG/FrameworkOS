@@ -1731,7 +1731,19 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Only creators can do that'));
             exit;
         }
+        // Refresh presence (throttled to ~once/45s so we don't write on every call).
+        $last = $user['last_active_at'] ?? null;
+        if ($last === null || strtotime((string) $last . ' UTC') < time() - 45) {
+            $this->userModel->touch_last_active((int) $user['user_id']);
+        }
         return $user;
+    }
+
+    /** Presence heartbeat — pinged by the Studio so an open-but-idle creator stays "online". */
+    public function heartbeatAction(){
+        $this->require_creator();
+        echo json_encode(array('success' => true));
+        exit;
     }
 
     public function save_creator_profileAction(){

@@ -69,8 +69,30 @@
     border: 2px solid var(--pf-surface);
     box-shadow: 0 8px 22px -10px rgba(28,24,60,.45);
     display: flex; align-items: center; justify-content: center; flex: none;
+    position: relative;
 }
 .pf-avatar__initial { font-size: 3rem; font-weight: 700; color: var(--pf-violet); }
+
+/* Presence dot (online/offline) */
+.pf-presence {
+    position: absolute; right: 7px; bottom: 7px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: #b3b3c0; border: 3px solid var(--pf-surface); box-sizing: content-box;
+}
+.pf-presence.is-online { background: #22c55e; }
+.pf-presence.is-online::after {
+    content: ''; position: absolute; inset: 0; border-radius: 50%;
+    box-shadow: 0 0 0 4px rgba(34,197,94,.22);
+}
+.pf-dock__avatar { position: relative; }
+.pf-presence--sm { right: -1px; bottom: -1px; width: 9px; height: 9px; border-width: 2px; }
+.pf-presence--sm.is-online::after { box-shadow: 0 0 0 3px rgba(34,197,94,.22); }
+
+/* "Online / Offline" text in the meta row */
+.pf-status { display: inline-flex; align-items: center; gap: .4rem; font-weight: 600; }
+.pf-status__dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.pf-status--online { color: #16a34a; }
+.pf-status--offline { color: var(--pf-muted); font-weight: 500; }
 .pf-hero__id { flex: 1; min-width: 0; padding-top: 16px; }
 .pf-name { font-size: 1.85rem; font-weight: 700; letter-spacing: -.03em; margin: 0; line-height: 1.1; }
 .pf-meta { display: flex; align-items: center; flex-wrap: wrap; gap: .4rem; margin-top: .35rem; font-size: .92rem; color: var(--pf-muted); }

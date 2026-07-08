@@ -80,6 +80,10 @@ class ProfileController extends Controller {
         $follower_count  = $follows->count_followers($user['user_id']);
         $member_since    = !empty($user['creator_since']) ? date('F Y', strtotime((string) $user['creator_since'])) : '';
 
+        // Presence: "online" if the creator was active within the last 5 minutes.
+        $last_active     = $user['last_active_at'] ?? null;
+        $is_online       = $last_active !== null && strtotime((string) $last_active . ' UTC') >= time() - 300;
+
         // Returning from Stripe Checkout: record the paid membership before rendering.
         $sub_notice = '';
         if (($_GET['sub'] ?? '') === 'cancel') {

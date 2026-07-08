@@ -38,7 +38,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <div class="pf-dock" id="pf_dock" aria-hidden="true">
         <div class="pf-dock__inner">
             <div class="pf-dock__id">
-                <span class="pf-dock__avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?></span>
+                <span class="pf-dock__avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?><span class="pf-presence pf-presence--sm <?php echo $is_online ? 'is-online' : 'is-offline'; ?>"></span></span>
                 <span class="pf-dock__name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
             <div class="pf-dock__actions" id="pf_dock_actions"></div>
@@ -52,11 +52,14 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             <div class="pf-hero__top">
                 <div class="pf-avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
                     <?php if (!$has_avatar): ?><span class="pf-avatar__initial"><?php echo htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
+                    <span class="pf-presence <?php echo $is_online ? 'is-online' : 'is-offline'; ?>" title="<?php echo $is_online ? 'Online now' : 'Offline'; ?>"></span>
                 </div>
                 <div class="pf-hero__id">
                     <h1 class="pf-name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></h1>
                     <div class="pf-meta">
                         <span class="pf-meta__handle">@<?php echo htmlspecialchars($handle, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="pf-meta__dot">·</span>
+                        <span class="pf-status <?php echo $is_online ? 'pf-status--online' : 'pf-status--offline'; ?>"><span class="pf-status__dot"></span><?php echo $is_online ? 'Online' : 'Offline'; ?></span>
                         <?php if ($location !== ''): ?><span class="pf-meta__dot">·</span><span class="pf-meta__loc"><i class="fa-solid fa-location-dot"></i> <?php echo htmlspecialchars($location, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                     </div>
                     <div class="pf-stats"><span class="pf-stat"><strong id="pf_follower_count"><?php echo $followers; ?></strong> <span id="pf_follower_word"><?php echo $follow_word; ?></span></span></div>

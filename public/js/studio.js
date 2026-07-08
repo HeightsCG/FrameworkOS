@@ -29,9 +29,15 @@ jQuery(function ($) {
         var cur = CFG.creator.timezone || '';
         if (USER_TZ && USER_TZ !== 'UTC' && (cur === '' || cur === 'UTC')) {
             CFG.creator.timezone = USER_TZ;
-            apiPost('set_timezone', { timezone: USER_TZ });
+            ApiDataSvc.apiCall('post', 'set_timezone', { timezone: USER_TZ }, function () {});
         }
     })();
+
+    // Presence heartbeat — keeps the creator shown as "online" on their public profile
+    // while the Studio is open, even if they're not actively clicking.
+    function heartbeat() { ApiDataSvc.apiCall('post', 'heartbeat', {}, function () {}); }
+    heartbeat();
+    setInterval(function () { if (!document.hidden) { heartbeat(); } }, 60000);
     function apiForm(ep, fd, onProgress) {
         return $.ajax({
             url: '/api/' + ep, method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false,
@@ -453,22 +459,18 @@ jQuery(function ($) {
         $('#csGenStatus').prop('hidden', false).removeClass('is-error')
             .html('<span class="spinner-border spinner-border-sm text-primary"></span> Creating your image — this can take up to a minute.');
 
-        $.ajax({ url: '/api/media_generate', method: 'POST', dataType: 'json', timeout: 180000,
-                 data: { prompt: prompt, size: $('#csGenSize').val(), use_brand: useBrand } })
-            .done(function (o) {
-                $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
-                if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
-                lastGenAsset = o.asset;
-                injectAsset(o.asset);
-                var url = (o.asset && o.asset.thumb_url) || '';
-                if (url) { $('#csGenPreviewImg').attr('src', url); }
-                $('#csGenSavedMsg').text('Saved to your Library' + (o.brand_used ? ' · matched to your brand' : '') + '.');
-                setGenState('result');
-                toastr.success('Image added to your Library.');
-            })
-            .fail(function (xhr, st) {
-                genError(st === 'timeout' ? 'That took too long — please try again.' : 'Generation failed. Try again.');
-            });
+        ApiDataSvc.apiCall('post', 'media_generate', { prompt: prompt, size: $('#csGenSize').val(), use_brand: useBrand }, function (data) {
+            $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
+            var o = JSON.parse(data);
+            if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
+            lastGenAsset = o.asset;
+            injectAsset(o.asset);
+            var url = (o.asset && o.asset.thumb_url) || '';
+            if (url) { $('#csGenPreviewImg').attr('src', url); }
+            $('#csGenSavedMsg').text('Saved to your Library' + (o.brand_used ? ' · matched to your brand' : '') + '.');
+            setGenState('result');
+            toastr.success('Image added to your Library.');
+        });
     }
     $('#csGenRun').on('click', runGeneration);
 
@@ -1483,18 +1485,13 @@ jQuery(function ($) {
         renderSchedRules();                            // show the generating state immediately
         // The request keeps running even if the creator switches tabs; schedRunning keeps
         // the card in its "Generating…" state across re-renders until it completes.
-        $.ajax({ url: '/api/scheduler_run_now', method: 'POST', dataType: 'json', timeout: 180000, data: { id: id } })
-            .done(function (o) {
-                delete schedRunning[id];
-                if (o.success) { toastr.success('Published a new post.'); }
-                else { toastr.error(o.message || 'Run failed.'); }
-                loadScheduler();
-            })
-            .fail(function (x, st) {
-                delete schedRunning[id];
-                toastr.error(st === 'timeout' ? 'That took too long — try again.' : 'Run failed.');
-                renderSchedRules();
-            });
+        ApiDataSvc.apiCall('post', 'scheduler_run_now', { id: id }, function (data) {
+            delete schedRunning[id];
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success('Published a new post.'); }
+            else { toastr.error((o && o.message) || 'Run failed.'); }
+            loadScheduler();
+        });
     });
 
 
