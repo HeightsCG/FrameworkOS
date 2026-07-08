@@ -50,6 +50,32 @@ class MediaAssetsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /** Ready images awaiting moderation — the worker's feed (across all creators). */
+    public function due_for_moderation($limit = 20){
+        $limit = (int) $limit;
+        return parent::select(
+            "SELECT id, creator_id, display_key, original_key, thumb_key
+             FROM media_assets
+             WHERE type = 'image' AND status = 'ready' AND deleted_at IS NULL
+               AND moderation_status = 'pending'
+             ORDER BY created_at DESC
+             LIMIT $limit"
+        );
+    }
+
+    /** Record a moderation verdict (system worker — keyed by asset id). */
+    public function set_moderation($id, $status, $score = null, array $labels = array()){
+        return parent::update('media_assets',
+            array(
+                'moderation_status' => (string) $status,
+                'moderation_score'  => ($score === null) ? null : (float) $score,
+                'moderation_labels' => empty($labels) ? null : implode(',', $labels),
+                'moderated_at'      => date('Y-m-d H:i:s'),
+                'updated_at'        => date('Y-m-d H:i:s'),
+            ),
+            'id = :id', array('id' => (int) $id));
+    }
+
     public function set_description($creator_id, $id, $description){
         return parent::update('media_assets',
             array('description' => (string) $description, 'updated_at' => date('Y-m-d H:i:s')),
