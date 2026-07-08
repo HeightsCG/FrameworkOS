@@ -123,21 +123,31 @@ class PostsModel extends Model {
 
     /** Published posts for a creator's public profile, newest first. */
     /**
-     * Of the given posts, which are adult — i.e. contain at least one image that the
-     * moderator flagged. Returns a map post_id => true. Used to hide adult content from
-     * viewers who have "show adult content" turned off.
+     * Per-post moderation gate for the given posts, considering IMAGES only (videos are
+     * not scanned, so they never gate a post). Returns post_id => 'pending' | 'flagged':
+     *   - 'pending'  → has an image not yet cleared (unscanned/error): hide from everyone
+     *                  but the creator until it's scanned ("scanned before available").
+     *   - 'flagged'  → all images scanned and at least one is adult: hide from viewers with
+     *                  "show adult content" off.
+     * Posts with all images approved are omitted (fully visible).
      */
-    public function adult_post_ids(array $post_ids){
+    public function moderation_map(array $post_ids){
         $ids = array_filter(array_map('intval', $post_ids));
         if (!$ids) { return array(); }
         $in = implode(',', $ids);
         $rows = parent::select(
-            "SELECT DISTINCT pa.post_id
+            "SELECT pa.post_id,
+                    SUM(ma.moderation_status NOT IN ('approved','flagged')) AS unscanned_n,
+                    SUM(ma.moderation_status = 'flagged') AS flagged_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
-             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.moderation_status = 'flagged'"
+             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
+             GROUP BY pa.post_id"
         );
         $out = array();
-        foreach ((array) $rows as $r) { $out[(int) $r['post_id']] = true; }
+        foreach ((array) $rows as $r) {
+            if ((int) $r['unscanned_n'] > 0)    { $out[(int) $r['post_id']] = 'pending'; }
+            elseif ((int) $r['flagged_n'] > 0)  { $out[(int) $r['post_id']] = 'flagged'; }
+        }
         return $out;
     }
 

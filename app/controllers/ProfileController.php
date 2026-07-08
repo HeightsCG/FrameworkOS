@@ -119,21 +119,23 @@ class ProfileController extends Controller {
             ? (new PpvUnlocksModel())->unlocked_map($viewer_id, $post_ids)
             : array();
 
-        // Adult-content filtering: a post is adult if any of its images was flagged by
-        // moderation. Hide adult posts unless the viewer is the creator, or is signed in
-        // with "show adult content" on. Logged-out viewers default to OFF (safest).
+        // Moderation gate: content must be scanned before it's available to viewers.
+        //  - 'pending' (an image not yet cleared) → hidden from everyone but the creator.
+        //  - 'flagged' (adult) → hidden from viewers with "show adult content" off.
+        // The creator always sees their own posts. Logged-out viewers default to adult OFF.
         $show_adult = $is_self;
         if (!$show_adult && $viewer_logged_in) {
             $viewer_rows = $this->userModel->get_user_by_id($viewer_id);
             $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
             $show_adult  = !empty($viewer_row['adult_content_enabled']);
         }
-        $adult_map = (!$show_adult && !empty($post_ids)) ? $posts_model->adult_post_ids($post_ids) : array();
+        $moderation_map = (!$is_self && !empty($post_ids)) ? $posts_model->moderation_map($post_ids) : array();
 
         $content_cards = array();
         foreach ($published as $p) {
-            // Skip adult posts for viewers who can't see them.
-            if (!$show_adult && isset($adult_map[(int) $p['id']])) { continue; }
+            $mod = $moderation_map[(int) $p['id']] ?? '';
+            if ($mod === 'pending') { continue; }                       // not yet scanned — not available
+            if ($mod === 'flagged' && !$show_adult) { continue; }       // adult — viewer opted out
             $audience = $p['audience'];
             if ($is_self || $audience === 'free') {
                 $entitled = true;

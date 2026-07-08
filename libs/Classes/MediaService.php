@@ -145,6 +145,18 @@ class MediaService {
         if (!$ok) {
             return array('error' => 'Storage failed while processing the image');
         }
+
+        // Moderate BEFORE the asset is marked ready, so nothing reaches viewers unscanned.
+        // If the classifier is unavailable, leave it 'pending' — the cron worker is the
+        // fallback and the viewer layer hides pending (unscanned) content until resolved.
+        $moderation = array('status' => 'pending', 'score' => null, 'labels' => null);
+        $mod = ModerationService::classify_image(S3Service::presigned_get_url($display_key, 600));
+        if (!empty($mod['ok'])) {
+            $moderation['status'] = !empty($mod['adult']) ? 'flagged' : 'approved';
+            $moderation['score']  = $mod['score'];
+            $moderation['labels'] = empty($mod['labels']) ? null : implode(',', $mod['labels']);
+        }
+
         return array(
             'original_key'      => $original_key,
             'display_key'       => $display_key,
@@ -154,6 +166,9 @@ class MediaService {
             'height'            => $h,
             'bytes'             => $bytes !== false ? (int) $bytes : null,
             'watermark_applied' => $watermark ? 1 : 0,
+            'moderation_status' => $moderation['status'],
+            'moderation_score'  => $moderation['score'],
+            'moderation_labels' => $moderation['labels'],
         );
     }
 

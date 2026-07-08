@@ -39,6 +39,13 @@ class MediaAssetsModel extends Model {
                        'width','height','bytes','duration_sec','watermark_applied') as $k) {
             if (array_key_exists($k, $fields)) { $data[$k] = $fields[$k]; }
         }
+        // Moderation verdict from the processing pipeline (set before the asset goes live).
+        if (array_key_exists('moderation_status', $fields)) {
+            $data['moderation_status'] = (string) $fields['moderation_status'];
+            $data['moderation_score']  = ($fields['moderation_score'] ?? null) === null ? null : (float) $fields['moderation_score'];
+            $data['moderation_labels'] = $fields['moderation_labels'] ?? null;
+            if ($fields['moderation_status'] !== 'pending') { $data['moderated_at'] = date('Y-m-d H:i:s'); }
+        }
         return parent::update('media_assets', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
@@ -57,7 +64,7 @@ class MediaAssetsModel extends Model {
             "SELECT id, creator_id, display_key, original_key, thumb_key
              FROM media_assets
              WHERE type = 'image' AND status = 'ready' AND deleted_at IS NULL
-               AND moderation_status = 'pending'
+               AND moderation_status IN ('pending', 'error')
              ORDER BY created_at DESC
              LIMIT $limit"
         );
