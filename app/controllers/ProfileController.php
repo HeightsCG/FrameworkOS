@@ -119,8 +119,21 @@ class ProfileController extends Controller {
             ? (new PpvUnlocksModel())->unlocked_map($viewer_id, $post_ids)
             : array();
 
+        // Adult-content filtering: a post is adult if any of its images was flagged by
+        // moderation. Hide adult posts unless the viewer is the creator, or is signed in
+        // with "show adult content" on. Logged-out viewers default to OFF (safest).
+        $show_adult = $is_self;
+        if (!$show_adult && $viewer_logged_in) {
+            $viewer_rows = $this->userModel->get_user_by_id($viewer_id);
+            $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
+            $show_adult  = !empty($viewer_row['adult_content_enabled']);
+        }
+        $adult_map = (!$show_adult && !empty($post_ids)) ? $posts_model->adult_post_ids($post_ids) : array();
+
         $content_cards = array();
         foreach ($published as $p) {
+            // Skip adult posts for viewers who can't see them.
+            if (!$show_adult && isset($adult_map[(int) $p['id']])) { continue; }
             $audience = $p['audience'];
             if ($is_self || $audience === 'free') {
                 $entitled = true;

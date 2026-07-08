@@ -122,6 +122,25 @@ class PostsModel extends Model {
     }
 
     /** Published posts for a creator's public profile, newest first. */
+    /**
+     * Of the given posts, which are adult — i.e. contain at least one image that the
+     * moderator flagged. Returns a map post_id => true. Used to hide adult content from
+     * viewers who have "show adult content" turned off.
+     */
+    public function adult_post_ids(array $post_ids){
+        $ids = array_filter(array_map('intval', $post_ids));
+        if (!$ids) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select(
+            "SELECT DISTINCT pa.post_id
+             FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.moderation_status = 'flagged'"
+        );
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['post_id']] = true; }
+        return $out;
+    }
+
     public function get_published_for_creator($creator_id){
         return parent::select(
             "SELECT * FROM posts WHERE creator_id = :c AND state = 'published'
