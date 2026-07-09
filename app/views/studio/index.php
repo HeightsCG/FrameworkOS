@@ -19,17 +19,17 @@
         <div class="cs-head__actions">
             <div class="dropdown cs-create">
                 <button type="button" class="btn btn-primary dropdown-toggle" id="csCreateBtn" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i class="fa-solid fa-plus"></i> Create
+                    <i class="fa-solid fa-plus"></i> Action
                 </button>
                 <ul class="dropdown-menu dropdown-menu-end cs-create__menu">
                     <li class="cs-create__label">Content</li>
-                    <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New post</strong><small>Write, schedule &amp; publish</small></span></button></li>
-                    <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate image</strong><small>Create an on-brand image with AI</small></span></button></li>
-                    <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New Post</strong><small>Write, schedule &amp; publish</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
                     <li><hr class="dropdown-divider"></li>
                     <li class="cs-create__label">Library</li>
-                    <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload media</strong><small>Add files to your library</small></span></button></li>
-                    <li><button type="button" class="dropdown-item" id="csCreateCollectionBtn"><span class="cs-create__ic"><i class="fa-solid fa-folder-plus"></i></span><span><strong>Create collection</strong><small>Group related files</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload Media</strong><small>Add files to your library</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csCreateCollectionBtn"><span class="cs-create__ic"><i class="fa-solid fa-folder-plus"></i></span><span><strong>Create Collection</strong><small>Group related files</small></span></button></li>
                 </ul>
             </div>
         </div>
@@ -48,7 +48,6 @@
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCalendar" data-bs-toggle="tab" data-bs-target="#csPaneCalendar" type="button" role="tab"><i class="fa-solid fa-calendar-days"></i> Calendar</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCollections" data-bs-toggle="tab" data-bs-target="#csPaneCollections" type="button" role="tab"><i class="fa-solid fa-folder"></i> Collections</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabScheduler" data-bs-toggle="tab" data-bs-target="#csPaneScheduler" type="button" role="tab"><i class="fa-solid fa-robot"></i> Scheduler</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" id="csTabReleases" data-bs-toggle="tab" data-bs-target="#csPaneReleases" type="button" role="tab"><i class="fa-solid fa-id-card"></i> Releases</button></li>
     </ul>
 
     <div class="tab-content cs-tabcontent">
@@ -104,7 +103,7 @@
             <div class="cs-toolbar">
                 <div class="input-group cs-search">
                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
-                    <input type="search" class="form-control" id="csPostSearch" placeholder="Search posts..." autocomplete="off">
+                    <input type="search" class="form-control" id="csPostSearch" placeholder="Search posts…" autocomplete="off">
                 </div>
                 <select id="csPostFilter" class="form-select cs-filter" aria-label="Filter by status">
                     <option value="">All statuses</option>
@@ -200,23 +199,6 @@
             <div class="cs-sched" id="csSchedList" hidden></div>
         </div>
 
-        <!-- ============ RELEASES (co-star registry / 2257) ============ -->
-        <div class="tab-pane fade" id="csPaneReleases" role="tabpanel">
-            <div class="cs-coltoolbar">
-                <p class="cs-coltoolbar__hint">Anyone besides you who appears in your content must have a verified release on file before you can publish it.</p>
-                <button type="button" class="btn btn-primary" id="csCsNew"><i class="fa-solid fa-plus"></i> Add co-star</button>
-            </div>
-            <div class="cs-loading" id="csCsLoading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>
-            <div class="cs-error" id="csCsError" hidden><i class="fa-solid fa-circle-exclamation"></i><p>We couldn't load your co-stars.</p><button type="button" class="btn btn-outline-secondary" id="csCsRetry">Try again</button></div>
-            <div class="cs-empty" id="csCsEmpty" hidden>
-                <i class="fa-solid fa-id-card cs-empty__icon"></i>
-                <h2 class="cs-empty__title">No co-stars yet</h2>
-                <p class="cs-empty__text">If your content only ever features you, you're all set. Add a co-star here when someone else appears, and upload their ID and signed release for verification.</p>
-                <button type="button" class="btn btn-primary" id="csCsEmptyNew"><i class="fa-solid fa-plus"></i> Add co-star</button>
-            </div>
-            <div class="cs-costars" id="csCsList" hidden></div>
-        </div>
-
     </div>
 
     <!-- selection action bar -->
@@ -293,20 +275,22 @@
                         <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload</button>
                     </div>
 
+                    <label class="cs-flabel" for="csCompCaption">Caption</label>
                     <textarea id="csCompCaption" class="form-control" rows="4" maxlength="3000" placeholder="Write a caption…"></textarea>
                     <div class="cs-comp__count"><span id="csCompCount">0</span> / 3000</div>
 
+                    <label class="cs-flabel">Who can see this post</label>
                     <div class="cs-seg cs-seg--3" id="csCompAudience">
                         <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i> <span><strong>Everyone</strong><small>Anyone can see it</small></span></button>
                         <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers</strong><small>Members only</small></span></button>
                         <button type="button" class="cs-seg__opt" data-aud="ppv"><i class="fa-solid fa-dollar-sign"></i> <span><strong>Pay-per-view</strong><small>Unlock to view</small></span></button>
                     </div>
                     <div class="cs-comp__tier" id="csCompTier" hidden>
-                        <label class="cs-dv__label mt-3" for="csCompTierSel">Available to</label>
+                        <label class="cs-flabel" for="csCompTierSel">Available to</label>
                         <select id="csCompTierSel" class="form-select"><option value="">All Subscribers</option></select>
                     </div>
                     <div class="cs-comp__ppv" id="csCompPpv" hidden>
-                        <label class="cs-dv__label mt-3" for="csCompPpvPrice">Unlock price</label>
+                        <label class="cs-flabel" for="csCompPpvPrice">Unlock price</label>
                         <div class="cs-ppvprice">
                             <span class="cs-ppvprice__cur">$</span>
                             <input type="number" class="form-control" id="csCompPpvPrice" min="3" max="500" step="1" value="5" inputmode="numeric">
@@ -315,11 +299,13 @@
                         <p class="cs-ppvprice__note">Fans spend credits to unlock this post. $3–$500.</p>
                     </div>
 
+                    <label class="cs-flabel">Options</label>
                     <label class="cs-comp__opt" for="csCompComments">
                         <span>Allow comments<small>Fans can comment on this post.</small></span>
                         <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csCompComments" checked></span>
                     </label>
 
+                    <label class="cs-flabel" id="csCompSocialLabel">Cross-post to social</label>
                     <div id="csCompSocial" class="cs-comp__social"></div>
 
                     <div class="cs-comp__sched" id="csCompSchedule" hidden>
@@ -389,7 +375,7 @@
                     <div id="csGenInputs">
                         <div class="cs-gen__field">
                             <label for="csGenPrompt">Describe the image</label>
-                            <textarea class="form-control" id="csGenPrompt" rows="3" placeholder="e.g. a cozy oat-milk latte on a marble counter, soft morning light"></textarea>
+                            <textarea class="form-control" id="csGenPrompt" rows="3" placeholder="Sunset over Lake Eola, golden hour"></textarea>
                         </div>
                         <div class="cs-gen__field">
                             <label for="csGenSize">Shape</label>
@@ -434,10 +420,10 @@
                 <input type="hidden" id="csSchedId" value="0">
 
                 <label class="cs-dv__label" for="csSchedName">Name</label>
-                <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="e.g. Daily Orlando tip">
+                <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="Daily Orlando tip">
 
                 <label class="cs-dv__label mt-3" for="csSchedTopic">What to post each time</label>
-                <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A theme to generate from — e.g. a scenic Orlando spot with a short, upbeat travel tip"></textarea>
+                <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A scenic Orlando spot with a short caption"></textarea>
                 <span class="cs-comp__count">Each run makes a fresh on-brand image + caption from this.</span>
 
                 <label class="cs-dv__label mt-3" for="csSchedSize">Image shape</label>
@@ -485,57 +471,6 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="csSchedSave">Save automation</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- ============ RELEASES — co-star form ============ -->
-<div class="modal fade" id="csCsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="csCsModalTitle"><i class="fa-solid fa-id-card"></i> Add co-star</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body cs-comp__edit">
-                <input type="hidden" id="csCsId" value="0">
-                <div class="cs-cs__status" id="csCsStatusRow" hidden></div>
-
-                <label class="cs-dv__label" for="csCsStage">Stage / performer name</label>
-                <input type="text" class="form-control" id="csCsStage" maxlength="190" placeholder="The name you'll tag in posts">
-
-                <label class="cs-dv__label mt-3" for="csCsLegal">Legal name</label>
-                <input type="text" class="form-control" id="csCsLegal" maxlength="190" placeholder="Full legal name (encrypted, stored securely)">
-
-                <label class="cs-dv__label mt-3" for="csCsDob">Date of birth</label>
-                <input type="date" class="form-control" id="csCsDob">
-                <p class="cs-ppvprice__note">Legal name and date of birth are encrypted at rest and never shown publicly.</p>
-
-                <label class="cs-dv__label mt-3">Documents</label>
-                <div class="cs-cs__docs">
-                    <div class="cs-cs__doc" id="csCsIdDoc">
-                        <div class="cs-cs__doc-info"><i class="fa-solid fa-id-card"></i><span><strong>Government ID</strong><small id="csCsIdState">Not uploaded</small></span></div>
-                        <div class="cs-cs__doc-actions">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-cs-view="id" hidden>View</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-cs-upload="id">Upload</button>
-                        </div>
-                    </div>
-                    <div class="cs-cs__doc" id="csCsRelDoc">
-                        <div class="cs-cs__doc-info"><i class="fa-solid fa-file-signature"></i><span><strong>Signed release</strong><small id="csCsRelState">Not uploaded</small></span></div>
-                        <div class="cs-cs__doc-actions">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-cs-view="release" hidden>View</button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" data-cs-upload="release">Upload</button>
-                        </div>
-                    </div>
-                </div>
-                <input type="file" id="csCsFile" accept="image/jpeg,image/png,image/webp,application/pdf" hidden>
-                <p class="cs-cs__savefirst" id="csCsSaveFirst" hidden>Save the co-star first, then upload their documents.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-danger me-auto" id="csCsDelete" hidden>Delete</button>
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-                <button type="button" class="btn btn-primary" id="csCsSave">Save co-star</button>
             </div>
         </div>
     </div>

@@ -486,36 +486,9 @@
 .cs-comp__edit #csCompAudience{ margin-top:1.3rem; }
 .cs-comp__edit .cs-comp__opt{ margin-top:1.3rem; }
 .cs-comp__edit .cs-comp__social:not(:empty){ margin-top:1.3rem; }
-
 /* ===================== RELEASES (co-star registry) ===================== */
-.cs-costars{ display:flex; flex-direction:column; gap:.7rem; }
-.cs-costar{ display:flex; align-items:center; gap:1rem; padding:.9rem 1.1rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); transition:border-color .12s, box-shadow .12s; }
-.cs-costar:hover{ border-color:var(--muted2); box-shadow:var(--sh-xs); }
-.cs-costar__main{ flex:1 1 auto; min-width:0; }
-.cs-costar__name{ font-size:1rem; font-weight:700; color:var(--text); display:block; }
-.cs-costar__meta{ font-size:.82rem; color:var(--muted); }
-.cs-costar__docs i{ color:var(--muted2); margin-right:.25rem; }
-.cs-costar__status{ font-size:.72rem; font-weight:700; letter-spacing:.02em; padding:.2rem .6rem; border-radius:var(--r-pill); text-transform:uppercase; flex:none; }
-.cs-costar__status.is-pending{ background:rgba(232,151,58,.14); color:#b06a12; }
-.cs-costar__status.is-verified{ background:var(--success-bg); color:var(--success); }
-.cs-costar__status.is-rejected{ background:rgba(207,59,59,.1); color:var(--danger); }
-.cs-costar__status.is-expired{ background:rgba(20,18,40,.06); color:var(--muted); }
 
 /* co-star modal */
-.cs-cs__status{ display:flex; align-items:flex-start; gap:.5rem; font-size:.84rem; line-height:1.4; border-radius:var(--r-sm); padding:.6rem .75rem; margin:0 0 1rem; }
-.cs-cs__status.is-pending{ background:rgba(232,151,58,.1); color:#8a5410; }
-.cs-cs__status.is-verified{ background:var(--success-bg); color:var(--success); }
-.cs-cs__status.is-rejected{ background:rgba(207,59,59,.08); color:var(--danger); }
-.cs-cs__docs{ display:flex; flex-direction:column; gap:.5rem; }
-.cs-cs__doc{ display:flex; align-items:center; gap:.8rem; padding:.7rem .8rem; border:1px solid var(--line); border-radius:var(--r-sm); }
-.cs-cs__doc-info{ flex:1 1 auto; display:flex; align-items:center; gap:.7rem; min-width:0; }
-.cs-cs__doc-info > i{ width:34px; height:34px; flex:none; display:inline-flex; align-items:center; justify-content:center; border-radius:var(--r-sm); background:var(--vsoft); color:var(--violet); }
-.cs-cs__doc-info span{ display:flex; flex-direction:column; line-height:1.25; }
-.cs-cs__doc-info strong{ font-size:.9rem; font-weight:600; }
-.cs-cs__doc-info small{ font-size:.78rem; color:var(--muted); }
-.cs-cs__doc-info small.is-on{ color:var(--success); font-weight:600; }
-.cs-cs__doc-actions{ display:flex; gap:.4rem; flex:none; }
-.cs-cs__savefirst{ font-size:.82rem; color:var(--muted); margin:.6rem 0 0; }
 
 /* ===================== COMPOSER POLISH ===================== */
 /* Social accounts: refined selectable pills (not vanilla checkbox boxes) */
@@ -547,3 +520,38 @@
 /* Group media-action buttons with the dropzone above; clear break before the caption */
 .cs-comp__edit .cs-comp__media{ margin-bottom:.5rem; }
 .cs-comp__edit .cs-comp__mediaactions{ margin-bottom:1.4rem; }
+
+/* Consistent input sizing across the Studio + its modals (app standard = .9rem) */
+.cs .form-control, .cs .form-select,
+.cs-comp__edit .form-control, .cs-comp__edit .form-select{ font-size:.9rem; }
+.cs-comp__edit #csCompCaption{ font-size:.9rem; }
+.cs-filter{ font-size:.9rem; }
+
+/* Consistent brand focus ring on every studio input (UI standards) */
+.cs .cs-filter:focus,
+.cs .form-select:focus,
+.cs-dropzone .form-control:focus{ border-color:var(--violet) !important; box-shadow:0 0 0 3px var(--vsoft) !important; outline:none; }
+
+/* ===================== COMPOSER FORM v2 (clean field labels + refined inputs) ===================== */
+/* Clean, sentence-case field labels (Stripe/Linear style) — the single source of section rhythm */
+.cs-comp__edit .cs-flabel{ display:block; font-size:.82rem; font-weight:600; color:var(--text); letter-spacing:0; text-transform:none; margin:1.5rem 0 .5rem; }
+.cs-comp__edit .cs-flabel::before{ display:none; }   /* kill any inherited accent bar */
+/* Labels now own the spacing — remove the ad-hoc top margins so gaps don't double up */
+.cs-comp__edit #csCompAudience,
+.cs-comp__edit .cs-comp__opt,
+.cs-comp__edit .cs-comp__social:not(:empty){ margin-top:0; }
+.cs-comp__edit .cs-comp__mediaactions{ margin-bottom:0; }
+
+/* Refined inputs: consistent neutral border, comfortable padding, one clear focus ring */
+.cs-comp__edit .form-control,
+.cs-comp__edit .form-select{ border:1px solid #dcdce4; border-radius:var(--r-sm); background:var(--surface); color:var(--text); padding:.6rem .8rem; box-shadow:none; transition:border-color .14s, box-shadow .14s; }
+.cs-comp__edit .form-control::placeholder{ color:var(--muted2); }
+.cs-comp__edit .form-control:hover,
+.cs-comp__edit .form-select:hover{ border-color:var(--muted2); }
+.cs-comp__edit .form-control:focus,
+.cs-comp__edit .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 3px var(--vsoft); outline:none; }
+
+/* Unify ALL studio modal-form labels (scheduler, generate) to the clean sentence-case style */
+.cs-comp__edit .cs-dv__label{ font-size:.82rem !important; font-weight:600 !important; color:var(--text) !important; text-transform:none !important; letter-spacing:0 !important; margin-bottom:.5rem !important; }
+.cs-comp__edit .cs-dv__label::before{ display:none !important; }
+.cs-comp__edit .cs-dv__label.mt-3{ margin-top:1.5rem !important; }
