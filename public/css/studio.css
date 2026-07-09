@@ -555,3 +555,55 @@
 .cs-comp__edit .cs-dv__label{ font-size:.82rem !important; font-weight:600 !important; color:var(--text) !important; text-transform:none !important; letter-spacing:0 !important; margin-bottom:.5rem !important; }
 .cs-comp__edit .cs-dv__label::before{ display:none !important; }
 .cs-comp__edit .cs-dv__label.mt-3{ margin-top:1.5rem !important; }
+
+/* ============================================================
+   COMPOSER CONTROL SYSTEM — Stripe Dashboard treatment
+   White surfaces, crisp hairline borders, subtle shadow, one accent.
+   ============================================================ */
+:root{ --cs-border:#e4e4ea; --cs-border-hover:#c9ccd6; --cs-ishadow:0 1px 1px rgba(15,17,26,.03); }
+
+/* labels — Stripe slate, medium weight */
+.cs-comp__edit .cs-flabel,
+.cs-comp__edit .cs-dv__label{ color:#3c4257 !important; font-weight:600 !important; font-size:.82rem !important; }
+
+/* text inputs / textareas / selects */
+.cs-comp__edit .form-control,
+.cs-comp__edit .form-select{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); padding:.62rem .75rem; color:var(--text); font-size:.9rem; box-shadow:var(--cs-ishadow); transition:border-color .14s, box-shadow .14s; }
+.cs-comp__edit .form-control::placeholder{ color:#8a8f9c; }
+.cs-comp__edit .form-control:hover, .cs-comp__edit .form-select:hover{ border-color:var(--cs-border-hover); }
+.cs-comp__edit .form-control:focus, .cs-comp__edit .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 3px var(--vsoft); outline:none; }
+.cs-comp__edit #csCompCaption{ min-height:118px; line-height:1.5; }
+
+/* audience — Stripe radio cards: white + hairline; selected = accent border + tint */
+.cs-comp__edit #csCompAudience{ gap:.6rem; }
+.cs-comp__edit #csCompAudience .cs-seg__opt{ background:#fff; border:1px solid var(--cs-border) !important; box-shadow:var(--cs-ishadow) !important; border-radius:var(--r-sm); padding:.72rem .8rem; transition:border-color .14s, box-shadow .14s, background .14s; }
+.cs-comp__edit #csCompAudience .cs-seg__opt:hover{ border-color:var(--cs-border-hover) !important; }
+.cs-comp__edit #csCompAudience .cs-seg__opt.is-on{ background:var(--vsoft); border-color:var(--violet) !important; box-shadow:0 0 0 1px var(--violet) !important; }
+.cs-comp__edit #csCompAudience .cs-seg__opt i{ color:#8a8f9c; }
+.cs-comp__edit #csCompAudience .cs-seg__opt.is-on i{ color:var(--violet); }
+.cs-comp__edit #csCompAudience .cs-seg__opt strong{ color:var(--text); }
+.cs-comp__edit #csCompAudience .cs-seg__opt small{ color:#6b7280; }
+.cs-comp__edit #csCompAudience .cs-seg__opt.is-on strong{ color:var(--violet7); }
+
+/* comments option row */
+.cs-comp__edit .cs-comp__opt{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); box-shadow:var(--cs-ishadow); padding:.78rem .9rem; transition:border-color .14s; }
+.cs-comp__edit .cs-comp__opt:hover{ border-color:var(--cs-border-hover); }
+
+/* social chips — white + hairline; selected = accent border + tint */
+.cs-comp__social{ gap:.55rem; }
+.cs-comp__social .cs-social{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); padding:.5rem .8rem; box-shadow:var(--cs-ishadow); font-size:.85rem; transition:border-color .14s, background .14s; }
+.cs-comp__social .cs-social:hover{ border-color:var(--cs-border-hover); }
+.cs-comp__social .cs-social:has(input:checked){ background:var(--vsoft); border-color:var(--violet); box-shadow:0 0 0 1px var(--violet); }
+.cs-comp__social .cs-social:has(input:checked) i,
+.cs-comp__social .cs-social:has(input:checked) .cs-social__name{ color:var(--violet7); }
+
+/* media dropzone — light, crisp dashed */
+.cs-comp__mediaempty{ border:1.5px dashed var(--cs-border); background:#fbfbfc; transition:border-color .14s, background .14s; }
+.cs-comp__mediaempty:hover{ border-color:var(--violet); background:var(--vsoft); }
+
+/* buttons — subtle Stripe elevation */
+.cs-comp__actions .btn-primary{ box-shadow:0 1px 1px rgba(15,17,26,.08), 0 1px 2px rgba(91,75,224,.28); }
+.cs-comp__actions .btn-outline-secondary{ background:#fff; box-shadow:var(--cs-ishadow); }
+
+/* ppv price input */
+.cs-comp__edit .cs-ppvprice .form-control{ text-align:center; max-width:120px; }
