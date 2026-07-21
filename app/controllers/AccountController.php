@@ -175,10 +175,8 @@ class AccountController extends Controller {
         }
     }
 
-    public function profileAction(){
-        // Profile has been consolidated into Account settings.
-        Header('Location: /account/settings');
-        exit;
+    public function usersAction(){
+        $this->view->render();
     }
 
     /** Plain-text Creator Terms & Conditions with the site name substituted in. */

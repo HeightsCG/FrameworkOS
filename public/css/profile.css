@@ -325,8 +325,8 @@
 .pf-plb__estat--views{ margin-left:auto; }
 .pf-plb__comments{ margin-top:.3rem; }
 .pf-plb__clist{ display:flex; flex-direction:column; gap:.9rem; margin:.7rem 0; }
-.pf-plb__cempty{ font-size:.9rem; color:var(--pf-muted); margin:.4rem 0; }
-.pf-plb__cload{ font-size:.88rem; color:var(--pf-faint); padding:.5rem 0; }
+.pf-plb__comments .pf-plb__cempty{ font-size:.8rem; color:var(--pf-muted); margin:.4rem 0; }
+.pf-plb__cload{ font-size:.75rem; color:var(--pf-faint); padding:.5rem 0; }
 .pf-plb__c{ display:flex; gap:.6rem; }
 .pf-plb__cav{ width:32px; height:32px; flex:none; border-radius:50%; background:var(--pf-vsoft); color:var(--pf-violet); display:flex; align-items:center; justify-content:center; font-weight:700; font-size:.85rem; }
 .pf-plb__cmain{ flex:1; min-width:0; }

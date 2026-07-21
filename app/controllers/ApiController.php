@@ -868,7 +868,7 @@ class ApiController extends Controller {
     /** List a post's comments (only for entitled viewers). */
     public function post_commentsAction(){
         $viewer = (int) Session::get('user_id');
-        $post   = (new PostsModel())->get_by_id((int) ($_GET['id'] ?? 0));
+        $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
         if (!$post) { echo json_encode(array('success' => false, 'message' => 'Post not found')); exit; }
         if (!$this->post_engagement_ok($post, $viewer)) { echo json_encode(array('success' => true, 'comments' => array(), 'can_comment' => false, 'comments_enabled' => (int) $post['comments_enabled'])); exit; }
         $out = array();
@@ -940,6 +940,180 @@ class ApiController extends Controller {
             echo json_encode(array('success' => true, 'views' => $count)); exit;
         }
         echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
+    }
+
+    /**
+     * Home discovery feed — cross-creator published content, newest first, paginated.
+     * All gating is decided HERE (server-side): the clear cover is signed only for an
+     * entitled viewer; everyone else gets the blurred teaser. Mirrors the safety gate
+     * used on the profile grid (blocked hidden from all, pending withheld, adult opt-in).
+     */
+    public function feedAction(){
+        $viewer = (int) Session::get('user_id');
+        $logged = $viewer > 0;
+
+        $show_adult = false;
+        if ($logged) {
+            $rows = (new UsersModel())->get_user_by_id($viewer);
+            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            $show_adult = !empty($row['adult_content_enabled']);
+        }
+
+        $limit  = 4;
+        $offset = max(0, (int) ($this->post['offset'] ?? 0));
+
+        $posts_model = new PostsModel();
+        // Pull one extra row to learn whether another page exists.
+        $rows     = (array) (new FeedModel())->recent($limit + 1, $offset);
+        $has_more = count($rows) > $limit;
+        if ($has_more) { $rows = array_slice($rows, 0, $limit); }
+
+        $post_ids       = array_map(function ($p) { return (int) $p['id']; }, $rows);
+        $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : array();
+        $unlocked_map   = ($logged && !empty($post_ids)) ? (new PpvUnlocksModel())->unlocked_map($viewer, $post_ids) : array();
+        $liked_map      = ($logged && !empty($post_ids)) ? (new PostLikesModel())->liked_map($viewer, $post_ids) : array();
+
+        $cards = array();
+        foreach ($rows as $p) {
+            $id       = (int) $p['id'];
+            $is_owner = $logged && (int) $p['creator_id'] === $viewer;
+            $mod      = $moderation_map[$id] ?? '';
+            if ($mod === 'blocked') { continue; }
+            if ($mod === 'pending' && !$is_owner) { continue; }
+            if ($mod === 'flagged' && !$show_adult && !$is_owner) { continue; }
+
+            $audience = (string) $p['audience'];
+            if ($is_owner || $audience === 'free') {
+                $entitled = true;
+            } elseif ($audience === 'ppv') {
+                $entitled = isset($unlocked_map[$id]);
+            } else {
+                $entitled = false; // subscribers-only teaser on the card; unlocked in the lightbox
+            }
+
+            $display = trim((string) ($p['display_name'] ?? ''));
+            if ($display === '') { $display = '@' . (string) $p['u_name']; }
+            $cover_asset = array(
+                'type'        => (string) ($p['cover_type'] ?? 'image'),
+                'thumb_key'   => (string) ($p['cover_thumb_key'] ?? ''),
+                'poster_key'  => (string) ($p['cover_poster_key'] ?? ''),
+                'blurred_key' => (string) ($p['cover_blurred_key'] ?? ''),
+            );
+            $has_cover = ($cover_asset['thumb_key'] !== '' || $cover_asset['poster_key'] !== '' || $cover_asset['blurred_key'] !== '');
+            $cap = trim((string) $p['caption']);
+
+            $card = array(
+                'id'          => $id,
+                'profile_url' => '/@' . rawurlencode((string) $p['u_name']),
+                'author'      => $display,
+                'handle'      => (string) $p['u_name'],
+                'avatar'      => (string) ($p['avatar_url'] ?? ''),
+                'caption'     => mb_substr($cap, 0, 140),
+                'audience'    => $audience,
+                'entitled'    => $entitled,
+                'is_video'    => ($cover_asset['type'] === 'video'),
+                'media_count' => (int) $p['asset_count'],
+                'views'       => (int) $p['views'],
+                'likes'       => (int) $p['likes'],
+                'liked'       => isset($liked_map[$id]),
+                'comments'    => (int) $p['comments'],
+            );
+            if ($audience === 'ppv') {
+                $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
+                $card['unlocked']          = isset($unlocked_map[$id]);
+            }
+            if (!$has_cover) {
+                $card['cover'] = '';
+            } elseif ($entitled) {
+                $card['cover'] = MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
+            } else {
+                $card['cover'] = MediaService::signed_variant($cover_asset, 'blurred', 900);
+            }
+            $cards[] = $card;
+        }
+
+        echo json_encode(array(
+            'success'       => true,
+            'viewer_logged' => $logged,
+            'items'         => $cards,
+            'has_more'      => $has_more,
+            'next_offset'   => $offset + $limit,
+        )); exit;
+    }
+
+    /**
+     * Count of posts published since a watermark id — the Home feed polls this to
+     * raise its "N new posts" alert. Approximate by design (doesn't re-run the full
+     * moderation/adult gate); it's a nudge to refresh, not an exact figure.
+     */
+    public function feed_newAction(){
+        $since = (int) ($this->post['since_id'] ?? 0);
+        echo json_encode(array('success' => true, 'count' => (new FeedModel())->count_since($since))); exit;
+    }
+
+    /**
+     * Full detail for a single post — feeds the Home lightbox. Entitlement is decided
+     * here: an entitled viewer (owner, free, active subscriber, or PPV-unlocked) gets
+     * signed asset URLs; everyone else gets only the blurred teaser + the unlock/subscribe
+     * path. Author identity is carried by the feed card, so it isn't repeated here.
+     */
+    public function post_detailAction(){
+        $viewer = (int) Session::get('user_id');
+        $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
+        if (!$post || ($post['state'] ?? '') !== 'published') {
+            echo json_encode(array('success' => false, 'message' => 'Post not found')); exit;
+        }
+        $id       = (int) $post['id'];
+        $is_owner = $viewer > 0 && (int) $post['creator_id'] === $viewer;
+
+        // Same moderation gate the feed applies, re-checked so a post can't be
+        // reached by guessing its id.
+        $mod = (new PostsModel())->moderation_map(array($id))[$id] ?? '';
+        $show_adult = $is_owner;
+        if (!$show_adult && $viewer > 0) {
+            $rows = (new UsersModel())->get_user_by_id($viewer);
+            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            $show_adult = !empty($row['adult_content_enabled']);
+        }
+        if ($mod === 'blocked' || ($mod === 'pending' && !$is_owner) || ($mod === 'flagged' && !$show_adult && !$is_owner)) {
+            echo json_encode(array('success' => false, 'message' => 'Post not available')); exit;
+        }
+
+        $audience = (string) $post['audience'];
+        $unlocked = ($viewer > 0) ? isset((new PpvUnlocksModel())->unlocked_map($viewer, array($id))[$id]) : false;
+        // post_engagement_ok covers owner / free / active-subscriber; PPV needs an unlock.
+        $entitled = $this->post_engagement_ok($post, $viewer);
+        if (!$entitled && $audience === 'ppv' && $unlocked) { $entitled = true; }
+        $liked = ($viewer > 0) ? isset((new PostLikesModel())->liked_map($viewer, array($id))[$id]) : false;
+
+        $out = array(
+            'id'               => $id,
+            'caption'          => trim((string) $post['caption']),
+            'audience'         => $audience,
+            'entitled'         => $entitled,
+            'published_at'     => !empty($post['published_at']) ? date('M j, Y', strtotime((string) $post['published_at'])) : '',
+            'likes'            => (int) $post['likes'],
+            'liked'            => $liked,
+            'comments'         => (int) $post['comments'],
+            'views'            => (int) $post['views'],
+            'comments_enabled' => (int) $post['comments_enabled'],
+        );
+        if ($audience === 'ppv') {
+            $out['ppv_price_credits'] = (int) $post['ppv_price_credits'];
+            $out['ppv_price_dollars'] = (int) round(((int) $post['ppv_price_credits']) / 10);
+            $out['unlocked']          = $unlocked;
+        }
+        if ($entitled) {
+            $out['assets'] = $this->ppv_reveal_assets($post);
+        } else {
+            $assets = (new PostsModel())->get_assets($id);
+            $cover  = null;
+            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
+            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+            $out['locked_url'] = $cover ? MediaService::signed_variant($cover, 'blurred', 900) : '';
+        }
+
+        echo json_encode(array('success' => true, 'post' => $out)); exit;
     }
 
     /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it. */
@@ -1803,6 +1977,13 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Only creators can do that'));
             exit;
         }
+        // Creator features require an active platform plan. need_plan lets the
+        // frontend send the user to /account/billing to choose one.
+        if (!Plan::can_use_creator_features($user)) {
+            echo json_encode(array('success' => false, 'need_plan' => true,
+                'message' => 'An active plan is required to use creator tools. Choose a plan to continue.'));
+            exit;
+        }
         // Refresh presence (throttled to ~once/45s so we don't write on every call).
         $last = $user['last_active_at'] ?? null;
         if ($last === null || strtotime((string) $last . ' UTC') < time() - 45) {
@@ -2504,7 +2685,7 @@ class ApiController extends Controller {
     public function media_upload_statusAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
-        $token      = (string) ($_GET['client_token'] ?? '');
+        $token      = (string) ($this->post['client_token'] ?? '');
         $session    = $token !== '' ? (new UploadSessionsModel())->get_active_by_token($creator_id, $token) : null;
         if (!$session) {
             echo json_encode(array('success' => true, 'active' => false)); exit;
@@ -2571,15 +2752,15 @@ class ApiController extends Controller {
         exit;
     }
 
-    /** Vault listing with filters (type, collection, usage, search). */
+    /** Library grid: the creator's media assets, optionally filtered by type/collection/usage/search. */
     public function media_listAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
         $filters = array(
-            'type'       => (string) ($_GET['type'] ?? ''),
-            'collection' => (int) ($_GET['collection'] ?? 0),
-            'usage'      => (string) ($_GET['usage'] ?? ''),
-            'search'     => (string) ($_GET['search'] ?? ''),
+            'type'       => (string) ($this->post['type'] ?? ''),
+            'collection' => (int) ($this->post['collection'] ?? 0),
+            'usage'      => (string) ($this->post['usage'] ?? ''),
+            'search'     => (string) ($this->post['search'] ?? ''),
         );
         $rows = (new MediaAssetsModel())->get_for_creator($creator_id, $filters);
         $assets = array();
@@ -2592,7 +2773,7 @@ class ApiController extends Controller {
     public function media_getAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
-        $id         = (int) ($_GET['id'] ?? 0);
+        $id         = (int) ($this->post['id'] ?? 0);
         $model      = new MediaAssetsModel();
         $a          = $model->get_one($creator_id, $id);
         if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
@@ -2639,8 +2820,8 @@ class ApiController extends Controller {
     public function media_signAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
-        $id         = (int) ($_GET['id'] ?? 0);
-        $variant    = (string) ($_GET['variant'] ?? 'thumb');
+        $id         = (int) ($this->post['id'] ?? 0);
+        $variant    = (string) ($this->post['variant'] ?? 'thumb');
         $a          = (new MediaAssetsModel())->get_one($creator_id, $id);
         if (!$a) { echo json_encode(array('success' => false, 'message' => 'That file was not found.')); exit; }
         echo json_encode(array('success' => true, 'url' => MediaService::signed_url($a, $variant, $creator_id)));
@@ -2988,7 +3169,7 @@ class ApiController extends Controller {
     public function post_getAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
-        $id         = (int) ($_GET['id'] ?? 0);
+        $id         = (int) ($this->post['id'] ?? 0);
         $post       = (new PostsModel())->get_one($creator_id, $id);
         if (!$post) { echo json_encode(array('success' => false, 'message' => 'That post was not found.')); exit; }
         $json = $this->studio_post_json($post, $user);
@@ -3228,7 +3409,7 @@ class ApiController extends Controller {
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
         $model->publish_due($creator_id);   // cron-less: flip any now-due scheduled posts
-        $filters = array('state' => (string) ($_GET['state'] ?? ''), 'search' => (string) ($_GET['search'] ?? ''));
+        $filters = array('state' => (string) ($this->post['state'] ?? ''), 'search' => (string) ($this->post['search'] ?? ''));
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = array();
         $ppv_ids = array();

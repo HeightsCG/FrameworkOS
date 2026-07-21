@@ -18,6 +18,11 @@ class DashboardController extends Controller {
 
         $rows = (new UsersModel())->get_user_by_id($user_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+
+        // Analytics is a creator feature — requires an active platform plan. We still
+        // render the dashboard, but the view blurs it behind a plan-lock overlay.
+        $this->view->needs_plan = !Plan::can_use_creator_features($user);
+
         $name = $user ? trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) : '';
         $this->view->display_name = $name !== '' ? $name : ('@' . ($user['u_name'] ?? ''));
         $this->view->is_creator   = true;

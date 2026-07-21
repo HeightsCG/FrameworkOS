@@ -37,4 +37,23 @@ class FeedModel extends Model {
                 LIMIT $offset, $limit";
         return parent::select($sql, array());
     }
+
+    /**
+     * How many published posts exist newer than a watermark id — powers the Home
+     * feed's "N new posts" alert. Ids are auto-increment so id > watermark is a
+     * cheap monotonic proxy for "published since you last loaded the top". Capped
+     * so the count query stays bounded (the UI only needs "9+").
+     */
+    public function count_since($since_id, $cap = 50){
+        $since_id = (int) $since_id;
+        if ($since_id <= 0) { return 0; }
+        $cap = max(1, min(200, (int) $cap));
+        $sql = "SELECT COUNT(*) AS c FROM (
+                    SELECT p.id FROM posts p
+                    WHERE p.state = 'published' AND p.id > :since
+                    LIMIT $cap
+                ) t";
+        $rows = parent::select($sql, array('since' => $since_id));
+        return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;
+    }
 }

@@ -18,8 +18,6 @@ jQuery(function ($) {
     var detailOC = bootstrap.Offcanvas.getOrCreateInstance('#csDetail');
 
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
-    function apiGet(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'GET', data: data || {}, dataType: 'json' }); }
-    function apiPost(ep, data) { return $.ajax({ url: '/api/' + ep, method: 'POST', data: data || {}, dataType: 'json' }); }
 
     // Never trust the stored UTC default — detect the creator's real timezone and persist it
     // so scheduling, the calendar and automations all use the right zone.
@@ -109,12 +107,10 @@ jQuery(function ($) {
         $('#csColCountLbl').text('');
         $('#csColGridEmpty').prop('hidden', true);
         $('#csColGrid').prop('hidden', false).html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
-        apiGet('media_list', { collection: c.id }).done(function (o) {
+        ApiDataSvc.apiCall('post', 'media_list', { collection: c.id }, function (resp) { var o = JSON.parse(resp);
             var assets = (o && o.success) ? o.assets : [];
             $('#csColCountLbl').text(assets.length + (assets.length === 1 ? ' file' : ' files'));
             renderColGrid(assets);
-        }).fail(function () {
-            $('#csColGrid').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load this collection.</p></div>');
         });
     }
 
@@ -132,7 +128,7 @@ jQuery(function ($) {
         });
         $g.find('.cs-tile__img').on('error', function () {
             var img = this; if (img.dataset.retried) return; img.dataset.retried = '1';
-            apiGet('media_sign', { id: $(img).closest('.cs-tile').data('id'), variant: 'thumb' }).done(function (o) { if (o && o.success && o.url) img.src = o.url; });
+            ApiDataSvc.apiCall('post', 'media_sign', { id: $(img).closest('.cs-tile').data('id'), variant: 'thumb' }, function (resp) { var o = JSON.parse(resp); if (o && o.success && o.url) img.src = o.url; });
         });
     }
 
@@ -141,7 +137,7 @@ jQuery(function ($) {
             e.stopPropagation();
             if (!openCol) return;
             var id = $(this).closest('.cs-tile').data('id');
-            apiPost('collection_remove_assets', { id: openCol.id, ids: [id] }).done(function (o) {
+            ApiDataSvc.apiCall('post', 'collection_remove_assets', { id: openCol.id, ids: [id] }, function (resp) { var o = JSON.parse(resp);
                 if (o.success) { toastr.success('Removed from ' + openCol.name); openCollectionView(openCol); } else err(o);
             });
         })
@@ -152,7 +148,7 @@ jQuery(function ($) {
         if (!openCol) return;
         promptDialog('Rename Collection', 'Collection Name', openCol.name, function (name) {
             if (!name.trim() || name === openCol.name) return;
-            apiPost('collection_save', { id: openCol.id, name: name }).done(function (o) {
+            ApiDataSvc.apiCall('post', 'collection_save', { id: openCol.id, name: name }, function (resp) { var o = JSON.parse(resp);
                 if (o.success) { openCol.name = name; $('#csColName').text(name); toastr.success('Collection renamed'); } else err(o);
             });
         });
@@ -160,7 +156,7 @@ jQuery(function ($) {
     $('#csColDelete').on('click', function () {
         if (!openCol) return;
         confirmDialog('Delete “' + openCol.name + '”?', 'The collection is removed. Your files stay in your library.', 'Delete', true, function () {
-            apiPost('collection_delete', { id: openCol.id }).done(function (o) {
+            ApiDataSvc.apiCall('post', 'collection_delete', { id: openCol.id }, function (resp) { var o = JSON.parse(resp);
                 if (o.success) { toastr.success('Collection deleted'); showCollectionsList(); } else err(o);
             });
         });
@@ -172,18 +168,12 @@ jQuery(function ($) {
         var seq = ++state.loadSeq;
         $('#csLibLoading').prop('hidden', false);
         $('#csLibError, #csLibEmpty, #csGrid').prop('hidden', true);
-        apiGet('media_list', state.filters)
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'media_list', state.filters, function (resp) { var o = JSON.parse(resp);
                 if (seq !== state.loadSeq) return;
                 $('#csLibLoading').prop('hidden', true);
                 if (!o || !o.success) { $('#csLibError').prop('hidden', false); return; }
                 state.assets = o.assets || [];
                 renderGrid();
-            })
-            .fail(function () {
-                if (seq !== state.loadSeq) return;
-                $('#csLibLoading').prop('hidden', true);
-                $('#csLibError').prop('hidden', false);
             });
     }
 
@@ -212,7 +202,7 @@ jQuery(function ($) {
             var img = this;
             if (img.dataset.retried) return;
             img.dataset.retried = '1';
-            apiGet('media_sign', { id: $(img).closest('.cs-tile').data('id'), variant: 'thumb' }).done(function (o) { if (o && o.success && o.url) img.src = o.url; });
+            ApiDataSvc.apiCall('post', 'media_sign', { id: $(img).closest('.cs-tile').data('id'), variant: 'thumb' }, function (resp) { var o = JSON.parse(resp); if (o && o.success && o.url) img.src = o.url; });
         });
     }
 
@@ -278,13 +268,13 @@ jQuery(function ($) {
             confirmDialog('Remove ' + ids.length + ' file' + (ids.length > 1 ? 's' : '') + '?',
                 'They will be taken out of your library and removed from any collections. Posts already using them will show the file as missing.',
                 'Remove', true, function () {
-                    apiPost('media_bulk', { bulk_action: 'delete', ids: ids }).done(function (o) {
+                    ApiDataSvc.apiCall('post', 'media_bulk', { bulk_action: 'delete', ids: ids }, function (resp) { var o = JSON.parse(resp);
                         if (o.success) { toastr.success(o.message); clearSelection(); loadLibrary(); } else err(o);
                     });
                 });
         } else if (action === 'collection_add') {
             chooseCollection(function (colId) {
-                apiPost('media_bulk', { bulk_action: 'collection_add', ids: ids, collection_id: colId }).done(function (o) {
+                ApiDataSvc.apiCall('post', 'media_bulk', { bulk_action: 'collection_add', ids: ids, collection_id: colId }, function (resp) { var o = JSON.parse(resp);
                     if (o.success) { toastr.success(o.message); clearSelection(); loadCollections(); } else err(o);
                 });
             });
@@ -359,8 +349,7 @@ jQuery(function ($) {
     function uploadVideo(file, ui, onComplete) {
         var token = file.name + '|' + file.size + '|' + file.lastModified;
         ui.setStatus('Preparing…');
-        apiPost('media_upload_init', { filename: file.name, mime: file.type, bytes_total: file.size, client_token: token })
-            .done(function (init) {
+        ApiDataSvc.apiCall('post', 'media_upload_init', { filename: file.name, mime: file.type, bytes_total: file.size, client_token: token }, function (resp) { var init = JSON.parse(resp);
                 if (!init || !init.success) { ui.setStatus((init && init.message) || 'Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); return; }
                 var partSize = init.part_size || PART, done = {};
                 (init.uploaded_parts || []).forEach(function (p) { done[p] = true; });
@@ -389,18 +378,15 @@ jQuery(function ($) {
                     })();
                 }
                 sendPart(1);
-            })
-            .fail(function () { ui.setStatus('Could not start upload', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
+            });
     }
 
     function finishVideo(sessionId, file, ui, onComplete) {
         ui.setStatus('Finishing…'); ui.setProgress(98);
-        apiPost('media_upload_complete', { session_id: sessionId })
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'media_upload_complete', { session_id: sessionId }, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
                 else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
-            })
-            .fail(function () { ui.setStatus('Could not finish — you can resume', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
+            });
     }
 
     function injectAsset(asset) {
@@ -515,7 +501,7 @@ jQuery(function ($) {
     // Collections
     // =====================================================================
     function loadCollections(cb) {
-        apiGet('collections_list').done(function (o) {
+        ApiDataSvc.apiCall('post', 'collections_list', function (resp) { var o = JSON.parse(resp);
             state.collections = (o && o.success) ? o.collections : [];
             var $sel = $('#csFilterCollection'), cur = $sel.val();
             $sel.find('option:not(:first)').remove();
@@ -550,11 +536,11 @@ jQuery(function ($) {
     function collectionMenu(c) {
         promptDialog('Update Collection', 'Collection Name', c.name,
             function (name) {
-                if (name.trim() && name !== c.name) apiPost('collection_save', { id: c.id, name: name }).done(function (o) { if (o.success) { toastr.success('Collection renamed'); renderCollections(); } else err(o); });
+                if (name.trim() && name !== c.name) ApiDataSvc.apiCall('post', 'collection_save', { id: c.id, name: name }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Collection renamed'); renderCollections(); } else err(o); });
             },
             'Delete', function () {
                 confirmDialog('Delete “' + c.name + '”?', 'The collection is removed. Your files stay in your library.', 'Delete', true, function () {
-                    apiPost('collection_delete', { id: c.id }).done(function (o) { if (o.success) { toastr.success('Collection deleted'); renderCollections(); } else err(o); });
+                    ApiDataSvc.apiCall('post', 'collection_delete', { id: c.id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Collection deleted'); renderCollections(); } else err(o); });
                 });
             });
     }
@@ -562,7 +548,7 @@ jQuery(function ($) {
     $('#csNewCollectionBtn, #csCreateCollectionBtn').on('click', function () {
         promptDialog('New Collection', 'Collection Name', '', function (name) {
             if (!name.trim()) return;
-            apiPost('collection_save', { name: name }).done(function (o) { if (o.success) { toastr.success('Collection created'); renderCollections(); } else err(o); });
+            ApiDataSvc.apiCall('post', 'collection_save', { name: name }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Collection created'); renderCollections(); } else err(o); });
         });
     });
 
@@ -570,7 +556,7 @@ jQuery(function ($) {
         if (!state.collections.length) {
             promptDialog('Add to a New Collection', 'Collection Name', '', function (name) {
                 if (!name.trim()) return;
-                apiPost('collection_save', { name: name }).done(function (o) { if (o.success) { loadCollections(); onPick(o.id); } else err(o); });
+                ApiDataSvc.apiCall('post', 'collection_save', { name: name }, function (resp) { var o = JSON.parse(resp); if (o.success) { loadCollections(); onPick(o.id); } else err(o); });
             });
             return;
         }
@@ -581,9 +567,7 @@ jQuery(function ($) {
     function openDetail(id) {
         $('#csDetailBody').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
         detailOC.show();
-        apiGet('media_get', { id: id })
-            .done(function (o) { if (o && o.success) renderDetail(o.asset); else $('#csDetailBody').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>' + esc((o && o.message) || 'Could not load this file.') + '</p></div>'); })
-            .fail(function () { $('#csDetailBody').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load this file. Please try again.</p></div>'); });
+        ApiDataSvc.apiCall('post', 'media_get', { id: id }, function (resp) { var o = JSON.parse(resp); if (o && o.success) renderDetail(o.asset); else $('#csDetailBody').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>' + esc((o && o.message) || 'Could not load this file.') + '</p></div>'); });
     }
 
     function renderDetail(a) {
@@ -618,13 +602,12 @@ jQuery(function ($) {
         );
 
         $('#csDvSave').on('click', function () {
-            apiPost('media_update', { id: a.id, description: $('#csDvDesc').val() }).done(function (o) { if (o.success) { toastr.success('Description saved'); mergeAsset(o.asset); } else err(o); });
+            ApiDataSvc.apiCall('post', 'media_update', { id: a.id, description: $('#csDvDesc').val() }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Description saved'); mergeAsset(o.asset); } else err(o); });
         });
         $('#csWm').on('change', function () {
             var $w = $(this).prop('disabled', true), on = this.checked;
             var $pv = $('#csDetailBody .cs-dv__preview').addClass('is-busy').toggleClass('wm-on', on).toggleClass('wm-off', !on);
-            apiPost('media_watermark', { id: a.id, enabled: on ? '1' : '0' })
-                .done(function (o) {
+            ApiDataSvc.apiCall('post', 'media_watermark', { id: a.id, enabled: on ? '1' : '0' }, function (resp) { var o = JSON.parse(resp);
                     $w.prop('disabled', false);
                     if (!o.success) { $pv.removeClass('is-busy wm-on wm-off'); $w.prop('checked', !on); err(o); return; }
                     toastr.success(on ? 'Watermark on' : 'Watermark off');
@@ -632,16 +615,15 @@ jQuery(function ($) {
                     mergeAsset(o.asset);
                     // The server overwrote the renditions in place, so re-sign and swap
                     // the preview + grid thumb to force a fresh (cache-busted) load.
-                    apiGet('media_sign', { id: a.id, variant: 'display' }).done(function (s) {
+                    ApiDataSvc.apiCall('post', 'media_sign', { id: a.id, variant: 'display' }, function (resp) { var s = JSON.parse(resp);
                         $pv.removeClass('is-busy wm-on wm-off');
                         if (s.success && s.url) { $pv.find('img').attr('src', s.url); a.preview_url = s.url; }
-                    }).fail(function () { $pv.removeClass('is-busy wm-on wm-off'); });
-                })
-                .fail(function () { $pv.removeClass('is-busy wm-on wm-off'); $w.prop('disabled', false).prop('checked', !on); toastr.error('Could not update the watermark. Please try again.'); });
+                    });
+                });
         });
         $('#csDetailBody').find('[data-col]').on('click', function () {
             var $chip = $(this), colId = $chip.data('col'), on = $chip.hasClass('is-on');
-            apiPost(on ? 'collection_remove_assets' : 'collection_add_assets', { id: colId, ids: [a.id] }).done(function (o) {
+            ApiDataSvc.apiCall('post', on ? 'collection_remove_assets' : 'collection_add_assets', { id: colId, ids: [a.id] }, function (resp) { var o = JSON.parse(resp);
                 if (o.success) {
                     $chip.toggleClass('is-on');
                     var nm = state.collections.filter(function (c) { return String(c.id) === String(colId); })[0].name;
@@ -657,7 +639,7 @@ jQuery(function ($) {
                 ? 'This file is used in ' + n + ' post' + (n > 1 ? 's' : '') + '. Those posts will show the file as missing. This can be undone from support within 30 days.'
                 : 'It will be taken out of your library. This can be undone from support within 30 days.';
             confirmDialog('Remove this file?', msg, 'Remove', true, function () {
-                apiPost('media_delete', { id: a.id }).done(function (o) { if (o.success) { toastr.success('File removed'); detailOC.hide(); loadLibrary(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'media_delete', { id: a.id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('File removed'); detailOC.hide(); loadLibrary(); } else err(o); });
             });
         });
     }
@@ -700,7 +682,7 @@ jQuery(function ($) {
 
     function openComposer(postId) {
         if (postId) { composerModal.show(); loadPost(postId); return; }
-        apiGet('post_open_draft').done(function (o) {
+        ApiDataSvc.apiCall('post', 'post_open_draft', function (resp) { var o = JSON.parse(resp);
             if (o && o.success && o.draft) {
                 dialog({
                     title: 'Resume your draft?',
@@ -710,7 +692,7 @@ jQuery(function ($) {
                     onOk: function () { setComposer(o.draft); composerModal.show(); }
                 });
             } else { newComposer(); composerModal.show(); }
-        }).fail(function () { newComposer(); composerModal.show(); });
+        });
     }
 
     function resetScheduleUI() { $('#csCompSchedule').prop('hidden', true); $('#csSchedule').text('Schedule'); }
@@ -742,7 +724,7 @@ jQuery(function ($) {
     }
     function loadPost(id) {
         $('#csPreviewCard').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
-        apiGet('post_get', { id: id }).done(function (o) { if (o && o.success) setComposer(o.post); else { toastr.error((o && o.message) || 'Could not open that post.'); composerModal.hide(); } });
+        ApiDataSvc.apiCall('post', 'post_get', { id: id }, function (resp) { var o = JSON.parse(resp); if (o && o.success) setComposer(o.post); else { toastr.error((o && o.message) || 'Could not open that post.'); composerModal.hide(); } });
     }
 
     function coverId() { return composer.assets.length ? composer.assets[0].id : 0; }
@@ -830,8 +812,7 @@ jQuery(function ($) {
     function scheduleSave() { clearTimeout(composer.saveTimer); setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
         var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
-        apiPost('post_save', data)
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'post_save', data, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) {
                     composer.id = o.id;
                     var oldIds = composer.assets.map(function (a) { return a.id; }).join(',');
@@ -848,8 +829,7 @@ jQuery(function ($) {
                     updateValidation();
                     if (cb) cb(true);
                 } else { setSaveStatus('Not saved'); if (cb) cb(false); }
-            })
-            .fail(function () { setSaveStatus('Couldn’t save — will retry'); if (cb) cb(false); });
+            });
     }
 
     function renderPreview() {
@@ -966,10 +946,10 @@ jQuery(function ($) {
         $('#csPickerEmpty').prop('hidden', true);
         $('#csPickerCount').text('0');
         pickerModal.show();
-        apiGet('media_list').done(function (o) {
+        ApiDataSvc.apiCall('post', 'media_list', {}, function (resp) { var o = JSON.parse(resp);
             pickerAssets = (o && o.success ? o.assets : []).filter(function (a) { return a.status === 'ready'; });
             renderPicker();
-        }).fail(function () { $('#csPickerGrid').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load your library.</p></div>'); });
+        });
     }
     function renderPicker() {
         var $g = $('#csPickerGrid').empty();
@@ -1014,9 +994,9 @@ jQuery(function ($) {
                 return;
             }
             if (kind === 'update') { done(); toastr.success('Post updated'); composerModal.hide(); afterComposer(); return; }
-            if (kind === 'draft') apiPost('post_save_draft', { id: composer.id }).done(function (o) { done(); if (o.success) { toastr.success('Saved as draft'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
-            else if (kind === 'schedule') apiPost('post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }).done(function (o) { done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
-            else apiPost('post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }).done(function (o) { done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); }).fail(fail);
+            if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Saved as draft'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else ApiDataSvc.apiCall('post', 'post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
         });
     }
     $('#csPublishNow').on('click', function () { runAction(composer.state === 'published' ? 'update' : 'publish'); });
@@ -1062,7 +1042,7 @@ jQuery(function ($) {
             onOk: function () {
                 var ids = $('#csShareBoxes input:checked').map(function () { return this.value; }).get();
                 if (!ids.length) { toastr.info('Pick at least one account.'); return false; }
-                apiPost('post_share', { id: id, share_accounts: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'post_share', { id: id, share_accounts: ids }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
             }
         });
     }
@@ -1071,13 +1051,11 @@ jQuery(function ($) {
     function loadPosts() {
         $('#csPostsLoading').prop('hidden', false);
         $('#csPostsError, #csPostsEmpty, #csPostsList').prop('hidden', true);
-        apiGet('posts_list', postFilters)
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'posts_list', postFilters, function (resp) { var o = JSON.parse(resp);
                 $('#csPostsLoading').prop('hidden', true);
                 if (!o || !o.success) { $('#csPostsError').prop('hidden', false); return; }
                 renderPosts(o.posts || []);
-            })
-            .fail(function () { $('#csPostsLoading').prop('hidden', true); $('#csPostsError').prop('hidden', false); });
+            });
     }
 
     function renderPosts(posts) {
@@ -1167,22 +1145,22 @@ jQuery(function ($) {
 
     function postAction(act, id) {
         if (act === 'duplicate') {
-            apiPost('post_duplicate', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            ApiDataSvc.apiCall('post', 'post_duplicate', { id: id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
         } else if (act === 'archive') {
-            apiPost('post_archive', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            ApiDataSvc.apiCall('post', 'post_archive', { id: id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
         } else if (act === 'unarchive') {
-            apiPost('post_archive', { id: id, unarchive: '1' }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+            ApiDataSvc.apiCall('post', 'post_archive', { id: id, unarchive: '1' }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
         } else if (act === 'share') {
             sharePostDialog(id);
         } else if (act === 'reschedule') {
             dialog({
                 title: 'Reschedule post', okText: 'Schedule',
                 bodyHtml: '<label class="form-label cs-dv__label">New date & time</label><input type="datetime-local" class="form-control" id="csReschedAt"><small class="text-muted">In your timezone (' + esc(TZ) + ').</small>',
-                onOk: function () { var v = $('#csReschedAt').val(); if (!v) return false; apiPost('post_schedule', { id: id, scheduled_at: v }).done(function (o) { if (o.success) { toastr.success('Rescheduled'); loadPosts(); } else err(o); }); }
+                onOk: function () { var v = $('#csReschedAt').val(); if (!v) return false; ApiDataSvc.apiCall('post', 'post_schedule', { id: id, scheduled_at: v }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Rescheduled'); loadPosts(); } else err(o); }); }
             });
         } else if (act === 'delete') {
             confirmDialog('Remove this post?', 'It will be permanently removed. This cannot be undone.', 'Remove', true, function () {
-                apiPost('post_delete', { id: id }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'post_delete', { id: id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
             });
         }
     }
@@ -1199,11 +1177,11 @@ jQuery(function ($) {
         if (!ids.length) return;
         if (act === 'delete') {
             confirmDialog('Remove ' + ids.length + ' post' + (ids.length > 1 ? 's' : '') + '?', 'They will be permanently removed. This cannot be undone.', 'Remove', true, function () {
-                apiPost('posts_bulk', { bulk_action: 'delete', ids: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'posts_bulk', { bulk_action: 'delete', ids: ids }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
             });
         } else {
             confirmDialog('Archive ' + ids.length + ' post' + (ids.length > 1 ? 's' : '') + '?', 'Archived posts are hidden from your active list but not deleted.', 'Archive', false, function () {
-                apiPost('posts_bulk', { bulk_action: 'archive', ids: ids }).done(function (o) { if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'posts_bulk', { bulk_action: 'archive', ids: ids }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
             });
         }
     });
@@ -1231,14 +1209,12 @@ jQuery(function ($) {
 
     function loadCalendar() {
         $('#csCal').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
-        apiGet('posts_calendar')
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'posts_calendar', function (resp) { var o = JSON.parse(resp);
                 if (!o || !o.success) { $('#csCal').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load the calendar.</p></div>'); return; }
                 calItems = o.items || [];
                 renderQueue(o.queue || {});
                 renderCalendar();
-            })
-            .fail(function () { $('#csCal').html('<div class="cs-error"><i class="fa-solid fa-circle-exclamation"></i><p>Could not load the calendar.</p></div>'); });
+            });
     }
 
     function renderQueue(q) {
@@ -1334,7 +1310,7 @@ jQuery(function ($) {
         var timePart = (it.iso.split('T')[1] || '12:00');
         var human = new Date(dateStr + 'T' + timePart).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
         confirmDialog('Reschedule to ' + human + '?', 'This post will publish on ' + human + ' at ' + it.time + ' (your timezone).', 'Reschedule', false, function () {
-            apiPost('post_schedule', { id: id, scheduled_at: dateStr + 'T' + timePart }).done(function (o) { if (o.success) { toastr.success('Rescheduled'); loadCalendar(); } else err(o); });
+            ApiDataSvc.apiCall('post', 'post_schedule', { id: id, scheduled_at: dateStr + 'T' + timePart }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Rescheduled'); loadCalendar(); } else err(o); });
         });
     }
 
@@ -1361,14 +1337,12 @@ jQuery(function ($) {
     function loadScheduler() {
         $('#csSchedLoading').prop('hidden', false);
         $('#csSchedError, #csSchedEmpty, #csSchedList').prop('hidden', true);
-        apiGet('scheduler_list')
-            .done(function (o) {
+        ApiDataSvc.apiCall('post', 'scheduler_list', function (resp) { var o = JSON.parse(resp);
                 $('#csSchedLoading').prop('hidden', true);
                 if (!o || !o.success) { $('#csSchedError').prop('hidden', false); return; }
                 schedRules = o.rules || [];
                 renderSchedRules();
-            })
-            .fail(function () { $('#csSchedLoading').prop('hidden', true); $('#csSchedError').prop('hidden', false); });
+            });
     }
 
     function renderSchedRules() {
@@ -1492,7 +1466,7 @@ jQuery(function ($) {
         if (schedForm.cadence === 'weekly' && !days.length) { toastr.info('Pick at least one day of the week.'); return; }
         var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return this.value; }).get();
         var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');
-        apiPost('scheduler_save', {
+        ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
             size: $('#csSchedSize').val(), audience: schedForm.audience,
             tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
@@ -1501,27 +1475,25 @@ jQuery(function ($) {
             social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'
-        }).done(function (o) {
+        }, function (resp) { var o = JSON.parse(resp);
             $btn.prop('disabled', false).text('Save automation');
             if (!o.success) { toastr.error(o.message); return; }
             schedModal.hide(); toastr.success('Automation saved'); loadScheduler();
-        }).fail(function () { $btn.prop('disabled', false).text('Save automation'); toastr.error('Could not save.'); });
+        });
     });
 
     $('#csSchedList').on('click', '[data-sched-toggle]', function () {
         var $b = $(this), id = $b.closest('.cs-sched__card').data('id');
         var makeActive = !$b.hasClass('is-active');
         $b.prop('disabled', true);
-        apiPost('scheduler_toggle', { id: id, active: makeActive ? '1' : '0' })
-            .done(function (o) { if (o.success) { loadScheduler(); } else { $b.prop('disabled', false); } })
-            .fail(function () { $b.prop('disabled', false); });
+        ApiDataSvc.apiCall('post', 'scheduler_toggle', { id: id, active: makeActive ? '1' : '0' }, function (resp) { var o = JSON.parse(resp); if (o.success) { loadScheduler(); } else { $b.prop('disabled', false); } });
     });
 
     $('#csSchedList').on('click', '[data-sched-del]', function () {
         var id = $(this).closest('.cs-sched__card').data('id');
         var r = schedRules.filter(function (x) { return x.id == id; })[0];
         confirmDialog('Delete automation?', 'Remove “' + esc((r && r.name) || 'this automation') + '”? Posts it already published stay.', 'Delete', true, function () {
-            apiPost('scheduler_delete', { id: id }).done(function (o) { if (o.success) { toastr.success('Removed'); loadScheduler(); } });
+            ApiDataSvc.apiCall('post', 'scheduler_delete', { id: id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('Removed'); loadScheduler(); } });
         });
     });
 

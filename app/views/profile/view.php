@@ -31,6 +31,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
+    <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
+    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
 </head>
 <body class="pf">
 
@@ -207,17 +209,6 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         var SUB_NOTICE = '<?php echo $sub_notice; ?>';
         var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
-        function pfPost(action, params) {
-            var body = new URLSearchParams();
-            Object.keys(params || {}).forEach(function (k) { body.set(k, params[k]); });
-            body.set('csrf_token', csrf);
-            return fetch('/api/' + action, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            }).then(function (r) { return r.json(); });
-        }
-
         // Self-view has no follow/subscribe actions.
         function actionsHtml() {
             if (IS_SELF) { return ''; }
@@ -245,14 +236,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         function toggleFollow() {
             if (!LOGGED_IN) { window.location = '/'; return; }
             var action = following ? 'unfollow_creator' : 'follow_creator';
-            var body = new URLSearchParams();
-            body.set('creator_id', CREATOR_ID);
-            body.set('csrf_token', csrf);
-            fetch('/api/' + action, {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: body.toString()
-            }).then(function (r) { return r.json(); }).then(function (o) {
+            ApiDataSvc.apiCall('post', action, { creator_id: CREATOR_ID }, function (resp) {
+                var o = JSON.parse(resp);
                 if (o.need_login) { window.location = '/'; return; }
                 if (!o.success) { return; }
                 following = !!o.following;
@@ -280,15 +265,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         document.querySelectorAll('[data-subscribe-plan]').forEach(function (b) {
             b.onclick = function () {
                 if (!LOGGED_IN) { window.location = '/'; return; }
-                var body = new URLSearchParams();
-                body.set('plan_id', b.getAttribute('data-subscribe-plan'));
-                body.set('csrf_token', csrf);
                 b.disabled = true;
-                fetch('/api/subscribe_plan', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString()
-                }).then(function (r) { return r.json(); }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'subscribe_plan', { plan_id: b.getAttribute('data-subscribe-plan') }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (o.success && o.url) { window.location = o.url; return; }
                     b.disabled = false;
@@ -300,15 +279,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         document.querySelectorAll('[data-join-free]').forEach(function (b) {
             b.onclick = function () {
                 if (!LOGGED_IN) { window.location = '/'; return; }
-                var body = new URLSearchParams();
-                body.set('plan_id', b.getAttribute('data-join-free'));
-                body.set('csrf_token', csrf);
                 b.disabled = true;
-                fetch('/api/join_free_plan', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString()
-                }).then(function (r) { return r.json(); }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'join_free_plan', { plan_id: b.getAttribute('data-join-free') }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message); return; }
                     var member = document.createElement('div');
@@ -330,15 +303,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         document.querySelectorAll('[data-unlock-content]').forEach(function (b) {
             b.onclick = function () {
                 if (!LOGGED_IN) { window.location = '/'; return; }
-                var body = new URLSearchParams();
-                body.set('content_id', b.getAttribute('data-unlock-content'));
-                body.set('csrf_token', csrf);
                 b.disabled = true;
-                fetch('/api/unlock_content', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString()
-                }).then(function (r) { return r.json(); }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'unlock_content', { content_id: b.getAttribute('data-unlock-content') }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (o.need_credits) { b.disabled = false; pfToast('Not enough credits'); return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message || 'Could not unlock'); return; }
@@ -439,13 +406,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             function unlockPpv(p, btn) {
                 if (!LOGGED_IN) { window.location = '/'; return; }
                 var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
-                var body = new URLSearchParams();
-                body.set('post_id', p.id); body.set('csrf_token', csrf);
-                fetch('/api/ppv_unlock', {
-                    method: 'POST',
-                    headers: { 'X-CSRF-TOKEN': csrf, 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: body.toString()
-                }).then(function (r) { return r.json(); }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (o.need_credits) {
                         btn.disabled = false; btn.textContent = orig;
@@ -459,7 +421,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     if (card) { card.classList.remove('pf-pc--locked'); }
                     pfToast('Unlocked!');
                     openPost(p.id);
-                }).catch(function () { btn.disabled = false; btn.textContent = orig; pfToast('Could not unlock'); });
+                });
             }
             function closePlb() { lb.hidden = true; inner.innerHTML = ''; document.body.style.overflow = ''; clearInterval(plbTimer); }
             document.querySelectorAll('.pf-pc').forEach(function (c) { c.addEventListener('click', function () { openPost(parseInt(c.getAttribute('data-post-id'), 10)); }); });
@@ -512,14 +474,16 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             function doLike() {
                 if (!LOGGED_IN) { window.location = '/'; return; }
                 if (!plbPost) { return; }
-                pfPost('post_like', { id: plbPost.id }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'post_like', { id: plbPost.id }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (!o.success) { pfToast(o.message || 'Could not like'); return; }
                     plbPost.liked = o.liked; plbPost.likes = o.likes; renderEngage(plbPost);
                 });
             }
             function recordView(p) {
-                pfPost('post_view', { id: p.id }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'post_view', { id: p.id }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o && o.success && typeof o.views === 'number') {
                         p.views = o.views;
                         var v = document.querySelector('#pfLbEngage .pf-plb__estat--views');
@@ -530,7 +494,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             function loadComments(p) {
                 var box = document.getElementById('pfLbComments'); if (!box) { return; }
                 box.innerHTML = '<div class="pf-plb__cload">Loading comments…</div>';
-                fetch('/api/post_comments?id=' + p.id).then(function (r) { return r.json(); }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'post_comments', { id: p.id }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (!o || !o.success) { box.innerHTML = ''; return; }
                     renderComments(o);
                 });
@@ -538,7 +503,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             function renderComments(o) {
                 var box = document.getElementById('pfLbComments'); if (!box) { return; }
                 var html = '<div class="pf-plb__clist">';
-                if (!o.comments.length) { html += '<p class="pf-plb__cempty">No comments yet' + (o.can_comment ? ' — be the first.' : '.') + '</p>'; }
+                if (!o.comments.length) { html += '<p class="pf-plb__cempty">No comments yet' + (o.can_comment ? ', be the first.' : '.') + '</p>'; }
                 o.comments.forEach(function (c) {
                     html += '<div class="pf-plb__c">' +
                         '<span class="pf-plb__cav">' + e(c.initial) + '</span>' +
@@ -561,14 +526,16 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             function doComment() {
                 var input = document.getElementById('pfLbCinput'); if (!input || !plbPost) { return; }
                 var body = input.value.trim(); if (body === '') { return; }
-                pfPost('post_comment_add', { id: plbPost.id, body: body }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'post_comment_add', { id: plbPost.id, body: body }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (!o.success) { pfToast(o.message || 'Could not post'); return; }
                     input.value = ''; plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost);
                 });
             }
             function doDeleteComment(id) {
-                pfPost('post_comment_delete', { comment_id: id }).then(function (o) {
+                ApiDataSvc.apiCall('post', 'post_comment_delete', { comment_id: id }, function (resp) {
+                    var o = JSON.parse(resp);
                     if (!o.success) { pfToast(o.message || 'Could not delete'); return; }
                     if (plbPost) { plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost); }
                 });

@@ -1,9 +1,5 @@
-<link rel="stylesheet" href="/css/dashboard.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/dashboard.css'); ?>">
+<link rel="stylesheet" href="/css/dashboard.css">
 <?php
-/**
- * Creator dashboard (Home). Data from IndexController via AnalyticsModel.
- * Non-creators get a simple welcome.
- */
 $fmt_money = function ($cents) { return '$' . number_format(((int) $cents) / 100, 2); };
 $fmt_num   = function ($n) { return number_format((int) $n); };
 $first      = trim((string) ($this->display_name ?? ''));
@@ -11,7 +7,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 ?>
 <div class="dash">
     <header class="dash__head">
-        <h1 class="dash__title">Dashboard</h1>
+        <h1 class="dash__title">Analytics</h1>
         <p class="dash__sub"><?php echo $first_word !== '' ? 'Welcome back, ' . htmlspecialchars($first_word, ENT_QUOTES, 'UTF-8') . '.' : 'Welcome back.'; ?></p>
     </header>
 
@@ -125,5 +121,16 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
             <?php endif; ?>
         </div>
     </div>
+
+    <?php if (!empty($this->needs_plan)): ?>
+    <div class="plan-lock">
+        <div class="plan-lock__card">
+            <div class="plan-lock__icon"><i class="fa-solid fa-lock"></i></div>
+            <h2 class="plan-lock__title">Subscribe to a Plan</h2>
+            <p class="plan-lock__text">Unlock the Content Studio, publishing, scheduling, and analytics.</p>
+            <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
+        </div>
+    </div>
+    <?php endif; ?>
 <?php endif; ?>
 </div>

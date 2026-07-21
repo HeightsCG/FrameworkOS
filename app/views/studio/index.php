@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/studio.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/studio.css'); ?>">
+<link rel="stylesheet" href="/css/studio.css">
 
 <?php if (empty($this->is_creator)): ?>
     <div class="cs-gate">
@@ -484,5 +484,16 @@ window.CS_CONFIG = <?php echo json_encode(array(
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
-<script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/studio.js'); ?>"></script>
+<?php if (empty($this->needs_plan)): ?>
+<script src="/js/studio.js"></script>
+<?php else: ?>
+<div class="plan-lock">
+    <div class="plan-lock__card">
+        <div class="plan-lock__icon"><i class="fa-solid fa-lock"></i></div>
+        <h2 class="plan-lock__title">Subscribe to a Plan</h2>
+        <p class="plan-lock__text">Unlock the Content Studio, publishing, scheduling, and analytics.</p>
+        <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
+    </div>
+</div>
+<?php endif; ?>
 <?php endif; ?>

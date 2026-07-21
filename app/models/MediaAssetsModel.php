@@ -128,8 +128,9 @@ class MediaAssetsModel extends Model {
             $params['col'] = (int) $filters['collection'];
         }
         if (isset($filters['search']) && trim((string) $filters['search']) !== '') {
-            $where[] = '(a.filename LIKE :q OR a.display_name LIKE :q OR a.tags LIKE :q)';
-            $params['q'] = '%' . trim((string) $filters['search']) . '%';
+            $where[] = '(a.filename LIKE :q1 OR a.display_name LIKE :q2 OR a.tags LIKE :q3)';
+            $like = '%' . trim((string) $filters['search']) . '%';
+            $params['q1'] = $like; $params['q2'] = $like; $params['q3'] = $like;
         }
 
         $having = '';

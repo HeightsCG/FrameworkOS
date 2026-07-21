@@ -11,13 +11,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
-    <link rel="stylesheet" href="/css/site.css?v=<?php echo @filemtime(Main::app_path().'/public/css/site.css'); ?>">
+    <link rel="stylesheet" href="/css/site.css">
     <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/0b1fb50c1a.js" crossorigin="anonymous"></script>
-    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path().'/public/js/api.data.js'); ?>"></script>
-    <script src="/js/site.js?v=<?php echo @filemtime(Main::app_path().'/public/js/site.js'); ?>"></script>
+    <script src="/js/api.data.js"></script>
+    <script src="/js/site.js"></script>
 </head>
 <body class="app-shell">
 
@@ -30,7 +30,7 @@
             <span class="app-nav__label">Menu</span>
             <a href="/" class="app-nav-item<?php echo ($this->controller === 'index' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-house"></i> Home</a>
             <?php if (Permissions::has_role('Creator')): ?>
-            <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Dashboard</a>
+            <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
             <?php endif; ?>
         </nav>
@@ -60,6 +60,7 @@
                         </span>
                     </div>
                     <a href="/account/billing" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-credit-card"></i> Billing</a>
+                    <a href="/account/users" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-users"></i> Users</a>
                     <a href="/account/settings" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-gear"></i> Settings</a>
                     <span class="app-account-menu__sep"></span>
                     <a href="#" class="app-account-menu__item app-account-menu__item--danger app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
