@@ -146,6 +146,15 @@ class MediaAssetsModel extends Model {
         return parent::select($sql, $params);
     }
 
+    /** Total bytes a creator currently stores (non-deleted assets) — for storage-quota checks. */
+    public function total_bytes($creator_id){
+        $rows = parent::select(
+            "SELECT COALESCE(SUM(bytes),0) AS b FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL",
+            array('c' => (int) $creator_id)
+        );
+        return (is_array($rows) && count($rows)) ? (int) $rows[0]['b'] : 0;
+    }
+
     public function count_for_creator($creator_id){
         $rows = parent::select(
             "SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL",

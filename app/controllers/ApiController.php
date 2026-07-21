@@ -1177,8 +1177,11 @@ class ApiController extends Controller {
                 'price' => $price, 'message' => 'Not enough credits.')); exit;
         }
 
-        // Pay the creator their share (net of the platform fee) and record per-post revenue.
-        $net = (int) round($price * (100 - Main::platform_fee_percent()) / 100);
+        // Pay the creator their share (net of the platform fee — tiered by the creator's
+        // plan) and record per-post revenue.
+        $creator_row = $this->userModel->get_user_by_id($creator_id);
+        $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
+        $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
         if ($net > 0) {
             $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
@@ -1302,7 +1305,7 @@ class ApiController extends Controller {
         $meta    = array('subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']);
 
         $session = StripeService::create_subscription_checkout(
-            $connect_id, $price_id, Main::platform_fee_percent(), $success, $cancel, $meta, (string) Session::get('user_email')
+            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email')
         );
         if (empty($session['url'])) {
             $response['message'] = 'Could not start checkout. Please try again.';
@@ -1642,6 +1645,16 @@ class ApiController extends Controller {
 
     public function connect_accountAction(){
         $user = $this->social_user();
+        // Enforce the plan tier's connected-account cap (0 = unlimited).
+        $cap = Plan::limit($user, 'socials');
+        if ($cap !== null && (int) $cap > 0) {
+            $connected = (new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']);
+            if (is_array($connected) && count($connected) >= (int) $cap) {
+                echo json_encode(array('success' => false, 'need_upgrade' => true,
+                    'message' => 'Your plan connects up to ' . (int) $cap . ' social accounts. Upgrade to add more.'));
+                exit;
+            }
+        }
         $platform = $this->post['platform'] ?? '';
         if ($platform === '') {
             echo json_encode(array('success' => false, 'message' => 'Platform is required'));
@@ -2340,6 +2353,15 @@ class ApiController extends Controller {
     }
 
     /** Single-request upload for images/gifs (small enough for one POST). */
+    /** Would storing $incoming more bytes keep the creator within their plan's storage cap? (null/0 = unlimited) */
+    private function within_storage_cap($user, $incoming){
+        $gb = Plan::limit($user, 'storage_gb');
+        if ($gb === null || (int) $gb <= 0) { return true; }
+        $cap  = (int) $gb * 1073741824; // GB → bytes
+        $used = (int) (new MediaAssetsModel())->total_bytes((int) $user['user_id']);
+        return ($used + (int) $incoming) <= $cap;
+    }
+
     public function media_uploadAction(){
         @ini_set('memory_limit', '512M');
         $user       = $this->require_creator();
@@ -2361,6 +2383,9 @@ class ApiController extends Controller {
         list($type, $ext, $max) = $types[$mime];
         if ((int) $file['size'] > $max) {
             echo json_encode(array('success' => false, 'message' => 'That image is too large. Images can be up to 15 MB.')); exit;
+        }
+        if (!$this->within_storage_cap($user, (int) $file['size'])) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => "You've reached your plan's storage limit. Upgrade or remove files to free up space.")); exit;
         }
 
         $orig_name = (string) ($file['name'] ?? 'upload.' . $ext);
@@ -2389,6 +2414,11 @@ class ApiController extends Controller {
         @ini_set('memory_limit', '512M');
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
+        // AI image generation is a Pro+ tier feature.
+        if (!Plan::can($user, 'ai_tools')) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true,
+                'message' => 'AI image generation is available on Pro and Studio plans.')); exit;
+        }
         // Long job (~40s) — release the session lock so other tabs aren't blocked behind it.
         if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
 
@@ -2605,6 +2635,9 @@ class ApiController extends Controller {
         list($type, $ext, $max) = $types[$mime];
         if ($bytes <= 0 || $bytes > $max) {
             echo json_encode(array('success' => false, 'message' => 'That video is too large. Videos can be up to 4 GB.')); exit;
+        }
+        if (!$this->within_storage_cap($user, $bytes)) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => "You've reached your plan's storage limit. Upgrade or remove files to free up space.")); exit;
         }
 
         $sessions = new UploadSessionsModel();

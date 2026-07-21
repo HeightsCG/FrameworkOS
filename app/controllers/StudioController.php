@@ -48,6 +48,9 @@ class StudioController extends Controller {
                 'can_post' => Plan::can_social_post($user),
             );
 
+            // AI image generation is a Pro+ feature — hides the "Generate Image" action.
+            $this->view->can_ai = Plan::can($user, 'ai_tools');
+
             // Brand identity — used to steer AI image generation on-brand.
             $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));
             $this->view->brand = array(

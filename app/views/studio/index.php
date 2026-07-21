@@ -24,7 +24,9 @@
                 <ul class="dropdown-menu dropdown-menu-end cs-create__menu">
                     <li class="cs-create__label">Content</li>
                     <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New Post</strong><small>Write, schedule &amp; publish</small></span></button></li>
+                    <?php if (!empty($this->can_ai)): ?>
                     <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
+                    <?php endif; ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
                     <li><hr class="dropdown-divider"></li>
                     <li class="cs-create__label">Library</li>

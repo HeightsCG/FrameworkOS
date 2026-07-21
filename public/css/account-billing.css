@@ -23,13 +23,20 @@
 .plan:hover{border-color:rgba(91,75,224,.45); box-shadow:0 16px 36px -24px rgba(40,32,90,.34); transform:translateY(-2px);}
 .plan--current{border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset, var(--sh-xs);}
 .plan--current:hover{transform:none;}
+.plan--featured{border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset, 0 22px 48px -28px rgba(40,32,90,.4);}
 
-.plan__badge{position:absolute; top:1.2rem; right:1.2rem; font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.22rem .5rem; border-radius:2px;}
+.plan__badge{position:absolute; top:1.1rem; right:1.1rem; font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.22rem .5rem; border-radius:2px;}
+.plan__badge--pop{color:#fff; background:var(--violet);}
 .plan__name{font-size:1.02rem; font-weight:600; letter-spacing:-.01em; color:var(--text);}
+.plan__tagline{color:var(--muted); font-size:.85rem; line-height:1.45; margin:.3rem 0 0;}
 .plan__desc{color:var(--muted); font-size:.85rem; line-height:1.45; margin:.4rem 0 0;}
-.plan__price{display:flex; align-items:baseline; gap:.3rem; margin:1.15rem 0 1.45rem;}
+.plan__price{display:flex; align-items:baseline; gap:.3rem; margin:1.15rem 0 1.35rem;}
 .plan__amount{font-size:2rem; font-weight:700; letter-spacing:-.03em; color:var(--text);}
 .plan__interval{font-size:.9rem; color:var(--muted);}
+.plan__features{list-style:none; margin:0 0 1.45rem; padding:0; display:flex; flex-direction:column; gap:.5rem;}
+.plan__feat{display:flex; align-items:flex-start; gap:.5rem; font-size:.83rem; line-height:1.4; color:var(--t2);}
+.plan__feat-ic{color:var(--violet); font-size:.72rem; margin-top:.2rem; flex:0 0 auto;}
+.plan__feat--head{margin-top:.15rem; font-weight:600; font-size:.72rem; letter-spacing:.02em; text-transform:uppercase; color:var(--muted2);}
 .plan__btn{margin-top:auto; width:100%; padding-top:.55rem; padding-bottom:.55rem;}
 
 /* sections (payment methods + billing history) */

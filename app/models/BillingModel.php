@@ -35,6 +35,9 @@ class BillingModel extends Model {
             array(
                 'stripe_subscription_id'           => $subscription_id,
                 'stripe_price_id'                  => $price_id,
+                // Resolve + cache the code tier once here (at subscribe/renewal) so
+                // entitlement checks are a plain column read, no Stripe call.
+                'plan_tier'                        => StripeService::plan_tier_slug($price_id),
                 'subscription_status'              => $status,
                 'subscription_current_period_end'  => $current_period_end ? date('Y-m-d H:i:s', (int) $current_period_end) : null,
                 'subscription_cancel_at_period_end'=> $cancel_at_period_end ? 1 : 0,
@@ -51,6 +54,7 @@ class BillingModel extends Model {
             array(
                 'stripe_subscription_id'            => null,
                 'stripe_price_id'                   => null,
+                'plan_tier'                         => null,
                 'subscription_status'               => null,
                 'subscription_current_period_end'   => null,
                 'subscription_cancel_at_period_end' => 0,

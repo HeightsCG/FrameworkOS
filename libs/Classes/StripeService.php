@@ -148,20 +148,25 @@ class StripeService {
         return $out;
     }
 
-    /** True if the plan behind $price_id has product metadata social_posting = "true". */
-    public static function plan_allows_social_posting($price_id): bool
+    /**
+     * Resolve which code-defined tier (PlanTiers) a Stripe price belongs to, by the
+     * product NAME — Stripe owns pricing only, never feature semantics. Cached per
+     * request. Returns a tier key ('creator'|'pro'|'studio') or '' if unmatched.
+     */
+    public static function plan_tier_slug($price_id): string
     {
-        if (empty($price_id)) {
-            return false;
-        }
+        if (empty($price_id)) { return ''; }
+        static $cache = array();
+        if (array_key_exists($price_id, $cache)) { return $cache[$price_id]; }
+        $slug = '';
         try {
             $price = self::client()->prices->retrieve($price_id, array('expand' => array('product')));
-            $meta  = (isset($price->product) && isset($price->product->metadata)) ? $price->product->metadata : null;
-            return $meta && isset($meta['social_posting']) && (string) $meta['social_posting'] === 'true';
+            $name  = (isset($price->product) && is_object($price->product)) ? (string) $price->product->name : '';
+            $slug  = PlanTiers::match($name);
         } catch (\Throwable $e) {
-            error_log('[stripe] plan_allows_social_posting: ' . $e->getMessage());
-            return false;
+            error_log('[stripe] plan_tier_slug: ' . $e->getMessage());
         }
+        return $cache[$price_id] = $slug;
     }
 
     /* ---------- Connect (creator payouts) ---------- */

@@ -133,21 +133,44 @@ $(function () {
     <?php if (empty($this->plans)): ?>
         <p class="text-muted">No plans are available right now.</p>
     <?php else: ?>
+    <?php
+        // Attach each Stripe plan to its code-defined tier (matched by product name)
+        // and order the ladder low → high. All tier copy/features come from PlanTiers.
+        $ordered = array();
+        foreach ($this->plans as $plan) {
+            $tier = PlanTiers::get(PlanTiers::match($plan['name']));
+            $ordered[] = array('plan' => $plan, 'tier' => $tier, 'rank' => $tier ? $tier['rank'] : 99);
+        }
+        usort($ordered, function ($a, $b) { return $a['rank'] - $b['rank']; });
+    ?>
     <div class="plans">
-        <?php foreach ($this->plans as $plan): ?>
-        <?php $is_current = ($plan['price_id'] === ($this->user['stripe_price_id'] ?? '') && $this->user['subscription_status'] === 'active'); ?>
-        <div class="plan<?php echo $is_current ? ' plan--current' : ''; ?>">
+        <?php foreach ($ordered as $row): $plan = $row['plan']; $tier = $row['tier']; ?>
+        <?php
+            $is_current  = ($plan['price_id'] === ($this->user['stripe_price_id'] ?? '') && $this->user['subscription_status'] === 'active');
+            $is_featured = $tier && !empty($tier['recommended']) && !$is_current;
+        ?>
+        <div class="plan<?php echo $is_current ? ' plan--current' : ''; echo $is_featured ? ' plan--featured' : ''; ?>">
+            <?php if ($is_featured): ?><span class="plan__badge plan__badge--pop">Most popular</span><?php endif; ?>
             <?php if ($is_current): ?><span class="plan__badge">Current</span><?php endif; ?>
-            <div class="plan__name"><?php echo htmlspecialchars($plan['name'], ENT_QUOTES, 'UTF-8'); ?></div>
-            <?php if (!empty($plan['description'])): ?>
+            <div class="plan__name"><?php echo htmlspecialchars($tier ? $tier['name'] : $plan['name'], ENT_QUOTES, 'UTF-8'); ?></div>
+            <?php if ($tier): ?>
+            <p class="plan__tagline"><?php echo htmlspecialchars($tier['tagline'], ENT_QUOTES, 'UTF-8'); ?></p>
+            <?php elseif (!empty($plan['description'])): ?>
             <p class="plan__desc"><?php echo htmlspecialchars($plan['description'], ENT_QUOTES, 'UTF-8'); ?></p>
             <?php endif; ?>
             <div class="plan__price">
                 <span class="plan__amount">$<?php echo number_format($plan['amount'] / 100, ($plan['amount'] % 100 === 0) ? 0 : 2); ?></span>
                 <span class="plan__interval">/ <?php echo htmlspecialchars($plan['interval'], ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
-            <button type="button" class="btn btn-primary plan__btn plan-choose" data-price-id="<?php echo htmlspecialchars($plan['price_id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $is_current ? 'disabled' : ''; ?>>
-                <?php echo $is_current ? 'Current plan' : 'Choose'; ?>
+            <?php if ($tier): ?>
+            <ul class="plan__features">
+                <?php foreach ($tier['features'] as $f): $is_head = (strpos($f, 'Everything in') === 0); ?>
+                <li class="plan__feat<?php echo $is_head ? ' plan__feat--head' : ''; ?>"><?php if (!$is_head): ?><i class="fa-solid fa-check plan__feat-ic"></i> <?php endif; ?><?php echo $f; ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <?php endif; ?>
+            <button type="button" class="btn <?php echo $is_featured ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-choose" data-price-id="<?php echo htmlspecialchars($plan['price_id'], ENT_QUOTES, 'UTF-8'); ?>" <?php echo $is_current ? 'disabled' : ''; ?>>
+                <?php echo $is_current ? 'Current plan' : ('Choose ' . htmlspecialchars($tier ? $tier['name'] : $plan['name'], ENT_QUOTES, 'UTF-8')); ?>
             </button>
         </div>
         <?php endforeach; ?>
