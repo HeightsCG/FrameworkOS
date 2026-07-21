@@ -97,6 +97,14 @@ class CreatorSubscriptionsModel extends Model {
         $now = date('Y-m-d H:i:s');
         $period_end = !empty($stripe['current_period_end']) ? date('Y-m-d H:i:s', (int) $stripe['current_period_end']) : null;
 
+        // Free trial: the end date is the signup date plus the plan's value + unit
+        // (e.g. "+7 day", "+2 week", "+1 month") — calculated once, here, and stored.
+        $trial_ends_at = null;
+        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0) {
+            $tu = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
+            $trial_ends_at = date('Y-m-d H:i:s', strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu));
+        }
+
         $existing = parent::select(
             "SELECT id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
             array('s' => (int) $subscriber_id, 'p' => (int) $plan['id'])
@@ -109,6 +117,7 @@ class CreatorSubscriptionsModel extends Model {
             'stripe_subscription_id' => (string) ($stripe['subscription_id'] ?? ''),
             'stripe_customer_id'     => (string) ($stripe['customer_id'] ?? ''),
             'current_period_end'     => $period_end,
+            'trial_ends_at'          => $trial_ends_at,
             'cancel_at_period_end'   => 0,
             'canceled_at'            => null,
             'updated_at'             => $now,

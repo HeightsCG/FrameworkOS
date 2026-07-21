@@ -329,17 +329,23 @@
                 <div class="links-card">
                     <div class="plans-list" id="plans_list">
                         <?php foreach ($this->creator_plans as $plan): ?>
-                        <?php $unit = $plan['billing_interval'] === 'year' ? 'yr' : ($plan['billing_interval'] === 'week' ? 'wk' : 'mo'); ?>
+                        <?php
+                            $unit = $plan['billing_interval'] === 'year' ? 'yr' : ($plan['billing_interval'] === 'week' ? 'wk' : 'mo');
+                            $tunit = in_array(($plan['trial_unit'] ?? 'day'), array('day','week','month'), true) ? $plan['trial_unit'] : 'day';
+                            $tenabled = !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0;
+                            $tval = $tenabled ? (int) $plan['trial_value'] : 7;
+                        ?>
                         <div class="plan-row<?php echo empty($plan['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $plan['id']; ?>"
                              data-name="<?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-price="<?php echo htmlspecialchars(number_format($plan['price_cents'] / 100, 2, '.', ''), ENT_QUOTES, 'UTF-8'); ?>"
                              data-interval="<?php echo htmlspecialchars((string) $plan['billing_interval'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-trial-enabled="<?php echo $tenabled ? 1 : 0; ?>" data-trial-value="<?php echo $tval; ?>" data-trial-unit="<?php echo htmlspecialchars($tunit, ENT_QUOTES, 'UTF-8'); ?>"
                              data-description="<?php echo htmlspecialchars((string) $plan['description'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-perks="<?php echo htmlspecialchars((string) $plan['perks'], ENT_QUOTES, 'UTF-8'); ?>">
                             <span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>
                             <div class="plan-row__info">
                                 <span class="plan-row__name"><?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="plan-row__unit">/<?php echo $unit; ?></span><?php endif; ?></span>
+                                <span class="plan-row__price"><?php if ((int) $plan['price_cents'] === 0): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="plan-row__unit">/<?php echo $unit; ?></span><?php endif; ?><?php if ($tenabled): ?> <span class="plan-row__trial"><?php echo $tval . '-' . $tunit; ?> trial</span><?php endif; ?></span>
                             </div>
                             <label class="plan-row__switch" title="Active">
                                 <input type="checkbox" class="plan-toggle" <?php echo !empty($plan['is_active']) ? 'checked' : ''; ?>>
@@ -352,6 +358,35 @@
                     </div>
                     <p class="settings__empty links-empty" id="plans_empty" <?php echo empty($this->creator_plans) ? '' : 'hidden'; ?>>No membership plans yet. Add a tier your fans can subscribe to.</p>
                 </div>
+
+                <?php if (!empty($this->can_promo)): ?>
+                <div class="links-head" style="margin-top:2rem;">
+                    <h3 class="links-head__title">Discount codes</h3>
+                    <button type="button" class="btn btn-secondary" id="promo_add_btn"><i class="fa-solid fa-plus"></i> Add code</button>
+                </div>
+                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Percent-off codes fans apply at checkout. Toggle to enable; set a redemption cap or expiry.</p>
+                <div class="links-card">
+                    <div class="promos-list" id="promos_list">
+                        <?php foreach ($this->promo_codes as $pc): $applies = $pc['applies_to'] === 'ppv' ? 'Pay-per-view' : ($pc['applies_to'] === 'subscription' ? 'Subscriptions' : 'Subs &amp; PPV'); ?>
+                        <div class="plan-row<?php echo empty($pc['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $pc['id']; ?>"
+                             data-code="<?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-percent="<?php echo (int) $pc['percent_off']; ?>"
+                             data-applies="<?php echo htmlspecialchars((string) $pc['applies_to'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-max="<?php echo $pc['max_redemptions'] === null ? '' : (int) $pc['max_redemptions']; ?>"
+                             data-expires="<?php echo $pc['expires_at'] ? htmlspecialchars(date('Y-m-d', strtotime((string) $pc['expires_at'])), ENT_QUOTES, 'UTF-8') : ''; ?>">
+                            <div class="plan-row__info">
+                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <span class="plan-row__price"><?php echo (int) $pc['percent_off']; ?>% off<span class="plan-row__unit"> &middot; <?php echo $applies; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
+                            </div>
+                            <label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle" <?php echo !empty($pc['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
+                            <button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="link-row__btn promo-delete" aria-label="Remove code"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="settings__empty links-empty" id="promos_empty" <?php echo empty($this->promo_codes) ? '' : 'hidden'; ?>>No discount codes yet. Create one fans can use at checkout.</p>
+                </div>
+                <?php endif; ?>
             </section>
 
             <?php endif; ?>
@@ -657,6 +692,25 @@
                         </select>
                     </div>
                 </div>
+                <?php if (!empty($this->can_trials)): ?>
+                <label class="plan-free-toggle" style="margin-top:.1rem;">
+                    <input type="checkbox" id="plan_trial_enabled"> Offer a free trial
+                </label>
+                <div class="plan-field-row" id="plan_trial_row" hidden>
+                    <div class="link-field">
+                        <label for="plan_trial_value">Trial length</label>
+                        <input type="number" class="form-control" id="plan_trial_value" min="1" max="365" step="1" value="7">
+                    </div>
+                    <div class="link-field">
+                        <label for="plan_trial_unit">Unit</label>
+                        <select class="form-control" id="plan_trial_unit">
+                            <option value="day">Days</option>
+                            <option value="week">Weeks</option>
+                            <option value="month">Months</option>
+                        </select>
+                    </div>
+                </div>
+                <?php endif; ?>
                 <div class="link-field">
                     <label for="plan_description">Short description <span class="plan-optional">(optional)</span></label>
                     <input type="text" class="form-control" id="plan_description" maxlength="255" placeholder="Behind-the-scenes access and more">
@@ -669,6 +723,53 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="plan_save">Save plan</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="promo_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="promo_modal_title">Add code</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="promo_id" value="0">
+                <div class="link-field">
+                    <label for="promo_code">Code</label>
+                    <input type="text" class="form-control" id="promo_code" maxlength="40" placeholder="SUMMER20" style="text-transform:uppercase;">
+                </div>
+                <div class="plan-field-row">
+                    <div class="link-field">
+                        <label for="promo_percent">Discount (%)</label>
+                        <input type="number" class="form-control" id="promo_percent" min="1" max="100" placeholder="20">
+                    </div>
+                    <div class="link-field">
+                        <label for="promo_applies">Applies to</label>
+                        <select class="form-control" id="promo_applies">
+                            <option value="all">Subscriptions &amp; PPV</option>
+                            <option value="subscription">Subscriptions</option>
+                            <option value="ppv">Pay-per-view</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="plan-field-row">
+                    <div class="link-field">
+                        <label for="promo_max">Max redemptions </label>
+                        <input type="number" class="form-control" id="promo_max" min="1" placeholder="Unlimited">
+                        <span class="plan-optional">(blank = unlimited)</span>
+                    </div>
+                    <div class="link-field">
+                        <label for="promo_expires">Expires <span class="plan-optional">(optional)</span></label>
+                        <input type="date" class="form-control" id="promo_expires">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="promo_save">Save code</button>
             </div>
         </div>
     </div>
@@ -1710,17 +1811,20 @@ $(function () {
     function setPlanFreeState(free) {
         $('#plan_price').prop('disabled', free);
         $('#plan_interval').prop('disabled', free);
-        if (free) { $('#plan_price').val('0'); }
+        $('#plan_trial_enabled').prop('disabled', free);
+        if (free) { $('#plan_price').val('0'); $('#plan_trial_enabled').prop('checked', false); setPlanTrialState(false); }
     }
     $('#plan_free').on('change', function () { setPlanFreeState($(this).is(':checked')); });
+    function setPlanTrialState(on) { $('#plan_trial_row').prop('hidden', !on); }
+    $('#plan_trial_enabled').on('change', function () { setPlanTrialState($(this).is(':checked')); });
     function renderPlanRow(p) {
         return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
             + ' data-name="' + escapeHtml(p.name) + '" data-price="' + escapeHtml(p.price) + '"'
-            + ' data-interval="' + escapeHtml(p.interval) + '" data-description="' + escapeHtml(p.description) + '"'
+            + ' data-interval="' + escapeHtml(p.interval) + '" data-trial-enabled="' + (p.trial_enabled ? 1 : 0) + '" data-trial-value="' + (parseInt(p.trial_value, 10) || 7) + '" data-trial-unit="' + escapeHtml(p.trial_unit || 'day') + '" data-description="' + escapeHtml(p.description) + '"'
             + ' data-perks="' + escapeHtml(p.perks) + '">'
             + '<span class="link-row__handle"><i class="fa-solid fa-grip-vertical"></i></span>'
             + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.name) + '</span>'
-            + '<span class="plan-row__price">' + planPriceLabel(p.price, p.interval) + '</span></div>'
+            + '<span class="plan-row__price">' + planPriceLabel(p.price, p.interval) + (p.trial_enabled ? ' <span class="plan-row__trial">' + (parseInt(p.trial_value, 10) || 1) + '-' + (p.trial_unit || 'day') + ' trial</span>' : '') + '</span></div>'
             + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="plan-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
             + '<button type="button" class="link-row__btn plan-edit" aria-label="Edit plan"><i class="fa-solid fa-pen"></i></button>'
             + '<button type="button" class="link-row__btn plan-delete" aria-label="Remove plan"><i class="fa-solid fa-trash"></i></button>'
@@ -1737,9 +1841,77 @@ $(function () {
         });
     }
 
+    // ---- Discount codes ----
+    function renderPromoRow(p) {
+        var applies = p.applies === 'ppv' ? 'Pay-per-view' : (p.applies === 'subscription' ? 'Subscriptions' : 'Subs & PPV');
+        return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
+            + ' data-code="' + escapeHtml(p.code) + '" data-percent="' + (parseInt(p.percent, 10) || 0) + '"'
+            + ' data-applies="' + escapeHtml(p.applies) + '" data-max="' + escapeHtml(p.max || '') + '" data-expires="' + escapeHtml(p.expires || '') + '">'
+            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.code) + '</span>'
+            + '<span class="plan-row__price">' + (parseInt(p.percent, 10) || 0) + '% off<span class="plan-row__unit"> · ' + applies + '</span></span></div>'
+            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
+            + '<button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>'
+            + '<button type="button" class="link-row__btn promo-delete" aria-label="Remove code"><i class="fa-solid fa-trash"></i></button>'
+            + '</div>';
+    }
+    $('#promo_add_btn').on('click', function () {
+        $('#promo_id').val(0);
+        $('#promo_code').val(''); $('#promo_percent').val(''); $('#promo_applies').val('all');
+        $('#promo_max').val(''); $('#promo_expires').val('');
+        $('#promo_modal_title').text('Add code');
+        $('#promo_modal').modal('show');
+    });
+    $('#promos_list').on('click', '.promo-edit', function () {
+        var $row = $(this).closest('.plan-row');
+        $('#promo_id').val($row.data('id'));
+        $('#promo_code').val($row.data('code'));
+        $('#promo_percent').val($row.data('percent'));
+        $('#promo_applies').val($row.data('applies'));
+        $('#promo_max').val($row.data('max') || '');
+        $('#promo_expires').val($row.data('expires') || '');
+        $('#promo_modal_title').text('Edit code');
+        $('#promo_modal').modal('show');
+    });
+    $('#promo_save').on('click', function () {
+        var id = $('#promo_id').val();
+        var code = ($('#promo_code').val() || '').trim().toUpperCase();
+        var percent = parseInt($('#promo_percent').val(), 10) || 0;
+        if (code.length < 3) { toastr.error('Enter a code of at least 3 characters'); return; }
+        if (!(percent >= 1 && percent <= 100)) { toastr.error('Discount must be 1–100%'); return; }
+        var applies = $('#promo_applies').val(), max = ($('#promo_max').val() || ''), expires = ($('#promo_expires').val() || '');
+        ApiDataSvc.apiCall('post', 'save_promo_code', { id: id, code: code, percent_off: percent, applies_to: applies, max_redemptions: max, expires_at: expires }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            var $existing = $('#promos_list .plan-row[data-id="' + o.id + '"]');
+            var p = { id: o.id, code: o.code || code, percent: percent, applies: applies, max: max, expires: expires, active: true };
+            if ($existing.length) { p.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderPromoRow(p)); }
+            else { $('#promos_list').append(renderPromoRow(p)); $('#promos_empty').attr('hidden', true); }
+            $('#promo_modal').modal('hide');
+        });
+    });
+    $('#promos_list').on('change', '.promo-toggle', function () {
+        var $row = $(this).closest('.plan-row');
+        var active = $(this).is(':checked');
+        $row.toggleClass('is-inactive', !active);
+        ApiDataSvc.apiCall('post', 'toggle_promo_code', { id: $row.data('id'), active: active ? 1 : 0 }, function () {});
+    });
+    $('#promos_list').on('click', '.promo-delete', function () {
+        var $row = $(this).closest('.plan-row');
+        if (!confirm('Remove this discount code?')) { return; }
+        ApiDataSvc.apiCall('post', 'delete_promo_code', { id: $row.data('id') }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            $row.remove();
+            if (!$('#promos_list .plan-row').length) { $('#promos_empty').attr('hidden', false); }
+            toastr.success('Code removed');
+        });
+    });
+
     $('#plan_add_btn').on('click', function () {
         $('#plan_id').val(0);
         $('#plan_name').val(''); $('#plan_price').val(''); $('#plan_interval').val('month');
+        $('#plan_trial_enabled').prop('checked', false); $('#plan_trial_value').val('7'); $('#plan_trial_unit').val('day'); setPlanTrialState(false);
         $('#plan_description').val(''); $('#plan_perks').val('');
         $('#plan_free').prop('checked', false); setPlanFreeState(false);
         $('#plan_modal_title').text('Add plan');
@@ -1753,6 +1925,11 @@ $(function () {
         $('#plan_name').val($row.data('name'));
         $('#plan_price').val($row.data('price'));
         $('#plan_interval').val($row.data('interval'));
+        var tEnabled = String($row.data('trial-enabled')) === '1';
+        $('#plan_trial_enabled').prop('checked', tEnabled);
+        $('#plan_trial_value').val($row.data('trial-value') || 7);
+        $('#plan_trial_unit').val($row.data('trial-unit') || 'day');
+        setPlanTrialState(tEnabled);
         $('#plan_description').val($row.data('description'));
         $('#plan_perks').val($row.data('perks'));
         $('#plan_free').prop('checked', isFree); setPlanFreeState(isFree);
@@ -1768,15 +1945,18 @@ $(function () {
         var interval = $('#plan_interval').val();
         var description = ($('#plan_description').val() || '').trim();
         var perks = $('#plan_perks').val() || '';
+        var trialEnabled = !free && $('#plan_trial_enabled').is(':checked');
+        var trialValue = parseInt($('#plan_trial_value').val(), 10) || 1;
+        var trialUnit = $('#plan_trial_unit').val();
         if (name == '') { toastr.error('Enter a plan name'); return; }
         if (!free && !(parseFloat(price) >= 1)) { toastr.error('Enter a price of at least $1.00, or make it a free tier'); return; }
 
-        ApiDataSvc.apiCall('post', 'save_creator_plan', { id: id, name: name, price: price, is_free: free ? 1 : 0, billing_interval: interval, description: description, perks: perks }, function (data) {
+        ApiDataSvc.apiCall('post', 'save_creator_plan', { id: id, name: name, price: price, is_free: free ? 1 : 0, billing_interval: interval, trial_enabled: trialEnabled ? 1 : 0, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
             var $existing = $('#plans_list .plan-row[data-id="' + o.id + '"]');
-            var p = { id: o.id, name: name, price: (free ? '0.00' : parseFloat(price).toFixed(2)), interval: interval, description: description, perks: perks, active: true };
+            var p = { id: o.id, name: name, price: (free ? '0.00' : parseFloat(price).toFixed(2)), interval: interval, trial_enabled: trialEnabled, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks, active: true };
             if ($existing.length) {
                 p.active = !$existing.hasClass('is-inactive');
                 $existing.replaceWith(renderPlanRow(p));

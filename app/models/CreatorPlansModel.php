@@ -13,7 +13,7 @@ class CreatorPlansModel extends Model {
     /** All plans for a creator, in display order (for the settings manager). */
     public function get_for_user($user_id){
         return parent::select(
-            "SELECT id, name, price_cents, currency, billing_interval, description, perks, is_active, sort_order
+            "SELECT id, name, price_cents, currency, billing_interval, trial_enabled, trial_value, trial_unit, description, perks, is_active, sort_order
              FROM creator_plans
              WHERE user_id = :user_id
              ORDER BY sort_order ASC, id ASC",
@@ -24,7 +24,7 @@ class CreatorPlansModel extends Model {
     /** Active plans only (for the public profile). */
     public function get_active_for_user($user_id){
         return parent::select(
-            "SELECT id, name, price_cents, currency, billing_interval, description, perks
+            "SELECT id, name, price_cents, currency, billing_interval, trial_enabled, trial_value, trial_unit, description, perks
              FROM creator_plans
              WHERE user_id = :user_id AND is_active = 1
              ORDER BY sort_order ASC, id ASC",
@@ -72,6 +72,9 @@ class CreatorPlansModel extends Model {
             'price_cents'      => (int) $fields['price_cents'],
             'currency'         => 'usd',
             'billing_interval' => (string) $fields['billing_interval'],
+            'trial_enabled'    => (int) ($fields['trial_enabled'] ?? 0),
+            'trial_value'      => (int) ($fields['trial_value'] ?? 0),
+            'trial_unit'       => (string) ($fields['trial_unit'] ?? 'day'),
             'description'      => (string) ($fields['description'] ?? ''),
             'perks'            => (string) ($fields['perks'] ?? ''),
             'is_active'        => 1,
@@ -90,6 +93,9 @@ class CreatorPlansModel extends Model {
                 'name'              => (string) $fields['name'],
                 'price_cents'       => (int) $fields['price_cents'],
                 'billing_interval'  => (string) $fields['billing_interval'],
+                'trial_enabled'     => (int) ($fields['trial_enabled'] ?? 0),
+                'trial_value'       => (int) ($fields['trial_value'] ?? 0),
+                'trial_unit'        => (string) ($fields['trial_unit'] ?? 'day'),
                 'description'       => (string) ($fields['description'] ?? ''),
                 'perks'             => (string) ($fields['perks'] ?? ''),
                 'stripe_product_id' => null,

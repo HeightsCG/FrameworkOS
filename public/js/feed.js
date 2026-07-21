@@ -247,6 +247,8 @@
 
         var ppv_btn = document.getElementById('feed_lb_ppv');
         if (ppv_btn) { ppv_btn.onclick = function () { unlock_ppv(p, ppv_btn); }; }
+        var promo_apply = document.getElementById('feed_lb_promo_apply');
+        if (promo_apply) { promo_apply.onclick = function () { apply_ppv_promo(p); }; }
         var sub_btn = document.getElementById('feed_lb_sub');
         if (sub_btn) { sub_btn.onclick = function () { window.location = p.profile_url; }; }
 
@@ -257,14 +259,39 @@
     function locked_block(p, label, btn_text, kind) {
         var bg = p.locked_url ? ' style="background-image:url(\'' + esc(p.locked_url) + '\')"' : '';
         var btn_id = kind === 'ppv' ? 'feed_lb_ppv' : 'feed_lb_sub';
+        var promo = (kind === 'ppv' && LOGGED_IN)
+            ? '<div class="feed-plb__promo"><input type="text" id="feed_lb_promo" class="feed-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off">' +
+              '<button type="button" class="feed-plb__promo-apply" id="feed_lb_promo_apply">Apply</button></div>' +
+              '<div class="feed-plb__promo-msg" id="feed_lb_promo_msg"></div>'
+            : '';
         return '<div class="feed-plb__locked"' + bg + '><div class="feed-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>' + label + '</span>' +
-            '<button type="button" class="feed-plb__unlock" id="' + btn_id + '">' + btn_text + '</button></div></div>';
+            '<button type="button" class="feed-plb__unlock" id="' + btn_id + '">' + btn_text + '</button>' + promo + '</div></div>';
+    }
+
+    // Validate a discount code against this PPV post and reflect the new price.
+    function apply_ppv_promo(p) {
+        var input = document.getElementById('feed_lb_promo');
+        var msg   = document.getElementById('feed_lb_promo_msg');
+        var code  = input ? input.value.trim().toUpperCase() : '';
+        if (code === '') { return; }
+        ApiDataSvc.apiCall('post', 'promo_preview', { post_id: p.id, code: code }, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+            if (!o || !o.success) {
+                p.applied_code = null;
+                if (msg) { msg.textContent = (o && o.message) ? o.message : "That code isn't valid."; msg.className = 'feed-plb__promo-msg is-err'; }
+                return;
+            }
+            p.applied_code = code;
+            var ppv_btn = document.getElementById('feed_lb_ppv');
+            if (ppv_btn) { ppv_btn.textContent = 'Unlock — ' + o.new_price + ' credits · $' + Math.round(o.new_price / 10); }
+            if (msg) { msg.textContent = o.percent_off + '% off applied'; msg.className = 'feed-plb__promo-msg is-ok'; }
+        });
     }
 
     function unlock_ppv(p, btn) {
         if (!LOGGED_IN) { window.location = '/'; return; }
         var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
-        ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id }, function (resp) {
+        ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id, code: (p.applied_code || '') }, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
             if (!o) { btn.disabled = false; btn.textContent = orig; toast('Could not unlock'); return; }
             if (o.need_login) { window.location = '/'; return; }

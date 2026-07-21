@@ -194,6 +194,7 @@
 .pf-plan__price { font-size: 1.7rem; font-weight: 800; letter-spacing: -.03em; color: var(--pf-ink); overflow-wrap: anywhere; }
 .pf-plan__unit { font-size: .85rem; font-weight: 500; color: var(--pf-muted); letter-spacing: 0; }
 .pf-plan__desc { font-size: .9rem; line-height: 1.5; color: #45454d; margin: .7rem 0 0; overflow-wrap: anywhere; }
+.pf-plan__trial { display: inline-flex; align-items: center; gap: .35rem; margin: .6rem 0 0; font-size: .8rem; font-weight: 600; color: var(--pf-violet7); }
 .pf-plan__perks { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
 .pf-plan__perks li { display: flex; align-items: flex-start; gap: .55rem; font-size: .88rem; color: #33333a; line-height: 1.4; }
 .pf-plan__perks li span { min-width: 0; overflow-wrap: anywhere; }

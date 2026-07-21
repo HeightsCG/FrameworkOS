@@ -129,6 +129,14 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
 .feed-plb__unlock{ height:40px; padding:0 1.2rem; border:0; border-radius:var(--r-sm); background:var(--violet); color:#fff; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .12s; }
 .feed-plb__unlock:hover{ background:var(--violet7); }
 .feed-plb__unlock:disabled{ opacity:.7; cursor:default; }
+.feed-plb__promo{ display:flex; gap:.4rem; margin-top:.9rem; width:100%; max-width:280px; }
+.feed-plb__promo-input{ flex:1; min-width:0; height:36px; padding:0 .7rem; border:1px solid rgba(255,255,255,.3); border-radius:var(--r-sm); background:rgba(255,255,255,.12); color:#fff; font-size:.85rem; text-transform:uppercase; }
+.feed-plb__promo-input::placeholder{ color:rgba(255,255,255,.6); text-transform:none; }
+.feed-plb__promo-apply{ height:36px; padding:0 .9rem; border:0; border-radius:var(--r-sm); background:rgba(255,255,255,.92); color:#1d1d1f; font-size:.82rem; font-weight:600; cursor:pointer; }
+.feed-plb__promo-apply:hover{ background:#fff; }
+.feed-plb__promo-msg{ margin-top:.35rem; font-size:.78rem; min-height:1em; }
+.feed-plb__promo-msg.is-ok{ color:#8ff0b6; }
+.feed-plb__promo-msg.is-err{ color:#ffb3b3; }
 .feed-plb__engage{ display:flex; align-items:center; gap:1.1rem; margin:.9rem 0 .2rem; padding-top:.9rem; border-top:1px solid var(--line); }
 .feed-plb__like{ display:inline-flex; align-items:center; gap:.4rem; border:0; background:none; padding:0; font:inherit; font-size:.95rem; font-weight:600; color:#46464e; cursor:pointer; }
 .feed-plb__like i{ font-size:1.05rem; transition:transform .12s ease; }

@@ -18,6 +18,7 @@ class AccountController extends Controller {
         $user = $user[0];
 
         $can_post = Plan::can_social_post($user);
+        $this->view->can_trials = Plan::can($user, 'trials');   // free-trial field is Pro+ only
 
         // Platform display metadata (label, Font Awesome icon), in display order.
         $platform_meta = array(
@@ -101,6 +102,8 @@ class AccountController extends Controller {
         $this->view->creator_profile     = $is_creator ? (new CreatorProfileModel())->get_for_user($user['user_id']) : array();
         $this->view->creator_links       = $is_creator ? (new CreatorLinksModel())->get_for_user($user['user_id']) : array();
         $this->view->creator_plans       = $is_creator ? (new CreatorPlansModel())->get_for_user($user['user_id']) : array();
+        $this->view->promo_codes         = $is_creator ? (new CreatorPromoCodesModel())->get_for_user($user['user_id']) : array();
+        $this->view->can_promo           = Plan::can($user, 'promo_codes');   // discount codes are Pro+
         $this->view->creator_brand       = $is_creator ? (new CreatorBrandModel())->get_for_user($user['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;

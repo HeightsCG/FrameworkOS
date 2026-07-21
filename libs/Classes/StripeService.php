@@ -373,18 +373,22 @@ class StripeService {
      * Hosted Checkout for a subscription on the connected account, collecting the
      * platform's application fee. $metadata ties the session back to a subscriber/plan.
      */
-    public static function create_subscription_checkout($account_id, $price_id, $fee_percent, $success_url, $cancel_url, $metadata = array(), $email = ''): array
+    public static function create_subscription_checkout($account_id, $price_id, $fee_percent, $success_url, $cancel_url, $metadata = array(), $email = '', $trial_end = 0): array
     {
         try {
+            $sub_data = array(
+                'application_fee_percent' => (float) $fee_percent,
+                'metadata'                => $metadata,
+            );
+            if ((int) $trial_end > time()) {
+                $sub_data['trial_end'] = (int) $trial_end;   // exact end date, not a day count
+            }
             $params = array(
                 'mode'       => 'subscription',
                 'line_items' => array(array('price' => $price_id, 'quantity' => 1)),
                 'success_url' => $success_url,
                 'cancel_url'  => $cancel_url,
-                'subscription_data' => array(
-                    'application_fee_percent' => (float) $fee_percent,
-                    'metadata'                => $metadata,
-                ),
+                'subscription_data' => $sub_data,
                 'metadata' => $metadata,
             );
             if ($email !== '') {

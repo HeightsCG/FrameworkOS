@@ -139,6 +139,12 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                                     <span class="pf-plan__name"><?php echo htmlspecialchars((string) $plan['name'], ENT_QUOTES, 'UTF-8'); ?></span>
                                     <span class="pf-plan__price"><?php if ($is_free): ?>Free<?php else: ?>$<?php echo number_format($plan['price_cents'] / 100, 2); ?><span class="pf-plan__unit">/<?php echo $unit; ?></span><?php endif; ?></span>
                                 </div>
+                                <?php
+                                    $tunit2 = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
+                                    $has_trial = !$is_free && !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0;
+                                    $trial_label = $has_trial ? ((int) $plan['trial_value'] . '-' . $tunit2) : '';
+                                ?>
+                                <?php if ($has_trial): ?><span class="pf-plan__trial"><i class="fa-solid fa-gift"></i> <?php echo $trial_label; ?> free trial</span><?php endif; ?>
                                 <?php if (trim((string) $plan['description']) !== ''): ?><p class="pf-plan__desc"><?php echo htmlspecialchars((string) $plan['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
                                 <?php if (!empty($perk_lines)): ?>
                                 <ul class="pf-plan__perks">
@@ -151,7 +157,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                             <?php elseif ($is_free): ?>
                             <button class="pf-btn pf-btn--follow pf-plan__cta" data-join-free="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-plus"></i> Join for free</button>
                             <?php else: ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-subscribe-plan="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-star"></i> Subscribe</button>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-subscribe-plan="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-star"></i> <?php echo $has_trial ? ('Start ' . $trial_label . ' free trial') : 'Subscribe'; ?></button>
                             <?php endif; ?>
                         </div>
                         <?php endforeach; ?>

@@ -1153,6 +1153,19 @@ class ApiController extends Controller {
         }
         if ($price <= 0) { echo json_encode(array('success' => false, 'message' => 'This post is not for sale.')); exit; }
 
+        // Optional discount code — applied to the credits charged; the creator's
+        // earning and the platform fee are computed off the discounted amount.
+        $promo  = null;
+        $charge = $price;
+        $promo_code = (string) ($this->post['code'] ?? '');
+        if ($promo_code !== '') {
+            $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $promo_code, 'ppv');
+            if (!$promo) {
+                echo json_encode(array('success' => false, 'message' => "That discount code isn't valid.")); exit;
+            }
+            $charge = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
+        }
+
         $unlocks = new PpvUnlocksModel();
         $credits = new CreditsModel();
 
@@ -1160,28 +1173,29 @@ class ApiController extends Controller {
             echo json_encode(array('success' => true, 'already' => true, 'assets' => $this->ppv_reveal_assets($post))); exit;
         }
         $balance = $credits->get_balance($viewer);
-        if ($balance < $price) {
+        if ($balance < $charge) {
             echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $balance,
-                'price' => $price, 'shortfall' => $price - $balance,
-                'message' => 'You need ' . ($price - $balance) . ' more credits to unlock this.')); exit;
+                'price' => $charge, 'shortfall' => $charge - $balance,
+                'message' => 'You need ' . ($charge - $balance) . ' more credits to unlock this.')); exit;
         }
 
         // Record first: the UNIQUE(post_id, fan_id) key is the mutex that prevents a
         // double charge from concurrent clicks. Then debit; roll the row back if it fails.
-        if (!$unlocks->record($post_id, $creator_id, $viewer, $price)) {
+        if (!$unlocks->record($post_id, $creator_id, $viewer, $charge)) {
             echo json_encode(array('success' => true, 'already' => true, 'assets' => $this->ppv_reveal_assets($post))); exit;
         }
-        if ($credits->apply_delta($viewer, -$price, 'ppv_unlock', 'Unlocked a post') === false) {
+        if ($credits->apply_delta($viewer, -$charge, 'ppv_unlock', 'Unlocked a post') === false) {
             $unlocks->remove($post_id, $viewer);
             echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $credits->get_balance($viewer),
-                'price' => $price, 'message' => 'Not enough credits.')); exit;
+                'price' => $charge, 'message' => 'Not enough credits.')); exit;
         }
+        if ($promo) { (new CreatorPromoCodesModel())->redeem((int) $promo['id']); }
 
         // Pay the creator their share (net of the platform fee — tiered by the creator's
         // plan) and record per-post revenue.
         $creator_row = $this->userModel->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
-        $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
+        $net = (int) round($charge * (100 - Plan::fee_percent($creator_row)) / 100);
         if ($net > 0) {
             $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
@@ -1304,8 +1318,16 @@ class ApiController extends Controller {
         $cancel  = $base . '/@' . $handle . '?sub=cancel';
         $meta    = array('subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']);
 
+        // Free trial: compute the actual trial-end date from the plan's value + unit
+        // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day
+        // conversion. Only while enabled and the creator's tier still allows trials.
+        $trial_end = 0;
+        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && Plan::can($creator, 'trials')) {
+            $tu = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
+            $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
+        }
         $session = StripeService::create_subscription_checkout(
-            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email')
+            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email'), $trial_end
         );
         if (empty($session['url'])) {
             $response['message'] = 'Could not start checkout. Please try again.';
@@ -2217,7 +2239,7 @@ class ApiController extends Controller {
     /* ---------- Creator membership plans ---------- */
 
     public function save_creator_planAction(){
-        $this->require_creator();
+        $user    = $this->require_creator();
         $user_id = (int) Session::get('user_id');
 
         $name             = trim((string) ($this->post['name'] ?? ''));
@@ -2244,10 +2266,21 @@ class ApiController extends Controller {
             exit;
         }
 
+        // Free trial — an explicit toggle plus the value & unit (day/week/month) the
+        // creator actually picked, stored as-is. A Pro+ feature, forced off on free
+        // tiers or lower plans. The day-count Stripe needs is derived only at checkout.
+        $trial_enabled = !empty($this->post['trial_enabled']) && Plan::can($user, 'trials') && $price_cents > 0;
+        $trial_unit    = (string) ($this->post['trial_unit'] ?? 'day');
+        if (!in_array($trial_unit, array('day', 'week', 'month'), true)) { $trial_unit = 'day'; }
+        $trial_value   = $trial_enabled ? max(1, min(365, (int) ($this->post['trial_value'] ?? 1))) : 0;
+
         $fields = array(
             'name'             => $name,
             'price_cents'      => $price_cents,
             'billing_interval' => $billing_interval,
+            'trial_enabled'    => $trial_enabled ? 1 : 0,
+            'trial_value'      => $trial_value,
+            'trial_unit'       => $trial_unit,
             'description'      => $description,
             'perks'            => $perks,
         );
@@ -2301,6 +2334,81 @@ class ApiController extends Controller {
         (new CreatorPlansModel())->reorder((int) Session::get('user_id'), $ids);
         echo json_encode(array('success' => true, 'message' => 'Order saved'));
         exit;
+    }
+
+    /* ---------- Discount / promo codes (Pro+ monetization) ---------- */
+
+    /** Create or edit a discount code. Pro+ only. */
+    public function save_promo_codeAction(){
+        $user = $this->require_creator();
+        if (!Plan::can($user, 'promo_codes')) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => 'Discount codes are available on Pro and Studio plans.')); exit;
+        }
+        $user_id = (int) $user['user_id'];
+        $id      = (int) ($this->post['id'] ?? 0);
+
+        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($this->post['code'] ?? '')));
+        if (strlen($code) < 3 || strlen($code) > 40) {
+            echo json_encode(array('success' => false, 'message' => 'Use a code of 3–40 letters or numbers.')); exit;
+        }
+        $percent = (int) ($this->post['percent_off'] ?? 0);
+        if ($percent < 1 || $percent > 100) {
+            echo json_encode(array('success' => false, 'message' => 'Discount must be between 1% and 100%.')); exit;
+        }
+        $applies_to = (string) ($this->post['applies_to'] ?? 'all');
+        if (!in_array($applies_to, array('all', 'subscription', 'ppv'), true)) { $applies_to = 'all'; }
+
+        $max = trim((string) ($this->post['max_redemptions'] ?? ''));
+        $max = ($max === '' || (int) $max <= 0) ? null : (int) $max;
+
+        $expires = trim((string) ($this->post['expires_at'] ?? ''));
+        $expires_at = ($expires !== '' && ($ts = strtotime($expires))) ? date('Y-m-d H:i:s', $ts) : null;
+
+        $model = new CreatorPromoCodesModel();
+        foreach ($model->get_for_user($user_id) as $row) {   // unique per creator
+            if (strtoupper($row['code']) === $code && (int) $row['id'] !== $id) {
+                echo json_encode(array('success' => false, 'message' => 'You already have a code with that name.')); exit;
+            }
+        }
+
+        $fields = array('code' => $code, 'percent_off' => $percent, 'applies_to' => $applies_to,
+            'max_redemptions' => $max, 'expires_at' => $expires_at);
+
+        if ($id > 0) {
+            if (!$model->get_owned($user_id, $id)) { echo json_encode(array('success' => false, 'message' => 'Code not found')); exit; }
+            $model->update_code($user_id, $id, $fields);
+        } else {
+            $id = (int) $model->add($user_id, $fields);
+        }
+        echo json_encode(array('success' => true, 'message' => 'Discount code saved', 'id' => $id, 'code' => $code)); exit;
+    }
+
+    public function toggle_promo_codeAction(){
+        $user = $this->require_creator();
+        $id   = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Code is required')); exit; }
+        (new CreatorPromoCodesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
+        echo json_encode(array('success' => true, 'message' => 'Code updated')); exit;
+    }
+
+    public function delete_promo_codeAction(){
+        $user = $this->require_creator();
+        $id   = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Code is required')); exit; }
+        (new CreatorPromoCodesModel())->delete_code((int) $user['user_id'], $id);
+        echo json_encode(array('success' => true, 'message' => 'Code removed')); exit;
+    }
+
+    /** Fan-side: preview a discount code against a PPV post — returns the discounted price. */
+    public function promo_previewAction(){
+        $post = (new PostsModel())->get_by_id((int) ($this->post['post_id'] ?? 0));
+        if (!$post || ($post['audience'] ?? '') !== 'ppv') { echo json_encode(array('success' => false, 'message' => 'Not a pay-per-view post.')); exit; }
+        $price = (int) $post['ppv_price_credits'];
+        $promo = (new CreatorPromoCodesModel())->get_redeemable((int) $post['creator_id'], (string) ($this->post['code'] ?? ''), 'ppv');
+        if (!$promo) { echo json_encode(array('success' => false, 'message' => "That code isn't valid.")); exit; }
+        $new_price = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
+        echo json_encode(array('success' => true, 'percent_off' => (int) $promo['percent_off'],
+            'original_price' => $price, 'new_price' => $new_price)); exit;
     }
 
     /* ---------- Content Studio: media vault ---------- */

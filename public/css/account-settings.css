@@ -281,6 +281,7 @@
 .plan-row__name{font-size:.9rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .plan-row__price{font-size:.88rem; font-weight:700; color:var(--violet7); flex:none;}
 .plan-row__unit{font-size:.76rem; font-weight:500; color:var(--muted);}
+.plan-row__trial{margin-left:.45rem; font-size:.68rem; font-weight:600; letter-spacing:.01em; color:var(--violet7); background:var(--vsoft); padding:.12rem .42rem; border-radius:4px; white-space:nowrap;}
 .plan-row__switch{position:relative; display:inline-block; width:38px; height:22px; margin:0; cursor:pointer; flex:none;}
 .plan-row__switch input{position:absolute; opacity:0; width:0; height:0;}
 .plan-row__slider{position:absolute; inset:0; background:#d4d4dd; border-radius:2px; transition:background .16s;}
@@ -290,7 +291,7 @@
 .plan-free-toggle{display:flex; align-items:center; gap:.5rem; font-size:.9rem; font-weight:500; color:var(--t2); margin-bottom:1rem; cursor:pointer;}
 .plan-field-row{display:grid; grid-template-columns:1fr 1fr; gap:.9rem;}
 .plan-price-input .form-control:disabled{background:#f4f4f7; color:var(--muted);}
-.plan-optional{color:var(--muted2); font-weight:500;}
+.plan-optional{color:var(--muted2); font-weight:500;font-size: .75rem;}
 .plan-price-input{position:relative;}
 .plan-price-input__prefix{position:absolute; left:.7rem; top:50%; transform:translateY(-50%); color:var(--muted); font-size:.92rem;}
 .plan-price-input .form-control{padding-left:1.5rem;}
