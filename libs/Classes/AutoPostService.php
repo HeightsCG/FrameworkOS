@@ -59,13 +59,23 @@ class AutoPostService {
         $posts->set_state($creator_id, $post_id, 'published');
         $post = $posts->get_by_id($post_id);
 
-        // 6) Cross-post to social (best-effort — never fails the run).
+        // 6) Cross-post to social (best-effort — never fails the run, but the
+        // outcome is surfaced in the message so a silent failure is visible).
         $accounts = json_decode((string) ($rule['social_accounts'] ?? '[]'), true);
+        $message  = 'Published a new post.';
         if ($post && is_array($accounts) && !empty($accounts)) {
-            SocialShareService::share($user, $post, array_map('strval', $accounts), null);
+            $share = SocialShareService::share($user, $post, array_map('strval', $accounts), null);
+            if (is_array($share)) {
+                if (!empty($share['ok']) && (int) ($share['shared'] ?? 0) > 0) {
+                    $n = (int) $share['shared'];
+                    $message .= ' Shared to ' . $n . ' social account' . ($n === 1 ? '' : 's') . '.';
+                } elseif (empty($share['ok'])) {
+                    $message .= ' Social sharing failed: ' . (string) ($share['error'] ?? 'unknown error');
+                }
+            }
         }
 
-        return array('ok' => true, 'post_id' => $post_id, 'message' => 'Published a new post.');
+        return array('ok' => true, 'post_id' => $post_id, 'message' => $message);
     }
 
     private static function fail($post_id, $message){

@@ -389,6 +389,34 @@
                     <p class="settings__empty links-empty" id="promos_empty" <?php echo empty($this->promo_codes) ? '' : 'hidden'; ?>>No discount codes yet. Create one fans can use at checkout.</p>
                 </div>
                 <?php endif; ?>
+
+                <?php if (!empty($this->can_bundles)): ?>
+                <div class="links-head" style="margin-top:2rem;">
+                    <h3 class="links-head__title">Content bundles</h3>
+                    <button type="button" class="btn btn-secondary" id="bundle_add_btn"><i class="fa-solid fa-plus"></i> Add bundle</button>
+                </div>
+                <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Sell a group of your Library content (photos &amp; videos) together at one price. Buyers get every item in their Purchases.</p>
+                <div class="links-card">
+                    <div class="bundles-list" id="bundles_list">
+                        <?php foreach ($this->content_bundles as $bd): ?>
+                        <div class="plan-row<?php echo empty($bd['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $bd['id']; ?>"
+                             data-name="<?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-description="<?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?>"
+                             data-price="<?php echo (int) $bd['price_credits']; ?>"
+                             data-assets="<?php echo htmlspecialchars(implode(',', array_map('intval', (array) $bd['asset_ids'])), ENT_QUOTES, 'UTF-8'); ?>">
+                            <div class="plan-row__info">
+                                <span class="plan-row__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                <span class="plan-row__price">$<?php echo (int) round($bd['price_credits'] / 10); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['price_credits']; ?> cr &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
+                            </div>
+                            <label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle" <?php echo !empty($bd['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
+                            <button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>
+                            <button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="settings__empty links-empty" id="bundles_empty" <?php echo empty($this->content_bundles) ? '' : 'hidden'; ?>>No bundles yet. Group content from your Library into a bundle fans can buy.</p>
+                </div>
+                <?php endif; ?>
             </section>
 
             <?php endif; ?>
@@ -776,6 +804,59 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="promo_save">Save code</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="bundle_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="bundle_modal_title">Add bundle</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="bundle_id" value="0">
+                <div class="link-field">
+                    <label for="bundle_name">Name</label>
+                    <input type="text" class="form-control" id="bundle_name" maxlength="120" placeholder="Summer collection">
+                </div>
+                <div class="link-field">
+                    <label for="bundle_price">Price</label>
+                    <div class="bundle-price-row">
+                        <span class="bundle-price-cur">$</span>
+                        <input type="number" class="form-control" id="bundle_price" min="1" placeholder="15">
+                        <span class="bundle-price-hint" id="bundle_price_credits">= 150 credits</span>
+                    </div>
+                </div>
+                <div class="link-field">
+                    <label for="bundle_description">Description <span class="plan-optional">(optional)</span></label>
+                    <textarea class="form-control" id="bundle_description" maxlength="500" rows="2" placeholder="What's inside this bundle"></textarea>
+                </div>
+                <div class="link-field">
+                    <label>Content in this bundle</label>
+                    <?php if (empty($this->bundle_media)): ?>
+                    <p class="settings__empty" style="margin:0;">Your Library is empty. Add photos or videos in the Content Studio first, then group them here.</p>
+                    <?php else: ?>
+                    <div class="bundle-grid" id="bundle_picker">
+                        <?php foreach ($this->bundle_media as $bm): ?>
+                        <label class="bundle-tile" title="<?php echo htmlspecialchars((string) $bm['title'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <input type="checkbox" class="bundle-pick__cb" data-asset="<?php echo (int) $bm['id']; ?>">
+                            <span class="bundle-tile__thumb"<?php echo $bm['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars($bm['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
+                                <?php if ($bm['type'] === 'video'): ?><i class="fa-solid fa-play bundle-tile__vid"></i><?php endif; ?>
+                                <i class="fa-solid fa-circle-check bundle-tile__check"></i>
+                            </span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <p class="bundle-picker__sum" id="bundle_sum">0 items selected</p>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="bundle_save">Save bundle</button>
             </div>
         </div>
     </div>
@@ -1911,6 +1992,94 @@ $(function () {
             $row.remove();
             if (!$('#promos_list .plan-row').length) { $('#promos_empty').attr('hidden', false); }
             toastr.success('Code removed');
+        });
+    });
+
+    // ---- Content bundles ----
+    function renderBundleRow(b) {
+        var dollars = Math.round((parseInt(b.price, 10) || 0) / 10);
+        var n = String(b.asset_ids || '').split(',').filter(function (x) { return x !== ''; }).length;
+        return '<div class="plan-row' + (b.active ? '' : ' is-inactive') + '" data-id="' + b.id + '"'
+            + ' data-name="' + escapeHtml(b.name) + '" data-description="' + escapeHtml(b.description || '') + '"'
+            + ' data-price="' + (parseInt(b.price, 10) || 0) + '" data-assets="' + escapeHtml(String(b.asset_ids || '')) + '">'
+            + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(b.name) + '</span>'
+            + '<span class="plan-row__price">$' + dollars + '<span class="plan-row__unit"> · ' + (parseInt(b.price, 10) || 0) + ' cr · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
+            + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle"' + (b.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
+            + '<button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>'
+            + '<button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>'
+            + '</div>';
+    }
+    function bundleUpdateHints() {
+        var dollars = parseInt($('#bundle_price').val(), 10) || 0;
+        $('#bundle_price_credits').text('= ' + (dollars * 10) + ' credits');
+        var n = $('#bundle_picker .bundle-pick__cb:checked').length;
+        $('#bundle_sum').text(n + ' item' + (n === 1 ? '' : 's') + ' selected');
+    }
+    function bundleSetAssets(ids) {
+        var set = {}; (ids || []).forEach(function (x) { set[String(x)] = 1; });
+        $('#bundle_picker .bundle-pick__cb').each(function () {
+            this.checked = !!set[String($(this).data('asset'))];
+            $(this).closest('.bundle-tile').toggleClass('is-on', this.checked);
+        });
+    }
+    $('#bundle_price').on('input', bundleUpdateHints);
+    $('#bundle_picker').on('change', '.bundle-pick__cb', function () {
+        $(this).closest('.bundle-tile').toggleClass('is-on', this.checked);
+        bundleUpdateHints();
+    });
+    $('#bundle_add_btn').on('click', function () {
+        $('#bundle_id').val(0);
+        $('#bundle_name').val(''); $('#bundle_price').val(''); $('#bundle_description').val('');
+        bundleSetAssets([]); bundleUpdateHints();
+        $('#bundle_modal_title').text('Add bundle');
+        $('#bundle_modal').modal('show');
+    });
+    $('#bundles_list').on('click', '.bundle-edit', function () {
+        var $row = $(this).closest('.plan-row');
+        $('#bundle_id').val($row.data('id'));
+        $('#bundle_name').val($row.data('name'));
+        $('#bundle_description').val($row.data('description') || '');
+        $('#bundle_price').val(parseInt($row.data('price'), 10) || '');
+        var assets = String($row.data('assets') || '').split(',').filter(function (x) { return x !== ''; });
+        bundleSetAssets(assets); bundleUpdateHints();
+        $('#bundle_modal_title').text('Edit bundle');
+        $('#bundle_modal').modal('show');
+    });
+    $('#bundle_save').on('click', function () {
+        var id = $('#bundle_id').val();
+        var name = ($('#bundle_name').val() || '').trim();
+        var dollars = parseInt($('#bundle_price').val(), 10) || 0;
+        if (name === '') { toastr.error('Give the bundle a name'); return; }
+        if (dollars < 1) { toastr.error('Set a price of at least $1'); return; }
+        var assets = $('#bundle_picker .bundle-pick__cb:checked').map(function () { return String($(this).data('asset')); }).get();
+        if (!assets.length) { toastr.error('Add at least one piece of content to the bundle'); return; }
+        var desc = ($('#bundle_description').val() || '').trim();
+        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price_credits: dollars * 10, description: desc, asset_ids: assets }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message);
+            var b = { id: o.id, name: name, description: desc, price: dollars * 10, asset_ids: assets.join(','), active: true };
+            var $existing = $('#bundles_list .plan-row[data-id="' + o.id + '"]');
+            if ($existing.length) { b.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderBundleRow(b)); }
+            else { $('#bundles_list').append(renderBundleRow(b)); $('#bundles_empty').attr('hidden', true); }
+            $('#bundle_modal').modal('hide');
+        });
+    });
+    $('#bundles_list').on('change', '.bundle-toggle', function () {
+        var $row = $(this).closest('.plan-row');
+        var active = $(this).is(':checked');
+        $row.toggleClass('is-inactive', !active);
+        ApiDataSvc.apiCall('post', 'toggle_bundle', { id: $row.data('id'), active: active ? 1 : 0 }, function () {});
+    });
+    $('#bundles_list').on('click', '.bundle-delete', function () {
+        var $row = $(this).closest('.plan-row');
+        if (!confirm('Remove this bundle? Posts in it stay; only the bundle is deleted.')) { return; }
+        ApiDataSvc.apiCall('post', 'delete_bundle', { id: $row.data('id') }, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            $row.remove();
+            if (!$('#bundles_list .plan-row').length) { $('#bundles_empty').attr('hidden', false); }
+            toastr.success('Bundle removed');
         });
     });
 

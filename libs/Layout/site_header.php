@@ -33,6 +33,7 @@
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
             <?php endif; ?>
+            <a href="/purchases" class="app-nav-item<?php echo ($this->controller === 'purchases' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-bag-shopping"></i> Purchases</a>
         </nav>
         <span class="app-sidebar__spacer"></span>
         <a href="#" class="app-signout app-logout"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>

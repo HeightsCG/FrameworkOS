@@ -17,6 +17,23 @@ class PpvUnlocksModel extends Model {
         return $out;
     }
 
+    /** A fan's PPV purchases with post + creator identity — for the Purchases area. */
+    public function get_for_fan($fan_id){
+        return parent::select(
+            "SELECT pu.post_id, pu.price_credits, pu.created_at AS purchased_at,
+                    p.caption, p.creator_id,
+                    u.u_name AS creator_handle,
+                    COALESCE(cp.display_name, CONCAT(u.first_name, ' ', u.last_name)) AS creator_name
+             FROM ppv_unlocks pu
+             JOIN posts p ON p.id = pu.post_id
+             JOIN user_accounts u ON u.user_id = pu.creator_id AND u.deleted = 0
+             LEFT JOIN creator_profiles cp ON cp.user_id = pu.creator_id
+             WHERE pu.fan_id = :f
+             ORDER BY pu.created_at DESC",
+            array('f' => (int) $fan_id)
+        );
+    }
+
     public function has_unlocked($post_id, $fan_id){
         if (!$fan_id) { return false; }
         $r = parent::select("SELECT id FROM ppv_unlocks WHERE post_id = :p AND fan_id = :f LIMIT 1",

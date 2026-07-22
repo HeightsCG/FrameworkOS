@@ -9,7 +9,10 @@ class Bootstrap
 
     public function start_app()
     {
-        date_default_timezone_set('America/New_York');
+        // Store everything in UTC; display layers convert to the viewer's timezone.
+        // (The CLI scheduler already runs in UTC, and compute_next_run/gmdate are UTC,
+        // so this aligns the web context with the rest of the app.)
+        date_default_timezone_set('UTC');
         $env = Main::get_environment();
         $config = Main::get_config();
         $domain = $config[$env]['domain'];

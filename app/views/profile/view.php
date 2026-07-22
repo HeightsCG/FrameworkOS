@@ -118,18 +118,19 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 </section>
 
                 <section class="pf-panel" data-panel="plans">
-                    <?php if (empty($plans)): ?>
+                    <?php if (empty($plans) && empty($bundle_cards)): ?>
                     <div class="pf-empty">
                         <i class="fa-regular fa-star pf-empty__icon"></i>
                         <p class="pf-empty__title">No membership plans yet</p>
                         <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> hasn't set up membership tiers. Check back soon.</p>
                     </div>
                     <?php else: ?>
-                    <?php if ($viewer_logged_in): ?>
+                    <?php if ($viewer_logged_in && !empty($plans)): ?>
                     <div class="pf-promo">
                         <input type="text" id="pf_promo_code" class="pf-promo__input" placeholder="Have a discount code? Enter it here" maxlength="40" autocomplete="off">
                     </div>
                     <?php endif; ?>
+                    <?php if (!empty($plans)): ?>
                     <div class="pf-plans">
                         <?php foreach ($plans as $plan): ?>
                         <?php
@@ -167,6 +168,34 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         </div>
                         <?php endforeach; ?>
                     </div>
+                    <?php endif; ?>
+                    <?php if (!empty($bundle_cards)): ?>
+                    <h3 class="pf-bundles__title">Content bundles</h3>
+                    <p class="pf-bundles__sub">Buy a group of content together at one price.</p>
+                    <div class="pf-bundles">
+                        <?php foreach ($bundle_cards as $bd): ?>
+                        <div class="pf-bundle">
+                            <div class="pf-bundle__body">
+                                <div class="pf-bundle__head">
+                                    <span class="pf-bundle__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="pf-bundle__price">$<?php echo (int) $bd['price_dollars']; ?></span>
+                                </div>
+                                <span class="pf-bundle__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span>
+                                <?php if (trim((string) $bd['description']) !== ''): ?><p class="pf-bundle__desc"><?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+                            </div>
+                            <?php if (!empty($bd['owned'])): ?>
+                            <div class="pf-plan__cta pf-plan__member"><i class="fa-solid fa-circle-check"></i> Owned</div>
+                            <?php elseif (!$viewer_logged_in): ?>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to unlock</button>
+                            <?php elseif ($viewer_credit_balance >= (int) $bd['price_credits']): ?>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock &mdash; <?php echo (int) $bd['price_credits']; ?> credits &middot; $<?php echo (int) $bd['price_dollars']; ?></button>
+                            <?php else: ?>
+                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings"><i class="fa-solid fa-plus"></i> Add credits to unlock</a>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </section>
 
@@ -300,6 +329,31 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     member.innerHTML = '<i class="fa-solid fa-circle-check"></i> Joined';
                     b.replaceWith(member);
                     pfToast(o.message);
+                });
+            };
+        });
+
+        // Content bundle unlock.
+        document.querySelectorAll('[data-bundle-login]').forEach(function (b) {
+            b.onclick = function () { window.location = '/'; };
+        });
+        document.querySelectorAll('[data-bundle-unlock]').forEach(function (b) {
+            b.onclick = function () {
+                if (!LOGGED_IN) { window.location = '/'; return; }
+                var orig = b.innerHTML; b.disabled = true; b.textContent = 'Unlocking…';
+                ApiDataSvc.apiCall('post', 'bundle_unlock', { bundle_id: b.getAttribute('data-bundle-unlock') }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not unlock'); return; }
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_credits) {
+                        b.disabled = false; b.innerHTML = orig;
+                        pfToast(o.message || 'Not enough credits.');
+                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
+                        return;
+                    }
+                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not unlock'); return; }
+                    pfToast(o.message || 'Bundle unlocked!');
+                    setTimeout(function () { window.location.reload(); }, 900);   // reveal the now-unlocked posts
                 });
             };
         });

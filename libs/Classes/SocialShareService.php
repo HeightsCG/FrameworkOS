@@ -9,15 +9,17 @@
  */
 class SocialShareService {
 
+    /** Returns array('ok'=>bool, 'shared'=>int, 'error'=>string) so callers can surface the outcome. */
     public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null){
         try {
-            if (empty($account_ids) || !Plan::can_social_post($user)) { return; }
+            if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
+            if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }
             $valid = array(); $req = array_map('strval', $account_ids);
             foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
                 $pfm = (string) $a['post_for_me_social_account_id'];
                 if (in_array($pfm, $req, true)) { $valid[] = $pfm; }
             }
-            if (empty($valid)) { return; }
+            if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
             $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
             $cap   = trim((string) $post['caption']);
@@ -52,14 +54,19 @@ class SocialShareService {
             }
 
             $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false);
-            if (is_array($res)) {
+            if (is_array($res) && isset($res['id'])) {
                 (new SocialPostsModel())->create(
-                    (int) $user['user_id'], (string) ($res['id'] ?? ''), $promo,
+                    (int) $user['user_id'], (string) $res['id'], $promo,
                     (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
                 );
+                return array('ok' => true, 'shared' => count($valid), 'error' => '');
             }
+            $err = is_array($res) ? (string) ($res['_error'] ?? 'unknown error') : 'no response from Post for Me';
+            error_log('[social share] create_post failed: ' . $err);
+            return array('ok' => false, 'shared' => 0, 'error' => $err);
         } catch (\Throwable $e) {
             error_log('[social share] failed: ' . $e->getMessage());
+            return array('ok' => false, 'shared' => 0, 'error' => $e->getMessage());
         }
     }
 }

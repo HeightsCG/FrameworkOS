@@ -104,6 +104,29 @@ class AccountController extends Controller {
         $this->view->creator_plans       = $is_creator ? (new CreatorPlansModel())->get_for_user($user['user_id']) : array();
         $this->view->promo_codes         = $is_creator ? (new CreatorPromoCodesModel())->get_for_user($user['user_id']) : array();
         $this->view->can_promo           = Plan::can($user, 'promo_codes');   // discount codes are Pro+
+
+        // Content bundles (Pro+): the creator's bundles + the Library media they can add.
+        $bundlesModel = new ContentBundlesModel();
+        $bundles = $is_creator ? (array) $bundlesModel->get_for_creator($user['user_id']) : array();
+        foreach ($bundles as &$b) { $b['asset_ids'] = $bundlesModel->get_item_asset_ids((int) $b['id']); }
+        unset($b);
+        $bundle_media = array();
+        if ($is_creator) {
+            foreach ((array) (new MediaAssetsModel())->get_for_creator($user['user_id'], array()) as $a) {
+                if (($a['status'] ?? '') !== 'ready' || !empty($a['deleted_at'])) { continue; }
+                $name = trim((string) ($a['display_name'] ?? ''));
+                if ($name === '') { $name = (string) ($a['filename'] ?? 'Untitled'); }
+                $bundle_media[] = array(
+                    'id'    => (int) $a['id'],
+                    'type'  => (string) $a['type'],
+                    'title' => mb_substr($name, 0, 60),
+                    'thumb' => MediaService::signed_variant($a, ($a['type'] === 'video' ? 'poster' : 'thumb'), 900),
+                );
+            }
+        }
+        $this->view->content_bundles     = $bundles;
+        $this->view->bundle_media        = $bundle_media;
+        $this->view->can_bundles         = Plan::can($user, 'bundles');   // bundles are Pro+
         $this->view->creator_brand       = $is_creator ? (new CreatorBrandModel())->get_for_user($user['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;

@@ -96,6 +96,24 @@ class ProfileController extends Controller {
             ? (new CreatorSubscriptionsModel())->active_plan_ids($viewer_id, $user['user_id'])
             : array();
 
+        // Content bundles this creator sells (active + non-empty), with the viewer's ownership.
+        $bundlesModel    = new ContentBundlesModel();
+        $bundle_unlocked = ($viewer_logged_in && !$is_self)
+            ? $bundlesModel->unlocked_map_for_creator($viewer_id, $user['user_id'])
+            : array();
+        $bundle_cards = array();
+        foreach ($bundlesModel->get_active_for_creator($user['user_id']) as $b) {
+            $bundle_cards[] = array(
+                'id'            => (int) $b['id'],
+                'name'          => (string) $b['name'],
+                'description'   => (string) $b['description'],
+                'price_credits' => (int) $b['price_credits'],
+                'price_dollars' => (int) round(((int) $b['price_credits']) / 10),
+                'item_count'    => (int) $b['item_count'],
+                'owned'         => $is_self || isset($bundle_unlocked[(int) $b['id']]),
+            );
+        }
+
         // Published Content Studio posts, gated per audience. Entitlement is decided
         // HERE (server-side): the real media URL is signed only for entitled viewers;
         // everyone else gets only the blurred locked preview — the clear rendition is

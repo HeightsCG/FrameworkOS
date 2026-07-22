@@ -207,6 +207,19 @@
 .pf-plan__member { display: flex; align-items: center; justify-content: center; gap: .45rem; height: 42px; border-radius: var(--pf-radius); background: var(--pf-vsoft); color: var(--pf-violet7); font-weight: 600; font-size: .92rem; }
 .pf-plan__member i { color: var(--pf-violet); }
 
+/* Content bundles */
+.pf-bundles__title { font-size: 1rem; font-weight: 700; color: var(--pf-ink); margin: 1.7rem 0 .2rem; }
+.pf-bundles__sub { font-size: .85rem; color: var(--pf-muted); margin: 0 0 .9rem; }
+.pf-bundles { display: flex; flex-direction: column; gap: .7rem; }
+.pf-bundle { display: flex; align-items: center; justify-content: space-between; gap: 1.2rem; background: var(--pf-surface); border: 1px solid var(--pf-line); border-radius: var(--pf-radius); padding: 1rem 1.2rem; }
+.pf-bundle__body { flex: 1 1 auto; min-width: 0; }
+.pf-bundle__head { display: flex; align-items: baseline; gap: .6rem; }
+.pf-bundle__name { font-size: .98rem; font-weight: 700; color: var(--pf-ink); overflow-wrap: anywhere; }
+.pf-bundle__price { font-size: 1.15rem; font-weight: 800; letter-spacing: -.02em; color: var(--pf-violet7); margin-left: auto; }
+.pf-bundle__count { display: inline-flex; align-items: center; gap: .35rem; font-size: .82rem; color: var(--pf-muted); margin-top: .25rem; }
+.pf-bundle__desc { font-size: .86rem; color: var(--pf-muted); margin: .4rem 0 0; overflow-wrap: anywhere; }
+.pf-bundle .pf-plan__cta { flex: none; width: auto; margin: 0; padding: 0 1.1rem; height: 42px; }
+
 /* interim subscribe notice */
 .pf-toast {
     position: fixed; left: 50%; bottom: 28px; transform: translate(-50%, 12px);

@@ -17,6 +17,24 @@ class WebhookController extends Controller {
     }
 
     public function postformeAction(){
+        // Post for Me sends a shared secret on every delivery in the
+        // "Post-For-Me-Webhook-Secret" header. Verify it before processing anything.
+        // Fail-closed: with no configured secret, reject rather than trust the payload.
+        $secret = '';
+        try { $secret = (string) Main::config(Main::get_environment(), 'post_for_me_webhook_secret'); } catch (\Throwable $e) {}
+        if ($secret === '') {
+            error_log('[postforme webhook] post_for_me_webhook_secret not configured');
+            http_response_code(503);
+            echo 'not configured';
+            exit;
+        }
+        $sent = (string) ($_SERVER['HTTP_POST_FOR_ME_WEBHOOK_SECRET'] ?? '');
+        if ($sent === '' || !hash_equals($secret, $sent)) {
+            http_response_code(401);
+            echo 'unauthorized';
+            exit;
+        }
+
         $event = json_decode(file_get_contents('php://input'), true);
         if (!is_array($event)) {
             http_response_code(400);
@@ -24,7 +42,6 @@ class WebhookController extends Controller {
             exit;
         }
 
-        // TODO: verify the webhook signature once configured in the dashboard.
         $type = $event['type'] ?? '';
         $data = $event['data'] ?? array();
 

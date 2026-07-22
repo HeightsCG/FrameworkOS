@@ -1464,7 +1464,7 @@ jQuery(function ($) {
         if (topic === '') { toastr.info('Describe what to post.'); $('#csSchedTopic').focus(); return; }
         var days = $('#csSchedDays .cs-sched__day.is-on').map(function () { return $(this).data('day'); }).get();
         if (schedForm.cadence === 'weekly' && !days.length) { toastr.info('Pick at least one day of the week.'); return; }
-        var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return this.value; }).get();
+        var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
         var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');
         ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
@@ -1507,7 +1507,10 @@ jQuery(function ($) {
         ApiDataSvc.apiCall('post', 'scheduler_run_now', { id: id }, function (data) {
             delete schedRunning[id];
             var o = JSON.parse(data);
-            if (o.success) { toastr.success('Published a new post.'); }
+            if (o.success) {
+                var m = (o && o.message) || 'Published a new post.';
+                if (/failed/i.test(m)) { toastr.warning(m); } else { toastr.success(m); }
+            }
             else { toastr.error((o && o.message) || 'Run failed.'); }
             loadScheduler();
         });

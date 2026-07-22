@@ -992,12 +992,12 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true, 'count' => $count)); exit;
     }
 
-    /** Record a view, deduped per unique viewer. Creator's own views don't count. */
+    /** Record a view, deduped per unique viewer (each viewer counts once). */
     public function post_viewAction(){
         $viewer = (int) Session::get('user_id');
         $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
         if (!$post) { echo json_encode(array('success' => false)); exit; }
-        if (!$this->post_engagement_ok($post, $viewer) || $viewer === (int) $post['creator_id']) {
+        if (!$this->post_engagement_ok($post, $viewer)) {
             echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
         }
         $key = $viewer > 0
@@ -1274,6 +1274,68 @@ class ApiController extends Controller {
 
         echo json_encode(array('success' => true, 'assets' => $this->ppv_reveal_assets($post),
             'balance' => $credits->get_balance($viewer))); exit;
+    }
+
+    /**
+     * Spend credits to unlock a content bundle. Charges once, then grants access to
+     * every post in the bundle by writing a ppv_unlocks row per post (so all existing
+     * entitlement checks unlock automatically), and pays the creator net of the fee.
+     */
+    public function bundle_unlockAction(){
+        $viewer = (int) Session::get('user_id');
+        if ($viewer <= 0) {
+            echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to unlock this bundle.')); exit;
+        }
+        $bundle_id = (int) ($this->post['bundle_id'] ?? 0);
+        $model     = new ContentBundlesModel();
+        $bundle    = $model->get_public($bundle_id);
+        if (!$bundle) { echo json_encode(array('success' => false, 'message' => 'That bundle is not available.')); exit; }
+
+        $creator_id = (int) $bundle['creator_id'];
+        $price      = (int) $bundle['price_credits'];
+        $asset_ids  = $model->get_item_asset_ids($bundle_id);
+        if (empty($asset_ids)) { echo json_encode(array('success' => false, 'message' => 'This bundle has no content.')); exit; }
+
+        // The creator already owns everything in their own bundle.
+        if ($creator_id === $viewer) {
+            echo json_encode(array('success' => true, 'already' => true, 'message' => 'This is your own bundle.')); exit;
+        }
+        if ($price <= 0) { echo json_encode(array('success' => false, 'message' => 'This bundle is not for sale.')); exit; }
+
+        $credits = new CreditsModel();
+        if ($model->has_unlocked($bundle_id, $viewer)) {
+            echo json_encode(array('success' => true, 'already' => true, 'message' => 'You already own this bundle.')); exit;
+        }
+        $balance = $credits->get_balance($viewer);
+        if ($balance < $price) {
+            echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $balance, 'price' => $price,
+                'message' => 'You need ' . ($price - $balance) . ' more credits to unlock this bundle.')); exit;
+        }
+
+        // Record the bundle unlock first (UNIQUE(bundle_id,fan_id) is the mutex), then
+        // debit; roll the row back if the charge fails.
+        if (!$model->record_unlock($bundle_id, $creator_id, $viewer, $price)) {
+            echo json_encode(array('success' => true, 'already' => true, 'message' => 'You already own this bundle.')); exit;
+        }
+        if ($credits->apply_delta($viewer, -$price, 'bundle_unlock', 'Unlocked a content bundle') === false) {
+            $model->remove_unlock($bundle_id, $viewer);
+            echo json_encode(array('success' => false, 'need_credits' => true, 'balance' => $credits->get_balance($viewer),
+                'price' => $price, 'message' => 'Not enough credits.')); exit;
+        }
+
+        // The bundle_unlocks row is the grant — the media now appears in the fan's
+        // Purchases (which reads bundle_unlocks). No post unlocking involved.
+
+        // Pay the creator net of the tiered platform fee.
+        $creator_row = $this->userModel->get_user_by_id($creator_id);
+        $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
+        $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
+        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); }
+
+        $n = count($asset_ids);
+        echo json_encode(array('success' => true, 'unlocked' => $n,
+            'balance' => $credits->get_balance($viewer),
+            'message' => 'Purchased — ' . $n . ' item' . ($n === 1 ? '' : 's') . ' added to your Purchases.')); exit;
     }
 
     /** Join a free membership tier (auth required). Paid tiers go through checkout. */
@@ -2485,6 +2547,68 @@ class ApiController extends Controller {
         if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Code is required')); exit; }
         (new CreatorPromoCodesModel())->delete_code((int) $user['user_id'], $id);
         echo json_encode(array('success' => true, 'message' => 'Code removed')); exit;
+    }
+
+    /** Create or update a content bundle (Pro+). Only the creator's own published PPV posts may be grouped. */
+    public function save_bundleAction(){
+        $user = $this->require_creator();
+        if (!Plan::can($user, 'bundles')) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => 'Content bundles are available on Pro and Studio plans.')); exit;
+        }
+        $user_id = (int) $user['user_id'];
+        $id      = (int) ($this->post['id'] ?? 0);
+
+        $name = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES));
+        if ($name === '' || mb_strlen($name) > 120) {
+            echo json_encode(array('success' => false, 'message' => 'Give the bundle a name (up to 120 characters).')); exit;
+        }
+        $price = (int) ($this->post['price_credits'] ?? 0);
+        if ($price < 1) {
+            echo json_encode(array('success' => false, 'message' => 'Set a bundle price of at least 1 credit.')); exit;
+        }
+        $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES));
+        if (mb_strlen($description) > 500) { $description = mb_substr($description, 0, 500); }
+
+        // Only the creator's own ready Library media may be bundled.
+        $valid = array();
+        foreach ((array) (new MediaAssetsModel())->get_for_creator($user_id, array()) as $a) {
+            if (($a['status'] ?? '') === 'ready' && empty($a['deleted_at'])) { $valid[(int) $a['id']] = true; }
+        }
+        $asset_ids = array();
+        foreach ((array) ($this->post['asset_ids'] ?? array()) as $aid) {
+            $aid = (int) $aid;
+            if (isset($valid[$aid])) { $asset_ids[$aid] = $aid; }
+        }
+        $asset_ids = array_values($asset_ids);
+        if (!$asset_ids) {
+            echo json_encode(array('success' => false, 'message' => 'Add at least one piece of content to the bundle.')); exit;
+        }
+
+        $model = new ContentBundlesModel();
+        if ($id > 0) {
+            if (!$model->get_owned($user_id, $id)) { echo json_encode(array('success' => false, 'message' => 'Bundle not found')); exit; }
+            $model->update_bundle($user_id, $id, array('name' => $name, 'description' => $description, 'price_credits' => $price));
+        } else {
+            $id = (int) $model->add($user_id, $name, $description, $price);
+        }
+        $model->set_items($id, $asset_ids);
+        echo json_encode(array('success' => true, 'message' => 'Bundle saved', 'id' => $id)); exit;
+    }
+
+    public function toggle_bundleAction(){
+        $user = $this->require_creator();
+        $id   = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Bundle is required')); exit; }
+        (new ContentBundlesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
+        echo json_encode(array('success' => true, 'message' => 'Bundle updated')); exit;
+    }
+
+    public function delete_bundleAction(){
+        $user = $this->require_creator();
+        $id   = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Bundle is required')); exit; }
+        (new ContentBundlesModel())->delete_bundle((int) $user['user_id'], $id);
+        echo json_encode(array('success' => true, 'message' => 'Bundle removed')); exit;
     }
 
     /** Fan-side: preview a discount code against a PPV post — returns the discounted price. */

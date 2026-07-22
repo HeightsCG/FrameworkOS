@@ -122,7 +122,10 @@ class PostForMeService {
             $payload['isDraft'] = true;
         }
         list($code, $body) = self::request('POST', '/social-posts', $payload);
-        return (($code === 200 || $code === 201) && is_array($body)) ? $body : null;
+        if (($code === 200 || $code === 201) && is_array($body)) { return $body; }
+        $detail = is_array($body) ? json_encode($body) : (string) $body;
+        error_log('[postforme] create_post failed HTTP ' . $code . ': ' . mb_substr((string) $detail, 0, 400));
+        return array('_error' => 'HTTP ' . $code . ': ' . mb_substr((string) $detail, 0, 300));
     }
 
     /** Fetch a post (for status). Returns the post row or null. */

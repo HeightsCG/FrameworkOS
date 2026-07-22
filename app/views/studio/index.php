@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/studio.css">
+<link rel="stylesheet" href="/css/studio.css?v=<?php echo @filemtime(Main::app_path().'/public/css/studio.css'); ?>">
 
 <?php if (empty($this->is_creator)): ?>
     <div class="cs-gate">
@@ -487,7 +487,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
 <?php if (empty($this->needs_plan)): ?>
-<script src="/js/studio.js"></script>
+<script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path().'/public/js/studio.js'); ?>"></script>
 <?php else: ?>
 <div class="plan-lock">
     <div class="plan-lock__card">
