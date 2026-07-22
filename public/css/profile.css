@@ -181,6 +181,9 @@
 .pf-post__cta { margin-top: .4rem; }
 
 /* ---- membership plans ---- */
+.pf-promo { padding: 18px 22px 0; }
+.pf-promo__input { width: 100%; max-width: 360px; height: 42px; padding: 0 14px; border: 1px solid var(--pf-line); border-radius: var(--pf-radius, 8px); font-size: .9rem; color: var(--pf-ink); outline: none; transition: border-color .14s, box-shadow .14s; }
+.pf-promo__input:focus { border-color: var(--pf-violet); box-shadow: 0 0 0 3px rgba(91,75,224,.16); }
 .pf-plans { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 16px; padding: 22px; }
 .pf-plan {
     display: flex; flex-direction: column;
@@ -315,6 +318,17 @@
 .pf-plb__locked{ position:relative; aspect-ratio:4/5; background-color:#0d0b18; background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; }
 .pf-plb__lockmeta{ display:flex; flex-direction:column; align-items:center; gap:.7rem; color:#fff; background:rgba(10,8,20,.42); padding:2rem 2.4rem; border-radius:12px; text-align:center; }
 .pf-plb__lockmeta i{ font-size:1.9rem; }
+.pf-plb__ppv{ display:flex; flex-direction:column; align-items:center; gap:.55rem; }
+.pf-plb__bal{ font-size:.82rem; color:rgba(255,255,255,.72); }
+.pf-plb__short{ font-size:.82rem; color:#ffcf8f; max-width:260px; line-height:1.4; }
+.pf-plb__promo{ display:flex; gap:.4rem; margin-top:.6rem; width:100%; max-width:280px; }
+.pf-plb__promo-input{ flex:1; min-width:0; height:36px; padding:0 .7rem; border:1px solid rgba(255,255,255,.3); border-radius:var(--pf-radius, 8px); background:rgba(255,255,255,.12); color:#fff; font-size:.85rem; text-transform:uppercase; }
+.pf-plb__promo-input::placeholder{ color:rgba(255,255,255,.6); text-transform:none; }
+.pf-plb__promo-apply{ height:36px; padding:0 .9rem; border:0; border-radius:var(--pf-radius, 8px); background:rgba(255,255,255,.92); color:#1d1d1f; font-size:.82rem; font-weight:600; cursor:pointer; }
+.pf-plb__promo-apply:hover{ background:#fff; }
+.pf-plb__promo-msg{ margin-top:.15rem; font-size:.78rem; min-height:1em; }
+.pf-plb__promo-msg.is-ok{ color:#8ff0b6; }
+.pf-plb__promo-msg.is-err{ color:#ffb3b3; }
 
 /* ===== Lightbox engagement (likes / comments / views) ===== */
 .pf-plb__engage{ display:flex; align-items:center; gap:1.1rem; margin:.9rem 0 .2rem; padding-top:.9rem; border-top:1px solid var(--pf-line); }

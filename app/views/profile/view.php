@@ -125,6 +125,11 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                         <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> hasn't set up membership tiers. Check back soon.</p>
                     </div>
                     <?php else: ?>
+                    <?php if ($viewer_logged_in): ?>
+                    <div class="pf-promo">
+                        <input type="text" id="pf_promo_code" class="pf-promo__input" placeholder="Have a discount code? Enter it here" maxlength="40" autocomplete="off">
+                    </div>
+                    <?php endif; ?>
                     <div class="pf-plans">
                         <?php foreach ($plans as $plan): ?>
                         <?php
@@ -211,13 +216,12 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         var CREATOR_ID = <?php echo (int) $user['user_id']; ?>;
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
+        var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
         var SUB_NOTICE = '<?php echo $sub_notice; ?>';
         var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
 
-        // Self-view has no follow/subscribe actions.
         function actionsHtml() {
-            if (IS_SELF) { return ''; }
             var followLabel = following ? 'Following' : 'Follow';
             var followCls   = 'pf-btn pf-btn--follow' + (following ? ' is-following' : '');
             return '<button class="' + followCls + '" data-follow>' +
@@ -272,7 +276,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             b.onclick = function () {
                 if (!LOGGED_IN) { window.location = '/'; return; }
                 b.disabled = true;
-                ApiDataSvc.apiCall('post', 'subscribe_plan', { plan_id: b.getAttribute('data-subscribe-plan') }, function (resp) {
+                var promoEl = document.getElementById('pf_promo_code');
+                ApiDataSvc.apiCall('post', 'subscribe_plan', { plan_id: b.getAttribute('data-subscribe-plan'), code: (promoEl ? promoEl.value.trim() : '') }, function (resp) {
                     var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (o.success && o.url) { window.location = o.url; return; }
@@ -392,7 +397,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     h += '</div>';
                 } else if (p.audience === 'ppv') {
                     h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Pay-per-view post</span>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">' + (LOGGED_IN ? ('Unlock — ' + p.ppv_price_credits + ' credits · $' + p.ppv_price_dollars) : 'Log in to unlock') + '</button></div></div>';
+                        '<div class="pf-plb__ppv" id="pfLbPpvAction"></div>' +
+                        (LOGGED_IN ? '<div class="pf-plb__promo"><input type="text" id="pfLbPromo" class="pf-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off"><button type="button" class="pf-plb__promo-apply" id="pfLbPromoApply">Apply</button></div><div class="pf-plb__promo-msg" id="pfLbPromoMsg"></div>' : '') +
+                        '</div></div>';
                     if (p.caption) { h += '<div class="pf-plb__body"><p>' + e(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
                 } else {
                     h += '<div class="pf-plb__locked"' + (p.locked_url ? ' style="background-image:url(\'' + e(p.locked_url) + '\')"' : '') + '><div class="pf-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>Subscribers-only post</span>' +
@@ -403,16 +410,60 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 lb.hidden = false; document.body.style.overflow = 'hidden';
                 var act = document.getElementById('pfLbAct');
                 if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
-                var ppvBtn = document.getElementById('pfLbPpv');
-                if (ppvBtn) { ppvBtn.onclick = function () { unlockPpv(p, ppvBtn); }; }
+                if (p.audience === 'ppv') { renderPpvAction(p); }
+                var promoApply = document.getElementById('pfLbPromoApply');
+                if (promoApply) { promoApply.onclick = function () { applyPpvPromo(p); }; }
                 plbAutoplay();
                 plbPost = p;
                 if (p.entitled) { renderEngage(p); recordView(p); loadComments(p); }
             }
+            // Show the viewer's balance and either an Unlock button (can afford) or an
+            // Add-credits button (short) — recomputed whenever the effective price changes.
+            function renderPpvAction(p) {
+                var wrap = document.getElementById('pfLbPpvAction');
+                if (!wrap) { return; }
+                if (!LOGGED_IN) {
+                    wrap.innerHTML = '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Log in to unlock</button>';
+                    document.getElementById('pfLbPpv').onclick = function () { window.location = '/'; };
+                    return;
+                }
+                var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
+                var dollars = Math.round(price / 10);
+                var bal     = '<div class="pf-plb__bal">Your balance: ' + VIEWER_CREDITS + ' credit' + (VIEWER_CREDITS === 1 ? '' : 's') + '</div>';
+                if (VIEWER_CREDITS >= price) {
+                    wrap.innerHTML = bal + '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Unlock — ' + price + ' credits · $' + dollars + '</button>';
+                    var b = document.getElementById('pfLbPpv');
+                    b.onclick = function () { unlockPpv(p, b); };
+                } else {
+                    var need = price - VIEWER_CREDITS;
+                    wrap.innerHTML = bal +
+                        '<div class="pf-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add credits</button>';
+                    document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings'; };
+                }
+            }
+            function applyPpvPromo(p) {
+                var input = document.getElementById('pfLbPromo');
+                var msg   = document.getElementById('pfLbPromoMsg');
+                var code  = input ? input.value.trim().toUpperCase() : '';
+                if (code === '') { return; }
+                ApiDataSvc.apiCall('post', 'promo_preview', { post_id: p.id, code: code }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (err) { o = null; }
+                    if (!o || !o.success) {
+                        p.applied_code = null; p.effective_price = p.ppv_price_credits;
+                        if (msg) { msg.textContent = (o && o.message) ? o.message : "That code isn't valid."; msg.className = 'pf-plb__promo-msg is-err'; }
+                        renderPpvAction(p);
+                        return;
+                    }
+                    p.applied_code = code; p.effective_price = o.new_price;
+                    if (msg) { msg.textContent = o.percent_off + '% off applied'; msg.className = 'pf-plb__promo-msg is-ok'; }
+                    renderPpvAction(p);   // may flip Add-credits → Unlock if the discount brings it within budget
+                });
+            }
             function unlockPpv(p, btn) {
                 if (!LOGGED_IN) { window.location = '/'; return; }
                 var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
-                ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id }, function (resp) {
+                ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id, code: (p.applied_code || '') }, function (resp) {
                     var o = JSON.parse(resp);
                     if (o.need_login) { window.location = '/'; return; }
                     if (o.need_credits) {

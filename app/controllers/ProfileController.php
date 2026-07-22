@@ -76,7 +76,7 @@ class ProfileController extends Controller {
         $viewer_id       = (int) Session::get('user_id');
         $is_self         = ($viewer_id === (int) $user['user_id']);
         $viewer_logged_in = ($viewer_id > 0);
-        $is_following    = (!$is_self && $viewer_logged_in) ? $follows->is_following($viewer_id, $user['user_id']) : false;
+        $is_following    = $viewer_logged_in ? $follows->is_following($viewer_id, $user['user_id']) : false;
         $follower_count  = $follows->count_followers($user['user_id']);
         $member_since    = !empty($user['creator_since']) ? date('F Y', strtotime((string) $user['creator_since'])) : '';
 
@@ -239,6 +239,9 @@ class ProfileController extends Controller {
         }
 
         (new CreatorSubscriptionsModel())->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        if (!empty($meta['promo_id'])) {
+            (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']);   // count the discount-code use
+        }
         return true;
     }
 }

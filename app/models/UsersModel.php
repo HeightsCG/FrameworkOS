@@ -57,9 +57,11 @@ class UsersModel extends Model {
             'p_word'      => $enc_p_word,
             'first_name'  => $first_name,
             'last_name'   => $last_name,
-            'user_email'  => $user_email,
-            'user_status' => 'Active',
-            'created_by'  => $created_by,
+            'user_email'     => $user_email,
+            'user_status'    => 'Active',
+            'reset_pw'       => 0,   // self-registered users chose their own password — never force a reset
+            'email_verified' => 0,   // must confirm their email before they can sign in
+            'created_by'     => $created_by,
             'updated_by'  => $updated_by,
             'created_at'  => date('Y-m-d H:i:s'),
             'updated_at'  => date('Y-m-d H:i:s'),
@@ -78,6 +80,22 @@ class UsersModel extends Model {
                 AND 
                 u.deleted = 0",
             array('user_id' => (int) $user_id)
+        );
+    }
+
+    /**
+     * Resolve a sign-in identifier that may be EITHER a username or an email.
+     * Signup collects an email and auto-generates the username, so users know
+     * their email, not their handle — login and password reset both use this.
+     * (Native prepares can't reuse a placeholder, hence :id1/:id2.)
+     */
+    public function get_user_by_login($identifier){
+        return parent::select(
+            "SELECT u.user_id, u.*
+             FROM user_accounts u
+             WHERE (u.u_name = :id1 OR u.user_email = :id2)
+               AND u.deleted = 0",
+            array('id1' => $identifier, 'id2' => $identifier)
         );
     }
 
@@ -265,6 +283,49 @@ class UsersModel extends Model {
             array('user_id' => (int) $user_id)
         );
         return $token;
+    }
+
+    /** Mint (or refresh) an email-verification token, valid for 24 hours. Returns the token. */
+    public function set_email_verify_token($user_id){
+        $token = bin2hex(random_bytes(32));
+        parent::update(
+            'user_accounts',
+            array(
+                'email_verify_token'   => $token,
+                'email_verify_expires' => date('Y-m-d H:i:s', strtotime('+24 hours')),
+                'updated_at'           => date('Y-m-d H:i:s'),
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
+        return $token;
+    }
+
+    /** A live (unexpired) verification token → its account, or empty. */
+    public function get_user_by_verify_token($token){
+        return parent::select(
+            "SELECT u.*
+             FROM user_accounts u
+             WHERE u.email_verify_token = :token
+               AND u.email_verify_expires > NOW()
+               AND u.deleted = 0",
+            array('token' => (string) $token)
+        );
+    }
+
+    /** Mark an account's email confirmed and burn the token. */
+    public function mark_email_verified($user_id){
+        return parent::update(
+            'user_accounts',
+            array(
+                'email_verified'       => 1,
+                'email_verify_token'   => null,
+                'email_verify_expires' => null,
+                'updated_at'           => date('Y-m-d H:i:s'),
+            ),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
     }
 
     public function get_user_by_reset_token($reset_token){

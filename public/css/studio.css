@@ -201,7 +201,7 @@
 .cs-pv__badge{ display:inline-flex; align-items:center; gap:.35rem; font-size:.74rem; font-weight:700; padding:.2rem .55rem; border-radius:var(--r-pill); background:var(--vsoft); color:var(--violet7); }
 .cs-pv__badge--free{ background:var(--success-bg); color:var(--success); }
 .cs-pv__more{ margin-left:auto; font-size:.74rem; color:var(--muted); }
-.cs-pv__media{ position:relative; width:100%; aspect-ratio:4/5; background:#0d0b18; }
+.cs-pv__media{ position:relative; width:100%; aspect-ratio:4/5; background:#0d0b18; overflow:hidden; }
 .cs-pv__media img{ width:100%; height:100%; object-fit:cover; display:block; }
 .cs-pv__media--empty{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.5rem; color:#c3c0d4; background:#f1f0f6; aspect-ratio:4/5; }
 .cs-pv__media--empty i{ font-size:1.8rem; }

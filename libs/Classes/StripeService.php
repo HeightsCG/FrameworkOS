@@ -373,7 +373,22 @@ class StripeService {
      * Hosted Checkout for a subscription on the connected account, collecting the
      * platform's application fee. $metadata ties the session back to a subscriber/plan.
      */
-    public static function create_subscription_checkout($account_id, $price_id, $fee_percent, $success_url, $cancel_url, $metadata = array(), $email = '', $trial_end = 0): array
+    /** Create a percent-off coupon on a connected account (applies to every invoice). Returns id or ''. */
+    public static function create_connect_coupon($account_id, $percent_off): string
+    {
+        try {
+            $coupon = self::client()->coupons->create(
+                array('percent_off' => (float) $percent_off, 'duration' => 'forever'),
+                array('stripe_account' => $account_id)
+            );
+            return (string) $coupon->id;
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_connect_coupon: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    public static function create_subscription_checkout($account_id, $price_id, $fee_percent, $success_url, $cancel_url, $metadata = array(), $email = '', $trial_end = 0, $coupon_id = ''): array
     {
         try {
             $sub_data = array(
@@ -391,6 +406,9 @@ class StripeService {
                 'subscription_data' => $sub_data,
                 'metadata' => $metadata,
             );
+            if ($coupon_id !== '') {
+                $params['discounts'] = array(array('coupon' => $coupon_id));   // creator's promo code
+            }
             if ($email !== '') {
                 $params['customer_email'] = $email;
             }

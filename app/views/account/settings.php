@@ -21,7 +21,9 @@
             <button type="button" class="settings__nav-item" data-section="wallet"><i class="fa-solid fa-wallet"></i><span>Wallet</span></button>
             <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
+            <?php if ($this->is_creator): ?>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
+            <?php endif; ?>
         </nav>
 
         <div class="settings__content">
@@ -30,13 +32,13 @@
                 <?php $next_change = $this->username_next_change; ?>
                 <div class="uname">
                     <label class="uname__label" for="account_username">Username</label>
+                    <?php if ($this->is_creator): ?>
                     <p class="uname__hint">Your public handle:
-                        <?php if ($this->is_creator): ?>
                         <a class="uname__url uname__url--link" id="uname_link" href="/@<?php echo htmlspecialchars(rawurlencode((string) $this->user['u_name']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span> <i class="fa-solid fa-arrow-up-right-from-square uname__url-icon"></i></a>
-                        <?php else: ?>
-                        <span class="uname__url"><?php echo htmlspecialchars((string) $this->public_domain, ENT_QUOTES, 'UTF-8'); ?>/@<span id="uname_preview"><?php echo htmlspecialchars((string) $this->user['u_name'], ENT_QUOTES, 'UTF-8'); ?></span></span>
-                        <?php endif; ?>
                     </p>
+                    <?php else: ?>
+                    <p class="uname__hint">Used to sign in to your account.</p>
+                    <?php endif; ?>
                     <div class="uname__row">
                         <div class="uname__field">
                             <span class="uname__at">@</span>
@@ -428,7 +430,9 @@
                     </div>
                     <?php endforeach; ?>
                 </div>
-                <p class="settings__empty" id="subs_empty" <?php echo empty($this->my_subscriptions) ? '' : 'hidden'; ?>>You're not subscribed to any creators yet.</p>
+                <div class="links-card" id="subs_empty"<?php echo empty($this->my_subscriptions) ? '' : ' hidden'; ?>>
+                    <p class="settings__empty links-empty">You're not subscribed to any creators yet.</p>
+                </div>
             </section>
 
             <section class="settings__section" data-section="wallet">
@@ -593,6 +597,7 @@
                 </div>
             </section>
 
+            <?php if ($this->is_creator): ?>
             <section class="settings__section" data-section="connected">
                 <?php if (!$this->can_social_post): ?>
                     <div class="settings__upgrade">
@@ -628,6 +633,7 @@
                 </div>
                 <?php endif; ?>
             </section>
+            <?php endif; ?>
 
         </div>
     </div>

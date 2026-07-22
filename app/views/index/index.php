@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/feed.css">
+<link rel="stylesheet" href="/css/feed.css?v=<?php echo @filemtime(Main::app_path().'/public/css/feed.css'); ?>">
 <div class="feed">
     <header class="feed__head">
         <h1 class="feed__title">Discover</h1>
@@ -46,4 +46,4 @@
     <div class="feed-plb__inner" id="feed_lb_inner"></div>
 </div>
 
-<script src="/js/feed.js"></script>
+<script src="/js/feed.js?v=<?php echo @filemtime(Main::app_path().'/public/js/feed.js'); ?>"></script>

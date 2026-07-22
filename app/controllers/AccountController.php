@@ -146,6 +146,14 @@ class AccountController extends Controller {
         }
         $user_id = (int) Session::get('user_id');
 
+        // Integrations are creator-only — bounce anyone else.
+        $urows = $this->userModel->get_user_by_id($user_id);
+        $urow  = (is_array($urows) && count($urows) === 1) ? $urows[0] : null;
+        if (!$urow || (int) $urow['role_id'] !== $this->userModel->get_role_id_by_name('Creator')) {
+            Header('Location: /account/settings');
+            exit;
+        }
+
         if (($_GET['isSuccess'] ?? '') === 'true') {
             // Re-list this user's accounts by external_id and upsert them locally.
             $accounts      = PostForMeService::get_accounts($user_id);
@@ -180,6 +188,21 @@ class AccountController extends Controller {
 
     public function usersAction(){
         $this->view->render();
+    }
+
+    /** Password-reset page, opened from the link in the reset email. Standalone form (no app chrome). */
+    public function resetAction(){
+        $this->view->reset_password();
+    }
+
+    /** Email-verification page, opened from the link in the signup email. Confirms the token, then sends the user to sign in. */
+    public function verifyAction(){
+        $this->view->verify_email();
+    }
+
+    /** Forced-password-change page (a login with reset_pw=1 lands here). Standalone form. */
+    public function force_resetAction(){
+        $this->view->force_reset_form();
     }
 
     /** Plain-text Creator Terms & Conditions with the site name substituted in. */

@@ -239,7 +239,7 @@
 .link-row__btn{border:0; background:none; color:var(--muted); font-size:.85rem; cursor:pointer; padding:.3rem; flex:none; transition:color .12s;}
 .link-row__btn:hover{color:var(--text);}
 .link-row__btn.link-delete:hover{color:var(--danger);}
-.links-empty{padding:.5rem 0 0;}
+.links-empty{padding:.9rem 1rem;}
 /* Standalone list-card shell — still used by the Membership Plans section */
 .links-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; max-width:100%; margin:1.9rem 0 .8rem;}
 .links-head__title{font-size:.95rem; font-weight:600; color:var(--text); margin:0;}

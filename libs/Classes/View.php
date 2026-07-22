@@ -53,7 +53,17 @@ class View {
         } else {
             Errors::page_not_found();
         }
-    } 
+    }
+
+    public function verify_email(): void
+    {
+        $file = $this->verify_email_file();
+        if (file_exists($file)) {
+            require $file;
+        } else {
+            Errors::page_not_found();
+        }
+    }
 
     public function render($p = false): void
     {
@@ -133,6 +143,11 @@ class View {
     public function reset_password_file(): string
     {
         return Main::lib_path().'/Layout/reset_password.php';
+    }
+
+    public function verify_email_file(): string
+    {
+        return Main::lib_path().'/Layout/verify_email.php';
     }
 
     public function force_reset_form_file(): string

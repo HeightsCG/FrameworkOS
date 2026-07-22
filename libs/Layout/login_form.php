@@ -130,7 +130,7 @@
         $('#do_login').on('click', function() {
 
             if ($("#u_name").val() === '') {
-                toastr.error('Username is required');
+                toastr.error('Username or email is required');
                 return;
             }
 
@@ -148,9 +148,27 @@
                     startMfa(obj.methods || {});
                 } else if (obj.success) {
                     window.location = obj.reset_pw == 1 ? '/account/force_reset' : '/';
+                } else if (obj.unverified) {
+                    show_unverified($('#u_name').val());
                 } else {
                     toastr.error(obj.message);
                 }
+            });
+        });
+
+        // Unconfirmed email: surface a resend option using whatever identifier they signed in with.
+        var resend_identifier = '';
+        function show_unverified(identifier) {
+            resend_identifier = identifier;
+            toastr.warning('Please verify your email before signing in.');
+            $('#resend_verify_wrap').show();
+        }
+        $('#do_resend_verify').on('click', function() {
+            ApiDataSvc.apiCall('post', 'resend_verification', { u_name: resend_identifier }, function(data) {
+                var obj = null;
+                try { obj = JSON.parse(data); } catch (e) { obj = null; }
+                if (obj && obj.success) { toastr.success(obj.message); }
+                else { toastr.error(obj ? obj.message : 'Something went wrong.'); }
             });
         });
 
@@ -239,7 +257,7 @@
         $('#do_forgot').on('click', function() {
 
             if ($("#forgot_u_name").val() === '') {
-                toastr.error('Username is required');
+                toastr.error('Username or email is required');
                 return;
             }
 
@@ -316,7 +334,11 @@
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
-                    window.location = '/';
+                    // Account created but not yet usable — send them to sign in with a heads-up to verify.
+                    $('#register_form').hide();
+                    $('#forgot_form').hide();
+                    $('#login_form').show();
+                    toastr.success(obj.message);
                 } else {
                     toastr.error(obj.message);
                 }
@@ -370,16 +392,20 @@
 
                     <div id="login_form">
                         <h2 class="cos-form-title">Sign in</h2>
-                        <p class="cos-help">Enter your username and password to sign in.</p>
+                        <p class="cos-help">Enter your username or email and password to sign in.</p>
                         <div class="form-floating mb-3">
-                            <input type="text" id="u_name" class="form-control" placeholder="Username" autocomplete="username">
-                            <label for="u_name">Username</label>
+                            <input type="text" id="u_name" class="form-control" placeholder="Username or email" autocomplete="username">
+                            <label for="u_name">Username or email</label>
                         </div>
                         <div class="form-floating mb-3">
                             <input type="password" id="p_word" class="form-control" placeholder="Password" autocomplete="current-password">
                             <label for="p_word">Password</label>
                         </div>
                         <button type="button" id="do_login" class="cos-submit">Sign in</button>
+                        <div id="resend_verify_wrap" style="display:none; margin-top:.9rem; text-align:center;">
+                            <span class="cos-help" style="margin:0;">Didn&rsquo;t get the email? </span>
+                            <a id="do_resend_verify" class="cos-link accent">Resend verification</a>
+                        </div>
                         <div class="cos-links">
                             <a id="forgot_password" class="cos-link">Forgot password?</a>
                             <a id="register" class="cos-link accent">Create account</a>
@@ -405,10 +431,10 @@
 
                     <div id="forgot_form" style="display:none;">
                         <h2 class="cos-form-title">Reset password</h2>
-                        <p class="cos-help">Enter your username and we&rsquo;ll email a reset link.</p>
+                        <p class="cos-help">Enter your username or email and we&rsquo;ll email a reset link.</p>
                         <div class="form-floating mb-3">
-                            <input type="text" id="forgot_u_name" class="form-control" placeholder="Username" autocomplete="username">
-                            <label for="forgot_u_name">Username</label>
+                            <input type="text" id="forgot_u_name" class="form-control" placeholder="Username or email" autocomplete="username">
+                            <label for="forgot_u_name">Username or email</label>
                         </div>
                         <button type="button" id="do_forgot" class="cos-submit">Send reset link</button>
                         <div class="cos-links">

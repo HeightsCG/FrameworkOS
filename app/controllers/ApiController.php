@@ -90,7 +90,7 @@ class ApiController extends Controller {
         $u_name = $this->userModel->generate_unique_username($this->post['first_name'], $this->post['last_name']);
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
 
-        $this->userModel->create_user(
+        $user_id = (int) $this->userModel->create_user(
             $u_name,
             $enc_p_word,
             $this->post['first_name'],
@@ -98,9 +98,14 @@ class ApiController extends Controller {
             $this->post['user_email'],
         );
 
+        // Email verification is required before the account can sign in.
+        $token       = $this->userModel->set_email_verify_token($user_id);
+        $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
+        $to_name     = trim($this->post['first_name'] . ' ' . $this->post['last_name']);
+        $this->notificationsModel->send_verification_email($this->post['user_email'], $to_name, $verify_link, $u_name);
+
         $response['success']  = true;
-        $response['message']  = 'Account created';
-        $response['reset_pw'] = 0;
+        $response['message']  = 'Account created — check your email to verify your account, then sign in.';
         echo json_encode($response);
         exit;
     }
@@ -128,7 +133,7 @@ class ApiController extends Controller {
             exit;
         }
 
-        $user_account = $this->userModel->get_user_by_username($this->post['u_name']);
+        $user_account = $this->userModel->get_user_by_login($this->post['u_name']);
         if (!is_array($user_account) || count($user_account) !== 1
             || !password_verify($this->post['p_word'], $user_account[0]['p_word'])) {
             $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
@@ -138,6 +143,14 @@ class ApiController extends Controller {
         }
 
         $user = $user_account[0];
+
+        // Hard gate: an unconfirmed email cannot sign in.
+        if ((int) ($user['email_verified'] ?? 0) === 0) {
+            $response['message']    = 'Please verify your email before signing in. Check your inbox for the verification link.';
+            $response['unverified'] = true;
+            echo json_encode($response);
+            exit;
+        }
 
         session_regenerate_id(true);
 
@@ -198,7 +211,7 @@ class ApiController extends Controller {
         }
         $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'forgot');
 
-        $user_account = $this->userModel->get_user_by_username($this->post['u_name']);
+        $user_account = $this->userModel->get_user_by_login($this->post['u_name']);
         if (is_array($user_account) && count($user_account) === 1) {
             $user  = $user_account[0];
             $token = $this->userModel->set_reset_token($user['user_id']);
@@ -260,6 +273,63 @@ class ApiController extends Controller {
 
         $response['success'] = true;
         $response['message'] = 'Your password has been updated';
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Confirm a new account's email from the link in the verification email. */
+    public function verify_emailAction(){
+        $response = array('success' => false, 'message' => 'This verification link is invalid or has expired.');
+
+        $token = (string) ($this->post['token'] ?? '');
+        if ($token === '') {
+            echo json_encode($response);
+            exit;
+        }
+
+        $rows = $this->userModel->get_user_by_verify_token($token);
+        if (!is_array($rows) || count($rows) !== 1) {
+            echo json_encode($response);
+            exit;
+        }
+
+        $this->userModel->mark_email_verified((int) $rows[0]['user_id']);
+        $response['success'] = true;
+        $response['message'] = 'Your email is verified. You can now sign in.';
+        echo json_encode($response);
+        exit;
+    }
+
+    /** Resend the verification email for an unconfirmed account. Generic response (no account enumeration). */
+    public function resend_verificationAction(){
+        $response = array('success' => true, 'message' => 'If that account exists and is unverified, a new link has been sent.');
+
+        $identifier = (string) ($this->post['u_name'] ?? '');
+        if ($identifier === '') {
+            echo json_encode($response);
+            exit;
+        }
+
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'verify_resend', 15) >= 5) {
+            $response['message'] = 'Too many attempts. Please try again later.';
+            $response['success'] = false;
+            echo json_encode($response);
+            exit;
+        }
+        $this->loginAttemptsModel->record($ip, $identifier, 'verify_resend');
+
+        $rows = $this->userModel->get_user_by_login($identifier);
+        if (is_array($rows) && count($rows) === 1 && (int) ($rows[0]['email_verified'] ?? 0) === 0) {
+            $user  = $rows[0];
+            $token = $this->userModel->set_email_verify_token((int) $user['user_id']);
+            if (!empty($user['user_email'])) {
+                $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
+                $to_name     = trim($user['first_name'] . ' ' . $user['last_name']);
+                $this->notificationsModel->send_verification_email($user['user_email'], $to_name, $verify_link, (string) $user['u_name']);
+            }
+        }
+
         echo json_encode($response);
         exit;
     }
@@ -798,7 +868,7 @@ class ApiController extends Controller {
         $user_id    = (int) Session::get('user_id');
         $creator_id = (int) ($this->post['creator_id'] ?? 0);
 
-        if ($creator_id <= 0 || $creator_id === $user_id) {
+        if ($creator_id <= 0) {
             $response['message'] = 'You cannot follow this account';
             return $response;
         }
@@ -1033,11 +1103,12 @@ class ApiController extends Controller {
         }
 
         echo json_encode(array(
-            'success'       => true,
-            'viewer_logged' => $logged,
-            'items'         => $cards,
-            'has_more'      => $has_more,
-            'next_offset'   => $offset + $limit,
+            'success'        => true,
+            'viewer_logged'  => $logged,
+            'viewer_credits' => $logged ? (int) (new CreditsModel())->get_balance($viewer) : 0,
+            'items'          => $cards,
+            'has_more'       => $has_more,
+            'next_offset'    => $offset + $limit,
         )); exit;
     }
 
@@ -1229,11 +1300,6 @@ class ApiController extends Controller {
             echo json_encode($response);
             exit;
         }
-        if ((int) $plan['user_id'] === $user_id) {
-            $response['message'] = 'You cannot join your own plan';
-            echo json_encode($response);
-            exit;
-        }
 
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
 
@@ -1271,11 +1337,6 @@ class ApiController extends Controller {
         }
 
         $creator_id = (int) $plan['user_id'];
-        if ($creator_id === $user_id) {
-            $response['message'] = 'You cannot subscribe to your own plan';
-            echo json_encode($response);
-            exit;
-        }
         $subsModel = new CreatorSubscriptionsModel();
         if ($subsModel->is_subscribed_to_plan($user_id, (int) $plan['id'])) {
             $response['message'] = 'You are already a member of this plan';
@@ -1312,11 +1373,33 @@ class ApiController extends Controller {
             $plansModel->set_stripe_ids((int) $plan['id'], $created['product_id'], $price_id);
         }
 
+        // Optional discount code — validate for the subscription context, then apply a
+        // Stripe coupon on the creator's connected account (created once, cached on the
+        // promo row). The redemption is counted when the subscription is recorded.
+        $coupon_id = '';
+        $promo_id  = 0;
+        $code = trim((string) ($this->post['code'] ?? ''));
+        if ($code !== '') {
+            $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $code, 'subscription');
+            if (!$promo) {
+                $response['message'] = "That discount code isn't valid.";
+                echo json_encode($response);
+                exit;
+            }
+            $promo_id  = (int) $promo['id'];
+            $coupon_id = (string) ($promo['stripe_coupon_id'] ?? '');
+            if ($coupon_id === '') {
+                $coupon_id = StripeService::create_connect_coupon($connect_id, (int) $promo['percent_off']);
+                if ($coupon_id !== '') { (new CreatorPromoCodesModel())->set_stripe_coupon($promo_id, $coupon_id); }
+            }
+        }
+
         $base    = Main::get_base_domain();
         $handle  = rawurlencode((string) $creator['u_name']);
         $success = $base . '/@' . $handle . '?sub=success&session_id={CHECKOUT_SESSION_ID}';
         $cancel  = $base . '/@' . $handle . '?sub=cancel';
         $meta    = array('subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']);
+        if ($promo_id > 0) { $meta['promo_id'] = (string) $promo_id; }
 
         // Free trial: compute the actual trial-end date from the plan's value + unit
         // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day
@@ -1327,7 +1410,7 @@ class ApiController extends Controller {
             $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
         }
         $session = StripeService::create_subscription_checkout(
-            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email'), $trial_end
+            $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email'), $trial_end, $coupon_id
         );
         if (empty($session['url'])) {
             $response['message'] = 'Could not start checkout. Please try again.';
@@ -1658,7 +1741,12 @@ class ApiController extends Controller {
         }
         $user = $this->userModel->get_user_by_id((int) Session::get('user_id'));
         $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
-        if (!$user || !Plan::can_social_post($user)) {
+        // Social posting / integrations are creator-only.
+        if (!$user || (int) $user['role_id'] !== $this->userModel->get_role_id_by_name('Creator')) {
+            echo json_encode(array('success' => false, 'message' => 'Only creator accounts can connect social accounts'));
+            exit;
+        }
+        if (!Plan::can_social_post($user)) {
             echo json_encode(array('success' => false, 'message' => 'Your plan does not include social posting'));
             exit;
         }

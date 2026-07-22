@@ -126,6 +126,9 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
 .feed-plb__locked{ position:relative; aspect-ratio:4/5; background-color:#0d0b18; background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; }
 .feed-plb__lockmeta{ display:flex; flex-direction:column; align-items:center; gap:.7rem; color:#fff; background:rgba(10,8,20,.42); padding:2rem 2.4rem; border-radius:12px; text-align:center; }
 .feed-plb__lockmeta i{ font-size:1.9rem; }
+.feed-plb__ppv{ display:flex; flex-direction:column; align-items:center; gap:.55rem; }
+.feed-plb__bal{ font-size:.82rem; color:rgba(255,255,255,.72); }
+.feed-plb__short{ font-size:.82rem; color:#ffcf8f; max-width:260px; line-height:1.4; }
 .feed-plb__unlock{ height:40px; padding:0 1.2rem; border:0; border-radius:var(--r-sm); background:var(--violet); color:#fff; font-size:.9rem; font-weight:600; cursor:pointer; transition:background .12s; }
 .feed-plb__unlock:hover{ background:var(--violet7); }
 .feed-plb__unlock:disabled{ opacity:.7; cursor:default; }

@@ -13,6 +13,7 @@
     'use strict';
 
     var LOGGED_IN = true;          // filled from the feed response
+    var VIEWER_CREDITS = 0;        // viewer's credit balance, from the feed response
     var feed_offset = 0;
     var loading_feed = false;
     var has_more = false;
@@ -51,6 +52,7 @@
             $loading.prop('hidden', true); $inf_load.prop('hidden', true);
             if (!o || !o.success) { show_error(append); return; }
             LOGGED_IN = !!o.viewer_logged;
+            VIEWER_CREDITS = o.viewer_credits || 0;
             var items = o.items || [];
             if (!append) {
                 if (!items.length) { $empty.prop('hidden', false); return; }
@@ -245,8 +247,7 @@
         }
         inner.innerHTML = h;
 
-        var ppv_btn = document.getElementById('feed_lb_ppv');
-        if (ppv_btn) { ppv_btn.onclick = function () { unlock_ppv(p, ppv_btn); }; }
+        if (p.audience === 'ppv') { render_ppv_action(p); }
         var promo_apply = document.getElementById('feed_lb_promo_apply');
         if (promo_apply) { promo_apply.onclick = function () { apply_ppv_promo(p); }; }
         var sub_btn = document.getElementById('feed_lb_sub');
@@ -258,14 +259,43 @@
 
     function locked_block(p, label, btn_text, kind) {
         var bg = p.locked_url ? ' style="background-image:url(\'' + esc(p.locked_url) + '\')"' : '';
-        var btn_id = kind === 'ppv' ? 'feed_lb_ppv' : 'feed_lb_sub';
-        var promo = (kind === 'ppv' && LOGGED_IN)
-            ? '<div class="feed-plb__promo"><input type="text" id="feed_lb_promo" class="feed-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off">' +
-              '<button type="button" class="feed-plb__promo-apply" id="feed_lb_promo_apply">Apply</button></div>' +
-              '<div class="feed-plb__promo-msg" id="feed_lb_promo_msg"></div>'
-            : '';
+        if (kind === 'ppv') {
+            var promo = LOGGED_IN
+                ? '<div class="feed-plb__promo"><input type="text" id="feed_lb_promo" class="feed-plb__promo-input" placeholder="Discount code" maxlength="40" autocomplete="off">' +
+                  '<button type="button" class="feed-plb__promo-apply" id="feed_lb_promo_apply">Apply</button></div>' +
+                  '<div class="feed-plb__promo-msg" id="feed_lb_promo_msg"></div>'
+                : '';
+            return '<div class="feed-plb__locked"' + bg + '><div class="feed-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>' + label + '</span>' +
+                '<div class="feed-plb__ppv" id="feed_lb_ppv_action"></div>' + promo + '</div></div>';
+        }
         return '<div class="feed-plb__locked"' + bg + '><div class="feed-plb__lockmeta"><i class="fa-solid fa-lock"></i><span>' + label + '</span>' +
-            '<button type="button" class="feed-plb__unlock" id="' + btn_id + '">' + btn_text + '</button>' + promo + '</div></div>';
+            '<button type="button" class="feed-plb__unlock" id="feed_lb_sub">' + btn_text + '</button></div></div>';
+    }
+
+    // Show the viewer's balance and either an Unlock button (can afford) or an
+    // Add-credits button (short) — recomputed whenever the effective price changes.
+    function render_ppv_action(p) {
+        var wrap = document.getElementById('feed_lb_ppv_action');
+        if (!wrap) { return; }
+        if (!LOGGED_IN) {
+            wrap.innerHTML = '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Log in to unlock</button>';
+            document.getElementById('feed_lb_ppv').onclick = function () { window.location = '/'; };
+            return;
+        }
+        var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
+        var dollars = Math.round(price / 10);
+        var bal     = '<div class="feed-plb__bal">Your balance: ' + VIEWER_CREDITS + ' credit' + (VIEWER_CREDITS === 1 ? '' : 's') + '</div>';
+        if (VIEWER_CREDITS >= price) {
+            wrap.innerHTML = bal + '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Unlock — ' + price + ' credits · $' + dollars + '</button>';
+            var b = document.getElementById('feed_lb_ppv');
+            b.onclick = function () { unlock_ppv(p, b); };
+        } else {
+            var need = price - VIEWER_CREDITS;
+            wrap.innerHTML = bal +
+                '<div class="feed-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
+                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add credits</button>';
+            document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings'; };
+        }
     }
 
     // Validate a discount code against this PPV post and reflect the new price.
@@ -277,14 +307,14 @@
         ApiDataSvc.apiCall('post', 'promo_preview', { post_id: p.id, code: code }, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
             if (!o || !o.success) {
-                p.applied_code = null;
+                p.applied_code = null; p.effective_price = p.ppv_price_credits;
                 if (msg) { msg.textContent = (o && o.message) ? o.message : "That code isn't valid."; msg.className = 'feed-plb__promo-msg is-err'; }
+                render_ppv_action(p);
                 return;
             }
-            p.applied_code = code;
-            var ppv_btn = document.getElementById('feed_lb_ppv');
-            if (ppv_btn) { ppv_btn.textContent = 'Unlock — ' + o.new_price + ' credits · $' + Math.round(o.new_price / 10); }
+            p.applied_code = code; p.effective_price = o.new_price;
             if (msg) { msg.textContent = o.percent_off + '% off applied'; msg.className = 'feed-plb__promo-msg is-ok'; }
+            render_ppv_action(p);   // may flip Add-credits → Unlock if the discount brings it within budget
         });
     }
 
