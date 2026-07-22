@@ -2,6 +2,16 @@
 <?php
 $fmt_money = function ($cents) { return '$' . number_format(((int) $cents) / 100, 2); };
 $fmt_num   = function ($n) { return number_format((int) $n); };
+// Stored times are UTC — render them in the creator's timezone.
+$dash_tz   = (string) ($this->timezone ?? 'UTC');
+$fmt_when  = function ($utc) use ($dash_tz) {
+    if ((string) $utc === '') { return ''; }
+    try {
+        $d = new DateTime((string) $utc, new DateTimeZone('UTC'));
+        $d->setTimezone(new DateTimeZone($dash_tz ?: 'UTC'));
+        return $d->format('M j, g:i A');
+    } catch (\Throwable $e) { return ''; }
+};
 $first      = trim((string) ($this->display_name ?? ''));
 $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 ?>
@@ -112,7 +122,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                 <div class="dash__row dash__row--static">
                     <span class="dash__row-main">
                         <span class="dash__row-title"><?php echo $cap !== '' ? htmlspecialchars(mb_substr($cap, 0, 48), ENT_QUOTES, 'UTF-8') : 'Untitled post'; ?></span>
-                        <span class="dash__row-meta"><?php echo date('M j, g:i A', strtotime((string) $u['created_at'])); ?></span>
+                        <span class="dash__row-meta"><?php echo htmlspecialchars($fmt_when((string) $u['created_at']), ENT_QUOTES, 'UTF-8'); ?></span>
                     </span>
                     <span class="dash__amount">+<?php echo $fmt_num($u['price_credits']); ?> cr</span>
                 </div>

@@ -25,9 +25,9 @@
             <?php if (!empty($pur['media'])): ?>
             <div class="pur-media">
                 <?php foreach ($pur['media'] as $m): ?>
-                <a class="pur-media__item" href="<?php echo htmlspecialchars((string) $m['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"<?php echo $m['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars((string) $m['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
+                <button type="button" class="pur-media__item" data-full="<?php echo htmlspecialchars((string) $m['url'], ENT_QUOTES, 'UTF-8'); ?>" data-type="<?php echo htmlspecialchars((string) $m['type'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo $m['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars((string) $m['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
                     <?php if ($m['type'] === 'video'): ?><i class="fa-solid fa-play pur-media__vid"></i><?php endif; ?>
-                </a>
+                </button>
                 <?php endforeach; ?>
             </div>
             <?php else: ?>
@@ -38,3 +38,29 @@
     </div>
     <?php endif; ?>
 </div>
+
+<div class="pur-lb" id="purLb" hidden>
+    <button type="button" class="pur-lb__close" id="purLbClose" aria-label="Close">&times;</button>
+    <div class="pur-lb__stage" id="purLbStage"></div>
+</div>
+<script>
+(function () {
+    var lb = document.getElementById('purLb');
+    if (!lb) { return; }
+    var stage = document.getElementById('purLbStage');
+    function open(full, type) {
+        if (!full) { return; }
+        stage.innerHTML = (type === 'video')
+            ? '<video class="pur-lb__media" src="' + full + '" controls autoplay playsinline></video>'
+            : '<img class="pur-lb__media" src="' + full + '" alt="">';
+        lb.hidden = false; document.body.style.overflow = 'hidden';
+    }
+    function close() { lb.hidden = true; stage.innerHTML = ''; document.body.style.overflow = ''; }
+    document.querySelectorAll('.pur-media__item').forEach(function (b) {
+        b.addEventListener('click', function () { open(b.getAttribute('data-full'), b.getAttribute('data-type')); });
+    });
+    document.getElementById('purLbClose').addEventListener('click', close);
+    lb.addEventListener('click', function (e) { if (e.target === lb) { close(); } });
+    document.addEventListener('keydown', function (e) { if (!lb.hidden && e.key === 'Escape') { close(); } });
+})();
+</script>

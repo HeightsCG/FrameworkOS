@@ -63,12 +63,13 @@ class PurchasesController extends Controller {
         $this->view->render();
     }
 
-    /** Shape one purchased media asset (signed for the buyer) for the gallery. */
+    /** Shape one purchased media asset (signed for the buyer) for the gallery.
+     *  Purchased content is served UNWATERMARKED ('original') — the buyer paid for it. */
     private function media_item($a){
         $is_video = (($a['type'] ?? '') === 'video');
         return array(
             'type'  => (string) ($a['type'] ?? 'image'),
-            'url'   => MediaService::signed_variant($a, $is_video ? 'original' : 'display', 900),
+            'url'   => MediaService::signed_variant($a, 'original', 900),
             'thumb' => MediaService::signed_variant($a, $is_video ? 'poster' : 'thumb', 900),
         );
     }

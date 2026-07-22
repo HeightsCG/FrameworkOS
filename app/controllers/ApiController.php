@@ -997,7 +997,13 @@ class ApiController extends Controller {
         $viewer = (int) Session::get('user_id');
         $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
         if (!$post) { echo json_encode(array('success' => false)); exit; }
-        if (!$this->post_engagement_ok($post, $viewer)) {
+        // Entitled to see it? Owner/free/subscriber via post_engagement_ok; PPV needs an unlock.
+        $can_view = $this->post_engagement_ok($post, $viewer);
+        if (!$can_view && ($post['audience'] ?? '') === 'ppv' && $viewer > 0
+            && (new PpvUnlocksModel())->has_unlocked((int) $post['id'], $viewer)) {
+            $can_view = true;
+        }
+        if (!$can_view) {
             echo json_encode(array('success' => true, 'views' => (int) $post['views'])); exit;
         }
         $key = $viewer > 0
@@ -1187,8 +1193,11 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true, 'post' => $out)); exit;
     }
 
-    /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it. */
+    /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it.
+     *  PPV is sold per-post, so an entitled viewer here bought it (or owns it): serve images
+     *  UNWATERMARKED. Free/subscriber posts keep the watermarked display variant. */
     private function ppv_reveal_assets(array $post){
+        $img_variant = (($post['audience'] ?? '') === 'ppv') ? 'original' : 'display';
         $out = array();
         foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) {
             if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
@@ -1198,7 +1207,7 @@ class ApiController extends Controller {
                     'poster' => MediaService::signed_variant($a, 'poster', 900));
             } else {
                 $out[] = array('type' => 'image',
-                    'url' => MediaService::signed_variant($a, 'display', 900), 'poster' => '');
+                    'url' => MediaService::signed_variant($a, $img_variant, 900), 'poster' => '');
             }
         }
         return $out;
@@ -2443,6 +2452,13 @@ class ApiController extends Controller {
             }
             $model->update_plan($user_id, $id, $fields);
         } else {
+            // Enforce the plan tier's membership-tier cap (0 = unlimited).
+            $cap = Plan::limit($user, 'sub_tiers');
+            if ($cap !== null && (int) $cap > 0 && count((array) $model->get_for_user($user_id)) >= (int) $cap) {
+                echo json_encode(array('success' => false, 'need_upgrade' => true,
+                    'message' => 'Your plan includes ' . (int) $cap . ' membership tier' . ((int) $cap === 1 ? '' : 's') . '. Upgrade to add more.'));
+                exit;
+            }
             $id = (int) $model->add($user_id, $fields);
         }
 

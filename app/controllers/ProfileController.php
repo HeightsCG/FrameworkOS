@@ -201,6 +201,9 @@ class ProfileController extends Controller {
             }
 
             if ($entitled) {
+                // PPV is bought per-post — an entitled viewer paid (or owns it), so serve it
+                // unwatermarked. Free/subscriber content keeps the watermarked display variant.
+                $img_variant = ($audience === 'ppv') ? 'original' : 'display';
                 $card['assets'] = array();
                 foreach ($assets as $a) {
                     if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
@@ -211,7 +214,7 @@ class ProfileController extends Controller {
                             'poster' => MediaService::signed_variant($a, 'poster', 900));
                     } else {
                         $card['assets'][] = array('type' => 'image',
-                            'url' => MediaService::signed_variant($a, 'display', 900), 'poster' => '');
+                            'url' => MediaService::signed_variant($a, $img_variant, 900), 'poster' => '');
                     }
                 }
                 // Grid card uses a small, uniform thumbnail (poster for a video cover).
