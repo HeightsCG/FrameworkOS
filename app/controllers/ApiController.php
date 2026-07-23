@@ -2021,6 +2021,113 @@ class ApiController extends Controller {
         exit;
     }
 
+    /* ---------- Internal messaging (PRD 24) ---------- */
+
+    /** Send a message — into an existing conversation, or start one with a creator. */
+    public function message_sendAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to send messages.')); exit; }
+        $body = trim(html_entity_decode((string) ($this->post['body'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($body === '') { echo json_encode(array('success' => false, 'message' => 'Type a message.')); exit; }
+        if (mb_strlen($body) > 2000) { $body = mb_substr($body, 0, 2000); }
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'message', 1) >= 20) {
+            echo json_encode(array('success' => false, 'message' => 'You\'re sending messages too fast. Try again in a moment.')); exit;
+        }
+        $model   = new MessagesModel();
+        $conv_id = (int) ($this->post['conversation_id'] ?? 0);
+        if ($conv_id > 0) {
+            if (!$model->is_participant($conv_id, $me)) { echo json_encode(array('success' => false, 'message' => 'Conversation not found')); exit; }
+        } else {
+            $to = (int) ($this->post['to_creator'] ?? 0);
+            if ($to <= 0 || $to === $me) { echo json_encode(array('success' => false, 'message' => 'Invalid recipient')); exit; }
+            $conv_id = $model->open_between($me, $to);
+            if ($conv_id <= 0) {
+                echo json_encode(array('success' => false, 'message' => 'You can only message people you follow, subscribe to, or who follow you.')); exit;
+            }
+        }
+        $this->loginAttemptsModel->record($ip, (string) $me, 'message');
+        $mid = $model->send($conv_id, $me, $body);
+        echo json_encode(array('success' => true, 'conversation_id' => $conv_id,
+            'sent' => array('id' => $mid, 'mine' => true, 'body' => $body, 'created_at' => date('Y-m-d H:i:s')))); exit;
+    }
+
+    /** The signed-in account's inbox. */
+    public function message_inboxAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $model  = new MessagesModel();
+        $rows   = $model->inbox_rows($me);
+        $others = array();
+        foreach ($rows as $c) { $others[] = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id']; }
+        $ids = $model->identity_map($others);
+        $out = array();
+        foreach ($rows as $c) {
+            $i_am_creator = ((int) $c['creator_id'] === $me);
+            $other = $i_am_creator ? (int) $c['user_id'] : (int) $c['creator_id'];
+            $id    = $ids[$other] ?? array('handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false);
+            $out[] = array(
+                'id' => (int) $c['id'], 'other_name' => $id['name'], 'other_handle' => $id['handle'],
+                'other_avatar' => $id['avatar'], 'other_is_creator' => !empty($id['is_creator']),
+                'preview' => (string) $c['last_body'], 'last_at' => (string) $c['last_message_at'],
+                'unread' => $i_am_creator ? (int) $c['creator_unread'] : (int) $c['user_unread'],
+                'last_mine' => ((int) $c['last_sender_id'] === $me),
+            );
+        }
+        echo json_encode(array('success' => true, 'conversations' => $out)); exit;
+    }
+
+    /** Full thread for a conversation (marks it read for the viewer). */
+    public function message_threadAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $conv_id = (int) ($this->post['conversation_id'] ?? 0);
+        $model   = new MessagesModel();
+        $c = $model->get($conv_id);
+        if (!$c || !$model->is_participant($conv_id, $me)) { echo json_encode(array('success' => false, 'message' => 'Conversation not found')); exit; }
+        $other = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id'];
+        $id    = $model->identity_map(array($other))[$other] ?? array('handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false);
+        $msgs  = array();
+        foreach ($model->thread($conv_id) as $m) {
+            $msgs[] = array('id' => (int) $m['id'], 'mine' => ((int) $m['sender_id'] === $me), 'body' => (string) $m['body'], 'created_at' => (string) $m['created_at']);
+        }
+        $model->mark_read($conv_id, $me);
+        echo json_encode(array('success' => true, 'conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs)); exit;
+    }
+
+    /** Picker list for starting a new conversation: people you follow/subscribe to or who follow/subscribe to you (optional search). */
+    public function message_peopleAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $q     = trim((string) ($this->post['q'] ?? ''));
+        $model = new MessagesModel();
+        echo json_encode(array('success' => true, 'people' => $model->connections($me, $q), 'is_search' => ($q !== ''))); exit;
+    }
+
+    /** Open (find or create) a conversation with a connected account and return its thread. */
+    public function message_openAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $to = (int) ($this->post['to_creator'] ?? 0);
+        if ($to <= 0 || $to === $me) { echo json_encode(array('success' => false, 'message' => 'Invalid recipient')); exit; }
+        $model   = new MessagesModel();
+        $conv_id = $model->open_between($me, $to);
+        if ($conv_id <= 0) { echo json_encode(array('success' => false, 'message' => 'You can only message people you follow, subscribe to, or who follow you.')); exit; }
+        $id      = $model->identity_map(array($to))[$to] ?? array('handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false);
+        $msgs    = array();
+        foreach ($model->thread($conv_id) as $m) {
+            $msgs[] = array('id' => (int) $m['id'], 'mine' => ((int) $m['sender_id'] === $me), 'body' => (string) $m['body'], 'created_at' => (string) $m['created_at']);
+        }
+        $model->mark_read($conv_id, $me);
+        echo json_encode(array('success' => true, 'conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs)); exit;
+    }
+
+    /** Total unread messages — drives the launcher badge. */
+    public function message_unread_countAction(){
+        $me = (int) Session::get('user_id');
+        echo json_encode(array('success' => true, 'count' => $me > 0 ? (new MessagesModel())->total_unread($me) : 0)); exit;
+    }
+
     /* ---------- Blocked accounts ---------- */
 
     public function block_userAction(){

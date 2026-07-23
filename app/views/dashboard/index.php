@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/dashboard.css">
+<link rel="stylesheet" href="/css/dashboard.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/dashboard.css'); ?>">
 <?php
 $fmt_money = function ($cents) { return '$' . number_format(((int) $cents) / 100, 2); };
 $fmt_num   = function ($n) { return number_format((int) $n); };
@@ -48,22 +48,12 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
     </div>
 
     <?php
-    // ---- Views trend (last 30 days) → self-contained SVG area chart ----
+    // ---- Views trend (last 30 days) → one bar per day; empty days show a baseline tick ----
     $series  = $this->views_series;
     $vals    = array_map(function ($p) { return (int) $p['value']; }, $series);
     $maxv    = max(1, max($vals));
     $total30 = array_sum($vals);
-    $W = 720; $H = 180; $pad = 6; $n = count($series);
-    $stepx = ($n > 1) ? ($W - $pad * 2) / ($n - 1) : 0;
-    $pts = array();
-    foreach ($vals as $i => $v) {
-        $x = $pad + $i * $stepx;
-        $y = $H - $pad - ($v / $maxv) * ($H - $pad * 2);
-        $pts[] = array($x, $y);
-    }
-    $line = '';
-    foreach ($pts as $i => $pt) { $line .= ($i === 0 ? 'M' : 'L') . round($pt[0], 1) . ' ' . round($pt[1], 1) . ' '; }
-    $area = $line . 'L' . round($pad + ($n - 1) * $stepx, 1) . ' ' . ($H - $pad) . ' L' . $pad . ' ' . ($H - $pad) . ' Z';
+    $n       = count($series);
     ?>
     <div class="dash__panel dash__chart">
         <div class="dash__panel-head">
@@ -73,21 +63,19 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
             </div>
             <div class="dash__chart-total"><strong><?php echo $fmt_num($total30); ?></strong> views</div>
         </div>
-        <?php if ($total30 === 0): ?>
-            <div class="dash__chart-empty">No views yet — publish content and it'll start showing here.</div>
-        <?php else: ?>
-        <svg class="dash__svg" viewBox="0 0 <?php echo $W; ?> <?php echo $H; ?>" preserveAspectRatio="none" role="img" aria-label="Views over the last 30 days">
-            <defs>
-                <linearGradient id="dashFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="var(--violet)" stop-opacity=".18"/>
-                    <stop offset="100%" stop-color="var(--violet)" stop-opacity="0"/>
-                </linearGradient>
-            </defs>
-            <path d="<?php echo $area; ?>" fill="url(#dashFill)"/>
-            <path d="<?php echo $line; ?>" fill="none" stroke="var(--violet)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
-        </svg>
-        <div class="dash__chart-axis"><span><?php echo date('M j', strtotime($series[0]['date'])); ?></span><span><?php echo date('M j', strtotime($series[$n - 1]['date'])); ?></span></div>
-        <?php endif; ?>
+        <div class="dash__bars" role="img" aria-label="Daily views over the last 30 days">
+            <?php foreach ($series as $p): $v = (int) $p['value']; $h = $v > 0 ? max(8, (int) round($v / $maxv * 100)) : 0; ?>
+            <div class="dash__col" title="<?php echo htmlspecialchars(date('D, M j', strtotime((string) $p['date'])) . ' — ' . $v . ' view' . ($v === 1 ? '' : 's'), ENT_QUOTES, 'UTF-8'); ?>">
+                <div class="dash__col-fill<?php echo $v > 0 ? ' is-on' : ''; ?>" style="height:<?php echo $h; ?>%"></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <div class="dash__chart-axis">
+            <?php $step = max(1, (int) floor(($n - 1) / 5)); for ($i = 0; $i < $n; $i += $step): ?>
+            <span><?php echo date('M j', strtotime((string) $series[$i]['date'])); ?></span>
+            <?php endfor; ?>
+            <span><?php echo date('M j', strtotime((string) $series[$n - 1]['date'])); ?></span>
+        </div>
     </div>
 
     <div class="dash__cols">

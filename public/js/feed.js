@@ -56,11 +56,14 @@
             var items = o.items || [];
             if (!append) {
                 if (!items.length) { $empty.prop('hidden', false); return; }
-                newest_id = items[0].id;   // top card = newest; watermark for the alert
                 hide_pill();
             }
             $grid.prop('hidden', false);
-            items.forEach(function (c) { card_by_id[c.id] = c; $grid.append(render_card(c)); });
+            items.forEach(function (c) {
+                if (c.id > newest_id) { newest_id = c.id; }   // watermark = highest id loaded (feed sorts by published_at, so the top card isn't always the max id)
+                card_by_id[c.id] = c;
+                $grid.append(render_card(c));
+            });
             feed_offset = o.next_offset || (feed_offset + items.length);
             has_more = !!o.has_more;
             $end.prop('hidden', has_more || !$grid.children().length);

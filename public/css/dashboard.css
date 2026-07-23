@@ -29,6 +29,15 @@
 .dash__chart-total{ font-size:.85rem; color:var(--muted); }
 .dash__chart-total strong{ font-size:1.05rem; color:var(--text); font-weight:700; margin-right:.15rem; }
 .dash__svg{ width:100%; height:180px; display:block; }
+.dash__bars{ display:flex; align-items:stretch; gap:3px; height:180px; padding:0 1px; }
+.dash__col{ flex:1 1 0; min-width:0; display:flex; align-items:flex-end; background:#f4f3f8; border-radius:3px; transition:background .12s; }
+.dash__col:hover{ background:#e9e7f4; }
+.dash__col-fill{ width:100%; background:transparent; border-radius:3px 3px 0 0; transition:background .12s; }
+.dash__col-fill.is-on{ background:var(--violet); }
+.dash__col:hover .dash__col-fill.is-on{ background:var(--violet7); }
+.dash__chart-axis span{ flex:1 1 0; text-align:center; }
+.dash__chart-axis span:first-child{ text-align:left; }
+.dash__chart-axis span:last-child{ text-align:right; }
 .dash__chart-axis{ display:flex; justify-content:space-between; font-size:.74rem; color:var(--muted2); margin-top:.4rem; }
 .dash__chart-empty{ padding:2.6rem 1rem; text-align:center; color:var(--muted); font-size:.9rem; }
 
