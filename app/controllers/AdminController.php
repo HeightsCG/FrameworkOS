@@ -38,7 +38,10 @@ class AdminController extends Controller {
         }
 
         $refunds = new RefundsModel();
+        $reports = new ReportsModel();
 
+        $this->view->reports_queue = $reports->open_for_admin(40);
+        $this->view->reports_open  = $reports->open_count();
         $this->view->stats        = $model->overview();
         $this->view->queue        = $queue;
         $this->view->sales        = $model->recent_sales(25);

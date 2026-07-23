@@ -107,6 +107,8 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
     display:inline-flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; }
 .feed-plb__author{ font-size:.9rem; font-weight:600; color:var(--text); text-decoration:none; }
 .feed-plb__author:hover{ color:var(--violet7); text-decoration:underline; }
+.feed-plb__report{ margin-left:auto; width:30px; height:30px; border:0; border-radius:8px; background:transparent; color:var(--muted2); font-size:.85rem; cursor:pointer; transition:background .12s,color .12s; }
+.feed-plb__report:hover{ background:rgba(207,59,59,.08); color:var(--danger); }
 .feed-plb__media{ background:#111; }
 .feed-plb__media img, .feed-plb__media video{ width:100%; display:block; background:#111; max-height:76vh; object-fit:contain; }
 .feed-plb__media--carousel{ position:relative; }

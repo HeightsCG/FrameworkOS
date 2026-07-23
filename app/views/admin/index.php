@@ -90,6 +90,54 @@ $users = $this->users;
 
     <section class="adm-sec">
         <div class="adm-sec__head">
+            <h2 class="adm-sec__title">Reports</h2>
+            <span class="adm-sec__meta"><?php echo (int) $this->reports_open; ?> open</span>
+        </div>
+        <?php if (empty($this->reports_queue)): ?>
+            <div class="adm-empty">
+                <span class="adm-empty__ic"><i class="fa-solid fa-flag"></i></span>
+                <p class="adm-empty__t">No open reports</p>
+                <p class="adm-empty__x">User reports of content or creators will appear here for review.</p>
+            </div>
+        <?php else: ?>
+        <div class="adm-table adm-table--reports">
+            <div class="adm-table__head"><span>Reported</span><span>Reason</span><span>By</span><span>When</span><span></span></div>
+            <div class="adm-table__body" id="admReports">
+                <?php foreach ($this->reports_queue as $rp): ?>
+                <div class="adm-rrow" data-report="<?php echo (int) $rp['id']; ?>" data-type="<?php echo $e($rp['target_type']); ?>">
+                    <div class="adm-ucell adm-rcell--target">
+                        <?php if ($rp['target_type'] === 'post'): ?>
+                            <span class="adm-tag adm-tag--ppv">Post</span>
+                            <span class="adm-rcell__what"><?php echo $e($rp['post_caption'] !== '' ? mb_substr($rp['post_caption'], 0, 70) : ('#' . $rp['target_id'])); ?></span>
+                            <?php if ($rp['creator_handle'] !== ''): ?><a class="adm-rcell__who" href="/@<?php echo $e($rp['creator_handle']); ?>" target="_blank" rel="noopener">@<?php echo $e($rp['creator_handle']); ?></a><?php endif; ?>
+                        <?php else: ?>
+                            <span class="adm-tag adm-tag--flag">Creator</span>
+                            <a class="adm-rcell__what" href="/@<?php echo $e($rp['creator_handle']); ?>" target="_blank" rel="noopener">@<?php echo $e($rp['creator_handle']); ?></a>
+                        <?php endif; ?>
+                    </div>
+                    <div class="adm-ucell">
+                        <span class="adm-rcell__reason"><?php echo $e($rp['reason_label']); ?></span>
+                        <?php if ($rp['details'] !== ''): ?><span class="adm-rcell__detail" title="<?php echo $e($rp['details']); ?>"><?php echo $e(mb_substr($rp['details'], 0, 60)); ?></span><?php endif; ?>
+                    </div>
+                    <div class="adm-ucell adm-ucell--muted">@<?php echo $e($rp['reporter_handle']); ?></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($rp['created_at'], true)); ?></div>
+                    <div class="adm-ucell adm-ucell--act">
+                        <button type="button" class="adm-btn" data-report-action="dismiss">Dismiss</button>
+                        <?php if ($rp['target_type'] === 'post'): ?>
+                        <button type="button" class="adm-btn adm-btn--danger" data-report-action="remove">Remove</button>
+                        <?php endif; ?>
+                        <button type="button" class="adm-btn adm-btn--danger" data-report-action="suspend">Suspend</button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <p class="adm__none" id="admReportsNone" hidden>All reports resolved.</p>
+            </div>
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="adm-sec">
+        <div class="adm-sec__head">
             <h2 class="adm-sec__title">Recent sales</h2>
             <span class="adm-sec__meta">
                 <?php $rf = $this->refunds; if ((int) $rf['refund_count'] > 0): ?>

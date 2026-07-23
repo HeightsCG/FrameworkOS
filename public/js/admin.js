@@ -44,6 +44,43 @@
         });
     }
 
+    /* ---- Reports ---- */
+    var reports = document.getElementById('admReports');
+    if (reports) {
+        reports.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-report-action]');
+            if (!btn) { return; }
+            var row = btn.closest('.adm-rrow');
+            var rid = parseInt(row.getAttribute('data-report'), 10);
+            var action = btn.getAttribute('data-report-action');
+            var proceed;
+            if (action === 'remove') {
+                proceed = confirmAction({ title: 'Remove this content?', text: 'The post is blocked and hidden everywhere. This resolves the report.', icon: 'warning', confirmButtonText: 'Remove' });
+            } else if (action === 'suspend') {
+                proceed = confirmAction({ title: 'Suspend this account?', text: 'They\'re blocked from signing in. This resolves the report.', icon: 'warning', confirmButtonText: 'Suspend' });
+            } else {
+                proceed = Promise.resolve(true);
+            }
+            proceed.then(function (ok) {
+                if (!ok) { return; }
+                row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = true; });
+                ApiDataSvc.apiCall('post', 'report_resolve', { report_id: rid, action: action }, function (r) {
+                    var o = parse(r);
+                    if (!o || !o.success) {
+                        row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = false; });
+                        if (window.toastr) { toastr.error((o && o.message) || 'Could not resolve report'); }
+                        return;
+                    }
+                    row.parentNode.removeChild(row);
+                    if (window.toastr) { toastr.success(action === 'dismiss' ? 'Report dismissed' : (action === 'remove' ? 'Content removed' : 'Account suspended')); }
+                    var remaining = reports.querySelectorAll('.adm-rrow').length;
+                    document.querySelectorAll('.adm-sec__meta').forEach(function (m) { if (/\bopen$/.test(m.textContent.trim())) { m.textContent = remaining + ' open'; } });
+                    if (!remaining) { var n = document.getElementById('admReportsNone'); if (n) { n.hidden = false; } }
+                });
+            });
+        });
+    }
+
     /* ---- Refunds (SweetAlert confirm) ---- */
     var sales = document.getElementById('admSales');
     if (sales) {

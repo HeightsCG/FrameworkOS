@@ -2370,6 +2370,56 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true)); exit;
     }
 
+    /* ---------- Reports / trust & safety (PRD §35–37) ---------- */
+
+    /** Anyone signed in can report a post or a creator. */
+    public function report_submitAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to report.')); exit; }
+        $type      = (string) ($this->post['target_type'] ?? '');
+        $target_id = (int) ($this->post['target_id'] ?? 0);
+        $reason    = (string) ($this->post['reason'] ?? '');
+        $details   = trim(html_entity_decode((string) ($this->post['details'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'report', 10) >= 15) {
+            echo json_encode(array('success' => false, 'message' => 'You\'re reporting too fast. Try again shortly.')); exit;
+        }
+        $res = (new ReportsModel())->submit($me, $type, $target_id, $reason, $details);
+        if (empty($res['ok'])) { echo json_encode(array('success' => false, 'message' => $res['message'])); exit; }
+        $this->loginAttemptsModel->record($ip, (string) $me, 'report');
+        echo json_encode(array('success' => true, 'message' => $res['message'])); exit;
+    }
+
+    /** Admin resolves a report: dismiss, remove the content, or suspend the account. */
+    public function report_resolveAction(){
+        $this->admin_guard();
+        $me     = (int) Session::get('user_id');
+        $rid    = (int) ($this->post['report_id'] ?? 0);
+        $action = (string) ($this->post['action'] ?? '');
+        $model  = new ReportsModel();
+        $rep    = $model->get($rid);
+        if (!$rep) { echo json_encode(array('success' => false, 'message' => 'Report not found')); exit; }
+
+        if ($action === 'dismiss') {
+            $model->resolve($rid, $me, 'dismissed', 'Dismissed');
+        } elseif ($action === 'remove') {
+            if ((string) $rep['target_type'] !== 'post') { echo json_encode(array('success' => false, 'message' => 'Remove applies to content only')); exit; }
+            $model->takedown_post((int) $rep['target_id']);
+            $model->resolve($rid, $me, 'actioned', 'Content removed');
+        } elseif ($action === 'suspend') {
+            $cid = (int) $rep['creator_id'];
+            if ($cid > 0 && $cid !== $me) {
+                $u = $this->userModel->get_user_by_id($cid);
+                $u = (is_array($u) && count($u) === 1) ? $u[0] : null;
+                if ($u && empty($u['is_admin'])) { (new AdminModel())->set_user_status($cid, 'Disabled'); }
+            }
+            $model->resolve($rid, $me, 'actioned', 'Account suspended');
+        } else {
+            echo json_encode(array('success' => false, 'message' => 'Invalid action')); exit;
+        }
+        echo json_encode(array('success' => true, 'action' => $action)); exit;
+    }
+
     /* ---------- Blocked accounts ---------- */
 
     public function block_userAction(){

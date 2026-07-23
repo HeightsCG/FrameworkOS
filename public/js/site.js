@@ -95,6 +95,46 @@ $(document).ready(function() {
         $(document).on('click', function (e) { if (!$(e.target).closest('.app-search').length) { hide(); } });
     })();
 
+    // Report (trust & safety, PRD §35–37) — any [data-report-type][data-report-id] element
+    // opens a reason picker and files a report.
+    $(document).on('click', '[data-report-type]', function (e) {
+        e.preventDefault();
+        var type = $(this).attr('data-report-type');
+        var id = parseInt($(this).attr('data-report-id'), 10) || 0;
+        if (!id || !window.Swal) { return; }
+        Swal.fire({
+            title: 'Report ' + (type === 'creator' ? 'this creator' : 'this content'),
+            width: 460,
+            html: '<div class="rpt-swal">'
+                + '<label for="rptReason">Reason</label>'
+                + '<select id="rptReason">'
+                + '<option value="spam">Spam or scam</option>'
+                + '<option value="harassment">Harassment or hate</option>'
+                + '<option value="nudity">Unlabeled adult content</option>'
+                + '<option value="illegal">Illegal or dangerous</option>'
+                + '<option value="impersonation">Impersonation</option>'
+                + '<option value="copyright">Copyright / DMCA</option>'
+                + '<option value="other">Other</option>'
+                + '</select>'
+                + '<label for="rptDetails">Details <span class="rpt-swal__opt">(optional)</span></label>'
+                + '<textarea id="rptDetails" rows="3" maxlength="2000" placeholder="Add any context that helps us review this."></textarea>'
+                + '</div>',
+            focusConfirm: false, showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Submit report', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779',
+            preConfirm: function () {
+                return { reason: document.getElementById('rptReason').value, details: document.getElementById('rptDetails').value };
+            }
+        }).then(function (r) {
+            if (!r.isConfirmed || !r.value) { return; }
+            ApiDataSvc.apiCall('post', 'report_submit', { target_type: type, target_id: id, reason: r.value.reason, details: r.value.details }, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (e) {}
+                if (o && o.success) { if (window.toastr) { toastr.success('Thanks — our team will review this.'); } }
+                else if (o && o.need_login) { window.location = '/'; }
+                else if (window.toastr) { toastr.error((o && o.message) || 'Could not submit report'); }
+            });
+        });
+    });
+
     // Global loading bar — shows on every AJAX request so users see activity.
     var $loadbar = $('<div id="app-loadbar"></div>').appendTo('body');
     $(document).ajaxStart(function () {

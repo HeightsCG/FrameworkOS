@@ -215,7 +215,8 @@
         var h = '<div class="feed-plb__head">';
         var av = p.avatar ? '<img class="feed-plb__avatar" src="' + esc(p.avatar) + '" alt="">'
             : '<span class="feed-plb__avatar">' + esc(String(p.author || '?').replace(/^@/, '').charAt(0).toUpperCase()) + '</span>';
-        h += av + '<a class="feed-plb__author" href="' + esc(p.profile_url) + '">' + esc(p.author) + '</a></div>';
+        h += av + '<a class="feed-plb__author" href="' + esc(p.profile_url) + '">' + esc(p.author) + '</a>' +
+            '<button type="button" class="feed-plb__report" data-report-type="post" data-report-id="' + (p.id || 0) + '" title="Report this post" aria-label="Report this post"><i class="fa-solid fa-flag"></i></button></div>';
 
         if (p.entitled) {
             var assets = p.assets || [];
