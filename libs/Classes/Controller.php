@@ -14,6 +14,23 @@ class Controller {
         $this->method = preg_replace('/action/', '', strtolower(Main::method_name()));
         $this->view = new View($this->protected);
         $this->post = self::clean_post_data();
+        $this->touch_presence();
+    }
+
+    /**
+     * Keep a logged-in user's presence ("online") fresh on any page load or AJAX call,
+     * so browsing anywhere — not just the Studio heartbeat — counts as being active.
+     * Throttled to once / 45s via a session timestamp so it never adds a read query.
+     */
+    private function touch_presence(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { return; }
+        $now  = time();
+        $last = (int) Session::get('presence_touch_at');
+        if ($now - $last >= 45) {
+            (new UsersModel())->touch_last_active($uid);
+            Session::set('presence_touch_at', $now);
+        }
     }
 
     public static function clean_post_data(){

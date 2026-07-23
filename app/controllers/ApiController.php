@@ -2158,6 +2158,60 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true, 'count' => $count)); exit;
     }
 
+    /** Universal search (PRD §28) — creators + published content for the top-chrome box. */
+    public function searchAction(){
+        $q = trim((string) ($this->post['q'] ?? ''));
+        if (mb_strlen($q) < 2) { echo json_encode(array('success' => true, 'creators' => array(), 'posts' => array())); exit; }
+        $viewer     = (int) Session::get('user_id');
+        $show_adult = false;
+        if ($viewer > 0) {
+            $rows = $this->userModel->get_user_by_id($viewer);
+            $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            $show_adult = !empty($u['adult_content_enabled']);
+        }
+        $model = new SearchModel();
+        echo json_encode(array('success' => true,
+            'creators' => $model->creators($q),
+            'posts'    => $model->posts($q, $show_adult))); exit;
+    }
+
+    /* ---------- Audience / CRM (PRD §26) ---------- */
+
+    /** Guard: current user is a creator and the fan is in their audience. Returns [creator_id, fan_id] or exits with JSON error. */
+    private function audience_guard(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        if (!Permissions::has_role('Creator')) { echo json_encode(array('success' => false, 'message' => 'Creators only')); exit; }
+        $fan = (int) ($this->post['fan_id'] ?? 0);
+        if ($fan <= 0 || !(new AudienceModel())->is_audience_member($me, $fan)) {
+            echo json_encode(array('success' => false, 'message' => 'Not in your audience')); exit;
+        }
+        return array($me, $fan);
+    }
+
+    public function audience_tag_addAction(){
+        list($me, $fan) = $this->audience_guard();
+        $tag = trim(html_entity_decode((string) ($this->post['tag'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($tag === '') { echo json_encode(array('success' => false, 'message' => 'Empty tag')); exit; }
+        $model = new AudienceModel();
+        $model->add_tag($me, $fan, $tag);
+        echo json_encode(array('success' => true, 'tags' => $model->tags_for($me, $fan))); exit;
+    }
+
+    public function audience_tag_removeAction(){
+        list($me, $fan) = $this->audience_guard();
+        $tag = trim(html_entity_decode((string) ($this->post['tag'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        (new AudienceModel())->remove_tag($me, $fan, $tag);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    public function audience_note_saveAction(){
+        list($me, $fan) = $this->audience_guard();
+        $note = trim(html_entity_decode((string) ($this->post['note'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        (new AudienceModel())->save_note($me, $fan, $note);
+        echo json_encode(array('success' => true)); exit;
+    }
+
     /* ---------- Blocked accounts ---------- */
 
     public function block_userAction(){

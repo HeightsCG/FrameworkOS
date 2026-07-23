@@ -243,6 +243,12 @@
         $('#msgrInput').on('keydown', function(e){ if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); $('#msgrCompose').submit(); } })
             .on('input', function(){ this.style.height='auto'; this.style.height=Math.min(this.scrollHeight,120)+'px'; });
 
+        // Global hook so other pages (e.g. the Audience/CRM list) can open a thread with a fan.
+        window.CLSMessenger = {
+            open: function(){ $panel.prop('hidden',false); showInbox(); badge(); },
+            openWith: function(uid){ uid=parseInt(uid,10)||0; if(uid<=0){ return; } $panel.prop('hidden',false); $title.text('Loading…'); openWith({ id:uid, name:'', handle:'', avatar:'', is_creator:false }); }
+        };
+
         badge();
         setInterval(function(){ badge(); if(!$panel.prop('hidden')){ if(active){ ApiDataSvc.apiCall('post','message_thread',{conversation_id:active},function(r){ var o=null; try{o=JSON.parse(r);}catch(e){} if(o&&o.success){ renderMsgs(o.messages); } }); } else { loadInbox(); } } }, 12000);
     })();

@@ -104,7 +104,8 @@ class MessagesModel extends Model {
 
     /**
      * The messaging gate: two accounts may start a conversation only if they have a
-     * follow or subscription relationship in EITHER direction.
+     * relationship in EITHER direction — a follow, a subscription, or a purchase
+     * (PPV / bundle). This lets a creator message any audience member, including buyers.
      */
     public function can_message($viewer_id, $other_id){
         $v = (int) $viewer_id; $o = (int) $other_id;
@@ -115,8 +116,15 @@ class MessagesModel extends Model {
              UNION
              SELECT 1 AS ok FROM creator_subscriptions
                WHERE (subscriber_id = :a3 AND creator_id = :b3) OR (subscriber_id = :b4 AND creator_id = :a4)
+             UNION
+             SELECT 1 AS ok FROM ppv_unlocks
+               WHERE (fan_id = :a5 AND creator_id = :b5) OR (fan_id = :b6 AND creator_id = :a6)
+             UNION
+             SELECT 1 AS ok FROM bundle_unlocks
+               WHERE (fan_id = :a7 AND creator_id = :b7) OR (fan_id = :b8 AND creator_id = :a8)
              LIMIT 1",
-            array('a1' => $v, 'b1' => $o, 'b2' => $o, 'a2' => $v, 'a3' => $v, 'b3' => $o, 'b4' => $o, 'a4' => $v));
+            array('a1' => $v, 'b1' => $o, 'b2' => $o, 'a2' => $v, 'a3' => $v, 'b3' => $o, 'b4' => $o, 'a4' => $v,
+                  'a5' => $v, 'b5' => $o, 'b6' => $o, 'a6' => $v, 'a7' => $v, 'b7' => $o, 'b8' => $o, 'a8' => $v));
         return is_array($rows) && count($rows) > 0;
     }
 

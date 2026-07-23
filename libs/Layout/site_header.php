@@ -17,7 +17,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/0b1fb50c1a.js" crossorigin="anonymous"></script>
     <script src="/js/api.data.js"></script>
-    <script src="/js/site.js"></script>
+    <script src="/js/site.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/site.js'); ?>"></script>
 </head>
 <body class="app-shell">
 
@@ -32,6 +32,7 @@
             <?php if (Permissions::has_role('Creator')): ?>
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
+            <a href="/audience" class="app-nav-item<?php echo ($this->controller === 'audience' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-users"></i> Audience</a>
             <?php endif; ?>
             <a href="/purchases" class="app-nav-item<?php echo ($this->controller === 'purchases' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-bag-shopping"></i> Purchases</a>
         </nav>
@@ -43,7 +44,8 @@
     <div class="app-main">
         <header class="app-topbar">
             <div class="app-search">
-                <input type="search" class="form-control" id="app_search" placeholder="Search..." autocomplete="off">
+                <input type="search" class="form-control" id="app_search" placeholder="Search creators and content&hellip;" autocomplete="off" aria-label="Search">
+                <div class="app-search__panel" id="appSearchPanel" hidden></div>
             </div>
             <span class="app-topbar__spacer"></span>
             <div class="app-acct">
