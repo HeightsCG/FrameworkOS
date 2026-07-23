@@ -884,6 +884,9 @@ class ApiController extends Controller {
         $follows = new FollowsModel();
         if ($following) {
             $follows->follow($user_id, $creator_id);
+            $who = (new MessagesModel())->identity_map(array($user_id))[$user_id] ?? array('handle' => '');
+            $this->notify($creator_id, 'creator_activity', 'New follower',
+                '@' . $who['handle'] . ' started following you.', '/audience', 'fa-user-plus');
         } else {
             $follows->unfollow($user_id, $creator_id);
         }
@@ -1288,6 +1291,8 @@ class ApiController extends Controller {
             $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
         }
+        $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
+            'Someone unlocked your post for $' . number_format($charge / 10, 2) . '.', '/dashboard', 'fa-coins');
 
         echo json_encode(array('success' => true, 'assets' => $this->ppv_reveal_assets($post),
             'balance' => $credits->get_balance($viewer))); exit;
@@ -1348,6 +1353,8 @@ class ApiController extends Controller {
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
         $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
         if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); }
+        $this->notify($creator_id, 'purchases', 'New bundle sale',
+            'Someone purchased your bundle for $' . number_format($price / 10, 2) . '.', '/dashboard', 'fa-coins');
 
         $n = count($asset_ids);
         echo json_encode(array('success' => true, 'unlocked' => $n,
@@ -2076,6 +2083,15 @@ class ApiController extends Controller {
         }
         $this->loginAttemptsModel->record($ip, (string) $me, 'message');
         $mid = $model->send($conv_id, $me, $body);
+
+        // Notify the recipient in-platform.
+        $conv = $model->get($conv_id);
+        if ($conv) {
+            $recipient = ((int) $conv['creator_id'] === $me) ? (int) $conv['user_id'] : (int) $conv['creator_id'];
+            $sender = $model->identity_map(array($me))[$me] ?? array('name' => 'Someone');
+            $this->notify($recipient, 'messages', 'New message from ' . $sender['name'], mb_substr($body, 0, 140), '', 'fa-comment-dots');
+        }
+
         echo json_encode(array('success' => true, 'conversation_id' => $conv_id,
             'sent' => array('id' => $mid, 'mine' => true, 'body' => $body, 'created_at' => date('Y-m-d H:i:s')))); exit;
     }
@@ -2237,6 +2253,41 @@ class ApiController extends Controller {
         list($me, $fan) = $this->audience_guard();
         $note = trim(html_entity_decode((string) ($this->post['note'] ?? ''), ENT_QUOTES, 'UTF-8'));
         (new AudienceModel())->save_note($me, $fan, $note);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    /* ---------- In-platform notifications (PRD §27) ---------- */
+
+    /** Deliver an in-platform notification (respects the recipient's category prefs). */
+    private function notify($user_id, $category, $title, $body = '', $link = '', $icon = ''){
+        if ((int) $user_id <= 0) { return; }
+        (new UserNotificationsModel())->push((int) $user_id, $category, $title, $body, $link, $icon);
+    }
+
+    public function notifications_listAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $model = new UserNotificationsModel();
+        $out = array();
+        foreach ($model->recent($me, 15) as $r) {
+            $out[] = array('id' => (int) $r['id'], 'category' => (string) $r['category'], 'icon' => (string) $r['icon'],
+                'title' => (string) $r['title'], 'body' => (string) $r['body'], 'link' => (string) $r['link'],
+                'read' => ((int) $r['is_read'] === 1), 'created_at' => (string) $r['created_at']);
+        }
+        echo json_encode(array('success' => true, 'notifications' => $out, 'unread' => $model->unread_count($me))); exit;
+    }
+
+    public function notifications_unread_countAction(){
+        $me = (int) Session::get('user_id');
+        echo json_encode(array('success' => true, 'count' => $me > 0 ? (new UserNotificationsModel())->unread_count($me) : 0)); exit;
+    }
+
+    public function notifications_mark_readAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false)); exit; }
+        $model = new UserNotificationsModel();
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id > 0) { $model->mark_read($me, $id); } else { $model->mark_all_read($me); }
         echo json_encode(array('success' => true)); exit;
     }
 
@@ -2445,9 +2496,15 @@ class ApiController extends Controller {
         $vid    = (int) ($this->post['verification_id'] ?? 0);
         $action = (string) ($this->post['action'] ?? '');
         if (!in_array($action, array('approve', 'reject'), true)) { echo json_encode(array('success' => false, 'message' => 'Invalid action')); exit; }
-        if (!(new VerificationsModel())->resolve($vid, $me, $action === 'approve')) {
+        $vmodel = new VerificationsModel();
+        $v = $vmodel->get($vid);
+        if (!$v || !$vmodel->resolve($vid, $me, $action === 'approve')) {
             echo json_encode(array('success' => false, 'message' => 'Request not found')); exit;
         }
+        $this->notify((int) $v['user_id'], 'system',
+            $action === 'approve' ? 'You\'re verified' : 'Verification update',
+            $action === 'approve' ? 'Your account is now verified — the badge shows on your profile.' : 'Your verification request wasn\'t approved. You can re-apply anytime.',
+            '/account/settings', $action === 'approve' ? 'fa-circle-check' : 'fa-shield-halved');
         echo json_encode(array('success' => true, 'action' => $action)); exit;
     }
 

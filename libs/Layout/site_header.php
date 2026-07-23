@@ -55,6 +55,16 @@
                 <div class="app-search__panel" id="appSearchPanel" hidden></div>
             </div>
             <span class="app-topbar__spacer"></span>
+            <div class="app-notif" id="appNotif">
+                <button type="button" class="app-notif__btn" id="notifBtn" aria-label="Notifications" aria-haspopup="true">
+                    <i class="fa-regular fa-bell"></i>
+                    <span class="app-notif__badge" id="notifBadge" hidden></span>
+                </button>
+                <div class="app-notif__panel" id="notifPanel" hidden>
+                    <div class="app-notif__head"><span class="app-notif__title">Notifications</span><button type="button" class="app-notif__mark" id="notifMarkAll">Mark all read</button></div>
+                    <div class="app-notif__list" id="notifList"></div>
+                </div>
+            </div>
             <div class="app-acct">
                 <button type="button" class="app-account" id="acctBtn" aria-haspopup="true" aria-expanded="false">
                     <span class="app-avatar"><?php echo htmlspecialchars(substr(Session::get('first_name'), 0, 1), ENT_QUOTES, 'UTF-8'); ?></span>

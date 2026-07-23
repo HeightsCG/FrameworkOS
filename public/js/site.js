@@ -95,6 +95,48 @@ $(document).ready(function() {
         $(document).on('click', function (e) { if (!$(e.target).closest('.app-search').length) { hide(); } });
     })();
 
+    // In-platform notifications bell (PRD §27).
+    (function () {
+        var $btn = $('#notifBtn'), $panel = $('#notifPanel'), $badge = $('#notifBadge'), $list = $('#notifList');
+        if (!$btn.length) { return; }
+        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
+        function ftime(iso) { if (!iso) { return ''; } var d = new Date(String(iso).replace(' ', 'T') + 'Z'); return isNaN(d) ? '' : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
+        function count() {
+            ApiDataSvc.apiCall('post', 'notifications_unread_count', {}, function (r) {
+                var o = null; try { o = JSON.parse(r); } catch (e) {}
+                var n = (o && o.count) ? o.count : 0;
+                if (n > 0) { $badge.text(n > 99 ? '99+' : n).prop('hidden', false); } else { $badge.prop('hidden', true); }
+            });
+        }
+        function render(list) {
+            if (!list.length) { $list.html('<div class="app-notif__empty">No notifications yet.</div>'); return; }
+            var h = '';
+            list.forEach(function (n) {
+                var inner = '<span class="app-notif-item__ic"><i class="fa-solid ' + esc(n.icon || 'fa-bell') + '"></i></span>'
+                    + '<span class="app-notif-item__body"><span class="app-notif-item__title">' + esc(n.title) + '</span>'
+                    + (n.body ? '<span class="app-notif-item__text">' + esc(n.body) + '</span>' : '')
+                    + '<span class="app-notif-item__time">' + ftime(n.created_at) + '</span></span>';
+                var cls = 'app-notif-item' + (n.read ? '' : ' is-unread');
+                h += n.link
+                    ? '<a class="' + cls + '" href="' + esc(n.link) + '">' + inner + '</a>'
+                    : '<div class="' + cls + '">' + inner + '</div>';
+            });
+            $list.html(h);
+        }
+        function load() { ApiDataSvc.apiCall('post', 'notifications_list', {}, function (r) { var o = null; try { o = JSON.parse(r); } catch (e) {} if (o && o.success) { render(o.notifications); } }); }
+        $btn.on('click', function (e) {
+            e.stopPropagation();
+            if ($panel.prop('hidden')) {
+                $panel.prop('hidden', false); load();
+                ApiDataSvc.apiCall('post', 'notifications_mark_read', {}, function () { $badge.prop('hidden', true); });
+            } else { $panel.prop('hidden', true); }
+        });
+        $('#notifMarkAll').on('click', function (e) { e.stopPropagation(); ApiDataSvc.apiCall('post', 'notifications_mark_read', {}, function () { $badge.prop('hidden', true); load(); }); });
+        $(document).on('click', function (e) { if (!$(e.target).closest('#appNotif').length) { $panel.prop('hidden', true); } });
+        count();
+        setInterval(count, 30000);
+    })();
+
     // Report (trust & safety, PRD §35–37) — any [data-report-type][data-report-id] element
     // opens a reason picker and files a report.
     $(document).on('click', '[data-report-type]', function (e) {
