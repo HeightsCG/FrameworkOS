@@ -111,6 +111,11 @@ class WebhookController extends Controller {
                     $subs->update_by_stripe_id((string) $obj->subscription, 'active', null, 0);
                 }
                 break;
+
+            case 'charge.dispute.created':
+                // A chargeback (PRD §21): log it and suspend the disputing account pending review.
+                (new RefundsModel())->record_chargeback($obj);
+                break;
         }
 
         http_response_code(200);

@@ -14,11 +14,12 @@ class StudioController extends Controller {
     }
 
     public function indexAction(){
-        $is_creator = Permissions::has_role('Creator');
+        $is_creator = Permissions::can_act_as_creator();
         $this->view->is_creator = $is_creator;
 
         if ($is_creator) {
-            $rows = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+            // Collaborators operate on the owner's account; solo creators on their own.
+            $rows = $this->userModel->get_user_by_id(Permissions::creator_id());
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
 
             // Creator tools require an active platform plan. We still render the

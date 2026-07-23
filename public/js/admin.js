@@ -3,6 +3,13 @@
     var root = document.querySelector('.adm');
     if (!root) { return; }
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
+    function confirmAction(opts) {
+        if (window.Swal) {
+            return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, focusCancel: true,
+                confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' }, opts)).then(function (res) { return res.isConfirmed; });
+        }
+        return Promise.resolve(window.confirm(opts.title || 'Are you sure?'));
+    }
 
     /* ---- Moderation queue ---- */
     var mod = document.getElementById('admMod');
@@ -37,6 +44,48 @@
         });
     }
 
+    /* ---- Refunds (SweetAlert confirm) ---- */
+    var sales = document.getElementById('admSales');
+    if (sales) {
+        sales.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-refund]');
+            if (!btn) { return; }
+            var row = btn.closest('.adm-srow');
+            var amtEl = row.querySelector('.adm-scell--amt');
+            var amt = amtEl ? amtEl.textContent.trim() : 'this purchase';
+            confirmAction({
+                title: 'Refund ' + amt + '?',
+                text: "The buyer is credited back and loses access. This can't be undone.",
+                icon: 'warning',
+                confirmButtonText: 'Refund'
+            }).then(function (ok) {
+                if (!ok) { return; }
+                btn.disabled = true; btn.textContent = 'Refunding…';
+                ApiDataSvc.apiCall('post', 'admin_refund', {
+                    kind: row.getAttribute('data-kind'),
+                    ref_id: parseInt(row.getAttribute('data-ref'), 10),
+                    fan_id: parseInt(row.getAttribute('data-fan'), 10)
+                }, function (r) {
+                    var o = parse(r);
+                    if (!o || !o.success) {
+                        btn.disabled = false; btn.textContent = 'Refund';
+                        if (window.toastr) { toastr.error((o && o.message) || 'Refund failed'); }
+                        return;
+                    }
+                    row.parentNode.removeChild(row);
+                    if (window.toastr) {
+                        var msg = 'Refunded $' + (o.amount / 10).toFixed(2);
+                        if (o.clawback_ok === false) { toastr.warning(msg + " — buyer refunded, but the creator's earning couldn't be clawed back (already spent)."); }
+                        else { toastr.success(msg + ' to the buyer'); }
+                    }
+                    if (!sales.querySelectorAll('.adm-srow').length) {
+                        var n = document.getElementById('admSalesNone'); if (n) { n.hidden = false; }
+                    }
+                });
+            });
+        });
+    }
+
     /* ---- User search ---- */
     var search = document.getElementById('admUserSearch');
     var usersBody = document.getElementById('admUsers');
@@ -62,22 +111,30 @@
             var row = btn.closest('.adm-urow');
             var uid = parseInt(row.getAttribute('data-uid'), 10);
             var status = btn.getAttribute('data-status');
-            btn.disabled = true;
-            ApiDataSvc.apiCall('post', 'admin_set_user_status', { user_id: uid, status: status }, function (r) {
-                var o = parse(r);
-                if (!o || !o.success) {
-                    btn.disabled = false;
-                    if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); }
-                    return;
-                }
-                var disabled = (o.status === 'Disabled');
-                var statusCell = row.children[2];
-                statusCell.innerHTML = '<span class="adm-status adm-status--' + (disabled ? 'off' : 'on') + '"><span class="adm-status__dot"></span>' + (disabled ? 'Suspended' : 'Active') + '</span>';
-                var actCell = row.children[5];
-                actCell.innerHTML = disabled
-                    ? '<button type="button" class="adm-btn adm-btn--ok" data-status="Active">Reactivate</button>'
-                    : '<button type="button" class="adm-btn adm-btn--danger" data-status="Disabled">Suspend</button>';
-                if (window.toastr) { toastr.success(disabled ? 'Account suspended' : 'Account reactivated'); }
+            var nameEl = row.querySelector('.adm-uinfo__name');
+            var name = nameEl ? nameEl.textContent.trim() : 'this account';
+            var proceed = (status === 'Disabled')
+                ? confirmAction({ title: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
+                : Promise.resolve(true);
+            proceed.then(function (ok) {
+                if (!ok) { return; }
+                btn.disabled = true;
+                ApiDataSvc.apiCall('post', 'admin_set_user_status', { user_id: uid, status: status }, function (r) {
+                    var o = parse(r);
+                    if (!o || !o.success) {
+                        btn.disabled = false;
+                        if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); }
+                        return;
+                    }
+                    var disabled = (o.status === 'Disabled');
+                    var statusCell = row.children[2];
+                    statusCell.innerHTML = '<span class="adm-status adm-status--' + (disabled ? 'off' : 'on') + '"><span class="adm-status__dot"></span>' + (disabled ? 'Suspended' : 'Active') + '</span>';
+                    var actCell = row.children[5];
+                    actCell.innerHTML = disabled
+                        ? '<button type="button" class="adm-btn adm-btn--ok" data-status="Active">Reactivate</button>'
+                        : '<button type="button" class="adm-btn adm-btn--danger" data-status="Disabled">Suspend</button>';
+                    if (window.toastr) { toastr.success(disabled ? 'Account suspended' : 'Account reactivated'); }
+                });
             });
         });
     }

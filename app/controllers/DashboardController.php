@@ -12,9 +12,8 @@ class DashboardController extends Controller {
     }
 
     public function indexAction(){
-        $user_id    = (int) Session::get('user_id');
-        $is_creator = Permissions::has_role('Creator');
-        if (!$is_creator) { header('Location: /'); exit; }
+        if (!Permissions::can_act_as_creator()) { header('Location: /'); exit; }
+        $user_id = Permissions::creator_id();   // owner account for collaborators, self otherwise
 
         $rows = (new UsersModel())->get_user_by_id($user_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

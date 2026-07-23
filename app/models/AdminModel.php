@@ -28,17 +28,28 @@ class AdminModel extends Model {
                     COALESCE(SUM(moderation_status='blocked'),0) AS blocked
              FROM media_assets WHERE deleted_at IS NULL AND type = 'image'");
         $mod   = (is_array($mod) && count($mod)) ? $mod[0] : array('pend' => 0, 'flag' => 0, 'blocked' => 0);
+
+        // Money. Credits are $0.10 each, so gross cents = price_credits * 10.
+        // Platform take on PPV is exact (gross − creator net, which is stored per post);
+        // for bundles we apply the default platform fee (no per-row net is recorded).
+        $fee          = Main::platform_fee_percent();
+        $ppv_gross    = (int) $this->scalar("SELECT COALESCE(SUM(price_credits),0)*10 AS n FROM ppv_unlocks");
+        $ppv_net      = (int) $this->scalar("SELECT COALESCE(SUM(earnings_cents),0) AS n FROM posts");
+        $bundle_gross = (int) $this->scalar("SELECT COALESCE(SUM(price_credits),0)*10 AS n FROM bundle_unlocks");
+        $mrr          = (int) $subs['mrr'];
+        $platform_cents = max(0, $ppv_gross - $ppv_net) + (int) round($bundle_gross * $fee / 100);
+
         return array(
-            'users'           => (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0"),
-            'creators'        => (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0 AND role_id = :r", array('r' => $crole)),
-            'active_subs'     => (int) $subs['n'],
-            'mrr_cents'       => (int) $subs['mrr'],
-            'revenue_credits' => (int) $this->scalar(
-                "SELECT (SELECT COALESCE(SUM(price_credits),0) FROM ppv_unlocks)
-                      + (SELECT COALESCE(SUM(price_credits),0) FROM bundle_unlocks) AS n"),
-            'mod_pending'     => (int) $mod['pend'],
-            'mod_flagged'     => (int) $mod['flag'],
-            'mod_blocked'     => (int) $mod['blocked'],
+            'users'          => (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0"),
+            'creators'       => (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0 AND role_id = :r", array('r' => $crole)),
+            'active_subs'    => (int) $subs['n'],
+            'mrr_cents'      => $mrr,
+            'platform_cents' => $platform_cents,                          // all-time platform take on one-time sales
+            'gross_cents'    => $ppv_gross + $bundle_gross,               // gross transaction volume (PPV + bundles)
+            'sub_fee_cents'  => (int) round($mrr * $fee / 100),           // platform's recurring cut of subscriptions (monthly)
+            'mod_pending'    => (int) $mod['pend'],
+            'mod_flagged'    => (int) $mod['flag'],
+            'mod_blocked'    => (int) $mod['blocked'],
         );
     }
 
@@ -56,6 +67,40 @@ class AdminModel extends Model {
              ORDER BY (ma.moderation_status = 'flagged') DESC, ma.created_at DESC
              LIMIT $limit"
         );
+    }
+
+    /** Recent PPV + bundle sales (refunded ones drop off automatically — the unlock row is removed). */
+    public function recent_sales($limit = 25){
+        $limit = max(1, min(100, (int) $limit));
+        $rows = parent::select(
+            "SELECT s.* FROM (
+                SELECT 'ppv' AS kind, pu.post_id AS ref_id, pu.fan_id, pu.creator_id, pu.price_credits, pu.created_at, p.caption COLLATE utf8mb4_unicode_ci AS item
+                FROM ppv_unlocks pu JOIN posts p ON p.id = pu.post_id
+                UNION ALL
+                SELECT 'bundle' AS kind, bu.bundle_id AS ref_id, bu.fan_id, bu.creator_id, bu.price_credits, bu.created_at, b.name COLLATE utf8mb4_unicode_ci AS item
+                FROM bundle_unlocks bu JOIN content_bundles b ON b.id = bu.bundle_id
+             ) s ORDER BY s.created_at DESC LIMIT $limit");
+        if (empty($rows)) { return array(); }
+        $ids = array();
+        foreach ($rows as $r) { $ids[] = (int) $r['fan_id']; $ids[] = (int) $r['creator_id']; }
+        $idmap = (new MessagesModel())->identity_map($ids);
+        $out = array();
+        foreach ($rows as $r) {
+            $fan = $idmap[(int) $r['fan_id']] ?? array('handle' => '', 'name' => 'Unknown');
+            $cre = $idmap[(int) $r['creator_id']] ?? array('handle' => '', 'name' => 'Unknown');
+            $out[] = array(
+                'kind'           => (string) $r['kind'],
+                'ref_id'         => (int) $r['ref_id'],
+                'fan_id'         => (int) $r['fan_id'],
+                'fan_handle'     => (string) $fan['handle'],
+                'fan_name'       => (string) $fan['name'],
+                'creator_handle' => (string) $cre['handle'],
+                'item'           => html_entity_decode((string) ($r['item'] ?? ''), ENT_QUOTES, 'UTF-8'),
+                'credits'        => (int) $r['price_credits'],
+                'created_at'     => (string) $r['created_at'],
+            );
+        }
+        return $out;
     }
 
     public function get_asset($asset_id){

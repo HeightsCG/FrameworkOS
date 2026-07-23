@@ -2260,6 +2260,96 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true)); exit;
     }
 
+    /** Refund a PPV or bundle purchase (reverses credits both ways + revokes access). */
+    public function admin_refundAction(){
+        $this->admin_guard();
+        $me     = (int) Session::get('user_id');
+        $kind   = (string) ($this->post['kind'] ?? '');
+        $ref_id = (int) ($this->post['ref_id'] ?? 0);
+        $fan_id = (int) ($this->post['fan_id'] ?? 0);
+        $reason = trim(html_entity_decode((string) ($this->post['reason'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if (!in_array($kind, array('ppv', 'bundle'), true) || $ref_id <= 0 || $fan_id <= 0) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid request')); exit;
+        }
+        $res = (new RefundsModel())->refund($kind, $ref_id, $fan_id, $me, $reason);
+        if (empty($res['ok'])) { echo json_encode(array('success' => false, 'message' => $res['message'] ?? 'Refund failed')); exit; }
+        echo json_encode(array('success' => true, 'amount' => $res['amount'], 'clawback_ok' => $res['clawback_ok'])); exit;
+    }
+
+    /* ---------- Team / seats (PRD §40) ---------- */
+
+    private function team_owner_guard(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        if (!Permissions::is_owner_creator()) { echo json_encode(array('success' => false, 'message' => 'Only the account owner can manage the team.')); exit; }
+        return $me;
+    }
+
+    /** Invite a collaborator: creates their login on the owner's account and emails a set-password link. */
+    public function team_inviteAction(){
+        $owner_id = $this->team_owner_guard();
+        $name  = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $email = trim(strtolower(html_entity_decode((string) ($this->post['email'] ?? ''), ENT_QUOTES, 'UTF-8')));
+        $role  = (string) ($this->post['role'] ?? 'viewer');
+        if (!in_array($role, TeamModel::roles(), true)) { $role = 'viewer'; }
+        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            echo json_encode(array('success' => false, 'message' => 'Enter a name and a valid email.')); exit;
+        }
+        $rows  = $this->userModel->get_user_by_id($owner_id);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        $team  = new TeamModel();
+        $limit = Plan::limit($owner, 'seats'); $limit = ($limit === null) ? 1 : (int) $limit;
+        if ($limit > 0 && $team->seats_used($owner_id) >= $limit) {
+            echo json_encode(array('success' => false, 'need_upgrade' => true,
+                'message' => 'You\'ve used all ' . $limit . ' seat' . ($limit === 1 ? '' : 's') . ' on your plan. Upgrade for more.')); exit;
+        }
+        $exists = $this->userModel->get_user_by_login($email);
+        if (is_array($exists) && count($exists) >= 1) {
+            echo json_encode(array('success' => false, 'message' => 'An account with that email already exists.')); exit;
+        }
+        $parts = preg_split('/\s+/', $name, 2);
+        $first = $parts[0]; $last = isset($parts[1]) ? $parts[1] : '';
+        $base  = preg_replace('/[^a-z0-9]/', '', strtolower(explode('@', $email)[0]));
+        if ($base === '') { $base = 'member'; }
+        $u_name = $base; $i = 0;
+        while (($u = $this->userModel->get_user_by_login($u_name)) && is_array($u) && count($u) >= 1) { $i++; $u_name = $base . $i; }
+        $enc = password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT);
+        $member_id = (int) $this->userModel->create_user($u_name, $enc, $first, $last, $email, $owner_id, $owner_id);
+        if ($member_id <= 0) { echo json_encode(array('success' => false, 'message' => 'Could not create the account.')); exit; }
+        $team->mark_as_member($member_id, $role);
+
+        $token = $this->userModel->set_reset_token($member_id);
+        $link  = Main::get_base_domain() . '/account/reset?token=' . urlencode($token);
+        if (!empty($email)) { $this->notificationsModel->send_password_reset_email($email, $name, $link); }
+
+        echo json_encode(array('success' => true,
+            'member'      => array('user_id' => $member_id, 'name' => $name, 'email' => $email, 'handle' => $u_name, 'role' => $role),
+            'invite_link' => $link)); exit;
+    }
+
+    public function team_set_roleAction(){
+        $owner_id = $this->team_owner_guard();
+        $mid  = (int) ($this->post['member_id'] ?? 0);
+        $role = (string) ($this->post['role'] ?? '');
+        if (!(new TeamModel())->set_role($owner_id, $mid, $role)) { echo json_encode(array('success' => false, 'message' => 'Could not update role')); exit; }
+        echo json_encode(array('success' => true, 'role' => $role)); exit;
+    }
+
+    public function team_set_statusAction(){
+        $owner_id = $this->team_owner_guard();
+        $mid    = (int) ($this->post['member_id'] ?? 0);
+        $status = (string) ($this->post['status'] ?? '');
+        if (!(new TeamModel())->set_status($owner_id, $mid, $status)) { echo json_encode(array('success' => false, 'message' => 'Could not update')); exit; }
+        echo json_encode(array('success' => true, 'status' => $status)); exit;
+    }
+
+    public function team_removeAction(){
+        $owner_id = $this->team_owner_guard();
+        $mid = (int) ($this->post['member_id'] ?? 0);
+        if (!(new TeamModel())->remove($owner_id, $mid)) { echo json_encode(array('success' => false, 'message' => 'Could not remove member')); exit; }
+        echo json_encode(array('success' => true)); exit;
+    }
+
     /* ---------- Blocked accounts ---------- */
 
     public function block_userAction(){
@@ -2403,26 +2493,40 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Not authorized'));
             exit;
         }
-        $user = $this->userModel->get_user_by_id((int) Session::get('user_id'));
-        $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
+        $acting = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+        $acting = (is_array($acting) && count($acting) === 1) ? $acting[0] : null;
+        if (!$acting) { echo json_encode(array('success' => false, 'message' => 'Not authorized')); exit; }
+
+        // Team members (collaborators) operate on the OWNER's account. Viewers are read-only.
+        $is_team = !empty($acting['team_role']) && (int) ($acting['created_by'] ?? 0) > 0;
+        if ($is_team) {
+            if ($acting['team_role'] === 'viewer') {
+                echo json_encode(array('success' => false, 'message' => 'Your role is view-only.')); exit;
+            }
+            $user = $this->userModel->get_user_by_id((int) $acting['created_by']);   // the owner
+            $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
+        } else {
+            $user = $acting;
+        }
+
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         if (!$user || (int) $user['role_id'] !== $creator_role_id) {
             echo json_encode(array('success' => false, 'message' => 'Only creators can do that'));
             exit;
         }
-        // Creator features require an active platform plan. need_plan lets the
-        // frontend send the user to /account/billing to choose one.
+        // Creator features require an active platform plan on the OWNER account. need_plan lets
+        // the frontend send the user to /account/billing to choose one.
         if (!Plan::can_use_creator_features($user)) {
             echo json_encode(array('success' => false, 'need_plan' => true,
                 'message' => 'An active plan is required to use creator tools. Choose a plan to continue.'));
             exit;
         }
-        // Refresh presence (throttled to ~once/45s so we don't write on every call).
-        $last = $user['last_active_at'] ?? null;
+        // Refresh the ACTING user's presence (throttled ~once/45s).
+        $last = $acting['last_active_at'] ?? null;
         if ($last === null || strtotime((string) $last . ' UTC') < time() - 45) {
-            $this->userModel->touch_last_active((int) $user['user_id']);
+            $this->userModel->touch_last_active((int) $acting['user_id']);
         }
-        return $user;
+        return $user;   // the creator/owner row — so downstream creator_id = owner
     }
 
     /** Presence heartbeat — pinged by the Studio so an open-but-idle creator stays "online". */

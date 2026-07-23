@@ -210,6 +210,18 @@ class AccountController extends Controller {
     }
 
     public function usersAction(){
+        if (!Permissions::is_owner_creator()) { Header('Location: /'); exit; }
+        $owner_id = (int) Session::get('user_id');
+        $rows  = $this->userModel->get_user_by_id($owner_id);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+
+        $team  = new TeamModel();
+        $limit = Plan::limit($owner, 'seats');
+        $this->view->owner      = $owner;
+        $this->view->members    = $team->members($owner_id);
+        $this->view->seats_used = $team->seats_used($owner_id);
+        $this->view->seat_limit = ($limit === null) ? 1 : (int) $limit;   // 0 = unlimited
+        $this->view->timezone   = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->render();
     }
 

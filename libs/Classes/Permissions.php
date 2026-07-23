@@ -40,6 +40,41 @@ class Permissions {
         return self::role() === $role_name;
     }
 
+    /** True if the signed-in user is a team member (collaborator) acting on an owner's account. */
+    public static function is_team_member(): bool
+    {
+        return self::team_role() !== '' && ((int) Session::get('created_by')) > 0;
+    }
+
+    /** The current user's team role (manager|editor|viewer), or '' if they're not a team member. */
+    public static function team_role(): string
+    {
+        return (string) Session::get('team_role');
+    }
+
+    /**
+     * The account id whose creator studio/content the current user operates on.
+     * A team member acts on their owner's account (created_by); everyone else is themselves.
+     */
+    public static function creator_id(): int
+    {
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { return 0; }
+        return self::is_team_member() ? (int) Session::get('created_by') : $uid;
+    }
+
+    /** Can this user use the creator studio? (an actual Creator, or a collaborator on one). */
+    public static function can_act_as_creator(): bool
+    {
+        return self::has_role('Creator') || self::is_team_member();
+    }
+
+    /** Is this an owner-creator (a Creator who is not themselves a collaborator)? — gates team management. */
+    public static function is_owner_creator(): bool
+    {
+        return self::has_role('Creator') && !self::is_team_member();
+    }
+
     /**
      * Platform staff flag (user_accounts.is_admin), independent of role_id so the
      * platform owner can be both a Creator and an admin. Cached per request.

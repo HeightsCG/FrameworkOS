@@ -30,14 +30,19 @@ $users = $this->users;
             <div class="adm-kpi__sub"><?php echo number_format((int) $s['creators']); ?> creators</div>
         </div>
         <div class="adm-kpi">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Gross revenue</span><span class="adm-kpi__ic"><i class="fa-solid fa-coins"></i></span></div>
-            <div class="adm-kpi__val">$<?php echo number_format(((int) $s['revenue_credits']) / 10, 2); ?></div>
+            <div class="adm-kpi__top"><span class="adm-kpi__label">Total revenue</span><span class="adm-kpi__ic"><i class="fa-solid fa-sack-dollar"></i></span></div>
+            <div class="adm-kpi__val">$<?php echo number_format(((int) $s['gross_cents']) / 100, 2); ?></div>
             <div class="adm-kpi__sub">pay-per-view + bundles</div>
+        </div>
+        <div class="adm-kpi">
+            <div class="adm-kpi__top"><span class="adm-kpi__label">Platform revenue</span><span class="adm-kpi__ic"><i class="fa-solid fa-coins"></i></span></div>
+            <div class="adm-kpi__val">$<?php echo number_format(((int) $s['platform_cents']) / 100, 2); ?></div>
+            <div class="adm-kpi__sub">our cut, after creator payouts</div>
         </div>
         <div class="adm-kpi">
             <div class="adm-kpi__top"><span class="adm-kpi__label">Subscriptions</span><span class="adm-kpi__ic"><i class="fa-solid fa-heart"></i></span></div>
             <div class="adm-kpi__val"><?php echo number_format((int) $s['active_subs']); ?></div>
-            <div class="adm-kpi__sub">$<?php echo number_format(((int) $s['mrr_cents']) / 100, 2); ?>/mo recurring</div>
+            <div class="adm-kpi__sub">$<?php echo number_format(((int) $s['mrr_cents']) / 100, 2); ?>/mo<?php if ((int) $s['sub_fee_cents'] > 0): ?> &middot; $<?php echo number_format(((int) $s['sub_fee_cents']) / 100, 2); ?>/mo our fee<?php endif; ?></div>
         </div>
         <div class="adm-kpi<?php echo $review > 0 ? ' adm-kpi--alert' : ''; ?>">
             <div class="adm-kpi__top"><span class="adm-kpi__label">Needs review</span><span class="adm-kpi__ic"><i class="fa-solid fa-shield-halved"></i></span></div>
@@ -82,6 +87,71 @@ $users = $this->users;
             </div>
         <?php endif; ?>
     </section>
+
+    <section class="adm-sec">
+        <div class="adm-sec__head">
+            <h2 class="adm-sec__title">Recent sales</h2>
+            <span class="adm-sec__meta">
+                <?php $rf = $this->refunds; if ((int) $rf['refund_count'] > 0): ?>
+                    $<?php echo number_format(((int) $rf['refund_credits']) / 10, 2); ?> refunded &middot; <?php echo (int) $rf['refund_count']; ?> refund<?php echo (int) $rf['refund_count'] === 1 ? '' : 's'; ?>
+                <?php else: ?>No refunds yet<?php endif; ?>
+            </span>
+        </div>
+        <?php if (empty($this->sales)): ?>
+            <div class="adm-empty">
+                <span class="adm-empty__ic" style="background:#f2f0f9;color:#8b83c4;"><i class="fa-solid fa-receipt"></i></span>
+                <p class="adm-empty__t">No sales yet</p>
+                <p class="adm-empty__x">Pay-per-view and bundle purchases will appear here, refundable in one click.</p>
+            </div>
+        <?php else: ?>
+        <div class="adm-table adm-table--sales">
+            <div class="adm-table__head">
+                <span>Buyer</span><span>Item</span><span>Type</span><span class="adm-r">Amount</span><span>Date</span><span></span>
+            </div>
+            <div class="adm-table__body" id="admSales">
+                <?php foreach ($this->sales as $sale): ?>
+                <div class="adm-srow" data-kind="<?php echo $e($sale['kind']); ?>" data-ref="<?php echo (int) $sale['ref_id']; ?>" data-fan="<?php echo (int) $sale['fan_id']; ?>">
+                    <div class="adm-ucell adm-ucell--user">
+                        <span class="adm-uav"><?php echo $e($ini($sale['fan_name'])); ?></span>
+                        <span class="adm-uinfo"><span class="adm-uinfo__name">@<?php echo $e($sale['fan_handle']); ?></span></span>
+                    </div>
+                    <div class="adm-ucell adm-scell--item"><?php echo $e($sale['item'] !== '' ? $sale['item'] : 'Untitled'); ?></div>
+                    <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $sale['kind']; ?>"><?php echo $sale['kind'] === 'bundle' ? 'Bundle' : 'PPV'; ?></span></div>
+                    <div class="adm-ucell adm-r adm-scell--amt">$<?php echo number_format(((int) $sale['credits']) / 10, 2); ?></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($sale['created_at'], true)); ?></div>
+                    <div class="adm-ucell adm-ucell--act">
+                        <button type="button" class="adm-btn adm-btn--danger" data-refund>Refund</button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <p class="adm__none" id="admSalesNone" hidden>All matching sales refunded.</p>
+            </div>
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <?php if (!empty($this->chargebacks)): ?>
+    <section class="adm-sec">
+        <div class="adm-sec__head">
+            <h2 class="adm-sec__title">Chargebacks</h2>
+            <span class="adm-sec__meta">Disputed Stripe charges &middot; account auto-suspended</span>
+        </div>
+        <div class="adm-table adm-table--cb">
+            <div class="adm-table__head"><span>Account</span><span>Reason</span><span class="adm-r">Amount</span><span>Status</span><span>Date</span></div>
+            <div class="adm-table__body">
+                <?php foreach ($this->chargebacks as $cb): ?>
+                <div class="adm-cbrow">
+                    <div class="adm-ucell"><?php echo $cb['handle'] ? '@' . $e($cb['handle']) : '<span class="adm-ucell--muted">Unmatched</span>'; ?></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $e($cb['reason'] ?: '—'); ?></div>
+                    <div class="adm-ucell adm-r">$<?php echo number_format(((int) $cb['amount_cents']) / 100, 2); ?></div>
+                    <div class="adm-ucell"><span class="adm-tag adm-tag--flag">Suspended</span></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($cb['created_at'], true)); ?></div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </section>
+    <?php endif; ?>
 
     <section class="adm-sec">
         <div class="adm-sec__head">

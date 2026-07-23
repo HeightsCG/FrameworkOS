@@ -37,11 +37,16 @@ class AdminController extends Controller {
             );
         }
 
-        $this->view->stats     = $model->overview();
-        $this->view->queue     = $queue;
-        $this->view->users     = $model->users('', '', 60);
-        $this->view->me        = $me;
-        $this->view->timezone  = (string) ($user['content_timezone'] ?? 'UTC');
+        $refunds = new RefundsModel();
+
+        $this->view->stats        = $model->overview();
+        $this->view->queue        = $queue;
+        $this->view->sales        = $model->recent_sales(25);
+        $this->view->refunds      = $refunds->totals();
+        $this->view->chargebacks  = $refunds->recent_chargebacks(10);
+        $this->view->users        = $model->users('', '', 60);
+        $this->view->me           = $me;
+        $this->view->timezone     = (string) ($user['content_timezone'] ?? 'UTC');
         $this->view->render();
     }
 }
