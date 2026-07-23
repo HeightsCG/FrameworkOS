@@ -102,10 +102,10 @@ img,svg{vertical-align:middle;}
 .rpt-swal{text-align:left;}
 .rpt-swal label{display:block; font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#9a97a8; margin:.7rem 0 .3rem;}
 .rpt-swal__opt{font-weight:400; text-transform:none; letter-spacing:0; color:#b7b2c8;}
-.rpt-swal select, .rpt-swal textarea{width:100%; padding:.55rem .7rem; border:1px solid #e2e0ea; border-radius:9px; font-family:inherit; font-size:.9rem; color:#1c1830; background:#fff; outline:none; box-sizing:border-box;}
-.rpt-swal select{height:42px;}
+.rpt-swal input, .rpt-swal select, .rpt-swal textarea{width:100%; padding:.55rem .7rem; border:1px solid #e2e0ea; border-radius:9px; font-family:inherit; font-size:.9rem; color:#1c1830; background:#fff; outline:none; box-sizing:border-box;}
+.rpt-swal input, .rpt-swal select{height:42px;}
 .rpt-swal textarea{resize:vertical; min-height:70px;}
-.rpt-swal select:focus, .rpt-swal textarea:focus{border-color:var(--violet,#5b4be0); box-shadow:0 0 0 3px rgba(91,75,224,.12);}
+.rpt-swal input:focus, .rpt-swal select:focus, .rpt-swal textarea:focus{border-color:var(--violet,#5b4be0); box-shadow:0 0 0 3px rgba(91,75,224,.12);}
 .app-search .form-control{height:38px; padding:0 12px; border:1px solid var(--line); border-radius:2px; background:#fff; color:var(--text); font-size:.9rem; box-shadow:none; transition:border-color .14s, box-shadow .14s;}
 .app-search .form-control::placeholder{color:var(--muted2);}
 .app-search .form-control:hover{border-color:#bcbcc6;}

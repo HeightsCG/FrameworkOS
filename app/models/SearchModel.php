@@ -23,7 +23,7 @@ class SearchModel extends Model {
         $like = $this->like($q);
         $pref = str_replace(array('\\', '%', '_'), array('\\\\', '\%', '\_'), trim((string) $q)) . '%';
         $rows = parent::select(
-            "SELECT u.user_id, u.u_name,
+            "SELECT u.user_id, u.u_name, u.verified,
                     COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), '')) AS name,
                     cp.avatar_url AS avatar
              FROM user_accounts u
@@ -39,9 +39,10 @@ class SearchModel extends Model {
             $handle = (string) $r['u_name'];
             $name   = trim((string) ($r['name'] ?? ''));
             $out[] = array(
-                'handle' => $handle,
-                'name'   => $name !== '' ? $name : ('@' . $handle),
-                'avatar' => (string) ($r['avatar'] ?? ''),
+                'handle'   => $handle,
+                'name'     => $name !== '' ? $name : ('@' . $handle),
+                'avatar'   => (string) ($r['avatar'] ?? ''),
+                'verified' => !empty($r['verified']),
             );
         }
         return $out;
@@ -73,7 +74,7 @@ class SearchModel extends Model {
         foreach ($rows as $r) {
             $status = $mod[(int) $r['id']] ?? '';
             if ($status === 'blocked' || $status === 'pending') { continue; }   // never surface
-            if ($status === 'flagged' && !$show_adult) { continue; }            // adult, viewer opted out
+            if ($status === 'adult' && !$show_adult) { continue; }              // approved adult, viewer opted out
             $handle = (string) $r['creator_handle'];
             $name   = trim((string) ($r['creator_name'] ?? ''));
             $out[] = array(

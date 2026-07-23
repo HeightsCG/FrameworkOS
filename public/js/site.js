@@ -44,9 +44,9 @@ $(document).ready(function() {
                     var av = c.avatar
                         ? '<span class="app-search__av" style="background-image:url(\'' + esc(c.avatar) + '\')"></span>'
                         : '<span class="app-search__av">' + esc(ini(c.name)) + '</span>';
+                    var badge = c.verified ? ' <i class="fa-solid fa-circle-check app-search__badge" title="Verified"></i>' : '';
                     h += '<a class="app-search__item" href="/@' + encodeURIComponent(c.handle) + '">' + av
-                        + '<span class="app-search__body"><span class="app-search__name">' + esc(c.name)
-                        + ' <i class="fa-solid fa-circle-check app-search__badge"></i></span>'
+                        + '<span class="app-search__body"><span class="app-search__name">' + esc(c.name) + badge + '</span>'
                         + '<span class="app-search__meta">@' + esc(c.handle) + '</span></span></a>';
                 });
                 h += '</div>';

@@ -54,7 +54,7 @@ foreach ($due as $a) {
     } else {
         $status = !empty($res['adult']) ? 'flagged' : 'approved';
     }
-    $media->set_moderation($id, $status, $res['score'], $res['labels']);
+    $media->set_moderation($id, $status, $res['score'], $res['labels'], !empty($res['adult']));
     fwrite(STDOUT, date('c') . " asset {$id}: {$status} (sexual " . $res['score'] . ')'
         . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
 }

@@ -57,7 +57,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     <span class="pf-presence <?php echo $is_online ? 'is-online' : 'is-offline'; ?>" title="<?php echo $is_online ? 'Online now' : 'Offline'; ?>"></span>
                 </div>
                 <div class="pf-hero__id">
-                    <h1 class="pf-name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></h1>
+                    <h1 class="pf-name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></h1>
                     <div class="pf-meta">
                         <span class="pf-meta__handle">@<?php echo htmlspecialchars($handle, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span class="pf-meta__dot">·</span>

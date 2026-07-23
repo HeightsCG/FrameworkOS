@@ -54,6 +54,7 @@ $users = $this->users;
     <div class="adm-tabs" id="admTabs">
         <button type="button" class="adm-tab is-active" data-panel="moderation"><i class="fa-solid fa-shield-halved"></i> Moderation<?php if ($review > 0): ?> <b class="adm-tab__badge"><?php echo (int) $review; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="reports"><i class="fa-solid fa-flag"></i> Reports<?php if ((int) $this->reports_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->reports_open; ?></b><?php endif; ?></button>
+        <button type="button" class="adm-tab" data-panel="verification"><i class="fa-solid fa-user-check"></i> Verification<?php if ((int) $this->verif_pending > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->verif_pending; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="sales"><i class="fa-solid fa-receipt"></i> Sales</button>
         <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
     </div>
@@ -138,6 +139,44 @@ $users = $this->users;
                 </div>
                 <?php endforeach; ?>
                 <p class="adm__none" id="admReportsNone" hidden>All reports resolved.</p>
+            </div>
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <section class="adm-sec adm-panel" data-panel="verification">
+        <div class="adm-sec__head">
+            <h2 class="adm-sec__title">Verification requests</h2>
+            <span class="adm-sec__meta"><?php echo (int) $this->verif_pending; ?> pending</span>
+        </div>
+        <?php if (empty($this->verifications)): ?>
+            <div class="adm-empty">
+                <span class="adm-empty__ic"><i class="fa-solid fa-user-check"></i></span>
+                <p class="adm-empty__t">No pending requests</p>
+                <p class="adm-empty__x">Creators requesting verification will appear here for review.</p>
+            </div>
+        <?php else: ?>
+        <div class="adm-table adm-table--verif">
+            <div class="adm-table__head"><span>Creator</span><span>Legal name</span><span>Note</span><span>When</span><span></span></div>
+            <div class="adm-table__body" id="admVerif">
+                <?php foreach ($this->verifications as $v):
+                    $vname = trim((string) ($v['name'] ?? '')); $vname = $vname !== '' ? $vname : ('@' . $v['u_name']);
+                ?>
+                <div class="adm-vrow" data-verif="<?php echo (int) $v['id']; ?>">
+                    <div class="adm-ucell adm-ucell--user">
+                        <span class="adm-uav"><?php echo $e($ini($vname)); ?></span>
+                        <span class="adm-uinfo"><span class="adm-uinfo__name"><?php echo $e($vname); ?></span><span class="adm-uinfo__meta"><a href="/@<?php echo $e($v['u_name']); ?>" target="_blank" rel="noopener">@<?php echo $e($v['u_name']); ?></a></span></span>
+                    </div>
+                    <div class="adm-ucell"><?php echo $e($v['full_name'] !== '' ? $v['full_name'] : '—'); ?></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $v['note'] !== '' ? $e(mb_substr((string) $v['note'], 0, 80)) : '—'; ?></div>
+                    <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($v['created_at'])); ?></div>
+                    <div class="adm-ucell adm-ucell--act">
+                        <button type="button" class="adm-btn adm-btn--ok" data-verif-action="approve">Approve</button>
+                        <button type="button" class="adm-btn adm-btn--danger" data-verif-action="reject">Reject</button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                <p class="adm__none" id="admVerifNone" hidden>No pending requests.</p>
             </div>
         </div>
         <?php endif; ?>

@@ -137,20 +137,22 @@ class PostsModel extends Model {
         $ids = array_filter(array_map('intval', $post_ids));
         if (!$ids) { return array(); }
         $in = implode(',', $ids);
+        // Four states. Adult content is HELD ('pending') until an admin approves it (PRD §34);
+        // once approved it becomes 'adult' (shown only to opted-in viewers). Non-adult approved = ''.
         $rows = parent::select(
             "SELECT pa.post_id,
                     SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','flagged','blocked')) AS unscanned_n,
-                    SUM(ma.moderation_status = 'flagged') AS flagged_n
+                    SUM(ma.moderation_status NOT IN ('approved','blocked')) AS held_n,
+                    SUM(ma.moderation_status = 'approved' AND ma.is_adult = 1) AS adult_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
              GROUP BY pa.post_id"
         );
         $out = array();
         foreach ((array) $rows as $r) {
-            if ((int) $r['blocked_n'] > 0)      { $out[(int) $r['post_id']] = 'blocked'; }
-            elseif ((int) $r['unscanned_n'] > 0){ $out[(int) $r['post_id']] = 'pending'; }
-            elseif ((int) $r['flagged_n'] > 0)  { $out[(int) $r['post_id']] = 'flagged'; }
+            if ((int) $r['blocked_n'] > 0)   { $out[(int) $r['post_id']] = 'blocked'; }
+            elseif ((int) $r['held_n'] > 0)  { $out[(int) $r['post_id']] = 'pending'; }   // unscanned or flagged-awaiting-review
+            elseif ((int) $r['adult_n'] > 0) { $out[(int) $r['post_id']] = 'adult'; }
         }
         return $out;
     }

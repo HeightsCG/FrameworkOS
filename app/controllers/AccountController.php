@@ -149,6 +149,8 @@ class AccountController extends Controller {
         $this->view->payout_balance      = $payout_balance;
         $this->view->payouts             = $payouts;
         $this->view->has_connect         = ($is_owner_creator && !empty($user['stripe_connect_account_id']));
+        $this->view->verified            = !empty($owner['verified']);
+        $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;

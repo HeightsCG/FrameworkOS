@@ -156,7 +156,7 @@ class ProfileController extends Controller {
             $mod = $moderation_map[(int) $p['id']] ?? '';
             if ($mod === 'blocked') { continue; }                       // quarantined — never shown to anyone
             if ($mod === 'pending' && !$is_self) { continue; }          // not yet scanned — not available
-            if ($mod === 'flagged' && !$show_adult) { continue; }       // adult — viewer opted out
+            if ($mod === 'adult' && !$show_adult) { continue; }         // approved adult — viewer opted out
             $audience = $p['audience'];
             if ($is_self || $audience === 'free') {
                 $entitled = true;

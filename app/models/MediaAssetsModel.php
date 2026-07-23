@@ -73,16 +73,16 @@ class MediaAssetsModel extends Model {
     }
 
     /** Record a moderation verdict (system worker — keyed by asset id). */
-    public function set_moderation($id, $status, $score = null, array $labels = array()){
-        return parent::update('media_assets',
-            array(
-                'moderation_status' => (string) $status,
-                'moderation_score'  => ($score === null) ? null : (float) $score,
-                'moderation_labels' => empty($labels) ? null : implode(',', $labels),
-                'moderated_at'      => date('Y-m-d H:i:s'),
-                'updated_at'        => date('Y-m-d H:i:s'),
-            ),
-            'id = :id', array('id' => (int) $id));
+    public function set_moderation($id, $status, $score = null, array $labels = array(), $is_adult = null){
+        $data = array(
+            'moderation_status' => (string) $status,
+            'moderation_score'  => ($score === null) ? null : (float) $score,
+            'moderation_labels' => empty($labels) ? null : implode(',', $labels),
+            'moderated_at'      => date('Y-m-d H:i:s'),
+            'updated_at'        => date('Y-m-d H:i:s'),
+        );
+        if ($is_adult !== null) { $data['is_adult'] = $is_adult ? 1 : 0; }   // adult classification, kept across approve/block
+        return parent::update('media_assets', $data, 'id = :id', array('id' => (int) $id));
     }
 
     public function set_description($creator_id, $id, $description){

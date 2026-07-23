@@ -1064,7 +1064,7 @@ class ApiController extends Controller {
             $mod      = $moderation_map[$id] ?? '';
             if ($mod === 'blocked') { continue; }
             if ($mod === 'pending' && !$is_owner) { continue; }
-            if ($mod === 'flagged' && !$show_adult && !$is_owner) { continue; }
+            if ($mod === 'adult' && !$show_adult && !$is_owner) { continue; }
 
             $audience = (string) $p['audience'];
             if ($is_owner || $audience === 'free') {
@@ -1160,7 +1160,7 @@ class ApiController extends Controller {
             $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
             $show_adult = !empty($row['adult_content_enabled']);
         }
-        if ($mod === 'blocked' || ($mod === 'pending' && !$is_owner) || ($mod === 'flagged' && !$show_adult && !$is_owner)) {
+        if ($mod === 'blocked' || ($mod === 'pending' && !$is_owner) || ($mod === 'adult' && !$show_adult && !$is_owner)) {
             echo json_encode(array('success' => false, 'message' => 'Post not available')); exit;
         }
 
@@ -2416,6 +2416,37 @@ class ApiController extends Controller {
             $model->resolve($rid, $me, 'actioned', 'Account suspended');
         } else {
             echo json_encode(array('success' => false, 'message' => 'Invalid action')); exit;
+        }
+        echo json_encode(array('success' => true, 'action' => $action)); exit;
+    }
+
+    /* ---------- Creator verification (PRD §33) ---------- */
+
+    /** A creator requests verification (a legal name + optional note the admin reviews). */
+    public function verification_requestAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        if (!Permissions::is_owner_creator()) { echo json_encode(array('success' => false, 'message' => 'Only creators can request verification.')); exit; }
+        $rows = $this->userModel->get_user_by_id($me);
+        if (is_array($rows) && count($rows) === 1 && !empty($rows[0]['verified'])) {
+            echo json_encode(array('success' => true, 'status' => 'approved', 'message' => 'You\'re already verified.')); exit;
+        }
+        $full_name = trim(html_entity_decode((string) ($this->post['full_name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        $note      = trim(html_entity_decode((string) ($this->post['note'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($full_name === '') { echo json_encode(array('success' => false, 'message' => 'Enter your legal name.')); exit; }
+        (new VerificationsModel())->request($me, $full_name, $note);
+        echo json_encode(array('success' => true, 'status' => 'pending', 'message' => 'Verification requested — we\'ll review it shortly.')); exit;
+    }
+
+    /** Admin approves or rejects a verification request. */
+    public function verification_resolveAction(){
+        $this->admin_guard();
+        $me     = (int) Session::get('user_id');
+        $vid    = (int) ($this->post['verification_id'] ?? 0);
+        $action = (string) ($this->post['action'] ?? '');
+        if (!in_array($action, array('approve', 'reject'), true)) { echo json_encode(array('success' => false, 'message' => 'Invalid action')); exit; }
+        if (!(new VerificationsModel())->resolve($vid, $me, $action === 'approve')) {
+            echo json_encode(array('success' => false, 'message' => 'Request not found')); exit;
         }
         echo json_encode(array('success' => true, 'action' => $action)); exit;
     }

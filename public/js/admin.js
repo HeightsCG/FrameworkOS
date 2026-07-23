@@ -93,6 +93,36 @@
         });
     }
 
+    /* ---- Verification ---- */
+    var verif = document.getElementById('admVerif');
+    if (verif) {
+        verif.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-verif-action]');
+            if (!btn) { return; }
+            var row = btn.closest('.adm-vrow');
+            var vid = parseInt(row.getAttribute('data-verif'), 10);
+            var action = btn.getAttribute('data-verif-action');
+            var proceed = action === 'reject'
+                ? confirmAction({ title: 'Reject this request?', text: "The creator won't be verified. They can re-apply later.", icon: 'warning', confirmButtonText: 'Reject' })
+                : Promise.resolve(true);
+            proceed.then(function (ok) {
+                if (!ok) { return; }
+                row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = true; });
+                ApiDataSvc.apiCall('post', 'verification_resolve', { verification_id: vid, action: action }, function (r) {
+                    var o = parse(r);
+                    if (!o || !o.success) { row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = false; }); if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); } return; }
+                    row.parentNode.removeChild(row);
+                    if (window.toastr) { toastr.success(action === 'approve' ? 'Creator verified' : 'Request rejected'); }
+                    var remaining = verif.querySelectorAll('.adm-vrow').length;
+                    document.querySelectorAll('.adm-sec__meta').forEach(function (m) { if (/\bpending$/.test(m.textContent.trim())) { m.textContent = remaining + ' pending'; } });
+                    var tabBadge = document.querySelector('.adm-tab[data-panel="verification"] .adm-tab__badge');
+                    if (tabBadge) { if (remaining > 0) { tabBadge.textContent = remaining; } else { tabBadge.parentNode.removeChild(tabBadge); } }
+                    if (!remaining) { var n = document.getElementById('admVerifNone'); if (n) { n.hidden = false; } }
+                });
+            });
+        });
+    }
+
     /* ---- Refunds (SweetAlert confirm) ---- */
     var sales = document.getElementById('admSales');
     if (sales) {

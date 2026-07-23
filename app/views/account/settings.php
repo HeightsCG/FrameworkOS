@@ -192,6 +192,22 @@
                 <?php else: ?>
                 <?php $cp = $this->creator_profile; ?>
                 <div class="cprofile">
+                    <?php if ($this->is_owner_creator): ?>
+                    <div class="cprofile__verify cprofile__verify--<?php echo $this->verified ? 'done' : ($this->verif_status === 'pending' ? 'pending' : 'none'); ?>">
+                        <?php if ($this->verified): ?>
+                            <span class="cprofile__verify-ic"><i class="fa-solid fa-circle-check"></i></span>
+                            <div class="cprofile__verify-txt"><strong>Verified creator</strong><span>Your identity is verified — the badge shows on your profile.</span></div>
+                        <?php elseif ($this->verif_status === 'pending'): ?>
+                            <span class="cprofile__verify-ic"><i class="fa-solid fa-clock"></i></span>
+                            <div class="cprofile__verify-txt"><strong>Verification pending</strong><span>We're reviewing your request — you'll get the badge once approved.</span></div>
+                        <?php else: ?>
+                            <span class="cprofile__verify-ic"><i class="fa-solid fa-shield-halved"></i></span>
+                            <div class="cprofile__verify-txt"><strong>Get verified</strong><span>Add a verified badge so fans know it's really you.</span></div>
+                            <button type="button" class="btn btn-primary" id="verify_request_btn">Request verification</button>
+                        <?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="cprofile__field">
                         <label>Cover image</label>
                         <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
@@ -1281,6 +1297,35 @@ $(function () {
             if (o.next_change_date) {
                 $('#uname_rules').html('You can change your username again on <strong>' + escapeHtml(o.next_change_date) + '</strong>.');
             }
+        });
+    });
+
+    /* ---- verification (PRD §33) ---- */
+    $('#verify_request_btn').on('click', function () {
+        if (!window.Swal) { return; }
+        Swal.fire({
+            title: 'Request verification',
+            width: 460,
+            html: '<div class="rpt-swal">'
+                + '<label for="vfName">Legal name</label>'
+                + '<input id="vfName" type="text" placeholder="Your full legal name" maxlength="190">'
+                + '<label for="vfNote">Anything that helps us verify you <span style="font-weight:400;text-transform:none;color:#9a97a8;">(optional)</span></label>'
+                + '<textarea id="vfNote" rows="3" maxlength="2000" placeholder="Links, socials, or context."></textarea>'
+                + '</div>',
+            focusConfirm: false, showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Submit request', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779',
+            preConfirm: function () {
+                var name = (document.getElementById('vfName').value || '').trim();
+                if (name === '') { Swal.showValidationMessage('Enter your legal name'); return false; }
+                return { full_name: name, note: document.getElementById('vfNote').value };
+            }
+        }).then(function (r) {
+            if (!r.isConfirmed || !r.value) { return; }
+            ApiDataSvc.apiCall('post', 'verification_request', r.value, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (e) {}
+                if (o && o.success) { toastr.success(o.message || 'Verification requested'); setTimeout(function () { location.reload(); }, 900); }
+                else { toastr.error((o && o.message) || 'Could not submit'); }
+            });
         });
     });
 

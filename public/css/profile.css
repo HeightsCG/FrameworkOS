@@ -370,3 +370,4 @@
 .pf-plb__csend{ height:40px; padding:0 1rem; flex:none; }
 .pf-plb__cnote{ font-size:.86rem; color:var(--pf-muted); margin:.6rem 0 0; }
 .pf-plb__cnote a{ color:var(--pf-violet7); }
+.pf-verified{ color:var(--violet,#5b4be0); font-size:.7em; vertical-align:middle; margin-left:.1em; }
