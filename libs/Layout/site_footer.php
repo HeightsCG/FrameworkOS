@@ -19,11 +19,28 @@
                 <p class="msgr__empty" id="msgrEmpty" hidden>No messages yet. Tap the compose button to message a creator.</p>
             </div>
             <div class="msgr__new" id="msgrNewView" hidden>
-                <div class="msgr__search">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" id="msgrSearch" placeholder="Search people&hellip;" autocomplete="off" maxlength="60">
+                <div class="msgr__modes" id="msgrModes" hidden>
+                    <button type="button" class="msgr__mode is-on" data-mode="direct">Direct</button>
+                    <button type="button" class="msgr__mode" data-mode="broadcast">Broadcast</button>
                 </div>
-                <div class="msgr__people" id="msgrPeople"></div>
+                <div class="msgr__pane" id="msgrDirect">
+                    <div class="msgr__search">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <input type="text" id="msgrSearch" placeholder="Search people&hellip;" autocomplete="off" maxlength="60">
+                    </div>
+                    <div class="msgr__people" id="msgrPeople"></div>
+                </div>
+                <div class="msgr__pane" id="msgrBcast" hidden>
+                    <div class="msgr__seg" id="msgrSeg">
+                        <button type="button" class="msgr__seg-opt is-on" data-seg="all">Everyone <b id="msgrSegAll">0</b></button>
+                        <button type="button" class="msgr__seg-opt" data-seg="followers">Followers <b id="msgrSegFollowers">0</b></button>
+                        <button type="button" class="msgr__seg-opt" data-seg="subscribers">Subscribers <b id="msgrSegSubscribers">0</b></button>
+                    </div>
+                    <form class="msgr__bcast" id="msgrBcastForm">
+                        <textarea class="msgr__bcast-body" id="msgrBcastBody" placeholder="Write a message to your audience&hellip;" maxlength="2000"></textarea>
+                        <button type="submit" class="msgr__bcast-send" id="msgrBcastSend" disabled>Send to <span id="msgrBcastN">0</span></button>
+                    </form>
+                </div>
             </div>
             <div class="msgr__thread" id="msgrThread" hidden>
                 <div class="msgr__scroll" id="msgrScroll"></div>
@@ -54,9 +71,27 @@
     .msgr__inbox{ flex:1 1 auto; overflow-y:auto; }
     .msgr__empty{ padding:2.4rem 1.2rem; text-align:center; color:#9a97a8; font-size:.88rem; line-height:1.5; }
     .msgr__new{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+    .msgr__modes{ flex:none; display:flex; gap:.4rem; padding:.55rem .7rem; border-bottom:1px solid #eee; }
+    .msgr__mode{ flex:1 1 0; padding:.42rem; border:1px solid #e2e0ea; border-radius:8px; background:#fff; color:#6b7280; font-size:.82rem; font-weight:600; cursor:pointer; }
+    .msgr__mode:hover{ color:#1c1830; }
+    .msgr__mode.is-on{ background:var(--violet,#5b4be0); border-color:var(--violet,#5b4be0); color:#fff; }
+    .msgr__pane{ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+    .msgr__pane[hidden]{ display:none; }
     .msgr__search{ flex:none; display:flex; align-items:center; gap:.5rem; padding:.65rem .85rem; border-bottom:1px solid #eee; color:#9a97a8; }
     .msgr__search input{ flex:1 1 auto; min-width:0; border:0; outline:none; background:transparent; font-family:inherit; font-size:.9rem; color:#1c1830; }
     .msgr__people{ flex:1 1 auto; overflow-y:auto; }
+    .msgr__seg{ flex:none; display:flex; flex-direction:column; gap:.4rem; padding:.7rem .8rem; border-bottom:1px solid #eee; }
+    .msgr__seg-opt{ display:flex; align-items:center; justify-content:space-between; padding:.5rem .7rem; border:1px solid #e2e0ea; border-radius:8px; background:#fff; color:#1c1830; font-size:.85rem; font-weight:600; cursor:pointer; }
+    .msgr__seg-opt:hover{ border-color:#c9c5da; }
+    .msgr__seg-opt b{ font-size:.78rem; color:#9a97a8; font-weight:700; }
+    .msgr__seg-opt.is-on{ border-color:var(--violet,#5b4be0); box-shadow:0 0 0 2px rgba(91,75,224,.12); }
+    .msgr__seg-opt.is-on b{ color:var(--violet7,#4636c4); }
+    .msgr__bcast{ flex:1 1 auto; display:flex; flex-direction:column; gap:.6rem; padding:.8rem; min-height:0; }
+    .msgr__bcast-body{ flex:1 1 auto; resize:none; min-height:90px; padding:.6rem .75rem; border:1px solid #e2e0ea; border-radius:12px; font-size:.9rem; font-family:inherit; line-height:1.45; color:#1c1830; outline:none; }
+    .msgr__bcast-body:focus{ border-color:var(--violet,#5b4be0); box-shadow:0 0 0 3px rgba(91,75,224,.12); }
+    .msgr__bcast-send{ flex:none; padding:.62rem; border:0; border-radius:10px; background:var(--violet,#5b4be0); color:#fff; font-size:.9rem; font-weight:700; cursor:pointer; }
+    .msgr__bcast-send:hover{ background:var(--violet7,#4636c4); }
+    .msgr__bcast-send:disabled{ opacity:.55; cursor:default; }
     .msgr-conv{ display:flex; align-items:center; gap:.6rem; width:100%; text-align:left; padding:.65rem .8rem; border:0; border-bottom:1px solid #f2f1f7; background:transparent; cursor:pointer; }
     .msgr-conv:hover{ background:#faf9fe; }
     .msgr-conv__body{ flex:1 1 auto; min-width:0; }
@@ -91,9 +126,13 @@
     (function () {
         if (typeof window.jQuery === 'undefined' || typeof window.ApiDataSvc === 'undefined') { return; }
         var $ = window.jQuery, active = null;
+        var IS_CREATOR = <?php echo Permissions::has_role('Creator') ? 'true' : 'false'; ?>;
         var $panel = $('#msgrPanel'), $inbox = $('#msgrInbox'), $thread = $('#msgrThread'),
             $scroll = $('#msgrScroll'), $title = $('#msgrTitle'), $back = $('#msgrBack'), $count = $('#msgrCount'),
-            $newview = $('#msgrNewView'), $newbtn = $('#msgrNew'), $people = $('#msgrPeople'), $search = $('#msgrSearch');
+            $newview = $('#msgrNewView'), $newbtn = $('#msgrNew'), $people = $('#msgrPeople'), $search = $('#msgrSearch'),
+            $modes = $('#msgrModes'), $direct = $('#msgrDirect'), $bcast = $('#msgrBcast'),
+            $bcastBody = $('#msgrBcastBody'), $bcastSend = $('#msgrBcastSend'), $bcastN = $('#msgrBcastN');
+        var bseg = 'all', bcounts = { all: 0, followers: 0, subscribers: 0 };
 
         function esc(s){ var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
         function ftime(iso){ if(!iso){ return ''; } var d = new Date(String(iso).replace(' ','T')+'Z'); return isNaN(d) ? '' : d.toLocaleString(undefined,{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}); }
@@ -103,7 +142,17 @@
         function badge(){ ApiDataSvc.apiCall('post','message_unread_count',{},function(r){ var o=null; try{o=JSON.parse(r);}catch(e){} var n=(o&&o.count)?o.count:0; if(n>0){ $count.text(n>99?'99+':n).prop('hidden',false); } else { $count.prop('hidden',true); } }); }
         function showInbox(){ active=null; $thread.prop('hidden',true); $newview.prop('hidden',true); $inbox.prop('hidden',false); $back.prop('hidden',true); $newbtn.prop('hidden',false); $title.text('Messages'); loadInbox(); }
         function showThread(){ $inbox.prop('hidden',true); $newview.prop('hidden',true); $thread.prop('hidden',false); $back.prop('hidden',false); $newbtn.prop('hidden',true); }
-        function showNew(){ active=null; $inbox.prop('hidden',true); $thread.prop('hidden',true); $newview.prop('hidden',false); $back.prop('hidden',false); $newbtn.prop('hidden',true); $title.text('New message'); $search.val(''); loadPeople(''); setTimeout(function(){ $search.trigger('focus'); },50); }
+        function showNew(){ active=null; $inbox.prop('hidden',true); $thread.prop('hidden',true); $newview.prop('hidden',false); $back.prop('hidden',false); $newbtn.prop('hidden',true); $title.text('New message'); $modes.prop('hidden',!IS_CREATOR); setMode('direct'); }
+        function setMode(m){
+            $modes.find('.msgr__mode').each(function(){ $(this).toggleClass('is-on', $(this).data('mode')===m); });
+            if(m==='broadcast'){ $direct.prop('hidden',true); $bcast.prop('hidden',false); $title.text('Broadcast'); loadCounts(); setTimeout(function(){ $bcastBody.trigger('focus'); },50); }
+            else { $bcast.prop('hidden',true); $direct.prop('hidden',false); $title.text('New message'); $search.val(''); loadPeople(''); setTimeout(function(){ $search.trigger('focus'); },50); }
+        }
+        function loadCounts(){
+            ApiDataSvc.apiCall('post','broadcast_info',{},function(r){ var o=null; try{o=JSON.parse(r);}catch(e){} if(o&&o.success){ bcounts=o.counts; $('#msgrSegAll').text(o.counts.all); $('#msgrSegFollowers').text(o.counts.followers); $('#msgrSegSubscribers').text(o.counts.subscribers); updateBcastSend(); } });
+        }
+        function setSeg(s){ bseg=s; $('#msgrSeg .msgr__seg-opt').each(function(){ $(this).toggleClass('is-on', $(this).data('seg')===s); }); updateBcastSend(); }
+        function updateBcastSend(){ var n=bcounts[bseg]||0; $bcastN.text(n); $bcastSend.prop('disabled', n<=0 || ($bcastBody.val()||'').trim()===''); }
 
         function loadInbox(){ ApiDataSvc.apiCall('post','message_inbox',{},function(r){ var o=null; try{o=JSON.parse(r);}catch(e){} if(o&&o.success){ renderInbox(o.conversations); } }); }
         function renderInbox(list){
@@ -165,6 +214,21 @@
         $people.on('click','.msgr-conv', function(){ var $b=$(this); openWith({id:parseInt($b.data('pid'),10),name:$b.data('name'),handle:$b.data('handle'),avatar:$b.data('avatar'),is_creator:String($b.data('creator'))==='1'}); });
         var searchT=null;
         $search.on('input', function(){ var v=(this.value||'').trim(); clearTimeout(searchT); searchT=setTimeout(function(){ loadPeople(v); }, 250); });
+        $modes.on('click','.msgr__mode', function(){ setMode($(this).data('mode')); });
+        $('#msgrSeg').on('click','.msgr__seg-opt', function(){ setSeg($(this).data('seg')); });
+        $bcastBody.on('input', updateBcastSend);
+        $('#msgrBcastForm').on('submit', function(e){
+            e.preventDefault();
+            var body=($bcastBody.val()||'').trim(); if(body===''||(bcounts[bseg]||0)<=0){ return; }
+            $bcastSend.prop('disabled',true);
+            ApiDataSvc.apiCall('post','broadcast_send',{segment:bseg,body:body},function(r){
+                var o=null; try{o=JSON.parse(r);}catch(e){}
+                if(!o||!o.success){ $bcastSend.prop('disabled',false); if(o&&o.need_login){ window.location='/'; return; } if(window.toastr){ toastr.error(o?o.message:'Could not send broadcast'); } return; }
+                $bcastBody.val('');
+                if(window.toastr){ toastr.success('Broadcast sent to '+o.count+(o.count===1?' person':' people')); }
+                showInbox(); badge();
+            });
+        });
         $('#msgrCompose').on('submit', function(e){
             e.preventDefault();
             var body=($('#msgrInput').val()||'').trim(); if(body===''||!active){ return; }

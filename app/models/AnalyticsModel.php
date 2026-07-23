@@ -42,23 +42,40 @@ class AnalyticsModel extends Model {
         );
     }
 
-    /** Daily view counts over the last $days days, zero-filled — for the trend chart. */
-    public function views_series($creator_id, $days = 30){
+    /**
+     * Daily view counts over the last $days days, zero-filled — for the trend chart.
+     * Views are stored UTC; both the day buckets AND the axis are computed in the
+     * creator's timezone, so an evening view doesn't spill onto "tomorrow" (UTC date).
+     */
+    public function views_series($creator_id, $days = 30, $tz = 'UTC'){
         $days = max(1, min(120, (int) $days));
+        try { $zone = new DateTimeZone($tz); } catch (Exception $e) { $zone = new DateTimeZone('UTC'); }
+        $utc = new DateTimeZone('UTC');
+
+        // Window: local midnight $days-1 days before "today" (in the creator's zone) → now.
+        $now_local = new DateTime('now', $zone);
+        $start     = new DateTime($now_local->format('Y-m-d') . ' 00:00:00', $zone);
+        $start->modify('-' . ($days - 1) . ' days');
+        $start_utc = (clone $start)->setTimezone($utc)->format('Y-m-d H:i:s');
+
+        // Named zones aren't loaded in MySQL, so bucket with the current numeric offset (e.g. -04:00).
+        $off = $now_local->format('P');
+
         $rows = parent::select(
-            "SELECT DATE(pv.created_at) AS d, COUNT(*) AS n
+            "SELECT DATE(CONVERT_TZ(pv.created_at, '+00:00', :off)) AS d, COUNT(*) AS n
              FROM post_views pv JOIN posts p ON p.id = pv.post_id
-             WHERE p.creator_id = :c AND pv.created_at >= DATE_SUB(UTC_DATE(), INTERVAL :n DAY)
-             GROUP BY DATE(pv.created_at)",
-            array('c' => (int) $creator_id, 'n' => $days - 1));
+             WHERE p.creator_id = :c AND pv.created_at >= :start
+             GROUP BY d",
+            array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
         $by = array();
         foreach ((array) $rows as $r) { $by[(string) $r['d']] = (int) $r['n']; }
 
         $out = array();
-        $ts  = strtotime(gmdate('Y-m-d') . ' -' . ($days - 1) . ' days');
+        $cur = clone $start;
         for ($i = 0; $i < $days; $i++) {
-            $d = gmdate('Y-m-d', $ts + $i * 86400);
+            $d = $cur->format('Y-m-d');
             $out[] = array('date' => $d, 'value' => (int) ($by[$d] ?? 0));
+            $cur->modify('+1 day');
         }
         return $out;
     }

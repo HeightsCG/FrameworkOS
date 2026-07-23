@@ -2128,6 +2128,36 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true, 'count' => $me > 0 ? (new MessagesModel())->total_unread($me) : 0)); exit;
     }
 
+    /* ---------- Broadcast (PRD §25) — creator messages their whole audience ---------- */
+
+    /** Audience counts for the broadcast composer (creators only). */
+    public function broadcast_infoAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        if (!Permissions::has_role('Creator')) { echo json_encode(array('success' => false, 'message' => 'Creators only')); exit; }
+        echo json_encode(array('success' => true, 'counts' => (new BroadcastsModel())->counts($me))); exit;
+    }
+
+    /** Send a broadcast to a segment of the creator's audience. */
+    public function broadcast_sendAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in first.')); exit; }
+        if (!Permissions::has_role('Creator')) { echo json_encode(array('success' => false, 'message' => 'Only creators can broadcast.')); exit; }
+        $segment = (string) ($this->post['segment'] ?? 'all');
+        if (!in_array($segment, BroadcastsModel::segments(), true)) { $segment = 'all'; }
+        $body = trim(html_entity_decode((string) ($this->post['body'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($body === '') { echo json_encode(array('success' => false, 'message' => 'Type a message.')); exit; }
+        if (mb_strlen($body) > 2000) { $body = mb_substr($body, 0, 2000); }
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'broadcast', 60) >= 10) {
+            echo json_encode(array('success' => false, 'message' => 'You\'re broadcasting too often. Try again later.')); exit;
+        }
+        list($bid, $count) = (new BroadcastsModel())->create_and_send($me, $segment, $body);
+        if ($count <= 0) { echo json_encode(array('success' => false, 'message' => 'No one is in that audience yet.')); exit; }
+        $this->loginAttemptsModel->record($ip, (string) $me, 'broadcast');
+        echo json_encode(array('success' => true, 'count' => $count)); exit;
+    }
+
     /* ---------- Blocked accounts ---------- */
 
     public function block_userAction(){

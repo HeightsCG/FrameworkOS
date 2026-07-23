@@ -27,12 +27,13 @@ class DashboardController extends Controller {
         $this->view->display_name = $name !== '' ? $name : ('@' . ($user['u_name'] ?? ''));
         $this->view->is_creator   = true;
 
+        $tz = (string) ($user['content_timezone'] ?? 'UTC');
         $a = new AnalyticsModel();
         $this->view->stats          = $a->overview($user_id);
-        $this->view->views_series   = $a->views_series($user_id, 30);
+        $this->view->views_series   = $a->views_series($user_id, 30, $tz);
         $this->view->top_posts      = $a->top_posts($user_id, 5);
         $this->view->recent_unlocks = $a->recent_unlocks($user_id, 8);
-        $this->view->timezone       = (string) ($user['content_timezone'] ?? 'UTC');
+        $this->view->timezone       = $tz;
 
         $this->view->render();
     }

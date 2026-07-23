@@ -143,11 +143,12 @@ class MessagesModel extends Model {
     }
 
     /** Insert a message, update the conversation preview, and bump the recipient's unread. */
-    public function send($conversation_id, $sender_id, $body){
+    public function send($conversation_id, $sender_id, $body, $broadcast_id = null){
         $now = date('Y-m-d H:i:s');
         $mid = parent::insert('messages', array(
             'conversation_id' => (int) $conversation_id,
             'sender_id'       => (int) $sender_id,
+            'broadcast_id'    => ($broadcast_id !== null) ? (int) $broadcast_id : null,
             'body'            => $body,
             'created_at'      => $now,
         ));
