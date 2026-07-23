@@ -74,7 +74,8 @@ $(document).ready(function() {
         $input.on('input', function () {
             var q = (this.value || '').trim();
             clearTimeout(timer);
-            if (q.length < 2) { hide(); return; }
+            // Ignore programmatic autofill (fires without the field being focused).
+            if (q.length < 2 || document.activeElement !== this) { hide(); return; }
             timer = setTimeout(function () { search(q); }, 220);
         });
         $input.on('focus', function () {

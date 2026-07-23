@@ -15,10 +15,24 @@ class AccountController extends Controller {
             Header('Location: /');
             exit;
         }
-        $user = $user[0];
+        $user = $user[0];   // the acting user — personal settings (security, notifications, wallet, subscriptions)
 
-        $can_post = Plan::can_social_post($user);
-        $this->view->can_trials = Plan::can($user, 'trials');   // free-trial field is Pro+ only
+        // Creator config belongs to the account OWNER (a collaborator acts on it). Role decides
+        // which sections show: content (Editor+) = profile/brand; manage (Manager+) = plans/integrations;
+        // payouts/billing = owner only.
+        $creator_id      = Permissions::creator_id();
+        $owner           = $user;
+        if (Permissions::is_team_member()) {
+            $orows = $this->userModel->get_user_by_id($creator_id);
+            $owner = (is_array($orows) && count($orows) === 1) ? $orows[0] : $user;
+        }
+        $can_act_creator  = Permissions::can_act_as_creator();
+        $can_content      = $can_act_creator && Permissions::team_allows('content');   // Editor+
+        $can_manage       = $can_act_creator && Permissions::team_allows('manage');    // Manager+
+        $is_owner_creator = Permissions::is_owner_creator();                           // payouts / billing
+
+        $can_post = Plan::can_social_post($owner);
+        $this->view->can_trials = Plan::can($owner, 'trials');   // free-trial field is Pro+ only
 
         // Platform display metadata (label, Font Awesome icon), in display order.
         $platform_meta = array(
@@ -54,7 +68,7 @@ class AccountController extends Controller {
         $connected = array();
         if ($can_post) {
             $accountsModel = new SocialAccountsModel();
-            foreach ($accountsModel->get_for_user($user['user_id']) as $a) {
+            foreach ($accountsModel->get_for_user($owner['user_id']) as $a) {
                 if (($a['status'] ?? '') === 'connected') {
                     $connected[$a['platform']][] = $a;
                 }
@@ -72,13 +86,13 @@ class AccountController extends Controller {
         }
 
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
-        $is_creator      = ((int) $user['role_id'] === $creator_role_id);
+        $is_creator      = $can_act_creator;   // show creator sections to collaborators too; role gates the specifics
 
-        // Payouts (Stripe Connect) — only query Stripe for creators.
+        // Payouts (Stripe Connect) — OWNER only (a collaborator never sees cash-out).
         $payout_status  = array('exists' => false, 'details_submitted' => false, 'payouts_enabled' => false, 'requirements_due' => false);
         $payout_balance = array('available' => 0, 'pending' => 0, 'currency' => 'USD');
         $payouts        = array();
-        if ($is_creator && !empty($user['stripe_connect_account_id'])) {
+        if ($is_owner_creator && !empty($user['stripe_connect_account_id'])) {
             $payout_status = StripeService::connect_account_status($user['stripe_connect_account_id']);
             if (!empty($payout_status['payouts_enabled'])) {
                 // "Pending" = money already transferred to their account, in transit to the bank.
@@ -90,7 +104,7 @@ class AccountController extends Controller {
         // "Available" to cash out is the creator's earned credit wallet ($1 = 10 credits),
         // not the Stripe balance — credits are the platform's internal currency. History
         // is the creator's own cash-out events (the Stripe bank payout lags on a schedule).
-        if ($is_creator) {
+        if ($is_owner_creator) {
             $payout_credits = (int) $creditsModel->get_balance($user['user_id']);
             $payout_balance['available']         = $payout_credits * 10;
             $payout_balance['available_credits'] = $payout_credits;
@@ -99,20 +113,23 @@ class AccountController extends Controller {
 
         $this->view->user               = $user;
         $this->view->is_creator          = $is_creator;
-        $this->view->creator_profile     = $is_creator ? (new CreatorProfileModel())->get_for_user($user['user_id']) : array();
-        $this->view->creator_links       = $is_creator ? (new CreatorLinksModel())->get_for_user($user['user_id']) : array();
-        $this->view->creator_plans       = $is_creator ? (new CreatorPlansModel())->get_for_user($user['user_id']) : array();
-        $this->view->promo_codes         = $is_creator ? (new CreatorPromoCodesModel())->get_for_user($user['user_id']) : array();
-        $this->view->can_promo           = Plan::can($user, 'promo_codes');   // discount codes are Pro+
+        $this->view->can_content         = $can_content;
+        $this->view->can_manage          = $can_manage;
+        $this->view->is_owner_creator    = $is_owner_creator;
+        $this->view->creator_profile     = $can_content ? (new CreatorProfileModel())->get_for_user($owner['user_id']) : array();
+        $this->view->creator_links       = $can_content ? (new CreatorLinksModel())->get_for_user($owner['user_id']) : array();
+        $this->view->creator_plans       = $can_manage  ? (new CreatorPlansModel())->get_for_user($owner['user_id']) : array();
+        $this->view->promo_codes         = $can_manage  ? (new CreatorPromoCodesModel())->get_for_user($owner['user_id']) : array();
+        $this->view->can_promo           = Plan::can($owner, 'promo_codes');   // discount codes are Pro+
 
         // Content bundles (Pro+): the creator's bundles + the Library media they can add.
         $bundlesModel = new ContentBundlesModel();
-        $bundles = $is_creator ? (array) $bundlesModel->get_for_creator($user['user_id']) : array();
+        $bundles = $can_manage ? (array) $bundlesModel->get_for_creator($owner['user_id']) : array();
         foreach ($bundles as &$b) { $b['asset_ids'] = $bundlesModel->get_item_asset_ids((int) $b['id']); }
         unset($b);
         $bundle_media = array();
-        if ($is_creator) {
-            foreach ((array) (new MediaAssetsModel())->get_for_creator($user['user_id'], array()) as $a) {
+        if ($can_manage) {
+            foreach ((array) (new MediaAssetsModel())->get_for_creator($owner['user_id'], array()) as $a) {
                 if (($a['status'] ?? '') !== 'ready' || !empty($a['deleted_at'])) { continue; }
                 $name = trim((string) ($a['display_name'] ?? ''));
                 if ($name === '') { $name = (string) ($a['filename'] ?? 'Untitled'); }
@@ -126,12 +143,12 @@ class AccountController extends Controller {
         }
         $this->view->content_bundles     = $bundles;
         $this->view->bundle_media        = $bundle_media;
-        $this->view->can_bundles         = Plan::can($user, 'bundles');   // bundles are Pro+
-        $this->view->creator_brand       = $is_creator ? (new CreatorBrandModel())->get_for_user($user['user_id']) : array();
+        $this->view->can_bundles         = Plan::can($owner, 'bundles');   // bundles are Pro+
+        $this->view->creator_brand       = $can_content ? (new CreatorBrandModel())->get_for_user($owner['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;
         $this->view->payouts             = $payouts;
-        $this->view->has_connect         = ($is_creator && !empty($user['stripe_connect_account_id']));
+        $this->view->has_connect         = ($is_owner_creator && !empty($user['stripe_connect_account_id']));
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;

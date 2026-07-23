@@ -1813,14 +1813,34 @@ class ApiController extends Controller {
     /* ---------- Social publishing (Post for Me) ---------- */
 
     /** Auth + plan gate for all social endpoints. Returns the user array or exits with a JSON error. */
-    private function social_user(){
+    /**
+     * Auth gate for social posting/integrations. Connections are a SHARED team resource:
+     * this always resolves to the OWNER's account, so collaborators use the owner's
+     * connected accounts. $capability: 'content' to use them (Editor+), 'manage' to
+     * connect/disconnect (Manager+). Returns the OWNER's user array or exits with JSON.
+     */
+    private function social_user($capability = 'content'){
         if (empty(Session::get('user_id'))) {
             echo json_encode(array('success' => false, 'message' => 'Not authorized'));
             exit;
         }
-        $user = $this->userModel->get_user_by_id((int) Session::get('user_id'));
-        $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
-        // Social posting / integrations are creator-only.
+        $acting = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+        $acting = (is_array($acting) && count($acting) === 1) ? $acting[0] : null;
+        if (!$acting) { echo json_encode(array('success' => false, 'message' => 'Not authorized')); exit; }
+
+        if (!Permissions::team_allows($capability)) {
+            $msg = ($capability === 'manage') ? 'Only the owner or a manager can connect or remove social accounts.' : 'Your role is view-only.';
+            echo json_encode(array('success' => false, 'message' => $msg)); exit;
+        }
+
+        // Collaborators operate on the owner's connected accounts (shared).
+        $is_team = !empty($acting['team_role']) && (int) ($acting['created_by'] ?? 0) > 0;
+        if ($is_team) {
+            $rows = $this->userModel->get_user_by_id((int) $acting['created_by']);
+            $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        } else {
+            $user = $acting;
+        }
         if (!$user || (int) $user['role_id'] !== $this->userModel->get_role_id_by_name('Creator')) {
             echo json_encode(array('success' => false, 'message' => 'Only creator accounts can connect social accounts'));
             exit;
@@ -1829,11 +1849,11 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Your plan does not include social posting'));
             exit;
         }
-        return $user;
+        return $user;   // the owner
     }
 
     public function connect_accountAction(){
-        $user = $this->social_user();
+        $user = $this->social_user('manage');
         // Enforce the plan tier's connected-account cap (0 = unlimited).
         $cap = Plan::limit($user, 'socials');
         if ($cap !== null && (int) $cap > 0) {
@@ -1868,7 +1888,7 @@ class ApiController extends Controller {
     }
 
     public function disconnect_accountAction(){
-        $user   = $this->social_user();
+        $user   = $this->social_user('manage');
         $pfm_id = $this->post['account_id'] ?? '';
         if ($pfm_id === '') {
             echo json_encode(array('success' => false, 'message' => 'Account is required'));
@@ -2487,8 +2507,13 @@ class ApiController extends Controller {
 
     /* ---------- Creator profile / branding ---------- */
 
-    /** Auth + creator-role gate. Returns the user array or exits with a JSON error. */
-    private function require_creator(){
+    /**
+     * Auth + creator gate for the given capability tier ('content' | 'manage' | 'owner').
+     * Team members operate on the OWNER's account; their role must permit the capability
+     * (Editor: content; Manager: content+manage; Viewer: none; owner-only for 'owner').
+     * Returns the OWNER's user array, or exits with a JSON error.
+     */
+    private function require_creator($capability = 'content'){
         if (empty(Session::get('user_id'))) {
             echo json_encode(array('success' => false, 'message' => 'Not authorized'));
             exit;
@@ -2497,12 +2522,17 @@ class ApiController extends Controller {
         $acting = (is_array($acting) && count($acting) === 1) ? $acting[0] : null;
         if (!$acting) { echo json_encode(array('success' => false, 'message' => 'Not authorized')); exit; }
 
-        // Team members (collaborators) operate on the OWNER's account. Viewers are read-only.
+        // Role gate: a collaborator's team role must allow this capability tier.
+        if (!Permissions::team_allows($capability)) {
+            $msg = ($capability === 'owner')  ? 'Only the account owner can do this.'
+                 : (($capability === 'manage') ? 'Your role can\'t change monetization or integration settings.'
+                 : 'Your role is view-only.');
+            echo json_encode(array('success' => false, 'message' => $msg)); exit;
+        }
+
+        // Team members (collaborators) operate on the OWNER's account.
         $is_team = !empty($acting['team_role']) && (int) ($acting['created_by'] ?? 0) > 0;
         if ($is_team) {
-            if ($acting['team_role'] === 'viewer') {
-                echo json_encode(array('success' => false, 'message' => 'Your role is view-only.')); exit;
-            }
             $user = $this->userModel->get_user_by_id((int) $acting['created_by']);   // the owner
             $user = (is_array($user) && count($user) === 1) ? $user[0] : null;
         } else {
@@ -2545,7 +2575,7 @@ class ApiController extends Controller {
             exit;
         }
 
-        (new CreatorProfileModel())->save((int) Session::get('user_id'), array(
+        (new CreatorProfileModel())->save(Permissions::creator_id(), array(
             'display_name' => $display_name,
             'bio'          => trim((string) ($this->post['bio'] ?? '')),
             'location'     => trim((string) ($this->post['location'] ?? '')),
@@ -2582,7 +2612,7 @@ class ApiController extends Controller {
         };
         $dec = function ($k) { return html_entity_decode(trim((string) ($this->post[$k] ?? '')), ENT_QUOTES); };
 
-        (new CreatorBrandModel())->save((int) Session::get('user_id'), array(
+        (new CreatorBrandModel())->save(Permissions::creator_id(), array(
             'source_url'  => $dec('source_url'),
             'brand_name'  => $dec('brand_name'),
             'tagline'     => $dec('tagline'),
@@ -2627,7 +2657,7 @@ class ApiController extends Controller {
             exit;
         }
 
-        $user_id = (int) Session::get('user_id');
+        $user_id = Permissions::creator_id();
         $key     = 'creator/u' . $user_id . '_' . $kind . '_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$info['mime']];
 
         $url = S3Service::upload_file($key, $file['tmp_name'], $info['mime']);
@@ -2652,7 +2682,7 @@ class ApiController extends Controller {
             exit;
         }
 
-        $user_id = (int) Session::get('user_id');
+        $user_id = Permissions::creator_id();
         $column  = ($kind === 'avatar') ? 'avatar_url' : 'cover_url';
 
         $model   = new CreatorProfileModel();
@@ -2672,7 +2702,7 @@ class ApiController extends Controller {
 
     public function save_creator_linkAction(){
         $this->require_creator();
-        $user_id = (int) Session::get('user_id');
+        $user_id = Permissions::creator_id();
 
         $title = trim((string) ($this->post['title'] ?? ''));
         $url   = trim((string) ($this->post['url'] ?? ''));
@@ -2709,7 +2739,7 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Link is required'));
             exit;
         }
-        (new CreatorLinksModel())->delete_link((int) Session::get('user_id'), $id);
+        (new CreatorLinksModel())->delete_link(Permissions::creator_id(), $id);
         echo json_encode(array('success' => true, 'message' => 'Link removed'));
         exit;
     }
@@ -2721,7 +2751,7 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Link is required'));
             exit;
         }
-        (new CreatorLinksModel())->set_enabled((int) Session::get('user_id'), $id, !empty($this->post['enabled']));
+        (new CreatorLinksModel())->set_enabled(Permissions::creator_id(), $id, !empty($this->post['enabled']));
         echo json_encode(array('success' => true, 'message' => 'Link updated'));
         exit;
     }
@@ -2733,7 +2763,7 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'Invalid order'));
             exit;
         }
-        (new CreatorLinksModel())->reorder((int) Session::get('user_id'), $ids);
+        (new CreatorLinksModel())->reorder(Permissions::creator_id(), $ids);
         echo json_encode(array('success' => true, 'message' => 'Order saved'));
         exit;
     }
@@ -2741,8 +2771,8 @@ class ApiController extends Controller {
     /* ---------- Creator membership plans ---------- */
 
     public function save_creator_planAction(){
-        $user    = $this->require_creator();
-        $user_id = (int) Session::get('user_id');
+        $user    = $this->require_creator('manage');
+        $user_id = (int) $user['user_id'];   // owner account (collaborator acts on it)
 
         $name             = trim((string) ($this->post['name'] ?? ''));
         $billing_interval = (string) ($this->post['billing_interval'] ?? 'month');
@@ -2810,37 +2840,37 @@ class ApiController extends Controller {
     }
 
     public function delete_creator_planAction(){
-        $this->require_creator();
+        $this->require_creator('manage');
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             echo json_encode(array('success' => false, 'message' => 'Plan is required'));
             exit;
         }
-        (new CreatorPlansModel())->delete_plan((int) Session::get('user_id'), $id);
+        (new CreatorPlansModel())->delete_plan(Permissions::creator_id(), $id);
         echo json_encode(array('success' => true, 'message' => 'Plan removed'));
         exit;
     }
 
     public function toggle_creator_planAction(){
-        $this->require_creator();
+        $this->require_creator('manage');
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             echo json_encode(array('success' => false, 'message' => 'Plan is required'));
             exit;
         }
-        (new CreatorPlansModel())->set_active((int) Session::get('user_id'), $id, !empty($this->post['active']));
+        (new CreatorPlansModel())->set_active(Permissions::creator_id(), $id, !empty($this->post['active']));
         echo json_encode(array('success' => true, 'message' => 'Plan updated'));
         exit;
     }
 
     public function reorder_creator_plansAction(){
-        $this->require_creator();
+        $this->require_creator('manage');
         $ids = $this->post['ids'] ?? array();
         if (!is_array($ids)) {
             echo json_encode(array('success' => false, 'message' => 'Invalid order'));
             exit;
         }
-        (new CreatorPlansModel())->reorder((int) Session::get('user_id'), $ids);
+        (new CreatorPlansModel())->reorder(Permissions::creator_id(), $ids);
         echo json_encode(array('success' => true, 'message' => 'Order saved'));
         exit;
     }
@@ -2849,7 +2879,7 @@ class ApiController extends Controller {
 
     /** Create or edit a discount code. Pro+ only. */
     public function save_promo_codeAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         if (!Plan::can($user, 'promo_codes')) {
             echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => 'Discount codes are available on Pro and Studio plans.')); exit;
         }
@@ -2893,7 +2923,7 @@ class ApiController extends Controller {
     }
 
     public function toggle_promo_codeAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Code is required')); exit; }
         (new CreatorPromoCodesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
@@ -2901,7 +2931,7 @@ class ApiController extends Controller {
     }
 
     public function delete_promo_codeAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Code is required')); exit; }
         (new CreatorPromoCodesModel())->delete_code((int) $user['user_id'], $id);
@@ -2910,7 +2940,7 @@ class ApiController extends Controller {
 
     /** Create or update a content bundle (Pro+). Only the creator's own published PPV posts may be grouped. */
     public function save_bundleAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         if (!Plan::can($user, 'bundles')) {
             echo json_encode(array('success' => false, 'need_upgrade' => true, 'message' => 'Content bundles are available on Pro and Studio plans.')); exit;
         }
@@ -2955,7 +2985,7 @@ class ApiController extends Controller {
     }
 
     public function toggle_bundleAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Bundle is required')); exit; }
         (new ContentBundlesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
@@ -2963,7 +2993,7 @@ class ApiController extends Controller {
     }
 
     public function delete_bundleAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('manage');
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Bundle is required')); exit; }
         (new ContentBundlesModel())->delete_bundle((int) $user['user_id'], $id);
@@ -4194,7 +4224,7 @@ class ApiController extends Controller {
     }
 
     public function start_payout_onboardingAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('owner');
 
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {
@@ -4222,7 +4252,7 @@ class ApiController extends Controller {
     }
 
     public function payout_login_linkAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('owner');
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {
             echo json_encode(array('success' => false, 'message' => 'Set up payouts first'));
@@ -4239,7 +4269,7 @@ class ApiController extends Controller {
 
     /** Cash out the creator's earned credits: convert to $, deduct, and send via Stripe. */
     public function request_payoutAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('owner');
         $creator_id = (int) $user['user_id'];
         $account_id = (string) ($user['stripe_connect_account_id'] ?? '');
         if ($account_id === '') {
@@ -4278,7 +4308,7 @@ class ApiController extends Controller {
     }
 
     public function disconnect_payout_accountAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('owner');
         $account_id = $user['stripe_connect_account_id'] ?? '';
 
         if ($account_id !== '') {

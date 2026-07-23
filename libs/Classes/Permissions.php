@@ -69,6 +69,21 @@ class Permissions {
         return self::has_role('Creator') || self::is_team_member();
     }
 
+    /**
+     * Does the current user's team role permit a capability tier?
+     *  - 'content' : Editor and Manager (posts, media, automations, broadcast, profile/brand/links)
+     *  - 'manage'  : Manager only (membership plans/pricing, promo, bundles, integrations)
+     *  - 'owner'   : the account owner only (payouts, billing, team)
+     * The owner (or a solo creator) always passes.
+     */
+    public static function team_allows(string $capability): bool
+    {
+        if (!self::is_team_member()) { return true; }   // owner / solo creator
+        if ($capability === 'owner')  { return false; }
+        if ($capability === 'manage') { return self::team_role() === 'manager'; }
+        return in_array(self::team_role(), array('manager', 'editor'), true);   // 'content'
+    }
+
     /** Is this an owner-creator (a Creator who is not themselves a collaborator)? — gates team management. */
     public static function is_owner_creator(): bool
     {

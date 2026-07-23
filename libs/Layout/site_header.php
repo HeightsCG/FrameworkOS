@@ -49,7 +49,9 @@
     <div class="app-main">
         <header class="app-topbar">
             <div class="app-search">
-                <input type="search" class="form-control" id="app_search" placeholder="Search creators and content&hellip;" autocomplete="off" aria-label="Search">
+                <input type="search" class="form-control" id="app_search" name="app_search_q" placeholder="Search creators and content&hellip;" aria-label="Search"
+                       autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+                       data-1p-ignore="true" data-lpignore="true" data-bwignore data-form-type="other">
                 <div class="app-search__panel" id="appSearchPanel" hidden></div>
             </div>
             <span class="app-topbar__spacer"></span>
