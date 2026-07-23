@@ -51,7 +51,14 @@ $users = $this->users;
         </div>
     </div>
 
-    <section class="adm-sec">
+    <div class="adm-tabs" id="admTabs">
+        <button type="button" class="adm-tab is-active" data-panel="moderation"><i class="fa-solid fa-shield-halved"></i> Moderation<?php if ($review > 0): ?> <b class="adm-tab__badge"><?php echo (int) $review; ?></b><?php endif; ?></button>
+        <button type="button" class="adm-tab" data-panel="reports"><i class="fa-solid fa-flag"></i> Reports<?php if ((int) $this->reports_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->reports_open; ?></b><?php endif; ?></button>
+        <button type="button" class="adm-tab" data-panel="sales"><i class="fa-solid fa-receipt"></i> Sales</button>
+        <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
+    </div>
+
+    <section class="adm-sec adm-panel is-active" data-panel="moderation">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Moderation queue</h2>
             <span class="adm-sec__meta"><?php echo count($queue); ?> awaiting review</span>
@@ -88,7 +95,7 @@ $users = $this->users;
         <?php endif; ?>
     </section>
 
-    <section class="adm-sec">
+    <section class="adm-sec adm-panel" data-panel="reports">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Reports</h2>
             <span class="adm-sec__meta"><?php echo (int) $this->reports_open; ?> open</span>
@@ -136,7 +143,7 @@ $users = $this->users;
         <?php endif; ?>
     </section>
 
-    <section class="adm-sec">
+    <section class="adm-sec adm-panel" data-panel="sales">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Recent sales</h2>
             <span class="adm-sec__meta">
@@ -179,7 +186,7 @@ $users = $this->users;
     </section>
 
     <?php if (!empty($this->chargebacks)): ?>
-    <section class="adm-sec">
+    <section class="adm-sec adm-panel" data-panel="sales">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Chargebacks</h2>
             <span class="adm-sec__meta">Disputed Stripe charges &middot; account auto-suspended</span>
@@ -201,7 +208,7 @@ $users = $this->users;
     </section>
     <?php endif; ?>
 
-    <section class="adm-sec">
+    <section class="adm-sec adm-panel" data-panel="users">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Users</h2>
             <div class="adm-usearch">

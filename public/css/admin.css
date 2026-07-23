@@ -5,7 +5,18 @@
 .adm__sub{ margin:.3rem 0 0; color:#8a8797; font-size:.94rem; }
 
 /* KPIs */
-.adm-kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin-bottom:2rem; }
+.adm-kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin-bottom:1.6rem; }
+
+/* Tabs */
+.adm-tabs{ display:flex; gap:.2rem; margin-bottom:1.5rem; border-bottom:1px solid #e7e5f0; overflow-x:auto; }
+.adm-tab{ display:inline-flex; align-items:center; gap:.45rem; padding:.6rem .95rem; border:0; border-bottom:2px solid transparent; background:transparent; color:#6b6779; font-size:.9rem; font-weight:600; white-space:nowrap; cursor:pointer; margin-bottom:-1px; transition:color .12s,border-color .12s; }
+.adm-tab:hover{ color:#1c1830; }
+.adm-tab i{ font-size:.85rem; color:#b7b2c8; }
+.adm-tab.is-active{ color:var(--violet7,#4636c4); border-bottom-color:var(--violet,#5b4be0); }
+.adm-tab.is-active i{ color:var(--violet,#5b4be0); }
+.adm-tab__badge{ min-width:18px; height:18px; padding:0 5px; border-radius:9px; background:#e5484d; color:#fff; font-size:.68rem; font-weight:700; display:inline-flex; align-items:center; justify-content:center; }
+.adm-panel{ display:none; }
+.adm-panel.is-active{ display:block; }
 .adm-kpi{ background:#fff; border:1px solid #e7e5f0; border-radius:12px; padding:1rem 1.1rem; box-shadow:0 1px 2px rgba(20,16,40,.04); }
 .adm-kpi--alert{ border-color:#f4c9c0; background:#fff8f6; }
 .adm-kpi__top{ display:flex; align-items:center; justify-content:space-between; }

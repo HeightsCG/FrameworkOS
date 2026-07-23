@@ -11,6 +11,18 @@
         return Promise.resolve(window.confirm(opts.title || 'Are you sure?'));
     }
 
+    /* ---- Tabs ---- */
+    var tabs = document.getElementById('admTabs');
+    if (tabs) {
+        tabs.addEventListener('click', function (e) {
+            var btn = e.target.closest('.adm-tab');
+            if (!btn) { return; }
+            var panel = btn.getAttribute('data-panel');
+            tabs.querySelectorAll('.adm-tab').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
+            document.querySelectorAll('.adm-panel').forEach(function (p) { p.classList.toggle('is-active', p.getAttribute('data-panel') === panel); });
+        });
+    }
+
     /* ---- Moderation queue ---- */
     var mod = document.getElementById('admMod');
     if (mod) {
