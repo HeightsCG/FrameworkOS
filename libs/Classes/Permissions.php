@@ -10,6 +10,7 @@
 class Permissions {
 
     private static $role_cache = null;
+    private static $admin_cache = null;
 
     /** Is a user authenticated? */
     public static function is_logged_in(): bool
@@ -37,6 +38,25 @@ class Permissions {
     public static function has_role(string $role_name): bool
     {
         return self::role() === $role_name;
+    }
+
+    /**
+     * Platform staff flag (user_accounts.is_admin), independent of role_id so the
+     * platform owner can be both a Creator and an admin. Cached per request.
+     */
+    public static function is_admin(): bool
+    {
+        if (self::$admin_cache !== null) {
+            return self::$admin_cache;
+        }
+        self::$admin_cache = false;
+        $uid = (int) Session::get('user_id');
+        if ($uid > 0) {
+            $rows = (new UsersModel())->get_user_by_id($uid);
+            $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            self::$admin_cache = $u && !empty($u['is_admin']);
+        }
+        return self::$admin_cache;
     }
 
 }

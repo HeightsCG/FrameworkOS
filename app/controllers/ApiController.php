@@ -144,6 +144,14 @@ class ApiController extends Controller {
 
         $user = $user_account[0];
 
+        // Suspended (or deleted) accounts cannot sign in.
+        if (($user['user_status'] ?? 'Active') === 'Disabled' || (int) ($user['deleted'] ?? 0) === 1) {
+            $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
+            $response['message'] = 'This account has been suspended. Contact support if you believe this is a mistake.';
+            echo json_encode($response);
+            exit;
+        }
+
         // Hard gate: an unconfirmed email cannot sign in.
         if ((int) ($user['email_verified'] ?? 0) === 0) {
             $response['message']    = 'Please verify your email before signing in. Check your inbox for the verification link.';
@@ -2209,6 +2217,46 @@ class ApiController extends Controller {
         list($me, $fan) = $this->audience_guard();
         $note = trim(html_entity_decode((string) ($this->post['note'] ?? ''), ENT_QUOTES, 'UTF-8'));
         (new AudienceModel())->save_note($me, $fan, $note);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    /* ---------- Platform admin (PRD §38) ---------- */
+
+    private function admin_guard(){
+        if ((int) Session::get('user_id') <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        if (!Permissions::is_admin()) { echo json_encode(array('success' => false, 'message' => 'Admins only')); exit; }
+    }
+
+    /** Suspend or reactivate a user account. */
+    public function admin_set_user_statusAction(){
+        $this->admin_guard();
+        $me     = (int) Session::get('user_id');
+        $uid    = (int) ($this->post['user_id'] ?? 0);
+        $status = (string) ($this->post['status'] ?? '');
+        if ($uid <= 0 || !in_array($status, array('Active', 'Disabled'), true)) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid request')); exit;
+        }
+        if ($uid === $me) { echo json_encode(array('success' => false, 'message' => 'You cannot suspend your own account.')); exit; }
+        $rows = $this->userModel->get_user_by_id($uid);
+        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u) { echo json_encode(array('success' => false, 'message' => 'User not found')); exit; }
+        if ($status === 'Disabled' && !empty($u['is_admin'])) {
+            echo json_encode(array('success' => false, 'message' => 'You cannot suspend another admin.')); exit;
+        }
+        (new AdminModel())->set_user_status($uid, $status);
+        echo json_encode(array('success' => true, 'status' => $status)); exit;
+    }
+
+    /** Approve or block a piece of content in the moderation queue. */
+    public function admin_moderateAction(){
+        $this->admin_guard();
+        $asset_id = (int) ($this->post['asset_id'] ?? 0);
+        $action   = (string) ($this->post['action'] ?? '');
+        $map = array('approve' => 'approved', 'block' => 'blocked');
+        if ($asset_id <= 0 || !isset($map[$action])) {
+            echo json_encode(array('success' => false, 'message' => 'Invalid request')); exit;
+        }
+        (new AdminModel())->set_moderation($asset_id, $map[$action]);
         echo json_encode(array('success' => true)); exit;
     }
 
