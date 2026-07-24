@@ -41,8 +41,19 @@
 .dash__chart-axis{ display:flex; justify-content:space-between; font-size:.74rem; color:var(--muted2); margin-top:.4rem; }
 .dash__chart-empty{ padding:2.6rem 1rem; text-align:center; color:var(--muted); font-size:.9rem; }
 
+/* --- revenue-by-offering breakdown --- */
+.dash__break{ display:flex; flex-direction:column; gap:.85rem; }
+.dash__break-row{ display:grid; grid-template-columns:150px 1fr 92px; align-items:center; gap:.9rem; }
+.dash__break-label{ font-size:.85rem; font-weight:600; color:var(--text); display:inline-flex; align-items:center; gap:.5rem; white-space:nowrap; }
+.dash__break-label i{ color:var(--violet); font-size:.8rem; width:16px; text-align:center; }
+.dash__break-track{ height:10px; background:#f4f3f8; border-radius:999px; overflow:hidden; }
+.dash__break-fill{ display:block; height:100%; background:transparent; border-radius:999px; }
+.dash__break-fill.is-on{ background:var(--violet); }
+.dash__break-val{ font-size:.88rem; font-weight:700; color:var(--text); text-align:right; font-variant-numeric:tabular-nums; }
+
 /* --- two-column area --- */
-.dash__cols{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+.dash__cols{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; margin-bottom:1.2rem; }
+.dash__cols:last-of-type{ margin-bottom:0; }
 .dash__cols .dash__panel{ margin-bottom:0; }
 
 /* --- lists --- */
@@ -68,4 +79,5 @@
 @media (max-width:820px){
     .dash__kpis{ grid-template-columns:repeat(2, 1fr); }
     .dash__cols{ grid-template-columns:1fr; }
+    .dash__break-row{ grid-template-columns:120px 1fr 78px; gap:.6rem; }
 }

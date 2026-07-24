@@ -114,6 +114,90 @@ class ProfileController extends Controller {
             );
         }
 
+        // Published events this creator is hosting (PRD §23). Access details (venue,
+        // link, instructions) are revealed ONLY to a registered attendee or the creator.
+        $eventsModel = new EventsModel();
+        $event_cards = array();
+        foreach ($eventsModel->list_public_for_creator($user['user_id']) as $ev) {
+            $ev_tz = (string) ($ev['timezone'] !== '' ? $ev['timezone'] : 'UTC');
+            $when  = '';
+            try {
+                $sd = new DateTime((string) $ev['start_at'], new DateTimeZone('UTC'));
+                $sd->setTimezone(new DateTimeZone($ev_tz));
+                $when = $sd->format('D, M j, Y · g:i A');
+                if (!empty($ev['end_at'])) {
+                    $ed = new DateTime((string) $ev['end_at'], new DateTimeZone('UTC'));
+                    $ed->setTimezone(new DateTimeZone($ev_tz));
+                    $when .= ($sd->format('Y-m-d') === $ed->format('Y-m-d'))
+                        ? ' – ' . $ed->format('g:i A')
+                        : ' – ' . $ed->format('M j, g:i A');
+                }
+                $when .= ' ' . $sd->format('T');
+            } catch (\Throwable $x) { $when = ''; }
+
+            $registered = (!$is_self && $viewer_logged_in) ? $eventsModel->is_registered((int) $ev['id'], $viewer_id) : false;
+            $attendees  = (int) $ev['attendees'];
+            $capacity   = (int) $ev['capacity'];
+            $card = array(
+                'id'            => (int) $ev['id'],
+                'title'         => (string) $ev['title'],
+                'description'   => (string) $ev['description'],
+                'when'          => $when,
+                'access_type'   => (string) $ev['access_type'],
+                'price_credits' => (int) $ev['price_credits'],
+                'price_dollars' => number_format(((int) $ev['price_credits']) / 10, 2),
+                'attendees'     => $attendees,
+                'capacity'      => $capacity,
+                'is_full'       => ($capacity > 0 && $attendees >= $capacity),
+                'is_online'     => (trim((string) $ev['external_url']) !== ''),
+                'is_inperson'   => (trim((string) $ev['location']) !== ''),
+                'registered'    => $registered,
+                'is_self'       => $is_self,
+            );
+            if ($registered || $is_self) {
+                $card['access'] = array(
+                    'url'          => (string) $ev['external_url'],
+                    'location'     => (string) $ev['location'],
+                    'instructions' => (string) $ev['access_instructions'],
+                );
+            }
+            $event_cards[] = $card;
+        }
+
+        // Published services this creator sells (PRD §22). Booking + delivery details
+        // are revealed ONLY to a buyer (or the creator).
+        $servicesModel = new ServicesModel();
+        $service_cards = array();
+        foreach ($servicesModel->list_public_for_creator($user['user_id']) as $sv) {
+            $purchased = (!$is_self && $viewer_logged_in) ? $servicesModel->has_purchased((int) $sv['id'], $viewer_id) : false;
+            $purchases = (int) $sv['purchases'];
+            $capacity  = (int) $sv['capacity'];
+            $card = array(
+                'id'            => (int) $sv['id'],
+                'name'          => (string) $sv['name'],
+                'description'   => (string) $sv['description'],
+                'price_credits' => (int) $sv['price_credits'],
+                'price_dollars' => number_format(((int) $sv['price_credits']) / 10, 2),
+                'duration_min'  => (int) $sv['duration_min'],
+                'delivery_method' => (string) $sv['delivery_method'],
+                'category'      => (string) $sv['category'],
+                'refund_policy' => (string) $sv['refund_policy'],
+                'capacity'      => $capacity,
+                'purchases'     => $purchases,
+                'is_full'       => ($capacity > 0 && $purchases >= $capacity),
+                'purchased'     => $purchased,
+                'is_self'       => $is_self,
+            );
+            if ($purchased || $is_self) {
+                $card['access'] = array(
+                    'method'         => (string) $sv['delivery_method'],
+                    'scheduling_url' => (string) $sv['scheduling_url'],
+                    'details'        => (string) $sv['delivery_details'],
+                );
+            }
+            $service_cards[] = $card;
+        }
+
         // Published Content Studio posts, gated per audience. Entitlement is decided
         // HERE (server-side): the real media URL is signed only for entitled viewers;
         // everyone else gets only the blurred locked preview — the clear rendition is

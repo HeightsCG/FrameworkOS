@@ -47,6 +47,38 @@ class NotificationsModel extends Model {
         return $this->deliver($to_email, $to_name, $subject, $message);
     }
 
+    /**
+     * The email channel for an in-platform notification (PRD §27). Delivered only
+     * when the recipient has the category's email channel enabled — the caller
+     * (ApiController::notify) makes that decision. Mirrors the notification's
+     * title/body and links back to the on-site destination.
+     */
+    public function send_notification_email($to_email, $to_name, $title, $body = '', $link = ''){
+        if ((string) $to_email === '' || (string) $title === '') { return false; }
+        return $this->deliver($to_email, $to_name, (string) $title, self::build_notification_email($title, $body, $link));
+    }
+
+    /** Build the branded notification email HTML (pure — no send). */
+    public static function build_notification_email($title, $body = '', $link = ''){
+        $body_html = '';
+        if (trim((string) $body) !== '') {
+            $body_html = '<p style="' . self::P . '">' . nl2br(htmlspecialchars((string) $body, ENT_QUOTES, 'UTF-8')) . '</p>';
+        }
+        $url       = self::absolute_url($link);
+        $cta_label = $url !== '' ? 'View on ' . Main::site_name() : '';
+        $footer    = 'You\'re receiving this because email notifications are on for your account. '
+                   . 'Manage which notifications you get in your account settings.';
+        return self::brand_wrap((string) $title, $body_html, $cta_label, $url, $footer);
+    }
+
+    /** Turn a stored notification link (often a relative app path) into an absolute URL. */
+    private static function absolute_url($link){
+        $link = (string) $link;
+        if ($link === '') { return ''; }
+        if (preg_match('#^https?://#i', $link)) { return $link; }
+        return rtrim(Main::get_base_domain(), '/') . '/' . ltrim($link, '/');
+    }
+
     /** Shared send helper. */
     private function deliver($to_email, $to_name, $subject, $message){
         $to = array(array('email' => $to_email, 'name' => $to_name));

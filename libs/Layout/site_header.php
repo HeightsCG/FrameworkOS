@@ -35,6 +35,10 @@
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
             <a href="/audience" class="app-nav-item<?php echo ($this->controller === 'audience' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-users"></i> Audience</a>
+            <?php if (Permissions::team_allows('manage')): ?>
+            <a href="/events" class="app-nav-item<?php echo ($this->controller === 'events' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-calendar-days"></i> Events</a>
+            <a href="/services" class="app-nav-item<?php echo ($this->controller === 'services' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-briefcase"></i> Services</a>
+            <?php endif; ?>
             <?php endif; ?>
             <a href="/purchases" class="app-nav-item<?php echo ($this->controller === 'purchases' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-bag-shopping"></i> Purchases</a>
             <?php if (Permissions::is_admin()): ?>

@@ -28,11 +28,14 @@ class DashboardController extends Controller {
 
         $tz = (string) ($user['content_timezone'] ?? 'UTC');
         $a = new AnalyticsModel();
-        $this->view->stats          = $a->overview($user_id);
-        $this->view->views_series   = $a->views_series($user_id, 30, $tz);
-        $this->view->top_posts      = $a->top_posts($user_id, 5);
-        $this->view->recent_unlocks = $a->recent_unlocks($user_id, 8);
-        $this->view->timezone       = $tz;
+        $this->view->stats             = $a->overview($user_id);
+        $this->view->views_series      = $a->views_series($user_id, 30, $tz);
+        $this->view->revenue_series    = $a->revenue_series($user_id, 30, $tz);
+        $this->view->follower_series   = $a->follower_series($user_id, 30, $tz);
+        $this->view->revenue_breakdown = $a->revenue_breakdown($user_id);
+        $this->view->top_posts         = $a->top_posts($user_id, 5);
+        $this->view->recent_unlocks    = $a->recent_unlocks($user_id, 8);
+        $this->view->timezone          = $tz;
 
         $this->view->render();
     }

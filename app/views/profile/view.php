@@ -76,6 +76,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
                     <button class="pf-tab" data-panel="plans" role="tab">Membership</button>
+                    <?php if (!empty($service_cards)): ?><button class="pf-tab" data-panel="services" role="tab">Services</button><?php endif; ?>
+                    <?php if (!empty($event_cards)): ?><button class="pf-tab" data-panel="events" role="tab">Events</button><?php endif; ?>
                     <button class="pf-tab" data-panel="about" role="tab">About</button>
                     <?php if (!empty($links)): ?><button class="pf-tab" data-panel="links" role="tab">Links</button><?php endif; ?>
                 </nav>
@@ -198,6 +200,96 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     <?php endif; ?>
                     <?php endif; ?>
                 </section>
+
+                <?php if (!empty($service_cards)): ?>
+                <?php $svm = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Custom'); ?>
+                <section class="pf-panel" data-panel="services">
+                    <div class="pf-events">
+                        <?php foreach ($service_cards as $sc): ?>
+                        <article class="pf-ev" data-sv-card="<?php echo (int) $sc['id']; ?>">
+                            <div class="pf-ev__main">
+                                <?php if (trim((string) $sc['category']) !== ''): ?><div class="pf-ev__when"><i class="fa-solid fa-briefcase"></i> <?php echo htmlspecialchars((string) $sc['category'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                                <h3 class="pf-ev__title"><?php echo htmlspecialchars((string) $sc['name'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                                <?php if (trim((string) $sc['description']) !== ''): ?><p class="pf-ev__desc"><?php echo nl2br(htmlspecialchars((string) $sc['description'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
+                                <div class="pf-ev__meta">
+                                    <span class="pf-ev__tag pf-ev__tag--<?php echo ((int) $sc['price_credits'] > 0) ? 'paid' : ''; ?>"><?php echo ((int) $sc['price_credits'] > 0) ? '$' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?></span>
+                                    <?php if ((int) $sc['duration_min'] > 0): ?><span class="pf-ev__where"><i class="fa-regular fa-clock"></i> <?php echo (int) $sc['duration_min']; ?> min</span><?php endif; ?>
+                                    <span class="pf-ev__where"><i class="fa-solid fa-video"></i> <?php echo htmlspecialchars($svm[$sc['delivery_method']] ?? 'Custom', ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php if ((int) $sc['capacity'] > 0): ?><span class="pf-ev__seats"><i class="fa-solid fa-user-group"></i> <?php echo max(0, (int) $sc['capacity'] - (int) $sc['purchases']); ?> spots left</span><?php endif; ?>
+                                </div>
+                                <?php if (trim((string) $sc['refund_policy']) !== ''): ?><p class="pf-ev__refund"><i class="fa-solid fa-rotate-left"></i> <?php echo htmlspecialchars((string) $sc['refund_policy'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+                                <?php if (!empty($sc['access'])): $ax = $sc['access']; ?>
+                                <div class="pf-ev__access">
+                                    <span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your booking details</span>
+                                    <?php if (trim((string) $ax['scheduling_url']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-regular fa-calendar-check"></i> <a href="<?php echo htmlspecialchars((string) $ax['scheduling_url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow">Schedule your session</a></span><?php endif; ?>
+                                    <?php if (trim((string) $ax['details']) !== ''): ?><span class="pf-ev__access-row pf-ev__access-instr"><?php echo nl2br(htmlspecialchars((string) $ax['details'], ENT_QUOTES, 'UTF-8')); ?></span><?php endif; ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="pf-ev__cta">
+                                <?php if ($sc['is_self']): ?>
+                                <span class="pf-ev__status pf-ev__status--own"><i class="fa-solid fa-user-pen"></i> Your service</span>
+                                <?php elseif (!empty($sc['purchased'])): ?>
+                                <span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Booked</span>
+                                <?php elseif (!empty($sc['is_full'])): ?>
+                                <span class="pf-ev__status pf-ev__status--full">Fully booked</span>
+                                <?php else: ?>
+                                <button type="button" class="pf-btn pf-btn--subscribe pf-ev__register" data-sv-purchase="<?php echo (int) $sc['id']; ?>">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <?php echo ((int) $sc['price_credits'] > 0) ? 'Book · $' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Book'; ?>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+                <?php endif; ?>
+
+                <?php if (!empty($event_cards)): ?>
+                <section class="pf-panel" data-panel="events">
+                    <div class="pf-events">
+                        <?php foreach ($event_cards as $ec):
+                            $al = array('free' => 'Free', 'paid' => 'Paid', 'subscribers' => 'Subscribers only', 'tier' => 'Members only');
+                        ?>
+                        <article class="pf-ev" data-ev-card="<?php echo (int) $ec['id']; ?>">
+                            <div class="pf-ev__main">
+                                <div class="pf-ev__when"><i class="fa-regular fa-calendar"></i> <?php echo htmlspecialchars((string) $ec['when'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                <h3 class="pf-ev__title"><?php echo htmlspecialchars((string) $ec['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
+                                <?php if (trim((string) $ec['description']) !== ''): ?><p class="pf-ev__desc"><?php echo nl2br(htmlspecialchars((string) $ec['description'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
+                                <div class="pf-ev__meta">
+                                    <span class="pf-ev__tag pf-ev__tag--<?php echo htmlspecialchars((string) $ec['access_type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($al[$ec['access_type']] ?? 'Free', ENT_QUOTES, 'UTF-8'); echo ($ec['access_type'] === 'paid' && (int) $ec['price_credits'] > 0) ? ' · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : ''; ?></span>
+                                    <?php if ($ec['is_online']): ?><span class="pf-ev__where"><i class="fa-solid fa-video"></i> Online</span><?php elseif ($ec['is_inperson']): ?><span class="pf-ev__where"><i class="fa-solid fa-location-dot"></i> In person</span><?php endif; ?>
+                                    <?php if ((int) $ec['capacity'] > 0): ?><span class="pf-ev__seats"><i class="fa-solid fa-user-group"></i> <?php echo max(0, (int) $ec['capacity'] - (int) $ec['attendees']); ?> seats left</span><?php endif; ?>
+                                </div>
+                                <?php if (!empty($ec['access'])): $ax = $ec['access']; ?>
+                                <div class="pf-ev__access">
+                                    <span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your access details</span>
+                                    <?php if (trim((string) $ax['location']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> <?php echo htmlspecialchars((string) $ax['location'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
+                                    <?php if (trim((string) $ax['url']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="<?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow"><?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?></a></span><?php endif; ?>
+                                    <?php if (trim((string) $ax['instructions']) !== ''): ?><span class="pf-ev__access-row pf-ev__access-instr"><?php echo nl2br(htmlspecialchars((string) $ax['instructions'], ENT_QUOTES, 'UTF-8')); ?></span><?php endif; ?>
+                                </div>
+                                <?php endif; ?>
+                            </div>
+                            <div class="pf-ev__cta">
+                                <?php if ($ec['is_self']): ?>
+                                <span class="pf-ev__status pf-ev__status--own"><i class="fa-solid fa-user-pen"></i> Your event</span>
+                                <?php elseif (!empty($ec['registered'])): ?>
+                                <span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Registered</span>
+                                <?php elseif (!empty($ec['is_full'])): ?>
+                                <span class="pf-ev__status pf-ev__status--full">Sold out</span>
+                                <?php else: ?>
+                                <button type="button" class="pf-btn pf-btn--subscribe pf-ev__register" data-ev-register="<?php echo (int) $ec['id']; ?>">
+                                    <i class="fa-solid fa-calendar-check"></i>
+                                    <?php echo ($ec['access_type'] === 'paid' && (int) $ec['price_credits'] > 0) ? 'Register · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Register'; ?>
+                                </button>
+                                <?php endif; ?>
+                            </div>
+                        </article>
+                        <?php endforeach; ?>
+                    </div>
+                </section>
+                <?php endif; ?>
 
                 <section class="pf-panel" data-panel="about">
                     <div class="pf-info">
@@ -357,6 +449,80 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 });
             };
         });
+
+        // Event registration (free / paid-with-credits / subscribers / tier).
+        document.querySelectorAll('[data-ev-register]').forEach(function (b) {
+            b.onclick = function () {
+                if (!LOGGED_IN) { window.location = '/'; return; }
+                var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering…';
+                ApiDataSvc.apiCall('post', 'event_register', { event_id: b.getAttribute('data-ev-register') }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not register'); return; }
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_subscription) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'This event is for subscribers.'); goToPlans(); return; }
+                    if (o.need_credits) {
+                        b.disabled = false; b.innerHTML = orig;
+                        pfToast(o.message || 'Not enough credits.');
+                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
+                        return;
+                    }
+                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not register'); return; }
+                    revealEventAccess(b, o.access || {});
+                    pfToast('You\'re registered!');
+                });
+            };
+        });
+        function revealEventAccess(btn, ax) {
+            var card = btn.closest('.pf-ev');
+            if (!card) { return; }
+            var cta = btn.closest('.pf-ev__cta');
+            if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Registered</span>'; }
+            var main = card.querySelector('.pf-ev__main');
+            if (!main || main.querySelector('.pf-ev__access')) { return; }
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your access details</span>';
+            if (ax.location) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> ' + e(ax.location) + '</span>'; }
+            if (ax.url) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="' + e(ax.url) + '" target="_blank" rel="noopener noreferrer nofollow">' + e(ax.url) + '</a></span>'; }
+            if (ax.instructions) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.instructions).replace(/\n/g, '<br>') + '</span>'; }
+            var wrap = document.createElement('div'); wrap.className = 'pf-ev__access'; wrap.innerHTML = rows;
+            main.appendChild(wrap);
+        }
+
+        // Service purchase (one-time, credits) → reveals booking details on success.
+        document.querySelectorAll('[data-sv-purchase]').forEach(function (b) {
+            b.onclick = function () {
+                if (!LOGGED_IN) { window.location = '/'; return; }
+                var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Booking…';
+                ApiDataSvc.apiCall('post', 'service_purchase', { service_id: b.getAttribute('data-sv-purchase') }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                    if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not book'); return; }
+                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_credits) {
+                        b.disabled = false; b.innerHTML = orig;
+                        pfToast(o.message || 'Not enough credits.');
+                        setTimeout(function () { window.location = '/account/settings'; }, 1400);
+                        return;
+                    }
+                    if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not book'); return; }
+                    revealServiceAccess(b, o.access || {});
+                    pfToast('Booked! Schedule your session next.');
+                });
+            };
+        });
+        function revealServiceAccess(btn, ax) {
+            var card = btn.closest('.pf-ev');
+            if (!card) { return; }
+            var cta = btn.closest('.pf-ev__cta');
+            if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Booked</span>'; }
+            var main = card.querySelector('.pf-ev__main');
+            if (!main || main.querySelector('.pf-ev__access')) { return; }
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your booking details</span>';
+            if (ax.scheduling_url) { rows += '<span class="pf-ev__access-row"><i class="fa-regular fa-calendar-check"></i> <a href="' + e(ax.scheduling_url) + '" target="_blank" rel="noopener noreferrer nofollow">Schedule your session</a></span>'; }
+            if (ax.details) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.details).replace(/\n/g, '<br>') + '</span>'; }
+            var wrap = document.createElement('div'); wrap.className = 'pf-ev__access'; wrap.innerHTML = rows;
+            main.appendChild(wrap);
+        }
 
         // Content locked-state CTAs.
         document.querySelectorAll('[data-content-login]').forEach(function (b) {

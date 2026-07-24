@@ -29,6 +29,13 @@ class AnalyticsModel extends Model {
         $followers = parent::select("SELECT COUNT(*) AS n FROM follows WHERE creator_id = :c", array('c' => $c));
         $unlocks   = parent::select("SELECT COUNT(*) AS n FROM ppv_unlocks WHERE creator_id = :c", array('c' => $c));
 
+        // Unique visitors = distinct viewer fingerprints across this creator's posts.
+        $uv = parent::select(
+            "SELECT COUNT(DISTINCT pv.viewer_key) AS n
+             FROM post_views pv JOIN posts p ON p.id = pv.post_id
+             WHERE p.creator_id = :c",
+            array('c' => $c));
+
         return array(
             'published_posts' => (int) ($p['published_posts'] ?? 0),
             'ppv_cents'       => (int) ($p['ppv_cents'] ?? 0),
@@ -39,6 +46,32 @@ class AnalyticsModel extends Model {
             'mrr_cents'       => (int) ($subs['mrr_cents'] ?? 0),
             'followers'       => (int) (is_array($followers) && count($followers) ? $followers[0]['n'] : 0),
             'unlocks'         => (int) (is_array($unlocks) && count($unlocks) ? $unlocks[0]['n'] : 0),
+            'unique_visitors' => (int) (is_array($uv) && count($uv) ? $uv[0]['n'] : 0),
+        );
+    }
+
+    /**
+     * Net revenue split by offering (PRD §41.1 "revenue by offering"), from the credit
+     * ledger's creator-earning rows. Every earning is already net of the platform fee.
+     * 1 credit = 10 cents ($1 = 10 credits). Pass $start_utc to scope to a date range.
+     */
+    public function revenue_breakdown($creator_id, $start_utc = null){
+        $params = array('c' => (int) $creator_id);
+        $where  = "user_id = :c AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')";
+        if ($start_utc !== null) { $where .= " AND created_at >= :start"; $params['start'] = $start_utc; }
+        $rows = parent::select(
+            "SELECT type, COALESCE(SUM(credits),0) AS credits FROM credit_transactions WHERE $where GROUP BY type",
+            $params);
+        $m = array('ppv_earning' => 0, 'bundle_earning' => 0, 'event_earning' => 0, 'service_earning' => 0);
+        foreach ((array) $rows as $r) { if (isset($m[$r['type']])) { $m[$r['type']] = (int) $r['credits']; } }
+        $ppv = $m['ppv_earning'] * 10; $bundle = $m['bundle_earning'] * 10;
+        $event = $m['event_earning'] * 10; $service = $m['service_earning'] * 10;
+        return array(
+            'ppv_cents'     => $ppv,
+            'bundle_cents'  => $bundle,
+            'event_cents'   => $event,
+            'service_cents' => $service,
+            'total_cents'   => $ppv + $bundle + $event + $service,
         );
     }
 
@@ -48,28 +81,58 @@ class AnalyticsModel extends Model {
      * creator's timezone, so an evening view doesn't spill onto "tomorrow" (UTC date).
      */
     public function views_series($creator_id, $days = 30, $tz = 'UTC'){
-        $days = max(1, min(120, (int) $days));
-        try { $zone = new DateTimeZone($tz); } catch (Exception $e) { $zone = new DateTimeZone('UTC'); }
-        $utc = new DateTimeZone('UTC');
-
-        // Window: local midnight $days-1 days before "today" (in the creator's zone) → now.
-        $now_local = new DateTime('now', $zone);
-        $start     = new DateTime($now_local->format('Y-m-d') . ' 00:00:00', $zone);
-        $start->modify('-' . ($days - 1) . ' days');
-        $start_utc = (clone $start)->setTimezone($utc)->format('Y-m-d H:i:s');
-
-        // Named zones aren't loaded in MySQL, so bucket with the current numeric offset (e.g. -04:00).
-        $off = $now_local->format('P');
-
+        list($start, $start_utc, $off, $days) = $this->day_window($days, $tz);
         $rows = parent::select(
             "SELECT DATE(CONVERT_TZ(pv.created_at, '+00:00', :off)) AS d, COUNT(*) AS n
              FROM post_views pv JOIN posts p ON p.id = pv.post_id
              WHERE p.creator_id = :c AND pv.created_at >= :start
              GROUP BY d",
             array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
+        return $this->fill_days($rows, $start, $days);
+    }
+
+    /** Daily net revenue in CENTS over the window (revenue by date range), zero-filled. */
+    public function revenue_series($creator_id, $days = 30, $tz = 'UTC'){
+        list($start, $start_utc, $off, $days) = $this->day_window($days, $tz);
+        $rows = parent::select(
+            "SELECT DATE(CONVERT_TZ(created_at, '+00:00', :off)) AS d, COALESCE(SUM(credits),0) * 10 AS n
+             FROM credit_transactions
+             WHERE user_id = :c AND created_at >= :start
+               AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')
+             GROUP BY d",
+            array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
+        return $this->fill_days($rows, $start, $days);
+    }
+
+    /** Daily NEW followers over the window (follower growth), zero-filled. */
+    public function follower_series($creator_id, $days = 30, $tz = 'UTC'){
+        list($start, $start_utc, $off, $days) = $this->day_window($days, $tz);
+        $rows = parent::select(
+            "SELECT DATE(CONVERT_TZ(created_at, '+00:00', :off)) AS d, COUNT(*) AS n
+             FROM follows WHERE creator_id = :c AND created_at >= :start GROUP BY d",
+            array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
+        return $this->fill_days($rows, $start, $days);
+    }
+
+    /**
+     * Shared window for the daily trend charts. Returns [start (DateTime, creator-local
+     * midnight), start_utc (string), numeric tz offset (e.g. -04:00), clamped days].
+     * MySQL has no named zones loaded, so buckets use the current numeric offset.
+     */
+    private function day_window($days, $tz){
+        $days = max(1, min(120, (int) $days));
+        try { $zone = new DateTimeZone($tz); } catch (Exception $e) { $zone = new DateTimeZone('UTC'); }
+        $now_local = new DateTime('now', $zone);
+        $start     = new DateTime($now_local->format('Y-m-d') . ' 00:00:00', $zone);
+        $start->modify('-' . ($days - 1) . ' days');
+        $start_utc = (clone $start)->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s');
+        return array($start, $start_utc, $now_local->format('P'), $days);
+    }
+
+    /** Shared: fold (d => n) rows into an ordered, zero-filled [{date, value}] series. */
+    private function fill_days($rows, DateTime $start, $days){
         $by = array();
         foreach ((array) $rows as $r) { $by[(string) $r['d']] = (int) $r['n']; }
-
         $out = array();
         $cur = clone $start;
         for ($i = 0; $i < $days; $i++) {

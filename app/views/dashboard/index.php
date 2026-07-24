@@ -29,13 +29,40 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         <a href="/account/settings?section=creator" class="btn btn-primary">Become a creator</a>
     </div>
 <?php else:
-    $s = $this->stats;
+    $s   = $this->stats;
+    $rev = $this->revenue_breakdown;
+
+    $follower_series = $this->follower_series;
+    $revenue_series  = $this->revenue_series;
+    $new_followers30 = array_sum(array_map(function ($p) { return (int) $p['value']; }, $follower_series));
+    $revenue30_cents = array_sum(array_map(function ($p) { return (int) $p['value']; }, $revenue_series));
+
     $kpis = array(
-        array('label' => 'Earnings',    'value' => $fmt_money($s['ppv_cents']),        'sub' => 'from pay-per-view',                          'icon' => 'fa-coins'),
-        array('label' => 'Subscribers', 'value' => $fmt_num($s['subscribers']),        'sub' => $fmt_money($s['mrr_cents']) . '/mo recurring', 'icon' => 'fa-heart'),
-        array('label' => 'Followers',   'value' => $fmt_num($s['followers']),          'sub' => 'total following you',                        'icon' => 'fa-user-plus'),
-        array('label' => 'Views',       'value' => $fmt_num($s['views']),              'sub' => $fmt_num($s['unlocks']) . ' PPV unlocks',     'icon' => 'fa-eye'),
+        array('label' => 'Total revenue', 'value' => $fmt_money($rev['total_cents']), 'sub' => 'net · all offerings',                          'icon' => 'fa-coins'),
+        array('label' => 'Subscribers',   'value' => $fmt_num($s['subscribers']),     'sub' => $fmt_money($s['mrr_cents']) . '/mo recurring',   'icon' => 'fa-heart'),
+        array('label' => 'Followers',     'value' => $fmt_num($s['followers']),       'sub' => ($new_followers30 > 0 ? '+' . $fmt_num($new_followers30) : '0') . ' in 30 days', 'icon' => 'fa-user-plus'),
+        array('label' => 'Views',         'value' => $fmt_num($s['views']),           'sub' => $fmt_num($s['unique_visitors']) . ' unique visitors', 'icon' => 'fa-eye'),
     );
+
+    // Shared daily-bar renderer for the trend charts. $money → format values as dollars.
+    $render_bars = function ($series, $money = false) use ($fmt_num, $fmt_money) {
+        $n    = count($series);
+        $vals = array_map(function ($p) { return (int) $p['value']; }, $series);
+        $maxv = max(1, max($vals));
+        echo '<div class="dash__bars" role="img" aria-label="Daily trend over the last ' . (int) $n . ' days">';
+        foreach ($series as $p) {
+            $v = (int) $p['value'];
+            $h = $v > 0 ? max(8, (int) round($v / $maxv * 100)) : 0;
+            $lbl = $money ? $fmt_money($v) : ($fmt_num($v));
+            $tip = date('D, M j', strtotime((string) $p['date'])) . ' — ' . $lbl;
+            echo '<div class="dash__col" title="' . htmlspecialchars($tip, ENT_QUOTES, 'UTF-8') . '">'
+               . '<div class="dash__col-fill' . ($v > 0 ? ' is-on' : '') . '" style="height:' . $h . '%"></div></div>';
+        }
+        echo '</div><div class="dash__chart-axis">';
+        $step = max(1, (int) floor(($n - 1) / 5));
+        for ($i = 0; $i < $n; $i += $step) { echo '<span>' . date('M j', strtotime((string) $series[$i]['date'])) . '</span>'; }
+        echo '<span>' . date('M j', strtotime((string) $series[$n - 1]['date'])) . '</span></div>';
+    };
 ?>
     <div class="dash__kpis">
         <?php foreach ($kpis as $k): ?>
@@ -48,33 +75,57 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
     </div>
 
     <?php
-    // ---- Views trend (last 30 days) → one bar per day; empty days show a baseline tick ----
-    $series  = $this->views_series;
-    $vals    = array_map(function ($p) { return (int) $p['value']; }, $series);
-    $maxv    = max(1, max($vals));
-    $total30 = array_sum($vals);
-    $n       = count($series);
+    // ---- Revenue by offering (net of platform fees) — horizontal breakdown ----
+    $offerings = array(
+        array('Pay-per-view', (int) $rev['ppv_cents'],     'fa-unlock'),
+        array('Bundles',      (int) $rev['bundle_cents'],  'fa-layer-group'),
+        array('Events',       (int) $rev['event_cents'],   'fa-calendar-days'),
+        array('Services',     (int) $rev['service_cents'], 'fa-briefcase'),
+    );
+    $rev_max = max(1, (int) $rev['ppv_cents'], (int) $rev['bundle_cents'], (int) $rev['event_cents'], (int) $rev['service_cents']);
     ?>
-    <div class="dash__panel dash__chart">
+    <div class="dash__panel">
         <div class="dash__panel-head">
-            <div>
-                <h2 class="dash__panel-title">Views</h2>
-                <span class="dash__panel-sub">Last 30 days</span>
-            </div>
-            <div class="dash__chart-total"><strong><?php echo $fmt_num($total30); ?></strong> views</div>
+            <div><h2 class="dash__panel-title">Revenue by offering</h2><span class="dash__panel-sub">Lifetime · net of platform fees</span></div>
+            <div class="dash__chart-total"><strong><?php echo $fmt_money($rev['total_cents']); ?></strong> total</div>
         </div>
-        <div class="dash__bars" role="img" aria-label="Daily views over the last 30 days">
-            <?php foreach ($series as $p): $v = (int) $p['value']; $h = $v > 0 ? max(8, (int) round($v / $maxv * 100)) : 0; ?>
-            <div class="dash__col" title="<?php echo htmlspecialchars(date('D, M j', strtotime((string) $p['date'])) . ' — ' . $v . ' view' . ($v === 1 ? '' : 's'), ENT_QUOTES, 'UTF-8'); ?>">
-                <div class="dash__col-fill<?php echo $v > 0 ? ' is-on' : ''; ?>" style="height:<?php echo $h; ?>%"></div>
+        <?php if ((int) $rev['total_cents'] === 0): ?>
+        <div class="dash__empty">No revenue yet. Sell pay-per-view content, bundles, events, or services to see the breakdown here.</div>
+        <?php else: ?>
+        <div class="dash__break">
+            <?php foreach ($offerings as $o): $pct = $o[1] > 0 ? max(3, (int) round($o[1] / $rev_max * 100)) : 0; ?>
+            <div class="dash__break-row">
+                <span class="dash__break-label"><i class="fa-solid <?php echo $o[2]; ?>"></i> <?php echo htmlspecialchars($o[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                <span class="dash__break-track"><span class="dash__break-fill<?php echo $o[1] > 0 ? ' is-on' : ''; ?>" style="width:<?php echo $pct; ?>%"></span></span>
+                <span class="dash__break-val"><?php echo $fmt_money($o[1]); ?></span>
             </div>
             <?php endforeach; ?>
         </div>
-        <div class="dash__chart-axis">
-            <?php $step = max(1, (int) floor(($n - 1) / 5)); for ($i = 0; $i < $n; $i += $step): ?>
-            <span><?php echo date('M j', strtotime((string) $series[$i]['date'])); ?></span>
-            <?php endfor; ?>
-            <span><?php echo date('M j', strtotime((string) $series[$n - 1]['date'])); ?></span>
+        <?php endif; ?>
+    </div>
+
+    <div class="dash__panel dash__chart">
+        <div class="dash__panel-head">
+            <div><h2 class="dash__panel-title">Revenue</h2><span class="dash__panel-sub">Last 30 days</span></div>
+            <div class="dash__chart-total"><strong><?php echo $fmt_money($revenue30_cents); ?></strong> earned</div>
+        </div>
+        <?php $render_bars($revenue_series, true); ?>
+    </div>
+
+    <div class="dash__cols">
+        <div class="dash__panel dash__chart">
+            <div class="dash__panel-head">
+                <div><h2 class="dash__panel-title">Views</h2><span class="dash__panel-sub">Last 30 days</span></div>
+                <div class="dash__chart-total"><strong><?php echo $fmt_num(array_sum(array_map(function ($p) { return (int) $p['value']; }, $this->views_series))); ?></strong> views</div>
+            </div>
+            <?php $render_bars($this->views_series, false); ?>
+        </div>
+        <div class="dash__panel dash__chart">
+            <div class="dash__panel-head">
+                <div><h2 class="dash__panel-title">Follower growth</h2><span class="dash__panel-sub">Last 30 days</span></div>
+                <div class="dash__chart-total"><strong><?php echo ($new_followers30 > 0 ? '+' : '') . $fmt_num($new_followers30); ?></strong> new</div>
+            </div>
+            <?php $render_bars($follower_series, false); ?>
         </div>
     </div>
 

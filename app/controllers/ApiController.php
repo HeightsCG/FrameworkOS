@@ -2256,12 +2256,31 @@ class ApiController extends Controller {
         echo json_encode(array('success' => true)); exit;
     }
 
-    /* ---------- In-platform notifications (PRD §27) ---------- */
+    /* ---------- Notifications (PRD §27) ---------- */
 
-    /** Deliver an in-platform notification (respects the recipient's category prefs). */
+    /**
+     * Deliver a notification across every channel the recipient has enabled for the
+     * category: the on-site feed (UserNotificationsModel) and email (NotificationsModel).
+     * push() self-gates the in-platform pref; email is gated here (fail-closed on an
+     * unknown category). Email send is best-effort and never blocks the response path.
+     */
     private function notify($user_id, $category, $title, $body = '', $link = '', $icon = ''){
-        if ((int) $user_id <= 0) { return; }
-        (new UserNotificationsModel())->push((int) $user_id, $category, $title, $body, $link, $icon);
+        $user_id = (int) $user_id;
+        if ($user_id <= 0 || (string) $title === '') { return; }
+
+        // On-site feed (push re-checks the in-platform pref and no-ops if opted out).
+        (new UserNotificationsModel())->push($user_id, $category, $title, $body, $link, $icon);
+
+        // Email channel — only when the category's email pref is on.
+        $prefs = (new NotificationPrefsModel())->get_prefs_map($user_id);
+        if (empty($prefs[$category]['email'])) { return; }
+        $rows = $this->userModel->get_user_by_id($user_id);
+        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u || (string) $u['user_email'] === '') { return; }
+        (new NotificationsModel())->send_notification_email(
+            (string) $u['user_email'],
+            trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')),
+            (string) $title, (string) $body, (string) $link);
     }
 
     public function notifications_listAction(){
@@ -2419,6 +2438,226 @@ class ApiController extends Controller {
         $mid = (int) ($this->post['member_id'] ?? 0);
         if (!(new TeamModel())->remove($owner_id, $mid)) { echo json_encode(array('success' => false, 'message' => 'Could not remove member')); exit; }
         echo json_encode(array('success' => true)); exit;
+    }
+
+    /* ---------- Events (PRD §23) ---------- */
+
+    /** Create or edit an event (Manager+; times arrive in the creator's tz → stored UTC). */
+    public function event_saveAction(){
+        $user = $this->require_creator('manage');
+        $creator_id = (int) $user['user_id'];
+        $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $id = (int) ($this->post['id'] ?? 0);
+
+        $title = trim(html_entity_decode((string) ($this->post['title'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($title === '') { echo json_encode(array('success' => false, 'message' => 'A title is required')); exit; }
+        $start_local = trim((string) ($this->post['start_at'] ?? ''));
+        if ($start_local === '') { echo json_encode(array('success' => false, 'message' => 'A start date & time is required')); exit; }
+        $start_utc = $this->to_utc($start_local, $tz);
+        $end_local = trim((string) ($this->post['end_at'] ?? ''));
+        $end_utc   = $end_local !== '' ? $this->to_utc($end_local, $tz) : '';
+
+        $access = (string) ($this->post['access_type'] ?? 'free');
+        if (!in_array($access, EventsModel::access_types(), true)) { $access = 'free'; }
+        $price_credits = ($access === 'paid') ? (int) round(((float) ($this->post['price'] ?? 0)) * 10) : 0;   // $1 = 10 credits
+        $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+
+        $fields = array(
+            'title'               => $title,
+            'description'         => trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'start_at'            => $start_utc,
+            'end_at'              => $end_utc,
+            'timezone'            => $tz,
+            'access_type'         => $access,
+            'price_credits'       => $price_credits,
+            'tier_id'             => $tier_id,
+            'capacity'            => (int) ($this->post['capacity'] ?? 0),
+            'location'            => trim(html_entity_decode((string) ($this->post['location'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'external_url'        => trim((string) ($this->post['external_url'] ?? '')),
+            'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
+        );
+        $model = new EventsModel();
+        if ($id > 0) {
+            if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'Event not found')); exit; }
+            $model->update_event($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create($creator_id, $fields);
+        }
+        echo json_encode(array('success' => true, 'id' => $id, 'message' => 'Event saved')); exit;
+    }
+
+    public function event_deleteAction(){
+        $user = $this->require_creator('manage');
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Event required')); exit; }
+        (new EventsModel())->delete_event((int) $user['user_id'], $id);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    /** Register the signed-in user for an event (free / paid-with-credits / subscriber / tier). */
+    public function event_registerAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to register.')); exit; }
+        $id = (int) ($this->post['event_id'] ?? 0);
+        $model = new EventsModel();
+        $ev = $model->get_public($id);
+        if (!$ev) { echo json_encode(array('success' => false, 'message' => 'Event not found')); exit; }
+        $creator_id = (int) $ev['creator_id'];
+        if ($creator_id === $me) { echo json_encode(array('success' => false, 'message' => 'This is your own event.')); exit; }
+
+        if ($model->is_registered($id, $me)) { echo json_encode(array('success' => true, 'already' => true, 'access' => $this->event_access($ev))); exit; }
+        if ((int) $ev['capacity'] > 0 && $model->attendee_count($id) >= (int) $ev['capacity']) {
+            echo json_encode(array('success' => false, 'message' => 'This event is full.')); exit;
+        }
+
+        $access = (string) $ev['access_type'];
+        $paid = 0;
+        if ($access === 'subscribers' || $access === 'tier') {
+            $subs = new CreatorSubscriptionsModel();
+            $plan_ids = array_map('intval', (array) $subs->active_plan_ids($me, $creator_id));
+            $ok = !empty($plan_ids);
+            if ($access === 'tier' && (int) $ev['tier_id'] > 0) { $ok = in_array((int) $ev['tier_id'], $plan_ids, true); }
+            if (!$ok) { echo json_encode(array('success' => false, 'need_subscription' => true, 'message' => 'This event is for subscribers.')); exit; }
+        } elseif ($access === 'paid' && (int) $ev['price_credits'] > 0) {
+            $price = (int) $ev['price_credits'];
+            $credits = new CreditsModel();
+            if ($credits->get_balance($me) < $price) {
+                echo json_encode(array('success' => false, 'need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me), 'message' => 'Not enough credits.')); exit;
+            }
+            if ($credits->apply_delta($me, -$price, 'event_ticket', 'Event registration') === false) {
+                echo json_encode(array('success' => false, 'need_credits' => true, 'message' => 'Not enough credits.')); exit;
+            }
+            $paid = $price;
+            $crow = $this->userModel->get_user_by_id($creator_id);
+            $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;
+            $net = (int) round($price * (100 - Plan::fee_percent($crow)) / 100);
+            if ($net > 0) { $credits->apply_delta($creator_id, $net, 'event_earning', 'Event ticket'); }
+        }
+
+        $model->register($id, $me, $paid);
+        $t = mb_substr((string) $ev['title'], 0, 60);
+        $handle = '';
+        $h = $this->userModel->get_user_by_id($creator_id);
+        if (is_array($h) && count($h) === 1) { $handle = (string) $h[0]['u_name']; }
+        $this->notify($creator_id, 'events', 'New event registration', 'Someone registered for "' . $t . '".', '/events', 'fa-calendar-check');
+        $this->notify($me, 'events', 'Registration confirmed', 'You\'re registered for "' . $t . '".', $handle !== '' ? '/@' . $handle : '', 'fa-calendar-check');
+        echo json_encode(array('success' => true, 'access' => $this->event_access($ev))); exit;
+    }
+
+    public function event_cancelAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true)); exit; }
+        $id = (int) ($this->post['event_id'] ?? 0);
+        (new EventsModel())->cancel_registration($id, $me);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    /** The delivery details revealed to a registered attendee. */
+    private function event_access($ev){
+        return array(
+            'url'          => (string) ($ev['external_url'] ?? ''),
+            'location'     => (string) ($ev['location'] ?? ''),
+            'instructions' => html_entity_decode((string) ($ev['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        );
+    }
+
+    /* ---------- Services (PRD §22) ---------- */
+
+    public function service_saveAction(){
+        $user = $this->require_creator('manage');
+        $creator_id = (int) $user['user_id'];
+        $id = (int) ($this->post['id'] ?? 0);
+
+        $name = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($name === '') { echo json_encode(array('success' => false, 'message' => 'A name is required')); exit; }
+
+        $method = (string) ($this->post['delivery_method'] ?? 'custom');
+        if (!in_array($method, ServicesModel::delivery_methods(), true)) { $method = 'custom'; }
+
+        $fields = array(
+            'name'             => $name,
+            'description'      => trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'price_credits'    => (int) round(((float) ($this->post['price'] ?? 0)) * 10),   // $1 = 10 credits
+            'duration_min'     => (int) ($this->post['duration_min'] ?? 0),
+            'delivery_method'  => $method,
+            'scheduling_url'   => trim((string) ($this->post['scheduling_url'] ?? '')),
+            'delivery_details' => trim(html_entity_decode((string) ($this->post['delivery_details'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'capacity'         => (int) ($this->post['capacity'] ?? 0),
+            'category'         => trim(html_entity_decode((string) ($this->post['category'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'refund_policy'    => trim(html_entity_decode((string) ($this->post['refund_policy'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'status'           => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
+        );
+        $model = new ServicesModel();
+        if ($id > 0) {
+            if (!$model->get_one($creator_id, $id)) { echo json_encode(array('success' => false, 'message' => 'Service not found')); exit; }
+            $model->update_service($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create($creator_id, $fields);
+        }
+        echo json_encode(array('success' => true, 'id' => $id, 'message' => 'Service saved')); exit;
+    }
+
+    public function service_deleteAction(){
+        $user = $this->require_creator('manage');
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { echo json_encode(array('success' => false, 'message' => 'Service required')); exit; }
+        (new ServicesModel())->delete_service((int) $user['user_id'], $id);
+        echo json_encode(array('success' => true)); exit;
+    }
+
+    /** Buy a service (one-time, credits). Reveals the booking + delivery details on success. */
+    public function service_purchaseAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(array('success' => false, 'need_login' => true, 'message' => 'Sign in to book.')); exit; }
+        $id = (int) ($this->post['service_id'] ?? 0);
+        $model = new ServicesModel();
+        $sv = $model->get_public($id);
+        if (!$sv) { echo json_encode(array('success' => false, 'message' => 'Service not found')); exit; }
+        $creator_id = (int) $sv['creator_id'];
+        if ($creator_id === $me) { echo json_encode(array('success' => false, 'message' => 'This is your own service.')); exit; }
+
+        // Already purchased — just hand back the booking details.
+        if ($model->has_purchased($id, $me)) { echo json_encode(array('success' => true, 'already' => true, 'access' => $this->service_access($sv))); exit; }
+        // Group service with a seat cap.
+        if ((int) $sv['capacity'] > 0 && $model->purchase_count($id) >= (int) $sv['capacity']) {
+            echo json_encode(array('success' => false, 'message' => 'This service is fully booked.')); exit;
+        }
+
+        $paid = 0;
+        $price = (int) $sv['price_credits'];
+        if ($price > 0) {
+            $credits = new CreditsModel();
+            if ($credits->get_balance($me) < $price) {
+                echo json_encode(array('success' => false, 'need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me), 'message' => 'Not enough credits.')); exit;
+            }
+            if ($credits->apply_delta($me, -$price, 'service_purchase', 'Service purchase') === false) {
+                echo json_encode(array('success' => false, 'need_credits' => true, 'message' => 'Not enough credits.')); exit;
+            }
+            $paid = $price;
+            $crow = $this->userModel->get_user_by_id($creator_id);
+            $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;
+            $net = (int) round($price * (100 - Plan::fee_percent($crow)) / 100);
+            if ($net > 0) { $credits->apply_delta($creator_id, $net, 'service_earning', 'Service sale'); }
+        }
+
+        $model->record_purchase($id, $me, $paid);
+        $t = mb_substr((string) $sv['name'], 0, 60);
+        $handle = '';
+        $h = $this->userModel->get_user_by_id($creator_id);
+        if (is_array($h) && count($h) === 1) { $handle = (string) $h[0]['u_name']; }
+        $this->notify($creator_id, 'services', 'New service booking', 'Someone booked "' . $t . '".', '/services', 'fa-briefcase');
+        $this->notify($me, 'services', 'Booking confirmed', 'You booked "' . $t . '". Schedule your session next.', $handle !== '' ? '/@' . $handle : '', 'fa-briefcase');
+        echo json_encode(array('success' => true, 'access' => $this->service_access($sv))); exit;
+    }
+
+    /** The booking + delivery details revealed to a buyer. */
+    private function service_access($sv){
+        return array(
+            'method'         => (string) ($sv['delivery_method'] ?? 'custom'),
+            'scheduling_url' => (string) ($sv['scheduling_url'] ?? ''),
+            'details'        => html_entity_decode((string) ($sv['delivery_details'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        );
     }
 
     /* ---------- Reports / trust & safety (PRD §35–37) ---------- */
