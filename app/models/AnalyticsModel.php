@@ -114,6 +114,87 @@ class AnalyticsModel extends Model {
         return $this->fill_days($rows, $start, $days);
     }
 
+    /** Profile-view metrics within the window: total visits and unique visitors. */
+    public function profile_view_stats($creator_id, $days, $tz){
+        list(, $start_utc) = $this->day_window($days, $tz);
+        $c = (int) $creator_id;
+        $r = parent::select(
+            "SELECT COUNT(*) AS views, COUNT(DISTINCT viewer_key) AS uniq
+             FROM profile_views WHERE creator_id = :c AND created_at >= :s",
+            array('c' => $c, 's' => $start_utc));
+        $row = (is_array($r) && count($r)) ? $r[0] : array();
+        return array('views' => (int) ($row['views'] ?? 0), 'unique' => (int) ($row['uniq'] ?? 0));
+    }
+
+    /** Outbound link-click metrics within the window: total clicks and top links. */
+    public function link_click_stats($creator_id, $days, $tz){
+        list(, $start_utc) = $this->day_window($days, $tz);
+        $c = (int) $creator_id;
+        $total = parent::select(
+            "SELECT COUNT(*) AS n FROM link_clicks WHERE creator_id = :c AND created_at >= :s",
+            array('c' => $c, 's' => $start_utc));
+        $top = parent::select(
+            "SELECT lc.link_id, COUNT(*) AS clicks, cl.title, cl.url
+             FROM link_clicks lc JOIN creator_links cl ON cl.id = lc.link_id
+             WHERE lc.creator_id = :c AND lc.created_at >= :s
+             GROUP BY lc.link_id, cl.title, cl.url
+             ORDER BY clicks DESC LIMIT 6",
+            array('c' => $c, 's' => $start_utc));
+        return array(
+            'total' => (int) (is_array($total) && count($total) ? $total[0]['n'] : 0),
+            'top'   => (array) $top,
+        );
+    }
+
+    /**
+     * When the audience is active: a 7×24 grid (day-of-week × hour) of view counts in
+     * the creator's timezone — the "best time to post" heatmap. Row 0 = Sunday.
+     */
+    public function activity_heatmap($creator_id, $tz){
+        list(, , $off) = $this->day_window(1, $tz);
+        $rows = parent::select(
+            "SELECT DAYOFWEEK(CONVERT_TZ(pv.created_at, '+00:00', :off1)) AS dow,
+                    HOUR(CONVERT_TZ(pv.created_at, '+00:00', :off2)) AS hr, COUNT(*) AS n
+             FROM post_views pv JOIN posts p ON p.id = pv.post_id
+             WHERE p.creator_id = :c
+             GROUP BY dow, hr",
+            array('c' => (int) $creator_id, 'off1' => $off, 'off2' => $off));
+        $grid = array_fill(0, 7, array_fill(0, 24, 0));
+        $max = 0;
+        foreach ((array) $rows as $r) {
+            $d = (int) $r['dow'] - 1; $h = (int) $r['hr']; $n = (int) $r['n'];
+            if ($d < 0 || $d > 6 || $h < 0 || $h > 23) { continue; }
+            $grid[$d][$h] = $n;
+            if ($n > $max) { $max = $n; }
+        }
+        return array('grid' => $grid, 'max' => $max);
+    }
+
+    /** Content mix: posts / views / revenue split by audience type (free / subscribers / ppv). */
+    public function content_mix($creator_id){
+        $rows = parent::select(
+            "SELECT audience, COUNT(*) AS posts, COALESCE(SUM(views),0) AS views, COALESCE(SUM(earnings_cents),0) AS earnings
+             FROM posts WHERE creator_id = :c AND state = 'published' GROUP BY audience",
+            array('c' => (int) $creator_id));
+        $mix = array();
+        foreach ((array) $rows as $r) {
+            $mix[(string) $r['audience']] = array(
+                'posts'    => (int) $r['posts'],
+                'views'    => (int) $r['views'],
+                'earnings' => (int) $r['earnings'],
+            );
+        }
+        return $mix;
+    }
+
+    /** Full credit-ledger rows for the CSV export (newest first). */
+    public function export_rows($creator_id){
+        return (array) parent::select(
+            "SELECT created_at, type, credits, balance_after, description
+             FROM credit_transactions WHERE user_id = :c ORDER BY id DESC",
+            array('c' => (int) $creator_id));
+    }
+
     /** The UTC start of a range window (for scoping breakdowns to the selected range). */
     public function range_start_utc($days, $tz){
         list(, $start_utc) = $this->day_window($days, $tz);

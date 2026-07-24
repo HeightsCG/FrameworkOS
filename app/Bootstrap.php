@@ -36,6 +36,12 @@ class Bootstrap
             return;
         }
 
+        // Outbound link click-through: /go/<id> records the click then redirects.
+        if (isset($url[0]) && $url[0] === 'go') {
+            (new GoController())->indexAction();
+            return;
+        }
+
         $c = Main::controller_name();
         $m = Main::method_name();
         if (class_exists($c)) {

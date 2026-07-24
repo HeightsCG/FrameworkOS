@@ -48,9 +48,41 @@ class DashboardController extends Controller {
         $this->view->recent_sales      = $a->recent_sales($user_id, 8);
         $this->view->customers         = $a->customer_stats($user_id);
         $this->view->sub_movement      = $a->subscriber_movement($user_id, $range, $tz);
+        $this->view->profile_views     = $a->profile_view_stats($user_id, $range, $tz);
+        $this->view->link_clicks       = $a->link_click_stats($user_id, $range, $tz);
+        $this->view->heatmap           = $a->activity_heatmap($user_id, $tz);
+        $this->view->content_mix       = $a->content_mix($user_id);
         $this->view->timezone          = $tz;
 
         $this->view->render();
+    }
+
+    /**
+     * CSV export of the creator's credit ledger (PRD §41 "revenue by date range" —
+     * downloadable for accounting). Streams a file download, not a rendered view.
+     */
+    public function exportAction(){
+        if (!Permissions::can_act_as_creator()) { header('Location: /'); exit; }
+        $user_id = Permissions::creator_id();
+        $rows = (new AnalyticsModel())->export_rows($user_id);
+
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="creator-transactions.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, array('Date (UTC)', 'Type', 'Credits', 'Amount (USD)', 'Balance (credits)', 'Description'), ',', '"', '\\');
+        foreach ($rows as $r) {
+            $credits = (int) $r['credits'];
+            fputcsv($out, array(
+                (string) $r['created_at'],
+                (string) $r['type'],
+                $credits,
+                number_format($credits / 10, 2, '.', ''),   // 1 credit = 10 cents
+                (int) $r['balance_after'],
+                html_entity_decode((string) $r['description'], ENT_QUOTES, 'UTF-8'),
+            ), ',', '"', '\\');
+        }
+        fclose($out);
+        exit;
     }
 
 }

@@ -307,7 +307,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     <div class="pf-info">
                         <div class="pf-links">
                             <?php foreach ($links as $link): ?>
-                            <a class="pf-link" href="<?php echo htmlspecialchars($link['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow">
+                            <a class="pf-link" href="/go/<?php echo (int) $link['id']; ?>" target="_blank" rel="noopener noreferrer nofollow">
                                 <span class="pf-link__title"><?php echo htmlspecialchars($link['title'], ENT_QUOTES, 'UTF-8'); ?></span>
                                 <i class="fa-solid fa-arrow-up-right-from-square pf-link__icon"></i>
                             </a>

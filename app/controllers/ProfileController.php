@@ -77,6 +77,15 @@ class ProfileController extends Controller {
         $is_self         = ($viewer_id === (int) $user['user_id']);
         $viewer_logged_in = ($viewer_id > 0);
         $is_following    = $viewer_logged_in ? $follows->is_following($viewer_id, $user['user_id']) : false;
+
+        // Log a profile view (PRD §7.5) — the creator's own visits don't count. viewer_key
+        // mirrors post_views so unique-visitor counts line up across the two.
+        if (!$is_self) {
+            $vkey = $viewer_id > 0
+                ? ('u:' . $viewer_id)
+                : ('ip:' . substr(hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . ($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 40));
+            (new ProfileViewsModel())->record((int) $user['user_id'], $vkey);
+        }
         $follower_count  = $follows->count_followers($user['user_id']);
         $member_since    = !empty($user['creator_since']) ? date('F Y', strtotime((string) $user['creator_since'])) : '';
 

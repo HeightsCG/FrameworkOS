@@ -66,6 +66,20 @@
 .dash__tab-panel{ display:none; }
 .dash__tab-panel.is-active{ display:block; }
 
+/* --- CSV export button --- */
+.dash__export{ display:inline-flex; align-items:center; gap:.4rem; border:1px solid var(--dash-border); border-radius:var(--r-sm); background:#fff; color:var(--t2, #3c4257); font-size:.8rem; font-weight:600; text-decoration:none; padding:.4rem .7rem; transition:border-color .12s,color .12s; }
+.dash__export:hover{ border-color:var(--violet); color:var(--violet7); }
+
+/* --- activity heatmap --- */
+.dash__heat{ display:flex; flex-direction:column; gap:3px; }
+.dash__heat-axis{ display:grid; grid-template-columns:repeat(24, 1fr); margin-left:38px; font-size:.68rem; color:var(--muted2); margin-bottom:2px; }
+.dash__heat-axis span{ text-align:left; }
+.dash__heat-row{ display:flex; align-items:center; gap:6px; }
+.dash__heat-day{ width:32px; flex:none; font-size:.72rem; font-weight:600; color:var(--muted); text-align:right; }
+.dash__heat-cells{ display:grid; grid-template-columns:repeat(24, 1fr); gap:3px; flex:1 1 0; }
+.dash__heat-cell{ aspect-ratio:1/1; border-radius:2px; background:#f1f0f5; }
+.dash__heat-cell:hover{ outline:1.5px solid var(--violet); }
+
 /* --- stat strip (customers & subscribers) --- */
 .dash__stats{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1.4rem; }
 .dash__stat{ display:flex; flex-direction:column; gap:.25rem; }

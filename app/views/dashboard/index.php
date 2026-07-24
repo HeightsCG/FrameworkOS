@@ -147,7 +147,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         </div>
 
         <div class="dash__panel">
-            <div class="dash__panel-head"><h2 class="dash__panel-title">Recent sales</h2><span class="dash__panel-sub">all offerings</span></div>
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent sales</h2><span class="dash__panel-sub">all offerings</span></div><a class="dash__export" href="/dashboard/export"><i class="fa-solid fa-download"></i> Export CSV</a></div>
             <?php if (empty($this->recent_sales)): ?>
                 <div class="dash__empty">No sales yet.</div>
             <?php else: ?>
@@ -183,6 +183,81 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                 </div>
                 <?php $render_bars($follower_series, false); ?>
             </div>
+        </div>
+
+        <?php
+        // ---- Traffic & conversion ----
+        $pv    = $this->profile_views;
+        $uniqv = (int) $pv['unique'];
+        $follow_conv = $uniqv > 0 ? round((int) $cur['followers'] / $uniqv * 100, 1) : 0;
+        $sub_conv    = $uniqv > 0 ? round((int) $cur['subscribers'] / $uniqv * 100, 1) : 0;
+        $traffic_stats = array(
+            array('Profile views',   $fmt_num($pv['views']),  'total visits'),
+            array('Unique visitors',  $fmt_num($uniqv),        'distinct people'),
+            array('Follow rate',      ($uniqv > 0 ? $follow_conv . '%' : '—'), 'visitors who followed'),
+            array('Subscribe rate',   ($uniqv > 0 ? $sub_conv . '%' : '—'),    'visitors who subscribed'),
+        );
+        ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Traffic &amp; conversion</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div></div>
+            <div class="dash__stats">
+                <?php foreach ($traffic_stats as $st): ?>
+                <div class="dash__stat">
+                    <span class="dash__stat-label"><?php echo htmlspecialchars($st[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="dash__stat-value"><?php echo $st[1]; ?></span>
+                    <span class="dash__stat-sub"><?php echo htmlspecialchars($st[2], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <?php $lc = $this->link_clicks; ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Link clicks</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div><div class="dash__chart-total"><strong><?php echo $fmt_num($lc['total']); ?></strong> clicks</div></div>
+            <?php if (empty($lc['top'])): ?>
+                <div class="dash__empty">No link clicks in this period. Clicks on the links on your profile are tracked here.</div>
+            <?php else: ?>
+            <div class="dash__list">
+                <?php foreach ($lc['top'] as $l): ?>
+                <div class="dash__row dash__row--static">
+                    <span class="dash__row-main">
+                        <span class="dash__row-title"><?php echo htmlspecialchars(mb_substr((string) $l['title'], 0, 50), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="dash__row-meta"><?php echo htmlspecialchars(preg_replace('#^https?://(www\.)?#i', '', (string) $l['url']), ENT_QUOTES, 'UTF-8'); ?></span>
+                    </span>
+                    <span class="dash__amount"><?php echo $fmt_num($l['clicks']); ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <?php
+        // ---- Best-time-to-post heatmap (views by day × hour, creator timezone) ----
+        $hm    = $this->heatmap;
+        $hgrid = $hm['grid'];
+        $hmax  = max(1, (int) $hm['max']);
+        $hdays = array('Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat');
+        $hhour = function ($h) { $ap = $h < 12 ? 'a' : 'p'; $h12 = $h % 12; if ($h12 === 0) { $h12 = 12; } return $h12 . $ap; };
+        ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">When your audience is active</h2><span class="dash__panel-sub">Content views by day &amp; hour · <?php echo htmlspecialchars($dash_tz, ENT_QUOTES, 'UTF-8'); ?></span></div></div>
+            <?php if ((int) $hm['max'] === 0): ?>
+            <div class="dash__empty">Not enough view data yet. As people view your content, the busiest days and hours show up here.</div>
+            <?php else: ?>
+            <div class="dash__heat">
+                <div class="dash__heat-axis"><?php for ($h = 0; $h < 24; $h += 6): ?><span style="grid-column:<?php echo $h + 1; ?> / span 6"><?php echo $hhour($h); ?></span><?php endfor; ?></div>
+                <?php foreach ($hdays as $di => $dname): ?>
+                <div class="dash__heat-row">
+                    <span class="dash__heat-day"><?php echo $dname; ?></span>
+                    <div class="dash__heat-cells">
+                        <?php for ($h = 0; $h < 24; $h++): $n = (int) $hgrid[$di][$h]; $a = $n > 0 ? round(0.18 + 0.82 * $n / $hmax, 3) : 0; ?>
+                        <span class="dash__heat-cell" <?php echo $n > 0 ? 'style="background:rgba(91,75,224,' . $a . ')"' : ''; ?> title="<?php echo $dname . ' ' . $hhour($h) . ' — ' . $n . ' view' . ($n === 1 ? '' : 's'); ?>"></span>
+                        <?php endfor; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
     </section>
 
@@ -225,6 +300,31 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                     </span>
                     <?php if ($p['audience'] === 'ppv'): ?><span class="dash__tag">PPV</span><?php elseif ($p['audience'] === 'subscribers'): ?><span class="dash__tag dash__tag--sub">Subs</span><?php endif; ?>
                 </a>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <?php
+        // ---- Content mix by audience type ----
+        $cm = $this->content_mix;
+        $mix_types = array('free' => 'Free', 'subscribers' => 'Subscribers', 'ppv' => 'Pay-per-view');
+        $mix_has = false; foreach ($cm as $mrow) { if ((int) $mrow['posts'] > 0) { $mix_has = true; break; } }
+        ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><h2 class="dash__panel-title">Content mix</h2><span class="dash__panel-sub">by audience type</span></div>
+            <?php if (!$mix_has): ?>
+            <div class="dash__empty">No published content yet.</div>
+            <?php else: ?>
+            <div class="dash__list">
+                <?php foreach ($mix_types as $key => $label): $m = $cm[$key] ?? array('posts' => 0, 'views' => 0, 'earnings' => 0); ?>
+                <div class="dash__row dash__row--static">
+                    <span class="dash__row-main">
+                        <span class="dash__row-title"><?php echo htmlspecialchars($label, ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="dash__row-meta"><?php echo $fmt_num($m['posts']); ?> post<?php echo (int) $m['posts'] === 1 ? '' : 's'; ?> · <i class="fa-regular fa-eye"></i> <?php echo $fmt_num($m['views']); ?> views</span>
+                    </span>
+                    <span class="dash__amount"><?php echo (int) $m['earnings'] > 0 ? $fmt_money($m['earnings']) : '—'; ?></span>
+                </div>
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>

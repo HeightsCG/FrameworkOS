@@ -16,6 +16,15 @@ class CreatorLinksModel extends Model {
         );
     }
 
+    /** A single enabled link by id (any owner) — for the public /go click-through. */
+    public function get_public($id){
+        $rows = parent::select(
+            "SELECT id, user_id, url, is_enabled FROM creator_links WHERE id = :id",
+            array('id' => (int) $id)
+        );
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
     /** A single link scoped to its owner, or null. */
     public function get_one($user_id, $id){
         $rows = parent::select(
