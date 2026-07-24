@@ -10,8 +10,23 @@
 .dash__title{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; margin:0; color:var(--text); }
 .dash__sub{ color:var(--muted); font-size:.95rem; margin:.3rem 0 0; }
 
+/* --- toolbar + date-range selector --- */
+.dash__toolbar{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem; flex-wrap:wrap; }
+.dash__toolbar-label{ font-size:.92rem; font-weight:600; color:var(--text); }
+.dash__toolbar-hint{ font-weight:400; color:var(--muted); font-size:.82rem; }
+.dash__range{ display:inline-flex; background:#f1f0f5; border:1px solid var(--dash-border); border-radius:var(--r-sm); padding:2px; gap:2px; }
+.dash__range-btn{ font-size:.82rem; font-weight:600; color:var(--muted); text-decoration:none; padding:.34rem .8rem; border-radius:6px; transition:background .12s,color .12s; }
+.dash__range-btn:hover{ color:var(--text); }
+.dash__range-btn.is-active{ background:#fff; color:var(--violet7); box-shadow:0 1px 2px rgba(15,17,26,.06); }
+
 /* --- KPI cards --- */
 .dash__kpis{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1rem; margin-bottom:1.2rem; }
+.kpi__value{ display:flex; align-items:baseline; gap:.5rem; flex-wrap:wrap; }
+.kpi__delta{ font-size:.72rem; font-weight:700; padding:.1rem .4rem; border-radius:999px; letter-spacing:.01em; white-space:nowrap; }
+.kpi__delta--up{ background:rgba(26,158,106,.12); color:#188055; }
+.kpi__delta--down{ background:rgba(224,72,77,.12); color:#c73b40; }
+.kpi__delta--flat{ background:rgba(20,18,40,.06); color:var(--muted); }
+.kpi__delta--new{ background:var(--vsoft); color:var(--violet7); }
 .kpi{ background:#fff; border:1px solid var(--dash-border); border-radius:var(--r-sm); box-shadow:var(--dash-ishadow); padding:1.1rem 1.2rem; }
 .kpi__top{ display:flex; align-items:center; justify-content:space-between; }
 .kpi__label{ font-size:.8rem; font-weight:600; color:#3c4257; }
@@ -40,6 +55,24 @@
 .dash__chart-axis span:last-child{ text-align:right; }
 .dash__chart-axis{ display:flex; justify-content:space-between; font-size:.74rem; color:var(--muted2); margin-top:.4rem; }
 .dash__chart-empty{ padding:2.6rem 1rem; text-align:center; color:var(--muted); font-size:.9rem; }
+
+/* --- tabs --- */
+.dash__tabs{ display:flex; gap:.3rem; border-bottom:1px solid var(--dash-border); margin-bottom:1.3rem; }
+.dash__tab{ display:inline-flex; align-items:center; gap:.5rem; background:none; border:0; border-bottom:2px solid transparent; margin-bottom:-1px; padding:.6rem .3rem; font-size:.92rem; font-weight:600; color:var(--muted); cursor:pointer; transition:color .12s,border-color .12s; }
+.dash__tab + .dash__tab{ margin-left:1.1rem; }
+.dash__tab i{ font-size:.85rem; }
+.dash__tab:hover{ color:var(--text); }
+.dash__tab.is-active{ color:var(--violet7); border-bottom-color:var(--violet); }
+.dash__tab-panel{ display:none; }
+.dash__tab-panel.is-active{ display:block; }
+
+/* --- stat strip (customers & subscribers) --- */
+.dash__stats{ display:grid; grid-template-columns:repeat(4, 1fr); gap:1.4rem; }
+.dash__stat{ display:flex; flex-direction:column; gap:.25rem; }
+.dash__stat + .dash__stat{ border-left:1px solid var(--line2, #f0f0f3); padding-left:1.4rem; }
+.dash__stat-label{ font-size:.78rem; font-weight:600; color:var(--muted); }
+.dash__stat-value{ font-size:1.5rem; font-weight:700; letter-spacing:-.02em; color:var(--text); }
+.dash__stat-sub{ font-size:.76rem; color:var(--muted2); }
 
 /* --- revenue-by-offering breakdown --- */
 .dash__break{ display:flex; flex-direction:column; gap:.85rem; }

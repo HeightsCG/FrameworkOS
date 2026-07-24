@@ -114,6 +114,53 @@ class AnalyticsModel extends Model {
         return $this->fill_days($rows, $start, $days);
     }
 
+    /** The UTC start of a range window (for scoping breakdowns to the selected range). */
+    public function range_start_utc($days, $tz){
+        list(, $start_utc) = $this->day_window($days, $tz);
+        return $start_utc;
+    }
+
+    /**
+     * Current vs. previous period totals for the headline metrics, with % deltas
+     * (PRD §41 "conversion rates / trends"). A null delta means "no prior baseline"
+     * (previous period was zero) — the view shows it as "new" rather than a bogus %.
+     */
+    public function compare_periods($creator_id, $days, $tz){
+        list($start, $start_utc, , $days) = $this->day_window($days, $tz);
+        $utc = new DateTimeZone('UTC');
+        $now_utc    = (new DateTime('now', $utc))->format('Y-m-d H:i:s');
+        $prev_start = (clone $start)->modify('-' . $days . ' days');
+        $prev_utc   = (clone $prev_start)->setTimezone($utc)->format('Y-m-d H:i:s');
+
+        $cur  = $this->window_totals($creator_id, $start_utc, $now_utc);
+        $prev = $this->window_totals($creator_id, $prev_utc, $start_utc);
+        $delta = array();
+        foreach ($cur as $k => $v) {
+            $p = (int) $prev[$k];
+            $delta[$k] = $p > 0 ? (int) round(($v - $p) / $p * 100) : ($v > 0 ? null : 0);
+        }
+        return array('current' => $cur, 'previous' => $prev, 'delta' => $delta, 'start_utc' => $start_utc);
+    }
+
+    /** Revenue (cents) / views / new followers / new subscribers within [start, end). */
+    private function window_totals($creator_id, $start_utc, $end_utc){
+        $c = (int) $creator_id;
+        $p = array('c' => $c, 's' => $start_utc, 'e' => $end_utc);
+        $rev = parent::select(
+            "SELECT COALESCE(SUM(credits),0) * 10 AS n FROM credit_transactions
+             WHERE user_id = :c AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')
+               AND created_at >= :s AND created_at < :e", $p);
+        $views = parent::select(
+            "SELECT COUNT(*) AS n FROM post_views pv JOIN posts po ON po.id = pv.post_id
+             WHERE po.creator_id = :c AND pv.created_at >= :s AND pv.created_at < :e", $p);
+        $fol = parent::select(
+            "SELECT COUNT(*) AS n FROM follows WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
+        $sub = parent::select(
+            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
+        $g = function ($r) { return (int) (is_array($r) && count($r) ? $r[0]['n'] : 0); };
+        return array('revenue_cents' => $g($rev), 'views' => $g($views), 'followers' => $g($fol), 'subscribers' => $g($sub));
+    }
+
     /**
      * Shared window for the daily trend charts. Returns [start (DateTime, creator-local
      * midnight), start_utc (string), numeric tz offset (e.g. -04:00), clamped days].
@@ -143,16 +190,89 @@ class AnalyticsModel extends Model {
         return $out;
     }
 
-    /** Top published posts by views, with engagement + PPV earnings. */
+    /** Top published posts, ranked by earnings first then views (top-earning content). */
     public function top_posts($creator_id, $limit = 5){
         $limit = max(1, min(20, (int) $limit));
         return parent::select(
             "SELECT id, caption, audience, views, likes, comments, earnings_cents, published_at
              FROM posts
              WHERE creator_id = :c AND state = 'published'
-             ORDER BY views DESC, earnings_cents DESC
+             ORDER BY earnings_cents DESC, views DESC
              LIMIT $limit",
             array('c' => (int) $creator_id));
+    }
+
+    /**
+     * Unified recent sales across every paid offering (PPV, bundles, events, services).
+     * Amounts are the gross price the buyer paid, in credits. COLLATE reconciles the
+     * differing text collations across the joined title columns.
+     */
+    public function recent_sales($creator_id, $limit = 8){
+        $limit = max(1, min(50, (int) $limit));
+        $c = (int) $creator_id;
+        return (array) parent::select(
+            "SELECT x.kind, x.credits, x.created_at, x.item FROM (
+                SELECT 'ppv' AS kind, pu.price_credits AS credits, pu.created_at AS created_at, p.caption COLLATE utf8mb4_unicode_ci AS item
+                  FROM ppv_unlocks pu JOIN posts p ON p.id = pu.post_id
+                  WHERE pu.creator_id = :c1 AND pu.price_credits > 0
+                UNION ALL
+                SELECT 'bundle', bu.price_credits, bu.created_at, b.name COLLATE utf8mb4_unicode_ci
+                  FROM bundle_unlocks bu JOIN content_bundles b ON b.id = bu.bundle_id
+                  WHERE bu.creator_id = :c2 AND bu.price_credits > 0
+                UNION ALL
+                SELECT 'event', er.price_credits, er.created_at, e.title COLLATE utf8mb4_unicode_ci
+                  FROM event_registrations er JOIN events e ON e.id = er.event_id
+                  WHERE e.creator_id = :c3 AND er.status = 'registered' AND er.price_credits > 0
+                UNION ALL
+                SELECT 'service', sp.price_credits, sp.created_at, s.name COLLATE utf8mb4_unicode_ci
+                  FROM service_purchases sp JOIN services s ON s.id = sp.service_id
+                  WHERE s.creator_id = :c4 AND sp.status = 'paid' AND sp.price_credits > 0
+             ) x ORDER BY x.created_at DESC LIMIT $limit",
+            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c));
+    }
+
+    /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */
+    public function customer_stats($creator_id){
+        $c = (int) $creator_id;
+        $rows = parent::select(
+            "SELECT buyer, COUNT(*) AS purchases, SUM(credits) AS spent FROM (
+                SELECT pu.fan_id AS buyer, pu.price_credits AS credits FROM ppv_unlocks pu WHERE pu.creator_id = :c1 AND pu.price_credits > 0
+                UNION ALL
+                SELECT bu.fan_id, bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.price_credits > 0
+                UNION ALL
+                SELECT er.user_id, er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c3 AND er.status = 'registered' AND er.price_credits > 0
+                UNION ALL
+                SELECT sp.buyer_id, sp.price_credits FROM service_purchases sp JOIN services s ON s.id = sp.service_id WHERE s.creator_id = :c4 AND sp.status = 'paid' AND sp.price_credits > 0
+             ) x GROUP BY buyer",
+            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c));
+        $customers = 0; $repeat = 0; $credits = 0;
+        foreach ((array) $rows as $r) {
+            $customers++;
+            if ((int) $r['purchases'] > 1) { $repeat++; }
+            $credits += (int) $r['spent'];
+        }
+        return array(
+            'customers'   => $customers,
+            'repeat'      => $repeat,
+            'repeat_pct'  => $customers > 0 ? (int) round($repeat / $customers * 100) : 0,
+            'arpu_cents'  => $customers > 0 ? (int) round($credits * 10 / $customers) : 0,
+            'gross_cents' => $credits * 10,
+        );
+    }
+
+    /** New vs. churned subscribers within the window, and the net change. */
+    public function subscriber_movement($creator_id, $days, $tz){
+        list(, $start_utc) = $this->day_window($days, $tz);
+        $c = (int) $creator_id;
+        $new = parent::select(
+            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND created_at >= :s",
+            array('c' => $c, 's' => $start_utc));
+        $churn = parent::select(
+            "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND canceled_at IS NOT NULL AND canceled_at >= :s",
+            array('c' => $c, 's' => $start_utc));
+        $g = function ($r) { return (int) (is_array($r) && count($r) ? $r[0]['n'] : 0); };
+        $n = $g($new); $ch = $g($churn);
+        return array('new' => $n, 'churned' => $ch, 'net' => $n - $ch);
     }
 
     /** Recent PPV unlocks (earning events) for the activity feed. */

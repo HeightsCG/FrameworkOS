@@ -27,14 +27,27 @@ class DashboardController extends Controller {
         $this->view->is_creator   = true;
 
         $tz = (string) ($user['content_timezone'] ?? 'UTC');
+
+        // Date range from the URL (/dashboard/index/<days>), 30 by default. No $_GET —
+        // this is the routed path segment. Only a fixed set of ranges is allowed.
+        $url   = Main::get_url();
+        $range = (int) ($url[2] ?? 30);
+        if (!in_array($range, array(7, 30, 90), true)) { $range = 30; }
+
         $a = new AnalyticsModel();
+        $start_utc = $a->range_start_utc($range, $tz);
+        $this->view->range             = $range;
         $this->view->stats             = $a->overview($user_id);
-        $this->view->views_series      = $a->views_series($user_id, 30, $tz);
-        $this->view->revenue_series    = $a->revenue_series($user_id, 30, $tz);
-        $this->view->follower_series   = $a->follower_series($user_id, 30, $tz);
-        $this->view->revenue_breakdown = $a->revenue_breakdown($user_id);
+        $this->view->compare           = $a->compare_periods($user_id, $range, $tz);
+        $this->view->views_series      = $a->views_series($user_id, $range, $tz);
+        $this->view->revenue_series    = $a->revenue_series($user_id, $range, $tz);
+        $this->view->follower_series   = $a->follower_series($user_id, $range, $tz);
+        $this->view->revenue_breakdown = $a->revenue_breakdown($user_id, $start_utc);
+        $this->view->revenue_lifetime  = $a->revenue_breakdown($user_id);   // all-time total for KPI context
         $this->view->top_posts         = $a->top_posts($user_id, 5);
-        $this->view->recent_unlocks    = $a->recent_unlocks($user_id, 8);
+        $this->view->recent_sales      = $a->recent_sales($user_id, 8);
+        $this->view->customers         = $a->customer_stats($user_id);
+        $this->view->sub_movement      = $a->subscriber_movement($user_id, $range, $tz);
         $this->view->timezone          = $tz;
 
         $this->view->render();

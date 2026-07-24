@@ -2089,7 +2089,8 @@ class ApiController extends Controller {
         if ($conv) {
             $recipient = ((int) $conv['creator_id'] === $me) ? (int) $conv['user_id'] : (int) $conv['creator_id'];
             $sender = $model->identity_map(array($me))[$me] ?? array('name' => 'Someone');
-            $this->notify($recipient, 'messages', 'New message from ' . $sender['name'], mb_substr($body, 0, 140), '', 'fa-comment-dots');
+            // Email only if the recipient is offline (they'd see an online DM live).
+            $this->notify($recipient, 'messages', 'New message from ' . $sender['name'], mb_substr($body, 0, 140), '/', 'fa-comment-dots', true);
         }
 
         echo json_encode(array('success' => true, 'conversation_id' => $conv_id,
@@ -2264,7 +2265,7 @@ class ApiController extends Controller {
      * push() self-gates the in-platform pref; email is gated here (fail-closed on an
      * unknown category). Email send is best-effort and never blocks the response path.
      */
-    private function notify($user_id, $category, $title, $body = '', $link = '', $icon = ''){
+    private function notify($user_id, $category, $title, $body = '', $link = '', $icon = '', $email_if_offline = false){
         $user_id = (int) $user_id;
         if ($user_id <= 0 || (string) $title === '') { return; }
 
@@ -2277,10 +2278,19 @@ class ApiController extends Controller {
         $rows = $this->userModel->get_user_by_id($user_id);
         $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$u || (string) $u['user_email'] === '') { return; }
+        // Presence-gated categories (DMs): skip the email if the recipient is online and
+        // will see it in real time — email is a catch-up nudge for people who are away.
+        if ($email_if_offline && $this->is_online($u)) { return; }
         (new NotificationsModel())->send_notification_email(
             (string) $u['user_email'],
             trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')),
             (string) $title, (string) $body, (string) $link);
+    }
+
+    /** Online = the account was active within the last 5 minutes (last_active_at is UTC). */
+    private function is_online($user_row){
+        $la = $user_row['last_active_at'] ?? null;
+        return $la !== null && strtotime((string) $la . ' UTC') >= time() - 300;
     }
 
     public function notifications_listAction(){
