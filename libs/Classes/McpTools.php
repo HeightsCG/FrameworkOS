@@ -112,8 +112,19 @@ class McpTools {
                 'price_credits' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
                 'location' => array('type' => 'string'), 'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
             )));
-        $t[] = array('name' => 'update_event', 'description' => 'Update an event (send only fields to change).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'), 'properties' => array('id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'update_event', 'description' => 'Update an event (send id plus only the fields to change).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array(
+                'id' => array('type' => 'integer'),
+                'title' => array('type' => 'string'), 'description' => array('type' => 'string'),
+                'start_at' => array('type' => 'string', 'description' => 'UTC datetime'), 'end_at' => array('type' => 'string'),
+                'timezone' => array('type' => 'string'),
+                'access_type' => array('type' => 'string'), 'price_credits' => array('type' => 'integer'),
+                'tier_id' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
+                'location' => array('type' => 'string'), 'external_url' => array('type' => 'string'),
+                'access_instructions' => array('type' => 'string'),
+                'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
+            )));
         $t[] = array('name' => 'delete_event', 'description' => 'Delete an event.', 'inputSchema' => $id);
 
         // ---- Services (full CRUD) ----
@@ -127,8 +138,17 @@ class McpTools {
                 'delivery_method' => array('type' => 'string'), 'capacity' => array('type' => 'integer'),
                 'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
             )));
-        $t[] = array('name' => 'update_service', 'description' => 'Update a service (send only fields to change).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'), 'properties' => array('id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'update_service', 'description' => 'Update a service (send id plus only the fields to change).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array(
+                'id' => array('type' => 'integer'),
+                'name' => array('type' => 'string'), 'description' => array('type' => 'string'),
+                'price_credits' => array('type' => 'integer'), 'duration_min' => array('type' => 'integer'),
+                'delivery_method' => array('type' => 'string'), 'scheduling_url' => array('type' => 'string'),
+                'delivery_details' => array('type' => 'string'), 'capacity' => array('type' => 'integer'),
+                'category' => array('type' => 'string'), 'refund_policy' => array('type' => 'string'),
+                'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
+            )));
         $t[] = array('name' => 'delete_service', 'description' => 'Delete a service.', 'inputSchema' => $id);
 
         // ---- Automations (Scheduler) ----
@@ -143,8 +163,18 @@ class McpTools {
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
                 'active' => array('type' => 'boolean'),
             )));
-        $t[] = array('name' => 'update_automation',    'description' => 'Update an automation (send full config).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'), 'properties' => array('id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id', 'name', 'topic'),
+            'properties' => array(
+                'id' => array('type' => 'integer'),
+                'name' => array('type' => 'string'), 'topic' => array('type' => 'string'),
+                'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
+                'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
+                'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
+                'tier_id' => array('type' => 'integer'), 'comments_enabled' => array('type' => 'boolean'),
+                'use_brand' => array('type' => 'boolean'), 'active' => array('type' => 'boolean'),
+                'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
+            )));
         $t[] = array('name' => 'set_automation_active','description' => 'Activate/deactivate an automation.', 'inputSchema' => self::idAndActive());
         $t[] = array('name' => 'delete_automation',    'description' => 'Delete an automation.', 'inputSchema' => $id);
 
@@ -166,6 +196,67 @@ class McpTools {
                 'description' => array('type' => 'string'), 'voice' => array('type' => 'string'),
                 'colors' => array('type' => 'array', 'items' => array('type' => 'string')),
                 'keywords' => array('type' => 'array', 'items' => array('type' => 'string'))), 'required' => array()));
+
+        // ---- Monetization: create/update (no eager Stripe; artifacts made lazily at checkout) ----
+        $t[] = array('name' => 'create_plan', 'description' => 'Create a subscription plan.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('name'),
+            'properties' => array(
+                'name' => array('type' => 'string'),
+                'price' => array('type' => 'number', 'description' => 'Monthly price in dollars (0 or omit for a free tier; paid tiers must be >= $1).'),
+                'billing_interval' => array('type' => 'string', 'enum' => array('week', 'month', 'year')),
+                'description' => array('type' => 'string'), 'perks' => array('type' => 'string'),
+            )));
+        $t[] = array('name' => 'update_plan', 'description' => 'Update a subscription plan (send id + fields to change).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array('id' => array('type' => 'integer'), 'name' => array('type' => 'string'),
+                'price' => array('type' => 'number'), 'billing_interval' => array('type' => 'string', 'enum' => array('week', 'month', 'year')),
+                'description' => array('type' => 'string'), 'perks' => array('type' => 'string'))));
+        $t[] = array('name' => 'create_promo_code', 'description' => 'Create a discount code (Pro/Studio plans).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('code', 'percent_off'),
+            'properties' => array(
+                'code' => array('type' => 'string', 'description' => '3-40 letters/numbers'),
+                'percent_off' => array('type' => 'integer', 'description' => '1-100'),
+                'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
+                'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string', 'description' => 'date/datetime'),
+            )));
+        $t[] = array('name' => 'update_promo_code', 'description' => 'Update a discount code.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array('id' => array('type' => 'integer'), 'code' => array('type' => 'string'),
+                'percent_off' => array('type' => 'integer'), 'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
+                'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string'))));
+        $t[] = array('name' => 'create_bundle', 'description' => 'Create a content bundle from owned media (Pro/Studio plans).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('name', 'price_credits', 'asset_ids'),
+            'properties' => array('name' => array('type' => 'string'), 'description' => array('type' => 'string'),
+                'price_credits' => array('type' => 'integer', 'description' => '>= 1'),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
+        $t[] = array('name' => 'update_bundle', 'description' => 'Update a content bundle.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array('id' => array('type' => 'integer'), 'name' => array('type' => 'string'),
+                'description' => array('type' => 'string'), 'price_credits' => array('type' => 'integer'),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
+
+        // ---- Media creation ----
+        $t[] = array('name' => 'generate_image', 'description' => 'Generate an AI image (Pro/Studio) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('prompt'),
+            'properties' => array('prompt' => array('type' => 'string'),
+                'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'use_brand' => array('type' => 'boolean', 'description' => 'Apply brand style (default true).'))));
+        $t[] = array('name' => 'upload_image_from_url', 'description' => 'Fetch a PUBLIC image URL and add it to the media library. Images only.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('url'),
+            'properties' => array('url' => array('type' => 'string', 'description' => 'Public https URL of a JPG/PNG/WebP/GIF image.'),
+                'name' => array('type' => 'string'))));
+
+        // ---- Messaging ----
+        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('to_user_id', 'body'),
+            'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'))));
+        $t[] = array('name' => 'send_broadcast', 'description' => 'Broadcast a message to an audience segment.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('body'),
+            'properties' => array('body' => array('type' => 'string'),
+                'segment' => array('type' => 'string', 'enum' => array('all', 'followers', 'subscribers')))));
+
+        // ---- Automation run (generates + publishes) ----
+        $t[] = array('name' => 'run_automation_now', 'description' => 'Run a Scheduler automation immediately: generates an image, writes a caption, and PUBLISHES a post.', 'inputSchema' => $id);
 
         return $t;
     }
@@ -323,9 +414,218 @@ class McpTools {
             case 'get_brand':    return (array) (new CreatorBrandModel())->get_for_user($cid);
             case 'save_brand':   return $ok((new CreatorBrandModel())->save($cid, $a));
 
+            // Plans (create/update — no eager Stripe; price/coupon made lazily at checkout)
+            case 'create_plan': {
+                if (trim((string) ($a['name'] ?? '')) === '') { throw new InvalidArgumentException('name is required'); }
+                return array('id' => (int) (new CreatorPlansModel())->add($cid, self::planFields($a, null)));
+            }
+            case 'update_plan': {
+                $m = new CreatorPlansModel(); $row = $m->get_one($cid, $iid);
+                if (!$row) { throw new InvalidArgumentException('Plan not found'); }
+                return $ok($m->update_plan($cid, $iid, self::planFields($a, $row)));
+            }
+
+            // Promo codes
+            case 'create_promo_code': {
+                self::requirePlan($cid, 'promo_codes', 'Discount codes require a Pro or Studio plan');
+                return array('id' => (int) (new CreatorPromoCodesModel())->add($cid, self::promoFields($a, null)));
+            }
+            case 'update_promo_code': {
+                $m = new CreatorPromoCodesModel(); $row = $m->get_owned($cid, $iid);
+                if (!$row) { throw new InvalidArgumentException('Promo code not found'); }
+                return $ok($m->update_code($cid, $iid, self::promoFields($a, $row)));
+            }
+
+            // Bundles
+            case 'create_bundle': {
+                self::requirePlan($cid, 'bundles', 'Content bundles require a Pro or Studio plan');
+                $name = trim((string) ($a['name'] ?? '')); $price = (int) ($a['price_credits'] ?? 0);
+                if ($name === '') { throw new InvalidArgumentException('name is required'); }
+                if ($price < 1) { throw new InvalidArgumentException('price_credits must be >= 1'); }
+                $ids = self::ownedReadyAssetIds($cid, $a['asset_ids'] ?? array());
+                if (!$ids) { throw new InvalidArgumentException('Provide at least one owned, ready media asset_id'); }
+                $m = new ContentBundlesModel();
+                $bid = (int) $m->add($cid, $name, (string) ($a['description'] ?? ''), $price);
+                $m->set_items($bid, $ids);
+                return array('id' => $bid);
+            }
+            case 'update_bundle': {
+                $m = new ContentBundlesModel(); $row = $m->get_owned($cid, $iid);
+                if (!$row) { throw new InvalidArgumentException('Bundle not found'); }
+                $f = array(
+                    'name'          => array_key_exists('name', $a) ? (string) $a['name'] : (string) $row['name'],
+                    'description'   => array_key_exists('description', $a) ? (string) $a['description'] : (string) ($row['description'] ?? ''),
+                    'price_credits' => array_key_exists('price_credits', $a) ? max(1, (int) $a['price_credits']) : (int) $row['price_credits'],
+                );
+                $m->update_bundle($cid, $iid, $f);
+                if (array_key_exists('asset_ids', $a)) { $m->set_items($iid, self::ownedReadyAssetIds($cid, $a['asset_ids'])); }
+                return array('ok' => true);
+            }
+
+            // Media creation
+            case 'generate_image': {
+                $user = self::user($cid);
+                self::requirePlan($cid, 'ai_tools', 'AI image generation requires a Pro or Studio plan');
+                if (!S3Service::configured()) { throw new RuntimeException('Image generation unavailable (storage not configured)'); }
+                $prompt = trim((string) ($a['prompt'] ?? ''));
+                if ($prompt === '') { throw new InvalidArgumentException('prompt is required'); }
+                $size = in_array($a['size'] ?? 'square', array('square', 'portrait', 'landscape'), true) ? $a['size'] : 'square';
+                $final = $prompt;
+                if (($a['use_brand'] ?? true)) {
+                    $cb = (new CreatorBrandModel())->get_for_user($cid);
+                    if (!empty($cb['brand_name']) || !empty($cb['colors']) || !empty($cb['voice']) || !empty($cb['keywords'])) {
+                        $final = BrandService::image_prompt($prompt, (array) $cb);
+                    }
+                }
+                $res = ImageGenService::generate($final, ImageGenService::dimensions($size));
+                if (empty($res['ok'])) { throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown')); }
+                return self::ingestImage($cid, $user, $res['bytes'], 'png', 'image/png', 'Generated · ' . mb_substr($prompt, 0, 40));
+            }
+            case 'upload_image_from_url': {
+                $user = self::user($cid);
+                if (!S3Service::configured()) { throw new RuntimeException('Uploads unavailable (storage not configured)'); }
+                $img = self::safeFetchImage((string) ($a['url'] ?? ''));
+                $label = trim((string) ($a['name'] ?? '')) !== '' ? (string) $a['name'] : 'Uploaded image';
+                return self::ingestImage($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label);
+            }
+
+            // Messaging
+            case 'send_message': {
+                $to = (int) ($a['to_user_id'] ?? 0);
+                $body = trim((string) ($a['body'] ?? ''));
+                if ($to <= 0 || $to === $cid) { throw new InvalidArgumentException('Invalid recipient'); }
+                if ($body === '') { throw new InvalidArgumentException('body is required'); }
+                $mm = new MessagesModel();
+                $conv = (int) $mm->open_between($cid, $to);
+                if ($conv <= 0) { throw new RuntimeException('You can only message people who follow you, subscribe to you, or whom you follow'); }
+                $mid = $mm->send($conv, $cid, mb_substr($body, 0, 2000));
+                return array('conversation_id' => $conv, 'message_id' => (int) $mid);
+            }
+            case 'send_broadcast': {
+                $body = trim((string) ($a['body'] ?? ''));
+                if ($body === '') { throw new InvalidArgumentException('body is required'); }
+                $seg = in_array($a['segment'] ?? 'all', array('all', 'followers', 'subscribers'), true) ? $a['segment'] : 'all';
+                list($bid, $count) = (new BroadcastsModel())->create_and_send($cid, $seg, mb_substr($body, 0, 2000));
+                if ((int) $count <= 0) { throw new RuntimeException('No one is in that audience segment yet'); }
+                return array('broadcast_id' => (int) $bid, 'recipients' => (int) $count);
+            }
+
+            // Run automation now (generates + publishes)
+            case 'run_automation_now': {
+                $user = self::user($cid);
+                $rule = (new SchedulerRulesModel())->get_one($cid, $iid);
+                if (!$rule) { throw new InvalidArgumentException('Automation not found'); }
+                $res = AutoPostService::run_rule($rule, $user);
+                (new SchedulerRunsModel())->add((int) $rule['id'], $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+                (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
+                if (empty($res['ok'])) { throw new RuntimeException($res['message']); }
+                return array('post_id' => (int) $res['post_id'], 'message' => $res['message']);
+            }
+
             default:
                 throw new InvalidArgumentException('Unknown tool: ' . $name);
         }
+    }
+
+    // ---- helpers for the high-impact tools ----
+
+    private static function user($cid){
+        $r = (new UsersModel())->get_user_by_id((int) $cid);
+        if (!is_array($r) || count($r) !== 1) { throw new RuntimeException('Account not found'); }
+        return $r[0];
+    }
+
+    private static function requirePlan($cid, $capability, $message){
+        if (!Plan::can(self::user($cid), $capability)) { throw new RuntimeException($message); }
+    }
+
+    private static function planFields($a, $row){
+        $g = function ($k, $d) use ($a, $row) { return array_key_exists($k, $a) ? $a[$k] : ($row[$k] ?? $d); };
+        $bi = $g('billing_interval', 'month');
+        if (!in_array($bi, array('week', 'month', 'year'), true)) { $bi = 'month'; }
+        $cents = array_key_exists('price', $a) ? (int) round(((float) $a['price']) * 100) : (int) ($row['price_cents'] ?? 0);
+        if ($cents !== 0 && $cents < 100) { throw new InvalidArgumentException('A paid tier must be at least $1.00 (use 0 for a free tier)'); }
+        return array(
+            'name' => trim((string) $g('name', '')), 'price_cents' => $cents, 'billing_interval' => $bi,
+            'trial_enabled' => (int) ($row['trial_enabled'] ?? 0), 'trial_value' => (int) ($row['trial_value'] ?? 0),
+            'trial_unit' => (string) ($row['trial_unit'] ?? 'day'),
+            'description' => (string) $g('description', ''), 'perks' => (string) $g('perks', ''),
+        );
+    }
+
+    private static function promoFields($a, $row){
+        $g = function ($k, $d) use ($a, $row) { return array_key_exists($k, $a) ? $a[$k] : ($row[$k] ?? $d); };
+        $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $g('code', '')));
+        if (strlen($code) < 3 || strlen($code) > 40) { throw new InvalidArgumentException('code must be 3-40 letters/numbers'); }
+        $pct = (int) $g('percent_off', 0);
+        if ($pct < 1 || $pct > 100) { throw new InvalidArgumentException('percent_off must be 1-100'); }
+        $applies = $g('applies_to', 'all');
+        if (!in_array($applies, array('all', 'subscription', 'ppv'), true)) { $applies = 'all'; }
+        $max = $g('max_redemptions', null);
+        $max = ($max === null || $max === '' || (int) $max <= 0) ? null : (int) $max;
+        $exp = $g('expires_at', null);
+        $exp = (!empty($exp) && ($ts = strtotime((string) $exp))) ? date('Y-m-d H:i:s', $ts) : null;
+        return array('code' => $code, 'percent_off' => $pct, 'applies_to' => $applies, 'max_redemptions' => $max, 'expires_at' => $exp);
+    }
+
+    /** Owned assets that are 'ready' and not deleted (bundle/item rules). */
+    private static function ownedReadyAssetIds($cid, $ids){
+        $ready = array();
+        foreach ((array) (new MediaAssetsModel())->get_for_creator($cid, array()) as $x) {
+            if (($x['status'] ?? '') === 'ready' && empty($x['deleted_at'])) { $ready[(int) $x['id']] = true; }
+        }
+        $out = array();
+        foreach ((array) $ids as $id) { $id = (int) $id; if (isset($ready[$id])) { $out[$id] = $id; } }
+        return array_values($out);
+    }
+
+    /** Write generated/fetched image bytes into the media library via the normal pipeline. */
+    private static function ingestImage($cid, $user, $bytes, $ext, $mime, $label){
+        $tmp = tempnam(sys_get_temp_dir(), 'mcpimg');
+        if ($tmp === false || file_put_contents($tmp, $bytes) === false) { throw new RuntimeException('Could not buffer the image'); }
+        $mm  = new MediaAssetsModel();
+        $aid = (int) $mm->add($cid, 'image', mb_substr($label, 0, 60) . '.' . $ext, $mime, 'processing');
+        if ($aid <= 0) { @unlink($tmp); throw new RuntimeException('Could not create the media asset'); }
+        $r = MediaService::process_image($cid, $aid, $tmp, $ext, $mime, $user, !empty($user['watermark_enabled']));
+        @unlink($tmp);
+        if (isset($r['error'])) { $mm->set_failed($cid, $aid, $r['error']); throw new RuntimeException($r['error']); }
+        $mm->set_ready($cid, $aid, $r);
+        return array('asset_id' => $aid, 'type' => 'image');
+    }
+
+    /** Fetch a PUBLIC image URL with SSRF protection; validate it is a real image. */
+    private static function safeFetchImage($url){
+        $url = trim((string) $url);
+        $p = parse_url($url);
+        if (!$p || empty($p['host']) || !in_array(strtolower($p['scheme'] ?? ''), array('http', 'https'), true)) {
+            throw new InvalidArgumentException('Provide a valid http(s) image URL');
+        }
+        // Resolve + reject private/reserved addresses (SSRF guard).
+        $host = trim($p['host'], '[]');
+        $ips = filter_var($host, FILTER_VALIDATE_IP) ? array($host) : (array) @gethostbynamel($host);
+        if (empty($ips)) { throw new RuntimeException('Could not resolve that host'); }
+        foreach ($ips as $ip) {
+            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                throw new RuntimeException('That URL resolves to a private/blocked address');
+            }
+        }
+        $max = 20 * 1024 * 1024;
+        $buf = '';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            CURLOPT_RESOLVE => array($host . ':' . (isset($p['port']) ? (int) $p['port'] : (strtolower($p['scheme']) === 'https' ? 443 : 80)) . ':' . $ips[0]),
+            CURLOPT_WRITEFUNCTION => function ($c, $chunk) use (&$buf, $max) { $buf .= $chunk; return (strlen($buf) > $max) ? 0 : strlen($chunk); },
+        ));
+        $okc = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        if (($okc === false && $buf === '') || $code >= 400 || $buf === '') { throw new RuntimeException('Could not fetch that image URL'); }
+
+        $info = @getimagesizefromstring($buf);
+        $map = array(IMAGETYPE_JPEG => array('jpg', 'image/jpeg'), IMAGETYPE_PNG => array('png', 'image/png'),
+                     IMAGETYPE_WEBP => array('webp', 'image/webp'), IMAGETYPE_GIF => array('gif', 'image/gif'));
+        if (!$info || !isset($map[$info[2]])) { throw new RuntimeException('That URL is not a supported image (JPG/PNG/WebP/GIF)'); }
+        return array('bytes' => $buf, 'ext' => $map[$info[2]][0], 'mime' => $map[$info[2]][1]);
     }
 
     private static function lim($a, $default){
