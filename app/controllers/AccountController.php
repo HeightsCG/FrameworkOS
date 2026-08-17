@@ -156,6 +156,8 @@ class AccountController extends Controller {
         $this->view->platform_meta       = $platform_meta;
         $this->view->notification_meta   = $notification_meta;
         $this->view->connected           = $connected;
+        $this->view->mcp_connected       = $can_manage && (new ApiTokensModel())->has_active_for_user($owner['user_id']);
+        $this->view->mcp_url             = Main::get_base_domain() . '/mcp';
         $this->view->notification_prefs  = $prefsModel->get_prefs_map($user['user_id']);
         $this->view->blocked_users       = $blocksModel->get_for_user($user['user_id']);
         $this->view->credit_balance      = $creditsModel->get_balance($user['user_id']);

@@ -649,6 +649,29 @@
 
             <?php if ($this->can_manage): ?>
             <section class="settings__section" data-section="connected">
+
+                <div class="conn-card conn-card--mcp mb-4">
+                    <div class="conn-card__head">
+                        <i class="fa-solid fa-plug conn-card__icon"></i>
+                        <span class="conn-card__name">Claude (MCP Connector)</span>
+                        <span class="conn-card__badge <?php echo $this->mcp_connected ? 'is-on' : ''; ?>" id="mcpBadge"><?php echo $this->mcp_connected ? 'Connected' : 'Not connected'; ?></span>
+                    </div>
+                    <p class="conn-card__hint">Let Claude act on your account. Generate a token here, then in Claude &rarr; Settings &rarr; Connectors &rarr; <strong>Add custom connector</strong>, paste the connector URL below into the <strong>Remote MCP server URL</strong> field. That's the only field you need &mdash; the token is part of the URL.</p>
+
+                    <input type="hidden" id="mcpBaseUrl" value="<?php echo htmlspecialchars($this->mcp_url, ENT_QUOTES, 'UTF-8'); ?>">
+
+                    <div id="mcpTokenReveal" class="mt-2" hidden>
+                        <label class="form-label mb-1">Your connector URL &mdash; copy it now, it won't be shown again</label>
+                        <input type="text" class="form-control" id="mcpConnectorUrl" readonly onclick="this.select()">
+                        <p class="conn-card__hint mt-1">Paste this into <strong>Remote MCP server URL</strong> in Claude. It contains your private token &mdash; keep it secret. Regenerate to rotate it.</p>
+                    </div>
+
+                    <div class="mt-3">
+                        <button type="button" class="btn btn-primary" id="mcpGenerate"><?php echo $this->mcp_connected ? 'Regenerate token' : 'Generate token'; ?></button>
+                        <button type="button" class="btn btn-secondary" id="mcpRevoke" <?php echo $this->mcp_connected ? '' : 'hidden'; ?>>Revoke</button>
+                    </div>
+                </div>
+
                 <?php if (!$this->can_social_post): ?>
                     <div class="settings__upgrade">
                         <i class="fa-solid fa-lock settings__upgrade-icon"></i>
@@ -2291,6 +2314,38 @@ $(function () {
     $('.conn-disconnect').on('click', function () {
         var account_id = $(this).data('account-id');
         ApiDataSvc.apiCall('post', 'disconnect_account', { account_id: account_id }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800);
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
+    // Claude MCP connector token.
+    $('#mcpGenerate').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'mcp_token_generate', {}, function (data) {
+            $btn.prop('disabled', false);
+            var o = JSON.parse(data);
+            if (o.success) {
+                var base = ($('#mcpBaseUrl').val() || '').replace(/\/+$/, '');
+                $('#mcpConnectorUrl').val(base + '/' + o.token);
+                $('#mcpTokenReveal').prop('hidden', false);
+                $('#mcpBadge').text('Connected').addClass('is-on');
+                $('#mcpRevoke').prop('hidden', false);
+                $btn.text('Regenerate token');
+                toastr.success(o.message);
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
+    $('#mcpRevoke').on('click', function () {
+        ApiDataSvc.apiCall('post', 'mcp_token_revoke', {}, function (data) {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);

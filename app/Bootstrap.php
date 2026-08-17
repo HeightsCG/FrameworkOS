@@ -42,6 +42,13 @@ class Bootstrap
             return;
         }
 
+        // Remote MCP connector: /mcp and /mcp/<token> both dispatch to the same
+        // handler (the trailing segment is an auth-token fallback, not a method).
+        if (isset($url[0]) && $url[0] === 'mcp') {
+            (new McpController())->indexAction();
+            return;
+        }
+
         $c = Main::controller_name();
         $m = Main::method_name();
         if (class_exists($c)) {

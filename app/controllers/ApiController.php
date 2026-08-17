@@ -1913,6 +1913,28 @@ class ApiController extends Controller {
         exit;
     }
 
+    /**
+     * Mint a bearer token for the creator's Claude MCP connector. Rotates
+     * (revokes any prior token) so there is a single active credential, and
+     * returns the RAW token once — the caller must copy it immediately.
+     */
+    public function mcp_token_generateAction(){
+        $user   = $this->require_creator('manage');
+        $tokens = new ApiTokensModel();
+        $tokens->revoke_for_user((int) $user['user_id']);
+        $raw    = $tokens->create_for_user((int) $user['user_id'], 'Claude MCP connector');
+        echo json_encode(array('success' => true, 'token' => $raw, 'message' => 'Connection token generated'));
+        exit;
+    }
+
+    /** Revoke the creator's MCP connector token(s). */
+    public function mcp_token_revokeAction(){
+        $user = $this->require_creator('manage');
+        (new ApiTokensModel())->revoke_for_user((int) $user['user_id']);
+        echo json_encode(array('success' => true, 'message' => 'Connection revoked'));
+        exit;
+    }
+
     public function upload_media_urlAction(){
         $this->social_user();
         $res = PostForMeService::create_upload_url();
