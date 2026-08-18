@@ -60,8 +60,9 @@ jQuery(function ($) {
         $('#csModalBody').html(opts.bodyHtml || '');
         var footer = $('#csModalFooter').empty();
         if (opts.extra) {
+            // Bootstrap ignores show() while the modal is still hiding, so chain the next dialog off hidden.bs.modal
             $('<button type="button" class="btn btn-outline-danger me-auto">').text(opts.extra.text)
-                .on('click', function () { m.hide(); opts.extra.onClick(); }).appendTo(footer);
+                .on('click', function () { $('#csModal').one('hidden.bs.modal', function () { setTimeout(opts.extra.onClick, 120); }); m.hide(); }).appendTo(footer);
         }
         $('<button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>').appendTo(footer);
         var ok = $('<button type="button" class="btn">').addClass(opts.danger ? 'btn-danger' : 'btn-primary').text(opts.okText || 'OK')
@@ -84,7 +85,7 @@ jQuery(function ($) {
             extra: extraText ? { text: extraText, onClick: onExtra } : null,
             onOk: function () { onOk($('#csPrompt').val()); }
         });
-        $('#csModal').on('keydown', '#csPrompt', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.trigger('click'); } });
+        $('#csModal').off('keydown').on('keydown', '#csPrompt', function (e) { if (e.key === 'Enter') { e.preventDefault(); ok.trigger('click'); } });
     }
 
     $('#csTabCollections').on('shown.bs.tab', showCollectionsList);
