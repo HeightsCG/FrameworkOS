@@ -276,8 +276,15 @@ body.ld {
 /* --------------------------------------------------------------------------
    Editorial acts
    -------------------------------------------------------------------------- */
-.ld-act { position: relative; padding: clamp(6rem, 11vw, 10rem) 0 0; overflow: hidden; }
-.ld-act:last-of-type { padding-bottom: clamp(6rem, 11vw, 10rem); }
+.ld-act {
+    position: relative; overflow: hidden;
+    padding: clamp(5rem, 9vw, 8rem) 0 clamp(5.5rem, 9vw, 8.5rem);
+    border-top: 1px solid var(--ld-hair);
+}
+/* alternating ground: paper against pearl */
+.ld-act--alt { background: linear-gradient(180deg, #f8f8fb, #f3f3f7); }
+/* the act before the violet band keeps its original spacing (the band brings its own) */
+.ld-act:has(+ .ld-band) { padding-bottom: 0; }
 
 .ld-eyebrow {
     display: block; font-size: .78rem; font-weight: 700; letter-spacing: .22em;
@@ -498,18 +505,32 @@ body.ld {
 }
 .ld-trust__t { font-size: .98rem; line-height: 1.6; color: var(--ld-t2); }
 
-/* Act — FAQ */
-.ld-faq { margin-top: 3rem; border-top: 1px solid var(--ld-hair); max-width: 860px; }
-.ld-faq details { border-bottom: 1px solid var(--ld-hair); }
+/* Act — FAQ: editorial spread with the interrogative glyph */
+.ld-ghost--q { font-size: clamp(18rem, 32vw, 30rem); left: -3vw; top: 32%; -webkit-text-stroke-color: rgba(91, 75, 224, .16); }
+.ld-faqgrid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap: 3rem 5rem; align-items: start; position: relative; z-index: 1; }
+.ld-faq { border-top: 2px solid var(--ld-ink); }
+.ld-faq details { border-bottom: 1px solid var(--ld-hair); transition: background .25s, box-shadow .25s, padding .25s var(--ld-ease); }
+.ld-faq details[open] {
+    box-shadow: inset 3px 0 0 var(--ld-violet);
+    background: linear-gradient(90deg, rgba(91, 75, 224, .06), transparent 62%);
+    padding-left: 1.4rem;
+}
 .ld-faq summary {
-    cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 1rem;
-    padding: 1.35rem 0; font-size: 1.12rem; font-weight: 600; letter-spacing: -.015em; color: var(--ld-ink);
+    cursor: pointer; list-style: none; display: flex; align-items: baseline; gap: 1.3rem;
+    padding: 1.6rem 0; color: var(--ld-ink);
 }
 .ld-faq summary::-webkit-details-marker { display: none; }
-.ld-faq summary::after { content: "+"; margin-left: auto; font-weight: 600; color: var(--ld-violet); font-size: 1.3rem; line-height: 1; transition: transform .2s var(--ld-ease); }
+.ld-faq__n { flex: none; width: 2.4rem; font-size: .95rem; font-weight: 800; letter-spacing: .06em; color: var(--ld-violet); }
+.ld-faq__q { font-size: clamp(1.15rem, 2vw, 1.55rem); font-weight: 700; letter-spacing: -.02em; line-height: 1.25; transition: color .15s; }
+.ld-faq summary:hover .ld-faq__q { color: var(--ld-violet7); }
+.ld-faq summary::after {
+    content: "+"; margin-left: auto; font-weight: 600; color: var(--ld-violet);
+    font-size: 1.7rem; line-height: 1; transition: transform .25s var(--ld-ease);
+}
 .ld-faq details[open] summary::after { transform: rotate(45deg); }
+.ld-faq details[open] .ld-faq__q { color: var(--ld-violet7); }
 .ld-faq summary:focus-visible { outline: none; box-shadow: var(--ld-ring); border-radius: 4px; }
-.ld-faq__a { margin: 0; padding: 0 0 1.5rem; font-size: 1rem; line-height: 1.65; color: var(--ld-t2); max-width: 62ch; }
+.ld-faq__a { margin: 0; padding: 0 2.5rem 1.7rem 3.7rem; font-size: 1.02rem; line-height: 1.65; color: var(--ld-t2); max-width: 58ch; }
 
 /* Final conversion */
 .ld-fin { position: relative; overflow: hidden; text-align: center; padding: clamp(7rem, 13vw, 12rem) 0; }
@@ -555,42 +576,59 @@ body.ld {
    -------------------------------------------------------------------------- */
 .ld-auth { position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center; padding: 24px; }
 .ld-auth[hidden] { display: none; }
-.ld-auth__veil { position: absolute; inset: 0; background: rgba(28, 22, 58, .45); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.ld-auth__veil { position: absolute; inset: 0; background: rgba(28, 22, 58, .5); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
 .ld-auth__dialog {
-    position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 48px); overflow-y: auto;
-    background: linear-gradient(165deg, rgba(255, 255, 255, .97), rgba(248, 247, 253, .97));
-    border: 1px solid rgba(255, 255, 255, .9); border-radius: 16px;
-    box-shadow: 0 40px 90px -30px rgba(30, 22, 80, .55);
-    padding: 44px 44px 38px;
+    position: relative; width: 100%; max-width: 520px; max-height: calc(100vh - 48px); overflow-y: auto; overflow-x: hidden;
+    background: #eef0f4; border-radius: 14px;
+    box-shadow: inset 0 3px 0 var(--ld-violet), 0 50px 110px -34px rgba(30, 22, 80, .65);
+    padding: 46px 46px 40px;
 }
+/* the page's atmosphere, inside the dialog */
+.ld-auth__dialog::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+        radial-gradient(420px 300px at 88% -5%, rgba(124, 108, 246, .22), transparent 62%),
+        radial-gradient(380px 300px at -5% 105%, rgba(124, 108, 246, .14), transparent 60%),
+        radial-gradient(360px 240px at 30% 10%, rgba(255, 255, 255, .9), transparent 66%);
+}
+.ld-auth__dialog::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .05; mix-blend-mode: multiply;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+}
+.ld-auth__dialog > * { position: relative; z-index: 1; }
+.ld-auth__mark { display: block; margin-bottom: 1.6rem; }
 .ld-auth__close {
-    position: absolute; top: 14px; right: 14px; width: 34px; height: 34px; border: 0; cursor: pointer;
-    border-radius: 50%; background: #f0f0f5; color: var(--ld-t2); font-size: 1rem; line-height: 1;
-    display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s;
+    position: absolute; top: 16px; right: 16px; width: 36px; height: 36px; border: 1px solid var(--ld-line); cursor: pointer;
+    border-radius: 50%; background: #fff; color: var(--ld-t2); font-size: 1rem; line-height: 1;
+    display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s; z-index: 2;
 }
-.ld-auth__close:hover { background: #e4e4ec; color: var(--ld-ink); }
+.ld-auth__close:hover { border-color: var(--ld-violet); color: var(--ld-violet7); }
 .ld-auth__close:focus-visible { outline: none; box-shadow: var(--ld-ring); }
 
-.cos-form-title { font-size: 1.55rem; font-weight: 600; letter-spacing: -.02em; margin: 0 0 .4rem; }
-.cos-help { color: var(--ld-muted); font-size: .95rem; margin: 0 0 1.6rem; }
+.cos-form-title { font-size: 1.9rem; font-weight: 800; letter-spacing: -.035em; margin: 0 0 .45rem; color: var(--ld-ink); }
+.cos-help { color: var(--ld-muted); font-size: .95rem; margin: 0 0 1.7rem; }
 .cos-submit {
-    display: block; width: 100%; height: 56px; margin-top: 1.5rem; cursor: pointer; border: 1px solid #0b0b0f; border-radius: 2px;
-    background: linear-gradient(180deg, #34343a 0%, #1d1d1f 52%, #161618 100%); color: #fff;
-    font-family: inherit; font-size: 1rem; font-weight: 600; letter-spacing: .01em;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 6px 16px -8px rgba(20, 16, 40, .55);
+    display: block; width: 100%; height: 54px; margin-top: 1.6rem; cursor: pointer; border: 0; border-radius: 10px;
+    background: var(--ld-violet); color: #fff;
+    font-family: inherit; font-size: 1rem; font-weight: 600; letter-spacing: -.005em;
+    box-shadow: 0 12px 28px -12px rgba(91, 75, 224, .8);
     transition: transform .12s ease, box-shadow .15s ease, background .15s;
 }
-.cos-submit:hover { background: linear-gradient(180deg, #3c3c44 0%, #232326 52%, #161618 100%); transform: translateY(-1px); }
-.cos-submit:active { transform: translateY(.5px); }
-.cos-submit:focus-visible { outline: none; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .2), 0 0 0 4px rgba(91, 75, 224, .32); }
-.cos-links { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1.4rem; font-size: .9rem; }
-.cos-link { color: var(--ld-muted); font-weight: 500; text-decoration: none; cursor: pointer; transition: color .15s; border-radius: 3px; }
+.cos-submit:hover { background: var(--ld-violet7); transform: translateY(-1px); }
+.cos-submit:active { transform: translateY(0); }
+.cos-submit:focus-visible { outline: none; box-shadow: var(--ld-ring); }
+.cos-links { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1.5rem; font-size: .92rem; }
+.cos-link { color: var(--ld-t2); font-weight: 600; text-decoration: none; cursor: pointer; transition: color .15s; border-radius: 3px; }
 .cos-link:hover { color: var(--ld-ink); }
 .cos-link:focus-visible { outline: none; box-shadow: var(--ld-ring); }
 .cos-link.accent { color: var(--ld-violet); }
 .cos-link.accent:hover { color: var(--ld-violet7); }
-.ld-auth .form-control { border-radius: 2px; border-color: #d4d4dd; }
-.ld-auth .form-control:focus { border-color: var(--ld-violet); box-shadow: 0 0 0 3px rgba(91, 75, 224, .18); }
+.ld-auth .form-control {
+    border-radius: 10px; border: 1px solid rgba(20, 18, 40, .16); background: #fff;
+    font-family: inherit; transition: border-color .15s, box-shadow .15s;
+}
+.ld-auth .form-control:focus { border-color: var(--ld-violet); box-shadow: 0 0 0 3px rgba(91, 75, 224, .2); background: #fff; }
+.ld-auth .form-floating > label { color: var(--ld-muted); }
 
 body.ld-auth-open { overflow: hidden; }
 
@@ -612,6 +650,8 @@ body.ld-auth-open { overflow: hidden; }
     .ld-ladder__note, .ld-access__note { display: none; }
     .ld-ladder__sub, .ld-access__sub { display: block; }
     .ld-trust { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ld-faqgrid { grid-template-columns: 1fr; gap: 2.2rem; }
+    .ld-ghost--q { font-size: clamp(12rem, 45vw, 20rem); left: auto; right: -10vw; top: -2rem; }
     .ld-tiers { grid-template-columns: 1fr; }
     .ld-tier { padding: 2rem 0 2.2rem; }
     .ld-tier + .ld-tier { border-left: 0; padding-left: 0; border-top: 1px solid var(--ld-hair); }

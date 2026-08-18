@@ -353,7 +353,7 @@
         </section>
 
         <!-- ============ Publish ============ -->
-        <section class="ld-act" aria-labelledby="ld_h_publish">
+        <section class="ld-act ld-act--alt" aria-labelledby="ld_h_publish">
             <div class="ld-wrap">
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Publish</span>
@@ -450,7 +450,7 @@
         </section>
 
         <!-- ============ Plans ============ -->
-        <section class="ld-act" id="pricing" aria-labelledby="ld_h_plans">
+        <section class="ld-act ld-act--alt" id="pricing" aria-labelledby="ld_h_plans">
             <div class="ld-wrap">
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Plans</span>
@@ -607,6 +607,7 @@
         <div class="ld-auth__veil"></div>
         <div class="ld-auth__dialog">
             <button type="button" class="ld-auth__close" aria-label="Close">&#10005;</button>
+            <span class="ld-brand__mark ld-auth__mark" aria-hidden="true"></span>
 
             <div id="login_form">
                 <h2 class="cos-form-title">Sign In</h2>
