@@ -11,6 +11,19 @@ $(document).ready(function() {
         }
     });
 
+    // Mobile nav: hamburger drops the sidebar menu down as a panel.
+    $('#appNavToggle').on('click', function () {
+        var open = $('.app-nav').toggleClass('is-open').hasClass('is-open');
+        $(this).toggleClass('is-active', open).attr('aria-expanded', open);
+    });
+
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.app-nav, #appNavToggle').length) {
+            $('.app-nav').removeClass('is-open');
+            $('#appNavToggle').removeClass('is-active').attr('aria-expanded', false);
+        }
+    });
+
     $(document).on('click', '.app-logout', function (e) {
         ApiDataSvc.apiCall('post', 'logout', {}, function (data) {
             var o = JSON.parse(data);

@@ -28,6 +28,7 @@
             <span class="app-brand__mark"></span>
             <span class="app-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
         </a>
+        <button type="button" class="app-navtoggle" id="appNavToggle" aria-label="Menu" aria-expanded="false"><i class="fa-solid fa-bars"></i></button>
         <nav class="app-nav">
             <span class="app-nav__label">Menu</span>
             <a href="/" class="app-nav-item<?php echo ($this->controller === 'index' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-house"></i> Home</a>

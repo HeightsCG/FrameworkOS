@@ -310,6 +310,8 @@ body.ld {
 .ld-runline {
     margin: 2.6rem 0 0; font-weight: 700; letter-spacing: -.02em; line-height: 1.5;
     font-size: clamp(1.15rem, 2.2vw, 1.7rem); color: var(--ld-ink); max-width: 30ch;
+    /* markup has no spaces between spans — flex-wrap provides the break opportunities */
+    display: flex; flex-wrap: wrap; align-items: baseline;
 }
 .ld-runline span { white-space: nowrap; }
 .ld-runline .ld-dot { color: var(--ld-violet); margin: 0 .35em; }
@@ -645,6 +647,8 @@ body.ld-auth-open { overflow: hidden; }
    Responsive art direction
    -------------------------------------------------------------------------- */
 @media (max-width: 900px) {
+    /* these share the .ld-wrap element but zero its side padding via shorthand — restore the gutter */
+    .ld-kx__stage, .ld-band__inner, .ld-foot__inner { padding-left: clamp(20px, 4vw, 56px); padding-right: clamp(20px, 4vw, 56px); }
     .ld-kx__line--share { margin-right: -.2em; }
     .ld-kx__beam { width: 96vw; right: -24vw; }
     .ld-ladder__note, .ld-access__note { display: none; }
@@ -655,7 +659,8 @@ body.ld-auth-open { overflow: hidden; }
     .ld-tiers { grid-template-columns: 1fr; }
     .ld-tier { padding: 2rem 0 2.2rem; }
     .ld-tier + .ld-tier { border-left: 0; padding-left: 0; border-top: 1px solid var(--ld-hair); }
-    .ld-tier--reco { box-shadow: inset 3px 0 0 var(--ld-violet); padding-left: 1.4rem; padding-right: 1.4rem; }
+    /* .ld-tier.ld-tier--reco so this outranks the `.ld-tier + .ld-tier` padding reset above */
+    .ld-tier.ld-tier--reco { box-shadow: inset 3px 0 0 var(--ld-violet); padding-left: 1.4rem; padding-right: 1.4rem; }
     .ld-tier__fee { font-size: clamp(3.6rem, 15vw, 5.4rem); }
 }
 @media (min-width: 901px) {
@@ -672,8 +677,11 @@ body.ld-auth-open { overflow: hidden; }
     .ld-nav__actions .ld-btn--quiet { padding: .6rem .45rem; font-size: .82rem; }
     .ld-nav__actions .ld-btn--primary { padding: .62rem .7rem; font-size: .82rem; }
     .ld-hide-sm { display: none; }
-    .ld-kx__line--share { margin-right: -.1em; }
-    .ld-kx { padding-top: 68px; }
+    .ld-wrap, .ld-kx__stage, .ld-band__inner, .ld-foot__inner { padding-left: 22px; padding-right: 22px; }
+    .ld-kx { min-height: auto; padding-top: 68px; }
+    .ld-kx__stage { padding-top: 2.5rem; padding-bottom: 3.5rem; }
+    .ld-kx__line--create { margin-left: 0; }
+    .ld-kx__line--share { margin-right: 0; }
     .ld-kx__type { line-height: .88; }
     .ld-kx__line--create { font-size: clamp(3.4rem, 17vw, 5.4rem); }
     .ld-kx__line--share { font-size: clamp(3.4rem, 17vw, 5.4rem); }
