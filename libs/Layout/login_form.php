@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-store, max-age=0">
     <meta http-equiv="Pragma" content="no-cache">
     <?php echo CSRF::meta(); ?>
-    <title><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> — Create. Share. Earn.</title>
+    <title><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?>: Create. Share. Earn.</title>
     <meta name="description" content="<?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
@@ -239,7 +239,7 @@
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
-                    // Account created but not yet usable — send them to sign in with a heads-up to verify.
+                    // Account created but not yet usable: send them to sign in with a heads-up to verify.
                     $('#register_form').hide();
                     $('#forgot_form').hide();
                     $('#login_form').show();
@@ -317,6 +317,29 @@
         <!-- ============ Presence ============ -->
         <section class="ld-act ld-act--presence" aria-labelledby="ld_h_presence">
             <span class="ld-ghost" aria-hidden="true">@</span>
+            <svg class="ld-net" viewBox="0 0 560 440" aria-hidden="true">
+                <g stroke="rgba(91,75,224,.3)" stroke-width="1">
+                    <line x1="70" y1="70" x2="290" y2="230"/>
+                    <line x1="480" y1="50" x2="290" y2="230"/>
+                    <line x1="520" y1="240" x2="290" y2="230"/>
+                    <line x1="440" y1="400" x2="290" y2="230"/>
+                    <line x1="120" y1="380" x2="290" y2="230"/>
+                    <line x1="30" y1="230" x2="290" y2="230"/>
+                    <line x1="70" y1="70" x2="30" y2="230"/>
+                    <line x1="480" y1="50" x2="520" y2="240"/>
+                    <line x1="120" y1="380" x2="440" y2="400"/>
+                </g>
+                <g fill="#8273f8">
+                    <circle cx="70" cy="70" r="6"/>
+                    <circle cx="480" cy="50" r="4.5"/>
+                    <circle cx="520" cy="240" r="6"/>
+                    <circle cx="440" cy="400" r="4.5"/>
+                    <circle cx="120" cy="380" r="5"/>
+                    <circle cx="30" cy="230" r="4"/>
+                </g>
+                <circle cx="290" cy="230" r="18" fill="rgba(91,75,224,.18)"/>
+                <circle cx="290" cy="230" r="9" fill="#5b4be0"/>
+            </svg>
             <div class="ld-wrap">
                 <div class="ld-act__body ld-reveal">
                     <span class="ld-eyebrow">Presence</span>
@@ -335,23 +358,26 @@
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Publish</span>
                     <h2 class="ld-h" id="ld_h_publish">Upload once, <em>use everywhere.</em></h2>
-                    <p class="ld-lede">Draft it, schedule it, publish now &mdash; or let an automation post for you.</p>
+                    <p class="ld-lede">Draft it, schedule it, publish now, or let an automation post for you.</p>
                 </div>
                 <div class="ld-ladder ld-reveal ld-reveal--late">
                     <div class="ld-ladder__step">
+                        <span class="ld-ladder__orb ld-ladder__orb--draft" aria-hidden="true"></span>
                         <span class="ld-ladder__word">Draft</span>
                         <span class="ld-ladder__note">Work in progress, visible only to you.</span>
                         <small class="ld-ladder__sub ld-lede" style="margin:0;font-size:.9rem;">Work in progress, visible only to you.</small>
                     </div>
                     <div class="ld-ladder__step">
+                        <span class="ld-ladder__orb ld-ladder__orb--sched" aria-hidden="true"></span>
                         <span class="ld-ladder__word">Scheduled</span>
                         <span class="ld-ladder__note">Queued for the moment you choose.</span>
                         <small class="ld-ladder__sub ld-lede" style="margin:0;font-size:.9rem;">Queued for the moment you choose.</small>
                     </div>
                     <div class="ld-ladder__step ld-ladder__step--live">
+                        <span class="ld-ladder__orb ld-ladder__orb--live" aria-hidden="true"></span>
                         <span class="ld-ladder__word">Published</span>
-                        <span class="ld-ladder__note">Live on your page &mdash; on your schedule, or automatically.</span>
-                        <small class="ld-ladder__sub ld-lede" style="margin:0;font-size:.9rem;">Live on your page &mdash; on your schedule, or automatically.</small>
+                        <span class="ld-ladder__note">Live on your page, on your schedule or automatically.</span>
+                        <small class="ld-ladder__sub ld-lede" style="margin:0;font-size:.9rem;">Live on your page, on your schedule or automatically.</small>
                     </div>
                 </div>
             </div>
@@ -366,19 +392,22 @@
                 </div>
                 <div class="ld-access ld-reveal ld-reveal--late">
                     <div class="ld-access__row">
+                        <span class="ld-access__ap ld-access__ap--open" aria-hidden="true"></span>
                         <span class="ld-access__word">Everyone</span>
                         <span class="ld-access__note">Anyone can see it.</span>
                         <small class="ld-access__sub ld-lede" style="margin:0;font-size:.9rem;">Anyone can see it.</small>
                     </div>
                     <div class="ld-access__row">
+                        <span class="ld-access__ap ld-access__ap--member" aria-hidden="true"></span>
                         <span class="ld-access__word">Subscribers</span>
                         <span class="ld-access__note">Members only.</span>
                         <small class="ld-access__sub ld-lede" style="margin:0;font-size:.9rem;">Members only.</small>
                     </div>
                     <div class="ld-access__row ld-access__row--ppv">
+                        <span class="ld-access__ap ld-access__ap--lock" aria-hidden="true"></span>
                         <span class="ld-access__word">Pay-per-view</span>
-                        <span class="ld-access__note">Unlock to view &mdash; you set the price.</span>
-                        <small class="ld-access__sub ld-lede" style="margin:0;font-size:.9rem;">Unlock to view &mdash; you set the price.</small>
+                        <span class="ld-access__note">Unlock to view. You set the price.</span>
+                        <small class="ld-access__sub ld-lede" style="margin:0;font-size:.9rem;">Unlock to view. You set the price.</small>
                     </div>
                 </div>
             </div>
@@ -386,6 +415,17 @@
 
         <!-- ============ Earn (violet field) ============ -->
         <section class="ld-band" aria-labelledby="ld_h_earn">
+            <div class="ld-band__art" aria-hidden="true">
+                <span class="ld-coin ld-coin--a"></span>
+                <span class="ld-coin ld-coin--b"></span>
+                <span class="ld-coin ld-coin--c"></span>
+                <span class="ld-coin ld-coin--d"></span>
+                <svg class="ld-band__wave" viewBox="0 0 1200 180" preserveAspectRatio="none">
+                    <path d="M0,110 C150,40 300,160 450,100 S750,30 900,100 S1120,150 1200,90" fill="none" stroke="rgba(255,255,255,.4)" stroke-width="1.5"/>
+                    <path d="M0,140 C180,80 330,180 480,130 S780,60 930,130 S1140,170 1200,120" fill="none" stroke="rgba(255,255,255,.22)" stroke-width="1.5"/>
+                    <path d="M0,180 L0,120 C180,70 360,170 540,120 S900,60 1200,110 L1200,180 Z" fill="rgba(255,255,255,.07)"/>
+                </svg>
+            </div>
             <div class="ld-wrap ld-band__inner">
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Earn</span>
@@ -415,7 +455,7 @@
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Plans</span>
                     <h2 class="ld-h" id="ld_h_plans">The fee falls <em>as you grow.</em></h2>
-                    <p class="ld-lede">Everything included on every plan. What changes is the room you get &mdash; and the cut you keep.</p>
+                    <p class="ld-lede">Everything included on every plan. What changes is the room you get and the cut you keep.</p>
                 </div>
                 <div class="ld-tiers ld-reveal ld-reveal--late">
                     <article class="ld-tier">
@@ -423,8 +463,12 @@
                         <p class="ld-tier__tag">Go solo, get paid.</p>
                         <p class="ld-tier__fee ld-tier__fee--ghost">10<span>%</span></p>
                         <span class="ld-tier__feelabel">platform fee</span>
+                        <div class="ld-tier__keep">
+                            <span class="ld-tier__keep-label">You keep 90%</span>
+                            <span class="ld-tier__keep-bar"><span class="ld-tier__keep-fill" style="--keep:90%;"></span></span>
+                        </div>
                         <ul class="ld-tier__list">
-                            <li><strong>1</strong> seat &mdash; just you</li>
+                            <li><strong>1</strong> seat, just you</li>
                             <li><strong>1</strong> creator profile</li>
                             <li><strong>3</strong> connected socials</li>
                             <li><strong>50&nbsp;GB</strong> storage</li>
@@ -435,6 +479,10 @@
                         <p class="ld-tier__tag">Scale your solo brand.</p>
                         <p class="ld-tier__fee ld-tier__fee--violet">5<span>%</span></p>
                         <span class="ld-tier__feelabel">platform fee</span>
+                        <div class="ld-tier__keep">
+                            <span class="ld-tier__keep-label">You keep 95%</span>
+                            <span class="ld-tier__keep-bar"><span class="ld-tier__keep-fill" style="--keep:95%;"></span></span>
+                        </div>
                         <ul class="ld-tier__list">
                             <li><strong>3</strong> seats + collaborator roles</li>
                             <li><strong>10</strong> connected socials</li>
@@ -448,6 +496,10 @@
                         <p class="ld-tier__tag">Run a team or agency.</p>
                         <p class="ld-tier__fee">2<span>%</span></p>
                         <span class="ld-tier__feelabel">platform fee</span>
+                        <div class="ld-tier__keep">
+                            <span class="ld-tier__keep-label">You keep 98%</span>
+                            <span class="ld-tier__keep-bar"><span class="ld-tier__keep-fill" style="--keep:98%;"></span></span>
+                        </div>
                         <ul class="ld-tier__list">
                             <li><strong>10</strong> seats with roles</li>
                             <li>Up to <strong>10</strong> creator profiles</li>
@@ -463,62 +515,68 @@
         </section>
 
         <!-- ============ Trust ============ -->
-        <section class="ld-act" aria-labelledby="ld_h_trust">
+        <section class="ld-act ld-act--trust" aria-labelledby="ld_h_trust">
             <div class="ld-wrap">
                 <div class="ld-reveal">
                     <span class="ld-eyebrow">Trust</span>
                     <h2 class="ld-h" id="ld_h_trust">Verified &amp; Secure, <em>by default.</em></h2>
-                    <p class="ld-lede">Every account confirms its email before the first sign-in, two-factor authentication protects your login, creators can earn a verified badge, and anything on the platform can be reported for review.</p>
                 </div>
-                <div class="ld-trust ld-reveal ld-reveal--late">
-                    <div class="ld-trust__item">
+                <div class="ld-trust">
+                    <div class="ld-trust__item ld-reveal">
+                        <span class="ld-trust__sig ld-trust__sig--seal" aria-hidden="true"></span>
                         <span class="ld-trust__k">Email Verification</span>
-                        <span class="ld-trust__t">Every account verifies its email before the first sign-in.</span>
+                        <span class="ld-trust__t">Verified before first sign-in.</span>
                     </div>
-                    <div class="ld-trust__item">
+                    <div class="ld-trust__item ld-reveal ld-reveal--late">
+                        <span class="ld-trust__sig ld-trust__sig--dual" aria-hidden="true"></span>
                         <span class="ld-trust__k">Two-Factor Authentication</span>
-                        <span class="ld-trust__t">Authenticator app or email codes, with backup codes.</span>
+                        <span class="ld-trust__t">Authenticator, email &amp; backup codes.</span>
                     </div>
-                    <div class="ld-trust__item">
+                    <div class="ld-trust__item ld-reveal ld-reveal--later">
+                        <span class="ld-trust__sig ld-trust__sig--badge" aria-hidden="true"></span>
                         <span class="ld-trust__k">Verified Creators</span>
-                        <span class="ld-trust__t">A verified badge shows fans it&rsquo;s really you.</span>
+                        <span class="ld-trust__t">A badge that shows it&rsquo;s really you.</span>
                     </div>
-                    <div class="ld-trust__item">
+                    <div class="ld-trust__item ld-reveal ld-reveal--last">
+                        <span class="ld-trust__sig ld-trust__sig--watch" aria-hidden="true"></span>
                         <span class="ld-trust__k">Reporting &amp; Moderation</span>
-                        <span class="ld-trust__t">Anything on the platform can be reported and reviewed.</span>
+                        <span class="ld-trust__t">Anything can be reported &amp; reviewed.</span>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ============ FAQ ============ -->
-        <section class="ld-act" aria-labelledby="ld_h_faq">
+        <section class="ld-act ld-act--faq" aria-labelledby="ld_h_faq">
+            <span class="ld-ghost ld-ghost--q" aria-hidden="true">?</span>
             <div class="ld-wrap">
-                <div class="ld-reveal">
-                    <span class="ld-eyebrow">FAQ</span>
-                    <h2 class="ld-h" id="ld_h_faq">Good Questions.</h2>
-                </div>
-                <div class="ld-faq ld-reveal ld-reveal--late">
-                    <details>
-                        <summary>Who can see my content?</summary>
-                        <p class="ld-faq__a">You choose per post &mdash; Everyone, Subscribers, or Pay-per-view at a price you set.</p>
-                    </details>
-                    <details>
-                        <summary>How do fans pay?</summary>
-                        <p class="ld-faq__a">Memberships bill on your schedule; everything else uses credits.</p>
-                    </details>
-                    <details>
-                        <summary>How do I get paid?</summary>
-                        <p class="ld-faq__a">Earnings collect as credits, net of your plan&rsquo;s fee &mdash; cash out to your bank anytime.</p>
-                    </details>
-                    <details>
-                        <summary>Can people follow me for free?</summary>
-                        <p class="ld-faq__a">Yes &mdash; free follows, plus an optional free membership tier.</p>
-                    </details>
-                    <details>
-                        <summary>What do the plans cost?</summary>
-                        <p class="ld-faq__a">Pricing is shown at checkout; the platform fee drops as you move up.</p>
-                    </details>
+                <div class="ld-faqgrid">
+                    <div class="ld-reveal">
+                        <span class="ld-eyebrow">FAQ</span>
+                        <h2 class="ld-h" id="ld_h_faq">Good<br>Questions.</h2>
+                    </div>
+                    <div class="ld-faq ld-reveal ld-reveal--late">
+                        <details>
+                            <summary><span class="ld-faq__n" aria-hidden="true">01</span><span class="ld-faq__q">Who can see my content?</span></summary>
+                            <p class="ld-faq__a">You choose per post: Everyone, Subscribers, or Pay-per-view at a price you set.</p>
+                        </details>
+                        <details>
+                            <summary><span class="ld-faq__n" aria-hidden="true">02</span><span class="ld-faq__q">How do fans pay?</span></summary>
+                            <p class="ld-faq__a">Memberships bill on your schedule; everything else uses credits.</p>
+                        </details>
+                        <details>
+                            <summary><span class="ld-faq__n" aria-hidden="true">03</span><span class="ld-faq__q">How do I get paid?</span></summary>
+                            <p class="ld-faq__a">Earnings collect as credits, net of your plan&rsquo;s fee. Cash out to your bank anytime.</p>
+                        </details>
+                        <details>
+                            <summary><span class="ld-faq__n" aria-hidden="true">04</span><span class="ld-faq__q">Can people follow me for free?</span></summary>
+                            <p class="ld-faq__a">Yes. Free follows, plus an optional free membership tier.</p>
+                        </details>
+                        <details>
+                            <summary><span class="ld-faq__n" aria-hidden="true">05</span><span class="ld-faq__q">What do the plans cost?</span></summary>
+                            <p class="ld-faq__a">Pricing is shown at checkout; the platform fee drops as you move up.</p>
+                        </details>
+                    </div>
                 </div>
             </div>
         </section>
@@ -526,6 +584,7 @@
         <!-- ============ Final conversion ============ -->
         <section class="ld-fin" aria-labelledby="ld_h_fin">
             <div class="ld-fin__atmo" aria-hidden="true"></div>
+            <span class="ld-fin__rays" aria-hidden="true"></span>
             <div class="ld-wrap ld-fin__inner ld-reveal">
                 <h2 class="ld-fin__words" id="ld_h_fin">Create. Share. <em>Earn.</em></h2>
                 <p class="ld-fin__tag">Keep It All Connected.</p>
