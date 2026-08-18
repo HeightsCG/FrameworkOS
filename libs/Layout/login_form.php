@@ -356,7 +356,7 @@
             </a>
             <div class="ld-nav__actions">
                 <button type="button" class="ld-btn ld-btn--quiet" data-auth="login">Sign In</button>
-                <button type="button" class="ld-btn ld-btn--primary" data-auth="register">Create Your Account</button>
+                <button type="button" class="ld-btn ld-btn--primary" data-auth="register">Create <span class="ld-hide-sm">Your </span>Account</button>
             </div>
         </div>
     </header>

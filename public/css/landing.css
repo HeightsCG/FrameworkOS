@@ -24,7 +24,7 @@
 
 * { box-sizing: border-box; }
 
-html { scroll-behavior: smooth; }
+html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 body.ld {
     margin: 0;
@@ -665,10 +665,14 @@ body.ld-auth-open { overflow: hidden; }
 @media (max-width: 640px) {
     .ld-nav__inner { height: 68px; }
     .ld-brand { gap: .45rem; }
-    .ld-brand__name { font-size: .95rem; }
-    .ld-nav__actions { gap: .15rem; }
-    .ld-nav__actions .ld-btn--quiet { padding: .6rem .5rem; font-size: .85rem; }
-    .ld-nav__actions .ld-btn--primary { padding: .6rem .8rem; font-size: .85rem; }
+    .ld-brand__name { font-size: .92rem; }
+    .ld-nav .ld-wrap { padding: 0 14px; }
+    .ld-nav__inner { gap: .5rem; }
+    .ld-nav__actions { gap: .1rem; }
+    .ld-nav__actions .ld-btn--quiet { padding: .6rem .45rem; font-size: .82rem; }
+    .ld-nav__actions .ld-btn--primary { padding: .62rem .7rem; font-size: .82rem; }
+    .ld-hide-sm { display: none; }
+    .ld-kx__line--share { margin-right: -.1em; }
     .ld-kx { padding-top: 68px; }
     .ld-kx__type { line-height: .88; }
     .ld-kx__line--create { font-size: clamp(3.4rem, 17vw, 5.4rem); }
@@ -701,4 +705,8 @@ body.ld-auth-open { overflow: hidden; }
     .ld-auth__dialog { max-width: none; max-height: none; height: 100%; border-radius: 0; padding: 64px 24px 32px; }
     .ld-foot__inner { flex-direction: column; align-items: flex-start; gap: .6rem; }
     .ld-foot__note { margin-left: 0; }
+}
+
+@media (max-width: 379px) {
+    .ld-brand__name { display: none; }
 }
