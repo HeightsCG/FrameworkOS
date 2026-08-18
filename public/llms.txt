@@ -1,0 +1,17 @@
+# Creator Link Studio
+
+> Creator Link Studio is a creator platform. Each creator gets one public page at their handle with content, memberships, services, events, an about section, and tracked links. Fans pay with credits; creators cash their earnings out to their bank.
+
+## What it does
+
+- Public creator page at /@handle with tabs: Content, Membership, Services, Events, About, Links
+- Publishing: drafts, scheduling, publish now, and automations that post daily or weekly
+- Per-post access control: Everyone, Subscribers, or Pay-per-view at a creator-set price
+- Monetization: free or paid membership tiers (with trials and discount codes), pay-per-view unlocks, content bundles, paid events, and bookable services
+- Payouts: earnings collect as credits, net of the plan's platform fee, and cash out to the creator's bank
+- Plans: Creator (10% platform fee), Pro (5% platform fee), Studio (2% platform fee); pricing is shown at checkout
+- Account security: email verification before first sign-in, two-factor authentication (authenticator app, email codes, backup codes), verified creator badges, and reporting with review
+
+## Pages
+
+- [Home](/): product overview, plans, and FAQ; sign in or create an account
