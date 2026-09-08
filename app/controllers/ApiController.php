@@ -4287,7 +4287,10 @@ class ApiController extends Controller {
         // ffmpeg/ffprobe (server-side) extract the poster frame + duration/dimensions.
         $src   = S3Service::presigned_get_url($session['storage_key'], 900);
         $probe = MediaService::probe_video($src);
-        $res   = MediaService::process_video($creator_id, $asset_id, $src, $user);
+        // The browser sends a poster frame it captured locally; it's the fallback when
+        // this server has no ffmpeg (or ffmpeg can't read the object) — see MediaService.
+        $client_poster = (isset($_FILES['poster']) && is_uploaded_file($_FILES['poster']['tmp_name'] ?? '')) ? (string) $_FILES['poster']['tmp_name'] : '';
+        $res   = MediaService::process_video($creator_id, $asset_id, $src, $user, $client_poster);
         if (isset($res['error'])) {
             $model->set_failed($creator_id, $asset_id, $res['error']);
             echo json_encode(array('success' => false, 'message' => $res['error'])); exit;
@@ -4295,9 +4298,9 @@ class ApiController extends Controller {
         $fields = array_merge($res, array(
             'original_key' => $session['storage_key'],
             'bytes'        => (int) $session['bytes_received'],
-            'duration_sec' => (int) ($probe['duration'] ?? 0),
-            'width'        => (int) ($probe['width'] ?? 0),
-            'height'       => (int) ($probe['height'] ?? 0),
+            'duration_sec' => (int) ($probe['duration'] ?? 0) ?: (int) ($this->post['client_duration'] ?? 0),
+            'width'        => (int) ($probe['width'] ?? 0)    ?: (int) ($this->post['client_width'] ?? 0),
+            'height'       => (int) ($probe['height'] ?? 0)   ?: (int) ($this->post['client_height'] ?? 0),
         ));
         $model->set_ready($creator_id, $asset_id, $fields);
         $sessions->mark_completed($creator_id, $session_id, $asset_id);

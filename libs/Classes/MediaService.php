@@ -259,14 +259,25 @@ class MediaService {
      * stored at its key and is not touched. $src is a local path or signed URL.
      * Returns keys to persist, or array('error' => '...').
      */
-    public static function process_video($creator_id, $asset_id, $src, array $user): array
+    public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = ''): array
     {
         $poster_path = self::extract_poster_frame($src);
+        $from_client = false;
         if ($poster_path === '') {
-            return array('error' => 'Could not read the video to build a preview. Please try again.');
+            // No ffmpeg here, or it couldn't read the object: fall back to the frame the
+            // browser captured from the local file before finishing the upload.
+            $why = self::ffmpeg_available() ? 'ffmpeg could not extract a frame' : 'ffmpeg not installed';
+            if ($client_poster_path !== '' && is_file($client_poster_path) && filesize($client_poster_path) > 0) {
+                $poster_path = $client_poster_path;
+                $from_client = true;
+                error_log('[media] video ' . (int) $asset_id . ': ' . $why . '; using browser-captured poster');
+            } else {
+                error_log('[media] video ' . (int) $asset_id . ': ' . $why . ' and no browser poster was sent');
+                return array('error' => 'Could not read the video to build a preview. Please try again.');
+            }
         }
         $res = self::poster_variants($creator_id, $asset_id, $poster_path, $user);
-        @unlink($poster_path);
+        if (!$from_client) { @unlink($poster_path); }
         return $res;
     }
 

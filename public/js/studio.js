@@ -325,7 +325,18 @@ jQuery(function ($) {
         $('#csTrayList').prepend($row);
         return {
             setProgress: function (p) { $row.find('.cs-up__fill').css('width', Math.max(2, Math.min(100, p)) + '%'); },
-            setStatus: function (t, cls) { $row.find('.cs-up__status').removeClass('cs-up__status--done cs-up__status--failed').addClass(cls ? 'cs-up__status--' + cls : '').text(t); },
+            setStatus: function (t, cls) {
+                $row.find('.cs-up__status').removeClass('cs-up__status--done cs-up__status--failed').addClass(cls ? 'cs-up__status--' + cls : '').text(t);
+                // Finished rows clear themselves after a moment; the tray hides once it's empty.
+                if (cls === 'done') {
+                    setTimeout(function () {
+                        $row.fadeOut(250, function () {
+                            $row.remove();
+                            if (!$('#csTrayList').children().length) { $('#csTray').prop('hidden', true); }
+                        });
+                    }, 2000);
+                }
+            },
             setThumb: function (url) { if (url) $row.find('.cs-up__thumb').html('<img class="cs-up__thumb" src="' + esc(url) + '">'); },
             retry: function (fn) { $('<button type="button" class="cs-up__retry">Retry</button>').on('click', function () { $(this).remove(); fn(); }).appendTo($row.find('.cs-up__status')); }
         };
@@ -382,12 +393,51 @@ jQuery(function ($) {
             });
     }
 
+    // Grab one frame (~1s in) from the local file so the server has a poster even when
+    // it can't decode video itself. Resolves with a JPEG Blob, or null if the browser can't.
+    function capturePosterFrame(file) {
+        return new Promise(function (resolve) {
+            var done = false, url, meta = { duration: 0, width: 0, height: 0 };
+            function finish(blob) { if (done) return; done = true; if (url) URL.revokeObjectURL(url); resolve({ blob: blob || null, meta: meta }); }
+            try {
+                url = URL.createObjectURL(file);
+                var v = document.createElement('video');
+                v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+                var timer = setTimeout(function () { finish(null); }, 8000);
+                v.addEventListener('error', function () { clearTimeout(timer); finish(null); });
+                v.addEventListener('loadedmetadata', function () {
+                    meta = { duration: Math.round(v.duration || 0), width: v.videoWidth || 0, height: v.videoHeight || 0 };
+                    try { v.currentTime = Math.min(1, Math.max(0, (v.duration || 0) / 2)); } catch (e) { finish(null); }
+                });
+                v.addEventListener('seeked', function () {
+                    try {
+                        var w = v.videoWidth, h = v.videoHeight;
+                        if (!w || !h) { clearTimeout(timer); finish(null); return; }
+                        var scale = Math.min(1, 1280 / w);
+                        var c = document.createElement('canvas'); c.width = Math.round(w * scale); c.height = Math.round(h * scale);
+                        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+                        c.toBlob(function (b) { clearTimeout(timer); finish(b); }, 'image/jpeg', 0.86);
+                    } catch (e) { clearTimeout(timer); finish(null); }
+                });
+            } catch (e) { finish(null); }
+        });
+    }
+
     function finishVideo(sessionId, file, ui, onComplete) {
         ui.setStatus('Finishing…'); ui.setProgress(98);
-        ApiDataSvc.apiCall('post', 'media_upload_complete', { session_id: sessionId }, function (resp) { var o = JSON.parse(resp);
-                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
-                else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
-            });
+        capturePosterFrame(file).then(function (cap) {
+            var fd = new FormData(), csrf = document.querySelector('meta[name="csrf-token"]');
+            fd.append('session_id', sessionId);
+            fd.append('csrf_token', csrf ? csrf.getAttribute('content') : '');
+            fd.append('client_duration', cap.meta.duration); fd.append('client_width', cap.meta.width); fd.append('client_height', cap.meta.height);
+            if (cap.blob) fd.append('poster', cap.blob, 'poster.jpg');
+            apiForm('media_upload_complete', fd)
+                .done(function (o) {
+                    if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
+                    else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
+                })
+                .fail(function () { ui.setStatus('Could not finish — check your connection', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
+        });
     }
 
     function injectAsset(asset) {

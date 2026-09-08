@@ -689,14 +689,26 @@
                     </div>
                 </div>
 
+                <div class="inbox-tabs" id="inboxTabs" role="tablist">
+                    <button type="button" class="inbox-tabs__tab is-active" data-tab="queue" role="tab">Queue<span class="inbox-tabs__count" id="inboxQueueCount"></span></button>
+                    <button type="button" class="inbox-tabs__tab" data-tab="settings" role="tab">Settings</button>
+                    <button type="button" class="inbox-tabs__tab" data-tab="messages" role="tab">Welcome messages</button>
+                </div>
+
+                <div class="inbox-panel" data-tab="queue">
                 <div class="inbox-block">
                     <div class="inbox-block__head">
                         <h3 class="inbox-block__title">Waiting for your approval</h3>
-                        <span class="inbox-block__count" id="inboxQueueCount"></span>
                     </div>
                     <div id="inboxQueue" class="inbox-queue"><p class="settings__empty">Loading&hellip;</p></div>
                 </div>
+                <div class="inbox-block">
+                    <div class="inbox-block__head"><h3 class="inbox-block__title">Recent activity</h3></div>
+                    <div id="inboxLog" class="inbox-log"></div>
+                </div>
+                </div>
 
+                <div class="inbox-panel" data-tab="settings" hidden>
                 <div class="cprofile">
                     <div class="inbox-toggles">
                         <label class="inbox-toggle">
@@ -770,7 +782,9 @@
                         <button type="button" class="btn btn-primary" id="inboxSave">Save</button>
                     </div>
                 </div>
+                </div>
 
+                <div class="inbox-panel" data-tab="messages" hidden>
                 <div class="inbox-block">
                     <div class="inbox-block__head"><h3 class="inbox-block__title">Welcome &amp; trigger messages</h3></div>
                     <p class="inbox-block__desc">Automatic Fanvue messages sent on events like a new subscriber or a first DM. Saved directly to your Fanvue account.</p>
@@ -798,10 +812,6 @@
                     </div>
                     <?php endif; ?>
                 </div>
-
-                <div class="inbox-block">
-                    <div class="inbox-block__head"><h3 class="inbox-block__title">Recent activity</h3></div>
-                    <div id="inboxLog" class="inbox-log"></div>
                 </div>
                 <?php endif; ?>
             </section>
@@ -2567,6 +2577,15 @@ $(function () {
         });
     }
 
+    function inbox_tab(name) {
+        $('#inboxTabs .inbox-tabs__tab').removeClass('is-active').filter('[data-tab="' + name + '"]').addClass('is-active');
+        $('.inbox-panel').prop('hidden', true).filter('[data-tab="' + name + '"]').prop('hidden', false);
+        if (name === 'messages') { load_inbox_triggers(); }
+    }
+    $('#inboxTabs').on('click', '.inbox-tabs__tab', function () { inbox_tab($(this).data('tab')); });
+    var inbox_deep_tab = (params.get('tab') || '').replace(/[^a-z]/g, '');
+    if (inbox_deep_tab && $('#inboxTabs [data-tab="' + inbox_deep_tab + '"]').length) { inbox_tab(inbox_deep_tab); }
+
     var inbox_triggers_loaded = false;
     function load_inbox_triggers() {
         if (!$('#inboxTriggers').length || inbox_triggers_loaded) { return; }
@@ -2612,7 +2631,7 @@ $(function () {
 
     $('#settings_nav').on('click', '.settings__nav-item[data-section="inbox"]', function () {
         load_inbox_queue();
-        load_inbox_triggers();
+        if ($('#inboxTabs .is-active').data('tab') === 'messages') { load_inbox_triggers(); }
         clearInterval(inbox_timer);
         inbox_timer = setInterval(function () {
             if ($('.settings__section[data-section="inbox"]').hasClass('is-active')) { load_inbox_queue(); } else { clearInterval(inbox_timer); }
