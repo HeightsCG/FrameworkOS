@@ -8,9 +8,22 @@ class SchedulerRulesModel extends Model {
     public function __construct(){ parent::__construct(); }
 
     private static $cols = array(
-        'name', 'active', 'topic', 'size', 'audience', 'tier_id', 'comments_enabled',
+        'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
+        'size', 'audience', 'tier_id', 'comments_enabled',
         'use_brand', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
+
+    const FANVUE_LISTS = array('subscribers', 'auto_renewing', 'non_renewing', 'followers', 'free_trial_subscribers', 'expired_subscribers', 'spent_more_than_50');
+    const CLS_SEGMENTS = array('all', 'followers', 'subscribers');
+
+    /** Decode message_targets → ['fanvue' => [lists], 'cls' => segment|''] */
+    public static function targets(array $rule){
+        $t = json_decode((string) ($rule['message_targets'] ?? ''), true);
+        $t = is_array($t) ? $t : array();
+        $fv = array_values(array_intersect(array_map('strval', (array) ($t['fanvue'] ?? array())), self::FANVUE_LISTS));
+        $cls = in_array($t['cls'] ?? '', self::CLS_SEGMENTS, true) ? (string) $t['cls'] : '';
+        return array('fanvue' => $fv, 'cls' => $cls);
+    }
 
     /** Insert a new rule, returns its id. */
     public function create($creator_id, array $f){
@@ -35,6 +48,12 @@ class SchedulerRulesModel extends Model {
     /** Coerce request fields into safe, bounded columns. */
     private function clean(array $f){
         $out = array();
+        $out['kind']             = (($f['kind'] ?? 'post') === 'message') ? 'message' : 'post';
+        $out['message_text']     = mb_substr(trim((string) ($f['message_text'] ?? '')), 0, 5000);
+        $out['message_ai']       = !empty($f['message_ai']) ? 1 : 0;
+        $targets = $f['message_targets'] ?? array();
+        if (is_string($targets)) { $targets = json_decode($targets, true) ?: array(); }
+        $out['message_targets']  = json_encode(self::targets(array('message_targets' => json_encode((array) $targets))));
         $out['name']             = mb_substr(trim((string) ($f['name'] ?? '')), 0, 190);
         $out['active']           = !empty($f['active']) ? 1 : 0;
         $out['topic']            = (string) ($f['topic'] ?? '');

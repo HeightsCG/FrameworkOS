@@ -29,6 +29,15 @@ $rulesM = new SchedulerRulesModel();
 $runsM  = new SchedulerRunsModel();
 $usersM = new UsersModel();
 
+// Inbox automation fallback: process any inbound message events the webhook
+// request didn't finish (host killed the request, timeout, deploy mid-flight).
+try {
+    InboxAutomationService::drain_pending(20);
+    if (date('i') === '00') { (new InboxEventsModel())->purge_older_than(30); }   // once an hour is plenty
+} catch (\Throwable $e) {
+    echo '[inbox] drain failed: ' . $e->getMessage() . "\n";
+}
+
 $now = gmdate('Y-m-d H:i:s');
 $due = $rulesM->due_rules($now);
 if (empty($due)) { exit(0); }
@@ -47,7 +56,7 @@ foreach ($due as $rule) {
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user) { throw new RuntimeException('creator ' . $rule['creator_id'] . ' not found'); }
 
-        $res = AutoPostService::run_rule($rule, $user);
+        $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
         $runsM->add((int) $rule['id'], (int) $rule['creator_id'], $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
         $rulesM->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
         fwrite(STDOUT, date('c') . " rule {$rule['id']} \"{$rule['name']}\": " . ($res['ok'] ? 'OK' : 'FAIL') . ' — ' . $res['message'] . "\n");

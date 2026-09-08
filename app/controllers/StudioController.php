@@ -58,6 +58,15 @@ class StudioController extends Controller {
                 'can_post' => Plan::can_social_post($user),
             );
 
+            // Inbox automation (scheduled messages) — Pro+; Fanvue lists only when chat scope was granted.
+            $fv_inbox = (new FanvueAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
+            $this->view->inbox = array(
+                'can'          => Plan::can($user, 'inbox_automation'),
+                'fanvue_ok'    => $fv_inbox ? FanvueAccountsModel::has_chat_scope($fv_inbox) : false,
+                'fanvue_lists' => SchedulerRulesModel::FANVUE_LISTS,
+                'cls_segments' => SchedulerRulesModel::CLS_SEGMENTS,
+            );
+
             // AI image generation is a Pro+ feature — hides the "Generate Image" action.
             $this->view->can_ai = Plan::can($user, 'ai_tools');
 

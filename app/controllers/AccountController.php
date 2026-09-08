@@ -153,6 +153,12 @@ class AccountController extends Controller {
         $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->fanvue              = $can_post ? (new FanvueAccountsModel())->get_for_user($owner['user_id']) : null;
+        $fv_row = $this->view->fanvue;
+        $this->view->fanvue_chat_ok      = $fv_row && ($fv_row['status'] ?? '') === 'connected' && FanvueAccountsModel::has_chat_scope($fv_row);
+        $this->view->can_inbox           = $can_manage && Plan::can($owner, 'inbox_automation');
+        $this->view->inbox_settings      = $can_manage ? (new InboxSettingsModel())->get_for_creator($owner['user_id']) : InboxSettingsModel::defaults();
+        $this->view->inbox_pending       = ($can_manage && $this->view->can_inbox) ? (new InboxRepliesModel())->count_pending($owner['user_id']) : 0;
+        $this->view->claude_ok           = ClaudeService::configured();
         $this->view->fanvue_configured   = FanvueService::configured();
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
@@ -242,8 +248,8 @@ class AccountController extends Controller {
             Header('Location: /');
             exit;
         }
-        $back  = '/account/settings?section=connected';
         $flow  = Session::get('fanvue_oauth');
+        $back  = '/account/settings?section=' . ((is_array($flow) && ($flow['return_section'] ?? '') === 'inbox') ? 'inbox' : 'connected');
         Session::destroyValue('fanvue_oauth');
 
         $state = (string) ($_GET['state'] ?? '');

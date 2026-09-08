@@ -13,7 +13,10 @@ class FanvueService {
     const AUTH_URL    = 'https://auth.fanvue.com/oauth2/auth';
     const TOKEN_URL   = 'https://auth.fanvue.com/oauth2/token';
     const API_VERSION = '2025-06-26';
-    const SCOPES      = 'openid offline_access offline read:self read:post write:post read:media write:media';
+    // Inbox automation (chat, automated messages, mass messages) needs the last five;
+    // FanvueAccountsModel::has_chat_scope() checks them so one re-consent covers all phases.
+    const SCOPES      = 'openid offline_access offline read:self read:post write:post read:media write:media read:chat write:chat read:creator write:creator read:fan';
+    const INBOX_SCOPES = array('read:chat', 'write:chat', 'read:creator', 'write:creator', 'read:fan');
 
     // ---- config -------------------------------------------------------------
 
@@ -29,6 +32,29 @@ class FanvueService {
     public static function client_secret(): string { return self::cfg('fanvue_client_secret'); }
     public static function configured(): bool      { return self::client_id() !== '' && self::client_secret() !== ''; }
     public static function redirect_uri(): string  { return Main::get_base_domain() . '/account/fanvue_callback'; }
+    public static function webhook_secret(): string{ return self::cfg('fanvue_webhook_secret'); }
+
+    // ---- webhooks --------------------------------------------------------------
+
+    /**
+     * Verify a Fanvue webhook delivery. Header: "t=<unix>,v0=<hex hmac-sha256>" over
+     * "{t}.{raw body}" with the per-app signing secret. Rejects stale timestamps.
+     */
+    public static function verify_webhook_signature($raw_body, $header, $secret, $tolerance = 300): bool {
+        $secret = (string) $secret;
+        if ($secret === '' || (string) $header === '') { return false; }
+        $t = ''; $v0 = '';
+        foreach (explode(',', (string) $header) as $part) {
+            $kv = explode('=', trim($part), 2);
+            if (count($kv) !== 2) { continue; }
+            if ($kv[0] === 't')  { $t  = trim($kv[1]); }
+            if ($kv[0] === 'v0') { $v0 = strtolower(trim($kv[1])); }
+        }
+        if ($t === '' || $v0 === '' || !ctype_digit($t)) { return false; }
+        if (abs(time() - (int) $t) > (int) $tolerance) { return false; }
+        $expected = hash_hmac('sha256', $t . '.' . (string) $raw_body, $secret);
+        return hash_equals($expected, $v0);
+    }
 
     // ---- OAuth ----------------------------------------------------------------
 
@@ -162,6 +188,95 @@ class FanvueService {
             }
         }
         return 'Fanvue request failed (HTTP ' . (int) $code . ')';
+    }
+
+    // ---- chat ----------------------------------------------------------------------
+
+    /** Best-effort typing indicator before an automated reply. */
+    public static function send_typing($access_token, $fan_uuid): void {
+        self::request($access_token, 'POST', '/chats/' . rawurlencode($fan_uuid) . '/typing', new stdClass());
+    }
+
+    /** POST /chats/{fan}/message — text only. Returns the message array or throws. */
+    public static function send_message($access_token, $fan_uuid, $text, $idempotency_key = ''): array {
+        $text = trim((string) $text);
+        if ($text === '') { throw new InvalidArgumentException('Empty message'); }
+        $headers = ($idempotency_key !== '') ? array('Idempotency-Key: ' . $idempotency_key) : array();
+        list($code, $msg) = self::request($access_token, 'POST', '/chats/' . rawurlencode($fan_uuid) . '/message',
+            array('text' => mb_substr($text, 0, 5000)), $headers);
+        if (($code !== 200 && $code !== 201) || !is_array($msg)) {
+            throw new RuntimeException(self::error_text($code, $msg));
+        }
+        return $msg;
+    }
+
+    /**
+     * GET /chats/{fan}/messages — most recent first as Fanvue returns them. Does NOT
+     * mark the chat read. Returns the data array ([] on failure, never throws).
+     */
+    public static function get_messages($access_token, $fan_uuid, $size = 20): array {
+        list($code, $body) = self::request($access_token, 'GET',
+            '/chats/' . rawurlencode($fan_uuid) . '/messages?page=1&size=' . (int) $size . '&markAsRead=false');
+        if ($code !== 200 || !is_array($body)) { return array(); }
+        return is_array($body['data'] ?? null) ? $body['data'] : array();
+    }
+
+    // ---- automated (trigger) messages ---------------------------------------------------
+
+    const TRIGGERS = array('new_subscriber', 'new_follower', 'subscription_canceled', 're_subscribed', 'renewed', 'new_purchase', 'first_message_reply');
+
+    /** GET /chats/automated-messages → [trigger => ['enabled','text','price']], or null when Fanvue can't be read. */
+    public static function get_automated_messages($access_token){
+        list($code, $body) = self::request($access_token, 'GET', '/chats/automated-messages');
+        if ($code !== 200 || !is_array($body)) { return null; }
+        $out = array();
+        foreach ((array) ($body['data'] ?? array()) as $row) {
+            $t = (string) ($row['trigger'] ?? '');
+            if ($t === '') { continue; }
+            $out[$t] = array(
+                'enabled' => !empty($row['enabled']),
+                'text'    => (string) ($row['text'] ?? ''),
+                'price'   => (int) ($row['price'] ?? 0),
+            );
+        }
+        return $out;
+    }
+
+    /** PUT /chats/automated-messages/{trigger} — text only (price 0). Throws on failure. */
+    public static function put_automated_message($access_token, $trigger, $text): array {
+        if (!in_array($trigger, self::TRIGGERS, true)) { throw new InvalidArgumentException('Unknown trigger'); }
+        $text = trim((string) $text);
+        if ($text === '') { throw new InvalidArgumentException('Message text is required'); }
+        list($code, $body) = self::request($access_token, 'PUT', '/chats/automated-messages/' . $trigger,
+            array('text' => mb_substr($text, 0, 5000), 'price' => 0));
+        if ($code !== 200 && $code !== 201) { throw new RuntimeException(self::error_text($code, $body)); }
+        return is_array($body) ? $body : array();
+    }
+
+    /** DELETE /chats/automated-messages/{trigger} — disables it. 404 counts as already off. */
+    public static function delete_automated_message($access_token, $trigger): bool {
+        if (!in_array($trigger, self::TRIGGERS, true)) { throw new InvalidArgumentException('Unknown trigger'); }
+        list($code, $body) = self::request($access_token, 'DELETE', '/chats/automated-messages/' . $trigger);
+        if ($code === 204 || $code === 200 || $code === 404) { return true; }
+        throw new RuntimeException(self::error_text($code, $body));
+    }
+
+    // ---- mass messages ----------------------------------------------------------------
+
+    /**
+     * POST /chats/mass-messages to Fanvue smart lists (text only, sent now). Returns the
+     * created mass message or throws.
+     */
+    public static function create_mass_message($access_token, $text, array $smart_lists): array {
+        $text = trim((string) $text);
+        if ($text === '') { throw new InvalidArgumentException('Message text is required'); }
+        if (empty($smart_lists)) { throw new InvalidArgumentException('Pick at least one Fanvue audience'); }
+        list($code, $body) = self::request($access_token, 'POST', '/chats/mass-messages', array(
+            'text'          => mb_substr($text, 0, 5000),
+            'includedLists' => array('smartListIds' => array_values($smart_lists)),
+        ), array('Idempotency-Key: cls-blast-' . bin2hex(random_bytes(8))));
+        if (($code !== 200 && $code !== 201) || !is_array($body)) { throw new RuntimeException(self::error_text($code, $body)); }
+        return $body;
     }
 
     /** GET /users/me */

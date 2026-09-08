@@ -28,6 +28,7 @@
             <button type="button" class="settings__nav-item" data-section="privacy"><i class="fa-solid fa-shield-halved"></i><span>Restricted Content</span></button>
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
             <?php if ($this->can_manage): ?>
+            <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span><span class="settings__nav-badge" id="inboxNavBadge" <?php echo $this->inbox_pending > 0 ? '' : 'hidden'; ?>><?php echo (int) $this->inbox_pending; ?></span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
             <?php endif; ?>
         </nav>
@@ -648,6 +649,163 @@
             </section>
 
             <?php if ($this->can_manage): ?>
+            <section class="settings__section" data-section="inbox">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Inbox Automation</h2>
+                    <p class="settings__section-desc">Answer fan messages in your own voice, automatically. Drafts wait for your approval until you decide to let them send on their own.</p>
+                </div>
+
+                <?php if (!$this->can_inbox): ?>
+                    <div class="settings__upgrade">
+                        <i class="fa-solid fa-lock settings__upgrade-icon"></i>
+                        <div>
+                            <div class="settings__upgrade-title">AI inbox replies are included in Pro and Studio</div>
+                            <p class="settings__upgrade-text">Upgrade to let Claude draft and send replies to your fans, with quiet hours, an approval queue and your own guardrails.</p>
+                        </div>
+                        <a href="/account/billing" class="btn btn-primary">View plans</a>
+                    </div>
+                <?php else: ?>
+                <?php $is = $this->inbox_settings; $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
+
+                <?php if (!$this->claude_ok): ?>
+                    <p class="inbox-note inbox-note--warn"><i class="fa-solid fa-triangle-exclamation"></i> AI replies are not configured on this server yet.</p>
+                <?php endif; ?>
+
+                <div class="inbox-conn">
+                    <div class="inbox-conn__row">
+                        <i class="fa-solid fa-bolt inbox-conn__icon"></i>
+                        <div class="inbox-conn__text">
+                            <div class="inbox-conn__name">Fanvue inbox</div>
+                            <div class="inbox-conn__meta" id="inboxFanvueMeta">
+                                <?php if (!$fv_on): ?>Not connected. <a href="/account/settings?section=connected">Connect Fanvue</a> in Integrations first.
+                                <?php elseif (!$this->fanvue_chat_ok): ?>Connected as @<?php echo htmlspecialchars((string) $fv['handle'], ENT_QUOTES, 'UTF-8'); ?>, but inbox access hasn't been granted yet.
+                                <?php else: ?>Connected as @<?php echo htmlspecialchars((string) $fv['handle'], ENT_QUOTES, 'UTF-8'); ?> with inbox access.<?php endif; ?>
+                            </div>
+                            <?php if ($fv_on && !empty($fv['last_error'])): ?><div class="inbox-conn__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                        </div>
+                        <?php if ($fv_on && !$this->fanvue_chat_ok): ?>
+                        <button type="button" class="btn btn-primary" id="inboxReconnectFanvue">Reconnect to enable inbox</button>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="inbox-block">
+                    <div class="inbox-block__head">
+                        <h3 class="inbox-block__title">Waiting for your approval</h3>
+                        <span class="inbox-block__count" id="inboxQueueCount"></span>
+                    </div>
+                    <div id="inboxQueue" class="inbox-queue"><p class="settings__empty">Loading&hellip;</p></div>
+                </div>
+
+                <div class="cprofile">
+                    <div class="inbox-toggles">
+                        <label class="inbox-toggle">
+                            <span class="notif__switch"><input type="checkbox" id="inboxFanvue" <?php echo !empty($is['fanvue_enabled']) ? 'checked' : ''; ?> <?php echo $this->fanvue_chat_ok ? '' : 'disabled'; ?>><span class="notif__slider"></span></span>
+                            <span class="inbox-toggle__text"><strong>Reply on Fanvue</strong><small><?php echo $this->fanvue_chat_ok ? 'Answer fan DMs in your Fanvue inbox.' : 'Needs a connected Fanvue account with inbox access.'; ?></small></span>
+                        </label>
+                        <label class="inbox-toggle">
+                            <span class="notif__switch"><input type="checkbox" id="inboxCls" <?php echo !empty($is['cls_enabled']) ? 'checked' : ''; ?>><span class="notif__slider"></span></span>
+                            <span class="inbox-toggle__text"><strong>Reply on Creator Link Studio</strong><small>Answer DMs fans send you here.</small></span>
+                        </label>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label>How replies go out</label>
+                        <div class="inbox-radios">
+                            <label class="inbox-radio"><input type="radio" name="inbox_mode" value="approve" <?php echo ($is['mode'] !== 'auto') ? 'checked' : ''; ?>><span><strong>Approve first</strong><small>Each draft waits here until you send, edit, or dismiss it.</small></span></label>
+                            <label class="inbox-radio"><input type="radio" name="inbox_mode" value="auto" <?php echo ($is['mode'] === 'auto') ? 'checked' : ''; ?>><span><strong>Send automatically</strong><small>Replies go straight to the fan after a short, natural pause.</small></span></label>
+                        </div>
+                    </div>
+
+                    <div class="inbox-grid">
+                        <div class="cprofile__field">
+                            <label for="inboxQuietStart">Quiet hours</label>
+                            <div class="inbox-quiet">
+                                <input type="time" class="form-control" id="inboxQuietStart" value="<?php echo htmlspecialchars((string) ($is['quiet_start'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                                <span class="inbox-quiet__to">to</span>
+                                <input type="time" class="form-control" id="inboxQuietEnd" value="<?php echo htmlspecialchars((string) ($is['quiet_end'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
+                            </div>
+                            <span class="cprofile__hint">In your content timezone. Leave both empty for none.</span>
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="inboxQuietAction">During quiet hours</label>
+                            <select class="form-select" id="inboxQuietAction">
+                                <option value="hold" <?php echo ($is['quiet_action'] !== 'skip') ? 'selected' : ''; ?>>Hold drafts for approval</option>
+                                <option value="skip" <?php echo ($is['quiet_action'] === 'skip') ? 'selected' : ''; ?>>Don't reply at all</option>
+                            </select>
+                        </div>
+                        <div class="cprofile__field">
+                            <label for="inboxMaxConsecutive">Max replies in a row</label>
+                            <input type="number" class="form-control" id="inboxMaxConsecutive" min="1" max="10" value="<?php echo (int) $is['max_consecutive']; ?>">
+                            <span class="cprofile__hint">After this many automated replies without you, the AI pauses for that fan.</span>
+                        </div>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label for="inboxPersona">How you talk to fans</label>
+                        <textarea class="form-control" id="inboxPersona" rows="4" maxlength="2000" placeholder="Short and playful. Use their name. Never use emojis. Sign off with x."><?php echo htmlspecialchars((string) $is['persona'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <span class="cprofile__hint">Your Brand Identity voice is used automatically. Add anything specific to DMs here.</span>
+                    </div>
+                    <div class="cprofile__field">
+                        <label for="inboxAvoid">Topics to avoid</label>
+                        <textarea class="form-control" id="inboxAvoid" rows="2" maxlength="2000" placeholder="Politics, my family, where I live"><?php echo htmlspecialchars((string) $is['avoid_topics'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <span class="cprofile__hint">Messages about these are held for you instead of answered.</span>
+                    </div>
+
+                    <div class="inbox-checks">
+                        <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxUpsell" <?php echo !empty($is['upsell_enabled']) ? 'checked' : ''; ?>><span><strong>Allow gentle upsells</strong><small>May mention your paid content or tips when it fits naturally. Never on a first message.</small></span></label>
+                        <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxDisclose" <?php echo !empty($is['disclose_ai']) ? 'checked' : ''; ?>><span><strong>Be honest if asked</strong><small>If a fan asks whether they're talking to a bot, say a helper answers some messages.</small></span></label>
+                    </div>
+
+                    <div class="cprofile__field">
+                        <label for="inboxTestText">Try it</label>
+                        <div class="inbox-test">
+                            <input type="text" class="form-control" id="inboxTestText" maxlength="500" placeholder="hey, loved your last post. what are you up to this weekend?">
+                            <button type="button" class="btn btn-secondary" id="inboxTest" <?php echo $this->claude_ok ? '' : 'disabled'; ?>>Draft a reply</button>
+                        </div>
+                        <div class="inbox-test__out" id="inboxTestOut" hidden></div>
+                    </div>
+
+                    <div class="cprofile__actions">
+                        <button type="button" class="btn btn-primary" id="inboxSave">Save</button>
+                    </div>
+                </div>
+
+                <div class="inbox-block">
+                    <div class="inbox-block__head"><h3 class="inbox-block__title">Welcome &amp; trigger messages</h3></div>
+                    <p class="inbox-block__desc">Automatic Fanvue messages sent on events like a new subscriber or a first DM. Saved directly to your Fanvue account.</p>
+                    <?php if (!$this->fanvue_chat_ok): ?>
+                        <p class="settings__empty">Available once Fanvue is connected with inbox access.</p>
+                    <?php else: ?>
+                    <div id="inboxTriggers" class="inbox-triggers">
+                        <?php foreach (InboxAutomationService::trigger_meta() as $trig => $tm): ?>
+                        <div class="inbox-trigger" data-trigger="<?php echo $trig; ?>">
+                            <div class="inbox-trigger__head">
+                                <div class="inbox-trigger__text">
+                                    <div class="inbox-trigger__name"><?php echo htmlspecialchars($tm[0], ENT_QUOTES, 'UTF-8'); ?></div>
+                                    <div class="inbox-trigger__hint"><?php echo htmlspecialchars($tm[1], ENT_QUOTES, 'UTF-8'); ?></div>
+                                </div>
+                                <span class="inbox-trigger__state" data-role="state">Off</span>
+                            </div>
+                            <textarea class="form-control inbox-trigger__input" rows="2" maxlength="5000" placeholder="Write the message, or let AI draft one" data-role="text"></textarea>
+                            <div class="inbox-trigger__actions">
+                                <button type="button" class="btn btn-secondary" data-role="ai" <?php echo $this->claude_ok ? '' : 'disabled'; ?>><i class="fa-solid fa-wand-magic-sparkles"></i> Write with AI</button>
+                                <button type="button" class="btn btn-secondary" data-role="off" hidden>Turn off</button>
+                                <button type="button" class="btn btn-primary" data-role="save">Save</button>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+
+                <div class="inbox-block">
+                    <div class="inbox-block__head"><h3 class="inbox-block__title">Recent activity</h3></div>
+                    <div id="inboxLog" class="inbox-log"></div>
+                </div>
+                <?php endif; ?>
+            </section>
+
             <section class="settings__section" data-section="connected">
 
                 <div class="conn-card conn-card--mcp mb-4">
@@ -695,6 +853,9 @@
                                 <span class="conn-card__handle"><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?></span>
                                 <button type="button" class="btn btn-secondary" id="fanvueDisconnect">Disconnect</button>
                             </div>
+                            <?php if (!$this->fanvue_chat_ok): ?>
+                            <p class="conn-card__note">Inbox access: not granted. <a href="#" id="fanvueReconnectLink">Reconnect</a> to enable inbox automation.</p>
+                            <?php endif; ?>
                             <?php if (!empty($fv['last_error'])): ?>
                             <p class="conn-card__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></p>
                             <?php endif; ?>
@@ -2338,13 +2499,187 @@ $(function () {
         });
     });
 
-    $('#fanvueConnect').on('click', function () {
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'fanvue_connect', {}, function (data) {
+    function fanvue_connect(return_section, $btn) {
+        if ($btn) { $btn.prop('disabled', true); }
+        ApiDataSvc.apiCall('post', 'fanvue_connect', { return_section: return_section || 'connected' }, function (data) {
             var o = JSON.parse(data);
-            if (o.success) { window.location = o.url; } else { toastr.error(o.message); $btn.prop('disabled', false); }
+            if (o.success) { window.location = o.url; } else { toastr.error(o.message); if ($btn) { $btn.prop('disabled', false); } }
+        });
+    }
+    $('#fanvueConnect').on('click', function () { fanvue_connect('connected', $(this)); });
+    $('#fanvueReconnectLink').on('click', function (e) { e.preventDefault(); fanvue_connect('connected', null); });
+    $('#inboxReconnectFanvue').on('click', function () { fanvue_connect('inbox', $(this)); });
+
+    // ---- Inbox automation -------------------------------------------------------
+    var inbox_timer = null;
+
+    function inbox_esc(s) { return $('<div>').text(s == null ? '' : String(s)).html(); }
+
+    function inbox_status_label(r) {
+        var map = { sent: 'Sent', dismissed: 'Dismissed', failed: 'Failed', skipped: 'Skipped', sending: 'Sending' };
+        var reasons = { rate_cap: 'too soon after last reply', max_consecutive: 'paused, needs you', quiet_hours: 'quiet hours',
+                        needs_human: 'held for you', creator_replied: 'you replied', superseded: 'newer message', claude: 'AI error' };
+        var t = map[r.status] || r.status;
+        if (r.reason && reasons[r.reason]) { t += ' · ' + reasons[r.reason]; }
+        return t;
+    }
+
+    function render_inbox_queue(o) {
+        var $q = $('#inboxQueue').empty();
+        $('#inboxQueueCount').text(o.pending_count ? o.pending_count : '');
+        $('#inboxNavBadge').text(o.pending_count).prop('hidden', !o.pending_count);
+        if (!o.items.length) {
+            $q.html('<p class="settings__empty">Nothing waiting. New drafts show up here as fans message you.</p>');
+        }
+        o.items.forEach(function (r) {
+            $q.append(
+                '<div class="inbox-queue__item" data-id="' + r.id + '">' +
+                    '<div class="inbox-queue__meta"><span class="inbox-queue__fan">' + inbox_esc(r.peer_name || 'Fan') + '</span><span class="inbox-queue__time">' + inbox_esc(r.created_human) + '</span></div>' +
+                    '<div class="inbox-queue__msg">' + inbox_esc(r.inbound_text) + '</div>' +
+                    '<textarea class="form-control inbox-queue__draft" rows="3" maxlength="5000">' + inbox_esc(r.draft_text) + '</textarea>' +
+                    '<div class="inbox-queue__actions">' +
+                        '<button type="button" class="btn btn-secondary" data-inbox-dismiss="' + r.id + '">Dismiss</button>' +
+                        '<button type="button" class="btn btn-primary" data-inbox-send="' + r.id + '">Send</button>' +
+                    '</div>' +
+                '</div>');
+        });
+        var $log = $('#inboxLog').empty();
+        if (!o.history.length) { $log.html('<p class="settings__empty">No activity yet.</p>'); }
+        o.history.forEach(function (r) {
+            var text = r.final_text || r.draft_text || r.inbound_text || '';
+            $log.append(
+                '<div class="inbox-log__row">' +
+                    '<span class="inbox-log__pill inbox-log__pill--' + inbox_esc(r.status) + '">' + inbox_esc(inbox_status_label(r)) + '</span>' +
+                    '<span class="inbox-log__fan">' + inbox_esc(r.peer_name || 'Fan') + '</span>' +
+                    '<span class="inbox-log__text">' + inbox_esc(text.length > 120 ? text.slice(0, 120) + '…' : text) + '</span>' +
+                    '<span class="inbox-log__time">' + inbox_esc(r.sent_human || r.created_human) + '</span>' +
+                    (r.error ? '<span class="inbox-log__error">' + inbox_esc(r.error) + '</span>' : '') +
+                '</div>');
+        });
+    }
+
+    function load_inbox_queue() {
+        if (!$('#inboxQueue').length) { return; }
+        ApiDataSvc.apiCall('post', 'inbox_queue_list', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { render_inbox_queue(o); }
+            else if (o.need_plan) { $('#inboxQueue').html('<p class="settings__empty">' + inbox_esc(o.message) + '</p>'); }
+        });
+    }
+
+    var inbox_triggers_loaded = false;
+    function load_inbox_triggers() {
+        if (!$('#inboxTriggers').length || inbox_triggers_loaded) { return; }
+        ApiDataSvc.apiCall('post', 'fanvue_auto_messages_list', {}, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { if (!o.need_reconnect) { toastr.error(o.message); } return; }
+            inbox_triggers_loaded = true;
+            Object.keys(o.items).forEach(function (t) {
+                var $row = $('#inboxTriggers .inbox-trigger[data-trigger="' + t + '"]');
+                var it = o.items[t];
+                $row.find('[data-role="text"]').val(it.text || '');
+                inbox_trigger_state($row, !!it.enabled);
+            });
+        });
+    }
+    function inbox_trigger_state($row, on) {
+        $row.toggleClass('is-on', on);
+        $row.find('[data-role="state"]').text(on ? 'On' : 'Off');
+        $row.find('[data-role="off"]').prop('hidden', !on);
+    }
+    $('#inboxTriggers').on('click', '[data-role="save"]', function () {
+        var $row = $(this).closest('.inbox-trigger'); var $btns = $row.find('button').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'fanvue_auto_message_save', { trigger: $row.data('trigger'), text: $row.find('[data-role="text"]').val() }, function (data) {
+            var o = JSON.parse(data); $btns.prop('disabled', false);
+            if (o.success) { toastr.success(o.message); inbox_trigger_state($row, true); } else { toastr.error(o.message); }
         });
     });
+    $('#inboxTriggers').on('click', '[data-role="off"]', function () {
+        var $row = $(this).closest('.inbox-trigger'); var $btns = $row.find('button').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'fanvue_auto_message_delete', { trigger: $row.data('trigger') }, function (data) {
+            var o = JSON.parse(data); $btns.prop('disabled', false);
+            if (o.success) { toastr.success(o.message); inbox_trigger_state($row, false); } else { toastr.error(o.message); }
+        });
+    });
+    $('#inboxTriggers').on('click', '[data-role="ai"]', function () {
+        var $row = $(this).closest('.inbox-trigger'); var $btn = $(this).prop('disabled', true);
+        var $ta = $row.find('[data-role="text"]').attr('placeholder', 'Writing…');
+        ApiDataSvc.apiCall('post', 'fanvue_auto_message_save', { trigger: $row.data('trigger'), ai_generate: 1 }, function (data) {
+            var o = JSON.parse(data); $btn.prop('disabled', false); $ta.attr('placeholder', 'Write the message, or let AI draft one');
+            if (o.success) { $ta.val(o.text).trigger('focus'); } else { toastr.error(o.message); }
+        });
+    });
+
+    $('#settings_nav').on('click', '.settings__nav-item[data-section="inbox"]', function () {
+        load_inbox_queue();
+        load_inbox_triggers();
+        clearInterval(inbox_timer);
+        inbox_timer = setInterval(function () {
+            if ($('.settings__section[data-section="inbox"]').hasClass('is-active')) { load_inbox_queue(); } else { clearInterval(inbox_timer); }
+        }, 60000);
+    });
+    if ($('.settings__section[data-section="inbox"]').hasClass('is-active')) { $('#settings_nav .settings__nav-item[data-section="inbox"]').trigger('click'); }
+
+    $('#inboxQueue').on('click', '[data-inbox-send]', function () {
+        var $item = $(this).closest('.inbox-queue__item');
+        var $btns = $item.find('button').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'inbox_reply_send', { id: $(this).data('inbox-send'), text: $item.find('.inbox-queue__draft').val() }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+            $btns.prop('disabled', false);
+            load_inbox_queue();
+        });
+    });
+    $('#inboxQueue').on('click', '[data-inbox-dismiss]', function () {
+        var $btns = $(this).closest('.inbox-queue__item').find('button').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'inbox_reply_dismiss', { id: $(this).data('inbox-dismiss') }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+            $btns.prop('disabled', false);
+            load_inbox_queue();
+        });
+    });
+
+    function inbox_form() {
+        return {
+            fanvue_enabled:  $('#inboxFanvue').is(':checked') ? 1 : 0,
+            cls_enabled:     $('#inboxCls').is(':checked') ? 1 : 0,
+            mode:            $('input[name="inbox_mode"]:checked').val() || 'approve',
+            quiet_start:     $('#inboxQuietStart').val(),
+            quiet_end:       $('#inboxQuietEnd').val(),
+            quiet_action:    $('#inboxQuietAction').val(),
+            max_consecutive: $('#inboxMaxConsecutive').val(),
+            persona:         $('#inboxPersona').val(),
+            avoid_topics:    $('#inboxAvoid').val(),
+            upsell_enabled:  $('#inboxUpsell').is(':checked') ? 1 : 0,
+            disclose_ai:     $('#inboxDisclose').is(':checked') ? 1 : 0
+        };
+    }
+
+    $('#inboxSave').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'inbox_settings_save', inbox_form(), function (data) {
+            var o = JSON.parse(data);
+            $btn.prop('disabled', false);
+            if (o.success) { toastr.success(o.message); return; }
+            toastr.error(o.message);
+            if (o.need_reconnect) { $('#inboxFanvue').prop('checked', false); $('#inboxReconnectFanvue').trigger('focus'); }
+            if (o.need_plan) { setTimeout(function () { window.location.href = '/account/billing'; }, 1200); }
+        });
+    });
+
+    $('#inboxTest').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        var f = inbox_form();
+        var $out = $('#inboxTestOut').prop('hidden', false).removeClass('is-hold').text('Thinking…');
+        ApiDataSvc.apiCall('post', 'inbox_test_draft', { sample_text: $('#inboxTestText').val(), persona: f.persona, avoid_topics: f.avoid_topics, upsell_enabled: f.upsell_enabled, disclose_ai: f.disclose_ai }, function (data) {
+            var o = JSON.parse(data);
+            $btn.prop('disabled', false);
+            if (!o.success) { $out.prop('hidden', true); toastr.error(o.message); return; }
+            if (o.hold) { $out.addClass('is-hold').text(o.message); } else { $out.text(o.text); }
+        });
+    });
+    $('#inboxTestText').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#inboxTest').trigger('click'); } });
 
     $('#fanvueDisconnect').on('click', function () {
         ApiDataSvc.apiCall('post', 'fanvue_disconnect', {}, function (data) {

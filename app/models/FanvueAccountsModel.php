@@ -23,6 +23,36 @@ class FanvueAccountsModel extends Model {
         return $row;
     }
 
+    /** Webhook lookup: the connected row owning this Fanvue user uuid, or null. */
+    public function get_by_fanvue_uuid($uuid){
+        $uuid = trim((string) $uuid);
+        if ($uuid === '') { return null; }
+        $rows = parent::select(
+            "SELECT * FROM user_fanvue_accounts WHERE fanvue_user_uuid = :u AND status = 'connected' LIMIT 2",
+            array('u' => $uuid)
+        );
+        if (!is_array($rows) || count($rows) !== 1) { return null; }
+        $row = $rows[0];
+        $row['access_token']  = self::decrypt((string) $row['access_token']);
+        $row['refresh_token'] = self::decrypt((string) $row['refresh_token']);
+        return $row;
+    }
+
+    /** Does the stored grant include a scope? An empty scope column counts as missing. */
+    public static function has_scope($row, $scope): bool {
+        $granted = preg_split('/\s+/', trim((string) ($row['scope'] ?? '')));
+        return in_array($scope, $granted, true);
+    }
+
+    /** Inbox automation needs every scope in FanvueService::INBOX_SCOPES (granted only by a re-consent after 2026-09-08). */
+    public static function has_chat_scope($row): bool {
+        if (!is_array($row)) { return false; }
+        foreach (FanvueService::INBOX_SCOPES as $sc) {
+            if (!self::has_scope($row, $sc)) { return false; }
+        }
+        return true;
+    }
+
     /** The user's Fanvue row only if currently connected, else null. */
     public function get_connected_for_user($user_id){
         $row = $this->get_for_user($user_id);

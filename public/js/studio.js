@@ -1355,8 +1355,16 @@ jQuery(function ($) {
         schedRules.forEach(function (r) { $list.append(schedCard(r)); });
     }
 
+    function schedTargetsSummary(r) {
+        var t = r.message_targets || {}, parts = [];
+        (t.fanvue || []).forEach(function (l) { parts.push('Fanvue ' + String(l).replace(/_/g, ' ')); });
+        if (t.cls) { parts.push('CLS ' + (t.cls === 'all' ? 'everyone' : t.cls)); }
+        return parts.join(', ') || 'No audience';
+    }
     function schedCard(r) {
-        var aud = r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone';
+        var isMsg = r.kind === 'message';
+        var aud = isMsg ? schedTargetsSummary(r) : (r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone');
+        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : r.topic;
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
             : (r.last_status === 'failed'
@@ -1372,10 +1380,10 @@ jQuery(function ($) {
                         '<span class="cs-sched__dot"></span>' + (r.active ? 'Active' : 'Paused') +
                     '</button>' +
                 '</div>' +
-                '<p class="cs-sched__topic">' + esc(r.topic) + '</p>' +
+                '<p class="cs-sched__topic">' + (isMsg ? '<i class="fa-solid fa-paper-plane cs-sched__kind" title="Scheduled message"></i> ' : '') + esc(body) + '</p>' +
                 '<div class="cs-sched__meta">' +
                     '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
-                    '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (r.audience === 'subscribers' ? 'lock' : 'globe') + '"></i>' + aud + '</span>' +
+                    '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : (r.audience === 'subscribers' ? 'lock' : 'globe')) + '"></i>' + esc(aud) + '</span>' +
                     (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
                     lastRun +
                 '</div>' +
@@ -1383,7 +1391,7 @@ jQuery(function ($) {
             '<div class="cs-sched__actions">' +
                 (schedRunning[r.id]
                     ? '<button type="button" class="cs-sched__btn cs-sched__btn--run" data-sched-run disabled><span class="spinner-border spinner-border-sm"></span> Generating…</button>'
-                    : '<button type="button" class="cs-sched__btn cs-sched__btn--run" data-sched-run><i class="fa-solid fa-bolt"></i> Run now</button>') +
+                    : '<button type="button" class="cs-sched__btn cs-sched__btn--run" data-sched-run><i class="fa-solid fa-bolt"></i> ' + (isMsg ? 'Send now' : 'Run now') + '</button>') +
                 '<button type="button" class="cs-sched__btn cs-sched__btn--icon" data-sched-edit aria-label="Edit" title="Edit"><i class="fa-solid fa-pen"></i></button>' +
                 '<button type="button" class="cs-sched__btn cs-sched__btn--icon cs-sched__btn--danger" data-sched-del aria-label="Delete" title="Delete"><i class="fa-solid fa-trash-can"></i></button>' +
             '</div>' +
@@ -1391,14 +1399,48 @@ jQuery(function ($) {
         );
     }
 
-    $('#csSchedNew, #csSchedEmptyNew').on('click', function () { openSchedForm(null); });
+    $('#csSchedNew, #csSchedEmptyNew').on('click', function () { openSchedForm(null, 'post'); });
+    $('#csSchedNewMsg').on('click', function () { openSchedForm(null, 'message'); });
     $('#csSchedList').on('click', '[data-sched-edit]', function () {
         var id = $(this).closest('.cs-sched__card').data('id');
         openSchedForm(schedRules.filter(function (r) { return r.id == id; })[0] || null);
     });
 
-    function openSchedForm(rule) {
+    function setSchedKind(kind) {
+        $('#csSchedKind').val(kind);
+        $('#csSchedulerModal [data-kind="post"]').prop('hidden', kind !== 'post');
+        $('#csSchedulerModal [data-kind="message"]').prop('hidden', kind !== 'message');
+        $('#csSchedSave').text(kind === 'message' ? 'Save message' : 'Save automation');
+        setSchedMsgAi();
+    }
+    function setSchedMsgAi() {
+        var kind = $('#csSchedKind').val(), ai = $('#csSchedMsgAi').is(':checked');
+        $('#csSchedMsgTextWrap').prop('hidden', kind === 'message' && ai);
+        $('#csSchedTopicWrap').prop('hidden', kind === 'message' && !ai);
+    }
+    $('#csSchedMsgAi').on('change', setSchedMsgAi);
+    function renderSchedTargets(sel) {
+        var ib = CFG.inbox || {}, $wrap = $('#csSchedTargets').empty();
+        sel = sel || {}; var fv = new Set((sel.fanvue || []).map(String));
+        if (ib.fanvue_ok) {
+            (ib.fanvue_lists || []).forEach(function (l) {
+                $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-fvlist="' + esc(l) + '"' + (fv.has(l) ? ' checked' : '') + '><i class="fa-solid fa-bolt"></i><span class="cs-social__name">Fanvue: ' + esc(l.replace(/_/g, ' ')) + '</span></label>');
+            });
+        } else {
+            $wrap.append('<p class="cs-comp__socialnote">Connect Fanvue with inbox access in <a href="/account/settings?section=inbox">Inbox Automation</a> to message Fanvue fans.</p>');
+        }
+        var segs = ib.cls_segments || ['all', 'followers', 'subscribers'];
+        var opts = '<option value="">Not on Creator Link Studio</option>' + segs.map(function (g) { return '<option value="' + esc(g) + '"' + (sel.cls === g ? ' selected' : '') + '>Creator Link Studio: ' + esc(g === 'all' ? 'everyone I can message' : g) + '</option>'; }).join('');
+        $wrap.append('<select class="form-select mt-2" id="csSchedClsSeg">' + opts + '</select>');
+    }
+
+    function openSchedForm(rule, kind) {
         if (!schedModal) schedModal = bootstrap.Modal.getOrCreateInstance('#csSchedulerModal');
+        kind = rule ? (rule.kind || 'post') : (kind || 'post');
+        renderSchedTargets(rule ? rule.message_targets : null);
+        $('#csSchedMsgAi').prop('checked', rule ? !!rule.message_ai : false);
+        $('#csSchedMsgText').val(rule ? (rule.message_text || '') : '');
+        setSchedKind(kind);
         var b = CFG.brand || {};
         if (b.has_brand) { $('#csSchedBrandName').text(b.brand_name ? ('“' + b.brand_name + '”') : ''); $('#csSchedBrandRow').prop('hidden', false); }
         else { $('#csSchedBrandRow').prop('hidden', true); }
@@ -1407,7 +1449,7 @@ jQuery(function ($) {
         renderSchedSocial(rule ? rule.social_accounts : []);
         renderSchedDays(rule ? rule.days_of_week : []);
 
-        $('#csSchedModalTitle').html('<i class="fa-solid fa-robot"></i> ' + (rule ? 'Edit automation' : 'New automation'));
+        $('#csSchedModalTitle').html('<i class="fa-solid fa-' + (kind === 'message' ? 'paper-plane' : 'robot') + '"></i> ' + (kind === 'message' ? (rule ? 'Edit scheduled message' : 'New scheduled message') : (rule ? 'Edit automation' : 'New automation')));
         $('#csSchedId').val(rule ? rule.id : 0);
         $('#csSchedName').val(rule ? rule.name : '');
         $('#csSchedTopic').val(rule ? rule.topic : '');
@@ -1462,14 +1504,22 @@ jQuery(function ($) {
     $('#csSchedSave').on('click', function () {
         var name = ($('#csSchedName').val() || '').trim();
         var topic = ($('#csSchedTopic').val() || '').trim();
-        if (name === '')  { toastr.info('Give your automation a name.'); $('#csSchedName').focus(); return; }
-        if (topic === '') { toastr.info('Describe what to post.'); $('#csSchedTopic').focus(); return; }
+        var kind = $('#csSchedKind').val() || 'post';
+        var msgAi = $('#csSchedMsgAi').is(':checked'), msgText = ($('#csSchedMsgText').val() || '').trim();
+        var targets = { fanvue: $('#csSchedTargets input[data-fvlist]:checked').map(function () { return String($(this).data('fvlist')); }).get(), cls: $('#csSchedClsSeg').val() || '' };
+        if (name === '')  { toastr.info('Give it a name.'); $('#csSchedName').focus(); return; }
+        if (kind === 'message') {
+            if (!targets.fanvue.length && !targets.cls) { toastr.info('Pick who gets the message.'); return; }
+            if (msgAi && topic === '') { toastr.info('Tell the AI what the message is about.'); $('#csSchedTopic').focus(); return; }
+            if (!msgAi && msgText === '') { toastr.info('Write the message.'); $('#csSchedMsgText').focus(); return; }
+        } else if (topic === '') { toastr.info('Describe what to post.'); $('#csSchedTopic').focus(); return; }
         var days = $('#csSchedDays .cs-sched__day.is-on').map(function () { return $(this).data('day'); }).get();
         if (schedForm.cadence === 'weekly' && !days.length) { toastr.info('Pick at least one day of the week.'); return; }
         var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
         var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');
         ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
+            kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
             size: $('#csSchedSize').val(), audience: schedForm.audience,
             tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
@@ -1478,7 +1528,7 @@ jQuery(function ($) {
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'
         }, function (resp) { var o = JSON.parse(resp);
-            $btn.prop('disabled', false).text('Save automation');
+            $btn.prop('disabled', false).text(kind === 'message' ? 'Save message' : 'Save automation');
             if (!o.success) { toastr.error(o.message); return; }
             schedModal.hide(); toastr.success('Automation saved'); loadScheduler();
         });

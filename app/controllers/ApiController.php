@@ -2048,6 +2048,7 @@ class ApiController extends Controller {
             'verifier' => $verifier,
             'user_id'  => (int) $user['user_id'],   // the OWNER the connection belongs to
             'started'  => time(),
+            'return_section' => (($this->post['return_section'] ?? '') === 'inbox') ? 'inbox' : 'connected',
         ));
         echo json_encode(array('success' => true, 'url' => $url));
         exit;
@@ -2057,6 +2058,217 @@ class ApiController extends Controller {
         $user = $this->social_user('manage');
         (new FanvueAccountsModel())->disconnect((int) $user['user_id']);
         echo json_encode(array('success' => true, 'message' => 'Fanvue disconnected'));
+        exit;
+    }
+
+    // ---- Inbox automation (Settings > Inbox Automation) -------------------------------
+
+    /** Owner account for inbox automation: Manager+, active plan, and the inbox_automation tier flag. */
+    private function inbox_user(){
+        $user = $this->require_creator('manage');
+        if (!Plan::can($user, 'inbox_automation')) {
+            echo json_encode(array('success' => false, 'need_plan' => true,
+                'message' => 'AI inbox replies are included in Pro and Studio plans.'));
+            exit;
+        }
+        return $user;
+    }
+
+    private function inbox_reply_json(array $r, $tz){
+        return array(
+            'id'            => (int) $r['id'],
+            'channel'       => (string) $r['channel'],
+            'peer_name'     => (string) ($r['peer_name'] ?? ''),
+            'inbound_text'  => (string) ($r['inbound_text'] ?? ''),
+            'draft_text'    => (string) ($r['draft_text'] ?? ''),
+            'final_text'    => (string) ($r['final_text'] ?? ''),
+            'status'        => (string) $r['status'],
+            'reason'        => (string) ($r['reason'] ?? ''),
+            'error'         => (string) ($r['error'] ?? ''),
+            'created_human' => $this->scheduler_next_human($r['created_at'], $tz),
+            'sent_human'    => $this->scheduler_next_human($r['sent_at'] ?? '', $tz),
+        );
+    }
+
+    public function inbox_settings_saveAction(){
+        $user = $this->inbox_user();
+        $f = array();
+        foreach (array('fanvue_enabled', 'cls_enabled', 'mode', 'quiet_start', 'quiet_end', 'quiet_action',
+                       'max_consecutive', 'upsell_enabled', 'disclose_ai') as $k) {
+            $f[$k] = $this->post[$k] ?? null;
+        }
+        $f['persona']      = html_entity_decode((string) ($this->post['persona'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $f['avoid_topics'] = html_entity_decode((string) ($this->post['avoid_topics'] ?? ''), ENT_QUOTES, 'UTF-8');
+
+        if (!empty($f['fanvue_enabled'])) {
+            $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
+            if (!$fv) {
+                echo json_encode(array('success' => false, 'message' => 'Connect Fanvue in Integrations first.'));
+                exit;
+            }
+            if (!FanvueAccountsModel::has_chat_scope($fv)) {
+                echo json_encode(array('success' => false, 'need_reconnect' => true,
+                    'message' => 'Reconnect Fanvue to grant inbox access, then turn this on.'));
+                exit;
+            }
+        }
+        $clean = (new InboxSettingsModel())->save((int) $user['user_id'], $f);
+        echo json_encode(array('success' => true, 'message' => 'Inbox settings saved', 'settings' => $clean));
+        exit;
+    }
+
+    public function inbox_queue_listAction(){
+        $user = $this->inbox_user();
+        $tz   = (string) ($user['content_timezone'] ?? 'UTC');
+        $m    = new InboxRepliesModel();
+        $items = array(); $history = array();
+        foreach ($m->pending_for_creator((int) $user['user_id'], 50) as $r) { $items[]   = $this->inbox_reply_json($r, $tz); }
+        foreach ($m->recent_for_creator((int) $user['user_id'], 20)  as $r) { $history[] = $this->inbox_reply_json($r, $tz); }
+        echo json_encode(array('success' => true, 'items' => $items, 'history' => $history, 'pending_count' => count($items)));
+        exit;
+    }
+
+    public function inbox_reply_sendAction(){
+        $user = $this->inbox_user();
+        $m    = new InboxRepliesModel();
+        $row  = $m->get_one((int) $user['user_id'], (int) ($this->post['id'] ?? 0));
+        if (!$row || $row['status'] !== 'pending_approval') {
+            echo json_encode(array('success' => false, 'message' => 'That draft is no longer waiting.'));
+            exit;
+        }
+        $text = html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if (trim($text) === '') { $text = (string) $row['draft_text']; }
+        set_time_limit(90);
+        $res = InboxAutomationService::send_reply($row, $text, (int) Session::get('user_id'), false);
+        if (!$res['ok']) {
+            echo json_encode(array('success' => false, 'message' => $res['error']));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'message' => 'Sent'));
+        exit;
+    }
+
+    public function inbox_reply_dismissAction(){
+        $user = $this->inbox_user();
+        $m    = new InboxRepliesModel();
+        $row  = $m->get_one((int) $user['user_id'], (int) ($this->post['id'] ?? 0));   // ownership first
+        $n    = $row ? $m->mark_dismissed((int) $row['id'], (int) Session::get('user_id')) : 0;
+        echo json_encode(array('success' => ($n === 1), 'message' => ($n === 1) ? 'Dismissed' : 'That draft is no longer waiting.'));
+        exit;
+    }
+
+    // ---- Fanvue welcome & trigger messages (Fanvue is the source of truth) --------------
+
+    /** Connected Fanvue account with inbox scopes + a live token, or a JSON error + exit. */
+    private function inbox_fanvue_token(array $user){
+        $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
+        if (!$fv) { echo json_encode(array('success' => false, 'message' => 'Connect Fanvue in Integrations first.')); exit; }
+        if (!FanvueAccountsModel::has_chat_scope($fv)) {
+            echo json_encode(array('success' => false, 'need_reconnect' => true, 'message' => 'Reconnect Fanvue to grant inbox access.')); exit;
+        }
+        $token = FanvueService::access_token_for($fv);
+        if ($token === '') { echo json_encode(array('success' => false, 'message' => 'Fanvue session expired. Reconnect in Settings > Integrations.')); exit; }
+        return $token;
+    }
+
+    public function fanvue_auto_messages_listAction(){
+        $user  = $this->inbox_user();
+        $token = $this->inbox_fanvue_token($user);
+        $items = FanvueService::get_automated_messages($token);
+        if ($items === null) {
+            echo json_encode(array('success' => false, 'message' => "Couldn't load your automated messages from Fanvue. Try again or reconnect."));
+            exit;
+        }
+        $out = array();
+        foreach (FanvueService::TRIGGERS as $t) {
+            $out[$t] = isset($items[$t]) ? $items[$t] : array('enabled' => false, 'text' => '', 'price' => 0);
+        }
+        echo json_encode(array('success' => true, 'items' => $out));
+        exit;
+    }
+
+    /** Save (enable) one trigger's text on Fanvue, or with ai_generate=1 just return a Claude draft. */
+    public function fanvue_auto_message_saveAction(){
+        $user    = $this->inbox_user();
+        $trigger = (string) ($this->post['trigger'] ?? '');
+        if (!in_array($trigger, FanvueService::TRIGGERS, true)) {
+            echo json_encode(array('success' => false, 'message' => 'Unknown trigger.')); exit;
+        }
+        if (!empty($this->post['ai_generate'])) {
+            if (!ClaudeService::configured()) { echo json_encode(array('success' => false, 'message' => 'AI is not configured on this server.')); exit; }
+            $ip = $this->get_ip_address();
+            if ($this->loginAttemptsModel->count_recent($ip, 'inbox_test', 1) >= 10) {
+                echo json_encode(array('success' => false, 'message' => 'Slow down — try again in a minute.')); exit;
+            }
+            $this->loginAttemptsModel->record($ip, (string) $user['user_id'], 'inbox_test');
+            $text = InboxAutomationService::draft_trigger_message($user, $trigger);
+            if ($text === '') { echo json_encode(array('success' => false, 'message' => 'Could not draft that message. Try again.')); exit; }
+            echo json_encode(array('success' => true, 'text' => $text, 'message' => 'Draft ready'));
+            exit;
+        }
+        $text  = trim(html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($text === '') { echo json_encode(array('success' => false, 'message' => 'Write the message first.')); exit; }
+        $token = $this->inbox_fanvue_token($user);
+        try {
+            FanvueService::put_automated_message($token, $trigger, $text);
+        } catch (\Throwable $e) {
+            echo json_encode(array('success' => false, 'message' => $e->getMessage())); exit;
+        }
+        echo json_encode(array('success' => true, 'message' => 'Saved to Fanvue'));
+        exit;
+    }
+
+    public function fanvue_auto_message_deleteAction(){
+        $user    = $this->inbox_user();
+        $trigger = (string) ($this->post['trigger'] ?? '');
+        if (!in_array($trigger, FanvueService::TRIGGERS, true)) {
+            echo json_encode(array('success' => false, 'message' => 'Unknown trigger.')); exit;
+        }
+        $token = $this->inbox_fanvue_token($user);
+        try {
+            FanvueService::delete_automated_message($token, $trigger);
+        } catch (\Throwable $e) {
+            echo json_encode(array('success' => false, 'message' => $e->getMessage())); exit;
+        }
+        echo json_encode(array('success' => true, 'message' => 'Turned off'));
+        exit;
+    }
+
+    /** Try the current persona/guardrails on a sample fan message. Nothing is stored or sent. */
+    public function inbox_test_draftAction(){
+        $user   = $this->inbox_user();
+        $sample = trim(html_entity_decode((string) ($this->post['sample_text'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($sample === '') {
+            echo json_encode(array('success' => false, 'message' => 'Type a sample message first.'));
+            exit;
+        }
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'inbox_test', 1) >= 10) {
+            echo json_encode(array('success' => false, 'message' => 'Slow down — try again in a minute.'));
+            exit;
+        }
+        $this->loginAttemptsModel->record($ip, (string) $user['user_id'], 'inbox_test');
+        if (!ClaudeService::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'AI replies are not configured on this server.'));
+            exit;
+        }
+        // Use what's on the form right now (unsaved edits included) so tuning is one loop.
+        $settings = (new InboxSettingsModel())->get_for_creator((int) $user['user_id']);
+        foreach (array('persona', 'avoid_topics') as $k) {
+            if (isset($this->post[$k])) { $settings[$k] = mb_substr(strip_tags(html_entity_decode((string) $this->post[$k], ENT_QUOTES, 'UTF-8')), 0, 2000); }
+        }
+        foreach (array('upsell_enabled', 'disclose_ai') as $k) {
+            if (isset($this->post[$k])) { $settings[$k] = !empty($this->post[$k]) ? 1 : 0; }
+        }
+        $cb  = (new CreatorBrandModel())->get_for_user((int) $user['user_id']);
+        $res = InboxAutomationService::draft($settings, $cb, $user, array(), mb_substr($sample, 0, 500), 'a fan', 'fanvue');
+        if (!$res['ok']) {
+            echo json_encode(array('success' => false, 'message' => $res['error']));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'hold' => $res['hold'],
+            'text' => $res['hold'] ? '' : $res['text'],
+            'message' => $res['hold'] ? 'This one would be held for you to answer personally.' : 'Draft ready'));
         exit;
     }
 
@@ -2262,8 +2474,25 @@ class ApiController extends Controller {
             $this->notify($recipient, 'messages', 'New message from ' . $sender['name'], mb_substr($body, 0, 140), '/', 'fa-comment-dots', true);
         }
 
-        echo json_encode(array('success' => true, 'conversation_id' => $conv_id,
-            'sent' => array('id' => $mid, 'mine' => true, 'body' => $body, 'created_at' => date('Y-m-d H:i:s')))); exit;
+        $payload = json_encode(array('success' => true, 'conversation_id' => $conv_id,
+            'sent' => array('id' => $mid, 'mine' => true, 'body' => $body, 'created_at' => date('Y-m-d H:i:s'))));
+
+        // Inbox automation (internal DMs): a fan wrote to a creator → queue an AI reply and
+        // process it after this response is on its way; a creator wrote by hand → drop any
+        // draft still waiting for that conversation.
+        if ($conv) {
+            if ((int) $conv['creator_id'] !== $me) {
+                $event_id = InboxAutomationService::enqueue_cls_message((int) $conv_id, (int) $mid, (int) $conv['creator_id'], $me, $body);
+                if ($event_id > 0) {
+                    InboxAutomationService::respond_early($payload, 'application/json');
+                    InboxAutomationService::process_event($event_id);
+                    exit;
+                }
+            } else {
+                (new InboxRepliesModel())->dismiss_pending_for_peer((int) $conv['creator_id'], 'cls', (string) $conv_id, 'creator_replied');
+            }
+        }
+        echo $payload; exit;
     }
 
     /** The signed-in account's inbox. */
@@ -3783,6 +4012,10 @@ class ApiController extends Controller {
         $days     = array_values(array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; }));
         return array(
             'id'               => (int) $r['id'],
+            'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
+            'message_text'     => (string) ($r['message_text'] ?? ''),
+            'message_ai'       => (int) ($r['message_ai'] ?? 0),
+            'message_targets'  => SchedulerRulesModel::targets($r),
             'name'             => (string) $r['name'],
             'active'           => (int) $r['active'],
             'topic'            => (string) $r['topic'],
@@ -3820,10 +4053,33 @@ class ApiController extends Controller {
         $id         = (int) ($this->post['id'] ?? 0);
         $name       = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES));
         $topic      = trim(html_entity_decode((string) ($this->post['topic'] ?? ''), ENT_QUOTES));
+        $kind       = (($this->post['kind'] ?? 'post') === 'message') ? 'message' : 'post';
+        $msg_text   = trim(html_entity_decode((string) ($this->post['message_text'] ?? ''), ENT_QUOTES));
+        $msg_ai     = !empty($this->post['message_ai']) ? 1 : 0;
+        $targets    = $this->post['message_targets'] ?? array();
+        if (is_string($targets)) { $targets = json_decode(html_entity_decode($targets, ENT_QUOTES, 'UTF-8'), true) ?: array(); }
         if ($name === '')  { echo json_encode(array('success' => false, 'message' => 'Give your automation a name.')); exit; }
-        if ($topic === '') { echo json_encode(array('success' => false, 'message' => 'Describe what to post (the topic).')); exit; }
+        if ($kind === 'message') {
+            if (!Plan::can($user, 'inbox_automation')) {
+                echo json_encode(array('success' => false, 'need_plan' => true, 'message' => 'Scheduled messages are included in Pro and Studio plans.')); exit;
+            }
+            $t = SchedulerRulesModel::targets(array('message_targets' => json_encode((array) $targets)));
+            if (empty($t['fanvue']) && $t['cls'] === '') { echo json_encode(array('success' => false, 'message' => 'Pick who receives the message.')); exit; }
+            if ($msg_ai && $topic === '')   { echo json_encode(array('success' => false, 'message' => 'Tell the AI what the message is about (the topic).')); exit; }
+            if (!$msg_ai && $msg_text === '') { echo json_encode(array('success' => false, 'message' => 'Write the message, or let AI write it from a topic.')); exit; }
+            if (!empty($t['fanvue'])) {
+                $fv = (new FanvueAccountsModel())->get_connected_for_user($creator_id);
+                if (!$fv || !FanvueAccountsModel::has_chat_scope($fv)) {
+                    echo json_encode(array('success' => false, 'message' => 'Connect Fanvue with inbox access (Settings > Inbox Automation) to message Fanvue fans.')); exit;
+                }
+            }
+        } elseif ($topic === '') { echo json_encode(array('success' => false, 'message' => 'Describe what to post (the topic).')); exit; }
 
         $fields = array(
+            'kind'             => $kind,
+            'message_text'     => $msg_text,
+            'message_ai'       => $msg_ai,
+            'message_targets'  => (array) $targets,
             'name'             => $name,
             'topic'            => $topic,
             'active'           => ((string) ($this->post['active'] ?? '1')) !== '0',
@@ -3875,7 +4131,7 @@ class ApiController extends Controller {
         if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
         $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
         if (!$rule) { echo json_encode(array('success' => false, 'message' => 'Automation not found')); exit; }
-        $res = AutoPostService::run_rule($rule, $user);
+        $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
         (new SchedulerRunsModel())->add((int) $rule['id'], $creator_id, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
         (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
         echo json_encode(array('success' => $res['ok'], 'message' => $res['message'], 'post_id' => $res['post_id']));

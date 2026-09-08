@@ -28,6 +28,9 @@
                     <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
                     <?php endif; ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
+                    <?php if (!empty($this->inbox['can'])): ?>
+                    <li><button type="button" class="dropdown-item" id="csSchedNewMsg"><span class="cs-create__ic"><i class="fa-solid fa-paper-plane"></i></span><span><strong>New Scheduled Message</strong><small>Message your fans on a schedule</small></span></button></li>
+                    <?php endif; ?>
                     <li><hr class="dropdown-divider"></li>
                     <li class="cs-create__label">Library</li>
                     <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload Media</strong><small>Add files to your library</small></span></button></li>
@@ -420,14 +423,34 @@
             </div>
             <div class="modal-body cs-comp__edit">
                 <input type="hidden" id="csSchedId" value="0">
+                <input type="hidden" id="csSchedKind" value="post">
 
                 <label class="cs-dv__label" for="csSchedName">Name</label>
                 <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="Daily Orlando tip">
 
-                <label class="cs-dv__label mt-3" for="csSchedTopic">What to post each time</label>
-                <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A scenic Orlando spot with a short caption"></textarea>
-                <span class="cs-comp__count">Each run makes a fresh on-brand image + caption from this.</span>
+                <div data-kind="message" hidden>
+                    <label class="cs-dv__label mt-3">Who gets it</label>
+                    <div class="cs-comp__social" id="csSchedTargets"></div>
 
+                    <label class="cs-comp__opt mt-3" for="csSchedMsgAi">
+                        <span>Write with AI<small>A fresh message from a topic each time, in your brand voice.</small></span>
+                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedMsgAi"></span>
+                    </label>
+
+                    <div id="csSchedMsgTextWrap">
+                        <label class="cs-dv__label mt-3" for="csSchedMsgText">Message</label>
+                        <textarea class="form-control" id="csSchedMsgText" rows="4" maxlength="5000" placeholder="New drop this week. Check your inbox Friday."></textarea>
+                        <span class="cs-comp__count">Sent as written, to everyone selected above.</span>
+                    </div>
+                </div>
+
+                <div id="csSchedTopicWrap">
+                    <label class="cs-dv__label mt-3" for="csSchedTopic"><span data-kind="post">What to post each time</span><span data-kind="message" hidden>What the message is about</span></label>
+                    <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A scenic Orlando spot with a short caption"></textarea>
+                    <span class="cs-comp__count"><span data-kind="post">Each run makes a fresh on-brand image + caption from this.</span><span data-kind="message" hidden>Each run writes a new message about this.</span></span>
+                </div>
+
+                <div data-kind="post">
                 <label class="cs-dv__label mt-3" for="csSchedSize">Image shape</label>
                 <select id="csSchedSize" class="form-select">
                     <option value="square">Square (1:1)</option>
@@ -457,6 +480,7 @@
 
                 <label class="cs-dv__label mt-3">Share to social</label>
                 <div id="csSchedSocial" class="cs-comp__social"></div>
+                </div>
 
                 <label class="cs-dv__label mt-3">Schedule</label>
                 <div class="cs-seg cs-seg--sm" id="csSchedCadence">
@@ -482,6 +506,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'creator'  => $this->creator,
     'plans'    => $this->plans,
     'social'   => $this->social,
+    'inbox'    => $this->inbox,
     'brand'    => $this->brand,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
