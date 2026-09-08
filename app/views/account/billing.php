@@ -7,6 +7,7 @@ $(function () {
     var elements  = null;
     var price_id  = '';
     var paid      = false;
+    var pay_mode  = 'payment';   // 'payment' | 'setup' ($0 first invoice, card saved for renewals)
 
     function fmt_amount(cents, currency) {
         return new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'usd').toUpperCase() }).format(cents / 100);
@@ -23,12 +24,24 @@ $(function () {
                 $('#promo_apply').prop('disabled', false);
                 return;
             }
+            pay_mode = o.mode || 'payment';
+            if (pay_mode === 'none') {
+                // Promo covered the whole first invoice and no card is needed — it's live.
+                paid = true;
+                $('#payment_form').modal('hide');
+                ApiDataSvc.apiCall('post', 'sync_subscription', {}, function () {
+                    toastr.success('Your subscription is active');
+                    setTimeout(function () { window.location.href = '/account/billing'; }, 1200);
+                });
+                return;
+            }
             $('#payment_element').html('');
             elements = stripe.elements({ clientSecret: o.client_secret });
             elements.create('payment').mount('#payment_element');
             $('#pay_button').prop('disabled', false);
             $('#promo_apply').prop('disabled', false);
             $('#pay_total').text(fmt_amount(o.amount_due, o.currency));
+            $('#pay_note').toggle(pay_mode === 'setup');
             if (o.promo_label) {
                 $('#promo_applied').text(o.promo_label + ' applied').show();
                 $('#promo_row').hide();
@@ -63,7 +76,8 @@ $(function () {
         if (!elements) { return; }
         $('#pay_button').prop('disabled', true);
 
-        stripe.confirmPayment({ elements: elements, redirect: 'if_required' }).then(function (result) {
+        var confirm = (pay_mode === 'setup') ? stripe.confirmSetup : stripe.confirmPayment;
+        confirm({ elements: elements, redirect: 'if_required' }).then(function (result) {
             if (result.error) {
                 $('#pay_button').prop('disabled', false);
                 toastr.error(result.error.message);
@@ -297,6 +311,7 @@ $(function () {
                     <span class="pay-total__label">Due today</span>
                     <span class="pay-total__amount" id="pay_total"></span>
                 </div>
+                <p class="pay-note" id="pay_note" style="display:none;">Nothing is charged today. Your card is saved for future renewals.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

@@ -1705,15 +1705,28 @@ class ApiController extends Controller {
                 'items'            => array(array('price' => $this->post['price_id'])),
                 'payment_behavior' => 'default_incomplete',
                 'payment_settings' => array('save_default_payment_method' => 'on_subscription'),
-                'expand'           => array('latest_invoice.confirmation_secret'),
+                'expand'           => array('latest_invoice.confirmation_secret', 'pending_setup_intent'),
             );
             if (!empty($promo)) {
                 $params['discounts'] = array($promo['discount']);
             }
             $subscription = $stripe->subscriptions->create($params);
 
+            // Normal case: the first invoice needs a payment → confirmPayment on the client.
+            // $0 first invoice (100% promo): Stripe activates the subscription with no
+            // PaymentIntent and instead offers a SetupIntent so a card can be saved for
+            // renewals → confirmSetup on the client. No SetupIntent either → nothing to
+            // collect; the subscription is simply live.
+            $mode          = 'payment';
             $client_secret = $subscription->latest_invoice->confirmation_secret->client_secret ?? null;
             if (empty($client_secret)) {
+                $client_secret = $subscription->pending_setup_intent->client_secret ?? null;
+                $mode          = !empty($client_secret) ? 'setup' : 'none';
+            }
+            if ($mode === 'none' && !in_array((string) $subscription->status, array('active', 'trialing'), true)) {
+                // Nothing to confirm and not live: don't leave a stray subscription behind.
+                error_log('[stripe] create_subscription: no client secret, status=' . $subscription->status . ' sub=' . $subscription->id);
+                try { $stripe->subscriptions->cancel($subscription->id); } catch (\Throwable $e) {}
                 $response['message'] = 'Could not initialize payment';
                 echo json_encode($response);
                 exit;
@@ -1723,7 +1736,8 @@ class ApiController extends Controller {
             $this->billingModel->save_subscription($user_id, $subscription->id, $this->post['price_id'], $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
 
             $response['success']         = true;
-            $response['client_secret']   = $client_secret;
+            $response['mode']            = $mode;
+            $response['client_secret']   = (string) $client_secret;
             $response['subscription_id'] = $subscription->id;
             $response['amount_due']      = (int) ($subscription->latest_invoice->amount_due ?? 0);
             $response['currency']        = (string) ($subscription->latest_invoice->currency ?? 'usd');
