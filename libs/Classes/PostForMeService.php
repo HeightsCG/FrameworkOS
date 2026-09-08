@@ -61,11 +61,24 @@ class PostForMeService {
             $payload['platform_data'] = $platform_data;
         }
         list($code, $body) = self::request('POST', '/social-accounts/auth-url', $payload);
+        self::$last_error = '';
         if ($code === 200 || $code === 201) {
-            return isset($body['url']) ? (string) $body['url'] : '';
+            $url = isset($body['url']) ? (string) $body['url'] : '';
+            if ($url === '') { self::$last_error = 'Post for Me returned no connect URL for ' . $platform . '.'; }
+            return $url;
+        }
+        if ($code === 0) {
+            self::$last_error = 'Could not reach Post for Me from this server.';
+        } else {
+            $msg = is_array($body) ? (string) ($body['message'] ?? ($body['error'] ?? '')) : '';
+            if (is_array($body) && is_array($body['message'] ?? null)) { $msg = implode(' ', $body['message']); }
+            self::$last_error = 'Post for Me: HTTP ' . $code . ($msg !== '' ? ' — ' . $msg : '');
         }
         return '';
     }
+
+    /** Human-readable reason the last create_auth_url() call failed ('' when it succeeded). */
+    public static $last_error = '';
 
     /** All social accounts for one of our users (by external_id). Returns array of account rows. */
     public static function get_accounts($external_id): array

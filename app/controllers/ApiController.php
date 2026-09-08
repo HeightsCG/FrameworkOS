@@ -2002,10 +2002,14 @@ class ApiController extends Controller {
             $platform_data = array('instagram' => array('connection_type' => 'instagram'));
         } elseif ($platform === 'linkedin') {
             $platform_data = array('linkedin' => array('connection_type' => 'organization'));
+        } elseif ($platform === 'x') {
+            // X: Post for Me requires the OAuth flavour. OAuth 2.0 is the current X API.
+            $platform_data = array('x' => array('connection_type' => 'oauth2'));
         }
         $url = PostForMeService::create_auth_url($platform, (int) $user['user_id'], array('posts'), $platform_data);
         if ($url === '') {
-            echo json_encode(array('success' => false, 'message' => 'Could not start the connection. Please try again.'));
+            $why = (string) PostForMeService::$last_error;
+            echo json_encode(array('success' => false, 'message' => 'Could not start the connection. ' . ($why !== '' ? $why : 'Please try again.')));
             exit;
         }
         echo json_encode(array('success' => true, 'url' => $url));
