@@ -98,6 +98,13 @@ class ApiController extends Controller {
             $this->post['user_email'],
         );
 
+        if ($user_id <= 0) {
+            error_log('[register] create_user returned no id for ' . $this->post['user_email']);
+            $response['message'] = 'Could not create an account with those details';
+            echo json_encode($response);
+            exit;
+        }
+
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);
         $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
@@ -297,11 +304,29 @@ class ApiController extends Controller {
 
         $rows = $this->userModel->get_user_by_verify_token($token);
         if (!is_array($rows) || count($rows) !== 1) {
+            error_log('[verify_email] token not found (len=' . strlen($token) . ', ip=' . $this->get_ip_address() . ')');
+            echo json_encode($response);
+            exit;
+        }
+        $user = $rows[0];
+
+        // Idempotent: a scanner or an earlier click may already have confirmed it.
+        if ((int) ($user['email_verified'] ?? 0) === 1) {
+            $response['success'] = true;
+            $response['message'] = 'Your email is already verified. You can sign in.';
             echo json_encode($response);
             exit;
         }
 
-        $this->userModel->mark_email_verified((int) $rows[0]['user_id']);
+        $expires = (string) ($user['email_verify_expires'] ?? '');
+        if ($expires === '' || strtotime($expires) < time()) {
+            error_log('[verify_email] token expired for user_id=' . (int) $user['user_id'] . ' (expires=' . $expires . ')');
+            $response['message'] = 'This verification link has expired. Sign in to request a new one.';
+            echo json_encode($response);
+            exit;
+        }
+
+        $this->userModel->mark_email_verified((int) $user['user_id']);
         $response['success'] = true;
         $response['message'] = 'Your email is verified. You can now sign in.';
         echo json_encode($response);
@@ -1658,13 +1683,34 @@ class ApiController extends Controller {
                 $this->billingModel->set_customer_id($user_id, $customer_id);
             }
 
-            $subscription = $stripe->subscriptions->create(array(
+            // Optional promo code, resolved against the platform account. A code that
+            // doesn't match is an error (not silently ignored) so the user knows.
+            $promo_code = trim((string) ($this->post['promo_code'] ?? ''));
+            $promo      = array();
+            if ($promo_code !== '') {
+                $promo = StripeService::resolve_promo_code($promo_code);
+                if (empty($promo)) {
+                    $response['message'] = 'That promo code is not valid.';
+                    echo json_encode($response);
+                    exit;
+                }
+            }
+
+            // Choosing a plan again (or applying a code) while an earlier attempt was
+            // never paid must not pile up incomplete subscriptions in Stripe.
+            $this->cancel_incomplete_subscription($user);
+
+            $params = array(
                 'customer'         => $customer_id,
                 'items'            => array(array('price' => $this->post['price_id'])),
                 'payment_behavior' => 'default_incomplete',
                 'payment_settings' => array('save_default_payment_method' => 'on_subscription'),
                 'expand'           => array('latest_invoice.confirmation_secret'),
-            ));
+            );
+            if (!empty($promo)) {
+                $params['discounts'] = array($promo['discount']);
+            }
+            $subscription = $stripe->subscriptions->create($params);
 
             $client_secret = $subscription->latest_invoice->confirmation_secret->client_secret ?? null;
             if (empty($client_secret)) {
@@ -1679,6 +1725,9 @@ class ApiController extends Controller {
             $response['success']         = true;
             $response['client_secret']   = $client_secret;
             $response['subscription_id'] = $subscription->id;
+            $response['amount_due']      = (int) ($subscription->latest_invoice->amount_due ?? 0);
+            $response['currency']        = (string) ($subscription->latest_invoice->currency ?? 'usd');
+            $response['promo_label']     = !empty($promo) ? $promo['label'] : '';
             $response['message']         = 'Subscription started';
             echo json_encode($response);
             exit;
@@ -1689,6 +1738,51 @@ class ApiController extends Controller {
             echo json_encode($response);
             exit;
         }
+    }
+
+    /**
+     * The user closed the payment form without paying. Cancel the never-paid
+     * subscription in Stripe and forget it locally, so it can't show up as a plan.
+     */
+    public function abandon_subscriptionAction(){
+
+        $response = array('success' => false, 'message' => 'Something went wrong');
+
+        if (empty(Session::get('user_id'))) {
+            $response['message'] = 'Not authorized';
+            echo json_encode($response);
+            exit;
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $user    = $this->userModel->get_user_by_id($user_id)[0];
+        $this->cancel_incomplete_subscription($user);
+
+        $response['success'] = true;
+        $response['message'] = 'Payment cancelled';
+        echo json_encode($response);
+        exit;
+    }
+
+    /**
+     * If the account's stored subscription was never paid (incomplete), cancel it in
+     * Stripe and clear the local record. Live subscriptions are left untouched.
+     */
+    private function cancel_incomplete_subscription($user){
+        $sub_id = (string) ($user['stripe_subscription_id'] ?? '');
+        $status = (string) ($user['subscription_status'] ?? '');
+        if ($sub_id === '' || !in_array($status, array('incomplete', 'incomplete_expired'), true)) {
+            return;
+        }
+        try {
+            $sub = StripeService::client()->subscriptions->retrieve($sub_id);
+            if ($sub && $sub->status === 'incomplete') {
+                StripeService::client()->subscriptions->cancel($sub_id);
+            }
+        } catch (\Throwable $e) {
+            error_log('[stripe] cancel_incomplete_subscription: ' . $e->getMessage());
+        }
+        $this->billingModel->clear_subscription((int) $user['user_id']);
     }
 
     public function sync_subscriptionAction(){
@@ -1717,6 +1811,16 @@ class ApiController extends Controller {
             $subscription = $stripe->subscriptions->retrieve($sub_id);
             $price_id     = $subscription->items->data[0]->price->id ?? ($user['stripe_price_id'] ?? '');
             $period_end   = $subscription->items->data[0]->current_period_end ?? null;
+
+            // A dead subscription is not a plan — drop it rather than caching its status.
+            if (in_array((string) $subscription->status, array('canceled', 'incomplete_expired'), true)) {
+                $this->billingModel->clear_subscription($user_id);
+                $response['success'] = true;
+                $response['status']  = '';
+                $response['message'] = 'Subscription updated';
+                echo json_encode($response);
+                exit;
+            }
 
             $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
 

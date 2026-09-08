@@ -301,26 +301,33 @@ class UsersModel extends Model {
         return $token;
     }
 
-    /** A live (unexpired) verification token → its account, or empty. */
+    /**
+     * The account holding this verification token, or empty. Expiry is NOT filtered
+     * here — the caller compares email_verify_expires against PHP time so the check
+     * doesn't depend on the DB session timezone, and so an expired vs. unknown token
+     * can be reported (and logged) differently.
+     */
     public function get_user_by_verify_token($token){
         return parent::select(
             "SELECT u.*
              FROM user_accounts u
              WHERE u.email_verify_token = :token
-               AND u.email_verify_expires > NOW()
                AND u.deleted = 0",
             array('token' => (string) $token)
         );
     }
 
-    /** Mark an account's email confirmed and burn the token. */
+    /**
+     * Mark an account's email confirmed. The token is deliberately KEPT until it
+     * expires: mail clients and link scanners often open the link before the user
+     * does, and burning the token on first use made the user's own click land on
+     * "invalid or expired". A repeat visit now resolves to "already verified" instead.
+     */
     public function mark_email_verified($user_id){
         return parent::update(
             'user_accounts',
             array(
                 'email_verified'       => 1,
-                'email_verify_token'   => null,
-                'email_verify_expires' => null,
                 'updated_at'           => date('Y-m-d H:i:s'),
             ),
             'user_id = :user_id',

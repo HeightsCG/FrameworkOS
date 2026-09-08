@@ -1,26 +1,62 @@
-<link rel="stylesheet" href="/css/account-billing.css">
+<link rel="stylesheet" href="/css/account-billing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/account-billing.css'); ?>">
 <script src="https://js.stripe.com/v3/"></script>
 <script>
 $(function () {
 
-    var stripe   = Stripe('<?php echo htmlspecialchars((string) $this->stripe_pk, ENT_QUOTES, 'UTF-8'); ?>');
-    var elements = null;
+    var stripe    = Stripe('<?php echo htmlspecialchars((string) $this->stripe_pk, ENT_QUOTES, 'UTF-8'); ?>');
+    var elements  = null;
+    var price_id  = '';
+    var paid      = false;
 
-    $('.plan-choose').on('click', function () {
-        var price_id = $(this).data('price-id');
+    function fmt_amount(cents, currency) {
+        return new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'usd').toUpperCase() }).format(cents / 100);
+    }
 
-        ApiDataSvc.apiCall('post', 'create_subscription', { price_id: price_id }, function (data) {
+    // Create (or re-create with a promo code) the pending subscription and mount the payment form.
+    function start_payment(promo_code) {
+        $('#pay_button').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'create_subscription', { price_id: price_id, promo_code: promo_code || '' }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) {
                 toastr.error(o.message);
+                $('#pay_button').prop('disabled', elements === null);
+                $('#promo_apply').prop('disabled', false);
                 return;
             }
             $('#payment_element').html('');
-            $('#pay_button').prop('disabled', false);
             elements = stripe.elements({ clientSecret: o.client_secret });
             elements.create('payment').mount('#payment_element');
+            $('#pay_button').prop('disabled', false);
+            $('#promo_apply').prop('disabled', false);
+            $('#pay_total').text(fmt_amount(o.amount_due, o.currency));
+            if (o.promo_label) {
+                $('#promo_applied').text(o.promo_label + ' applied').show();
+                $('#promo_row').hide();
+            } else {
+                $('#promo_applied').hide();
+            }
             $('#payment_form').modal('show');
         });
+    }
+
+    $('.plan-choose').on('click', function () {
+        price_id = $(this).data('price-id');
+        paid     = false;
+        elements = null;
+        $('#promo_code').val('');
+        $('#promo_row').show();
+        $('#promo_applied').hide();
+        start_payment('');
+    });
+
+    $('#promo_apply').on('click', function () {
+        var code = $.trim($('#promo_code').val());
+        if (code === '') { return; }
+        $('#promo_apply').prop('disabled', true);
+        start_payment(code);
+    });
+    $('#promo_code').on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); $('#promo_apply').trigger('click'); }
     });
 
     $('#pay_button').on('click', function () {
@@ -33,6 +69,7 @@ $(function () {
                 toastr.error(result.error.message);
                 return;
             }
+            paid = true;
             ApiDataSvc.apiCall('post', 'sync_subscription', {}, function () {
                 toastr.success('Your subscription is active');
                 setTimeout(function () {
@@ -40,6 +77,13 @@ $(function () {
                 }, 1200);
             });
         });
+    });
+
+    // Closing the form without paying must not leave a half-created subscription behind.
+    $('#payment_form').on('hidden.bs.modal', function () {
+        if (paid) { return; }
+        elements = null;
+        ApiDataSvc.apiCall('post', 'abandon_subscription', {}, function () {});
     });
 
     $('#cancel_subscription').on('click', function () {
@@ -104,7 +148,12 @@ $(function () {
         }
     ?>
 
-    <?php if (!empty($this->user['subscription_status'])): ?>
+    <?php
+        // Only a subscription Stripe is actually billing counts as the current plan. An
+        // "incomplete" one (payment form opened, never paid) is not a plan at all.
+        $has_plan = in_array((string) ($this->user['subscription_status'] ?? ''), array('active', 'trialing', 'past_due'), true);
+    ?>
+    <?php if ($has_plan): ?>
     <?php $canceling = !empty($this->user['subscription_cancel_at_period_end']); ?>
     <div class="billing__current">
         <div>
@@ -126,7 +175,7 @@ $(function () {
     <?php endif; ?>
 
     <div class="billing__head">
-        <h1 class="billing__title"><?php echo !empty($this->user['subscription_status']) ? 'Change Plan' : 'Choose a Plan'; ?></h1>
+        <h1 class="billing__title"><?php echo $has_plan ? 'Change Plan' : 'Choose a Plan'; ?></h1>
         <p class="billing__sub">Pick the plan that fits. Upgrade or downgrade anytime.</p>
     </div>
 
@@ -146,7 +195,7 @@ $(function () {
     <div class="plans">
         <?php foreach ($ordered as $row): $plan = $row['plan']; $tier = $row['tier']; ?>
         <?php
-            $is_current  = ($plan['price_id'] === ($this->user['stripe_price_id'] ?? '') && $this->user['subscription_status'] === 'active');
+            $is_current  = ($plan['price_id'] === ($this->user['stripe_price_id'] ?? '') && $has_plan);
             $is_featured = $tier && !empty($tier['recommended']) && !$is_current;
         ?>
         <div class="plan<?php echo $is_current ? ' plan--current' : ''; echo $is_featured ? ' plan--featured' : ''; ?>">
@@ -239,6 +288,15 @@ $(function () {
             </div>
             <div class="modal-body">
                 <div id="payment_element"></div>
+                <div class="promo" id="promo_row">
+                    <input type="text" class="form-control promo__input" id="promo_code" placeholder="Promo code" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                    <button type="button" class="btn btn-secondary promo__btn" id="promo_apply">Apply</button>
+                </div>
+                <div class="promo__applied" id="promo_applied" style="display:none;"></div>
+                <div class="pay-total">
+                    <span class="pay-total__label">Due today</span>
+                    <span class="pay-total__amount" id="pay_total"></span>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>

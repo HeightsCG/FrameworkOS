@@ -373,6 +373,68 @@ class StripeService {
      * Hosted Checkout for a subscription on the connected account, collecting the
      * platform's application fee. $metadata ties the session back to a subscriber/plan.
      */
+    /**
+     * Resolve a customer-entered promo code (platform account) to a Stripe discount.
+     * Tries an active promotion code first (what the Dashboard's "Promotion codes"
+     * creates), then falls back to a raw coupon id. Returns
+     * ['discount' => [...subscription discounts param], 'label' => 'human summary']
+     * or [] when nothing matches / the code is no longer redeemable.
+     */
+    public static function resolve_promo_code($code): array
+    {
+        $code = trim((string) $code);
+        if ($code === '') {
+            return array();
+        }
+        try {
+            $client = self::client();
+            $found  = $client->promotionCodes->all(array('code' => $code, 'active' => true, 'limit' => 1, 'expand' => array('data.promotion.coupon')));
+            if (!empty($found->data)) {
+                $pc     = $found->data[0];
+                $coupon = $pc->promotion->coupon ?? ($pc->coupon ?? null);   // 2026 API nests it under promotion
+                if (is_string($coupon)) {
+                    $coupon = $client->coupons->retrieve($coupon);
+                }
+                return array(
+                    'discount' => array('promotion_code' => (string) $pc->id),
+                    'label'    => self::coupon_label($coupon),
+                );
+            }
+            $coupon = $client->coupons->retrieve($code);
+            if ($coupon && !empty($coupon->valid)) {
+                return array(
+                    'discount' => array('coupon' => (string) $coupon->id),
+                    'label'    => self::coupon_label($coupon),
+                );
+            }
+        } catch (\Throwable $e) {
+            // Unknown coupon id throws a 404 — that's simply "no match".
+        }
+        return array();
+    }
+
+    /** "20% off" / "$10 off" plus the duration, from a coupon object. */
+    private static function coupon_label($coupon): string
+    {
+        if (!$coupon) {
+            return '';
+        }
+        if (!empty($coupon->percent_off)) {
+            $amt = rtrim(rtrim(number_format((float) $coupon->percent_off, 2), '0'), '.') . '% off';
+        } elseif (!empty($coupon->amount_off)) {
+            $amt = '$' . number_format($coupon->amount_off / 100, 2) . ' off';
+        } else {
+            $amt = 'Discount';
+        }
+        $dur = (string) ($coupon->duration ?? '');
+        if ($dur === 'once') {
+            $amt .= ' your first payment';
+        } elseif ($dur === 'repeating' && !empty($coupon->duration_in_months)) {
+            $amt .= ' for ' . (int) $coupon->duration_in_months . ' months';
+        }
+        return $amt;
+    }
+
     /** Create a percent-off coupon on a connected account (applies to every invoice). Returns id or ''. */
     public static function create_connect_coupon($account_id, $percent_off): string
     {

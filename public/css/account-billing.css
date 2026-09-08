@@ -72,3 +72,13 @@
     .plans{grid-template-columns:1fr;}
     .billing__current{flex-direction:column; align-items:flex-start;}
 }
+
+/* payment modal — promo code + total */
+.promo{display:flex; gap:.5rem; margin-top:1rem;}
+.promo__input{flex:1; min-width:0; border-radius:2px; text-transform:uppercase;}
+.promo__input::placeholder{text-transform:none;}
+.promo__btn{flex-shrink:0;}
+.promo__applied{margin-top:1rem; font-size:.85rem; font-weight:600; color:var(--success);}
+.pay-total{display:flex; align-items:center; justify-content:space-between; margin-top:1rem; padding-top:.9rem; border-top:1px solid var(--line);}
+.pay-total__label{font-size:.85rem; color:var(--muted);}
+.pay-total__amount{font-size:1.05rem; font-weight:600; color:var(--text);}
