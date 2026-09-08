@@ -1,9 +1,35 @@
 <?php
 class Main {
 
+    /**
+     * Scheme for absolute URLs (emails, MCP connector URL, redirects). In production
+     * TLS is terminated by a proxy, so PHP itself sees a plain-http request — the
+     * forwarded-protocol headers are what say the visitor is on https. `force_https = 1`
+     * in app.ini (the environment section, or [global]) pins it regardless of headers.
+     */
     public static function site_protocol(): string
     {
-        return (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || (!empty($_SERVER['SERVER_PORT'])) && $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+        $cfg = self::get_config();
+        $env = self::get_environment();
+        if (!empty($cfg[$env]['force_https']) || !empty($cfg['global']['force_https'])) {
+            return 'https://';
+        }
+        if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+            return 'https://';
+        }
+        if (!empty($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443) {
+            return 'https://';
+        }
+        if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+            return 'https://';
+        }
+        if (strtolower((string) ($_SERVER['HTTP_X_FORWARDED_SSL'] ?? '')) === 'on') {
+            return 'https://';
+        }
+        if (strpos((string) ($_SERVER['HTTP_CF_VISITOR'] ?? ''), 'https') !== false) {
+            return 'https://';
+        }
+        return 'http://';
     }
 
     public static function controller_name(): string

@@ -76,8 +76,8 @@ $(function () {
         if (!elements) { return; }
         $('#pay_button').prop('disabled', true);
 
-        var confirm = (pay_mode === 'setup') ? stripe.confirmSetup : stripe.confirmPayment;
-        confirm({ elements: elements, redirect: 'if_required' }).then(function (result) {
+        var method = (pay_mode === 'setup') ? 'confirmSetup' : 'confirmPayment';
+        stripe[method]({ elements: elements, redirect: 'if_required' }).then(function (result) {
             if (result.error) {
                 $('#pay_button').prop('disabled', false);
                 toastr.error(result.error.message);
@@ -294,7 +294,7 @@ $(function () {
 </div>
 
 <div class="modal fade" id="payment_form" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title">Payment</h5>
