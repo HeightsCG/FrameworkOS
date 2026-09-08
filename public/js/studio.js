@@ -426,17 +426,33 @@ jQuery(function ($) {
     function finishVideo(sessionId, file, ui, onComplete) {
         ui.setStatus('Finishing…'); ui.setProgress(98);
         capturePosterFrame(file).then(function (cap) {
-            var fd = new FormData(), csrf = document.querySelector('meta[name="csrf-token"]');
-            fd.append('session_id', sessionId);
-            fd.append('csrf_token', csrf ? csrf.getAttribute('content') : '');
-            fd.append('client_duration', cap.meta.duration); fd.append('client_width', cap.meta.width); fd.append('client_height', cap.meta.height);
-            if (cap.blob) fd.append('poster', cap.blob, 'poster.jpg');
-            apiForm('media_upload_complete', fd)
-                .done(function (o) {
-                    if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
-                    else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
-                })
-                .fail(function () { ui.setStatus('Could not finish — check your connection', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); });
+            function send(withPoster) {
+                var fd = new FormData(), csrf = document.querySelector('meta[name="csrf-token"]');
+                fd.append('session_id', sessionId);
+                fd.append('csrf_token', csrf ? csrf.getAttribute('content') : '');
+                fd.append('client_duration', cap.meta.duration); fd.append('client_width', cap.meta.width); fd.append('client_height', cap.meta.height);
+                if (withPoster && cap.blob) fd.append('poster', cap.blob, 'poster.jpg');
+                return apiForm('media_upload_complete', fd);
+            }
+            function failed(xhr) {
+                var msg = 'Could not finish (HTTP ' + (xhr && xhr.status) + ')';
+                var body = (xhr && xhr.responseText) || '';
+                try { var o = JSON.parse(body); if (o && o.message) msg = o.message; }
+                catch (e) { if (body) msg += ': ' + body.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160); }
+                if (window.console) console.error('media_upload_complete failed', xhr && xhr.status, body.slice(0, 500));
+                ui.setStatus(msg, 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); });
+            }
+            function done(o) {
+                if (o && o.success) { ui.setProgress(100); ui.setStatus('Done', 'done'); if (o.asset) ui.setThumb(o.asset.thumb_url); injectAsset(o.asset); if (onComplete && o.asset) onComplete(o.asset); }
+                else { ui.setStatus((o && o.message) || 'Could not finish', 'failed'); ui.retry(function () { uploadVideo(file, ui, onComplete); }); }
+            }
+            send(true).done(done).fail(function (xhr) {
+                // If the request itself was rejected (not a JSON "no" from the app), try once
+                // more without the poster so a server that dislikes the extra part still finishes.
+                if (cap.blob && xhr && (xhr.status === 0 || xhr.status === 413 || xhr.status >= 500)) {
+                    send(false).done(done).fail(failed);
+                } else { failed(xhr); }
+            });
         });
     }
 
