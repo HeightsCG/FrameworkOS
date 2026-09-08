@@ -2005,6 +2005,16 @@ class ApiController extends Controller {
         } elseif ($platform === 'x') {
             // X: Post for Me requires the OAuth flavour. OAuth 2.0 is the current X API.
             $platform_data = array('x' => array('connection_type' => 'oauth2'));
+        } elseif ($platform === 'bluesky') {
+            // Bluesky: no OAuth screen — the handle + an app password go to Post for Me, which
+            // returns the same kind of redirect URL. The password is passed through, never stored or logged.
+            $handle = ltrim(trim(html_entity_decode((string) ($this->post['handle'] ?? ''), ENT_QUOTES, 'UTF-8')), '@');
+            $app_pw = trim(html_entity_decode((string) ($this->post['app_password'] ?? ''), ENT_QUOTES, 'UTF-8'));
+            if ($handle === '' || $app_pw === '') {
+                echo json_encode(array('success' => false, 'message' => 'Enter your Bluesky handle and an app password.'));
+                exit;
+            }
+            $platform_data = array('bluesky' => array('handle' => $handle, 'app_password' => $app_pw));
         }
         $url = PostForMeService::create_auth_url($platform, (int) $user['user_id'], array('posts'), $platform_data);
         if ($url === '') {

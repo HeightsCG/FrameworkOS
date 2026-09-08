@@ -2497,16 +2497,36 @@ $(function () {
         });
     });
 
+    function start_social_connect(payload) {
+        ApiDataSvc.apiCall('post', 'connect_account', payload, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { window.location = o.url; } else { toastr.error(o.message); }
+        });
+    }
     $('.conn-connect').on('click', function () {
         var platform = $(this).data('platform');
-        ApiDataSvc.apiCall('post', 'connect_account', { platform: platform }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) {
-                window.location = o.url;
-            } else {
-                toastr.error(o.message);
+        if (platform !== 'bluesky') { start_social_connect({ platform: platform }); return; }
+        // Bluesky has no OAuth screen: it connects with the account handle + an app password.
+        Swal.fire({
+            title: 'Connect Bluesky',
+            width: 460,
+            html: '<div class="rpt-swal">'
+                + '<label for="bsHandle">Handle</label>'
+                + '<input id="bsHandle" type="text" placeholder="yourname.bsky.social" maxlength="253" autocapitalize="none" autocorrect="off" spellcheck="false">'
+                + '<label for="bsAppPw">App password</label>'
+                + '<input id="bsAppPw" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" maxlength="64" autocomplete="off">'
+                + '<p style="margin:.5rem 0 0;font-size:.78rem;color:#9a97a8;">Create one in Bluesky under Settings &rarr; Privacy and security &rarr; App passwords. It is not your account password.</p>'
+                + '</div>',
+            focusConfirm: false, showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Connect', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779',
+            preConfirm: function () {
+                var handle = (document.getElementById('bsHandle').value || '').trim().replace(/^@/, '');
+                var pw = (document.getElementById('bsAppPw').value || '').trim();
+                if (handle === '') { Swal.showValidationMessage('Enter your Bluesky handle'); return false; }
+                if (pw === '') { Swal.showValidationMessage('Enter an app password'); return false; }
+                return { platform: 'bluesky', handle: handle, app_password: pw };
             }
-        });
+        }).then(function (r) { if (r.isConfirmed && r.value) { start_social_connect(r.value); } });
     });
 
     function fanvue_connect(return_section, $btn) {
