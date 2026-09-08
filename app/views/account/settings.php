@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/account-settings.css">
+<link rel="stylesheet" href="/css/account-settings.css?v=<?php echo @filemtime(Main::app_path().'/public/css/account-settings.css'); ?>">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
 <script src="https://js.stripe.com/v3/"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>

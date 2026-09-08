@@ -429,7 +429,7 @@
 .inbox-conn__name{font-size:.95rem; font-weight:600; color:var(--text);}
 .inbox-conn__meta{font-size:.85rem; color:var(--muted); margin-top:.15rem;}
 .inbox-conn__error{font-size:.78rem; color:var(--danger); margin-top:.3rem;}
-.inbox-block{margin-bottom:1.6rem;}
+.inbox-block{margin:1.8rem 0;}
 .inbox-block__head{display:flex; align-items:center; gap:.6rem; margin-bottom:.6rem;}
 .inbox-block__title{font-size:.95rem; font-weight:600; margin:0; color:var(--text);}
 .inbox-block__count{font-size:.72rem; font-weight:700; color:var(--violet7); background:var(--vsoft); padding:.15rem .45rem; border-radius:2px;}
