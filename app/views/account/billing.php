@@ -50,7 +50,7 @@ $(function () {
     });
 
     $('#promo_apply').on('click', function () {
-        var code = $.trim($('#promo_code').val());
+        var code = String($('#promo_code').val() || '').trim();
         if (code === '') { return; }
         $('#promo_apply').prop('disabled', true);
         start_payment(code);
