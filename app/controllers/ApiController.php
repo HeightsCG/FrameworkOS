@@ -2032,6 +2032,35 @@ class ApiController extends Controller {
     }
 
     /**
+     * Start the Fanvue OAuth flow: returns the authorize URL to send the browser to.
+     * State + PKCE verifier are kept in the session and checked by
+     * AccountController::fanvue_callbackAction.
+     */
+    public function fanvue_connectAction(){
+        $user = $this->social_user('manage');
+        if (!FanvueService::configured()) {
+            echo json_encode(array('success' => false, 'message' => 'Fanvue is not configured on this server yet.'));
+            exit;
+        }
+        list($url, $state, $verifier) = FanvueService::authorize_url();
+        Session::set('fanvue_oauth', array(
+            'state'    => $state,
+            'verifier' => $verifier,
+            'user_id'  => (int) $user['user_id'],   // the OWNER the connection belongs to
+            'started'  => time(),
+        ));
+        echo json_encode(array('success' => true, 'url' => $url));
+        exit;
+    }
+
+    public function fanvue_disconnectAction(){
+        $user = $this->social_user('manage');
+        (new FanvueAccountsModel())->disconnect((int) $user['user_id']);
+        echo json_encode(array('success' => true, 'message' => 'Fanvue disconnected'));
+        exit;
+    }
+
+    /**
      * Mint a bearer token for the creator's Claude MCP connector. Rotates
      * (revokes any prior token) so there is a single active credential, and
      * returns the RAW token once — the caller must copy it immediately.

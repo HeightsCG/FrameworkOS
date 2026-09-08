@@ -683,6 +683,27 @@
                     </div>
                 <?php else: ?>
                 <div class="conn-grid">
+                    <?php $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
+                    <div class="conn-card">
+                        <div class="conn-card__head">
+                            <i class="fa-solid fa-bolt conn-card__icon"></i>
+                            <span class="conn-card__name">Fanvue</span>
+                            <span class="conn-card__badge <?php echo $fv_on ? 'is-on' : ''; ?>"><?php echo $fv_on ? 'Connected' : 'Not connected'; ?></span>
+                        </div>
+                        <?php if ($fv_on): ?>
+                            <div class="conn-card__acct">
+                                <span class="conn-card__handle"><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?></span>
+                                <button type="button" class="btn btn-secondary" id="fanvueDisconnect">Disconnect</button>
+                            </div>
+                            <?php if (!empty($fv['last_error'])): ?>
+                            <p class="conn-card__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></p>
+                            <?php endif; ?>
+                        <?php elseif (!$this->fanvue_configured): ?>
+                            <p class="conn-card__note">Not available yet.</p>
+                        <?php else: ?>
+                            <button type="button" class="btn btn-primary" id="fanvueConnect">Connect</button>
+                        <?php endif; ?>
+                    </div>
                     <?php foreach ($this->platform_meta as $p => $meta): ?>
                     <?php $accts = $this->connected[$p] ?? array(); ?>
                     <div class="conn-card">
@@ -1222,6 +1243,12 @@ $(function () {
     var params = new URLSearchParams(window.location.search);
     if (params.get('connected') === '1') { toastr.success('Account connected'); }
     if (params.get('error') === '1') { toastr.error('Connection was not completed'); }
+    if (params.get('fanvue_connected') === '1') { toastr.success('Fanvue connected'); }
+    if (params.get('fanvue_error')) {
+        var fverr = { denied: 'Fanvue access was not granted.', state: 'The Fanvue sign-in expired. Try again.',
+                      token: 'Fanvue did not accept the sign-in. Try again.', profile: 'Could not read your Fanvue profile.' };
+        toastr.error(fverr[params.get('fanvue_error')] || 'Fanvue connection was not completed');
+    }
     if (params.get('payout_return') === '1') { toastr.success('Payout details updated'); }
 
     function activateSection(section) {
@@ -2305,6 +2332,26 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 window.location = o.url;
+            } else {
+                toastr.error(o.message);
+            }
+        });
+    });
+
+    $('#fanvueConnect').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'fanvue_connect', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { window.location = o.url; } else { toastr.error(o.message); $btn.prop('disabled', false); }
+        });
+    });
+
+    $('#fanvueDisconnect').on('click', function () {
+        ApiDataSvc.apiCall('post', 'fanvue_disconnect', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800);
             } else {
                 toastr.error(o.message);
             }

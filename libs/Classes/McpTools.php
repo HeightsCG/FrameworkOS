@@ -51,10 +51,15 @@ class McpTools {
                 'tier_id' => array('type' => 'integer'),
                 'comments_enabled' => array('type' => 'boolean'),
             )));
-        $t[] = array('name' => 'publish_post',  'description' => 'Publish a post now (fails if it has no ready media).', 'inputSchema' => $id);
-        $t[] = array('name' => 'schedule_post', 'description' => 'Schedule a post for a future UTC datetime.', 'inputSchema' => array(
+        $share = array('type' => 'array', 'items' => array('type' => 'string'),
+            'description' => 'Optional cross-post targets: connected social account ids (see list_share_targets) and/or "fanvue" to mirror the full post to the connected Fanvue account.');
+        $t[] = array('name' => 'list_share_targets', 'description' => 'Connected cross-post targets (social accounts + Fanvue) usable as share_accounts.', 'inputSchema' => $none);
+        $t[] = array('name' => 'publish_post',  'description' => 'Publish a post now (fails if it has no ready media). Optionally cross-post.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id'),
+            'properties' => array('id' => array('type' => 'integer'), 'share_accounts' => $share)));
+        $t[] = array('name' => 'schedule_post', 'description' => 'Schedule a post for a future UTC datetime. Optionally cross-post at that time.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'scheduled_at'),
-            'properties' => array('id' => array('type' => 'integer'), 'scheduled_at' => array('type' => 'string', 'description' => 'UTC "YYYY-MM-DD HH:MM:SS"'))));
+            'properties' => array('id' => array('type' => 'integer'), 'scheduled_at' => array('type' => 'string', 'description' => 'UTC "YYYY-MM-DD HH:MM:SS"'), 'share_accounts' => $share)));
         $t[] = array('name' => 'archive_post',  'description' => 'Archive a post.', 'inputSchema' => $id);
         $t[] = array('name' => 'delete_post',   'description' => 'Delete a post.', 'inputSchema' => $id);
         $t[] = array('name' => 'duplicate_post','description' => 'Duplicate a post as a new draft.', 'inputSchema' => $id);
@@ -311,16 +316,31 @@ class McpTools {
                 $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'comments_enabled')));
                 return $ok((new PostsModel())->update_fields($cid, $iid, $f));
             }
+            case 'list_share_targets': {
+                $targets = array();
+                $fv = (new FanvueAccountsModel())->get_connected_for_user($cid);
+                if ($fv) { $targets[] = array('id' => FanvueShareService::ACCOUNT_ID, 'platform' => 'fanvue', 'username' => (string) ($fv['handle'] ?? '')); }
+                foreach ((new SocialAccountsModel())->get_connected_for_user($cid) as $acc) {
+                    $targets[] = array('id' => (string) $acc['post_for_me_social_account_id'], 'platform' => (string) $acc['platform'], 'username' => (string) ($acc['username'] ?? ''));
+                }
+                return array('targets' => $targets);
+            }
             case 'publish_post': {
                 $p = new PostsModel();
-                if (!$p->get_one($cid, $iid)) { throw new InvalidArgumentException('Post not found'); }
+                $post = $p->get_one($cid, $iid);
+                if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
-                return $ok($p->set_state($cid, $iid, 'published', null, date('Y-m-d H:i:s')));
+                $res = $ok($p->set_state($cid, $iid, 'published', null, date('Y-m-d H:i:s')));
+                return self::with_share($res, $cid, $post, $a, null);
             }
             case 'schedule_post': {
                 $when = trim((string) ($a['scheduled_at'] ?? ''));
                 if ($when === '') { throw new InvalidArgumentException('scheduled_at is required (UTC)'); }
-                return $ok((new PostsModel())->set_state($cid, $iid, 'scheduled', $when));
+                $p = new PostsModel();
+                $post = $p->get_one($cid, $iid);
+                if (!$post) { throw new InvalidArgumentException('Post not found'); }
+                $res = $ok($p->set_state($cid, $iid, 'scheduled', $when));
+                return self::with_share($res, $cid, $post, $a, str_replace(' ', 'T', $when) . 'Z');
             }
             case 'archive_post':   return $ok((new PostsModel())->set_state($cid, $iid, 'archived'));
             case 'delete_post':    return $ok((new PostsModel())->delete_post($cid, $iid));
@@ -626,6 +646,19 @@ class McpTools {
                      IMAGETYPE_WEBP => array('webp', 'image/webp'), IMAGETYPE_GIF => array('gif', 'image/gif'));
         if (!$info || !isset($map[$info[2]])) { throw new RuntimeException('That URL is not a supported image (JPG/PNG/WebP/GIF)'); }
         return array('bytes' => $buf, 'ext' => $map[$info[2]][0], 'mime' => $map[$info[2]][1]);
+    }
+
+    /** Cross-post after publish/schedule when share_accounts was given; the outcome rides on the result. */
+    private static function with_share(array $res, $cid, array $post, array $a, $scheduled_iso){
+        $ids = array_values(array_filter(array_map('strval', (array) ($a['share_accounts'] ?? array()))));
+        if (empty($ids)) { return $res; }
+        $rows = (new UsersModel())->get_user_by_id((int) $cid);
+        $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$user) { return $res; }
+        $share = SocialShareService::share($user, $post, $ids, $scheduled_iso);
+        $res['shared']      = (int) ($share['shared'] ?? 0);
+        $res['share_error'] = (string) ($share['error'] ?? '');
+        return $res;
     }
 
     private static function lim($a, $default){

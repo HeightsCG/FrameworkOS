@@ -176,6 +176,13 @@ class PostsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['n'] : 0;
     }
 
+    /** Remember the Fanvue post this one was mirrored to (see FanvueShareService). */
+    public function set_fanvue_post_uuid($creator_id, $id, $uuid){
+        return parent::update('posts',
+            array('fanvue_post_uuid' => ($uuid !== '' && $uuid !== null) ? (string) $uuid : null, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
     public function set_state($creator_id, $id, $state, $scheduled_at = null, $published_at = null){
         $data = array('state' => $state, 'updated_at' => date('Y-m-d H:i:s'));
         $data['scheduled_at'] = ($state === 'scheduled') ? $scheduled_at : null;

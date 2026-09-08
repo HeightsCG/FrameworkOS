@@ -415,3 +415,5 @@
 .cprofile__verify--done .cprofile__verify-ic{ background:#dff3e8; color:#1f8a54; }
 .cprofile__verify--pending .cprofile__verify-ic{ background:#fdf3e0; color:#c08a2a; }
 .cprofile__verify--none .cprofile__verify-ic{ background:#efeaff; color:var(--violet,#5b4be0); }
+.conn-card__error{margin:.5rem 0 0; font-size:.78rem; line-height:1.4; color:var(--danger, #b42318);}
+.conn-card__note{margin:0; font-size:.85rem; color:var(--muted);}

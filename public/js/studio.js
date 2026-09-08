@@ -660,6 +660,7 @@ jQuery(function ($) {
     var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram'}; return m[pl]||'fa-share-nodes'; }
+    function socialIconClass(pl){ return pl === 'fanvue' ? 'fa-solid fa-bolt' : 'fa-brands ' + socialIcon(pl); }
     function renderSocial(){
         var $wrap = $('#csCompSocial').empty();
         var soc = CFG.social || { accounts: [], can_post: false };
@@ -667,7 +668,7 @@ jQuery(function ($) {
         if (!soc.can_post) { $wrap.html('<p class="cs-comp__socialnote">Sharing to social is not part of your current plan. <a href="/account/billing">See plans</a>.</p>'); return; }
         soc.accounts.forEach(function (a) {
             var on = composer.share.has(a.id);
-            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
+            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
         });
     }
     $('#csCompSocial').on('change', 'input[data-acct]', function () { var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id); });
@@ -1035,7 +1036,7 @@ jQuery(function ($) {
         if (!soc.accounts || !soc.accounts.length) { toastr.info('Connect social accounts in Settings first.'); return; }
         if (!soc.can_post) { toastr.info('Sharing to social is not part of your current plan.'); return; }
         var boxes = soc.accounts.map(function (a) {
-            return '<label class="cs-social"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>';
+            return '<label class="cs-social"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>';
         }).join('');
         dialog({
             title: 'Share to Social', okText: 'Share',
@@ -1433,7 +1434,7 @@ jQuery(function ($) {
         if (!soc.accounts || !soc.accounts.length) { $wrap.append('<p class="cs-comp__socialnote">No connected social accounts.</p>'); return; }
         soc.accounts.forEach(function (a) {
             var on = sel.has(String(a.id));
-            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="fa-brands ' + socialIcon(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
+            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
         });
     }
     function renderSchedDays(selected) {

@@ -44,6 +44,15 @@ class StudioController extends Controller {
                     'username' => (string) ($a['username'] ?? ''),
                 );
             }
+            // Fanvue joins the same picker as a pseudo account (full-post mirror, see FanvueShareService).
+            $fv = (new FanvueAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
+            if ($fv) {
+                array_unshift($accounts, array(
+                    'id'       => FanvueShareService::ACCOUNT_ID,
+                    'platform' => 'fanvue',
+                    'username' => (string) ($fv['handle'] !== '' && $fv['handle'] !== null ? $fv['handle'] : 'Fanvue'),
+                ));
+            }
             $this->view->social = array(
                 'accounts' => $accounts,
                 'can_post' => Plan::can_social_post($user),

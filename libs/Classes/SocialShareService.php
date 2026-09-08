@@ -9,8 +9,31 @@
  */
 class SocialShareService {
 
-    /** Returns array('ok'=>bool, 'shared'=>int, 'error'=>string) so callers can surface the outcome. */
+    /**
+     * Returns array('ok'=>bool, 'shared'=>int, 'error'=>string) so callers can surface the outcome.
+     * The pseudo id 'fanvue' in $account_ids routes to FanvueShareService (full-post mirror);
+     * everything else is a Post for Me social account id.
+     */
     public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null){
+        $account_ids = array_values(array_map('strval', $account_ids));
+        $fanvue      = in_array(FanvueShareService::ACCOUNT_ID, $account_ids, true);
+        $account_ids = array_values(array_diff($account_ids, array(FanvueShareService::ACCOUNT_ID)));
+
+        $res = self::share_social($user, $post, $account_ids, $scheduled_iso);
+        if ($fanvue) {
+            $fv = FanvueShareService::share($user, $post, $scheduled_iso);
+            if (!empty($fv['ok'])) {
+                $res['ok']     = empty($account_ids) ? true : $res['ok'];
+                $res['shared'] = (int) $res['shared'] + 1;
+            } else {
+                $res['ok']    = false;
+                $res['error'] = trim((string) $res['error'] . ' ' . (string) $fv['error']);
+            }
+        }
+        return $res;
+    }
+
+    private static function share_social(array $user, array $post, array $account_ids, $scheduled_iso = null){
         try {
             if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
             if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }

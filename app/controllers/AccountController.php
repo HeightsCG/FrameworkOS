@@ -152,6 +152,8 @@ class AccountController extends Controller {
         $this->view->verified            = !empty($owner['verified']);
         $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
+        $this->view->fanvue              = $can_post ? (new FanvueAccountsModel())->get_for_user($owner['user_id']) : null;
+        $this->view->fanvue_configured   = FanvueService::configured();
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
         $this->view->notification_meta   = $notification_meta;
@@ -228,6 +230,50 @@ class AccountController extends Controller {
             Header('Location: /');
             exit;
         }
+    }
+
+    /**
+     * Fanvue OAuth redirect target. Verifies state, exchanges the code (PKCE), looks
+     * up the Fanvue user and stores the connection for the OWNER account recorded
+     * when the flow started. Always lands back on Settings > Integrations.
+     */
+    public function fanvue_callbackAction(){
+        if (Session::get('user_id') == 0) {
+            Header('Location: /');
+            exit;
+        }
+        $back  = '/account/settings?section=connected';
+        $flow  = Session::get('fanvue_oauth');
+        Session::destroyValue('fanvue_oauth');
+
+        $state = (string) ($_GET['state'] ?? '');
+        $code  = (string) ($_GET['code'] ?? '');
+        if (!is_array($flow) || $state === '' || !hash_equals((string) ($flow['state'] ?? ''), $state)
+            || (time() - (int) ($flow['started'] ?? 0)) > 900) {
+            error_log('[fanvue] callback: state mismatch or expired flow');
+            Header('Location: ' . $back . '&fanvue_error=state');
+            exit;
+        }
+        if ($code === '') {
+            // User declined on Fanvue's consent screen (error=access_denied) or Fanvue errored.
+            error_log('[fanvue] callback: no code (' . (string) ($_GET['error'] ?? '') . ' ' . (string) ($_GET['error_description'] ?? '') . ')');
+            Header('Location: ' . $back . '&fanvue_error=denied');
+            exit;
+        }
+
+        $tokens = FanvueService::exchange_code($code, (string) ($flow['verifier'] ?? ''));
+        if (!$tokens) {
+            Header('Location: ' . $back . '&fanvue_error=token');
+            exit;
+        }
+        $me = FanvueService::whoami((string) $tokens['access_token']);
+        if (!$me) {
+            Header('Location: ' . $back . '&fanvue_error=profile');
+            exit;
+        }
+        (new FanvueAccountsModel())->connect((int) $flow['user_id'], $tokens, $me);
+        Header('Location: ' . $back . '&fanvue_connected=1');
+        exit;
     }
 
     public function usersAction(){
