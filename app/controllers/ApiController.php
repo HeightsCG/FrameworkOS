@@ -5132,7 +5132,8 @@ class ApiController extends Controller {
         if (empty($account_id)) {
             $account_id = StripeService::create_connect_account($user);
             if ($account_id === '') {
-                echo json_encode(array('success' => false, 'message' => 'Payouts are not available yet. Please try again later.'));
+                $why = trim((string) StripeService::$last_error);
+                echo json_encode(array('success' => false, 'message' => 'Payouts are not available yet.' . ($why !== '' ? ' Stripe said: ' . $why : ' Please try again later.')));
                 exit;
             }
             $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);

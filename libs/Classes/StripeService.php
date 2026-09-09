@@ -187,9 +187,13 @@ class StripeService {
             return $account->id;
         } catch (\Throwable $e) {
             error_log('[stripe] create_connect_account: ' . $e->getMessage());
+            self::$last_error = $e->getMessage();
             return '';
         }
     }
+
+    /** Stripe's message from the last failed create_connect_account() ('' on success). */
+    public static $last_error = '';
 
     /** Hosted onboarding link for a connected account. Returns URL or ''. */
     public static function account_onboarding_link($account_id, $refresh_url, $return_url): string
