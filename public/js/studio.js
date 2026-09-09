@@ -725,8 +725,8 @@ jQuery(function ($) {
     // =====================================================================
     var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
-    function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram'}; return m[pl]||'fa-share-nodes'; }
-    function socialIconClass(pl){ return pl === 'fanvue' ? 'fa-solid fa-bolt' : 'fa-brands ' + socialIcon(pl); }
+    function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
+    function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
     function renderSocial(){
         var $wrap = $('#csCompSocial').empty();
         var soc = CFG.social || { accounts: [], can_post: false };
@@ -1519,7 +1519,7 @@ jQuery(function ($) {
         $('#csSchedId').val(rule ? rule.id : 0);
         $('#csSchedName').val(rule ? rule.name : '');
         $('#csSchedTopic').val(rule ? rule.topic : '');
-        $('#csSchedSize').val(rule ? rule.size : 'square');
+        setSchedSize(rule ? rule.size : 'square');
         $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
@@ -1554,6 +1554,12 @@ jQuery(function ($) {
         });
     }
 
+    $('#csSchedShape').on('click', '.cs-seg__opt', function () { setSchedSize($(this).data('size')); });
+    function setSchedSize(size) {
+        size = (size === 'portrait' || size === 'landscape') ? size : 'square';
+        $('#csSchedSize').val(size);
+        $('#csSchedShape .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('size') === size); });
+    }
     var schedCharacters = null;   // cached list from Eromify for this page load
     $('#csSchedImageSource').on('click', '.cs-seg__opt', function () { setSchedImageSource($(this).data('src')); });
     function setSchedImageSource(src, selectedId) {
@@ -1567,7 +1573,8 @@ jQuery(function ($) {
         $('#csSchedCharacterWrap').prop('hidden', !isChar);
         $('#csSchedBrandRow').prop('hidden', isChar || !(CFG.brand && CFG.brand.has_brand));
         $('#csSchedTopic').attr('placeholder', isChar ? 'at a rooftop pool at golden hour, iced coffee in hand' : 'A scenic Orlando spot with a short caption');
-        $('#csSchedTopicWrap .cs-comp__count [data-kind="post"]').text(isChar ? 'Each run renders your character in this scene and writes a caption.' : 'Each run makes a fresh on-brand image + caption from this.');
+        $('#csSchedTopicWrap .cs-sf__label [data-kind="post"]').text(isChar ? 'Scene for each image' : 'What to post each time');
+        $('#csSchedTopicWrap .cs-sf__hint [data-kind="post"]').text(isChar ? 'Each run renders your character in this scene and writes a caption.' : 'Each run makes a fresh on-brand image + caption from this.');
         if (isChar) { loadSchedCharacters(selectedId); }
     }
     function loadSchedCharacters(selectedId) {

@@ -608,3 +608,40 @@
 /* ppv price input */
 .cs-comp__edit .cs-ppvprice .form-control{ text-align:center; max-width:120px; }
 .cs-sched__kind{ color:var(--violet); margin-right:.15rem; }
+
+/* ---- Automation form (scheduler modal): grouped sections ---- */
+.cs-sf{ padding:0 1.4rem 1rem; }
+.cs-sf__section{ padding:1.15rem 0; border-top:1px solid var(--line); }
+.cs-sf__section:first-child{ border-top:0; padding-top:1.1rem; }
+.cs-sf__title{ font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 .75rem; }
+.cs-comp__edit .cs-sf__label{ display:block; font-size:.82rem; font-weight:600; color:#3c4257; margin:0 0 .4rem; }
+.cs-sf__section > .cs-sf__label:not(:first-child), .cs-sf__section > div + .cs-sf__label, .cs-sf__section > label + .cs-sf__label{ margin-top:1rem; }
+.cs-sf__hint{ font-size:.78rem; color:var(--muted); margin-top:.35rem; }
+.cs-sf__grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.cs-sf__grid + div, .cs-sf__grid + label{ margin-top:1rem; }
+.cs-sf__row{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
+.cs-sf__at{ font-size:.85rem; color:var(--muted); }
+.cs-sf__switch{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1rem 0 0; padding:.6rem 0 0; border-top:1px dashed var(--line); cursor:pointer; }
+.cs-sf__switch > span:first-child{ display:flex; flex-direction:column; }
+.cs-sf__switch strong{ font-size:.86rem; font-weight:600; color:var(--text); }
+.cs-sf__switch small{ font-size:.76rem; color:var(--muted); }
+.cs-sf__switch .form-check-input{ margin:0; cursor:pointer; }
+.cs-sf__check{ display:flex; align-items:center; gap:.5rem; font-size:.84rem; color:var(--t2); margin:.6rem 0 0; cursor:pointer; }
+.cs-sf__check .form-check-input{ margin:0; flex:none; }
+.cs-seg--compact{ display:inline-flex; gap:0; border:1px solid var(--cs-border, var(--line)); border-radius:var(--r-sm); background:#fff; padding:2px; box-shadow:var(--cs-ishadow, none); }
+.cs-seg--compact .cs-seg__opt{ flex:0 0 auto; gap:.4rem; padding:.42rem .8rem; border:0; border-radius:calc(var(--r-sm) - 1px); background:transparent; box-shadow:none; font-size:.84rem; font-weight:600; color:var(--t2); }
+.cs-seg--compact .cs-seg__opt i{ font-size:.85rem; color:var(--muted2); }
+.cs-seg--compact .cs-seg__opt span{ display:inline; }
+.cs-seg--compact .cs-seg__opt:hover{ background:rgba(20,18,40,.04); }
+.cs-seg--compact .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--violet7); box-shadow:inset 0 0 0 1px var(--violet); }
+.cs-seg--compact .cs-seg__opt.is-on i{ color:var(--violet); }
+.cs-sf .cs-sched__time{ margin-top:0; }
+.cs-sf .cs-sched__time .form-control{ max-width:140px; padding:.42rem .6rem; }
+.cs-sf .cs-sched__days{ margin-top:.75rem; }
+.cs-sf .cs-comp__social:not(:empty){ margin-top:0; }
+@media (max-width:640px){ .cs-sf__grid{ grid-template-columns:1fr; } }
+.cs-sf > .cs-sf__section:first-of-type{ border-top:0; }
+.cs-sf .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+.cs-sf .form-check-input:focus{ box-shadow:0 0 0 3px var(--vsoft); border-color:var(--violet); }
+.cs-sf .cs-sched__time{ flex-wrap:nowrap; }
+.cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
