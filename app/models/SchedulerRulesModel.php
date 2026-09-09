@@ -9,7 +9,7 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'audience', 'tier_id', 'comments_enabled',
+        'size', 'image_source', 'character_id', 'character_name', 'audience', 'tier_id', 'comments_enabled',
         'use_brand', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
@@ -58,6 +58,9 @@ class SchedulerRulesModel extends Model {
         $out['active']           = !empty($f['active']) ? 1 : 0;
         $out['topic']            = (string) ($f['topic'] ?? '');
         $out['size']             = in_array($f['size'] ?? '', array('square','portrait','landscape'), true) ? $f['size'] : 'square';
+        $out['image_source']     = (($f['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand';
+        $out['character_id']     = ($out['image_source'] === 'character') ? mb_substr(trim((string) ($f['character_id'] ?? '')), 0, 64) : null;
+        $out['character_name']   = ($out['image_source'] === 'character') ? mb_substr(trim((string) ($f['character_name'] ?? '')), 0, 190) : null;
         $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;

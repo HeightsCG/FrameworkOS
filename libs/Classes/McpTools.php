@@ -167,6 +167,11 @@ class McpTools {
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
                 'active' => array('type' => 'boolean'),
+                'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'social_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets, e.g. ["fanvue"]. See list_share_targets.'),
+                'image_source' => array('type' => 'string', 'enum' => array('brand', 'character'), 'description' => '"character" renders the creator\'s Eromify persona (character_id required; the topic is then the scene only). Default "brand".'),
+                'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
+                'character_name' => array('type' => 'string'),
             )));
         $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'name', 'topic'),
@@ -178,6 +183,9 @@ class McpTools {
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
                 'tier_id' => array('type' => 'integer'), 'comments_enabled' => array('type' => 'boolean'),
                 'use_brand' => array('type' => 'boolean'), 'active' => array('type' => 'boolean'),
+                'image_source' => array('type' => 'string', 'enum' => array('brand', 'character'), 'description' => '"character" renders the creator\'s Eromify persona (character_id required; the topic is then the scene only). Default "brand".'),
+                'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
+                'character_name' => array('type' => 'string'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
             )));
         $t[] = array('name' => 'set_automation_active','description' => 'Activate/deactivate an automation.', 'inputSchema' => self::idAndActive());

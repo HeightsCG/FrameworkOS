@@ -875,6 +875,26 @@
                             <button type="button" class="btn btn-primary" id="fanvueConnect">Connect</button>
                         <?php endif; ?>
                     </div>
+                    <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
+                    <div class="conn-card">
+                        <div class="conn-card__head">
+                            <i class="fa-solid fa-user-astronaut conn-card__icon"></i>
+                            <span class="conn-card__name">Eromify</span>
+                            <span class="conn-card__badge <?php echo $er_on ? 'is-on' : ''; ?>"><?php echo $er_on ? 'Connected' : 'Not connected'; ?></span>
+                        </div>
+                        <?php if ($er_on): ?>
+                            <div class="conn-card__acct">
+                                <span class="conn-card__handle"><?php echo htmlspecialchars(ucfirst((string) ($er['plan'] ?? 'Connected')) . ($er['credits'] !== null ? ' · ' . (int) $er['credits'] . ' credits' : ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                                <button type="button" class="btn btn-secondary" id="eromifyDisconnect">Disconnect</button>
+                            </div>
+                            <p class="conn-card__note">Your AI characters can star in post automations.</p>
+                            <?php if (!empty($er['last_error'])): ?><p class="conn-card__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
+                        <?php else: ?>
+                            <input type="password" class="form-control mb-2" id="eromifyKey" placeholder="ero_live_…" autocomplete="off" spellcheck="false">
+                            <button type="button" class="btn btn-primary" id="eromifyConnect">Connect</button>
+                            <p class="conn-card__note">Generate a key at eromify.com/studio/api. Uses your own Eromify credits.</p>
+                        <?php endif; ?>
+                    </div>
                     <?php foreach ($this->platform_meta as $p => $meta): ?>
                     <?php $accts = $this->connected[$p] ?? array(); ?>
                     <div class="conn-card">
@@ -2539,6 +2559,22 @@ $(function () {
     $('#fanvueConnect').on('click', function () { fanvue_connect('connected', $(this)); });
     $('#fanvueReconnectLink').on('click', function (e) { e.preventDefault(); fanvue_connect('connected', null); });
     $('#inboxReconnectFanvue').on('click', function () { fanvue_connect('inbox', $(this)); });
+
+    $('#eromifyConnect').on('click', function () {
+        var $btn = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'eromify_connect', { api_key: $('#eromifyKey').val() }, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); }
+            else { toastr.error(o.message); $btn.prop('disabled', false); }
+        });
+    });
+    $('#eromifyKey').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#eromifyConnect').trigger('click'); } });
+    $('#eromifyDisconnect').on('click', function () {
+        ApiDataSvc.apiCall('post', 'eromify_disconnect', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); } else { toastr.error(o.message); }
+        });
+    });
 
     // ---- Inbox automation -------------------------------------------------------
     var inbox_timer = null;

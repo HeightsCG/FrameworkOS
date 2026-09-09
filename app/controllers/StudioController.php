@@ -60,6 +60,7 @@ class StudioController extends Controller {
 
             // Inbox automation (scheduled messages) — Pro+; Fanvue lists only when chat scope was granted.
             $fv_inbox = (new FanvueAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
+            $this->view->eromify_connected = (bool) (new EromifyAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
             $this->view->inbox = array(
                 'can'          => Plan::can($user, 'inbox_automation'),
                 'fanvue_ok'    => $fv_inbox ? FanvueAccountsModel::has_chat_scope($fv_inbox) : false,

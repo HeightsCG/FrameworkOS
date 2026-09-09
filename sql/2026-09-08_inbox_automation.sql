@@ -64,3 +64,22 @@ ALTER TABLE scheduler_rules
   ADD COLUMN message_text TEXT NULL AFTER topic,
   ADD COLUMN message_targets VARCHAR(255) NULL AFTER message_text,         -- JSON {"fanvue":["subscribers"],"cls":"subscribers"}
   ADD COLUMN message_ai TINYINT NOT NULL DEFAULT 0 AFTER message_targets;  -- 1 = generate from topic
+
+-- Eromify (Creator Studio) character images for automations.
+CREATE TABLE IF NOT EXISTS user_eromify_accounts (
+  id            INT AUTO_INCREMENT PRIMARY KEY,
+  user_id       INT NOT NULL,
+  api_key       TEXT NULL,                                  -- encrypted (same scheme as Fanvue tokens)
+  status        VARCHAR(16) NOT NULL DEFAULT 'connected',   -- connected | disconnected
+  plan          VARCHAR(32) NULL,
+  credits       INT NULL,
+  last_error    VARCHAR(500) NULL,
+  connected_at  DATETIME NULL,
+  created_at    DATETIME NULL,
+  updated_at    DATETIME NULL,
+  UNIQUE KEY uq_user (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ALTER TABLE scheduler_rules
+  ADD COLUMN image_source   VARCHAR(12) NOT NULL DEFAULT 'brand' AFTER size,   -- brand | character
+  ADD COLUMN character_id   VARCHAR(64) NULL AFTER image_source,
+  ADD COLUMN character_name VARCHAR(190) NULL AFTER character_id;

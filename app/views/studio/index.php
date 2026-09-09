@@ -451,6 +451,17 @@
                 </div>
 
                 <div data-kind="post">
+                <label class="cs-dv__label mt-3">Image</label>
+                <div class="cs-seg" id="csSchedImageSource">
+                    <button type="button" class="cs-seg__opt is-on" data-src="brand"><i class="fa-solid fa-image"></i> <span><strong>Brand photo</strong><small>A new on-brand scene each time</small></span></button>
+                    <button type="button" class="cs-seg__opt" data-src="character"><i class="fa-solid fa-user-astronaut"></i> <span><strong>My character</strong><small>Your Eromify persona in the scene</small></span></button>
+                </div>
+                <div id="csSchedCharacterWrap" hidden>
+                    <label class="cs-dv__label mt-3" for="csSchedCharacter">Character</label>
+                    <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
+                    <span class="cs-comp__count" id="csSchedCharacterNote">Describe only the scene above: where they are, what they're doing, props or outfit.</span>
+                </div>
+
                 <label class="cs-dv__label mt-3" for="csSchedSize">Image shape</label>
                 <select id="csSchedSize" class="form-select">
                     <option value="square">Square (1:1)</option>
@@ -507,6 +518,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'plans'    => $this->plans,
     'social'   => $this->social,
     'inbox'    => $this->inbox,
+    'eromify'  => array('connected' => !empty($this->eromify_connected)),
     'brand'    => $this->brand,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;

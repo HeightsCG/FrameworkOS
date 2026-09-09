@@ -2075,6 +2075,51 @@ class ApiController extends Controller {
         exit;
     }
 
+    // ---- Eromify (Creator Studio) ---------------------------------------------------------
+
+    /** Save a creator's Eromify API key after checking it works. */
+    public function eromify_connectAction(){
+        $user = $this->require_creator('manage');
+        $key  = trim(html_entity_decode((string) ($this->post['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($key === '' || strpos($key, 'ero_') !== 0) {
+            echo json_encode(array('success' => false, 'message' => 'Paste an Eromify API key (it starts with ero_live_).'));
+            exit;
+        }
+        $v = EromifyService::verify($key);
+        if (!$v['ok']) {
+            echo json_encode(array('success' => false, 'message' => $v['error']));
+            exit;
+        }
+        (new EromifyAccountsModel())->connect((int) $user['user_id'], $key, $v['plan'], $v['credits']);
+        echo json_encode(array('success' => true, 'message' => 'Eromify connected', 'credits' => $v['credits'], 'plan' => $v['plan']));
+        exit;
+    }
+
+    public function eromify_disconnectAction(){
+        $user = $this->require_creator('manage');
+        (new EromifyAccountsModel())->disconnect((int) $user['user_id']);
+        echo json_encode(array('success' => true, 'message' => 'Eromify disconnected'));
+        exit;
+    }
+
+    /** The creator's studio characters, for the automation form. */
+    public function eromify_charactersAction(){
+        $user = $this->require_creator();
+        $acct = (new EromifyAccountsModel())->get_connected_for_user((int) $user['user_id']);
+        if (!$acct) {
+            echo json_encode(array('success' => false, 'need_connect' => true, 'message' => 'Connect Eromify in Integrations first.'));
+            exit;
+        }
+        $r = EromifyService::list_characters($acct['api_key']);
+        if (isset($r['error'])) {
+            (new EromifyAccountsModel())->set_error((int) $user['user_id'], $r['error']);
+            echo json_encode(array('success' => false, 'message' => $r['error']));
+            exit;
+        }
+        echo json_encode(array('success' => true, 'characters' => $r['characters']));
+        exit;
+    }
+
     // ---- Inbox automation (Settings > Inbox Automation) -------------------------------
 
     /** Owner account for inbox automation: Manager+, active plan, and the inbox_automation tier flag. */
@@ -4027,6 +4072,9 @@ class ApiController extends Controller {
         return array(
             'id'               => (int) $r['id'],
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
+            'image_source'     => (($r['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand',
+            'character_id'     => (string) ($r['character_id'] ?? ''),
+            'character_name'   => (string) ($r['character_name'] ?? ''),
             'message_text'     => (string) ($r['message_text'] ?? ''),
             'message_ai'       => (int) ($r['message_ai'] ?? 0),
             'message_targets'  => SchedulerRulesModel::targets($r),
@@ -4089,7 +4137,18 @@ class ApiController extends Controller {
             }
         } elseif ($topic === '') { echo json_encode(array('success' => false, 'message' => 'Describe what to post (the topic).')); exit; }
 
+        $image_source = (($this->post['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand';
+        $character_id = trim((string) ($this->post['character_id'] ?? ''));
+        if ($kind === 'post' && $image_source === 'character') {
+            if (!(new EromifyAccountsModel())->get_connected_for_user($creator_id)) {
+                echo json_encode(array('success' => false, 'message' => 'Connect Eromify in Settings > Integrations to use a character.')); exit;
+            }
+            if ($character_id === '') { echo json_encode(array('success' => false, 'message' => 'Pick a character.')); exit; }
+        }
         $fields = array(
+            'image_source'     => $image_source,
+            'character_id'     => $character_id,
+            'character_name'   => trim(html_entity_decode((string) ($this->post['character_name'] ?? ''), ENT_QUOTES)),
             'kind'             => $kind,
             'message_text'     => $msg_text,
             'message_ai'       => $msg_ai,
