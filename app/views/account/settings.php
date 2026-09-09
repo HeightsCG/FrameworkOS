@@ -817,29 +817,84 @@
             </section>
 
             <section class="settings__section" data-section="connected">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Integrations</h2>
+                    <p class="settings__section-desc">Connect the platforms you publish to and the tools that work on your behalf.</p>
+                </div>
 
-                <div class="conn-card conn-card--mcp mb-4">
-                    <div class="conn-card__head">
-                        <i class="fa-solid fa-plug conn-card__icon"></i>
-                        <span class="conn-card__name">Claude (MCP Connector)</span>
-                        <span class="conn-card__badge <?php echo $this->mcp_connected ? 'is-on' : ''; ?>" id="mcpBadge"><?php echo $this->mcp_connected ? 'Connected' : 'Not connected'; ?></span>
+                <?php $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
+                <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
+
+                <h3 class="integ__group">Platforms &amp; tools</h3>
+                <div class="integ">
+
+                    <div class="integ__row">
+                        <span class="integ__icon"><i class="fa-solid fa-bolt"></i></span>
+                        <div class="integ__main">
+                            <div class="integ__name">Fanvue</div>
+                            <div class="integ__meta">
+                                <?php if ($fv_on): ?>
+                                    <span class="integ__dot is-on"></span><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?>
+                                    <?php if ($this->fanvue_chat_ok): ?><span class="integ__sep">·</span>Posts &amp; inbox<?php else: ?><span class="integ__sep">·</span>Posts only<?php endif; ?>
+                                <?php elseif (!$this->fanvue_configured): ?>
+                                    <span class="integ__dot"></span>Not available yet
+                                <?php else: ?>
+                                    <span class="integ__dot"></span>Mirror posts and automate your Fanvue inbox
+                                <?php endif; ?>
+                            </div>
+                            <?php if ($fv_on && !$this->fanvue_chat_ok): ?><div class="integ__note">Inbox access not granted. <a href="#" id="fanvueReconnectLink">Reconnect</a> to enable inbox automation.</div><?php endif; ?>
+                            <?php if ($fv_on && !empty($fv['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                        </div>
+                        <div class="integ__actions">
+                            <?php if ($fv_on): ?><button type="button" class="btn btn-ghost btn-sm" id="fanvueDisconnect">Disconnect</button>
+                            <?php elseif ($this->fanvue_configured): ?><button type="button" class="btn btn-secondary btn-sm" id="fanvueConnect">Connect</button><?php endif; ?>
+                        </div>
                     </div>
-                    <p class="conn-card__hint">Let Claude act on your account. Generate a token here, then in Claude &rarr; Settings &rarr; Connectors &rarr; <strong>Add custom connector</strong>, paste the connector URL below into the <strong>Remote MCP server URL</strong> field. That's the only field you need &mdash; the token is part of the URL.</p>
 
-                    <input type="hidden" id="mcpBaseUrl" value="<?php echo htmlspecialchars($this->mcp_url, ENT_QUOTES, 'UTF-8'); ?>">
-
-                    <div id="mcpTokenReveal" class="mt-2" hidden>
-                        <label class="form-label mb-1">Your connector URL &mdash; copy it now, it won't be shown again</label>
-                        <input type="text" class="form-control" id="mcpConnectorUrl" readonly onclick="this.select()">
-                        <p class="conn-card__hint mt-1">Paste this into <strong>Remote MCP server URL</strong> in Claude. It contains your private token &mdash; keep it secret. Regenerate to rotate it.</p>
+                    <div class="integ__row">
+                        <span class="integ__icon"><i class="fa-solid fa-user-astronaut"></i></span>
+                        <div class="integ__main">
+                            <div class="integ__name">Eromify</div>
+                            <div class="integ__meta">
+                                <?php if ($er_on): ?>
+                                    <span class="integ__dot is-on"></span><?php echo htmlspecialchars(ucfirst((string) ($er['plan'] ?? 'Connected')) . ' plan' . ($er['credits'] !== null ? ' · ' . number_format((int) $er['credits']) . ' credits' : ''), ENT_QUOTES, 'UTF-8'); ?>
+                                <?php else: ?>
+                                    <span class="integ__dot"></span>Put your AI character in automated posts
+                                <?php endif; ?>
+                            </div>
+                            <?php if (!$er_on): ?>
+                            <div class="integ__inline">
+                                <input type="text" class="form-control form-control-sm" id="eromifyKey" placeholder="API key from eromify.com/studio/api" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
+                                <button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($er_on && !empty($er['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
+                        </div>
+                        <div class="integ__actions">
+                            <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button><?php endif; ?>
+                        </div>
                     </div>
 
-                    <div class="mt-3">
-                        <button type="button" class="btn btn-primary" id="mcpGenerate"><?php echo $this->mcp_connected ? 'Regenerate token' : 'Generate token'; ?></button>
-                        <button type="button" class="btn btn-secondary" id="mcpRevoke" <?php echo $this->mcp_connected ? '' : 'hidden'; ?>>Revoke</button>
+                    <div class="integ__row">
+                        <span class="integ__icon"><i class="fa-solid fa-plug"></i></span>
+                        <div class="integ__main">
+                            <div class="integ__name">Claude</div>
+                            <div class="integ__meta"><span class="integ__dot <?php echo $this->mcp_connected ? 'is-on' : ''; ?>" id="mcpBadge"></span><?php echo $this->mcp_connected ? 'Connector token active' : 'Let Claude act on your account'; ?></div>
+                            <div class="integ__note">Generate a token, then in Claude go to Settings &rarr; Connectors &rarr; Add custom connector and paste the URL as the Remote MCP server URL.</div>
+                            <input type="hidden" id="mcpBaseUrl" value="<?php echo htmlspecialchars($this->mcp_url, ENT_QUOTES, 'UTF-8'); ?>">
+                            <div id="mcpTokenReveal" class="integ__reveal" hidden>
+                                <input type="text" class="form-control form-control-sm" id="mcpConnectorUrl" readonly onclick="this.select()">
+                                <div class="integ__note">Copy it now: it won't be shown again and it contains your private token.</div>
+                            </div>
+                        </div>
+                        <div class="integ__actions">
+                            <button type="button" class="btn btn-secondary btn-sm" id="mcpGenerate"><?php echo $this->mcp_connected ? 'Regenerate' : 'Generate token'; ?></button>
+                            <button type="button" class="btn btn-ghost btn-sm" id="mcpRevoke" <?php echo $this->mcp_connected ? '' : 'hidden'; ?>>Revoke</button>
+                        </div>
                     </div>
                 </div>
 
+                <h3 class="integ__group">Social accounts</h3>
                 <?php if (!$this->can_social_post): ?>
                     <div class="settings__upgrade">
                         <i class="fa-solid fa-lock settings__upgrade-icon"></i>
@@ -850,69 +905,28 @@
                         <a href="/account/billing" class="btn btn-primary">View plans</a>
                     </div>
                 <?php else: ?>
-                <div class="conn-grid">
-                    <?php $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
-                    <div class="conn-card">
-                        <div class="conn-card__head">
-                            <i class="fa-solid fa-bolt conn-card__icon"></i>
-                            <span class="conn-card__name">Fanvue</span>
-                            <span class="conn-card__badge <?php echo $fv_on ? 'is-on' : ''; ?>"><?php echo $fv_on ? 'Connected' : 'Not connected'; ?></span>
-                        </div>
-                        <?php if ($fv_on): ?>
-                            <div class="conn-card__acct">
-                                <span class="conn-card__handle"><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?></span>
-                                <button type="button" class="btn btn-secondary" id="fanvueDisconnect">Disconnect</button>
-                            </div>
-                            <?php if (!$this->fanvue_chat_ok): ?>
-                            <p class="conn-card__note">Inbox access: not granted. <a href="#" id="fanvueReconnectLink">Reconnect</a> to enable inbox automation.</p>
-                            <?php endif; ?>
-                            <?php if (!empty($fv['last_error'])): ?>
-                            <p class="conn-card__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></p>
-                            <?php endif; ?>
-                        <?php elseif (!$this->fanvue_configured): ?>
-                            <p class="conn-card__note">Not available yet.</p>
-                        <?php else: ?>
-                            <button type="button" class="btn btn-primary" id="fanvueConnect">Connect</button>
-                        <?php endif; ?>
-                    </div>
-                    <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
-                    <div class="conn-card">
-                        <div class="conn-card__head">
-                            <i class="fa-solid fa-user-astronaut conn-card__icon"></i>
-                            <span class="conn-card__name">Eromify</span>
-                            <span class="conn-card__badge <?php echo $er_on ? 'is-on' : ''; ?>"><?php echo $er_on ? 'Connected' : 'Not connected'; ?></span>
-                        </div>
-                        <?php if ($er_on): ?>
-                            <div class="conn-card__acct">
-                                <span class="conn-card__handle"><?php echo htmlspecialchars(ucfirst((string) ($er['plan'] ?? 'Connected')) . ($er['credits'] !== null ? ' · ' . (int) $er['credits'] . ' credits' : ''), ENT_QUOTES, 'UTF-8'); ?></span>
-                                <button type="button" class="btn btn-secondary" id="eromifyDisconnect">Disconnect</button>
-                            </div>
-                            <p class="conn-card__note">Your AI characters can star in post automations.</p>
-                            <?php if (!empty($er['last_error'])): ?><p class="conn-card__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-                        <?php else: ?>
-                            <input type="password" class="form-control mb-2" id="eromifyKey" placeholder="ero_live_…" autocomplete="off" spellcheck="false">
-                            <button type="button" class="btn btn-primary" id="eromifyConnect">Connect</button>
-                            <p class="conn-card__note">Generate a key at eromify.com/studio/api. Uses your own Eromify credits.</p>
-                        <?php endif; ?>
-                    </div>
+                <div class="integ">
                     <?php foreach ($this->platform_meta as $p => $meta): ?>
                     <?php $accts = $this->connected[$p] ?? array(); ?>
-                    <div class="conn-card">
-                        <div class="conn-card__head">
-                            <i class="fa-brands <?php echo $meta[1]; ?> conn-card__icon"></i>
-                            <span class="conn-card__name"><?php echo $meta[0]; ?></span>
-                            <span class="conn-card__badge <?php echo !empty($accts) ? 'is-on' : ''; ?>"><?php echo !empty($accts) ? 'Connected' : 'Not connected'; ?></span>
-                        </div>
-                        <?php if (!empty($accts)): ?>
-                            <?php foreach ($accts as $a): ?>
-                            <div class="conn-card__acct">
-                                <span class="conn-card__handle"><?php echo htmlspecialchars(($a['username'] !== '' && $a['username'] !== null) ? '@' . $a['username'] : 'Connected', ENT_QUOTES, 'UTF-8'); ?></span>
-                                <button type="button" class="btn btn-secondary conn-disconnect" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">Disconnect</button>
+                    <div class="integ__row">
+                        <span class="integ__icon"><i class="fa-brands <?php echo $meta[1]; ?>"></i></span>
+                        <div class="integ__main">
+                            <div class="integ__name"><?php echo $meta[0]; ?></div>
+                            <div class="integ__meta">
+                                <?php if (!empty($accts)): ?>
+                                    <?php foreach ($accts as $i => $a): ?><?php if ($i > 0): ?><span class="integ__sep">·</span><?php endif; ?><span class="integ__dot is-on"></span><?php echo htmlspecialchars(($a['username'] !== '' && $a['username'] !== null) ? '@' . $a['username'] : 'Connected', ENT_QUOTES, 'UTF-8'); ?><?php endforeach; ?>
+                                <?php else: ?>
+                                    <span class="integ__dot"></span>Not connected
+                                <?php endif; ?>
                             </div>
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <button type="button" class="btn btn-primary conn-connect" data-platform="<?php echo htmlspecialchars($p, ENT_QUOTES, 'UTF-8'); ?>">Connect</button>
-                        <?php endif; ?>
+                        </div>
+                        <div class="integ__actions">
+                            <?php if (!empty($accts)): ?>
+                                <?php foreach ($accts as $a): ?><button type="button" class="btn btn-ghost btn-sm conn-disconnect" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">Disconnect</button><?php endforeach; ?>
+                            <?php else: ?>
+                                <button type="button" class="btn btn-secondary btn-sm conn-connect" data-platform="<?php echo htmlspecialchars($p, ENT_QUOTES, 'UTF-8'); ?>">Connect</button>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -2791,9 +2805,9 @@ $(function () {
                 var base = ($('#mcpBaseUrl').val() || '').replace(/\/+$/, '');
                 $('#mcpConnectorUrl').val(base + '/' + o.token);
                 $('#mcpTokenReveal').prop('hidden', false);
-                $('#mcpBadge').text('Connected').addClass('is-on');
+                $('#mcpBadge').addClass('is-on').next().remove(); $('#mcpBadge').after(document.createTextNode('Connector token active'));
                 $('#mcpRevoke').prop('hidden', false);
-                $btn.text('Regenerate token');
+                $btn.text('Regenerate');
                 toastr.success(o.message);
             } else {
                 toastr.error(o.message);
