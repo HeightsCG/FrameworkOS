@@ -5119,10 +5119,10 @@ class ApiController extends Controller {
 
     /* ---------- Payouts (Stripe Connect) ---------- */
 
+    /** Absolute origin for Stripe return URLs — proxy-aware (X-Forwarded-Proto / force_https). */
     private function site_base_url(): string
     {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        return $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+        return Main::get_base_domain();
     }
 
     public function start_payout_onboardingAction(){
