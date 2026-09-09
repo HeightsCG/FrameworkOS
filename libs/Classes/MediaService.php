@@ -261,9 +261,12 @@ class MediaService {
      */
     public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = ''): array
     {
-        $poster_path = self::extract_poster_frame($src);
+        $poster_path = ((string) $src !== '') ? self::extract_poster_frame($src) : '';
         $from_client = false;
-        if ($poster_path === '') {
+        if ($poster_path === '' && (string) $src === '' && $client_poster_path !== '' && is_file($client_poster_path)) {
+            $poster_path = $client_poster_path;   // caller chose the browser frame outright
+            $from_client = true;
+        } elseif ($poster_path === '') {
             // No ffmpeg here, or it couldn't read the object: fall back to the frame the
             // browser captured from the local file before finishing the upload.
             $why = self::ffmpeg_available() ? 'ffmpeg could not extract a frame' : 'ffmpeg not installed';

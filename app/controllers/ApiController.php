@@ -4280,11 +4280,19 @@ class ApiController extends Controller {
         $session_id = (int) ($this->post['session_id'] ?? 0);
         $sessions   = new UploadSessionsModel();
         $session    = $sessions->get_one($creator_id, $session_id);
+        $model      = new MediaAssetsModel();
+        // Idempotent: a retried finish (the first response was lost to a timeout) must
+        // return the asset the first call already produced, not an error.
+        if ($session && $session['status'] === 'completed') {
+            $done = $model->get_one($creator_id, (int) $session['asset_id']);
+            if ($done && $done['status'] === 'ready') {
+                echo json_encode(array('success' => true, 'asset' => $this->studio_asset_json($done, $creator_id))); exit;
+            }
+        }
         if (!$session || $session['status'] !== 'active') {
             echo json_encode(array('success' => false, 'message' => 'This upload session is no longer active. Please restart the upload.')); exit;
         }
         $asset_id = (int) $session['asset_id'];
-        $model    = new MediaAssetsModel();
 
         $parts = $sessions->parts($session);
         if (empty($parts)) {
@@ -4297,14 +4305,20 @@ class ApiController extends Controller {
             echo json_encode(array('success' => false, 'message' => 'The upload could not be finalized. Please try again.')); exit;
         }
 
-        // Read the assembled original back through a short-lived signed URL and let
-        // ffmpeg/ffprobe (server-side) extract the poster frame + duration/dimensions.
-        $src   = S3Service::presigned_get_url($session['storage_key'], 900);
-        $probe = MediaService::probe_video($src);
-        // The browser sends a poster frame it captured locally; it's the fallback when
-        // this server has no ffmpeg (or ffmpeg can't read the object) — see MediaService.
+        // The browser captured a poster frame + duration/dimensions from the local file.
+        // When it did, use them directly: no round trip through ffmpeg over S3, so this
+        // step is quick and can't time out. ffmpeg/ffprobe over a signed URL is the
+        // fallback for browsers that couldn't decode the video.
         $client_poster = (isset($_FILES['poster']) && is_uploaded_file($_FILES['poster']['tmp_name'] ?? '')) ? (string) $_FILES['poster']['tmp_name'] : '';
-        $res   = MediaService::process_video($creator_id, $asset_id, $src, $user, $client_poster);
+        $client_probe  = array('duration' => (int) ($this->post['client_duration'] ?? 0), 'width' => (int) ($this->post['client_width'] ?? 0), 'height' => (int) ($this->post['client_height'] ?? 0));
+        if ($client_poster !== '' && $client_probe['width'] > 0) {
+            $probe = $client_probe;
+            $res   = MediaService::process_video($creator_id, $asset_id, '', $user, $client_poster);
+        } else {
+            $src   = S3Service::presigned_get_url($session['storage_key'], 900);
+            $probe = MediaService::probe_video($src);
+            $res   = MediaService::process_video($creator_id, $asset_id, $src, $user, $client_poster);
+        }
         if (isset($res['error'])) {
             $model->set_failed($creator_id, $asset_id, $res['error']);
             echo json_encode(array('success' => false, 'message' => $res['error'])); exit;
