@@ -879,13 +879,20 @@
                         <span class="integ__icon"><i class="fa-solid fa-plug"></i></span>
                         <div class="integ__main">
                             <div class="integ__name">Claude</div>
-                            <div class="integ__meta"><span class="integ__dot <?php echo $this->mcp_connected ? 'is-on' : ''; ?>" id="mcpBadge"></span><?php echo $this->mcp_connected ? 'Connector token active' : 'Let Claude act on your account'; ?></div>
-                            <div class="integ__note">Generate a token, then in Claude go to Settings &rarr; Connectors &rarr; Add custom connector and paste the URL as the Remote MCP server URL.</div>
+                            <div class="integ__meta"><span class="integ__dot <?php echo $this->mcp_connected ? 'is-on' : ''; ?>" id="mcpBadge"></span><span id="mcpStatusText"><?php echo $this->mcp_connected ? 'Connector token active' : 'Let Claude act on your account'; ?></span><span class="integ__sep">·</span><a href="#" class="integ__link" id="mcpHelpToggle">Setup guide</a></div>
                             <input type="hidden" id="mcpBaseUrl" value="<?php echo htmlspecialchars($this->mcp_url, ENT_QUOTES, 'UTF-8'); ?>">
                             <div id="mcpTokenReveal" class="integ__reveal" hidden>
-                                <input type="text" class="form-control form-control-sm" id="mcpConnectorUrl" readonly onclick="this.select()">
-                                <div class="integ__note">Copy it now: it won't be shown again and it contains your private token.</div>
+                                <div class="integ__label">Connector URL <span class="integ__label-hint">shown once, contains your private token</span></div>
+                                <div class="integ__inline">
+                                    <input type="text" class="form-control form-control-sm" id="mcpConnectorUrl" readonly onclick="this.select()">
+                                    <button type="button" class="btn btn-secondary btn-sm" id="mcpCopy">Copy</button>
+                                </div>
                             </div>
+                            <ol class="integ__steps" id="mcpHelp" hidden>
+                                <li>In Claude, open <strong>Settings &rarr; Connectors</strong>.</li>
+                                <li>Choose <strong>Add custom connector</strong> and name it Creator Link Studio.</li>
+                                <li>Paste the connector URL into <strong>Remote MCP server URL</strong>. Nothing else is needed.</li>
+                            </ol>
                         </div>
                         <div class="integ__actions">
                             <button type="button" class="btn btn-secondary btn-sm" id="mcpGenerate"><?php echo $this->mcp_connected ? 'Regenerate' : 'Generate token'; ?></button>
@@ -2804,8 +2811,8 @@ $(function () {
             if (o.success) {
                 var base = ($('#mcpBaseUrl').val() || '').replace(/\/+$/, '');
                 $('#mcpConnectorUrl').val(base + '/' + o.token);
-                $('#mcpTokenReveal').prop('hidden', false);
-                $('#mcpBadge').addClass('is-on').next().remove(); $('#mcpBadge').after(document.createTextNode('Connector token active'));
+                $('#mcpTokenReveal').prop('hidden', false); $('#mcpHelp').prop('hidden', false);
+                $('#mcpBadge').addClass('is-on'); $('#mcpStatusText').text('Connector token active');
                 $('#mcpRevoke').prop('hidden', false);
                 $btn.text('Regenerate');
                 toastr.success(o.message);
@@ -2815,6 +2822,13 @@ $(function () {
         });
     });
 
+    $('#mcpHelpToggle').on('click', function (e) { e.preventDefault(); var $h = $('#mcpHelp'); $h.prop('hidden', !$h.prop('hidden')); });
+    $('#mcpCopy').on('click', function () {
+        var url = $('#mcpConnectorUrl').val(); var $b = $(this);
+        function done() { $b.text('Copied'); setTimeout(function () { $b.text('Copy'); }, 1500); }
+        if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(done, function () { $('#mcpConnectorUrl').trigger('focus').select(); }); }
+        else { $('#mcpConnectorUrl').trigger('focus').select(); try { document.execCommand('copy'); done(); } catch (err) {} }
+    });
     $('#mcpRevoke').on('click', function () {
         ApiDataSvc.apiCall('post', 'mcp_token_revoke', {}, function (data) {
             var o = JSON.parse(data);

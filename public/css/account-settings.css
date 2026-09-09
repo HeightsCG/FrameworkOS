@@ -518,3 +518,10 @@
     .integ__row{flex-wrap:wrap;}
     .integ__actions{width:100%; justify-content:flex-end;}
 }
+.integ__meta .integ__link, .integ__note .integ__link{color:var(--violet); font-weight:600; text-decoration:none;}
+.integ__link:hover{text-decoration:underline;}
+.integ__label{font-size:.78rem; font-weight:600; color:var(--t2); margin:.6rem 0 .3rem;}
+.integ__label-hint{font-weight:400; color:var(--muted);}
+.integ__reveal .integ__inline{margin-top:0; max-width:640px;}
+.integ__steps{margin:.6rem 0 0; padding-left:1.1rem; font-size:.82rem; color:var(--t2); line-height:1.55; max-width:640px;}
+.integ__steps li{margin:.15rem 0;}
