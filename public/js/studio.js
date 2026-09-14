@@ -1692,7 +1692,7 @@ jQuery(function ($) {
             loadScheduler();
         }
         ApiDataSvc.apiCall('post', 'scheduler_run_now', { id: id }, function (data) {
-            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            var o = null; try { o = (data && typeof data === 'object') ? data : JSON.parse(data); } catch (e) {}
             if (!o || !o.success) { finish(false, o && o.message); return; }
             if (!o.queued) { finish(true, o.message); return; }
             // The server answered immediately and is still working; poll until the run is recorded.

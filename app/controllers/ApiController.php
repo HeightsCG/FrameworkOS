@@ -2543,7 +2543,7 @@ class ApiController extends Controller {
             if ((int) $conv['creator_id'] !== $me) {
                 $event_id = InboxAutomationService::enqueue_cls_message((int) $conv_id, (int) $mid, (int) $conv['creator_id'], $me, $body);
                 if ($event_id > 0) {
-                    InboxAutomationService::respond_early($payload, 'application/json');
+                    InboxAutomationService::respond_early($payload);
                     InboxAutomationService::process_event($event_id);
                     exit;
                 }
@@ -4224,8 +4224,10 @@ class ApiController extends Controller {
         // A run can take a minute or more (image generation, retries, cross-posting), which is
         // longer than the load balancer waits. Answer now; the page polls scheduler_run_status.
         @set_time_limit(600);
+        // Sent as text like every other API action: the page does JSON.parse itself, and a
+        // JSON content type would make jQuery pre-parse it and break that.
         InboxAutomationService::respond_early(json_encode(array('success' => true, 'queued' => true, 'since' => $since,
-            'message' => 'Running…')), 'application/json');
+            'message' => 'Running…')));
         try {
             $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
         } catch (\Throwable $e) {
