@@ -628,8 +628,8 @@
 .cs-sf__switch .form-check-input{ margin:0; cursor:pointer; }
 .cs-sf__check{ display:flex; align-items:center; gap:.5rem; font-size:.84rem; color:var(--t2); margin:.6rem 0 0; cursor:pointer; }
 .cs-sf__check .form-check-input{ margin:0; flex:none; }
-.cs-seg--compact{ display:inline-flex; gap:0; border:1px solid var(--cs-border, var(--line)); border-radius:var(--r-sm); background:#fff; padding:2px; box-shadow:var(--cs-ishadow, none); }
-.cs-seg--compact .cs-seg__opt{ flex:0 0 auto; gap:.4rem; padding:.42rem .8rem; border:0; border-radius:calc(var(--r-sm) - 1px); background:transparent; box-shadow:none; font-size:.84rem; font-weight:600; color:var(--t2); }
+.cs-seg--compact{ display:flex; width:100%; gap:0; border:1px solid var(--cs-border, var(--line)); border-radius:var(--r-sm); background:#fff; padding:2px; box-shadow:var(--cs-ishadow, none); }
+.cs-seg--compact .cs-seg__opt{ flex:1 1 0; justify-content:center; gap:.4rem; padding:.42rem .8rem; border:0; border-radius:calc(var(--r-sm) - 1px); background:transparent; box-shadow:none; font-size:.84rem; font-weight:600; color:var(--t2); white-space:nowrap; }
 .cs-seg--compact .cs-seg__opt i{ font-size:.85rem; color:var(--muted2); }
 .cs-seg--compact .cs-seg__opt span{ display:inline; }
 .cs-seg--compact .cs-seg__opt:hover{ background:rgba(20,18,40,.04); }
@@ -644,5 +644,7 @@
 .cs-sf .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
 .cs-sf .form-check-input:focus{ box-shadow:0 0 0 3px var(--vsoft); border-color:var(--violet); }
 .cs-sf .cs-sched__time{ flex-wrap:nowrap; }
+.cs-sf__row .cs-seg--compact{ width:auto; flex:1 1 auto; }
+.cs-sf__row .cs-sched__time{ flex:0 0 auto; }
 .cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
 .cs-sf #csSchedCaptionWrap{ margin-top:1rem; }
