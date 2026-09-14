@@ -1434,7 +1434,7 @@ jQuery(function ($) {
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
             : (r.last_status === 'failed'
-                ? '<span class="cs-sched__metaitem cs-sched__metaitem--fail"><i class="fa-solid fa-circle-exclamation"></i>Last run failed</span>'
+                ? '<span class="cs-sched__metaitem cs-sched__metaitem--fail" title="' + esc(r.last_message || '') + '"><i class="fa-solid fa-circle-exclamation"></i>Last run failed' + (r.last_message ? ': ' + esc(r.last_message) : '') + '</span>'
                 : '');
         var stTitle = r.active ? 'Active — posting on schedule. Click to pause.' : 'Paused. Click to activate.';
         return $(

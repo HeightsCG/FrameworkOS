@@ -4097,7 +4097,15 @@ class ApiController extends Controller {
             'next_run'         => $this->scheduler_next_human($r['next_run_at'] ?? '', $tz),
             'last_status'      => (string) $r['last_status'],
             'last_run'         => $this->scheduler_next_human($r['last_run_at'] ?? '', $tz),
+            'last_message'     => $this->scheduler_last_message((int) $r['id'], (string) $r['last_status']),
         );
+    }
+
+    /** The newest run's message for a failed rule, so the card can say why. '' otherwise. */
+    private function scheduler_last_message($rule_id, $last_status){
+        if ($last_status !== 'failed') { return ''; }
+        $runs = (new SchedulerRunsModel())->recent_for_rule($rule_id, 1);
+        return (is_array($runs) && !empty($runs)) ? (string) ($runs[0]['message'] ?? '') : '';
     }
 
     public function scheduler_listAction(){
