@@ -23,8 +23,10 @@ class AutoPostService {
             $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
             if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.'); }
             if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.'); }
-            // The topic is written for people; distill one scene per run in the form the studio tool wants.
-            $scene = EromifyService::scene_from_topic($topic, $size);
+            // With AI assist on, distill one scene per run from the creator's description; off, the
+            // topic is the scene, sent word for word (no model rewrites it).
+            $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
+            $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size) : $topic;
             $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size);
             if (!$er['ok']) {
                 (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
@@ -60,7 +62,10 @@ class AutoPostService {
         $media->set_ready($creator_id, $asset_id, $r);
 
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
-        $caption = BrandService::caption_for($topic, $use_brand ? $cb : array(), (($rule['image_source'] ?? 'brand') === 'character') ? 'tease' : '');
+        $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
+        $fixed     = trim((string) ($rule['caption_text'] ?? ''));
+        $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), (($rule['image_source'] ?? 'brand') === 'character') ? 'tease' : '')
+                                : ($fixed !== '' ? $fixed : $topic);
         if ($caption === '') { $caption = $topic; }
 
         // 4) Create the post.

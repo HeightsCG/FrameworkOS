@@ -118,3 +118,19 @@ UNION ALL SELECT 'scheduler_rules.image_source', IF(COUNT(*) = 1, 'OK', 'MISSING
 UNION ALL SELECT 'user_eromify_accounts',        IF(COUNT(*) = 1, 'OK', 'MISSING') FROM information_schema.TABLES  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_eromify_accounts'
 UNION ALL SELECT 'inbox_replies',                IF(COUNT(*) = 1, 'OK', 'MISSING') FROM information_schema.TABLES  WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'inbox_replies'
 UNION ALL SELECT 'posts.fanvue_post_uuid',       IF(COUNT(*) = 1, 'OK', 'MISSING') FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'posts' AND COLUMN_NAME = 'fanvue_post_uuid';
+
+-- 2026-09-14: per-automation AI assist toggle + fixed caption (run this block on live too)
+DROP PROCEDURE IF EXISTS cls_catchup_20260914;
+DELIMITER //
+CREATE PROCEDURE cls_catchup_20260914()
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'scheduler_rules' AND COLUMN_NAME = 'ai_assist') THEN
+    ALTER TABLE scheduler_rules ADD COLUMN ai_assist TINYINT NOT NULL DEFAULT 1 AFTER use_brand;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'scheduler_rules' AND COLUMN_NAME = 'caption_text') THEN
+    ALTER TABLE scheduler_rules ADD COLUMN caption_text TEXT NULL AFTER ai_assist;
+  END IF;
+END //
+DELIMITER ;
+CALL cls_catchup_20260914();
+DROP PROCEDURE IF EXISTS cls_catchup_20260914;

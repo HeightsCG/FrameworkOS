@@ -645,3 +645,4 @@
 .cs-sf .form-check-input:focus{ box-shadow:0 0 0 3px var(--vsoft); border-color:var(--violet); }
 .cs-sf .cs-sched__time{ flex-wrap:nowrap; }
 .cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
+.cs-sf #csSchedCaptionWrap{ margin-top:1rem; }

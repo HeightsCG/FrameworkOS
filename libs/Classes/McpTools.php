@@ -172,6 +172,8 @@ class McpTools {
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'character'), 'description' => '"character" renders the creator\'s Eromify persona (character_id required; the topic is then the scene only). Default "brand".'),
                 'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
                 'character_name' => array('type' => 'string'),
+                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
+                'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
             )));
         $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'name', 'topic'),
@@ -186,6 +188,8 @@ class McpTools {
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'character'), 'description' => '"character" renders the creator\'s Eromify persona (character_id required; the topic is then the scene only). Default "brand".'),
                 'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
                 'character_name' => array('type' => 'string'),
+                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
+                'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
             )));
         $t[] = array('name' => 'set_automation_active','description' => 'Activate/deactivate an automation.', 'inputSchema' => self::idAndActive());

@@ -479,6 +479,15 @@
                         <input type="checkbox" class="form-check-input" id="csSchedBrand" checked>
                         <span>Use my brand <strong id="csSchedBrandName"></strong> for the image and caption</span>
                     </label>
+                    <label class="cs-sf__switch" for="csSchedAi" data-kind="post">
+                        <span><strong>Let AI shape it</strong><small id="csSchedAiHint">Picks one scene from your description each run and writes the caption.</small></span>
+                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedAi" checked></span>
+                    </label>
+                    <div id="csSchedCaptionWrap" data-kind="post" hidden>
+                        <label class="cs-sf__label" for="csSchedCaption">Caption</label>
+                        <textarea class="form-control" id="csSchedCaption" rows="2" maxlength="5000" placeholder="Posted exactly as written with every run"></textarea>
+                        <div class="cs-sf__hint">With AI off, the scene above goes to the image model word for word and this caption is used as is.</div>
+                    </div>
                 </div>
 
                 <div class="cs-sf__section" data-kind="post">

@@ -10,7 +10,7 @@ class SchedulerRulesModel extends Model {
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
         'size', 'image_source', 'character_id', 'character_name', 'audience', 'tier_id', 'comments_enabled',
-        'use_brand', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
+        'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
     const FANVUE_LISTS = array('subscribers', 'auto_renewing', 'non_renewing', 'followers', 'free_trial_subscribers', 'expired_subscribers', 'spent_more_than_50');
@@ -65,6 +65,8 @@ class SchedulerRulesModel extends Model {
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;
         $out['use_brand']        = !empty($f['use_brand']) ? 1 : 0;
+        $out['ai_assist']        = (isset($f['ai_assist']) && (string) $f['ai_assist'] === '0') ? 0 : 1;
+        $out['caption_text']     = mb_substr(trim((string) ($f['caption_text'] ?? '')), 0, 5000);
         $socials = $f['social_accounts'] ?? array();
         if (is_string($socials)) { $socials = array_filter(array_map('trim', explode(',', $socials)), 'strlen'); }
         $out['social_accounts']  = json_encode(array_values(array_map('strval', (array) $socials)));

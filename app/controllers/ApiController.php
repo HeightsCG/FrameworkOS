@@ -4086,6 +4086,8 @@ class ApiController extends Controller {
             'tier_id'          => $r['tier_id'] !== null ? (int) $r['tier_id'] : null,
             'comments_enabled' => (int) $r['comments_enabled'],
             'use_brand'        => (int) $r['use_brand'],
+            'ai_assist'        => isset($r['ai_assist']) ? (int) $r['ai_assist'] : 1,
+            'caption_text'     => (string) ($r['caption_text'] ?? ''),
             'social_accounts'  => array_map('strval', (array) $accounts),
             'cadence'          => (string) $r['cadence'],
             'days_of_week'     => $days,
@@ -4161,6 +4163,8 @@ class ApiController extends Controller {
             'tier_id'          => (int) ($this->post['tier_id'] ?? 0),
             'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',
             'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
+            'ai_assist'        => ((string) ($this->post['ai_assist'] ?? '1')) !== '0' ? 1 : 0,
+            'caption_text'     => trim(html_entity_decode((string) ($this->post['caption_text'] ?? ''), ENT_QUOTES)),
             'social_accounts'  => $this->post['social_accounts'] ?? array(),
             'cadence'          => (string) ($this->post['cadence'] ?? 'daily'),
             'days_of_week'     => $this->post['days_of_week'] ?? array(),
@@ -4204,10 +4208,37 @@ class ApiController extends Controller {
         if (session_status() === PHP_SESSION_ACTIVE) { session_write_close(); }
         $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
         if (!$rule) { echo json_encode(array('success' => false, 'message' => 'Automation not found')); exit; }
-        $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
-        (new SchedulerRunsModel())->add((int) $rule['id'], $creator_id, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+        $runs = new SchedulerRunsModel();
+        $prev = $runs->recent_for_rule((int) $rule['id'], 1);
+        $since = (int) ($prev[0]['id'] ?? 0);
+        // A run can take a minute or more (image generation, retries, cross-posting), which is
+        // longer than the load balancer waits. Answer now; the page polls scheduler_run_status.
+        @set_time_limit(600);
+        InboxAutomationService::respond_early(json_encode(array('success' => true, 'queued' => true, 'since' => $since,
+            'message' => 'Running…')), 'application/json');
+        try {
+            $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
+        } catch (\Throwable $e) {
+            $res = array('ok' => false, 'post_id' => null, 'message' => 'Worker error: ' . $e->getMessage());
+        }
+        $runs->add((int) $rule['id'], $creator_id, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
         (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
-        echo json_encode(array('success' => $res['ok'], 'message' => $res['message'], 'post_id' => $res['post_id']));
+        exit;
+    }
+
+    /** Poll for the outcome of a "Run now": the newest run created after $since. */
+    public function scheduler_run_statusAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
+        if (!$rule) { echo json_encode(array('success' => false, 'message' => 'Automation not found')); exit; }
+        $since = (int) ($this->post['since'] ?? 0);
+        $latest = (new SchedulerRunsModel())->recent_for_rule((int) $rule['id'], 1);
+        $run = (is_array($latest) && !empty($latest) && (int) $latest[0]['id'] > $since) ? $latest[0] : null;
+        echo json_encode(array('success' => true, 'done' => $run !== null,
+            'ok' => $run ? ($run['status'] === 'success') : null,
+            'message' => $run ? (string) $run['message'] : '',
+            'post_id' => $run ? ($run['post_id'] !== null ? (int) $run['post_id'] : null) : null));
         exit;
     }
 

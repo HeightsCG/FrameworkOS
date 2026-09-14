@@ -1485,6 +1485,12 @@ jQuery(function ($) {
         $('#csSchedTopicWrap').prop('hidden', kind === 'message' && !ai);
     }
     $('#csSchedMsgAi').on('change', setSchedMsgAi);
+    function setSchedAi() {
+        var on = $('#csSchedAi').is(':checked');
+        $('#csSchedCaptionWrap').prop('hidden', on);
+        $('#csSchedAiHint').text(on ? 'Picks one scene from your description each run and writes the caption.' : 'Off: your text is sent to the image model unchanged and the caption below is posted as written.');
+    }
+    $('#csSchedAi').on('change', setSchedAi);
     function renderSchedTargets(sel) {
         var ib = CFG.inbox || {}, $wrap = $('#csSchedTargets').empty();
         sel = sel || {}; var fv = new Set((sel.fanvue || []).map(String));
@@ -1522,6 +1528,9 @@ jQuery(function ($) {
         setSchedSize(rule ? rule.size : 'square');
         $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
+        $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
+        $('#csSchedCaption').val(rule ? (rule.caption_text || '') : '');
+        setSchedAi();
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.audience = rule ? rule.audience : 'free';
         schedForm.cadence  = rule ? rule.cadence : 'daily';
@@ -1636,6 +1645,7 @@ jQuery(function ($) {
             tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
             use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
+            ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '',
             social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'
@@ -1668,16 +1678,28 @@ jQuery(function ($) {
         renderSchedRules();                            // show the generating state immediately
         // The request keeps running even if the creator switches tabs; schedRunning keeps
         // the card in its "Generating…" state across re-renders until it completes.
-        ApiDataSvc.apiCall('post', 'scheduler_run_now', { id: id }, function (data) {
+        function finish(ok, m) {
             delete schedRunning[id];
-            var o = JSON.parse(data);
-            if (o.success) {
-                var m = (o && o.message) || 'Published a new post.';
-                if (/failed/i.test(m)) { toastr.warning(m); } else { toastr.success(m); }
-            }
-            else { toastr.error((o && o.message) || 'Run failed.'); }
+            if (ok) { if (/failed/i.test(m)) { toastr.warning(m); } else { toastr.success(m || 'Published a new post.'); } }
+            else { toastr.error(m || 'Run failed.'); }
             loadScheduler();
-        });
+        }
+        ApiDataSvc.apiCall('post', 'scheduler_run_now', { id: id }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            if (!o || !o.success) { finish(false, o && o.message); return; }
+            if (!o.queued) { finish(true, o.message); return; }
+            // The server answered immediately and is still working; poll until the run is recorded.
+            var since = o.since || 0, tries = 0;
+            (function poll() {
+                tries++;
+                ApiDataSvc.apiCall('post', 'scheduler_run_status', { id: id, since: since }, function (d2) {
+                    var r = null; try { r = JSON.parse(d2); } catch (e) {}
+                    if (r && r.success && r.done) { finish(!!r.ok, r.message); return; }
+                    if (tries >= 60) { finish(false, 'Still running in the background. Refresh in a minute to see the result.'); return; }
+                    setTimeout(poll, 4000);
+                }, function () { if (tries < 60) { setTimeout(poll, 6000); } else { finish(false, 'Lost track of the run. Refresh to see the result.'); } });
+            })();
+        }, function () { finish(false, 'Could not start the run.'); });
     });
 
 
