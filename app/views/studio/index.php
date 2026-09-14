@@ -466,8 +466,20 @@
                         </div>
                     </div>
                     <div id="csSchedCharacterWrap" hidden>
-                        <label class="cs-sf__label" for="csSchedCharacter">Character</label>
-                        <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
+                        <div class="cs-sf__grid">
+                            <div>
+                                <label class="cs-sf__label" for="csSchedCharacter">Character</label>
+                                <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
+                            </div>
+                            <div>
+                                <label class="cs-sf__label">Content level</label>
+                                <div class="cs-seg cs-seg--compact" id="csSchedLevel">
+                                    <button type="button" class="cs-seg__opt is-on" data-level="safe"><i class="fa-solid fa-sun"></i><span>Feed-safe</span></button>
+                                    <button type="button" class="cs-seg__opt" data-level="spicy"><i class="fa-solid fa-fire"></i><span>Spicy</span></button>
+                                </div>
+                                <div class="cs-sf__hint" id="csSchedLevelHint">Fashion and swimwear look for public feeds.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

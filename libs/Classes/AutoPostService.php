@@ -26,8 +26,9 @@ class AutoPostService {
             // With AI assist on, distill one scene per run from the creator's description; off, the
             // topic is the scene, sent word for word (no model rewrites it).
             $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-            $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size) : $topic;
-            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size);
+            $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+            $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size, $level) : $topic;
+            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size, $level);
             if (!$er['ok']) {
                 (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
                 return self::fail(null, 'Character image failed: ' . $er['error']);
@@ -64,7 +65,8 @@ class AutoPostService {
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
-        $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), (($rule['image_source'] ?? 'brand') === 'character') ? 'tease' : '')
+        $style     = (($rule['image_source'] ?? 'brand') === 'character') ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
+        $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
         if ($caption === '') { $caption = $topic; }
 

@@ -134,3 +134,16 @@ END //
 DELIMITER ;
 CALL cls_catchup_20260914();
 DROP PROCEDURE IF EXISTS cls_catchup_20260914;
+
+-- 2026-09-14 (b): content level per automation
+DROP PROCEDURE IF EXISTS cls_catchup_20260914b;
+DELIMITER //
+CREATE PROCEDURE cls_catchup_20260914b()
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'scheduler_rules' AND COLUMN_NAME = 'content_level') THEN
+    ALTER TABLE scheduler_rules ADD COLUMN content_level VARCHAR(10) NOT NULL DEFAULT 'safe' AFTER character_name;   -- safe | spicy
+  END IF;
+END //
+DELIMITER ;
+CALL cls_catchup_20260914b();
+DROP PROCEDURE IF EXISTS cls_catchup_20260914b;

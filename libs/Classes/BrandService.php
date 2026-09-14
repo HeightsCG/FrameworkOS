@@ -48,21 +48,16 @@ class BrandService {
             . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
             . "no hashtags unless they feel natural. " . ($style === 'tease'
                 ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
-                : '')
+                : ($style === 'spicy'
+                ? "Tone: sultry and intimate, first person, written for paying subscribers: confident, teasing, a little dirty in implication but never graphic, hinting that the full set is waiting for them, and end with an invitation to unlock, reply or tell her what they want next. No explicit sexual acts or anatomy. "
+                : ''))
             . "Respond with ONLY the caption text — no quotes, no preamble.";
 
-        $body = array('model' => self::MODEL, 'max_tokens' => 400,
-            'messages' => array(array('role' => 'user', 'content' => $prompt)));
-        $ch = curl_init(self::API);
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => 45,
-            CURLOPT_HTTPHEADER => array('x-api-key: ' . $key, 'anthropic-version: 2023-06-01', 'content-type: application/json'),
-            CURLOPT_POSTFIELDS => json_encode($body),
-        ));
-        $raw = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-        if ($raw === false || $code >= 400) { error_log('[caption] http ' . $code . ': ' . substr((string) $raw, 0, 300)); return ''; }
-        $d = json_decode($raw, true);
-        return trim((string) ($d['content'][0]['text'] ?? ''));
+        // Shared client: it returns the first TEXT block, so a leading thinking block on
+        // current models no longer yields an empty caption.
+        $res = ClaudeService::chat('', array(array('role' => 'user', 'content' => $prompt)), 400, 45, 'low');
+        if (!$res['ok']) { error_log('[caption] ' . $res['error']); return ''; }
+        return trim($res['text'], " \n\"'“”");
     }
 
     /** Generate brand details from a public URL. Returns ['ok'=>bool, 'data'|'error']. */
