@@ -1699,14 +1699,17 @@ jQuery(function ($) {
             var since = o.since || 0, tries = 0;
             (function poll() {
                 tries++;
+                // If a poll request is lost (gateway hiccup), the watchdog asks again instead of leaving the button stuck.
+                var watchdog = setTimeout(poll, 15000);
                 ApiDataSvc.apiCall('post', 'scheduler_run_status', { id: id, since: since }, function (d2) {
+                    clearTimeout(watchdog);
                     var r = null; try { r = JSON.parse(d2); } catch (e) {}
                     if (r && r.success && r.done) { finish(!!r.ok, r.message); return; }
                     if (tries >= 60) { finish(false, 'Still running in the background. Refresh in a minute to see the result.'); return; }
                     setTimeout(poll, 4000);
-                }, function () { if (tries < 60) { setTimeout(poll, 6000); } else { finish(false, 'Lost track of the run. Refresh to see the result.'); } });
+                });
             })();
-        }, function () { finish(false, 'Could not start the run.'); });
+        });
     });
 
 
