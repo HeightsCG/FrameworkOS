@@ -10,6 +10,8 @@ class EromifyService {
 
     const ENDPOINT = 'https://api.eromify.com/mcp';
     const MODEL    = 'nano-banana-pro';   // best character consistency per Eromify
+    /** Tried in order when a model refuses the prompt/reference as flagged content. */
+    const MODEL_FALLBACKS = array('nano-banana-pro', 'seedream-v45', 'gpt-image-2');
 
     /** Map the automation's image shape to Eromify's aspect ratios. */
     public static function aspect_for_size($size): string {
@@ -68,7 +70,7 @@ class EromifyService {
             if (($c['type'] ?? '') === 'text') { $text = (string) $c['text']; break; }
         }
         if (!empty($result['isError'])) {
-            return self::fail('Eromify: ' . mb_substr(trim($text) !== '' ? $text : 'tool error', 0, 300));
+            return self::fail('Eromify: ' . self::error_summary($text));
         }
         $data = isset($result['structuredContent']) && is_array($result['structuredContent']) ? $result['structuredContent'] : null;
         if ($data === null && $text !== '') {
@@ -110,20 +112,75 @@ class EromifyService {
     public static function generate_character_image($api_key, $influencer_id, $scene, $size = 'square'): array {
         $scene = trim((string) $scene);
         if ((string) $influencer_id === '' || $scene === '') { return self::fail('Character and scene are required'); }
-        $r = self::call($api_key, 'studio_generate_image_with_character', array(
-            'influencer_id' => (string) $influencer_id,
-            'prompt'        => mb_substr($scene, 0, 2000),
-            'model'         => self::MODEL,
-            'aspect_ratio'  => self::aspect_for_size($size),
-            'num_images'    => 1,
-        ), 180);
-        if (!$r['ok']) { return $r; }
-        $d   = (array) ($r['data'] ?? array());
-        $url = (string) ($d['imageUrl'] ?? (($d['images'][0]['url'] ?? '')));
-        if (($d['status'] ?? 'completed') !== 'completed' || $url === '') {
-            return self::fail('Eromify did not return an image' . (!empty($d['status']) ? ' (status ' . $d['status'] . ')' : ''));
+        $last = self::fail('Eromify did not return an image');
+        foreach (self::MODEL_FALLBACKS as $model) {
+            $r = self::call($api_key, 'studio_generate_image_with_character', array(
+                'influencer_id' => (string) $influencer_id,
+                'prompt'        => mb_substr($scene, 0, 2000),
+                'model'         => $model,
+                'aspect_ratio'  => self::aspect_for_size($size),
+                'num_images'    => 1,
+            ), 180);
+            if ($r['ok']) {
+                $d   = (array) ($r['data'] ?? array());
+                $url = (string) ($d['imageUrl'] ?? (($d['images'][0]['url'] ?? '')));
+                if (($d['status'] ?? 'completed') === 'completed' && $url !== '') {
+                    return array('ok' => true, 'url' => $url, 'model' => $model,
+                        'credits_remaining' => isset($d['creditsRemaining']) ? (int) $d['creditsRemaining'] : null, 'error' => '');
+                }
+                $last = self::fail('Eromify did not return an image' . (!empty($d['status']) ? ' (status ' . $d['status'] . ')' : ''));
+            } else {
+                $last = $r;
+            }
+            // Only a content refusal is worth retrying on another model; auth, credits and network errors are not.
+            if (!self::is_content_refusal($last['error'])) { break; }
+            error_log('[eromify] ' . $model . ' refused the prompt; trying next model');
         }
-        return array('ok' => true, 'url' => $url, 'credits_remaining' => isset($d['creditsRemaining']) ? (int) $d['creditsRemaining'] : null, 'error' => '');
+        return $last;
+    }
+
+    private static function is_content_refusal($error): bool {
+        return (bool) preg_match('/content checker|flagged|rejected this prompt|safety|moderat/i', (string) $error);
+    }
+
+    /** Eromify's tool errors come back as JSON blobs; keep the human sentence. */
+    private static function error_summary($text): string {
+        $text = trim((string) $text);
+        $j = json_decode($text, true);
+        if (is_array($j)) {
+            $msg = (string) ($j['error'] ?? ($j['message'] ?? ''));
+            if ($msg !== '') { $text = $msg; }
+        }
+        $text = preg_replace('/\s+/', ' ', $text);
+        return mb_substr($text !== '' ? $text : 'tool error', 0, 240);
+    }
+
+    /**
+     * Turn a creator's free-form topic ("mid-day in Miami: beach club daybed or café
+     * patio; outfit rotates ...; caption should ...") into ONE short scene brief in the
+     * form the character tool wants: place, activity, props, outfit. The server picks
+     * which listed option to use so consecutive runs differ. Falls back to the topic.
+     */
+    public static function scene_from_topic($topic, $size = 'square'): string {
+        $topic = trim((string) $topic);
+        if ($topic === '' || !ClaudeService::configured()) { return $topic; }
+        $orient = ($size === 'portrait') ? 'vertical phone photo' : (($size === 'landscape') ? 'wide photo' : 'square photo');
+        $pick   = random_int(1, 6);
+        $system = "You write scene briefs for a studio that renders a saved AI character into photos for a creator's feed, where the goal of every image is to make people stop scrolling and want to see more of her. "
+                . "Given the creator's description of what their automated posts should look like, output ONE brief for ONE image. "
+                . "Describe the setting, what she is doing, props, and outfit, in 15 to 40 words. "
+                . "When the description lists several places, activities or outfits, use option number {$pick} from each list, counting from 1 and wrapping around if the list is shorter. "
+                . "Make it alluring the way a swimwear or fashion campaign is: a confident, flirtatious pose (leaning toward the camera, glancing back over a shoulder, a hand in her hair, hip cocked, lounging with one knee up), direct eye contact or a knowing half-smile, and framing that flatters her figure and shows off the outfit. Golden or midday sunlight is welcome. "
+                . "Keep it within what a mainstream social platform allows: swimwear and fitted clothing are fine, but nothing sheer, no nudity, no explicit or sexual language, no fetish framing. Prefer 'bikini', 'swimsuit', 'sundress' as plain words; do not invent lingerie. "
+                . "No character name, no camera or lighting jargon beyond the light itself, no caption or hashtag instructions, no text overlays. "
+                . "The image will be a {$orient}; compose for that but never mention the format in the brief. "
+                . "Output only the brief: no quotes, no preamble, no label.";
+        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $topic)), 200, 25, 'low');
+        if (!$res['ok']) { return $topic; }
+        $scene = trim(preg_replace('/\s+/', ' ', (string) $res['text']));
+        $scene = trim($scene, "\"'“” ");
+        $scene = preg_replace('/^(vertical|wide|square)?\s*(phone\s+)?photo\s*[:\-–—]\s*/i', '', $scene);
+        return ($scene !== '' && mb_strlen($scene) <= 400) ? $scene : $topic;
     }
 
     /** Parse a JSON body or the first SSE "data:" frame. */

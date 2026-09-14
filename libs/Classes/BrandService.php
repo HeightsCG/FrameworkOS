@@ -34,7 +34,7 @@ class BrandService {
      * Write a short social caption for a topic, in the creator's brand voice. Returns the
      * caption string, or '' on any failure (caller can fall back to the topic).
      */
-    public static function caption_for($topic, array $cb){
+    public static function caption_for($topic, array $cb, $style = ''){
         $key = (string) Main::config('global', 'anthropic_api_key');
         if ($key === '') { $key = (string) Main::config('global', 'claude_api_key'); }
         if ($key === '' || trim((string) $topic) === '') { return ''; }
@@ -46,7 +46,10 @@ class BrandService {
         $prompt = "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
             . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
             . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
-            . "no hashtags unless they feel natural. Respond with ONLY the caption text — no quotes, no preamble.";
+            . "no hashtags unless they feel natural. " . ($style === 'tease'
+                ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
+                : '')
+            . "Respond with ONLY the caption text — no quotes, no preamble.";
 
         $body = array('model' => self::MODEL, 'max_tokens' => 400,
             'messages' => array(array('role' => 'user', 'content' => $prompt)));

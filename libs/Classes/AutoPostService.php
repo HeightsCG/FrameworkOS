@@ -23,12 +23,15 @@ class AutoPostService {
             $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
             if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.'); }
             if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.'); }
-            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $topic, $size);
+            // The topic is written for people; distill one scene per run in the form the studio tool wants.
+            $scene = EromifyService::scene_from_topic($topic, $size);
+            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size);
             if (!$er['ok']) {
                 (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
                 return self::fail(null, 'Character image failed: ' . $er['error']);
             }
             if ($er['credits_remaining'] !== null) { (new EromifyAccountsModel())->set_credits($creator_id, $er['credits_remaining']); }
+            error_log('[eromify] rule ' . (int) ($rule['id'] ?? 0) . ' scene: ' . $scene . ' (model ' . ($er['model'] ?? '?') . ')');
             $bytes = self::fetch_bytes($er['url'], 30 * 1024 * 1024);
             if ($bytes === '') { return self::fail(null, 'Could not download the generated character image.'); }
             $info = @getimagesizefromstring($bytes);
@@ -57,7 +60,7 @@ class AutoPostService {
         $media->set_ready($creator_id, $asset_id, $r);
 
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
-        $caption = BrandService::caption_for($topic, $use_brand ? $cb : array());
+        $caption = BrandService::caption_for($topic, $use_brand ? $cb : array(), (($rule['image_source'] ?? 'brand') === 'character') ? 'tease' : '');
         if ($caption === '') { $caption = $topic; }
 
         // 4) Create the post.
