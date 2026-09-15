@@ -1,7 +1,7 @@
 <?php
 /**
  * Background job contract. Web requests dispatch() and answer immediately with the job id;
- * bin/queue_worker.php claim()s and runs the matching handler (libs/Classes/*Job.php).
+ * cron/queue_worker.php claim()s and runs the matching handler (libs/Classes/*Job.php).
  * Times are UTC 'Y-m-d H:i:s' strings, like everything else in the DB.
  */
 interface JobQueue {

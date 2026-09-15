@@ -5,7 +5,7 @@
  * (default 100) have run, then exits so launchd (StartInterval 60) starts a fresh one; launchd
  * never overlaps two instances of the same label. `--once` runs at most one job (for testing).
  *
- *   /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/bin/queue_worker.php >> /tmp/cls-queue.log 2>&1
+ *   /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/cron/queue_worker.php >> /tmp/cls-queue.log 2>&1
  */
 
 if (php_sapi_name() !== 'cli') { exit(1); }
