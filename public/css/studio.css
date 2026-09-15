@@ -651,3 +651,96 @@
 @media (max-width:640px){ .cs-sf__row .cs-sched__time{ margin-left:0; } }
 .cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
 .cs-sf #csSchedCaptionWrap{ margin-top:1rem; }
+
+/* ---- Automation modal: property rows (label left, control right) ---- */
+#csSchedulerModal .cs-sched-dialog{ max-width:640px; }
+#csSchedulerModal .modal-header{ padding:.9rem 1.5rem; }
+#csSchedulerModal .modal-title{ font-size:.95rem; font-weight:600; }
+#csSchedulerModal .modal-footer{ padding:.75rem 1.5rem; }
+#csSchedulerModal .modal-footer .btn{ padding:.42rem .9rem; font-size:.85rem; }
+.cs-props{ padding:.5rem 1.5rem .75rem; }
+.cs-props__group{ margin-top:.6rem; padding-top:.6rem; border-top:1px solid var(--line); }
+.cs-props__group[hidden]{ display:none; }
+.cs-props__group .cs-props__group{ margin-top:0; padding-top:0; border-top:0; }
+/* a group whose rows are all hidden (e.g. the shared Description group in message mode) must not leave a rule */
+.cs-props__group:not(:has(> .cs-prop:not([hidden]), > :not([hidden]) > .cs-prop:not([hidden]), > :not([hidden]) > :not([hidden]) > .cs-prop:not([hidden]))){ display:none; }
+.cs-prop{ display:grid; grid-template-columns:108px minmax(0,1fr); align-items:center; column-gap:1rem; min-height:40px; padding:.2rem 0; }
+.cs-prop[hidden]{ display:none; }
+.cs-prop__key{ font-size:.8rem; font-weight:500; color:#5f6474; margin:0; line-height:1.3; }
+.cs-prop__key #csSchedBrandName{ color:var(--text); font-weight:600; }
+.cs-prop__val{ min-width:0; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
+.cs-prop--tall{ align-items:start; }
+.cs-prop--tall .cs-prop__key{ padding-top:.55rem; }
+.cs-props .form-control, .cs-props .form-select{ font-size:.875rem; height:34px; padding:.35rem .6rem; border-radius:6px; box-shadow:none; }
+.cs-props textarea.form-control{ height:auto; min-height:92px; width:100%; line-height:1.45; }
+.cs-props .form-select{ width:auto; min-width:200px; }
+.cs-prop .cs-seg--compact{ width:auto; flex:0 0 auto; height:32px; align-items:stretch; padding:2px; gap:2px; border:0; border-radius:7px; background:#eeeef3; box-shadow:none; }
+.cs-prop .cs-seg--compact .cs-seg__opt{ flex:0 0 auto; padding:.2rem .7rem; font-size:.8rem; font-weight:500; color:#5f6474; border-radius:5px; background:transparent; box-shadow:none; }
+.cs-prop .cs-seg--compact .cs-seg__opt:hover{ color:var(--text); background:transparent; }
+.cs-prop .cs-seg--compact .cs-seg__opt.is-on{ background:#fff; color:var(--text); box-shadow:0 1px 2px rgba(15,17,26,.10), 0 0 0 1px rgba(15,17,26,.05); }
+.cs-prop .form-switch{ min-height:0; padding:0; margin:0; display:flex; align-items:center; }
+.cs-prop .form-switch .form-check-input{ margin:0; width:2.1em; height:1.2em; cursor:pointer; }
+.cs-prop .cs-comp__social{ gap:.35rem; padding:.15rem 0; }
+.cs-prop .cs-comp__social .cs-social{ padding:.2rem .55rem .2rem .5rem; font-size:.78rem; gap:.35rem; border-radius:6px; }
+.cs-prop .cs-comp__social .cs-social i{ font-size:.8rem; }
+.cs-prop .cs-sf__row{ gap:.6rem; }
+.cs-prop .cs-sched__days{ gap:.2rem; }
+.cs-prop .cs-sched__day{ width:32px; height:32px; font-size:.74rem; border-radius:6px; }
+.cs-prop .cs-sched__time .form-control{ height:32px; max-width:118px; }
+.cs-prop .cs-sched__tz{ font-size:.78rem; }
+@media (max-width:640px){
+  .cs-prop{ grid-template-columns:1fr; row-gap:.3rem; padding:.45rem 0; }
+  .cs-prop--tall .cs-prop__key{ padding-top:0; }
+  .cs-props .form-select{ width:100%; }
+}
+
+/* ---- Automation modal (#csSchedulerModal) — two-column grid, three titled sections. Scoped; no globals touched. ---- */
+#csSchedulerModal .cs-am{ max-width:720px; margin:.5rem auto; min-height:calc(100% - 1rem); }
+#csSchedulerModal .cs-am__header{ padding:24px; border-bottom:1px solid var(--line); align-items:center; }
+#csSchedulerModal .cs-am__title{ font-size:18px; font-weight:600; line-height:1.3; margin:0; }
+#csSchedulerModal .cs-am__close{ width:32px; height:32px; padding:0; margin:0 0 0 auto; border-radius:8px; background-size:14px; opacity:.6; transition:background-color .12s, opacity .12s; }
+#csSchedulerModal .cs-am__close:hover{ background-color:rgba(20,18,40,.06); opacity:1; }
+#csSchedulerModal .cs-am__body{ padding:20px 24px; overflow:visible; max-height:none; }
+#csSchedulerModal .cs-am__section{ display:grid; grid-template-columns:1fr 1fr; column-gap:16px; row-gap:14px; align-items:start; padding:14px 0; }
+#csSchedulerModal .cs-am__body > .cs-am__section:first-of-type{ padding-top:0; }
+#csSchedulerModal .cs-am__body > .cs-am__section:last-of-type{ padding-bottom:0; }
+#csSchedulerModal .cs-am__section + .cs-am__section{ border-top:1px solid var(--line); }
+#csSchedulerModal .cs-am__section[hidden]{ display:none; }
+#csSchedulerModal .cs-am__group{ display:contents; }
+#csSchedulerModal .cs-am__group[hidden]{ display:none; }
+#csSchedulerModal .cs-am__field{ display:flex; flex-direction:column; align-items:stretch; gap:4px; min-width:0; }
+#csSchedulerModal .cs-am__field--full{ grid-column:1 / -1; }
+#csSchedulerModal .cs-am__field--start{ grid-column-start:1; }
+#csSchedulerModal .cs-am__field--toggle{ align-self:stretch; justify-content:space-between; }
+#csSchedulerModal .cs-am__field[hidden]{ display:none; }
+#csSchedulerModal .cs-am__label{ font-size:13px; font-weight:500; color:var(--muted); margin:0; line-height:1.3; }
+#csSchedulerModal .form-control, #csSchedulerModal .form-select{ width:100%; height:40px; padding:0 12px; font-size:14px; border:1px solid var(--line); border-radius:8px; box-shadow:none; background:#fff; }
+#csSchedulerModal textarea.form-control{ height:72px; min-height:72px; padding:10px 12px; line-height:1.45; }
+#csSchedulerModal .form-control:focus, #csSchedulerModal .form-select:focus{ border-color:transparent; box-shadow:0 0 0 2px var(--violet); outline:none; }
+#csSchedulerModal .form-control::placeholder{ color:var(--muted2); }
+#csSchedulerModal .cs-am__seg{ display:flex; width:100%; gap:0; padding:3px; border:1px solid var(--line); border-radius:8px; background:transparent; box-shadow:none; height:auto; }
+#csSchedulerModal .cs-am__seg .cs-seg__opt{ flex:1 1 0; min-width:0; width:0; justify-content:center; text-align:center; height:32px; padding:0 6px; font-size:13px; font-weight:500; color:var(--muted); border:0; border-radius:6px; background:transparent; box-shadow:none; overflow:hidden; }
+#csSchedulerModal .cs-am__seg .cs-seg__opt span{ white-space:nowrap; }
+#csSchedulerModal .cs-am__seg .cs-seg__opt i{ font-size:13px; margin-right:6px; color:inherit; flex:none; }
+#csSchedulerModal .cs-am__seg .cs-seg__opt:hover{ color:var(--text); background:transparent; }
+#csSchedulerModal .cs-am__seg .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--violet7); box-shadow:inset 0 0 0 1px var(--violet); }
+#csSchedulerModal .cs-am__toggle{ display:flex; align-items:center; height:20px; padding:0; margin:0; min-height:0; }
+#csSchedulerModal .cs-am__field--toggle .cs-am__toggle{ margin-top:auto; }
+#csSchedulerModal .cs-am__toggle .form-check-input{ width:36px; height:20px; margin:0; flex:none; cursor:pointer; }
+#csSchedulerModal .cs-am__toggle .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+#csSchedulerModal .cs-am__toggle .form-check-input:focus{ border-color:var(--violet); box-shadow:0 0 0 2px var(--vsoft); }
+#csSchedulerModal .cs-am__chips{ display:flex; flex-wrap:wrap; gap:8px; }
+#csSchedulerModal .cs-am__chips .form-select{ flex:1 1 100%; }
+#csSchedulerModal .cs-am__chips .cs-social{ flex:0 0 auto; height:32px; padding:0 12px 0 10px; gap:6px; border-radius:8px; font-size:13px; box-shadow:none; }
+#csSchedulerModal .cs-am__chips .cs-social i{ font-size:16px; }
+#csSchedulerModal .cs-sched__days{ display:flex; flex-wrap:nowrap; margin:0; gap:6px; width:100%; }
+#csSchedulerModal .cs-sched__day{ flex:1 1 0; min-width:0; width:auto; height:36px; padding:0; font-size:13px; font-weight:500; color:var(--muted); border:1px solid var(--line); border-radius:8px; background:#fff; }
+#csSchedulerModal .cs-sched__day:hover{ color:var(--text); }
+#csSchedulerModal .cs-sched__day.is-on{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); }
+#csSchedulerModal .cs-am__footer{ padding:24px; justify-content:flex-end; gap:8px; border-top:1px solid var(--line); }
+#csSchedulerModal .cs-am__footer .cs-am__btn{ height:40px; padding:0 16px; margin:0; font-size:14px; font-weight:600; border-radius:8px; }
+#csSchedulerModal .cs-am__btn--ghost{ background:transparent; border:1px solid transparent; color:var(--t2); }
+#csSchedulerModal .cs-am__btn--ghost:hover{ background:rgba(20,18,40,.06); color:var(--text); }
+/* Keyboard focus: same 2px accent ring as inputs, on every interactive control in the modal */
+#csSchedulerModal .cs-am__seg .cs-seg__opt:focus-visible, #csSchedulerModal .cs-sched__day:focus-visible, #csSchedulerModal .cs-am__btn:focus-visible, #csSchedulerModal .cs-am__close:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
+#csSchedulerModal .cs-am__chips .cs-social:focus-within{ box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }

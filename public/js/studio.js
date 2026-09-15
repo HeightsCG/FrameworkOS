@@ -1488,9 +1488,18 @@ jQuery(function ($) {
     function setSchedAi() {
         var on = $('#csSchedAi').is(':checked');
         $('#csSchedCaptionWrap').prop('hidden', on);
-        $('#csSchedAiHint').text(on ? 'Picks one scene from your description each run and writes the caption.' : 'Off: your text is sent to the image model unchanged and the caption below is posted as written.');
+        $('#csSchedAiSeg .cs-seg__opt').each(function () { $(this).toggleClass('is-on', ($(this).data('ai') == 1) === on); });
+        syncPressed('#csSchedAiSeg');
     }
     $('#csSchedAi').on('change', setSchedAi);
+    $('#csSchedAiSeg').on('click', '.cs-seg__opt', function () { $('#csSchedAi').prop('checked', $(this).data('ai') == 1).trigger('change'); });
+    function setSchedComments() {
+        var on = $('#csSchedComments').is(':checked');
+        $('#csSchedCommentsSeg .cs-seg__opt').each(function () { $(this).toggleClass('is-on', ($(this).data('on') == 1) === on); });
+        syncPressed('#csSchedCommentsSeg');
+    }
+    $('#csSchedComments').on('change', setSchedComments);
+    $('#csSchedCommentsSeg').on('click', '.cs-seg__opt', function () { $('#csSchedComments').prop('checked', $(this).data('on') == 1).trigger('change'); });
     function renderSchedTargets(sel) {
         var ib = CFG.inbox || {}, $wrap = $('#csSchedTargets').empty();
         sel = sel || {}; var fv = new Set((sel.fanvue || []).map(String));
@@ -1499,7 +1508,6 @@ jQuery(function ($) {
                 $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-fvlist="' + esc(l) + '"' + (fv.has(l) ? ' checked' : '') + '><i class="fa-solid fa-bolt"></i><span class="cs-social__name">Fanvue: ' + esc(l.replace(/_/g, ' ')) + '</span></label>');
             });
         } else {
-            $wrap.append('<p class="cs-comp__socialnote">Connect Fanvue with inbox access in <a href="/account/settings?section=inbox">Inbox Automation</a> to message Fanvue fans.</p>');
         }
         var segs = ib.cls_segments || ['all', 'followers', 'subscribers'];
         var opts = '<option value="">Not on Creator Link Studio</option>' + segs.map(function (g) { return '<option value="' + esc(g) + '"' + (sel.cls === g ? ' selected' : '') + '>Creator Link Studio: ' + esc(g === 'all' ? 'everyone I can message' : g) + '</option>'; }).join('');
@@ -1516,18 +1524,18 @@ jQuery(function ($) {
         var b = CFG.brand || {};
         if (b.has_brand) { $('#csSchedBrandName').text(b.brand_name ? ('“' + b.brand_name + '”') : ''); $('#csSchedBrandRow').prop('hidden', false); }
         else { $('#csSchedBrandRow').prop('hidden', true); }
-        $('#csSchedTz').text((CFG.creator && CFG.creator.timezone) || USER_TZ || 'UTC');
         renderSchedTiers();
         renderSchedSocial(rule ? rule.social_accounts : []);
         renderSchedDays(rule ? rule.days_of_week : []);
 
-        $('#csSchedModalTitle').html('<i class="fa-solid fa-' + (kind === 'message' ? 'paper-plane' : 'robot') + '"></i> ' + (kind === 'message' ? (rule ? 'Edit scheduled message' : 'New scheduled message') : (rule ? 'Edit automation' : 'New automation')));
+        $('#csSchedModalTitle').text(kind === 'message' ? (rule ? 'Edit scheduled message' : 'New scheduled message') : (rule ? 'Edit automation' : 'New automation'));
         $('#csSchedId').val(rule ? rule.id : 0);
         $('#csSchedName').val(rule ? rule.name : '');
         $('#csSchedTopic').val(rule ? rule.topic : '');
         setSchedSize(rule ? rule.size : 'square');
         $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
+        setSchedComments();
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
         $('#csSchedCaption').val(rule ? (rule.caption_text || '') : '');
         setSchedAi();
@@ -1550,7 +1558,9 @@ jQuery(function ($) {
         var soc = CFG.social || { accounts: [] };
         var $wrap = $('#csSchedSocial').empty();
         var sel = new Set((selected || []).map(String));
-        if (!soc.accounts || !soc.accounts.length) { $wrap.append('<p class="cs-comp__socialnote">No connected social accounts.</p>'); return; }
+        var has = !!(soc.accounts && soc.accounts.length);
+        $('#csSchedSocialRow').prop('hidden', !has || $('#csSchedKind').val() !== 'post');
+        if (!has) { return; }
         soc.accounts.forEach(function (a) {
             var on = sel.has(String(a.id));
             $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
@@ -1560,20 +1570,24 @@ jQuery(function ($) {
         var sel = new Set((selected || []).map(Number));
         var $wrap = $('#csSchedDays').empty();
         DOW_LABELS.forEach(function (lbl, i) {
-            $wrap.append('<button type="button" class="cs-sched__day' + (sel.has(i) ? ' is-on' : '') + '" data-day="' + i + '">' + lbl + '</button>');
+            $wrap.append('<button type="button" class="cs-sched__day' + (sel.has(i) ? ' is-on' : '') + '" aria-pressed="' + (sel.has(i) ? 'true' : 'false') + '" data-day="' + i + '">' + lbl + '</button>');
         });
     }
 
+    // Mirror the visual selected state to aria-pressed for segmented controls and day pills.
+    function syncPressed(sel) { $(sel).find('.cs-seg__opt, .cs-sched__day').each(function () { $(this).attr('aria-pressed', $(this).hasClass('is-on') ? 'true' : 'false'); }); }
     $('#csSchedShape').on('click', '.cs-seg__opt', function () { setSchedSize($(this).data('size')); });
     $('#csSchedLevel').on('click', '.cs-seg__opt', function () { setSchedLevel($(this).data('level')); });
     function setSchedLevel(level) {
         schedForm.content_level = (level === 'spicy') ? 'spicy' : 'safe';
         $('#csSchedLevel .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('level') === schedForm.content_level); });
+        syncPressed('#csSchedLevel');
     }
     function setSchedSize(size) {
         size = (size === 'portrait' || size === 'landscape') ? size : 'square';
         $('#csSchedSize').val(size);
         $('#csSchedShape .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('size') === size); });
+        syncPressed('#csSchedShape');
     }
     var schedCharacters = null;   // cached list from Eromify for this page load
     $('#csSchedImageSource').on('click', '.cs-seg__opt', function () { setSchedImageSource($(this).data('src')); });
@@ -1584,12 +1598,10 @@ jQuery(function ($) {
         }
         schedForm.image_source = (src === 'character') ? 'character' : 'brand';
         $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
+        syncPressed('#csSchedImageSource');
         var isChar = schedForm.image_source === 'character';
         $('#csSchedCharacterWrap').prop('hidden', !isChar);
-        $('#csSchedBrandRow').prop('hidden', isChar || !(CFG.brand && CFG.brand.has_brand));
         $('#csSchedTopic').attr('placeholder', isChar ? 'at a rooftop pool at golden hour, iced coffee in hand' : 'A scenic Orlando spot with a short caption');
-        $('#csSchedTopicWrap .cs-sf__label [data-kind="post"]').text(isChar ? 'Scene for each image' : 'What to post each time');
-        $('#csSchedTopicWrap .cs-sf__hint [data-kind="post"]').text(isChar ? 'Each run renders your character in this scene and writes a caption.' : 'Each run makes a fresh on-brand image + caption from this.');
         if (isChar) { loadSchedCharacters(selectedId); }
     }
     function loadSchedCharacters(selectedId) {
@@ -1611,15 +1623,17 @@ jQuery(function ($) {
     function setSchedAudience(a) {
         schedForm.audience = (a === 'subscribers') ? 'subscribers' : 'free';
         $('#csSchedAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === schedForm.audience); });
+        syncPressed('#csSchedAudience');
         $('#csSchedTier').prop('hidden', schedForm.audience !== 'subscribers');
     }
     $('#csSchedCadence').on('click', '.cs-seg__opt', function () { setSchedCadence($(this).data('cad')); });
     function setSchedCadence(c) {
         schedForm.cadence = (c === 'weekly') ? 'weekly' : 'daily';
         $('#csSchedCadence .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('cad') === schedForm.cadence); });
-        $('#csSchedDays').prop('hidden', schedForm.cadence !== 'weekly');
+        $('#csSchedDaysRow').prop('hidden', schedForm.cadence !== 'weekly');
+        syncPressed('#csSchedCadence'); syncPressed('#csSchedDays');
     }
-    $('#csSchedDays').on('click', '.cs-sched__day', function () { $(this).toggleClass('is-on'); });
+    $('#csSchedDays').on('click', '.cs-sched__day', function () { $(this).toggleClass('is-on'); syncPressed('#csSchedDays'); });
 
     $('#csSchedSave').on('click', function () {
         var name = ($('#csSchedName').val() || '').trim();

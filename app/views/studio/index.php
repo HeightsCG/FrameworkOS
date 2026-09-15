@@ -414,134 +414,135 @@
 </div>
 
 <!-- ============ SCHEDULER — automation form ============ -->
-<div class="modal fade" id="csSchedulerModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+<div class="modal fade" id="csSchedulerModal" tabindex="-1" aria-hidden="true" aria-labelledby="csSchedModalTitle">
+    <div class="modal-dialog modal-dialog-centered cs-am">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="csSchedModalTitle"><i class="fa-solid fa-robot"></i> New automation</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            <div class="modal-header cs-am__header">
+                <h5 class="modal-title cs-am__title" id="csSchedModalTitle">New automation</h5>
+                <button type="button" class="btn-close cs-am__close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body cs-comp__edit cs-sf">
+            <div class="modal-body cs-am__body">
                 <input type="hidden" id="csSchedId" value="0">
                 <input type="hidden" id="csSchedKind" value="post">
                 <input type="hidden" id="csSchedSize" value="square">
 
-                <div class="cs-sf__section">
-                    <label class="cs-sf__label" for="csSchedName">Name</label>
-                    <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="Daily Orlando tip">
-                </div>
-
-                <div class="cs-sf__section" data-kind="message" hidden>
-                    <div class="cs-sf__title">Message</div>
-                    <label class="cs-sf__label">Who gets it</label>
-                    <div class="cs-comp__social" id="csSchedTargets"></div>
-                    <label class="cs-sf__switch" for="csSchedMsgAi">
-                        <span><strong>Write with AI</strong><small>A fresh message from a topic each time, in your brand voice.</small></span>
-                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedMsgAi"></span>
-                    </label>
-                    <div id="csSchedMsgTextWrap">
-                        <label class="cs-sf__label" for="csSchedMsgText">Message text</label>
-                        <textarea class="form-control" id="csSchedMsgText" rows="4" maxlength="5000" placeholder="New drop this week. Check your inbox Friday."></textarea>
-                        <div class="cs-sf__hint">Sent as written, to everyone selected above.</div>
+                <div class="cs-am__section">
+                    <div class="cs-am__field cs-am__field--full">
+                        <label class="cs-am__label" for="csSchedName">Name</label>
+                        <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="Daily Orlando tip">
                     </div>
-                </div>
+                    <div class="cs-am__field cs-am__field--full" id="csSchedTopicWrap">
+                        <label class="cs-am__label" for="csSchedTopic"><span data-kind="post">Scene</span><span data-kind="message" hidden>Topic</span></label>
+                        <textarea class="form-control" id="csSchedTopic" rows="4" placeholder="A scenic Orlando spot with a short caption"></textarea>
+                    </div>
 
-                <div class="cs-sf__section" data-kind="post">
-                    <div class="cs-sf__title">Image</div>
-                    <div class="cs-sf__grid">
-                        <div>
-                            <label class="cs-sf__label">Source</label>
-                            <div class="cs-seg cs-seg--compact" id="csSchedImageSource">
-                                <button type="button" class="cs-seg__opt is-on" data-src="brand"><i class="fa-solid fa-image"></i><span>Brand photo</span></button>
-                                <button type="button" class="cs-seg__opt" data-src="character"><i class="fa-solid fa-user-astronaut"></i><span>My character</span></button>
-                            </div>
+                    <div class="cs-am__group" data-kind="message" hidden>
+                        <div class="cs-am__field cs-am__field--full">
+                            <div class="cs-am__label">Send to</div>
+                            <div class="cs-comp__social cs-am__chips" id="csSchedTargets"></div>
                         </div>
-                        <div>
-                            <label class="cs-sf__label">Shape</label>
-                            <div class="cs-seg cs-seg--compact" id="csSchedShape">
-                                <button type="button" class="cs-seg__opt is-on" data-size="square"><i class="fa-regular fa-square"></i><span>Square</span></button>
-                                <button type="button" class="cs-seg__opt" data-size="portrait"><i class="fa-solid fa-mobile-screen"></i><span>Portrait</span></button>
-                                <button type="button" class="cs-seg__opt" data-size="landscape"><i class="fa-regular fa-rectangle-list"></i><span>Landscape</span></button>
-                            </div>
+                        <div class="cs-am__field cs-am__field--toggle">
+                            <label class="cs-am__label" for="csSchedMsgAi">Write with AI</label>
+                            <div class="cs-am__toggle form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedMsgAi"></div>
+                        </div>
+                        <div class="cs-am__field cs-am__field--full" id="csSchedMsgTextWrap">
+                            <label class="cs-am__label" for="csSchedMsgText">Message</label>
+                            <textarea class="form-control" id="csSchedMsgText" rows="4" maxlength="5000" placeholder="New drop this week. Check your inbox Friday."></textarea>
                         </div>
                     </div>
-                    <div id="csSchedCharacterWrap" hidden>
-                        <div class="cs-sf__grid">
-                            <div>
-                                <label class="cs-sf__label" for="csSchedCharacter">Character</label>
+
+                    <div class="cs-am__group" data-kind="post">
+                        <div class="cs-am__field">
+                            <div class="cs-am__label">Image</div>
+                            <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedImageSource" role="group" aria-label="Image source">
+                                <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
+                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="character"><span>My character</span></button>
+                            </div>
+                        </div>
+                        <div class="cs-am__field">
+                            <div class="cs-am__label">Shape</div>
+                            <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedShape" role="group" aria-label="Shape">
+                                <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
+                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
+                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
+                            </div>
+                        </div>
+                        <div class="cs-am__group" id="csSchedCharacterWrap" hidden>
+                            <div class="cs-am__field cs-am__field--full">
+                                <label class="cs-am__label" for="csSchedCharacter">Character</label>
                                 <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
                             </div>
-                            <div>
-                                <label class="cs-sf__label">Content level</label>
-                                <div class="cs-seg cs-seg--compact" id="csSchedLevel">
-                                    <button type="button" class="cs-seg__opt is-on" data-level="safe"><i class="fa-solid fa-sun"></i><span>Feed-safe</span></button>
-                                    <button type="button" class="cs-seg__opt" data-level="spicy"><i class="fa-solid fa-fire"></i><span>Spicy</span></button>
-                                </div>
-                            </div>
                         </div>
                     </div>
+
+                    <input type="checkbox" id="csSchedBrand" checked hidden>
                 </div>
 
-                <div class="cs-sf__section" id="csSchedTopicWrap">
-                    <label class="cs-sf__label" for="csSchedTopic"><span data-kind="post">What to post each time</span><span data-kind="message" hidden>What the message is about</span></label>
-                    <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A scenic Orlando spot with a short caption"></textarea>
-                    <div class="cs-sf__hint"><span data-kind="post">Each run makes a fresh on-brand image + caption from this.</span><span data-kind="message" hidden>Each run writes a new message about this.</span></div>
-                    <label class="cs-sf__check" id="csSchedBrandRow" hidden>
-                        <input type="checkbox" class="form-check-input" id="csSchedBrand" checked>
-                        <span>Use my brand <strong id="csSchedBrandName"></strong> for the image and caption</span>
-                    </label>
-                    <label class="cs-sf__switch" for="csSchedAi" data-kind="post">
-                        <span><strong>Let AI shape it</strong><small id="csSchedAiHint">Picks one scene from your description each run and writes the caption.</small></span>
-                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedAi" checked></span>
-                    </label>
-                    <div id="csSchedCaptionWrap" data-kind="post" hidden>
-                        <label class="cs-sf__label" for="csSchedCaption">Caption</label>
+                <div class="cs-am__section" data-kind="post">
+                    <div class="cs-am__field">
+                        <div class="cs-am__label">Content</div>
+                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedLevel" role="group" aria-label="Content level">
+                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-level="safe"><span>Feed-safe</span></button>
+                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-level="spicy"><span>Spicy</span></button>
+                        </div>
+                    </div>
+                    <div class="cs-am__field">
+                        <div class="cs-am__label">Audience</div>
+                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAudience" role="group" aria-label="Audience">
+                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-aud="free"><span>Everyone</span></button>
+                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-aud="subscribers"><span>Subscribers</span></button>
+                        </div>
+                    </div>
+                    <div class="cs-am__field cs-am__field--start">
+                        <div class="cs-am__label">AI captions</div>
+                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAiSeg" role="group" aria-label="AI captions">
+                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-ai="1"><span>Yes</span></button>
+                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-ai="0"><span>No</span></button>
+                        </div>
+                        <input type="checkbox" id="csSchedAi" checked hidden>
+                    </div>
+                    <div class="cs-am__field">
+                        <div class="cs-am__label">Allow comments</div>
+                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedCommentsSeg" role="group" aria-label="Allow comments">
+                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-on="1"><span>Yes</span></button>
+                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-on="0"><span>No</span></button>
+                        </div>
+                        <input type="checkbox" id="csSchedComments" checked hidden>
+                    </div>
+                    <div class="cs-am__field cs-am__field--full" id="csSchedCaptionWrap" hidden>
+                        <label class="cs-am__label" for="csSchedCaption">Caption</label>
                         <textarea class="form-control" id="csSchedCaption" rows="2" maxlength="5000" placeholder="Posted exactly as written with every run"></textarea>
-                        <div class="cs-sf__hint">With AI off, the scene above goes to the image model word for word and this caption is used as is.</div>
+                    </div>
+                    <div class="cs-am__field cs-am__field--full" id="csSchedTier" hidden>
+                        <label class="cs-am__label" for="csSchedTierSel">Tier</label>
+                        <select id="csSchedTierSel" class="form-select"><option value="">All subscribers</option></select>
                     </div>
                 </div>
 
-                <div class="cs-sf__section" data-kind="post">
-                    <div class="cs-sf__title">Audience</div>
-                    <div class="cs-sf__grid">
-                        <div>
-                            <label class="cs-sf__label">Who can see it</label>
-                            <div class="cs-seg cs-seg--compact" id="csSchedAudience">
-                                <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i><span>Everyone</span></button>
-                                <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i><span>Subscribers</span></button>
-                            </div>
-                        </div>
-                        <div id="csSchedTier" hidden>
-                            <label class="cs-sf__label" for="csSchedTierSel">Tier</label>
-                            <select id="csSchedTierSel" class="form-select"><option value="">All subscribers</option></select>
+                <div class="cs-am__section">
+                    <div class="cs-am__field cs-am__field--full" id="csSchedSocialRow" hidden>
+                        <div class="cs-am__label">Share to</div>
+                        <div id="csSchedSocial" class="cs-comp__social cs-am__chips"></div>
+                    </div>
+                    <div class="cs-am__field">
+                        <div class="cs-am__label">Schedule</div>
+                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedCadence" role="group" aria-label="Schedule frequency">
+                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-cad="daily"><span>Daily</span></button>
+                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-cad="weekly"><span>Weekly</span></button>
                         </div>
                     </div>
-                    <label class="cs-sf__switch" for="csSchedComments">
-                        <span><strong>Allow comments</strong><small>Fans can comment on these posts.</small></span>
-                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedComments" checked></span>
-                    </label>
-                    <label class="cs-sf__label">Also share to</label>
-                    <div id="csSchedSocial" class="cs-comp__social"></div>
-                </div>
-
-                <div class="cs-sf__section">
-                    <div class="cs-sf__title">Schedule</div>
-                    <div class="cs-sf__row">
-                        <div class="cs-seg cs-seg--compact" id="csSchedCadence">
-                            <button type="button" class="cs-seg__opt is-on" data-cad="daily"><span>Daily</span></button>
-                            <button type="button" class="cs-seg__opt" data-cad="weekly"><span>Weekly</span></button>
-                        </div>
-                        <div class="cs-sched__days" id="csSchedDays" hidden></div>
-                        <div class="cs-sched__time">
-                            <input type="time" id="csSchedTime" class="form-control" value="09:00">
-                            <span class="cs-sched__tz"><span id="csSchedTz">UTC</span></span>
-                        </div>
+                    <div class="cs-am__field">
+                        <label class="cs-am__label" for="csSchedTime">Time</label>
+                        <input type="time" id="csSchedTime" class="form-control" value="09:00">
+                    </div>
+                    <div class="cs-am__field cs-am__field--full" id="csSchedDaysRow" hidden>
+                        <div class="cs-sched__days" id="csSchedDays" role="group" aria-label="Days of the week"></div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="csSchedSave">Save automation</button>
+            <div class="modal-footer cs-am__footer">
+                <button type="button" class="btn cs-am__btn cs-am__btn--ghost" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary cs-am__btn" id="csSchedSave">Save automation</button>
             </div>
         </div>
     </div>
