@@ -1,7 +1,7 @@
 <?php
 /**
  * Public, unauthenticated endpoints for inbound provider webhooks.
- * NOT extended from ApiController, so it carries no CSRF check; $protected = 0
+ * NOT extended from BaseApiController, so it carries no CSRF check; $protected = 0
  * so the layout never swaps in the login form.
  *
  * NOTE: live delivery needs a publicly reachable URL configured in the Post for

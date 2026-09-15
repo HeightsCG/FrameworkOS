@@ -3,7 +3,7 @@
  * Platform admin dashboard (/admin), PRD §38. Gated on the is_admin staff flag
  * (independent of role, so the platform owner can also be a Creator). Overview KPIs,
  * a moderation queue for flagged/unscanned images, and a searchable users table with
- * suspend/reactivate. Mutations go through ApiController (admin_*).
+ * suspend/reactivate. Mutations go through ApiAdminController (admin_*).
  */
 class AdminController extends Controller {
 

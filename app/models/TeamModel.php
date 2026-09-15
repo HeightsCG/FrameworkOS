@@ -2,7 +2,7 @@
 /**
  * Team / seats (PRD §40). A creator (the "owner") can invite collaborators who log in
  * with their own credentials but operate on the OWNER's account (see the acting-as-owner
- * context in Permissions::creator_id() and ApiController::require_creator()). Members are
+ * context in Permissions::creator_id() and BaseApiController::require_creator()). Members are
  * user_accounts rows with created_by = owner and a team_role (manager|editor|viewer).
  * The owner occupies one seat; the seat limit comes from the owner's plan tier.
  */

@@ -50,7 +50,7 @@ class NotificationsModel extends Model {
     /**
      * The email channel for an in-platform notification (PRD §27). Delivered only
      * when the recipient has the category's email channel enabled — the caller
-     * (ApiController::notify) makes that decision. Mirrors the notification's
+     * (BaseApiController::notify) makes that decision. Mirrors the notification's
      * title/body and links back to the on-site destination.
      */
     public function send_notification_email($to_email, $to_name, $title, $body = '', $link = ''){

@@ -10,6 +10,7 @@ spl_autoload_register( function ($class) {
     
     $sources = array(
         $path."/app/controllers/$class.php",
+        $path."/app/controllers/api/$class.php",
         $path."/app/models/$class.php",
         $path."/app/$class.php",
         $path."/libs/Classes/$class.php",

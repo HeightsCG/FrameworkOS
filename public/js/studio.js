@@ -507,6 +507,15 @@ jQuery(function ($) {
         genModal.show();
     });
 
+    function showGenerated(asset, brandUsed) {
+        lastGenAsset = asset;
+        injectAsset(asset);
+        var url = (asset && asset.thumb_url) || '';
+        if (url) { $('#csGenPreviewImg').attr('src', url); }
+        $('#csGenSavedMsg').text('Saved to your Library' + (brandUsed ? ' · matched to your brand' : '') + '.');
+        setGenState('result');
+        toastr.success('Image added to your Library.');
+    }
     function runGeneration() {
         var prompt = ($('#csGenPrompt').val() || '').trim();
         if (prompt === '') { toastr.info('Describe the image you want.'); $('#csGenPrompt').focus(); return; }
@@ -521,13 +530,27 @@ jQuery(function ($) {
             $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
             var o = JSON.parse(data);
             if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
-            lastGenAsset = o.asset;
-            injectAsset(o.asset);
-            var url = (o.asset && o.asset.thumb_url) || '';
-            if (url) { $('#csGenPreviewImg').attr('src', url); }
-            $('#csGenSavedMsg').text('Saved to your Library' + (o.brand_used ? ' · matched to your brand' : '') + '.');
-            setGenState('result');
-            toastr.success('Image added to your Library.');
+            if (o.queued && o.asset && o.asset.status !== 'ready') {
+                // Generation now runs in the background; poll the asset until it is ready or failed.
+                var assetId = o.asset.id, brandUsed = o.brand_used, tries = 0;
+                $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', true);
+                (function pollGen() {
+                    tries++;
+                    ApiDataSvc.apiCall('post', 'media_get', { id: assetId }, function (d2) {
+                        var r = null; try { r = JSON.parse(d2); } catch (e) {}
+                        if (!r || !r.success || !r.asset) { $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false); genError((r && r.message) || 'Generation failed. Try again.'); return; }
+                        if (r.asset.status === 'failed') { $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false); genError(r.asset.failure_reason || 'Generation failed. Try again.'); return; }
+                        if (r.asset.status !== 'ready') {
+                            if (tries >= 90) { $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false); genError('Still generating in the background. Check your Library in a minute.'); return; }
+                            setTimeout(pollGen, 2000); return;
+                        }
+                        $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
+                        showGenerated(r.asset, brandUsed);
+                    });
+                })();
+                return;
+            }
+            showGenerated(o.asset, o.brand_used);
         });
     }
     $('#csGenRun').on('click', runGeneration);

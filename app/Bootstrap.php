@@ -49,6 +49,20 @@ class Bootstrap
             return;
         }
 
+        // JSON API: /api/<action>. The action name picks the Api*Controller (see ApiRoutes);
+        // URLs and action names are unchanged from the old monolithic ApiController.
+        if (isset($url[0]) && $url[0] === 'api') {
+            $action = isset($url[1]) ? strtolower(preg_replace('/[^A-Za-z0-9_]/', '', $url[1])) : '';
+            $class  = ($action !== '') ? ApiRoutes::controller_for($action) : null;
+            $method = $action . 'Action';
+            if ($class !== null && class_exists($class) && method_exists($class, $method)) {
+                (new $class())->$method();
+            } else {
+                Errors::page_not_found();
+            }
+            return;
+        }
+
         $c = Main::controller_name();
         $m = Main::method_name();
         if (class_exists($c)) {

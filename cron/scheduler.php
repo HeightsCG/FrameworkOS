@@ -3,7 +3,7 @@
  * Scheduler worker — runs due creator automations (generate image + caption, publish,
  * cross-post). Invoke from cron every minute:
  *
- *   * * * * * /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/bin/scheduler.php >> /tmp/cls-scheduler.log 2>&1
+ *   * * * * * /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/cron/scheduler.php >> /tmp/cls-scheduler.log 2>&1
  *
  * Idle and near-instant when nothing is due. Generation only runs for actually-due rules.
  */

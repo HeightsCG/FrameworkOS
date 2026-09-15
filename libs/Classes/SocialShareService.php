@@ -4,7 +4,7 @@
  * Best-effort — never throws. Always sends the public caption + a SAFE preview image
  * (blurred variant for subscriber posts) + a link back — never the subscriber media.
  *
- * Extracted from ApiController so both the manual publish/schedule flow and the
+ * Extracted from ApiCreatorStudioController so both the manual publish/schedule flow and the
  * Scheduler worker can share one implementation.
  */
 class SocialShareService {

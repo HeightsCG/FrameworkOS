@@ -1,0 +1,95 @@
+<?php
+/**
+ * Routing table for /api/<action>. The monolithic ApiController was split into
+ * app/controllers/api/Api*Controller.php; URLs and action names are unchanged.
+ * Bootstrap::start_app() looks the action up here. Keep in sync when adding an action.
+ */
+class ApiRoutes {
+
+    const MAP = [
+        'ApiAuthController' => [
+            'register', 'login', 'logout', 'forgot', 'reset', 'verify_email',
+            'resend_verification', 'change_password', 'mfa_totp_begin', 'mfa_totp_confirm', 'mfa_totp_disable', 'mfa_email_send_enroll',
+            'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes', 'mfa_verify', 'mfa_send_login_code',
+        ],
+        'ApiProfileController' => [
+            'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'block_user', 'unblock_user',
+            'become_creator', 'leave_creator', 'delete_my_account', 'follow_creator', 'unfollow_creator',
+        ],
+        'ApiBillingController' => [
+            'create_subscription', 'abandon_subscription', 'sync_subscription', 'cancel_subscription', 'resume_subscription', 'cancel_now_subscription',
+            'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
+            'disconnect_payout_account',
+        ],
+        'ApiPostsController' => [
+            'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add',
+            'post_comment_delete', 'post_view', 'ppv_unlock', 'bundle_unlock', 'join_free_plan', 'subscribe_plan',
+            'cancel_creator_subscription', 'reactivate_creator_subscription',
+        ],
+        'ApiMediaController' => [
+            'media_upload', 'media_generate', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',
+            'media_list', 'media_get', 'media_update', 'media_sign', 'media_watermark', 'media_delete',
+            'media_bulk', 'collections_list', 'collection_save', 'collection_delete', 'collection_add_assets', 'collection_remove_assets',
+        ],
+        'ApiCreatorStudioController' => [
+            'heartbeat', 'set_timezone', 'save_creator_profile', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
+            'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'save_creator_plan',
+            'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
+            'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',
+            'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get',
+            'post_open_draft', 'post_publish', 'post_schedule', 'post_save_draft', 'post_archive', 'post_duplicate',
+            'post_delete', 'post_share', 'posts_list', 'posts_calendar', 'posts_bulk',
+        ],
+        'ApiSocialIntegrationsController' => [
+            'connect_account', 'disconnect_account', 'upload_media_url', 'create_post', 'post_status', 'fanvue_connect',
+            'fanvue_disconnect', 'fanvue_auto_messages_list', 'fanvue_auto_message_save', 'fanvue_auto_message_delete', 'eromify_connect', 'eromify_disconnect',
+            'eromify_characters',
+        ],
+        'ApiInboxController' => [
+            'inbox_settings_save', 'inbox_queue_list', 'inbox_reply_send', 'inbox_reply_dismiss', 'inbox_test_draft',
+        ],
+        'ApiMessagesController' => [
+            'message_send', 'message_inbox', 'message_thread', 'message_people', 'message_open', 'message_unread_count',
+        ],
+        'ApiBroadcastController' => [
+            'broadcast_info', 'broadcast_send',
+        ],
+        'ApiNotificationsController' => [
+            'notifications_list', 'notifications_unread_count', 'notifications_mark_read',
+        ],
+        'ApiAudienceController' => [
+            'audience_tag_add', 'audience_tag_remove', 'audience_note_save',
+        ],
+        'ApiSearchController' => [
+            'search',
+        ],
+        'ApiAdminController' => [
+            'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
+            'verification_resolve',
+        ],
+        'ApiTeamController' => [
+            'team_invite', 'team_set_role', 'team_set_status', 'team_remove',
+        ],
+        'ApiEventsController' => [
+            'event_save', 'event_delete', 'event_register', 'event_cancel',
+        ],
+        'ApiServicesController' => [
+            'service_save', 'service_delete', 'service_purchase',
+        ],
+        'ApiMcpController' => [
+            'mcp_token_generate', 'mcp_token_revoke',
+        ],
+    ];
+
+    private static $index = null;
+
+    public static function controller_for(string $action): ?string {
+        if (self::$index === null) {
+            self::$index = [];
+            foreach (self::MAP as $class => $actions) {
+                foreach ($actions as $a) { self::$index[$a] = $class; }
+            }
+        }
+        return self::$index[$action] ?? null;
+    }
+}
