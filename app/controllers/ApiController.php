@@ -4068,7 +4068,6 @@ class ApiController extends Controller {
 
     private function scheduler_rule_json($r, $tz){
         $accounts = json_decode((string) ($r['social_accounts'] ?? '[]'), true) ?: array();
-        $scene    = SceneRotationService::lists($r);
         $days     = array_values(array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; }));
         return array(
             'id'               => (int) $r['id'],
@@ -4090,11 +4089,6 @@ class ApiController extends Controller {
             'use_brand'        => (int) $r['use_brand'],
             'ai_assist'        => isset($r['ai_assist']) ? (int) $r['ai_assist'] : 1,
             'caption_text'     => (string) ($r['caption_text'] ?? ''),
-            'scene_poses'      => $scene['poses'],
-            'scene_outfits'    => $scene['outfits'],
-            'scene_lighting'   => $scene['lighting'],
-            'scene_suffix'     => (string) ($r['scene_suffix'] ?? ''),
-            'combo_count'      => SceneRotationService::combo_count($r),
             'social_accounts'  => array_map('strval', (array) $accounts),
             'cadence'          => (string) $r['cadence'],
             'days_of_week'     => $days,
@@ -4162,15 +4156,6 @@ class ApiController extends Controller {
             }
             if ($character_id === '') { echo json_encode(array('success' => false, 'message' => 'Pick a character.')); exit; }
         }
-        // Scene rotation lists arrive as textarea text (one entry per line); all three or none.
-        $scene_poses    = SceneRotationService::parse_lines(html_entity_decode((string) ($this->post['scene_poses'] ?? ''), ENT_QUOTES));
-        $scene_outfits  = SceneRotationService::parse_lines(html_entity_decode((string) ($this->post['scene_outfits'] ?? ''), ENT_QUOTES));
-        $scene_lighting = SceneRotationService::parse_lines(html_entity_decode((string) ($this->post['scene_lighting'] ?? ''), ENT_QUOTES));
-        $scene_suffix   = trim(html_entity_decode((string) ($this->post['scene_suffix'] ?? ''), ENT_QUOTES));
-        $filled = (int) !empty($scene_poses) + (int) !empty($scene_outfits) + (int) !empty($scene_lighting);
-        if ($kind === 'post' && $filled > 0 && $filled < 3) {
-            echo json_encode(array('success' => false, 'message' => 'Scene rotation needs at least one pose, one outfit and one lighting line — or leave all three empty.')); exit;
-        }
         $fields = array(
             'image_source'     => $image_source,
             'character_id'     => $character_id,
@@ -4190,10 +4175,6 @@ class ApiController extends Controller {
             'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
             'ai_assist'        => ((string) ($this->post['ai_assist'] ?? '1')) !== '0' ? 1 : 0,
             'caption_text'     => trim(html_entity_decode((string) ($this->post['caption_text'] ?? ''), ENT_QUOTES)),
-            'scene_poses'      => $scene_poses,
-            'scene_outfits'    => $scene_outfits,
-            'scene_lighting'   => $scene_lighting,
-            'scene_suffix'     => $scene_suffix,
             'social_accounts'  => $this->post['social_accounts'] ?? array(),
             'cadence'          => (string) ($this->post['cadence'] ?? 'daily'),
             'days_of_week'     => $this->post['days_of_week'] ?? array(),

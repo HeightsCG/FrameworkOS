@@ -159,19 +159,9 @@ class McpTools {
         // ---- Automations (Scheduler) ----
         $t[] = array('name' => 'list_automations', 'description' => 'List Scheduler automations.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_automation',   'description' => 'Get one automation.', 'inputSchema' => $id);
-        $sceneProps = array(
-            'scene_poses'    => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Scene rotation: pose lines. Each run picks one pose + one outfit + one lighting at random (no repeats for 30 runs) and sends "{pose}, {outfit}, {lighting}. {scene_suffix}" to the image model verbatim. All three lists must be non-empty to enable rotation.'),
-            'scene_outfits'  => array('type' => 'array', 'items' => array('type' => 'string')),
-            'scene_lighting' => array('type' => 'array', 'items' => array('type' => 'string')),
-            'scene_suffix'   => array('type' => 'string', 'description' => 'Short constant appended to every image prompt, e.g. "Bedroom only. Nothing exposed."'),
-            'size'           => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
-            'social_accounts'=> array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets, e.g. ["fanvue"]. See list_share_targets.'),
-            'tier_id'        => array('type' => 'integer'), 'comments_enabled' => array('type' => 'boolean'), 'use_brand' => array('type' => 'boolean'),
-            'days_of_week'   => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
-        );
         $t[] = array('name' => 'create_automation','description' => 'Create a Scheduler automation (auto-generates & publishes posts).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'topic'),
-            'properties' => $sceneProps + array(
+            'properties' => array(
                 'name' => array('type' => 'string'), 'topic' => array('type' => 'string'),
                 'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
@@ -183,12 +173,12 @@ class McpTools {
                 'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
                 'character_name' => array('type' => 'string'),
                 'content_level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'Character automations only. "safe" = feed-safe fashion/swimwear look (default). "spicy" = boudoir/lingerie-level tease for subscriber content, still no nudity or explicit acts.'),
-                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude writes the caption. The image prompt is never rewritten by AI — it is the scene rotation string, or the topic verbatim when no lists are set. false: caption_text is posted as written.'),
+                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
             )));
-        $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send id plus only the fields to change; everything else keeps its current value.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('id'),
-            'properties' => $sceneProps + array(
+        $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('id', 'name', 'topic'),
+            'properties' => array(
                 'id' => array('type' => 'integer'),
                 'name' => array('type' => 'string'), 'topic' => array('type' => 'string'),
                 'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
@@ -200,7 +190,7 @@ class McpTools {
                 'character_id' => array('type' => 'string', 'description' => 'Eromify influencer id (from the creator\'s studio). Required when image_source is "character".'),
                 'character_name' => array('type' => 'string'),
                 'content_level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'Character automations only. "safe" = feed-safe fashion/swimwear look (default). "spicy" = boudoir/lingerie-level tease for subscriber content, still no nudity or explicit acts.'),
-                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude writes the caption. The image prompt is never rewritten by AI — it is the scene rotation string, or the topic verbatim when no lists are set. false: caption_text is posted as written.'),
+                'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
             )));
@@ -439,20 +429,15 @@ class McpTools {
             case 'delete_service': return $ok((new ServicesModel())->delete_service($cid, $iid));
 
             // Automations
-            case 'list_automations':    return array('automations' => array_map(array('McpTools', 'automationOut'), (array) (new SchedulerRulesModel())->list_for_creator($cid)));
-            case 'get_automation':      return self::automationOut(self::need((new SchedulerRulesModel())->get_one($cid, $iid), 'Automation not found'));
+            case 'list_automations':    return array('automations' => (array) (new SchedulerRulesModel())->list_for_creator($cid));
+            case 'get_automation':      return self::need((new SchedulerRulesModel())->get_one($cid, $iid), 'Automation not found');
             case 'create_automation': {
                 if (trim((string) ($a['name'] ?? '')) === '' || trim((string) ($a['topic'] ?? '')) === '') {
                     throw new InvalidArgumentException('name and topic are required');
                 }
                 return array('id' => (int) (new SchedulerRulesModel())->create($cid, $a));
             }
-            case 'update_automation': {
-                $m = new SchedulerRulesModel();
-                if (!$m->get_one($cid, $iid)) { throw new InvalidArgumentException('Automation not found'); }
-                unset($a['id']);
-                return $ok($m->patch_rule($cid, $iid, $a));
-            }
+            case 'update_automation':     return $ok((new SchedulerRulesModel())->update_rule($cid, $iid, $a));
             case 'set_automation_active': return $ok((new SchedulerRulesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
             case 'delete_automation':     return $ok((new SchedulerRulesModel())->delete_rule($cid, $iid));
 
@@ -599,12 +584,6 @@ class McpTools {
 
     private static function requirePlan($cid, $capability, $message){
         if (!Plan::can(self::user($cid), $capability)) { throw new RuntimeException($message); }
-    }
-
-    /** A rule row for MCP output: decoded arrays (social_accounts, days_of_week, message_targets, scene_*) win over
-     *  the raw JSON/CSV strings; every other raw column (next_run_at, last_status, recent_combos, …) is kept. */
-    private static function automationOut(array $r): array {
-        return SchedulerRulesModel::decode_for_edit($r) + $r + array('combo_count' => SceneRotationService::combo_count($r));
     }
 
     private static function planFields($a, $row){

@@ -1398,12 +1398,6 @@ jQuery(function ($) {
     var schedModal, schedRules = [], schedRunning = {};
     var DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     var schedForm = { audience: 'free', cadence: 'daily' };
-    function schedLines(v) { return String(v || '').split(/\r\n|\r|\n/).map(function (s) { return s.trim(); }).filter(Boolean); }
-    function updateComboCount() {
-        var n = schedLines($('#csSchedPoses').val()).length * schedLines($('#csSchedOutfits').val()).length * schedLines($('#csSchedLighting').val()).length;
-        $('#csSchedComboCount').text(n + (n === 1 ? ' combination' : ' combinations')).toggleClass('is-low', n > 0 && n < 30);
-    }
-    $('#csSchedPoses, #csSchedOutfits, #csSchedLighting').on('input', updateComboCount);
 
     $('#csTabScheduler').on('shown.bs.tab', loadScheduler);
     $('#csSchedRetry').on('click', loadScheduler);
@@ -1455,7 +1449,6 @@ jQuery(function ($) {
                 '<p class="cs-sched__topic">' + (isMsg ? '<i class="fa-solid fa-paper-plane cs-sched__kind" title="Scheduled message"></i> ' : '') + esc(body) + '</p>' +
                 '<div class="cs-sched__meta">' +
                     '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
-                    (r.combo_count > 0 ? '<span class="cs-sched__metaitem" title="Scene rotation"><i class="fa-solid fa-shuffle"></i>' + r.combo_count + ' scenes</span>' : '') +
                     '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : (r.audience === 'subscribers' ? 'lock' : 'globe')) + '"></i>' + esc(aud) + '</span>' +
                     (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
                     lastRun +
@@ -1495,7 +1488,7 @@ jQuery(function ($) {
     function setSchedAi() {
         var on = $('#csSchedAi').is(':checked');
         $('#csSchedCaptionWrap').prop('hidden', on);
-        $('#csSchedAiHint').text(on ? 'Writes the caption each run.' : 'Off: the caption below is posted as written.');
+        $('#csSchedAiHint').text(on ? 'Picks one scene from your description each run and writes the caption.' : 'Off: your text is sent to the image model unchanged and the caption below is posted as written.');
     }
     $('#csSchedAi').on('change', setSchedAi);
     function renderSchedTargets(sel) {
@@ -1537,11 +1530,6 @@ jQuery(function ($) {
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
         $('#csSchedCaption').val(rule ? (rule.caption_text || '') : '');
-        $('#csSchedPoses').val(rule && rule.scene_poses ? rule.scene_poses.join('\n') : '');
-        $('#csSchedOutfits').val(rule && rule.scene_outfits ? rule.scene_outfits.join('\n') : '');
-        $('#csSchedLighting').val(rule && rule.scene_lighting ? rule.scene_lighting.join('\n') : '');
-        $('#csSchedSceneSuffix').val(rule ? (rule.scene_suffix || '') : '');
-        updateComboCount();
         setSchedAi();
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.audience = rule ? rule.audience : 'free';
@@ -1602,7 +1590,7 @@ jQuery(function ($) {
         $('#csSchedBrandRow').prop('hidden', isChar || !(CFG.brand && CFG.brand.has_brand));
         $('#csSchedTopic').attr('placeholder', isChar ? 'at a rooftop pool at golden hour, iced coffee in hand' : 'A scenic Orlando spot with a short caption');
         $('#csSchedTopicWrap .cs-sf__label [data-kind="post"]').text(isChar ? 'Scene for each image' : 'What to post each time');
-        $('#csSchedTopicWrap .cs-sf__hint [data-kind="post"]').text(isChar ? 'Drives the caption each run. Your character is rendered in this scene unless scene rotation below is filled in.' : 'Drives the caption each run. It is also the image scene unless scene rotation below is filled in.');
+        $('#csSchedTopicWrap .cs-sf__hint [data-kind="post"]').text(isChar ? 'Each run renders your character in this scene and writes a caption.' : 'Each run makes a fresh on-brand image + caption from this.');
         if (isChar) { loadSchedCharacters(selectedId); }
     }
     function loadSchedCharacters(selectedId) {
@@ -1655,8 +1643,6 @@ jQuery(function ($) {
         var days = $('#csSchedDays .cs-sched__day.is-on').map(function () { return $(this).data('day'); }).get();
         if (schedForm.cadence === 'weekly' && !days.length) { toastr.info('Pick at least one day of the week.'); return; }
         var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
-        var sceneFilled = [$('#csSchedPoses').val(), $('#csSchedOutfits').val(), $('#csSchedLighting').val()].filter(function (v) { return schedLines(v).length > 0; }).length;
-        if (kind === 'post' && sceneFilled > 0 && sceneFilled < 3) { toastr.info('Scene rotation needs at least one pose, one outfit and one lighting line.'); return; }
         var $btn = $(this).prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');
         ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
@@ -1667,7 +1653,6 @@ jQuery(function ($) {
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
             use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
             ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '',
-            scene_poses: $('#csSchedPoses').val() || '', scene_outfits: $('#csSchedOutfits').val() || '', scene_lighting: $('#csSchedLighting').val() || '', scene_suffix: $('#csSchedSceneSuffix').val() || '',
             social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'

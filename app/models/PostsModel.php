@@ -59,7 +59,6 @@ class PostsModel extends Model {
         }
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
-        if (array_key_exists('image_prompt', $fields))     { $data['image_prompt'] = ($fields['image_prompt'] === null) ? null : mb_substr((string) $fields['image_prompt'], 0, 1000); }
         return parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
