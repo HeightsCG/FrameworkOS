@@ -1569,7 +1569,6 @@ jQuery(function ($) {
     function setSchedLevel(level) {
         schedForm.content_level = (level === 'spicy') ? 'spicy' : 'safe';
         $('#csSchedLevel .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('level') === schedForm.content_level); });
-        $('#csSchedLevelHint').text(schedForm.content_level === 'spicy' ? 'Boudoir and lingerie-level tease for subscriber posts. No nudity.' : 'Fashion and swimwear look for public feeds.');
     }
     function setSchedSize(size) {
         size = (size === 'portrait' || size === 'landscape') ? size : 'square';

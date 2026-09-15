@@ -636,15 +636,18 @@
 .cs-seg--compact .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--violet7); box-shadow:inset 0 0 0 1px var(--violet); }
 .cs-seg--compact .cs-seg__opt.is-on i{ color:var(--violet); }
 .cs-sf .cs-sched__time{ margin-top:0; }
-.cs-sf .cs-sched__time .form-control{ max-width:140px; padding:.42rem .6rem; }
-.cs-sf .cs-sched__days{ margin-top:.75rem; }
+.cs-sf .cs-sched__time .form-control{ max-width:128px; height:38px; padding:.42rem .6rem; }
+.cs-sf .cs-sched__days{ margin-top:0; gap:.25rem; }
+.cs-sf .cs-sched__day{ width:36px; height:38px; font-size:.78rem; }
 .cs-sf .cs-comp__social:not(:empty){ margin-top:0; }
 @media (max-width:640px){ .cs-sf__grid{ grid-template-columns:1fr; } }
 .cs-sf > .cs-sf__section:first-of-type{ border-top:0; }
 .cs-sf .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
 .cs-sf .form-check-input:focus{ box-shadow:0 0 0 3px var(--vsoft); border-color:var(--violet); }
 .cs-sf .cs-sched__time{ flex-wrap:nowrap; }
-.cs-sf__row .cs-seg--compact{ width:auto; flex:1 1 auto; }
-.cs-sf__row .cs-sched__time{ flex:0 0 auto; }
+.cs-sf__row .cs-seg--compact{ width:auto; flex:0 0 auto; height:38px; align-items:stretch; }
+.cs-sf__row .cs-seg--compact .cs-seg__opt{ flex:0 0 auto; padding:.42rem 1.1rem; }
+.cs-sf__row .cs-sched__time{ flex:0 0 auto; margin-left:auto; }
+@media (max-width:640px){ .cs-sf__row .cs-sched__time{ margin-left:0; } }
 .cs-sf #csSchedMsgTextWrap, .cs-sf #csSchedCharacterWrap{ margin-top:1rem; }
 .cs-sf #csSchedCaptionWrap{ margin-top:1rem; }

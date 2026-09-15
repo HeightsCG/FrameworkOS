@@ -477,7 +477,6 @@
                                     <button type="button" class="cs-seg__opt is-on" data-level="safe"><i class="fa-solid fa-sun"></i><span>Feed-safe</span></button>
                                     <button type="button" class="cs-seg__opt" data-level="spicy"><i class="fa-solid fa-fire"></i><span>Spicy</span></button>
                                 </div>
-                                <div class="cs-sf__hint" id="csSchedLevelHint">Fashion and swimwear look for public feeds.</div>
                             </div>
                         </div>
                     </div>
@@ -532,13 +531,12 @@
                             <button type="button" class="cs-seg__opt is-on" data-cad="daily"><span>Daily</span></button>
                             <button type="button" class="cs-seg__opt" data-cad="weekly"><span>Weekly</span></button>
                         </div>
+                        <div class="cs-sched__days" id="csSchedDays" hidden></div>
                         <div class="cs-sched__time">
-                            <span class="cs-sf__at">at</span>
                             <input type="time" id="csSchedTime" class="form-control" value="09:00">
                             <span class="cs-sched__tz"><span id="csSchedTz">UTC</span></span>
                         </div>
                     </div>
-                    <div class="cs-sched__days" id="csSchedDays" hidden></div>
                 </div>
             </div>
             <div class="modal-footer">
