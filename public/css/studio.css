@@ -619,6 +619,10 @@
 .cs-sf__hint{ font-size:.78rem; color:var(--muted); margin-top:.35rem; }
 .cs-sf__grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
 .cs-sf__grid + div, .cs-sf__grid + label{ margin-top:1rem; }
+.cs-sf__grid--3{ grid-template-columns:1fr 1fr 1fr; }
+.cs-sf__count{ font-size:.74rem; font-weight:600; color:var(--muted); background:rgba(20,18,40,.05); border-radius:var(--r-sm); padding:.2rem .5rem; white-space:nowrap; }
+.cs-sf__count.is-low{ color:#9a3412; background:#fff1e6; }
+@media (max-width:640px){ .cs-sf__grid--3{ grid-template-columns:1fr; } }
 .cs-sf__row{ display:flex; align-items:center; gap:1rem; flex-wrap:wrap; }
 .cs-sf__at{ font-size:.85rem; color:var(--muted); }
 .cs-sf__switch{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin:1rem 0 0; padding:.6rem 0 0; border-top:1px dashed var(--line); cursor:pointer; }

@@ -486,20 +486,45 @@
                 <div class="cs-sf__section" id="csSchedTopicWrap">
                     <label class="cs-sf__label" for="csSchedTopic"><span data-kind="post">What to post each time</span><span data-kind="message" hidden>What the message is about</span></label>
                     <textarea class="form-control" id="csSchedTopic" rows="3" placeholder="A scenic Orlando spot with a short caption"></textarea>
-                    <div class="cs-sf__hint"><span data-kind="post">Each run makes a fresh on-brand image + caption from this.</span><span data-kind="message" hidden>Each run writes a new message about this.</span></div>
+                    <div class="cs-sf__hint"><span data-kind="post">Drives the caption each run. It is also the image scene unless scene rotation below is filled in.</span><span data-kind="message" hidden>Each run writes a new message about this.</span></div>
                     <label class="cs-sf__check" id="csSchedBrandRow" hidden>
                         <input type="checkbox" class="form-check-input" id="csSchedBrand" checked>
                         <span>Use my brand <strong id="csSchedBrandName"></strong> for the image and caption</span>
                     </label>
                     <label class="cs-sf__switch" for="csSchedAi" data-kind="post">
-                        <span><strong>Let AI shape it</strong><small id="csSchedAiHint">Picks one scene from your description each run and writes the caption.</small></span>
+                        <span><strong>Let AI shape it</strong><small id="csSchedAiHint">Writes the caption each run.</small></span>
                         <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csSchedAi" checked></span>
                     </label>
                     <div id="csSchedCaptionWrap" data-kind="post" hidden>
                         <label class="cs-sf__label" for="csSchedCaption">Caption</label>
                         <textarea class="form-control" id="csSchedCaption" rows="2" maxlength="5000" placeholder="Posted exactly as written with every run"></textarea>
-                        <div class="cs-sf__hint">With AI off, the scene above goes to the image model word for word and this caption is used as is.</div>
+                        <div class="cs-sf__hint">With AI off, this caption is used as written.</div>
                     </div>
+                </div>
+
+                <div class="cs-sf__section" id="csSchedSceneWrap" data-kind="post">
+                    <div class="cs-sf__row" style="justify-content:space-between">
+                        <label class="cs-sf__label" style="margin:0">Scene rotation</label>
+                        <span class="cs-sf__count" id="csSchedComboCount">0 combinations</span>
+                    </div>
+                    <div class="cs-sf__hint" style="margin:0 0 .75rem">One entry per line. Each run picks one pose, one outfit and one lighting at random (no repeats for 30 runs) and sends them to the image model word for word. Leave all three empty to use the description above as the scene.</div>
+                    <div class="cs-sf__grid cs-sf__grid--3">
+                        <div>
+                            <label class="cs-sf__label" for="csSchedPoses">Poses</label>
+                            <textarea class="form-control" id="csSchedPoses" rows="5" placeholder="sitting on the edge of the bed&#10;standing by the window&#10;lying on her stomach reading"></textarea>
+                        </div>
+                        <div>
+                            <label class="cs-sf__label" for="csSchedOutfits">Outfits</label>
+                            <textarea class="form-control" id="csSchedOutfits" rows="5" placeholder="oversized grey hoodie&#10;silk camisole and shorts&#10;black ribbed bodysuit"></textarea>
+                        </div>
+                        <div>
+                            <label class="cs-sf__label" for="csSchedLighting">Lighting</label>
+                            <textarea class="form-control" id="csSchedLighting" rows="5" placeholder="soft morning light&#10;warm lamp glow&#10;overcast afternoon"></textarea>
+                        </div>
+                    </div>
+                    <label class="cs-sf__label" for="csSchedSceneSuffix">Always add</label>
+                    <input type="text" class="form-control" id="csSchedSceneSuffix" maxlength="255" placeholder="Bedroom only. Nothing exposed.">
+                    <div class="cs-sf__hint">Appended to every prompt.</div>
                 </div>
 
                 <div class="cs-sf__section" data-kind="post">

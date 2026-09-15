@@ -11,6 +11,7 @@ class SchedulerRulesModel extends Model {
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
         'size', 'image_source', 'character_id', 'character_name', 'content_level', 'audience', 'tier_id', 'comments_enabled',
         'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
+        'scene_poses', 'scene_outfits', 'scene_lighting', 'scene_suffix',
     );
 
     const FANVUE_LISTS = array('subscribers', 'auto_renewing', 'non_renewing', 'followers', 'free_trial_subscribers', 'expired_subscribers', 'spent_more_than_50');
@@ -36,11 +37,18 @@ class SchedulerRulesModel extends Model {
         return parent::insert('scheduler_rules', $data);
     }
 
-    /** Update an owned rule. Recomputes next_run_at from the new cadence. */
+    /** Update an owned rule. Recomputes next_run_at from the new cadence. Changing any scene
+     *  list invalidates recent_combos (its index triples would point at different lines). */
     public function update_rule($creator_id, $id, array $f){
         $data = $this->clean($f);
         $data['next_run_at'] = ((int) ($data['active'] ?? 1) === 1) ? $this->compute_next_run($data) : null;
         $data['updated_at']  = date('Y-m-d H:i:s');
+        $old = $this->get_one($creator_id, $id);
+        if ($old) {
+            foreach (array('scene_poses', 'scene_outfits', 'scene_lighting') as $col) {
+                if ((string) ($old[$col] ?? '[]') !== $data[$col]) { $data['recent_combos'] = '[]'; break; }
+            }
+        }
         return parent::update('scheduler_rules', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
@@ -66,8 +74,12 @@ class SchedulerRulesModel extends Model {
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;
         $out['use_brand']        = !empty($f['use_brand']) ? 1 : 0;
-        $out['ai_assist']        = (isset($f['ai_assist']) && (string) $f['ai_assist'] === '0') ? 0 : 1;
+        $out['ai_assist']        = (isset($f['ai_assist']) && ($f['ai_assist'] === false || (string) $f['ai_assist'] === '0')) ? 0 : 1;
         $out['caption_text']     = mb_substr(trim((string) ($f['caption_text'] ?? '')), 0, 5000);
+        $out['scene_poses']      = json_encode(SceneRotationService::parse_lines($f['scene_poses'] ?? array()));
+        $out['scene_outfits']    = json_encode(SceneRotationService::parse_lines($f['scene_outfits'] ?? array()));
+        $out['scene_lighting']   = json_encode(SceneRotationService::parse_lines($f['scene_lighting'] ?? array()));
+        $out['scene_suffix']     = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($f['scene_suffix'] ?? ''))), 0, 255);
         $socials = $f['social_accounts'] ?? array();
         if (is_string($socials)) { $socials = array_filter(array_map('trim', explode(',', $socials)), 'strlen'); }
         $out['social_accounts']  = json_encode(array_values(array_map('strval', (array) $socials)));
@@ -87,6 +99,62 @@ class SchedulerRulesModel extends Model {
         $r = parent::select("SELECT * FROM scheduler_rules WHERE id = :id AND creator_id = :c",
             array('id' => (int) $id, 'c' => (int) $creator_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** A stored row expressed as the input shape clean() accepts, so callers can patch a few keys and re-save. */
+    public static function decode_for_edit(array $r): array {
+        $lists = SceneRotationService::lists($r);
+        $socials = json_decode((string) ($r['social_accounts'] ?? '[]'), true);
+        return array(
+            'kind'             => (string) ($r['kind'] ?? 'post'),
+            'message_text'     => (string) ($r['message_text'] ?? ''),
+            'message_ai'       => (int) ($r['message_ai'] ?? 0),
+            'message_targets'  => self::targets($r),
+            'name'             => (string) ($r['name'] ?? ''),
+            'active'           => (int) ($r['active'] ?? 1),
+            'topic'            => (string) ($r['topic'] ?? ''),
+            'size'             => (string) ($r['size'] ?? 'square'),
+            'image_source'     => (string) ($r['image_source'] ?? 'brand'),
+            'character_id'     => (string) ($r['character_id'] ?? ''),
+            'character_name'   => (string) ($r['character_name'] ?? ''),
+            'content_level'    => (string) ($r['content_level'] ?? 'safe'),
+            'audience'         => (string) ($r['audience'] ?? 'free'),
+            'tier_id'          => (int) ($r['tier_id'] ?? 0),
+            'comments_enabled' => (int) ($r['comments_enabled'] ?? 1),
+            'use_brand'        => (int) ($r['use_brand'] ?? 1),
+            'ai_assist'        => isset($r['ai_assist']) ? (int) $r['ai_assist'] : 1,
+            'caption_text'     => (string) ($r['caption_text'] ?? ''),
+            'social_accounts'  => is_array($socials) ? array_map('strval', $socials) : array(),
+            'cadence'          => (string) ($r['cadence'] ?? 'daily'),
+            'days_of_week'     => ((string) ($r['days_of_week'] ?? '') === '') ? array()
+                                  : array_values(array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; })),
+            'run_time'         => substr((string) ($r['run_time'] ?? '09:00:00'), 0, 5),
+            'timezone'         => (string) ($r['timezone'] ?? 'UTC'),
+            'scene_poses'      => $lists['poses'],
+            'scene_outfits'    => $lists['outfits'],
+            'scene_lighting'   => $lists['lighting'],
+            'scene_suffix'     => (string) ($r['scene_suffix'] ?? ''),
+        );
+    }
+
+    /** Partial update: only keys present in $partial change; everything else keeps its stored value. */
+    public function patch_rule($creator_id, $id, array $partial){
+        $row = $this->get_one($creator_id, $id);
+        if (!$row) { return 0; }
+        $fields = self::decode_for_edit($row);
+        foreach ($partial as $k => $v) {
+            if (array_key_exists($k, $fields)) { $fields[$k] = $v; }
+        }
+        return $this->update_rule($creator_id, $id, $fields);
+    }
+
+    /** Record the combination a run used (ring of the newest 30). */
+    public function push_recent_combo($creator_id, $id, array $combo){
+        $row = $this->get_one($creator_id, $id);
+        if (!$row) { return 0; }
+        $ring = SceneRotationService::push_recent(SceneRotationService::recent($row), $combo);
+        return parent::update('scheduler_rules', array('recent_combos' => json_encode($ring)),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
     public function list_for_creator($creator_id){

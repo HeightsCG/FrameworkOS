@@ -58,8 +58,9 @@ class EromifyService {
             return self::fail('Eromify rejected the API key');
         }
         if ($code >= 400 || !is_array($msg)) {
-            error_log('[eromify] ' . $tool . ' http ' . $code . ': ' . substr((string) $raw, 0, 300));
-            return self::fail('Eromify request failed (HTTP ' . $code . ')');
+            error_log('[eromify] ' . $tool . ' http ' . $code . ' args=' . json_encode($args) . ' body=' . substr((string) $raw, 0, 600));
+            $detail = self::http_error_detail((string) $raw);
+            return self::fail('Eromify request failed (HTTP ' . $code . ')' . ($detail !== '' ? ': ' . $detail : ''));
         }
         if (isset($msg['error'])) {
             return self::fail('Eromify: ' . (string) ($msg['error']['message'] ?? 'error'));
@@ -134,8 +135,9 @@ class EromifyService {
             } else {
                 $last = $r;
             }
-            // Only a content refusal is worth retrying on another model; auth, credits and network errors are not.
-            if (!self::is_content_refusal($last['error'])) { break; }
+            // A content refusal or a 422 (the model rejected the request/parameters) is worth trying on
+            // another model; auth, credits and network errors are not.
+            if (!self::is_content_refusal($last['error']) && strpos($last['error'], 'HTTP 422') === false) { break; }
             error_log('[eromify] ' . $model . ' refused the prompt; trying next model');
         }
         return $last;
@@ -143,6 +145,24 @@ class EromifyService {
 
     private static function is_content_refusal($error): bool {
         return (bool) preg_match('/content checker|flagged|rejected this prompt|safety|moderat/i', (string) $error);
+    }
+
+    /** The human sentence out of an HTTP error body (JSON-RPC error, {error|message|detail}, or plain text). */
+    private static function http_error_detail($raw): string {
+        $raw = trim((string) $raw);
+        if ($raw === '') { return ''; }
+        $j = json_decode($raw, true);
+        $msg = '';
+        if (is_array($j)) {
+            if (isset($j['error']) && is_array($j['error'])) { $msg = (string) ($j['error']['message'] ?? ($j['error']['data']['message'] ?? '')); }
+            if ($msg === '' && isset($j['error']) && is_string($j['error'])) { $msg = $j['error']; }
+            if ($msg === '') { $msg = (string) ($j['message'] ?? ($j['detail'] ?? ($j['errors'][0]['message'] ?? ''))); }
+            if ($msg === '' && isset($j['errors']) && is_array($j['errors'])) { $msg = json_encode($j['errors']); }
+        } else {
+            $msg = strip_tags($raw);
+        }
+        $msg = preg_replace('/\s+/', ' ', (string) $msg);
+        return mb_substr(trim($msg), 0, 240);
     }
 
     /** Eromify's tool errors come back as JSON blobs; keep the human sentence. */
@@ -158,6 +178,9 @@ class EromifyService {
     }
 
     /**
+     * NOTE: no longer called by AutoPostService (scene rotation sends the rule's own scene string
+     * unmodified). Kept for reference only.
+     *
      * Turn a creator's free-form topic ("mid-day in Miami: beach club daybed or café
      * patio; outfit rotates ...; caption should ...") into ONE short scene brief in the
      * form the character tool wants: place, activity, props, outfit. The server picks

@@ -13,9 +13,18 @@ class AutoPostService {
         if ($creator_id <= 0) { return self::fail(null, 'Missing creator.'); }
         if ($topic === '')    { return self::fail(null, 'This automation has no topic to generate from.'); }
 
+        // Scene rotation: pose + outfit + lighting from the rule's lists, never rewritten by a model.
+        // Rules without lists fall back to the topic itself. The ring is advanced before generating so
+        // an overlapping run (cron + "Run now") cannot pick the same combination.
+        $rotation = SceneRotationService::pick($rule);
+        $scene    = $rotation ? $rotation['prompt'] : $topic;
+        if ($rotation && (int) ($rule['id'] ?? 0) > 0) {
+            (new SchedulerRulesModel())->push_recent_combo($creator_id, (int) $rule['id'], $rotation['combo']);
+        }
+
         $cb        = (new CreatorBrandModel())->get_for_user($creator_id);
         $use_brand = !empty($rule['use_brand']);
-        $prompt    = $use_brand ? BrandService::image_prompt($topic, $cb) : $topic;
+        $prompt    = $use_brand ? BrandService::image_prompt($scene, $cb) : $scene;
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 
         // 1) Generate the image: the creator's Eromify character in the scene, or a brand photo (OpenAI).
@@ -23,11 +32,8 @@ class AutoPostService {
             $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
             if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.'); }
             if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.'); }
-            // With AI assist on, distill one scene per run from the creator's description; off, the
-            // topic is the scene, sent word for word (no model rewrites it).
-            $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
+            // The scene string goes to Eromify exactly as built above — no AI rewriting of the image prompt.
             $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
-            $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size, $level) : $topic;
             $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size, $level);
             if (!$er['ok']) {
                 (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
@@ -44,6 +50,8 @@ class AutoPostService {
             $gen = ImageGenService::generate($prompt, ImageGenService::dimensions($size));
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
+        // Exactly what the image model received — persisted on the post for auditing.
+        $image_prompt = (($rule['image_source'] ?? 'brand') === 'character') ? $scene : $prompt;
 
         // 2) Ingest the bytes as a vault asset (mirrors media_generateAction).
         $tmp = tempnam(sys_get_temp_dir(), 'sched');
@@ -80,6 +88,7 @@ class AutoPostService {
             'audience'         => $audience,
             'tier_id'          => ($audience === 'subscribers' && (int) ($rule['tier_id'] ?? 0) > 0) ? (int) $rule['tier_id'] : 0,
             'comments_enabled' => !empty($rule['comments_enabled']) ? 1 : 0,
+            'image_prompt'     => $image_prompt,
         ));
         $posts->set_assets($creator_id, $post_id, array($asset_id), $asset_id);
 
