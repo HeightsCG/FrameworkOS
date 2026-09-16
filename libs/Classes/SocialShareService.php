@@ -2,7 +2,8 @@
 /**
  * Cross-post the PROMOTIONAL version of a post to selected connected social accounts.
  * Best-effort — never throws. Always sends the public caption + a SAFE preview image
- * (blurred variant for subscriber posts) + a link back — never the subscriber media.
+ * (blurred variant for subscriber posts) — never the subscriber media. No link is
+ * appended: outbound links suppress reach on X and friends; the profile URL lives in the bio.
  *
  * Extracted from ApiCreatorStudioController so both the manual publish/schedule flow and the
  * Scheduler worker can share one implementation.
@@ -45,14 +46,12 @@ class SocialShareService {
             }
             if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
-            $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
-            $cap   = trim((string) $post['caption']);
-            $promo = self::promo_text($cap, $link);
+            $promo = trim((string) $post['caption']);
 
-            // Platforms with a hard length limit get a shortened caption so the link is never cut off.
+            // Platforms with a hard length limit get a shortened caption so nothing is cut off mid-word.
             $platform_configurations = array();
             foreach ($platforms as $platform) {
-                $fit = self::promo_text_for($platform, $cap, $link);
+                $fit = self::caption_for($platform, $promo);
                 if ($fit !== $promo) { $platform_configurations[$platform] = array('caption' => $fit); }
             }
 
@@ -107,27 +106,18 @@ class SocialShareService {
     /** URLs count as a fixed 23 characters on X (t.co wrapping), whatever their real length. */
     const X_URL_WEIGHT = 23;
 
-    public static function promo_text($caption, $link): string {
-        $caption = trim((string) $caption);
-        return ($caption !== '' ? $caption . "\n\n" : '') . 'See more: ' . $link;
-    }
-
     /**
-     * The promo text for one platform: the caption is shortened at a word boundary (with an
-     * ellipsis) so caption + "See more:" + link fit inside the platform's limit. The link is
-     * never trimmed. Platforms without a limit get the full text unchanged.
+     * The caption for one platform: shortened at a word boundary (with an ellipsis) when it
+     * exceeds the platform's limit. Platforms without a limit get the text unchanged.
      */
-    public static function promo_text_for($platform, $caption, $link): string {
+    public static function caption_for($platform, $caption): string {
         $platform = strtolower((string) $platform);
-        $full     = self::promo_text($caption, $link);
-        if (!isset(self::LIMITS[$platform])) { return $full; }
+        $caption  = trim((string) $caption);
+        if (!isset(self::LIMITS[$platform])) { return $caption; }
         $limit = self::LIMITS[$platform];
-        if (self::length_for($platform, $full) <= $limit) { return $full; }
+        if (self::length_for($platform, $caption) <= $limit) { return $caption; }
 
-        $caption = trim((string) $caption);
-        $suffix  = "\n\n" . 'See more: ' . $link;
-        $budget  = $limit - self::length_for($platform, $suffix) - self::length_for($platform, '…');
-        if ($budget <= 0) { return 'See more: ' . $link; }
+        $budget = $limit - self::length_for($platform, '…');
 
         // Take whole words while they fit, then cut mid-word only if the first word alone is too long.
         $out = '';
@@ -143,7 +133,7 @@ class SocialShareService {
                 $out .= $ch;
             }
         }
-        return $out . '…' . $suffix;
+        return $out . '…';
     }
 
     /** Length the platform will count: X uses weighted characters with URLs at 23; others count code points. */

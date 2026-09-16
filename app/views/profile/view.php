@@ -367,7 +367,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         </div>
 
         <footer class="pf-foot">
-            <a class="pf-foot__brand" href="<?php echo htmlspecialchars(Main::site_protocol() . '://' . $public_domain, ENT_QUOTES, 'UTF-8'); ?>">
+            <a class="pf-foot__brand" href="<?php echo htmlspecialchars(Main::site_protocol() . $public_domain, ENT_QUOTES, 'UTF-8'); ?>">
                 <span class="pf-foot__mark"></span>
                 <span>Powered by <?php echo htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8'); ?></span>
             </a>
