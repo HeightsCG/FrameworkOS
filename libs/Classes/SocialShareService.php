@@ -38,15 +38,23 @@ class SocialShareService {
             if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
             if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }
             $valid = array(); $req = array_map('strval', $account_ids);
+            $platforms = array();
             foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
                 $pfm = (string) $a['post_for_me_social_account_id'];
-                if (in_array($pfm, $req, true)) { $valid[] = $pfm; }
+                if (in_array($pfm, $req, true)) { $valid[] = $pfm; $platforms[(string) $a['platform']] = (string) $a['platform']; }
             }
             if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
             $link  = 'https://' . Main::public_domain() . '/@' . (string) ($user['u_name'] ?? '');
             $cap   = trim((string) $post['caption']);
-            $promo = ($cap !== '' ? $cap . "\n\n" : '') . 'See more: ' . $link;
+            $promo = self::promo_text($cap, $link);
+
+            // Platforms with a hard length limit get a shortened caption so the link is never cut off.
+            $platform_configurations = array();
+            foreach ($platforms as $platform) {
+                $fit = self::promo_text_for($platform, $cap, $link);
+                if ($fit !== $promo) { $platform_configurations[$platform] = array('caption' => $fit); }
+            }
 
             $media_urls = array();
             $assets = (new PostsModel())->get_assets((int) $post['id']);
@@ -76,7 +84,7 @@ class SocialShareService {
                 }
             }
 
-            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false);
+            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false, $platform_configurations);
             if (is_array($res) && isset($res['id'])) {
                 (new SocialPostsModel())->create(
                     (int) $user['user_id'], (string) $res['id'], $promo,
@@ -91,5 +99,65 @@ class SocialShareService {
             error_log('[social share] failed: ' . $e->getMessage());
             return array('ok' => false, 'shared' => 0, 'error' => $e->getMessage());
         }
+    }
+
+    /** Hard post-length limits per platform (Post for Me platform keys). Everything else is effectively unlimited. */
+    const LIMITS = array('x' => 280, 'bluesky' => 300, 'threads' => 500);
+
+    /** URLs count as a fixed 23 characters on X (t.co wrapping), whatever their real length. */
+    const X_URL_WEIGHT = 23;
+
+    public static function promo_text($caption, $link): string {
+        $caption = trim((string) $caption);
+        return ($caption !== '' ? $caption . "\n\n" : '') . 'See more: ' . $link;
+    }
+
+    /**
+     * The promo text for one platform: the caption is shortened at a word boundary (with an
+     * ellipsis) so caption + "See more:" + link fit inside the platform's limit. The link is
+     * never trimmed. Platforms without a limit get the full text unchanged.
+     */
+    public static function promo_text_for($platform, $caption, $link): string {
+        $platform = strtolower((string) $platform);
+        $full     = self::promo_text($caption, $link);
+        if (!isset(self::LIMITS[$platform])) { return $full; }
+        $limit = self::LIMITS[$platform];
+        if (self::length_for($platform, $full) <= $limit) { return $full; }
+
+        $caption = trim((string) $caption);
+        $suffix  = "\n\n" . 'See more: ' . $link;
+        $budget  = $limit - self::length_for($platform, $suffix) - self::length_for($platform, '…');
+        if ($budget <= 0) { return 'See more: ' . $link; }
+
+        // Take whole words while they fit, then cut mid-word only if the first word alone is too long.
+        $out = '';
+        foreach (preg_split('/(\s+)/u', $caption, -1, PREG_SPLIT_DELIM_CAPTURE) as $piece) {
+            if (self::length_for($platform, $out . $piece) > $budget) { break; }
+            $out .= $piece;
+        }
+        $out = rtrim($out, " \n\t.,;:!?-–—");
+        if ($out === '') {
+            $chars = preg_split('//u', $caption, -1, PREG_SPLIT_NO_EMPTY);
+            foreach ($chars as $ch) {
+                if (self::length_for($platform, $out . $ch) > $budget) { break; }
+                $out .= $ch;
+            }
+        }
+        return $out . '…' . $suffix;
+    }
+
+    /** Length the platform will count: X uses weighted characters with URLs at 23; others count code points. */
+    public static function length_for($platform, $text): int {
+        $text = (string) $text;
+        if ($platform !== 'x') { return mb_strlen($text, 'UTF-8'); }
+        $n = 0;
+        // Each URL counts as 23 regardless of length.
+        $text = preg_replace_callback('~https?://\S+~iu', function ($m) use (&$n) { $n += self::X_URL_WEIGHT; return ''; }, $text);
+        foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) as $ch) {
+            $cp = mb_ord($ch, 'UTF-8');
+            $light = ($cp <= 0x10FF) || ($cp >= 0x2000 && $cp <= 0x200D) || ($cp >= 0x2010 && $cp <= 0x201F) || ($cp >= 0x2032 && $cp <= 0x2037);
+            $n += $light ? 1 : 2;
+        }
+        return $n;
     }
 }
