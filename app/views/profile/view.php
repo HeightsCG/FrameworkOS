@@ -18,6 +18,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<?php include Main::app_path() . '/libs/Layout/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php echo CSRF::meta(); ?>
