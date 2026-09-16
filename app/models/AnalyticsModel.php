@@ -238,8 +238,153 @@ class AnalyticsModel extends Model {
             "SELECT COUNT(*) AS n FROM follows WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
         $sub = parent::select(
             "SELECT COUNT(*) AS n FROM creator_subscriptions WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
+        $posts = parent::select(
+            "SELECT COUNT(*) AS n FROM posts WHERE creator_id = :c AND state = 'published' AND published_at >= :s AND published_at < :e", $p);
+        $likes = parent::select(
+            "SELECT COUNT(*) AS n FROM post_likes pl JOIN posts po ON po.id = pl.post_id
+             WHERE po.creator_id = :c AND pl.created_at >= :s AND pl.created_at < :e", $p);
+        $comments = parent::select(
+            "SELECT COUNT(*) AS n FROM post_comments pc JOIN posts po ON po.id = pc.post_id
+             WHERE po.creator_id = :c AND pc.deleted_at IS NULL AND pc.created_at >= :s AND pc.created_at < :e", $p);
+        $unlocks = parent::select(
+            "SELECT COUNT(*) AS n FROM ppv_unlocks WHERE creator_id = :c AND created_at >= :s AND created_at < :e", $p);
+        $ppv_views = parent::select(
+            "SELECT COUNT(*) AS n FROM post_views pv JOIN posts po ON po.id = pv.post_id
+             WHERE po.creator_id = :c AND po.audience = 'ppv' AND pv.created_at >= :s AND pv.created_at < :e", $p);
         $g = function ($r) { return (int) (is_array($r) && count($r) ? $r[0]['n'] : 0); };
-        return array('revenue_cents' => $g($rev), 'views' => $g($views), 'followers' => $g($fol), 'subscribers' => $g($sub));
+        $v = $g($views); $l = $g($likes); $cm = $g($comments); $u = $g($unlocks); $pvv = $g($ppv_views);
+        return array(
+            'revenue_cents' => $g($rev), 'views' => $v, 'followers' => $g($fol), 'subscribers' => $g($sub),
+            'posts' => $g($posts), 'likes' => $l, 'comments' => $cm, 'unlocks' => $u, 'ppv_views' => $pvv,
+            // Rates (percent, 1 dp): interactions per view, and PPV unlocks per PPV view.
+            'engagement'  => $v > 0 ? round(($l + $cm) / $v * 100, 1) : 0,
+            'unlock_rate' => $pvv > 0 ? round($u / $pvv * 100, 1) : 0,
+        );
+    }
+
+    /** Font Awesome brand icon per Post for Me platform key (Fanvue is not a brand icon). */
+    public static function platform_icon($platform){
+        $m = array('x' => 'fa-brands fa-x-twitter', 'facebook' => 'fa-brands fa-facebook', 'instagram' => 'fa-brands fa-instagram',
+                   'tiktok' => 'fa-brands fa-tiktok', 'tiktok_business' => 'fa-brands fa-tiktok', 'youtube' => 'fa-brands fa-youtube',
+                   'pinterest' => 'fa-brands fa-pinterest', 'linkedin' => 'fa-brands fa-linkedin', 'threads' => 'fa-brands fa-threads',
+                   'bluesky' => 'fa-brands fa-bluesky', 'fanvue' => 'fa-solid fa-bolt');
+        return $m[strtolower((string) $platform)] ?? 'fa-solid fa-share-nodes';
+    }
+
+    /** Post for Me job statuses folded into three buckets for display. */
+    public static function share_bucket($status){
+        $s = strtolower((string) $status);
+        if (in_array($s, array('processed', 'published', 'completed', 'success', 'posted'), true)) { return 'delivered'; }
+        if (in_array($s, array('failed', 'error', 'errored', 'rejected'), true)) { return 'failed'; }
+        return 'pending';
+    }
+
+    /** Post for Me account id → platform, for this creator's connected accounts. */
+    private function platform_map($creator_id){
+        $rows = parent::select(
+            "SELECT post_for_me_social_account_id AS id, platform FROM user_social_accounts WHERE user_id = :c",
+            array('c' => (int) $creator_id));
+        $map = array();
+        foreach ((array) $rows as $r) { $map[(string) $r['id']] = (string) $r['platform']; }
+        return $map;
+    }
+
+    /**
+     * Every published or scheduled post with lifetime counters, views inside the window,
+     * PPV unlocks, and where it was cross-posted (social platforms + Fanvue). Newest first.
+     */
+    public function posts_table($creator_id, $start_utc, $limit = 200){
+        $c = (int) $creator_id; $limit = max(1, min(500, (int) $limit));
+        $rows = (array) parent::select(
+            "SELECT p.id, p.caption, p.audience, p.state, p.published_at, p.scheduled_at, p.views, p.likes, p.comments,
+                    p.earnings_cents, p.ppv_price_credits, p.fanvue_post_uuid,
+                    (SELECT COUNT(*) FROM post_views pv WHERE pv.post_id = p.id AND pv.created_at >= :s) AS views_period,
+                    (SELECT COUNT(*) FROM ppv_unlocks u WHERE u.post_id = p.id) AS unlocks
+             FROM posts p
+             WHERE p.creator_id = :c AND p.state IN ('published', 'scheduled')
+             ORDER BY COALESCE(p.published_at, p.scheduled_at) DESC, p.id DESC
+             LIMIT $limit",
+            array('c' => $c, 's' => (string) $start_utc));
+        if (empty($rows)) { return array(); }
+
+        $map    = $this->platform_map($c);
+        $shares = (array) parent::select(
+            "SELECT post_id, status, target_account_ids FROM social_posts WHERE user_id = :c AND post_id IS NOT NULL ORDER BY id ASC",
+            array('c' => $c));
+        $by_post = array();
+        foreach ($shares as $sh) {
+            $pid = (int) $sh['post_id'];
+            if (!isset($by_post[$pid])) { $by_post[$pid] = array('platforms' => array(), 'status' => ''); }
+            foreach ((array) json_decode((string) $sh['target_account_ids'], true) as $aid) {
+                $pl = $map[(string) $aid] ?? 'social';
+                $by_post[$pid]['platforms'][$pl] = $pl;
+            }
+            $by_post[$pid]['status'] = self::share_bucket($sh['status']);
+        }
+        foreach ($rows as &$r) {
+            $pid   = (int) $r['id'];
+            $plats = isset($by_post[$pid]) ? array_values($by_post[$pid]['platforms']) : array();
+            if (!empty($r['fanvue_post_uuid'])) { $plats[] = 'fanvue'; }
+            $r['platforms']    = $plats;
+            $r['share_status'] = isset($by_post[$pid]) ? $by_post[$pid]['status'] : (!empty($r['fanvue_post_uuid']) ? 'delivered' : '');
+            $views = (int) $r['views'];
+            $r['unlock_rate']  = ($r['audience'] === 'ppv' && $views > 0) ? round((int) $r['unlocks'] / $views * 100, 1) : null;
+            $r['engagement']   = $views > 0 ? round(((int) $r['likes'] + (int) $r['comments']) / $views * 100, 1) : null;
+        }
+        unset($r);
+        return $rows;
+    }
+
+    /**
+     * Cross-posting within the window: share jobs per platform, delivery buckets, distinct posts
+     * shared (social + Fanvue), and the latest jobs. Post for Me tracks delivery, not engagement,
+     * so this is reach, not performance.
+     */
+    public function share_stats($creator_id, $start_utc, $recent = 6){
+        $c = (int) $creator_id;
+        $map  = $this->platform_map($c);
+        $jobs = (array) parent::select(
+            "SELECT sp.id, sp.post_id, sp.status, sp.target_account_ids, sp.created_at, p.caption
+             FROM social_posts sp LEFT JOIN posts p ON p.id = sp.post_id
+             WHERE sp.user_id = :c AND sp.created_at >= :s
+             ORDER BY sp.id DESC",
+            array('c' => $c, 's' => (string) $start_utc));
+        $per_platform = array(); $buckets = array('delivered' => 0, 'pending' => 0, 'failed' => 0);
+        $posts_shared = array(); $targets = 0; $list = array();
+        foreach ($jobs as $j) {
+            $plats = array();
+            foreach ((array) json_decode((string) $j['target_account_ids'], true) as $aid) {
+                $pl = $map[(string) $aid] ?? 'social';
+                $plats[$pl] = $pl;
+                $per_platform[$pl] = ($per_platform[$pl] ?? 0) + 1;
+                $targets++;
+            }
+            $buckets[self::share_bucket($j['status'])]++;
+            if ((int) $j['post_id'] > 0) { $posts_shared[(int) $j['post_id']] = true; }
+            if (count($list) < $recent) {
+                $list[] = array('caption' => (string) $j['caption'], 'platforms' => array_values($plats),
+                                'bucket' => self::share_bucket($j['status']), 'created_at' => (string) $j['created_at']);
+            }
+        }
+        $fv = parent::select(
+            "SELECT COUNT(*) AS n FROM posts WHERE creator_id = :c AND fanvue_post_uuid IS NOT NULL
+               AND COALESCE(published_at, created_at) >= :s",
+            array('c' => $c, 's' => (string) $start_utc));
+        $fanvue = (int) (is_array($fv) && count($fv) ? $fv[0]['n'] : 0);
+        if ($fanvue > 0) { $per_platform['fanvue'] = $fanvue; $targets += $fanvue; }
+        $fv_posts = (array) parent::select(
+            "SELECT id FROM posts WHERE creator_id = :c AND fanvue_post_uuid IS NOT NULL AND COALESCE(published_at, created_at) >= :s",
+            array('c' => $c, 's' => (string) $start_utc));
+        foreach ($fv_posts as $r) { $posts_shared[(int) $r['id']] = true; }
+        arsort($per_platform);
+        return array(
+            'jobs'         => count($jobs) + $fanvue,
+            'targets'      => $targets,
+            'posts_shared' => count($posts_shared),
+            'per_platform' => $per_platform,
+            'buckets'      => $buckets,
+            'recent'       => $list,
+        );
     }
 
     /**

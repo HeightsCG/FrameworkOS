@@ -55,9 +55,11 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
     $kpis = array(
         array('label' => 'Revenue',        'value' => $fmt_money($cur['revenue_cents']), 'delta' => $dl['revenue_cents'], 'sub' => $fmt_money($rev_all['total_cents']) . ' all-time',                          'icon' => 'fa-coins'),
-        array('label' => 'New subscribers', 'value' => $fmt_num($cur['subscribers']),    'delta' => $dl['subscribers'],   'sub' => $fmt_num($s['subscribers']) . ' active · ' . $fmt_money($s['mrr_cents']) . '/mo', 'icon' => 'fa-heart'),
-        array('label' => 'New followers',  'value' => $fmt_num($cur['followers']),        'delta' => $dl['followers'],     'sub' => $fmt_num($s['followers']) . ' total',                                        'icon' => 'fa-user-plus'),
-        array('label' => 'Views',          'value' => $fmt_num($cur['views']),            'delta' => $dl['views'],         'sub' => $fmt_num($s['unique_visitors']) . ' unique · ' . $fmt_num($s['views']) . ' all-time', 'icon' => 'fa-eye'),
+        array('label' => 'Subscribers',    'value' => $fmt_num($cur['subscribers']),      'delta' => $dl['subscribers'],   'sub' => $fmt_num($s['subscribers']) . ' active · ' . $fmt_money($s['mrr_cents']) . '/mo', 'icon' => 'fa-heart'),
+        array('label' => 'Followers',      'value' => $fmt_num($cur['followers']),        'delta' => $dl['followers'],     'sub' => $fmt_num($s['followers']) . ' total',                             'icon' => 'fa-user-plus'),
+        array('label' => 'Views',          'value' => $fmt_num($cur['views']),            'delta' => $dl['views'],         'sub' => $fmt_num($s['views']) . ' all-time',                                        'icon' => 'fa-eye'),
+        array('label' => 'Posts',          'value' => $fmt_num($cur['posts']),            'delta' => $dl['posts'],         'sub' => $fmt_num($s['published_posts']) . ' published all-time',                    'icon' => 'fa-photo-film'),
+        array('label' => 'Engagement',     'value' => $cur['engagement'] . '%',           'delta' => $dl['engagement'],    'sub' => $fmt_num($cur['likes']) . ' likes · ' . $fmt_num($cur['comments']) . ' comments',  'icon' => 'fa-comment-dots'),
     );
 
     // Shared daily-bar renderer for the trend charts. $money → format values as dollars.
@@ -102,6 +104,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
     <div class="dash__tabs" id="dashTabs" role="tablist">
         <button type="button" class="dash__tab is-active" data-panel="revenue" role="tab"><i class="fa-solid fa-sack-dollar"></i> Revenue</button>
+        <button type="button" class="dash__tab" data-panel="content" role="tab"><i class="fa-solid fa-photo-film"></i> Content</button>
         <button type="button" class="dash__tab" data-panel="audience" role="tab"><i class="fa-solid fa-users"></i> Audience</button>
         <button type="button" class="dash__tab" data-panel="customers" role="tab"><i class="fa-solid fa-heart"></i> Customers</button>
     </div>
@@ -163,6 +166,139 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                 <?php endforeach; ?>
             </div>
             <?php endif; ?>
+        </div>
+    </section>
+
+    <?php
+    // ================= CONTENT TAB =================
+    $pt  = $this->posts_table;
+    $ss  = $this->share_stats;
+    $avg_views  = (int) $cur['posts'] > 0 ? (int) round((int) $cur['views'] / (int) $cur['posts']) : 0;
+    $share_rate = (int) $cur['posts'] > 0 ? (int) round(min((int) $ss['posts_shared'], (int) $cur['posts']) / (int) $cur['posts'] * 100) : 0;
+    $content_stats = array(
+        array('Views per post',  $fmt_num($avg_views),                                          'avg, posts published in period'),
+        array('Engagement rate', $cur['engagement'] . '%',                                       'likes + comments per view'),
+        array('Unlock rate',     ((int) $cur['ppv_views'] > 0 ? $cur['unlock_rate'] . '%' : '—'), $fmt_num($cur['unlocks']) . ' unlocks · ' . $fmt_num($cur['ppv_views']) . ' PPV views'),
+        array('Shared',          $share_rate . '%',                                              $fmt_num($ss['posts_shared']) . ' of ' . $fmt_num($cur['posts']) . ' posts cross-posted'),
+    );
+    $aud_tag = function ($a) { return $a === 'ppv' ? '<span class="dash__tag">PPV</span>' : ($a === 'subscribers' ? '<span class="dash__tag dash__tag--sub">Subs</span>' : ''); };
+    $plat_icons = function (array $plats) {
+        $h = '';
+        foreach ($plats as $pl) { $h .= '<i class="' . AnalyticsModel::platform_icon($pl) . '" title="' . htmlspecialchars($pl === 'x' ? 'X' : ($pl === 'tiktok' ? 'TikTok' : ucfirst($pl)), ENT_QUOTES, 'UTF-8') . '"></i>'; }
+        return $h;
+    };
+    $bucket_label = array('delivered' => 'Delivered', 'pending' => 'Pending', 'failed' => 'Failed');
+    $plat_name = function ($pl) { $n = array('x' => 'X', 'tiktok' => 'TikTok', 'tiktok_business' => 'TikTok', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn'); return $n[$pl] ?? ucfirst((string) $pl); };
+    ?>
+    <section class="dash__tab-panel" data-panel="content">
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Content performance</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div></div>
+            <div class="dash__stats">
+                <?php foreach ($content_stats as $st): ?>
+                <div class="dash__stat">
+                    <span class="dash__stat-label"><?php echo htmlspecialchars($st[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="dash__stat-value"><?php echo $st[1]; ?></span>
+                    <span class="dash__stat-sub"><?php echo htmlspecialchars($st[2], ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+
+        <div class="dash__panel">
+            <div class="dash__panel-head">
+                <div><h2 class="dash__panel-title">All posts</h2><span class="dash__panel-sub"><?php echo $fmt_num(count($pt)); ?> published or scheduled · views column is <?php echo htmlspecialchars(strtolower($range_label), ENT_QUOTES, 'UTF-8'); ?>, the rest all-time</span></div>
+            </div>
+            <?php if (empty($pt)): ?>
+            <div class="dash__empty">No published posts yet. Publish from the Content Studio and every post shows up here with its views, engagement, unlocks, revenue, and where it was shared.</div>
+            <?php else: ?>
+            <div class="dash__table-wrap">
+            <table class="dash__table" id="dashPosts">
+                <thead>
+                    <tr>
+                        <th data-sort="text" class="dash__th--post">Post</th>
+                        <th data-sort="num">Views</th>
+                        <th data-sort="num">Likes</th>
+                        <th data-sort="num">Comments</th>
+                        <th data-sort="num">Engagement</th>
+                        <th data-sort="num">Unlocks</th>
+                        <th data-sort="num">Revenue</th>
+                        <th data-sort="num">Shared</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($pt as $p):
+                    $cap  = trim((string) $p['caption']);
+                    $when = $p['state'] === 'scheduled' ? 'Scheduled ' . $fmt_when((string) $p['scheduled_at']) : $fmt_when((string) $p['published_at']);
+                    $eng  = $p['engagement'];
+                    $ur   = $p['unlock_rate'];
+                ?>
+                    <tr>
+                        <td data-v="<?php echo htmlspecialchars(mb_strtolower($cap), ENT_QUOTES, 'UTF-8'); ?>">
+                            <a class="dash__cell-post" href="/studio">
+                                <span class="dash__row-title"><?php echo $cap !== '' ? htmlspecialchars(mb_substr($cap, 0, 56), ENT_QUOTES, 'UTF-8') : 'Untitled post'; ?></span>
+                                <span class="dash__row-meta"><?php echo $aud_tag($p['audience']); ?> <?php echo htmlspecialchars($when, ENT_QUOTES, 'UTF-8'); ?></span>
+                            </a>
+                        </td>
+                        <td data-v="<?php echo (int) $p['views_period']; ?>"><span class="dash__num"><?php echo $fmt_num($p['views_period']); ?></span><span class="dash__num-sub"><?php echo $fmt_num($p['views']); ?> all-time</span></td>
+                        <td data-v="<?php echo (int) $p['likes']; ?>"><span class="dash__num"><?php echo $fmt_num($p['likes']); ?></span></td>
+                        <td data-v="<?php echo (int) $p['comments']; ?>"><span class="dash__num"><?php echo $fmt_num($p['comments']); ?></span></td>
+                        <td data-v="<?php echo $eng === null ? -1 : $eng; ?>"><span class="dash__num"><?php echo $eng === null ? '—' : $eng . '%'; ?></span></td>
+                        <td data-v="<?php echo $p['audience'] === 'ppv' ? (int) $p['unlocks'] : -1; ?>">
+                            <?php if ($p['audience'] === 'ppv'): ?><span class="dash__num"><?php echo $fmt_num($p['unlocks']); ?></span><span class="dash__num-sub"><?php echo $ur === null ? 'no views yet' : $ur . '% of views'; ?></span><?php else: ?><span class="dash__num dash__num--na">—</span><?php endif; ?>
+                        </td>
+                        <td data-v="<?php echo (int) $p['earnings_cents']; ?>"><span class="dash__num<?php echo (int) $p['earnings_cents'] > 0 ? ' dash__num--money' : ' dash__num--na'; ?>"><?php echo (int) $p['earnings_cents'] > 0 ? $fmt_money($p['earnings_cents']) : '—'; ?></span></td>
+                        <td data-v="<?php echo count($p['platforms']); ?>"><span class="dash__plats<?php echo $p['share_status'] === 'failed' ? ' is-failed' : ($p['share_status'] === 'pending' ? ' is-pending' : ''); ?>"><?php echo empty($p['platforms']) ? '<span class="dash__num dash__num--na">—</span>' : $plat_icons($p['platforms']); ?></span></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="dash__cols">
+            <div class="dash__panel">
+                <div class="dash__panel-head">
+                    <div><h2 class="dash__panel-title">Cross-posting</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?> · by platform</span></div>
+                    <div class="dash__chart-total"><strong><?php echo $fmt_num($ss['targets']); ?></strong> shares</div>
+                </div>
+                <?php if ((int) $ss['targets'] === 0): ?>
+                <div class="dash__empty">Nothing cross-posted in this period. Pick accounts when you publish and each share is counted here.</div>
+                <?php else: $pmax = max(1, max($ss['per_platform'])); ?>
+                <div class="dash__break">
+                    <?php foreach ($ss['per_platform'] as $pl => $n): $pct = max(3, (int) round($n / $pmax * 100)); ?>
+                    <div class="dash__break-row">
+                        <span class="dash__break-label"><i class="<?php echo AnalyticsModel::platform_icon($pl); ?>"></i> <?php echo htmlspecialchars($plat_name($pl), ENT_QUOTES, 'UTF-8'); ?></span>
+                        <span class="dash__break-track"><span class="dash__break-fill is-on" style="width:<?php echo $pct; ?>%"></span></span>
+                        <span class="dash__break-val"><?php echo $fmt_num($n); ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="dash__buckets">
+                    <?php foreach ($bucket_label as $key => $lbl): ?>
+                    <span class="dash__bucket dash__bucket--<?php echo $key; ?>"><i class="fa-solid <?php echo $key === 'delivered' ? 'fa-circle-check' : ($key === 'failed' ? 'fa-circle-xmark' : 'fa-clock'); ?>"></i> <?php echo $fmt_num($ss['buckets'][$key]); ?> <?php echo strtolower($lbl); ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
+            <div class="dash__panel">
+                <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent shares</h2><span class="dash__panel-sub">social accounts</span></div></div>
+                <?php if (empty($ss['recent'])): ?>
+                <div class="dash__empty">No shares yet.</div>
+                <?php else: ?>
+                <div class="dash__list">
+                    <?php foreach ($ss['recent'] as $r): $cap = trim((string) $r['caption']); ?>
+                    <div class="dash__row dash__row--static">
+                        <span class="dash__row-main">
+                            <span class="dash__row-title"><?php echo $cap !== '' ? htmlspecialchars(mb_substr($cap, 0, 48), ENT_QUOTES, 'UTF-8') : 'Post removed'; ?></span>
+                            <span class="dash__row-meta"><span class="dash__bucket dash__bucket--<?php echo $r['bucket']; ?>"><?php echo $bucket_label[$r['bucket']]; ?></span> <?php echo htmlspecialchars($fmt_when($r['created_at']), ENT_QUOTES, 'UTF-8'); ?></span>
+                        </span>
+                        <span class="dash__plats"><?php echo $plat_icons($r['platforms']); ?></span>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
         </div>
     </section>
 

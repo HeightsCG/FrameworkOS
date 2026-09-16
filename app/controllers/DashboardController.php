@@ -52,6 +52,8 @@ class DashboardController extends Controller {
         $this->view->link_clicks       = $a->link_click_stats($user_id, $range, $tz);
         $this->view->heatmap           = $a->activity_heatmap($user_id, $tz);
         $this->view->content_mix       = $a->content_mix($user_id);
+        $this->view->posts_table       = $a->posts_table($user_id, $start_utc);
+        $this->view->share_stats       = $a->share_stats($user_id, $start_utc);
         $this->view->timezone          = $tz;
 
         $this->view->render();
