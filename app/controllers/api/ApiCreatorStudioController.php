@@ -968,7 +968,12 @@ class ApiCreatorStudioController extends BaseApiController {
             'assets'            => $out,
             'cover_display_url' => $cover_display,
             'cover_blurred_url' => $cover_blurred,
-            'shared_accounts'   => (new SocialPostsModel())->account_ids_for_post((int) $post['id']),
+            // Post for Me targets live in social_posts; a Fanvue mirror is recorded on the post row
+            // itself (fanvue_post_uuid), so add its pseudo account id or the composer forgets it on edit.
+            'shared_accounts'   => array_values(array_unique(array_merge(
+                (new SocialPostsModel())->account_ids_for_post((int) $post['id']),
+                !empty($post['fanvue_post_uuid']) ? [FanvueShareService::ACCOUNT_ID] : []
+            ))),
         ];
     }
 
@@ -1060,7 +1065,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) round($p['ppv_price_credits'] / 10) : null,
             'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
             'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'flagged'|'pending'|'ok'
-            'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']),
+            'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']) + (!empty($p['fanvue_post_uuid']) ? 1 : 0),
         ];
     }
 
