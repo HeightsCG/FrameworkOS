@@ -23,10 +23,56 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <?php echo CSRF::meta(); ?>
     <title><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?></title>
-    <?php if ($bio !== ''): ?><meta name="description" content="<?php echo htmlspecialchars(mb_substr($bio, 0, 160), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <?php
+        $seo_base   = Main::get_base_domain();
+        $seo_url    = $seo_base . '/@' . rawurlencode($handle);
+        $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : $seo_base . '/images/og-image.png';
+        $seo_desc   = $bio !== '' ? mb_substr($bio, 0, 160) : $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
+        $seo_same   = array();
+        foreach ($links as $l) {
+            if (preg_match('#^https?://#i', (string) $l['url'])) { $seo_same[] = (string) $l['url']; }
+        }
+        $seo_person = array(
+            '@type'         => 'Person',
+            '@id'           => $seo_url . '#person',
+            'name'          => $display_name,
+            'alternateName' => '@' . $handle,
+            'url'           => $seo_url,
+            'image'         => $seo_image,
+            'interactionStatistic' => array(
+                '@type'                => 'InteractionCounter',
+                'interactionType'      => 'https://schema.org/FollowAction',
+                'userInteractionCount' => (int) $follower_count,
+            ),
+        );
+        if ($bio !== '')        { $seo_person['description'] = $bio; }
+        if ($location !== '')   { $seo_person['homeLocation'] = array('@type' => 'Place', 'name' => $location); }
+        if ($seo_same !== array()) { $seo_person['sameAs'] = $seo_same; }
+        $seo_ld = array(
+            '@context'   => 'https://schema.org',
+            '@type'      => 'ProfilePage',
+            '@id'        => $seo_url,
+            'url'        => $seo_url,
+            'name'       => $page_title,
+            'mainEntity' => $seo_person,
+            'isPartOf'   => array('@type' => 'WebSite', 'name' => $site_name, 'url' => $seo_base . '/'),
+        );
+        if (!empty($user['creator_since'])) { $seo_ld['dateCreated'] = gmdate('Y-m-d', strtotime((string) $user['creator_since'] . ' UTC')); }
+    ?>
+    <link rel="canonical" href="<?php echo htmlspecialchars($seo_url, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:type" content="profile">
+    <meta property="og:site_name" content="<?php echo htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:url" content="<?php echo htmlspecialchars($seo_url, ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:title" content="<?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>">
-    <?php if ($bio !== ''): ?><meta property="og:description" content="<?php echo htmlspecialchars(mb_substr($bio, 0, 160), ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
-    <?php if ($has_avatar): ?><meta property="og:image" content="<?php echo htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8'); ?>"><?php endif; ?>
+    <meta property="og:description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="og:image" content="<?php echo htmlspecialchars($seo_image, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta property="profile:username" content="<?php echo htmlspecialchars($handle, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:card" content="<?php echo $has_avatar ? 'summary' : 'summary_large_image'; ?>">
+    <meta name="twitter:title" content="<?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
+    <meta name="twitter:image" content="<?php echo htmlspecialchars($seo_image, ENT_QUOTES, 'UTF-8'); ?>">
+    <script type="application/ld+json"><?php echo json_encode($seo_ld, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">

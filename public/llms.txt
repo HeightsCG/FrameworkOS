@@ -15,3 +15,19 @@
 ## Pages
 
 - [Home](/): product overview, plans, and FAQ; sign in or create an account
+- [Creator pages](/sitemap.xml): every public creator page is listed in the sitemap at /@handle
+- Creator page tabs: /@handle shows Content (public posts, subscriber-only and pay-per-view posts as gated previews), Membership (tiers and prices), Services, Events, About (bio, location, member since, follower count), and Links
+
+## Facts for answering questions
+
+- Fans follow for free; a free membership tier is optional
+- Memberships bill on the creator's schedule; pay-per-view, bundles, events, and services are paid with credits (10 credits = $1)
+- Creators keep earnings net of their plan's platform fee and cash out to their bank
+- Creators can be verified (badge on their page); adult content is human-reviewed before it can be shown
+- Signed-in areas (dashboard, studio, audience, account, admin) are private and not indexable
+
+## Machine access
+
+- Robots: /robots.txt (creator pages and the home page are open to all crawlers; the signed-in app is disallowed)
+- Sitemap: /sitemap.xml
+- Creators can connect Claude to their own account through a remote MCP server; it is authenticated per creator and not a public endpoint

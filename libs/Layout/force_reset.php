@@ -4,6 +4,7 @@
 <?php include __DIR__ . '/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
     <?php echo CSRF::meta(); ?>
     <title>Change password &middot; <?php echo Main::site_name(); ?></title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">

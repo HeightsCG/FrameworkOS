@@ -114,6 +114,27 @@ class UsersModel extends Model {
         );
     }
 
+    /** Live creator handles for the public sitemap: verified, active, not deleted. */
+    public function list_public_creators(){
+        return parent::select(
+            "SELECT
+                u.u_name,
+                GREATEST(COALESCE(u.updated_at, u.created_at), COALESCE(p.updated_at, u.created_at)) AS last_modified
+            FROM
+                user_accounts u
+                JOIN user_roles r ON r.id = u.role_id
+                LEFT JOIN creator_profiles p ON p.user_id = u.user_id
+            WHERE
+                r.role_name = 'Creator'
+                AND u.deleted = 0
+                AND u.user_status = 'Active'
+                AND u.email_verified = 1
+                AND u.u_name <> ''
+            ORDER BY
+                u.u_name"
+        );
+    }
+
     public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $business_name, $website_url, $updated_by=0){
         return parent::update(
             'user_accounts',

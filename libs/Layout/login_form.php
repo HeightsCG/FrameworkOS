@@ -16,6 +16,7 @@
     <title><?php echo $seo_title; ?></title>
     <meta name="description" content="<?php echo $seo_desc; ?>">
     <link rel="canonical" href="<?php echo $seo_base; ?>/">
+    <link rel="sitemap" type="application/xml" href="/sitemap.xml">
     <meta name="theme-color" content="#eef0f4">
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="<?php echo $seo_site; ?>">

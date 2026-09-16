@@ -36,8 +36,16 @@ class Bootstrap
             return;
         }
 
+        // Crawler endpoints: generated so absolute URLs match the served host.
+        if (isset($url[0]) && ($url[0] === 'robots.txt' || $url[0] === 'sitemap.xml')) {
+            $seo = new SeoController();
+            $url[0] === 'robots.txt' ? $seo->robotsAction() : $seo->sitemapAction();
+            return;
+        }
+
         // Outbound link click-through: /go/<id> records the click then redirects.
         if (isset($url[0]) && $url[0] === 'go') {
+            header('X-Robots-Tag: noindex');
             (new GoController())->indexAction();
             return;
         }
@@ -45,6 +53,7 @@ class Bootstrap
         // Remote MCP connector: /mcp and /mcp/<token> both dispatch to the same
         // handler (the trailing segment is an auth-token fallback, not a method).
         if (isset($url[0]) && $url[0] === 'mcp') {
+            header('X-Robots-Tag: noindex');
             (new McpController())->indexAction();
             return;
         }
@@ -52,6 +61,7 @@ class Bootstrap
         // JSON API: /api/<action>. The action name picks the Api*Controller (see ApiRoutes);
         // URLs and action names are unchanged from the old monolithic ApiController.
         if (isset($url[0]) && $url[0] === 'api') {
+            header('X-Robots-Tag: noindex');
             $action = isset($url[1]) ? strtolower(preg_replace('/[^A-Za-z0-9_]/', '', $url[1])) : '';
             $class  = ($action !== '') ? ApiRoutes::controller_for($action) : null;
             $method = $action . 'Action';
