@@ -139,4 +139,128 @@ class ApiInfluencersController extends BaseApiController {
         if ($role !== '' && !in_array($role, InfluencerImagesModel::ROLES, true)) { $role = ''; }
         $this->jsonSuccess(['images' => InfluencerService::images_json($cid, (int) $infl['id'], $role)]);
     }
+
+    /* ---- uploads (Path A photos, Path B face photo) ---- */
+
+    /**
+     * One image per request (FormData `file`), attached to the influencer with role
+     * upload | face. Uploads are never watermarked (they are training data).
+     */
+    public function influencer_uploadAction(){
+        @ini_set('memory_limit', '512M');
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $role = (($this->post['role'] ?? 'upload') === 'face') ? 'face' : 'upload';
+        if (!S3Service::configured()) { $this->jsonError('Uploads are unavailable right now. Please try again shortly.'); }
+        if (!empty($infl['pending_model_id'])) { $this->jsonError('Training is in progress. Wait for it to finish before changing her photos.'); }
+
+        $file = $_FILES['file'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            $this->jsonError('No file was received. Please pick a file and try again.');
+        }
+        $finfo = new finfo(FILEINFO_MIME_TYPE);
+        $mime  = (string) $finfo->file($file['tmp_name']);
+        $types = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp');
+        if (!isset($types[$mime])) { $this->jsonError('That file type is not supported here. Use JPG, PNG, or WebP.'); }
+        if ((int) $file['size'] > MediaLimits::MAX_IMAGE_BYTES) { $this->jsonError('That image is too large. Images can be up to 15 MB.'); }
+        $gb = Plan::limit($user, 'storage_gb');
+        if ($gb !== null && (int) $gb > 0 && ((int) (new MediaAssetsModel())->total_bytes($cid) + (int) $file['size']) > (int) $gb * 1073741824) {
+            $this->jsonError("You've reached your plan's storage limit. Upgrade or remove files to free up space.", ['need_upgrade' => true]);
+        }
+        $im  = new InfluencerImagesModel();
+        $max = (int) InfluencerConfig::get('training_max_photos', 50);
+        if ($role === 'upload' && $im->count_role($cid, $infl['id'], 'upload') >= $max) {
+            $this->jsonError('You can upload up to ' . $max . ' photos. Remove one to add another.');
+        }
+        $bytes = (string) @file_get_contents($file['tmp_name']);
+        if ($bytes === '') { $this->jsonError('Could not read the file. Please try again.'); }
+        try {
+            $r = MediaIngestService::ingest_image($cid, $user, $bytes, $types[$mime], $mime, $infl['name'] . ' · ' . ($role === 'face' ? 'face' : 'photo'), false);
+        } catch (\Throwable $e) {
+            $this->jsonError($e->getMessage());
+        }
+        $aid = (int) $r['asset_id'];
+        (new MediaAssetsModel())->set_tags($cid, $aid, 'influencer:' . (int) $infl['id'] . ',' . $role);
+        if ($role === 'face') {
+            // A face photo replaces the previous one and becomes the reference for the training set.
+            if (!empty($infl['face_asset_id'])) { $im->detach($cid, $infl['id'], $infl['face_asset_id']); }
+            $im->attach($infl['id'], $cid, $aid, 'face', null, 0, 0);
+            (new InfluencersModel())->update_fields($cid, $infl['id'], array('face_asset_id' => $aid, 'reference_asset_id' => $aid, 'input_method' => 'face_photo'));
+        } else {
+            $im->attach($infl['id'], $cid, $aid, 'upload', null, 0, $im->count_role($cid, $infl['id'], 'upload') + 1);
+        }
+        $images = InfluencerService::images_json($cid, (int) $infl['id'], $role);
+        $mine = null;
+        foreach ($images as $x) { if ((int) $x['id'] === $aid) { $mine = $x; break; } }
+        $this->jsonSuccess(['image' => $mine, 'count' => count($images)]);
+    }
+
+    /** Detach an uploaded/training image from the influencer (the library asset is kept). */
+    public function influencer_image_removeAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!empty($infl['pending_model_id'])) { $this->jsonError('Training is in progress. Wait for it to finish before changing her photos.'); }
+        $aid  = (int) ($this->post['asset_id'] ?? 0);
+        $im   = new InfluencerImagesModel();
+        $link = $im->get_link($cid, $infl['id'], $aid);
+        if (!$link) { $this->jsonError('That image is not attached to her.'); }
+        if ((string) $link['role'] === 'training') {
+            $im->set_excluded($cid, $infl['id'], $aid, 1);   // generated slots are excluded, not detached, so the job history stays intact
+        } else {
+            $im->detach($cid, $infl['id'], $aid);
+        }
+        $f = array();
+        if ((int) $infl['face_asset_id'] === $aid) { $f['face_asset_id'] = null; }
+        if ((int) $infl['reference_asset_id'] === $aid) { $f['reference_asset_id'] = null; }
+        if (!empty($f)) { (new InfluencersModel())->update_fields($cid, $infl['id'], $f); }
+        $this->jsonSuccess(['count' => $im->count_role($cid, $infl['id'], (string) $link['role'])]);
+    }
+
+    /* ---- training ---- */
+
+    /**
+     * Start training (or a retrain). Photos path: every ready upload; reference path: the
+     * complete training set. A retrain keeps the active model until the new one succeeds.
+     */
+    public function influencer_trainAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        if (!empty($infl['pending_model_id'])) { $this->jsonError('A training run is already in progress.'); }
+        $im = new InfluencerImagesModel();
+        if ((string) $infl['path'] === 'reference') {
+            $size = (int) InfluencerConfig::get('training_set_size', 10);
+            if (empty($infl['reference_asset_id'])) { $this->jsonError('Approve a reference image first.'); }
+            $ids = $im->ready_asset_ids($cid, $infl['id'], 'training');
+            if (count($ids) < $size) { $this->jsonError('The training set is not complete yet (' . count($ids) . ' of ' . $size . ').'); }
+            $ids = array_slice($ids, 0, max($size, count($ids)));
+        } else {
+            $ids = $im->ready_asset_ids($cid, $infl['id'], 'upload');
+            $min = (int) InfluencerConfig::get('training_min_photos', 10);
+            $max = (int) InfluencerConfig::get('training_max_photos', 50);
+            if (count($ids) < $min) { $this->jsonError('Upload at least ' . $min . ' photos to train (you have ' . count($ids) . ').'); }
+            if (count($ids) > $max) { $this->jsonError('Training accepts at most ' . $max . ' photos. Remove some to continue.'); }
+        }
+        $r = InfluencerTrainingService::start($cid, $infl, $ids, 'wizard');
+        if (empty($r['ok'])) { $this->jsonError((string) $r['error']); }
+        $this->jsonSuccess(['job_id' => (int) $r['job_id'], 'model_id' => (int) $r['model_id'],
+            'influencer' => InfluencerService::influencer_json($cid, (new InfluencersModel())->get_one($cid, $infl['id']))]);
+    }
+
+    /** Trained models for an influencer (history), newest first. */
+    public function influencer_modelsAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $out = array();
+        foreach ((new InfluencerModelsModel())->list_for_influencer($cid, $infl['id']) as $m) {
+            $out[] = array('id' => (int) $m['id'], 'status' => (string) $m['status'], 'is_active' => (int) $m['is_active'], 'trigger_word' => (string) $m['trigger_word'],
+                'provider' => (string) $m['provider'], 'steps' => (int) $m['steps'], 'image_count' => (int) $m['image_count'], 'error' => (string) $m['error'],
+                'created_at' => (string) $m['created_at'], 'trained_at' => (string) $m['trained_at']);
+        }
+        $this->jsonSuccess(['models' => $out]);
+    }
 }

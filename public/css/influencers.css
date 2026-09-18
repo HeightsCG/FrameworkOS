@@ -119,6 +119,36 @@
 .inf-opt__p{ font-size:.78rem; color:var(--muted); line-height:1.35; }
 .inf-opt.is-on .inf-opt__t{ color:var(--violet7); }
 
+/* uploads (Path A photos, face photo) */
+.inf-drop{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.3rem; text-align:center; padding:1.6rem 1rem; border:1px dashed var(--muted2); border-radius:8px; color:var(--t2); font-size:.9rem; transition:border-color .12s, background .12s; }
+.inf-drop i{ font-size:1.4rem; color:var(--muted2); margin-bottom:.2rem; }
+.inf-drop small{ color:var(--muted); font-size:.78rem; }
+.inf-drop.is-dragover{ border-color:var(--violet); background:var(--vsoft); }
+.inf-drop.is-full{ opacity:.5; pointer-events:none; }
+.inf-link{ background:none; border:none; padding:0; color:var(--violet); font-weight:600; cursor:pointer; font-size:inherit; }
+.inf-link:hover{ color:var(--violet7); text-decoration:underline; }
+.inf-counter{ margin:1rem 0 .8rem; }
+.inf-counter__row{ display:flex; align-items:baseline; gap:.4rem; font-size:.86rem; color:var(--muted); }
+.inf-counter__n{ font-size:1.1rem; font-weight:700; color:var(--text); }
+.inf-counter__bar{ height:5px; border-radius:var(--r-pill); background:var(--line); margin-top:.4rem; overflow:hidden; }
+.inf-counter__fill{ height:100%; width:0; background:var(--violet); border-radius:var(--r-pill); transition:width .2s; }
+.inf-counter__fill.is-met{ background:var(--success); }
+.inf-photos{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:.6rem; }
+.inf-photos--sm{ grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:.45rem; margin-top:1rem; }
+.inf-photo{ position:relative; aspect-ratio:1/1; border-radius:var(--r-sm); overflow:hidden; background:#eceaf6; border:1px solid var(--line); }
+.inf-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
+.inf-photo__rm{ position:absolute; right:.3rem; top:.3rem; width:24px; height:24px; border-radius:50%; border:none; background:rgba(12,10,25,.6); color:#fff; font-size:.75rem; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .12s, background .12s; }
+.inf-photo:hover .inf-photo__rm, .inf-photo:focus-within .inf-photo__rm{ opacity:1; }
+.inf-photo__rm:hover{ background:var(--danger); }
+.inf-photo--up{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.4rem; padding:.6rem; }
+.inf-photo__bar{ width:70%; height:4px; border-radius:var(--r-pill); background:var(--line); overflow:hidden; }
+.inf-photo__fill{ height:100%; width:0; background:var(--violet); transition:width .2s; }
+.inf-photo__st{ font-size:.72rem; color:var(--muted); text-align:center; }
+.inf-photo.is-failed{ background:var(--danger-bg); cursor:pointer; }
+.inf-photo.is-failed .inf-photo__st{ color:var(--danger); }
+.inf-summary{ display:flex; flex-wrap:wrap; gap:.5rem 1.6rem; font-size:.9rem; color:var(--muted); }
+.inf-summary strong{ color:var(--text); font-weight:700; }
+
 /* training progress / done panels */
 .inf-progress{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:2rem 1rem; gap:.5rem; }
 .inf-progress__ic{ width:56px; height:56px; border-radius:50%; background:var(--vsoft); color:var(--violet); display:flex; align-items:center; justify-content:center; font-size:1.3rem; }

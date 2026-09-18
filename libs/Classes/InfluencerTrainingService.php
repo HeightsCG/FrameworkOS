@@ -166,8 +166,9 @@ class InfluencerTrainingService {
         if (!$row) { throw new RuntimeException('Model record ' . $model_id . ' is missing'); }
         if ((string) $row['status'] === 'ready') { return $model_id; }   // already landed (repeat callback)
 
-        $url = (string) $lora['url'];
-        if (!FalProvider::output_url_allowed($url)) { throw new RuntimeException('Weights URL is not from the provider'); }
+        $url   = (string) $lora['url'];
+        $class = InfluencerConfig::provider_class((string) $job['provider']);
+        if ($class === '' || !$class::output_url_allowed($url)) { throw new RuntimeException('Weights URL is not from the provider'); }
         $tmp = tempnam(sys_get_temp_dir(), 'infllora');
         $max = (int) InfluencerConfig::get('training_lora_max_bytes', 536870912);
         $bytes = self::download_to_file($url, $tmp, $max);

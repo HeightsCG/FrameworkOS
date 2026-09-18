@@ -266,7 +266,10 @@ class InfluencerConfig {
         }
     }
 
+    /** Rendering is available once a provider key is configured (infl_enabled=1 forces it on). */
     public static function enabled(){
+        $force = self::ini('enabled');
+        if ($force !== null) { return (string) $force === '1'; }
         $cfg = Main::get_config();
         return trim((string) ($cfg['global']['fal_api_key'] ?? '')) !== '';
     }

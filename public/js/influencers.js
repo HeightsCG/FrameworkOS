@@ -235,7 +235,111 @@ jQuery(function ($) {
             api('influencer_save_step', { id: inf.id, step: prev }, function (o) { if (o && o.success) { inf = o.influencer; show(prev); } else { err(o); } });
         }
 
-        var RENDER = { name: render_name, training: render_training, done: render_done };
+        /* --- Path A: Photos (10 to 50 uploads) --- */
+        var photos = [];              // images_json rows for role upload
+        var upload_queue = [], upload_active = 0, UPLOAD_PAR = 3;
+
+        function photos_load(cb) {
+            api('influencer_images', { id: inf.id, role: 'upload' }, function (o) { photos = (o && o.success) ? (o.images || []) : []; if (cb) { cb(); } });
+        }
+        function photo_tile(img) {
+            var $t = $('<div class="inf-photo">').attr('data-id', img.id);
+            $t.append('<img src="' + esc(img.thumb_url) + '" alt="" loading="lazy">');
+            $t.append('<button type="button" class="inf-photo__rm" title="Remove"><i class="fa-solid fa-xmark"></i></button>');
+            $t.find('.inf-photo__rm').on('click', function () {
+                api('influencer_image_remove', { id: inf.id, asset_id: img.id }, function (o) {
+                    if (!o || !o.success) { err(o); return; }
+                    photos = photos.filter(function (p) { return p.id !== img.id; });
+                    $t.remove(); photos_counter();
+                });
+            });
+            return $t;
+        }
+        function photos_counter() {
+            var n = photos.length, min = LIM.min_photos, max = LIM.max_photos;
+            $('#inf_count').text(n);
+            $('#inf_count_bar').css('width', Math.min(100, n / min * 100) + '%').toggleClass('is-met', n >= min);
+            $('#inf_count_txt').text(n >= min ? (n + ' of ' + max + ' max') : (n + ' of ' + min + ' minimum'));
+            $('#inf_photos_next').prop('disabled', n < min);
+            $('#inf_drop').toggleClass('is-full', n >= max);
+        }
+        function upload_start(file) {
+            if (photos.length + upload_queue.length + upload_active >= LIM.max_photos) { toastr.info('Up to ' + LIM.max_photos + ' photos'); return; }
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toastr.error(file.name + ': use JPG, PNG or WebP'); return; }
+            var $t = $('<div class="inf-photo inf-photo--up">').append('<div class="inf-photo__bar"><div class="inf-photo__fill"></div></div><span class="inf-photo__st">Waiting</span>');
+            $('#inf_photos').append($t);
+            upload_queue.push({ file: file, $t: $t });
+            upload_pump();
+        }
+        function upload_pump() {
+            while (upload_active < UPLOAD_PAR && upload_queue.length) {
+                var job = upload_queue.shift();
+                upload_active++;
+                upload_one(job.file, job.$t);
+            }
+        }
+        function upload_one(file, $t) {
+            var fd = new FormData(); fd.append('file', file); fd.append('id', inf.id); fd.append('role', 'upload');
+            $t.find('.inf-photo__st').text('Uploading');
+            $.ajax({ url: '/api/influencer_upload', method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false,
+                xhr: function () { var x = $.ajaxSettings.xhr(); if (x.upload) { x.upload.addEventListener('progress', function (e) { if (e.lengthComputable) { $t.find('.inf-photo__fill').css('width', (e.loaded / e.total * 90) + '%'); } }); } return x; } })
+                .done(function (o) {
+                    if (o && o.success && o.image) { photos.push(o.image); $t.replaceWith(photo_tile(o.image)); }
+                    else { $t.addClass('is-failed').find('.inf-photo__st').text((o && o.message) || 'Failed'); $t.on('click', function () { $t.remove(); }); }
+                })
+                .fail(function () { $t.addClass('is-failed').find('.inf-photo__st').text('Upload failed'); $t.on('click', function () { $t.remove(); }); })
+                .always(function () { upload_active--; photos_counter(); upload_pump(); });
+        }
+        function render_photos() {
+            var html = '<h2 class="inf-wiz__h">Add her photos</h2>' +
+                '<p class="inf-wiz__p">Different angles, expressions and lighting, sharp and well lit, only her in frame.</p>' +
+                '<div class="inf-drop" id="inf_drop"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Drop photos here</strong> or <button type="button" class="inf-link" id="inf_pick">choose files</button></span><small>JPG, PNG or WebP, up to 15 MB each</small></div>' +
+                '<input type="file" id="inf_files" accept="image/jpeg,image/png,image/webp" multiple hidden>' +
+                '<div class="inf-counter"><div class="inf-counter__row"><span class="inf-counter__n" id="inf_count">0</span><span class="inf-counter__t" id="inf_count_txt"></span></div><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_count_bar"></div></div></div>' +
+                '<div class="inf-photos" id="inf_photos"></div>' +
+                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_photos_back">Back</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_photos_next" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
+            $('#inf_panel').html(html);
+            photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append(photo_tile(img)); }); photos_counter(); });
+            $('#inf_pick').on('click', function () { $('#inf_files').trigger('click'); });
+            $('#inf_files').on('change', function () { Array.prototype.slice.call(this.files).forEach(upload_start); this.value = ''; });
+            var $drop = $('#inf_drop');
+            $drop.on('dragover', function (e) { e.preventDefault(); $drop.addClass('is-dragover'); })
+                 .on('dragleave drop', function () { $drop.removeClass('is-dragover'); })
+                 .on('drop', function (e) { e.preventDefault(); var f = e.originalEvent.dataTransfer.files; Array.prototype.slice.call(f).forEach(upload_start); });
+            $('#inf_photos_back').on('click', function () { go_back('photos'); });
+            $('#inf_photos_next').on('click', function () {
+                api('influencer_save_step', { id: inf.id, step: 'train' }, function (o) { if (o && o.success) { inf = o.influencer; show('train'); } else { err(o); } });
+            });
+        }
+
+        /* --- Path A: Train (review + one action) --- */
+        function render_train() {
+            var retrain = inf.active_model_id > 0;
+            var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' : 'Train ') + esc(inf.name) + '</h2>' +
+                '<p class="inf-wiz__p">' + (retrain ? 'Her current model keeps working until the new one finishes. ' : '') + 'Training takes a few minutes and runs once; afterwards she generates on demand.</p>' +
+                '<div class="inf-summary"><span><strong id="inf_train_n">…</strong> photos</span><span><strong>' + money(C.training_cost_usd) + '</strong> estimated</span><span><strong>' + esc(LIM.steps) + '</strong> steps</span></div>' +
+                '<div class="inf-photos inf-photos--sm" id="inf_train_grid"></div>' +
+                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_train_back">Back</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_train_go" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
+            $('#inf_panel').html(html);
+            photos_load(function () {
+                $('#inf_train_n').text(photos.length);
+                photos.forEach(function (img) { $('#inf_train_grid').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
+                $('#inf_train_go').prop('disabled', photos.length < LIM.min_photos || !C.enabled);
+                if (!C.enabled) { toastr.info('Rendering is not configured yet'); }
+            });
+            $('#inf_train_back').on('click', function () { if (retrain) { window.location = '/influencers'; } else { go_back('train'); } });
+            $('#inf_train_go').on('click', function () {
+                var $b = $(this).prop('disabled', true);
+                api('influencer_train', { id: inf.id }, function (o) {
+                    if (o && o.success) { inf = o.influencer; toastr.success('Training started'); show('training'); }
+                    else { err(o); $b.prop('disabled', false); }
+                });
+            });
+        }
+
+        var RENDER = { name: render_name, photos: render_photos, train: render_train, training: render_training, done: render_done };
         window.INF_WIZ = { register: function (step, fn) { RENDER[step] = fn; }, get: function () { return inf; }, set: function (v) { inf = v; }, show: function (s) { show(s); }, back: go_back, steps: visible_steps, path: function () { return path; } };
 
         function show(step) {
@@ -256,6 +360,7 @@ jQuery(function ($) {
                         .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
                 });
             }
+            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'train' : 'review'); return; }
             show(inf.wizard_step || 'name');
         }
     }
