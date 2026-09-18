@@ -149,6 +149,20 @@
 .inf-summary{ display:flex; flex-wrap:wrap; gap:.5rem 1.6rem; font-size:.9rem; color:var(--muted); }
 .inf-summary strong{ color:var(--text); font-weight:700; }
 
+/* reference candidates, training-set slots */
+.inf-ref{ margin-top:1rem; }
+.inf-ref__row{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.35rem; }
+.inf-ref__row .inf-photo{ width:132px; }
+.inf-photo--pick{ padding:0; cursor:pointer; }
+.inf-photo.is-on{ outline:2px solid var(--violet); outline-offset:-2px; }
+.inf-setprog{ display:flex; align-items:center; gap:1rem; margin:.2rem 0 .9rem; }
+.inf-setprog__n{ font-size:.9rem; color:var(--muted); white-space:nowrap; }
+.inf-setprog__n strong{ font-size:1.1rem; color:var(--text); }
+.inf-setprog .inf-counter__bar{ flex:1; margin:0; }
+.inf-slot__st{ font-size:.74rem; color:var(--danger); display:flex; align-items:center; gap:.3rem; }
+.inf-slot__retry{ font-size:.78rem; }
+.inf-photo.is-failed{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.35rem; cursor:default; }
+
 /* training progress / done panels */
 .inf-progress{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:2rem 1rem; gap:.5rem; }
 .inf-progress__ic{ width:56px; height:56px; border-radius:50%; background:var(--vsoft); color:var(--violet); display:flex; align-items:center; justify-content:center; font-size:1.3rem; }

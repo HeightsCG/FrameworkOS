@@ -263,4 +263,151 @@ class ApiInfluencersController extends BaseApiController {
         }
         $this->jsonSuccess(['models' => $out]);
     }
+
+    /* ---- Path B: reference image, training set ---- */
+
+    /** Generate one reference image from the description (text input). Returns the job id to poll. */
+    public function influencer_reference_generateAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        if ((string) $infl['path'] !== 'reference') { $this->jsonError('This influencer is trained from photos.'); }
+        $f = array();
+        if (isset($this->post['source_description'])) { $f['source_description'] = $this->text('source_description', 2000); }
+        if (isset($this->post['reference_model_key'])) {
+            $mk = InfluencerConfig::resolve_model('reference', (string) $this->post['reference_model_key']);
+            $f['reference_model_key'] = $mk ? (string) $mk['key'] : '';
+        }
+        $f['input_method'] = 'text';
+        (new InfluencersModel())->update_fields($cid, $infl['id'], $f);
+        $infl = $this->owned($cid, $infl['id']);
+        $desc = trim((string) $infl['source_description']);
+        if ($desc === '') { $this->jsonError('Describe her face first.'); }
+        $model = InfluencerConfig::resolve_model('reference', (string) $infl['reference_model_key']);
+        if (!$model) { $this->jsonError('No reference model is configured.'); }
+        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
+            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $desc,
+            'params' => array('image_size' => 'square', 'num_images' => 1, 'level' => 'safe'),
+        ));
+        if ($job_id <= 0) { $this->jsonError('Could not start the reference image.'); }
+        $this->jsonSuccess(['job_id' => $job_id]);
+    }
+
+    /** Approve a reference (a generated candidate or the uploaded face photo). */
+    public function influencer_reference_pickAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $aid  = (int) ($this->post['asset_id'] ?? 0);
+        $link = (new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid);
+        if (!$link || !in_array((string) $link['role'], array('reference', 'face'), true)) { $this->jsonError('Pick one of her reference images.'); }
+        $a = (new MediaAssetsModel())->get_one($cid, $aid);
+        if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That image is not ready yet.'); }
+        $m = new InfluencersModel();
+        $m->update_fields($cid, $infl['id'], array('reference_asset_id' => $aid, 'wizard_step' => 'set'));
+        $m->transition($infl['id'], array('status' => 'draft'), "status = 'awaiting_reference'");
+        $this->jsonSuccess(['influencer' => InfluencerService::influencer_json($cid, $m->get_one($cid, $infl['id']))]);
+    }
+
+    /** Create the 10-image training set from the approved reference (one job per image, seeds recorded). */
+    public function influencer_training_set_startAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        if (empty($infl['reference_asset_id'])) { $this->jsonError('Approve a reference image first.'); }
+        if (!empty($infl['pending_model_id'])) { $this->jsonError('Training is in progress.'); }
+        $m = new InfluencersModel();
+        if (isset($this->post['steer_text'])) { $m->update_fields($cid, $infl['id'], array('steer_text' => $this->text('steer_text', 1000))); $infl = $this->owned($cid, $infl['id']); }
+        $model = InfluencerConfig::resolve_model('training_set', '');
+        if (!$model) { $this->jsonError('No training-set model is configured.'); }
+        $size  = (int) InfluencerConfig::get('training_set_size', 10);
+        $steer = trim((string) $infl['steer_text']);
+        // Any earlier set is superseded: its images are excluded so only the current set trains.
+        $im = new InfluencerImagesModel();
+        if (!empty($infl['training_set_group'])) {
+            foreach ($im->list_for_influencer($cid, $infl['id'], 'training') as $old) { $im->set_excluded($cid, $infl['id'], $old['id'], 1); }
+        }
+        $group = 'ts_' . (int) $infl['id'] . '_' . bin2hex(random_bytes(4));
+        $m->update_fields($cid, $infl['id'], array('training_set_group' => $group, 'wizard_step' => 'set'));
+        $vars = InfluencerService::TRAINING_VARIATIONS;
+        $ids  = array();
+        for ($i = 1; $i <= $size; $i++) {
+            $prompt = $vars[($i - 1) % count($vars)] . ($steer !== '' ? ', ' . $steer : '');
+            $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
+                'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
+                'group_key' => $group, 'group_index' => $i,
+                'params' => array('aspect_ratio' => '1:1', 'num_images' => 1, 'level' => 'safe', 'image_size' => 'square'),
+            ));
+        }
+        $this->jsonSuccess(['group_key' => $group, 'job_ids' => $ids]);
+    }
+
+    /** Progress of the current training set: counts + every slot with its image or error. */
+    public function influencer_training_set_statusAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $this->jsonSuccess($this->training_set_payload($cid, $infl));
+    }
+
+    private function training_set_payload($cid, array $infl){
+        $group = (string) ($infl['training_set_group'] ?? '');
+        $size  = (int) InfluencerConfig::get('training_set_size', 10);
+        if ($group === '') { return array('group_key' => '', 'size' => $size, 'done' => 0, 'failed' => 0, 'active' => 0, 'slots' => array(), 'complete' => false); }
+        $jobs = new InfluencerJobsModel();
+        $mm   = new MediaAssetsModel();
+        $slots = array(); $done = 0; $failed = 0; $active = 0;
+        foreach ($jobs->list_group($group) as $j) {
+            $slot = array('job_id' => (int) $j['id'], 'index' => (int) $j['group_index'], 'status' => (string) $j['status'], 'wait_reason' => (string) $j['wait_reason'],
+                'seed' => (int) $j['seed'], 'prompt' => (string) $j['prompt'], 'error' => (string) $j['error'], 'asset_id' => 0, 'thumb_url' => '', 'display_url' => '');
+            $aid = (int) $j['result_asset_id'];
+            if ((string) $j['status'] === 'done' && $aid > 0) {
+                $a = $mm->get_one($cid, $aid);
+                if ($a && (string) $a['status'] === 'ready') {
+                    $slot['asset_id'] = $aid; $slot['thumb_url'] = MediaService::signed_url($a, 'thumb', $cid); $slot['display_url'] = MediaService::signed_url($a, 'display', $cid);
+                    $done++;
+                } else { $slot['status'] = 'failed'; $slot['error'] = 'Image is not ready'; $failed++; }
+            } elseif (in_array((string) $j['status'], array('failed', 'cancelled'), true)) { $failed++; }
+            else { $active++; }
+            $slots[] = $slot;
+        }
+        usort($slots, function ($a, $b) { return $a['index'] <=> $b['index']; });
+        return array('group_key' => $group, 'size' => $size, 'done' => $done, 'failed' => $failed, 'active' => $active, 'slots' => $slots, 'complete' => ($done >= $size));
+    }
+
+    /** Retry a failed slot (same prompt + seed) or regenerate a finished one (new seed). */
+    public function influencer_training_set_retryAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!empty($infl['pending_model_id'])) { $this->jsonError('Training is in progress.'); }
+        $jobs = new InfluencerJobsModel();
+        $job  = $jobs->get_one($cid, (int) ($this->post['job_id'] ?? 0));
+        if (!$job || (int) $job['influencer_id'] !== (int) $infl['id'] || (string) $job['group_key'] !== (string) $infl['training_set_group']) { $this->jsonError('That slot is not part of her current set.'); }
+        if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
+            $r = InfluencerJobService::retry($cid, (int) $job['id']);
+            if (empty($r['ok'])) { $this->jsonError((string) $r['error']); }
+            $this->jsonSuccess(['job_id' => (int) $job['id']]);
+        }
+        if ((string) $job['status'] !== 'done') { $this->jsonError('That image is still generating.'); }
+        $new_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
+            'origin' => 'wizard', 'model_key' => (string) $job['model_key'], 'prompt' => (string) $job['prompt'], 'input_asset_id' => (int) $job['input_asset_id'],
+            'group_key' => (string) $job['group_key'], 'group_index' => (int) $job['group_index'], 'params' => InfluencerJobsModel::params($job),
+        ));
+        if ($new_id <= 0) { $this->jsonError('Could not regenerate that image.'); }
+        $jobs->set_superseded((int) $job['id'], $new_id);
+        if (!empty($job['result_asset_id'])) { (new InfluencerImagesModel())->set_excluded($cid, $infl['id'], (int) $job['result_asset_id'], 1); }
+        $this->jsonSuccess(['job_id' => $new_id]);
+    }
+
+    /** One job with its landed assets (polling from the wizard / generate pages). */
+    public function influencer_job_getAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $job  = (new InfluencerJobsModel())->get_one($cid, (int) ($this->post['job_id'] ?? 0));
+        if (!$job) { $this->jsonError('Job not found.'); }
+        $this->jsonSuccess(['job' => InfluencerJobService::job_json($cid, $job)]);
+    }
 }

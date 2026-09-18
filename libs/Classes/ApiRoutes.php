@@ -82,6 +82,8 @@ class ApiRoutes {
         'ApiInfluencersController' => [
             'influencer_list', 'influencer_get', 'influencer_create', 'influencer_save_step', 'influencer_delete', 'influencer_name_suggest',
             'influencer_images', 'influencer_upload', 'influencer_image_remove', 'influencer_train', 'influencer_models',
+            'influencer_reference_generate', 'influencer_reference_pick', 'influencer_training_set_start', 'influencer_training_set_status',
+            'influencer_training_set_retry', 'influencer_job_get',
         ],
     ];
 
