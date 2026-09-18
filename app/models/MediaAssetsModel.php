@@ -121,6 +121,7 @@ class MediaAssetsModel extends Model {
      *   collection — collection id (asset must be a member)
      *   usage      — 'used'|'unused'
      *   search     — matches filename, display_name, tags
+     *   influencer — influencer id (asset attached to her); role — one of InfluencerImagesModel::ROLES
      */
     public function get_for_creator($creator_id, array $filters = array()){
         $params = array('c' => (int) $creator_id);
@@ -134,6 +135,14 @@ class MediaAssetsModel extends Model {
         if (!empty($filters['collection'])) {
             $join .= ' JOIN collection_assets fca ON fca.asset_id = a.id AND fca.collection_id = :col';
             $params['col'] = (int) $filters['collection'];
+        }
+        if (!empty($filters['influencer'])) {   // media attached to one AI influencer, optionally by role
+            $join .= ' JOIN influencer_images fii ON fii.asset_id = a.id AND fii.influencer_id = :infl';
+            $params['infl'] = (int) $filters['influencer'];
+            if (!empty($filters['role']) && in_array($filters['role'], InfluencerImagesModel::ROLES, true)) {
+                $join .= ' AND fii.role = :role';
+                $params['role'] = (string) $filters['role'];
+            }
         }
         if (isset($filters['search']) && trim((string) $filters['search']) !== '') {
             $where[] = '(a.filename LIKE :q1 OR a.display_name LIKE :q2 OR a.tags LIKE :q3)';

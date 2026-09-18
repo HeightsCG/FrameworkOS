@@ -29,6 +29,14 @@ class InfluencersController extends Controller {
         foreach ((new InfluencersModel())->list_ready($creator_id) as $r) {
             $this->view->ready[] = array('id' => (int) $r['id'], 'name' => (string) $r['name']);
         }
+        // Connected share targets (same list the Studio composer uses) for her default share targets.
+        $accounts = array();
+        foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
+            $accounts[] = array('id' => (string) $a['post_for_me_social_account_id'], 'platform' => (string) $a['platform'], 'username' => (string) ($a['username'] ?? ''));
+        }
+        $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
+        if ($fv) { array_unshift($accounts, array('id' => FanvueShareService::ACCOUNT_ID, 'platform' => 'fanvue', 'username' => (string) (($fv['handle'] ?? '') !== '' ? $fv['handle'] : 'Fanvue'))); }
+        $this->view->social = array('accounts' => $accounts, 'can_post' => Plan::can_social_post($user));
         return $user;
     }
 
@@ -94,6 +102,14 @@ class InfluencersController extends Controller {
             $a = (new MediaAssetsModel())->get_one((int) $user['user_id'], $aid);
             if ($a && (string) $a['type'] === 'image' && (string) $a['status'] === 'ready') { $this->view->still_asset_id = $aid; }
         }
+        $this->view->render();
+    }
+
+    /** Gallery: everything generated for one influencer, browsable by role. */
+    public function galleryAction(){
+        $user = $this->gate();
+        $this->view->page = 'gallery';
+        $this->ready_influencer($user);
         $this->view->render();
     }
 }

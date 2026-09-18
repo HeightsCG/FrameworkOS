@@ -71,6 +71,16 @@ class StudioController extends Controller {
             // AI image generation is a Pro+ feature — hides the "Generate Image" action.
             $this->view->can_ai = Plan::can($user, 'ai_tools');
 
+            // AI influencers: trained ones can drive automations; all of them filter the library.
+            $infl_all = array(); $infl_ready = array();
+            foreach ((new InfluencersModel())->list_for_creator((int) ($user['user_id'] ?? 0)) as $inf) {
+                $row = array('id' => (int) $inf['id'], 'name' => (string) $inf['name'], 'status' => (string) $inf['status'],
+                    'share_accounts' => InfluencersModel::share_accounts($inf));
+                $infl_all[] = $row;
+                if ((string) $inf['status'] === 'ready' && !empty($inf['active_model_id'])) { $infl_ready[] = $row; }
+            }
+            $this->view->influencers = array('all' => $infl_all, 'ready' => $infl_ready);
+
             // Brand identity — used to steer AI image generation on-brand.
             $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));
             $this->view->brand = array(

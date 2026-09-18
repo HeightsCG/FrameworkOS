@@ -466,18 +466,27 @@ class ApiCreatorStudioController extends BaseApiController {
             }
         } elseif ($topic === '') { $this->jsonError('Describe what to post (the topic).'); }
 
-        $image_source = (($this->post['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand';
+        $src = (string) ($this->post['image_source'] ?? 'brand');
+        $image_source = in_array($src, ['character', 'influencer'], true) ? $src : 'brand';
         $character_id = trim((string) ($this->post['character_id'] ?? ''));
+        $influencer_id = (int) ($this->post['influencer_id'] ?? 0);
         if ($kind === 'post' && $image_source === 'character') {
             if (!(new EromifyAccountsModel())->get_connected_for_user($creator_id)) {
                 $this->jsonError('Connect Eromify in Settings > Integrations to use a character.');
             }
             if ($character_id === '') { $this->jsonError('Pick a character.'); }
         }
+        if ($kind === 'post' && $image_source === 'influencer') {
+            $infl = $influencer_id > 0 ? (new InfluencersModel())->get_one($creator_id, $influencer_id) : null;
+            if (!$infl) { $this->jsonError('Pick an influencer.'); }
+            if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { $this->jsonError($infl['name'] . ' is not trained yet.'); }
+        }
         $fields = [
             'image_source'     => $image_source,
             'character_id'     => $character_id,
             'character_name'   => trim(html_entity_decode((string) ($this->post['character_name'] ?? ''), ENT_QUOTES)),
+            'influencer_id'    => $influencer_id,
+            'influencer_model_key' => (string) ($this->post['influencer_model_key'] ?? ''),
             'content_level'    => (($this->post['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe',
             'kind'             => $kind,
             'message_text'     => $msg_text,
@@ -860,9 +869,12 @@ class ApiCreatorStudioController extends BaseApiController {
         return [
             'id'               => (int) $r['id'],
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
-            'image_source'     => (($r['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand',
+            'image_source'     => in_array($r['image_source'] ?? 'brand', ['character', 'influencer'], true) ? (string) $r['image_source'] : 'brand',
             'character_id'     => (string) ($r['character_id'] ?? ''),
             'character_name'   => (string) ($r['character_name'] ?? ''),
+            'influencer_id'    => (int) ($r['influencer_id'] ?? 0),
+            'influencer_name'  => $this->scheduler_influencer_name($r),
+            'influencer_model_key' => (string) ($r['influencer_model_key'] ?? ''),
             'content_level'    => (($r['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe',
             'message_text'     => (string) ($r['message_text'] ?? ''),
             'message_ai'       => (int) ($r['message_ai'] ?? 0),
@@ -887,6 +899,18 @@ class ApiCreatorStudioController extends BaseApiController {
             'last_run'         => $this->scheduler_next_human($r['last_run_at'] ?? '', $tz),
             'last_message'     => $this->scheduler_last_message((int) $r['id'], (string) $r['last_status']),
         ];
+    }
+
+    /** Name of the influencer an automation renders (cached per request). */
+    private function scheduler_influencer_name(array $r): string{
+        static $names = [];
+        $id = (int) ($r['influencer_id'] ?? 0);
+        if ($id <= 0 || ($r['image_source'] ?? '') !== 'influencer') { return ''; }
+        if (!array_key_exists($id, $names)) {
+            $infl = (new InfluencersModel())->get_one((int) $r['creator_id'], $id);
+            $names[$id] = $infl ? (string) $infl['name'] : '';
+        }
+        return $names[$id];
     }
 
     /** The newest run's message for a failed rule, so the card can say why. '' otherwise. */

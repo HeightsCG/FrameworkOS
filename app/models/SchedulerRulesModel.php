@@ -9,7 +9,7 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'image_source', 'character_id', 'character_name', 'content_level', 'audience', 'tier_id', 'comments_enabled',
+        'size', 'image_source', 'character_id', 'character_name', 'influencer_id', 'influencer_model_key', 'content_level', 'audience', 'tier_id', 'comments_enabled',
         'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
@@ -58,9 +58,12 @@ class SchedulerRulesModel extends Model {
         $out['active']           = !empty($f['active']) ? 1 : 0;
         $out['topic']            = (string) ($f['topic'] ?? '');
         $out['size']             = in_array($f['size'] ?? '', array('square','portrait','landscape'), true) ? $f['size'] : 'square';
-        $out['image_source']     = (($f['image_source'] ?? 'brand') === 'character') ? 'character' : 'brand';
+        $src = (string) ($f['image_source'] ?? 'brand');
+        $out['image_source']     = in_array($src, array('character', 'influencer'), true) ? $src : 'brand';
         $out['character_id']     = ($out['image_source'] === 'character') ? mb_substr(trim((string) ($f['character_id'] ?? '')), 0, 64) : null;
         $out['character_name']   = ($out['image_source'] === 'character') ? mb_substr(trim((string) ($f['character_name'] ?? '')), 0, 190) : null;
+        $out['influencer_id']    = ($out['image_source'] === 'influencer' && (int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null;
+        $out['influencer_model_key'] = ($out['image_source'] === 'influencer') ? (mb_substr(trim((string) ($f['influencer_model_key'] ?? '')), 0, 64) ?: null) : null;
         $out['content_level']    = (($f['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
         $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;

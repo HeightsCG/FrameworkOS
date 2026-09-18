@@ -18,8 +18,14 @@ class AutoPostService {
         $prompt    = $use_brand ? BrandService::image_prompt($topic, $cb) : $topic;
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 
-        // 1) Generate the image: the creator's Eromify character in the scene, or a brand photo (OpenAI).
-        if (($rule['image_source'] ?? 'brand') === 'character') {
+        // 1) Generate the image: a trained influencer (native), the creator's Eromify character, or a brand photo (OpenAI).
+        $asset_id = 0;
+        if (($rule['image_source'] ?? 'brand') === 'influencer') {
+            $ir = InfluencerJobService::run_for_rule($rule, $user, $topic, $size);
+            if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
+            $asset_id = (int) $ir['asset_id'];
+            $gen = array('ok' => true);
+        } elseif (($rule['image_source'] ?? 'brand') === 'character') {
             $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
             if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.'); }
             if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.'); }
@@ -45,7 +51,8 @@ class AutoPostService {
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
 
-        // 2) Ingest the bytes as a vault asset (mirrors media_generateAction).
+        // 2) Ingest the bytes as a vault asset (mirrors media_generateAction). An influencer run has already landed its asset.
+        if ($asset_id <= 0) {
         $tmp = tempnam(sys_get_temp_dir(), 'sched');
         if ($tmp === false || file_put_contents($tmp, $gen['bytes']) === false) {
             return self::fail(null, 'Could not write the generated image.');
@@ -61,11 +68,12 @@ class AutoPostService {
         @unlink($tmp);
         if (isset($r['error'])) { $media->set_failed($creator_id, $asset_id, $r['error']); return self::fail(null, 'Image processing failed: ' . $r['error']); }
         $media->set_ready($creator_id, $asset_id, $r);
+        }
 
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
-        $style     = (($rule['image_source'] ?? 'brand') === 'character') ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
+        $style     = in_array(($rule['image_source'] ?? 'brand'), array('character', 'influencer'), true) ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
         $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
         if ($caption === '') { $caption = $topic; }

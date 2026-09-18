@@ -73,6 +73,14 @@
                 <select id="csFilterCollection" class="form-select cs-filter" aria-label="Filter by collection">
                     <option value="">All collections</option>
                 </select>
+                <?php if (!empty($this->influencers['all'])): ?>
+                <select id="csFilterInfluencer" class="form-select cs-filter" aria-label="Filter by influencer">
+                    <option value="">All influencers</option>
+                    <?php foreach ($this->influencers['all'] as $inf): ?>
+                    <option value="<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars($inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php endif; ?>
                 <select id="csFilterUsage" class="form-select cs-filter" aria-label="Filter by usage">
                     <option value="">Used &amp; unused</option>
                     <option value="used">Used in posts</option>
@@ -457,6 +465,9 @@
                             <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedImageSource" role="group" aria-label="Image source">
                                 <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="character"><span>My character</span></button>
+                                <?php if (!empty($this->influencers['ready'])): ?>
+                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"><span>Influencer</span></button>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="cs-am__field">
@@ -471,6 +482,12 @@
                             <div class="cs-am__field cs-am__field--full">
                                 <label class="cs-am__label" for="csSchedCharacter">Character</label>
                                 <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
+                            </div>
+                        </div>
+                        <div class="cs-am__group" id="csSchedInfluencerWrap" hidden>
+                            <div class="cs-am__field cs-am__field--full">
+                                <label class="cs-am__label" for="csSchedInfluencer">Influencer</label>
+                                <select id="csSchedInfluencer" class="form-select"></select>
                             </div>
                         </div>
                     </div>
@@ -554,6 +571,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'social'   => $this->social,
     'inbox'    => $this->inbox,
     'eromify'  => array('connected' => !empty($this->eromify_connected)),
+    'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),
     'brand'    => $this->brand,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;

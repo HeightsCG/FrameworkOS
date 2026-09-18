@@ -7,6 +7,7 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'ready'      => (array) ($this->ready ?? array()),
     'names'      => (array) ($this->name_suggestions ?? array()),
     'retrain'    => !empty($this->retrain),
+    'social'     => $this->social ?? array('accounts' => array(), 'can_post' => false),
     'config'     => (array) ($this->config ?? array()),
     'can_ai'     => !empty($this->can_ai),
 ), JSON_UNESCAPED_SLASHES); ?>;

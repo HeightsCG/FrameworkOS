@@ -221,6 +221,40 @@ jQuery(function ($) {
             $('#inf_panel').html(html);
             $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'train' : 'review'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
+            if (!failed) { render_settings(); }
+        }
+
+        /* --- Trained: her defaults, share targets and automations (kept separate per influencer) --- */
+        function render_settings() {
+            var soc = CFG.social || { accounts: [] };
+            var sel = new Set((inf.share_accounts || []).map(String));
+            var chips = (soc.accounts || []).map(function (a) {
+                return '<label class="inf-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (sel.has(String(a.id)) ? ' checked' : '') + '> <span>' + esc(a.username || a.platform) + '</span></label>';
+            }).join('');
+            var html = '<div class="inf-settings">' +
+                '<div class="inf-grid">' +
+                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_defaults">Prompt defaults</label><input type="text" class="form-control" id="inf_set_defaults" maxlength="2000" placeholder="film grain, natural light" value="' + esc(inf.prompt_defaults) + '"></div>' +
+                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_negative">Negative prompt</label><input type="text" class="form-control" id="inf_set_negative" maxlength="2000" placeholder="blurry, extra fingers" value="' + esc(inf.negative_prompt) + '"></div>' +
+                '<div class="inf-field inf-field--full"><div class="inf-label">Share to</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
+                '</div>' +
+                '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
+                '<div class="inf-autos"><div class="inf-field__row"><div class="inf-label">Her automations</div><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></div>' +
+                '</div>';
+            $('#inf_panel').append(html);
+            $('#inf_set_save').on('click', function () {
+                var share = $('#inf_set_share input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
+                api('influencer_save_step', { id: inf.id, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val(), share_accounts: share.join(',') }, function (o) {
+                    if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
+                });
+            });
+            api('scheduler_list', {}, function (o) {
+                var rules = ((o && o.success) ? (o.rules || []) : []).filter(function (r) { return r.image_source === 'influencer' && String(r.influencer_id) === String(inf.id); });
+                var $l = $('#inf_autos_list').empty();
+                if (!rules.length) { $l.html('<span class="inf-wiz__meta">None yet.</span>'); return; }
+                rules.forEach(function (r) {
+                    $l.append('<a class="inf-auto" href="/studio#scheduler"><span class="inf-auto__name">' + esc(r.name) + '</span><span class="inf-auto__meta">' + esc(r.cadence_summary || '') + (r.next_run ? ' · next ' + esc(r.next_run) : '') + '</span><span class="inf-state inf-state--' + (r.active ? 'ready' : 'draft') + '">' + (r.active ? 'On' : 'Off') + '</span></a>');
+                });
+            });
         }
 
         /* --- placeholder for steps built in later stages --- */
@@ -841,8 +875,59 @@ jQuery(function ($) {
         $('#inf_vres_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.asset.id)); } catch (e) {} window.location = '/studio'; });
     }
 
+    /* =====================================================================
+     * Gallery (one influencer, by role)
+     * =================================================================== */
+    function init_gallery() {
+        var inf = CFG.influencer;
+        if (!inf) { return; }
+        var role = '', assets = [], current = null;
+        $('#inf_who').on('change', function () { window.location = '/influencers/gallery/' + this.value; });
+        function load() {
+            $('#inf_gal_loading').prop('hidden', false); $('#inf_gal, #inf_gal_empty').prop('hidden', true);
+            api('media_list', { influencer: inf.id, role: role }, function (o) {
+                $('#inf_gal_loading').prop('hidden', true);
+                assets = (o && o.success) ? (o.assets || []) : [];
+                if (!assets.length) { $('#inf_gal_empty').prop('hidden', false); return; }
+                var $g = $('#inf_gal').empty().prop('hidden', false);
+                assets.forEach(function (a, i) {
+                    var $t = $('<button type="button" class="inf-tile">').attr('data-id', a.id).css('animation-delay', Math.min(i * 14, 300) + 'ms');
+                    if (a.status === 'ready' && a.thumb_url && a.moderation !== 'blocked') { $t.append('<img src="' + esc(a.thumb_url) + '" alt="" loading="lazy">'); }
+                    else { $t.append('<span class="inf-tile__ph"><i class="fa-solid ' + (a.type === 'video' ? 'fa-play' : 'fa-image') + '"></i></span>'); }
+                    if (a.type === 'video') { $t.append('<span class="inf-tile__badge"><i class="fa-solid fa-play"></i>' + (a.duration ? ' ' + Math.floor(a.duration / 60) + ':' + ('0' + (a.duration % 60)).slice(-2) : '') + '</span>'); }
+                    if (a.status !== 'ready') { $t.append('<span class="inf-tile__state">' + (a.status === 'failed' ? 'Failed' : 'Processing') + '</span>'); }
+                    $t.on('click', function () { open_asset(a); });
+                    $g.append($t);
+                });
+            });
+        }
+        function open_asset(a) {
+            if (a.status !== 'ready') { return; }
+            current = a;
+            var v = document.getElementById('inf_lightbox_video');
+            if (a.type === 'video') {
+                $('#inf_lightbox_img').prop('hidden', true); $('#inf_lightbox_video').prop('hidden', false);
+                v.poster = a.thumb_url || ''; v.src = a.video_url || ''; v.load();
+            } else {
+                v.pause(); v.removeAttribute('src'); $('#inf_lightbox_video').prop('hidden', true);
+                $('#inf_lightbox_img').prop('hidden', false).attr('src', a.preview_url || a.display_url || a.thumb_url);
+            }
+            $('#inf_lightbox_meta').text((a.type === 'video' ? 'Video' : 'Image') + (a.width && a.height ? ' · ' + a.width + '×' + a.height : ''));
+            $('#inf_lightbox').prop('hidden', false);
+        }
+        function close_lightbox() { $('#inf_lightbox').prop('hidden', true); var v = document.getElementById('inf_lightbox_video'); v.pause(); }
+        $('#inf_gal_roles').on('click', '.inf-chip', function () { $('#inf_gal_roles .inf-chip').removeClass('is-on'); $(this).addClass('is-on'); role = $(this).data('role') || ''; load(); });
+        $('#inf_lightbox_close').on('click', close_lightbox);
+        $('#inf_lightbox').on('click', function (e) { if (e.target === this) { close_lightbox(); } });
+        $(document).on('keydown', function (e) { if (e.key === 'Escape') { close_lightbox(); } });
+        $('#inf_lightbox_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
+        $('#inf_lightbox_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.id)); } catch (e) {} window.location = '/studio'; });
+        load();
+    }
+
     if (page === 'index')  { init_index(); }
     if (page === 'create') { init_create(); }
     if (page === 'images') { init_images(); }
     if (page === 'videos') { init_videos(); }
+    if (page === 'gallery') { init_gallery(); }
 });

@@ -425,7 +425,11 @@ class ApiInfluencersController extends BaseApiController {
         $user_prompt = $this->text('prompt', 4000);
         if ($user_prompt === '') { $this->jsonError('Write a prompt first.'); }
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
-        $prompt   = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);   // defaults + what she typed, nothing else
+        // Defaults + what she typed, nothing else. If the defaults hold the trigger word and she typed it too, it is not doubled.
+        if ($defaults !== '' && (string) $model['trigger_word'] !== '' && stripos($defaults, $model['trigger_word']) !== false && stripos($user_prompt, $model['trigger_word']) !== false) {
+            $defaults = trim(str_ireplace($model['trigger_word'], '', $defaults));
+        }
+        $prompt   = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
         $mk   = InfluencerConfig::resolve_model('image', (string) ($this->post['model_key'] ?? ''));
         if (!$mk) { $this->jsonError('No image model is configured.'); }
         $size = in_array($this->post['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $this->post['image_size'] : 'square';

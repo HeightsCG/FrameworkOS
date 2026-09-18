@@ -503,6 +503,50 @@ class InfluencerJobService {
         return $job;
     }
 
+    /**
+     * Scheduler entry: render one image of the rule's influencer for $topic and drive the job
+     * inline (same state machine as the queue). Returns ['ok', 'asset_id', 'job_id', 'error'].
+     * The prompt is the trigger word + the influencer's prompt defaults + the scene; nothing else.
+     */
+    public static function run_for_rule(array $rule, array $user, $topic, $size){
+        $cid = (int) ($user['user_id'] ?? 0);
+        $infl = (new InfluencersModel())->get_one($cid, (int) ($rule['influencer_id'] ?? 0));
+        if (!$infl) { return array('ok' => false, 'error' => 'This automation has no influencer selected.'); }
+        if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { return array('ok' => false, 'error' => $infl['name'] . ' is not trained yet.'); }
+        $model = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']);
+        if (!$model || (string) $model['status'] !== 'ready') { return array('ok' => false, 'error' => $infl['name'] . ' has no active model.'); }
+        if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Rendering is not configured (no provider key).'); }
+
+        $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
+        $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size, $level) : $topic;
+        $trigger  = (string) $model['trigger_word'];
+        $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
+        $scene    = trim((string) $scene);
+        // The trigger word goes first unless the defaults or the scene already carry it.
+        $parts = array((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger : '', $defaults, $scene);
+        $prompt = trim(implode(' ', array_filter($parts, 'strlen')));
+        $mk = InfluencerConfig::resolve_model('image', (string) ($rule['influencer_model_key'] ?? ''));
+        if (!$mk) { return array('ok' => false, 'error' => 'No image model is configured.'); }
+
+        $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
+            'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
+            'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
+            'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'level' => $level, 'scene' => (string) $scene),
+        ), false);
+        if ($job_id <= 0) { return array('ok' => false, 'error' => 'Could not create the generation job.'); }
+        error_log('[influencer] rule ' . (int) ($rule['id'] ?? 0) . ' job ' . $job_id . ' prompt: ' . $prompt);
+        $job = self::run_inline($job_id);
+        if (!$job) { return array('ok' => false, 'error' => 'Job vanished.'); }
+        if ((string) $job['status'] === 'done' && (int) $job['result_asset_id'] > 0) {
+            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'error' => '');
+        }
+        if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
+            return array('ok' => false, 'job_id' => $job_id, 'error' => (string) $job['error']);
+        }
+        return array('ok' => false, 'job_id' => $job_id, 'error' => 'The image is still generating; it will land in the vault but this run did not publish.');
+    }
+
     public static function handle(array $job){
         return array('provider' => (string) $job['provider'], 'provider_job_id' => (string) $job['provider_job_id'],
             'status_url' => (string) $job['provider_status_url'], 'response_url' => (string) $job['provider_response_url'],
