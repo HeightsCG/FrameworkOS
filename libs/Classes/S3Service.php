@@ -160,6 +160,25 @@ class S3Service {
         }
     }
 
+    /** Download a private object to a local path (streams to disk). True on success. */
+    public static function get_private_to_file($key, $dest_path): bool
+    {
+        if (!self::configured() || (string) $key === '') {
+            return false;
+        }
+        try {
+            self::client()->getObject(array(
+                'Bucket' => self::bucket(),
+                'Key'    => $key,
+                'SaveAs' => $dest_path,
+            ));
+        } catch (\Throwable $e) {
+            error_log('[s3] get_private_to_file failed: ' . $e->getMessage());
+            return false;
+        }
+        return is_file($dest_path) && filesize($dest_path) > 0;
+    }
+
     /** Delete a private object by its raw key. */
     public static function delete_key($key): bool
     {

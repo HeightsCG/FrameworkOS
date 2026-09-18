@@ -626,155 +626,21 @@ class McpTools {
         return array_values($out);
     }
 
+    /* ---- ingest helpers: thin delegates to MediaIngestService (shared with influencer generations) ---- */
+
     /** Write generated/fetched image bytes into the media library via the normal pipeline. */
     private static function ingestImage($cid, $user, $bytes, $ext, $mime, $label){
-        $tmp = tempnam(sys_get_temp_dir(), 'mcpimg');
-        if ($tmp === false || file_put_contents($tmp, $bytes) === false) { throw new RuntimeException('Could not buffer the image'); }
-        $mm  = new MediaAssetsModel();
-        $aid = (int) $mm->add($cid, 'image', mb_substr($label, 0, 60) . '.' . $ext, $mime, 'processing');
-        if ($aid <= 0) { @unlink($tmp); throw new RuntimeException('Could not create the media asset'); }
-        $r = MediaService::process_image($cid, $aid, $tmp, $ext, $mime, $user, !empty($user['watermark_enabled']));
-        @unlink($tmp);
-        if (isset($r['error'])) { $mm->set_failed($cid, $aid, $r['error']); throw new RuntimeException($r['error']); }
-        $mm->set_ready($cid, $aid, $r);
-        return array('asset_id' => $aid, 'type' => 'image');
-    }
-
-    /**
-     * Validate a public http(s) URL and pin its host to a resolved, non-private address
-     * (SSRF guard). Returns ['url', 'resolve' => curl CURLOPT_RESOLVE entry].
-     */
-    private static function safeUrl($url, $what = 'URL'){
-        $url = trim((string) $url);
-        $p = parse_url($url);
-        if (!$p || empty($p['host']) || !in_array(strtolower($p['scheme'] ?? ''), array('http', 'https'), true)) {
-            throw new InvalidArgumentException('Provide a valid http(s) ' . $what);
-        }
-        $host = trim($p['host'], '[]');
-        $ips = filter_var($host, FILTER_VALIDATE_IP) ? array($host) : (array) @gethostbynamel($host);
-        if (empty($ips)) { throw new RuntimeException('Could not resolve that host'); }
-        foreach ($ips as $ip) {
-            if (!filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-                throw new RuntimeException('That URL resolves to a private/blocked address');
-            }
-        }
-        $port = isset($p['port']) ? (int) $p['port'] : (strtolower($p['scheme']) === 'https' ? 443 : 80);
-        return array('url' => $url, 'resolve' => $host . ':' . $port . ':' . $ips[0]);
-    }
-
-    /**
-     * Stream a PUBLIC video URL to a temp file (never into memory), capped at $max bytes.
-     * Returns ['path', 'bytes', 'ext', 'mime'] — type is sniffed from the file's magic
-     * bytes, not the URL, so a mislabeled link can't smuggle another format in.
-     */
-    private static function safeFetchVideo($url, $max){
-        $u  = self::safeUrl($url, 'video URL');
-        $tmp = tempnam(sys_get_temp_dir(), 'mcpvid');
-        $fh  = @fopen($tmp, 'wb');
-        if ($tmp === false || $fh === false) { throw new RuntimeException('Could not buffer the video'); }
-        $got = 0; $over = false;
-        $ch = curl_init($u['url']);
-        curl_setopt_array($ch, array(
-            CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 540, CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-            CURLOPT_RESOLVE => array($u['resolve']),
-            CURLOPT_WRITEFUNCTION => function ($c, $chunk) use ($fh, &$got, &$over, $max) {
-                $got += strlen($chunk);
-                if ($got > $max) { $over = true; return 0; }
-                return fwrite($fh, $chunk);
-            },
-        ));
-        $okc = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-        fclose($fh);
-        if ($over) { @unlink($tmp); throw new RuntimeException('That video is larger than the ' . (int) ($max / 1073741824) . ' GB limit'); }
-        if (($okc === false && $got === 0) || $code >= 400 || $got === 0) { @unlink($tmp); throw new RuntimeException('Could not fetch that video URL'); }
-
-        $head = (string) @file_get_contents($tmp, false, null, 0, 64);
-        $ext = ''; $mime = '';
-        if (strlen($head) >= 12 && substr($head, 4, 4) === 'ftyp') {
-            $brand = substr($head, 8, 4);
-            if (strpos($brand, 'qt') === 0) { $ext = 'mov'; $mime = 'video/quicktime'; }
-            else { $ext = 'mp4'; $mime = 'video/mp4'; }
-        } elseif (strlen($head) >= 4 && substr($head, 0, 4) === "\x1A\x45\xDF\xA3") {
-            $ext = 'webm'; $mime = 'video/webm';
-        }
-        if ($ext === '') { @unlink($tmp); throw new RuntimeException('That URL is not a supported video (MP4/MOV/WebM)'); }
-        return array('path' => $tmp, 'bytes' => $got, 'ext' => $ext, 'mime' => $mime);
+        return MediaIngestService::ingest_image($cid, $user, $bytes, $ext, $mime, $label);
     }
 
     /** Video from a URL: store the original, build poster/thumb (ffmpeg, else poster_url), mark ready. */
     private static function ingestVideoFromUrl($cid, $user, $url, $poster_url, $label){
-        // Poster first: it's small, and a bad one should fail before the big download.
-        $poster_tmp = '';
-        if (trim((string) $poster_url) !== '') {
-            $img = self::safeFetchImage($poster_url);
-            $poster_tmp = tempnam(sys_get_temp_dir(), 'mcpposter');
-            file_put_contents($poster_tmp, $img['bytes']);
-        }
-        $gb = Plan::limit($user, 'storage_gb');
-        try {
-            $vid = self::safeFetchVideo($url, 1073741824);
-        } catch (\Throwable $e) {
-            if ($poster_tmp !== '') { @unlink($poster_tmp); }
-            throw $e;
-        }
-        if ($gb !== null && (int) $gb > 0) {
-            $used = (int) (new MediaAssetsModel())->total_bytes($cid);
-            if ($used + $vid['bytes'] > (int) $gb * 1073741824) {
-                @unlink($vid['path']); if ($poster_tmp !== '') { @unlink($poster_tmp); }
-                throw new RuntimeException('Not enough storage left on your plan for this video');
-            }
-        }
-
-        $mm  = new MediaAssetsModel();
-        $aid = (int) $mm->add($cid, 'video', mb_substr($label, 0, 60) . '.' . $vid['ext'], $vid['mime'], 'processing');
-        if ($aid <= 0) { @unlink($vid['path']); if ($poster_tmp !== '') { @unlink($poster_tmp); } throw new RuntimeException('Could not create the media asset'); }
-
-        $key = MediaService::key($cid, $aid, 'original', $vid['ext']);
-        if (!S3Service::put_private($key, $vid['path'], $vid['mime'])) {
-            @unlink($vid['path']); if ($poster_tmp !== '') { @unlink($poster_tmp); }
-            $mm->set_failed($cid, $aid, 'Storage failed');
-            throw new RuntimeException('Could not store the video');
-        }
-
-        $probe = MediaService::probe_video($vid['path']);
-        $res   = MediaService::process_video($cid, $aid, $vid['path'], $user, $poster_tmp);
-        @unlink($vid['path']); if ($poster_tmp !== '') { @unlink($poster_tmp); }
-        if (isset($res['error'])) {
-            $mm->set_failed($cid, $aid, $res['error']);
-            throw new RuntimeException($res['error'] . (trim((string) $poster_url) === '' ? ' Pass poster_url with a thumbnail image of the video.' : ''));
-        }
-        $mm->set_ready($cid, $aid, array_merge($res, array(
-            'original_key' => $key,
-            'bytes'        => (int) $vid['bytes'],
-            'duration_sec' => (int) ($probe['duration'] ?? 0),
-            'width'        => (int) ($probe['width'] ?? 0),
-            'height'       => (int) ($probe['height'] ?? 0),
-        )));
-        return array('asset_id' => $aid, 'type' => 'video', 'bytes' => (int) $vid['bytes'], 'duration_sec' => (int) ($probe['duration'] ?? 0));
+        return MediaIngestService::ingest_video_from_url($cid, $user, $url, $poster_url, $label);
     }
 
     /** Fetch a PUBLIC image URL with SSRF protection; validate it is a real image. */
     private static function safeFetchImage($url){
-        $u = self::safeUrl($url, 'image URL');
-        $url = $u['url'];
-        $max = 20 * 1024 * 1024;
-        $buf = '';
-        $ch = curl_init($url);
-        curl_setopt_array($ch, array(
-            CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 20, CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-            CURLOPT_RESOLVE => array($u['resolve']),
-            CURLOPT_WRITEFUNCTION => function ($c, $chunk) use (&$buf, $max) { $buf .= $chunk; return (strlen($buf) > $max) ? 0 : strlen($chunk); },
-        ));
-        $okc = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-        if (($okc === false && $buf === '') || $code >= 400 || $buf === '') { throw new RuntimeException('Could not fetch that image URL'); }
-
-        $info = @getimagesizefromstring($buf);
-        $map = array(IMAGETYPE_JPEG => array('jpg', 'image/jpeg'), IMAGETYPE_PNG => array('png', 'image/png'),
-                     IMAGETYPE_WEBP => array('webp', 'image/webp'), IMAGETYPE_GIF => array('gif', 'image/gif'));
-        if (!$info || !isset($map[$info[2]])) { throw new RuntimeException('That URL is not a supported image (JPG/PNG/WebP/GIF)'); }
-        return array('bytes' => $buf, 'ext' => $map[$info[2]][0], 'mime' => $map[$info[2]][1]);
+        return MediaIngestService::fetch_image($url);
     }
 
     /** Cross-post after publish/schedule when share_accounts was given; the outcome rides on the result. */

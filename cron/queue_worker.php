@@ -31,6 +31,7 @@ $max_jobs  = (int) ($opts['max-jobs'] ?? 100);
 $handlers = [
     'scheduler_run'  => 'SchedulerRunJob',
     'media_generate' => 'MediaGenerateJob',
+    'influencer_job' => 'InfluencerJob',
 ];
 
 $queue     = new DatabaseJobQueue();

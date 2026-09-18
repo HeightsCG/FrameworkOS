@@ -92,6 +92,14 @@ class MediaAssetsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /** Comma-separated tags (e.g. "influencer:12,generated") — the only write path for the column. */
+    public function set_tags($creator_id, $id, $tags){
+        return parent::update('media_assets',
+            array('tags' => mb_substr((string) $tags, 0, 512), 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c',
+            array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
     public function set_watermark_applied($creator_id, $id, $applied){
         return parent::update('media_assets',
             array('watermark_applied' => $applied ? 1 : 0, 'updated_at' => date('Y-m-d H:i:s')),
