@@ -93,14 +93,8 @@
             </div>
             <div class="inf-strip" id="inf_strip"></div>
             <div class="inf-result" id="inf_result" hidden>
-                <div class="inf-grid">
-                    <div class="inf-field"><label class="inf-label" for="inf_res_seed">Seed</label><input type="text" inputmode="numeric" class="form-control" id="inf_res_seed"></div>
-                    <div class="inf-field"><div class="inf-label">Model</div><div class="inf-result__model" id="inf_res_model"></div></div>
-                    <div class="inf-field inf-field--full"><label class="inf-label" for="inf_res_prompt">Prompt</label><textarea class="form-control" id="inf_res_prompt"></textarea></div>
-                </div>
-                <div class="inf-result__actions">
+                <div class="inf-result__actions inf-result__actions--only">
                     <button type="button" class="btn btn-secondary" id="inf_res_again"><i class="fa-solid fa-rotate-right"></i> Run again</button>
-                    <span class="inf-result__spacer"></span>
                     <button type="button" class="btn btn-secondary" id="inf_res_video"><i class="fa-solid fa-clapperboard"></i> Make video</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>

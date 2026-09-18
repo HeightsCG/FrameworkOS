@@ -701,9 +701,6 @@ jQuery(function ($) {
             if (!current) { $('#inf_idle').prop('hidden', false); $('#inf_main, #inf_result').prop('hidden', true); return; }
             $('#inf_idle').prop('hidden', true); $('#inf_main, #inf_result').prop('hidden', false);
             $('#inf_main_img').attr('src', current.asset.display_url || current.asset.thumb_url);
-            $('#inf_res_seed').val(current.job.result_seed || current.job.seed);
-            $('#inf_res_prompt').val(current.job.prompt);
-            $('#inf_res_model').text(model_label(current.job.model_key));
             $('#inf_strip .inf-strip__item').removeClass('is-on').filter('[data-asset="' + current.asset.id + '"]').addClass('is-on');
         }
         function select(job, asset) { current = { job: job, asset: asset }; show_current(); }
@@ -721,11 +718,11 @@ jQuery(function ($) {
                     var $f = $('<button type="button" class="inf-strip__item inf-strip__item--failed" title="' + esc(j.error) + '"><i class="fa-solid fa-circle-exclamation"></i></button>');
                     $f.on('click', function () { toastr.error(j.error || 'Generation failed'); });
                     $s.append($f);
-                } else if (j.status !== 'cancelled') {
+                } else if (['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0) {
                     $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>');
-                    drop_broken('#inf_strip');
-        }
+                }   // a finished job whose file was deleted shows nothing
             });
+            drop_broken('#inf_strip');
         }
         api('influencer_jobs_list', { id: inf.id, type: 'image,enhance', limit: 24 }, function (o) {
             if (!o || !o.success) { return; }
@@ -738,11 +735,14 @@ jQuery(function ($) {
 
         /* --- result actions --- */
         $('#inf_res_again').on('click', function () {
-            // Re-run with the edited prompt and pinned seed; other settings follow the form.
-            $('#inf_prompt').val($('#inf_res_prompt').val());
-            $('#inf_seed').val($('#inf_res_seed').val().trim());
+            // Re-run the selected image: same prompt, pinned seed, same size and model. The form
+            // takes those values too, so the next run can start from them.
+            if (!current) { return; }
+            var seed = String(current.job.result_seed || current.job.seed || '');
+            $('#inf_prompt').val(current.job.prompt);
+            $('#inf_seed').val(seed);
             seg_set('inf_size', current.job.params.image_size || 'square');
-            generate({ prompt: $('#inf_res_prompt').val().trim(), seed: $('#inf_res_seed').val().trim(), image_size: current.job.params.image_size || 'square', model_key: current.job.model_key });
+            generate({ prompt: current.job.prompt, seed: seed, image_size: current.job.params.image_size || 'square', model_key: current.job.model_key });
         });
         $('#inf_res_video').on('click', function () { if (current) { window.location = '/influencers/videos/' + inf.id + '/' + current.asset.id; } });
         $('#inf_res_download').on('click', function () {
@@ -850,7 +850,7 @@ jQuery(function ($) {
                 } else if (j.status === 'failed') {
                     var $f = $('<button type="button" class="inf-strip__item inf-strip__item--failed" title="' + esc(j.error) + '"><i class="fa-solid fa-circle-exclamation"></i></button>');
                     $f.on('click', function () { toastr.error(j.error || 'Generation failed'); }); $s.append($f);
-                } else if (j.status !== 'cancelled') { $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>'); }
+                } else if (['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0) { $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>'); }
             });
             drop_broken('#inf_vstrip');
         }

@@ -67,7 +67,6 @@
                     <div class="inf-field inf-field--full"><div class="inf-label">Motion</div><div class="inf-result__text" id="inf_vres_prompt"></div></div>
                 </div>
                 <div class="inf-result__actions">
-                    <span class="inf-result__spacer"></span>
                     <button type="button" class="btn btn-secondary" id="inf_vres_download"><i class="fa-solid fa-download"></i> Download</button>
                     <button type="button" class="btn btn-secondary" id="inf_vres_post"><i class="fa-solid fa-feather-pointed"></i> Use in a post</button>
                     <button type="button" class="btn btn-secondary inf-btn--danger" id="inf_vres_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
