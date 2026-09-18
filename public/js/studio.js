@@ -1108,6 +1108,17 @@ jQuery(function ($) {
     });
     function afterComposer() { loadLibrary(); loadPosts(); loadCalendar(); }
 
+    // Hand-off from the Influencers pages ("Use in a post"): open a fresh composer with that asset attached.
+    (function () {
+        var handoff = '';
+        try { handoff = sessionStorage.getItem('cs_open_asset') || ''; sessionStorage.removeItem('cs_open_asset'); } catch (e) {}
+        if (!handoff) { return; }
+        ApiDataSvc.apiCall('post', 'media_get', { id: parseInt(handoff, 10) }, function (resp) { var o = JSON.parse(resp);
+            if (!o || !o.success || !o.asset) { return; }
+            newComposer(); composerModal.show(); composerAddAsset(o.asset);
+        });
+    })();
+
     if (typeof toastr !== 'undefined') {
         toastr.options = $.extend(toastr.options || {}, { positionClass: 'toast-bottom-right', timeOut: 3200, preventDuplicates: true });
     }

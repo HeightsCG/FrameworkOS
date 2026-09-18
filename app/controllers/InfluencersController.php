@@ -60,4 +60,26 @@ class InfluencersController extends Controller {
         $this->view->name_suggestions = InfluencerService::name_suggestions((int) $user['user_id']);
         $this->view->render();
     }
+
+    /** A ready influencer for the generate pages, or a redirect to her wizard. */
+    private function ready_influencer($user){
+        $id = $this->id_from_url();
+        $infl = $id > 0 ? (new InfluencersModel())->get_one((int) $user['user_id'], $id) : null;
+        if (!$infl) {
+            $ready = (new InfluencersModel())->list_ready((int) $user['user_id']);
+            if (!empty($ready)) { header('Location: /influencers/' . strtolower(str_replace('Action', '', Main::method_name())) . '/' . (int) $ready[0]['id']); exit; }
+            header('Location: /influencers'); exit;
+        }
+        if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { header('Location: /influencers/create/' . (int) $infl['id']); exit; }
+        $this->view->influencer = InfluencerService::influencer_json((int) $user['user_id'], $infl);
+        return $infl;
+    }
+
+    /** Generate Images, scoped to one trained influencer. */
+    public function imagesAction(){
+        $user = $this->gate();
+        $this->view->page = 'images';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
 }

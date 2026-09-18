@@ -410,4 +410,92 @@ class ApiInfluencersController extends BaseApiController {
         if (!$job) { $this->jsonError('Job not found.'); }
         $this->jsonSuccess(['job' => InfluencerJobService::job_json($cid, $job)]);
     }
+
+    /* ---- generation (Generate Images / Videos) ---- */
+
+    /** Start an image run with her active weights. Returns the job id to poll. */
+    public function influencer_generate_imageAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { $this->jsonError('She has no trained model yet.'); }
+        $model = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']);
+        if (!$model || (string) $model['status'] !== 'ready') { $this->jsonError('Her active model is not ready.'); }
+        $user_prompt = $this->text('prompt', 4000);
+        if ($user_prompt === '') { $this->jsonError('Write a prompt first.'); }
+        $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
+        $prompt   = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);   // defaults + what she typed, nothing else
+        $mk   = InfluencerConfig::resolve_model('image', (string) ($this->post['model_key'] ?? ''));
+        if (!$mk) { $this->jsonError('No image model is configured.'); }
+        $size = in_array($this->post['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $this->post['image_size'] : 'square';
+        $n    = max(1, min(4, (int) ($this->post['num_images'] ?? 1)));
+        $seed = (int) ($this->post['seed'] ?? 0);
+        $level = (($this->post['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $overrides = array();
+        if (isset($this->post['guidance']) && $this->post['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $this->post['guidance'])); }
+        if (isset($this->post['steps']) && $this->post['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $this->post['steps'])); }
+        $params = array('image_size' => $size, 'num_images' => $n, 'level' => $level, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
+            'lora_scale' => (isset($this->post['lora_scale']) && $this->post['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $this->post['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0));
+        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
+            'origin' => 'studio', 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'], 'prompt' => $prompt,
+            'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'seed' => $seed > 0 ? $seed : null, 'params' => $params,
+        ));
+        if ($job_id <= 0) { $this->jsonError('Could not start the run.'); }
+        $this->jsonSuccess(['job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))]);
+    }
+
+    /** Recent jobs of one type for an influencer (result strips). */
+    public function influencer_jobs_listAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $type = in_array($this->post['type'] ?? '', InfluencerJobsModel::TYPES, true) ? $this->post['type'] : '';
+        $out  = array();
+        foreach ((new InfluencerJobsModel())->list_for_influencer($cid, $infl['id'], $type, (int) ($this->post['limit'] ?? 24)) as $j) {
+            $out[] = InfluencerJobService::job_json($cid, $j);
+        }
+        $this->jsonSuccess(['jobs' => $out]);
+    }
+
+    /** Retry a failed generation (same prompt and seed). */
+    public function influencer_job_retryAction(){
+        $user = $this->ai_user();
+        $r = InfluencerJobService::retry((int) $user['user_id'], (int) ($this->post['job_id'] ?? 0));
+        if (empty($r['ok'])) { $this->jsonError((string) $r['error']); }
+        $this->jsonSuccess(['job_id' => (int) $r['job_id']]);
+    }
+
+    /** Let Claude write a scene prompt for her (returned to the field; nothing is sent to the renderer). */
+    public function influencer_prompt_autoAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $trigger = '';
+        if (!empty($infl['active_model_id'])) { $mdl = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']); $trigger = $mdl ? (string) $mdl['trigger_word'] : ''; }
+        if (!ClaudeService::configured()) { $this->jsonError('Prompt writing is not available right now.'); }
+        $hint = $this->text('hint', 500);
+        $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific woman. '
+            . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
+            . ($trigger !== '' ? 'The prompt MUST start with the exact token "' . $trigger . '" (this identifies her). ' : '')
+            . 'Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
+        $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
+        $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 200, 30, 'low');
+        if (empty($r['ok']) || trim((string) $r['text']) === '') { $this->jsonError('Could not write a prompt right now.'); }
+        $text = trim(preg_replace('/\s+/', ' ', (string) $r['text']));
+        if ($trigger !== '' && stripos($text, $trigger) === false) { $text = $trigger . ' ' . $text; }
+        $this->jsonSuccess(['prompt' => $text]);
+    }
+
+    /** Short-lived download URL for one of her assets (original rendition). */
+    public function influencer_asset_urlAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $a = (new MediaAssetsModel())->get_one($cid, (int) ($this->post['asset_id'] ?? 0));
+        if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That file is not ready.'); }
+        $variant = (($this->post['variant'] ?? 'original') === 'display') ? 'display' : 'original';
+        $url = MediaService::signed_variant($a, $variant, 900);
+        if ($url === '') { $this->jsonError('Could not sign that file.'); }
+        $this->jsonSuccess(['url' => $url, 'type' => (string) $a['type']]);
+    }
 }

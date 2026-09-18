@@ -184,8 +184,6 @@ class InfluencerTrainingService {
         $infl = new InfluencersModel();
         $infl->transition($iid, array('status' => 'ready', 'active_model_id' => $model_id, 'pending_model_id' => null, 'last_error' => null, 'wizard_step' => 'done'),
             'pending_model_id = :m', array('m' => $model_id));
-        // Default prompt prefix is the trigger word (editable by the user).
-        $infl->transition($iid, array('prompt_defaults' => (string) $row['trigger_word']), "(prompt_defaults IS NULL OR prompt_defaults = '')");
         if (!empty($p['zip_key'])) { S3Service::delete_key((string) $p['zip_key']); }
         return $model_id;
     }
