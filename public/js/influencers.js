@@ -699,7 +699,7 @@ jQuery(function ($) {
                 }
             });
         }
-        api('influencer_jobs_list', { id: inf.id, type: 'image', limit: 24 }, function (o) {
+        api('influencer_jobs_list', { id: inf.id, type: 'image,enhance', limit: 24 }, function (o) {
             if (!o || !o.success) { return; }
             jobs = o.jobs || []; render_strip();
             var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];
@@ -741,7 +741,108 @@ jQuery(function ($) {
         $(document).on('keydown', function (e) { if (e.key === 'Escape') { $('#inf_lightbox').prop('hidden', true); } });
     }
 
+    /* =====================================================================
+     * Generate Videos
+     * =================================================================== */
+    function init_videos() {
+        var inf = CFG.influencer;
+        if (!inf) { return; }
+        var jobs = [], current = null, stop_poll = null;
+        var still = parseInt($('#inf_gen').data('still'), 10) || 0;
+
+        function seg_val(id) { return $('#' + id + ' .inf-seg__opt.is-on').data('value'); }
+        function model_key() { return $('#inf_vmodel .inf-opt.is-on').data('key') || ''; }
+        function model_opt(key) { return (C.pickers.video || []).filter(function (o) { return o.key === key; })[0]; }
+        function durations() {
+            var m = model_opt(model_key()); var d = (m && m.durations.length) ? m.durations : ['5'];
+            var cur = seg_val('inf_vdur');
+            $('#inf_vdur').html(d.map(function (x) { return '<button type="button" class="inf-seg__opt' + (x === cur || (!d.includes(cur) && x === d[0]) ? ' is-on' : '') + '" data-value="' + esc(x) + '" aria-pressed="false"><span>' + esc(x) + 's</span></button>'; }).join(''));
+            $('#inf_vdur .inf-seg__opt.is-on').attr('aria-pressed', 'true');
+            cost();
+        }
+        function cost() { var m = model_opt(model_key()); var d = parseInt(seg_val('inf_vdur'), 10) || 5; $('#inf_vcost').text(m ? money(m.price_usd * d) + ' estimated' : ''); }
+        $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
+        $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
+        $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });
+        $('#inf_vlevel').on('click', '.inf-seg__opt', function () { $('#inf_vlevel .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); });
+        durations();
+
+        /* stills: every image of hers, newest generated first */
+        api('influencer_images', { id: inf.id }, function (o) {
+            var $g = $('#inf_stills').empty();
+            var imgs = (o && o.success) ? o.images.filter(function (x) { return x.type === 'image' && x.status === 'ready' && x.thumb_url; }) : [];
+            var order = { generated: 0, enhanced: 1, reference: 2, upload: 3, training: 4, face: 5 };
+            imgs.sort(function (a, b) { return (order[a.role] - order[b.role]) || (b.id - a.id); });
+            if (!imgs.length) { $g.html('<span class="inf-wiz__meta">No images of her yet. Generate one first.</span>'); return; }
+            imgs.forEach(function (img) {
+                var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === still ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
+                $t.on('click', function () { still = img.id; $('#inf_stills .inf-photo').removeClass('is-on'); $t.addClass('is-on'); $('#inf_vgo').prop('disabled', false); });
+                $g.append($t);
+            });
+            if (!still || !$g.find('.is-on').length) { still = imgs[0].id; $g.find('.inf-photo').first().addClass('is-on'); }
+            $('#inf_vgo').prop('disabled', false);
+        });
+
+        function busy(t) { $('#inf_vidle').prop('hidden', true); $('#inf_video').prop('hidden', true); $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }
+        function show_current() {
+            $('#inf_vbusy').prop('hidden', true);
+            if (!current) { $('#inf_vidle').prop('hidden', false); $('#inf_video, #inf_vresult').prop('hidden', true); return; }
+            $('#inf_vidle').prop('hidden', true); $('#inf_video, #inf_vresult').prop('hidden', false);
+            var v = document.getElementById('inf_video'); v.poster = current.asset.display_url || ''; v.src = current.asset.video_url || ''; v.load();
+            var m = model_opt(current.job.model_key);
+            $('#inf_vres_model').text(m ? m.label : current.job.model_key); $('#inf_vres_dur').text((current.job.params.duration || '') + 's'); $('#inf_vres_prompt').text(current.job.prompt || '');
+            $('#inf_vstrip .inf-strip__item').removeClass('is-on').filter('[data-asset="' + current.asset.id + '"]').addClass('is-on');
+        }
+        function select(job, asset) { current = { job: job, asset: asset }; show_current(); }
+        function merge(j) { var i = jobs.findIndex(function (x) { return x.id === j.id; }); if (i >= 0) { jobs[i] = j; } else { jobs.unshift(j); } }
+        function render_strip() {
+            var $s = $('#inf_vstrip').empty();
+            jobs.forEach(function (j) {
+                if (j.assets && j.assets.length) {
+                    j.assets.forEach(function (a) {
+                        if (a.status !== 'ready') { return; }
+                        var $t = $('<button type="button" class="inf-strip__item' + (current && current.asset.id === a.id ? ' is-on' : '') + '">').attr('data-asset', a.id).append(a.thumb_url ? '<img src="' + esc(a.thumb_url) + '" alt="">' : '<i class="fa-solid fa-play"></i>');
+                        $t.on('click', function () { select(j, a); });
+                        $s.append($t);
+                    });
+                } else if (j.status === 'failed') {
+                    var $f = $('<button type="button" class="inf-strip__item inf-strip__item--failed" title="' + esc(j.error) + '"><i class="fa-solid fa-circle-exclamation"></i></button>');
+                    $f.on('click', function () { toastr.error(j.error || 'Generation failed'); }); $s.append($f);
+                } else if (j.status !== 'cancelled') { $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>'); }
+            });
+        }
+        function watch(job_id) {
+            if (stop_poll) { stop_poll(); }
+            stop_poll = poll_job(job_id, function (j) { busy(status_text(j)); merge(j); }, function (j) {
+                merge(j); $('#inf_vgo').prop('disabled', false);
+                if (j.status !== 'done' || !j.assets.length) { toastr.error(j.error || 'Generation failed'); show_current(); render_strip(); return; }
+                select(j, j.assets[0]); render_strip();
+            });
+        }
+        api('influencer_jobs_list', { id: inf.id, type: 'video', limit: 24 }, function (o) {
+            if (!o || !o.success) { return; }
+            jobs = o.jobs || []; render_strip();
+            var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];
+            if (running) { busy(status_text(running)); watch(running.id); return; }
+            var last = jobs.filter(function (j) { return j.assets && j.assets.length; })[0];
+            if (last) { select(last, last.assets[0]); }
+        });
+        $('#inf_vgo').on('click', function () {
+            if (!still) { toastr.error('Pick a still of her first'); return; }
+            if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
+            var $b = $(this).prop('disabled', true);
+            busy('Sending');
+            api('influencer_generate_video', { id: inf.id, asset_id: still, prompt: $('#inf_vprompt').val().trim(), model_key: model_key(), duration: seg_val('inf_vdur'), level: seg_val('inf_vlevel') }, function (o) {
+                if (!o || !o.success) { err(o); $b.prop('disabled', false); show_current(); return; }
+                jobs.unshift(o.job); render_strip(); watch(o.job.id);
+            });
+        });
+        $('#inf_vres_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.asset.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
+        $('#inf_vres_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.asset.id)); } catch (e) {} window.location = '/studio'; });
+    }
+
     if (page === 'index')  { init_index(); }
     if (page === 'create') { init_create(); }
     if (page === 'images') { init_images(); }
+    if (page === 'videos') { init_videos(); }
 });

@@ -84,7 +84,7 @@ class ApiRoutes {
             'influencer_images', 'influencer_upload', 'influencer_image_remove', 'influencer_train', 'influencer_models',
             'influencer_reference_generate', 'influencer_reference_pick', 'influencer_training_set_start', 'influencer_training_set_status',
             'influencer_training_set_retry', 'influencer_job_get', 'influencer_generate_image', 'influencer_jobs_list', 'influencer_job_retry',
-            'influencer_prompt_auto', 'influencer_asset_url',
+            'influencer_prompt_auto', 'influencer_asset_url', 'influencer_generate_video', 'influencer_enhance',
         ],
     ];
 

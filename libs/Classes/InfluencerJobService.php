@@ -469,6 +469,10 @@ class InfluencerJobService {
             $durs = array_values((array) ($model['durations'] ?? array()));
             $d = (string) ($p['duration'] ?? ($durs[0] ?? '5'));
             $req['duration'] = (!empty($durs) && !in_array($d, $durs, true)) ? (string) $durs[0] : $d;
+            if ($req['duration'] !== $d) {   // record what was actually sent
+                $p['duration'] = $req['duration'];
+                (new InfluencerJobsModel())->transition($job['id'], null, array('params_json' => json_encode($p)));
+            }
         }
         if ($type === 'enhance' && empty($req['image_url'])) { return array('error' => 'A source image is required to enhance'); }
         if (in_array($type, array('training_set'), true) && empty($req['image_urls'])) { return array('error' => 'A reference image is required'); }

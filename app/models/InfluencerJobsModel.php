@@ -96,12 +96,17 @@ class InfluencerJobsModel extends Model {
         return (is_array($r) && count($r)) ? ((int) $r[0]['n'] > 0) : false;
     }
 
-    /** Recent jobs for one influencer (studio result strips), newest first. */
+    /** Recent jobs for one influencer (studio result strips), newest first. $type: one type, a list, or ''. */
     public function list_for_influencer($creator_id, $influencer_id, $type = '', $limit = 30){
         $limit  = max(1, min(200, (int) $limit));
         $params = array('c' => (int) $creator_id, 'i' => (int) $influencer_id);
         $extra  = '';
-        if ($type !== '') { $extra = ' AND type = :t'; $params['t'] = (string) $type; }
+        $types  = array_values(array_filter(array_map('trim', (array) (is_array($type) ? $type : explode(',', (string) $type))), 'strlen'));
+        if (!empty($types)) {
+            $ph = array();
+            foreach ($types as $k => $t) { $ph[] = ':t' . $k; $params['t' . $k] = $t; }
+            $extra = ' AND type IN (' . implode(',', $ph) . ')';
+        }
         return (array) parent::select(
             "SELECT * FROM influencer_jobs WHERE creator_id = :c AND influencer_id = :i $extra ORDER BY id DESC LIMIT $limit", $params);
     }

@@ -82,4 +82,18 @@ class InfluencersController extends Controller {
         $this->ready_influencer($user);
         $this->view->render();
     }
+
+    /** Generate Videos from a still of her; /influencers/videos/<id>/<asset_id> preselects the still. */
+    public function videosAction(){
+        $user = $this->gate();
+        $this->view->page = 'videos';
+        $infl = $this->ready_influencer($user);
+        $aid  = (int) (Main::get_url()[3] ?? 0);
+        $this->view->still_asset_id = 0;
+        if ($aid > 0) {
+            $a = (new MediaAssetsModel())->get_one((int) $user['user_id'], $aid);
+            if ($a && (string) $a['type'] === 'image' && (string) $a['status'] === 'ready') { $this->view->still_asset_id = $aid; }
+        }
+        $this->view->render();
+    }
 }

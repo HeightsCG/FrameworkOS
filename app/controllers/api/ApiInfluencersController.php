@@ -450,9 +450,9 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
-        $type = in_array($this->post['type'] ?? '', InfluencerJobsModel::TYPES, true) ? $this->post['type'] : '';
-        $out  = array();
-        foreach ((new InfluencerJobsModel())->list_for_influencer($cid, $infl['id'], $type, (int) ($this->post['limit'] ?? 24)) as $j) {
+        $types = array_values(array_intersect(array_map('trim', explode(',', (string) ($this->post['type'] ?? ''))), InfluencerJobsModel::TYPES));
+        $out   = array();
+        foreach ((new InfluencerJobsModel())->list_for_influencer($cid, $infl['id'], $types, (int) ($this->post['limit'] ?? 24)) as $j) {
             $out[] = InfluencerJobService::job_json($cid, $j);
         }
         $this->jsonSuccess(['jobs' => $out]);
@@ -497,5 +497,57 @@ class ApiInfluencersController extends BaseApiController {
         $url = MediaService::signed_variant($a, $variant, 900);
         if ($url === '') { $this->jsonError('Could not sign that file.'); }
         $this->jsonSuccess(['url' => $url, 'type' => (string) $a['type']]);
+    }
+
+    /** Image-to-video from one of her stills. Returns the job id to poll. */
+    public function influencer_generate_videoAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        $aid = (int) ($this->post['asset_id'] ?? 0);
+        $a   = (new MediaAssetsModel())->get_one($cid, $aid);
+        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { $this->jsonError('Pick a ready image of her first.'); }
+        if (!(new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid)) { $this->jsonError('That image is not one of hers.'); }
+        $mk = InfluencerConfig::resolve_model('video', (string) ($this->post['model_key'] ?? ''));
+        if (!$mk) { $this->jsonError('No video model is configured.'); }
+        $user_prompt = $this->text('prompt', 2000);
+        $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
+        $prompt   = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
+        $durs = array_values((array) ($mk['durations'] ?? array()));
+        $dur  = (string) ($this->post['duration'] ?? ($durs[0] ?? '5'));
+        if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
+        $level = (($this->post['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
+            'origin' => 'studio', 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
+            'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'input_asset_id' => $aid,
+            'params' => array('duration' => $dur, 'level' => $level, 'user_prompt' => $user_prompt),
+        ));
+        if ($job_id <= 0) { $this->jsonError('Could not start the video.'); }
+        $this->jsonSuccess(['job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))]);
+    }
+
+    /** Enhance (upscale) one of her images into a new library asset. */
+    public function influencer_enhanceAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        if (!InfluencerConfig::enabled()) { $this->jsonError('Rendering is not configured yet (no provider key).'); }
+        $aid = (int) ($this->post['asset_id'] ?? 0);
+        $a   = (new MediaAssetsModel())->get_one($cid, $aid);
+        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { $this->jsonError('Pick a ready image first.'); }
+        if (!(new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid)) { $this->jsonError('That image is not one of hers.'); }
+        $mk = InfluencerConfig::resolve_model('enhance', (string) ($this->post['model_key'] ?? ''));
+        if (!$mk) { $this->jsonError('No enhance model is configured.'); }
+        // The prompt that produced the source (if any) rides along; nothing else is added.
+        $src_prompt = '';
+        $link = (new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid);
+        if (!empty($link['job_id'])) { $sj = (new InfluencerJobsModel())->get_one($cid, (int) $link['job_id']); $src_prompt = $sj ? (string) $sj['prompt'] : ''; }
+        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'enhance', array(
+            'origin' => 'studio', 'model_key' => (string) $mk['key'], 'prompt' => $src_prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
+            'input_asset_id' => $aid, 'params' => array('level' => (($this->post['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe', 'num_images' => 1),
+        ));
+        if ($job_id <= 0) { $this->jsonError('Could not start the enhancement.'); }
+        $this->jsonSuccess(['job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))]);
     }
 }
