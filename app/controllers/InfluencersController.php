@@ -1,0 +1,63 @@
+<?php
+/**
+ * AI influencers (/influencers). Four destinations: the influencer gallery (index), the
+ * create wizard (/influencers/create[/<id>]), Generate Images (/influencers/images/<id>),
+ * Generate Videos (/influencers/videos/<id>) and the per-influencer Gallery
+ * (/influencers/gallery/<id>). Creator-only, gated on the ai_tools plan flag like the
+ * Studio's AI actions. Collaborators act on the owner's account via Permissions::creator_id().
+ */
+class InfluencersController extends Controller {
+
+    public $protected = 1;
+
+    public function __construct(){
+        parent::__construct();
+    }
+
+    /** Shared gate + page config. Returns the owner row, or redirects. */
+    private function gate(){
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('content')) { header('Location: /'); exit; }
+        $creator_id = Permissions::creator_id();
+        $rows = (new UsersModel())->get_user_by_id($creator_id);
+        $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$user) { header('Location: /'); exit; }
+        $this->view->needs_plan = !Plan::can_use_creator_features($user);
+        $this->view->can_ai     = Plan::can($user, 'ai_tools');
+        $this->view->creator_id = (int) $creator_id;
+        $this->view->config     = InfluencerService::page_config();
+        $this->view->ready      = array();
+        foreach ((new InfluencersModel())->list_ready($creator_id) as $r) {
+            $this->view->ready[] = array('id' => (int) $r['id'], 'name' => (string) $r['name']);
+        }
+        return $user;
+    }
+
+    /** Segment 2 of the routed path (/influencers/<action>/<id>), never $_GET. */
+    private function id_from_url(){
+        $url = Main::get_url();
+        return (int) ($url[2] ?? 0);
+    }
+
+    /** Your Influencers: the card gallery. */
+    public function indexAction(){
+        $this->gate();
+        $this->view->page = 'index';
+        $this->view->render();
+    }
+
+    /** Path chooser (no id) or the wizard for one influencer. */
+    public function createAction(){
+        $user = $this->gate();
+        $this->view->page = 'create';
+        $id = $this->id_from_url();
+        $this->view->influencer = null;
+        if ($id > 0) {
+            $infl = (new InfluencersModel())->get_one((int) $user['user_id'], $id);
+            if (!$infl) { header('Location: /influencers'); exit; }
+            $this->view->influencer = InfluencerService::influencer_json((int) $user['user_id'], $infl);
+        }
+        $this->view->retrain = ((string) (Main::get_url()[3] ?? '') === 'retrain');   // /influencers/create/<id>/retrain
+        $this->view->name_suggestions = InfluencerService::name_suggestions((int) $user['user_id']);
+        $this->view->render();
+    }
+}

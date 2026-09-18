@@ -1,0 +1,214 @@
+<?php
+/**
+ * Influencer wizard + presentation logic: the per-path step order, the resume rule (state
+ * beats a stale stored step), name suggestions, prebuilt prompts, and the JSON shape the
+ * pages consume. Persistence stays in the Influencer*Model classes; rendering jobs are
+ * created through InfluencerJobService / InfluencerTrainingService.
+ */
+class InfluencerService {
+
+    /** Wizard steps per path, in order. 'training' and 'done' are reached by the engine. */
+    const STEPS = array(
+        'photos'    => array('name', 'photos', 'train', 'training', 'done'),
+        'reference' => array('name', 'input', 'reference', 'set', 'review', 'training', 'done'),
+    );
+
+    const NAMES = array('Ava', 'Mia', 'Luna', 'Sofia', 'Isla', 'Aria', 'Chloe', 'Zoe', 'Nova', 'Lila', 'Maya', 'Elena',
+        'Camila', 'Stella', 'Ivy', 'Jade', 'Nina', 'Vera', 'Cleo', 'Rosa', 'Sasha', 'Talia', 'Bianca', 'Dahlia', 'Freya',
+        'Gia', 'Harper', 'Juno', 'Kira', 'Leila', 'Margot', 'Noor', 'Opal', 'Paloma', 'Remi', 'Sienna', 'Thea', 'Uma', 'Willa', 'Yara');
+
+    /** Drop-in face descriptions for the reference step (text input). */
+    const FACE_PROMPTS = array(
+        'Portrait photo of a woman in her mid 20s, long dark wavy hair, warm brown eyes, soft freckles, natural makeup, neutral background, soft daylight, looking at the camera',
+        'Portrait photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, minimal makeup, clean studio background, even lighting',
+        'Portrait photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, gold hoop earrings, neutral background, golden hour light',
+        'Portrait photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, natural look, plain background, soft window light',
+    );
+
+    /** Drop-in scene prompts for Generate Images (the trigger word is typed by the user). */
+    const IMAGE_PROMPTS = array(
+        'candid photo at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, film grain',
+        'mirror selfie in a bright bedroom, oversized knit sweater, morning light, phone in hand',
+        'walking on a beach boardwalk at sunset, sundress, wind in hair, shot on 35mm',
+        'sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background',
+        'gym mirror photo, athletic set, water bottle, bright overhead light, confident pose',
+        'night out portrait, string lights behind, subtle smile, shallow depth of field',
+    );
+
+    /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. */
+    const TRAINING_VARIATIONS = array(
+        'same person, front-facing portrait, neutral expression, soft studio light, plain background, 1:1 crop of head and shoulders',
+        'same person, three-quarter view turned slightly left, gentle smile, natural window light, plain background',
+        'same person, three-quarter view turned slightly right, relaxed expression, warm evening light, plain background',
+        'same person, profile view, hair tucked behind ear, soft light, plain background',
+        'same person, laughing with eyes crinkled, bright daylight, outdoor blurred background',
+        'same person, looking over shoulder at the camera, golden hour, outdoor background',
+        'same person, close-up of the face, serious expression, dramatic side lighting, dark background',
+        'same person, upper body, arms crossed, confident look, overcast daylight, city street background',
+        'same person, hair up in a bun, minimal makeup, morning light, bedroom background',
+        'same person, wearing sunglasses pushed up on the head, big smile, beach background, midday sun',
+    );
+
+    /* ---- steps ---- */
+
+    public static function steps_for($path){
+        return self::STEPS[$path] ?? self::STEPS['photos'];
+    }
+
+    /**
+     * Which step the wizard should open at. The stored step is honoured only while it is at
+     * or before what the data allows; once training starts the engine owns the step.
+     */
+    public static function resume_step(array $infl, $counts = null){
+        $path = (string) ($infl['path'] ?? '');
+        if ($path === '') { return 'path'; }
+        if ((string) $infl['status'] === 'ready' && !empty($infl['active_model_id']) && empty($infl['pending_model_id'])) { return 'done'; }
+        if (!empty($infl['pending_model_id'])) { return 'training'; }
+        $steps  = self::steps_for($path);
+        $stored = (string) ($infl['wizard_step'] ?? 'name');
+        if ($counts === null) { $counts = self::counts($infl); }
+
+        if ($path === 'photos') {
+            $max = ($counts['upload'] >= (int) InfluencerConfig::get('training_min_photos', 10)) ? 'train' : 'photos';
+        } else {
+            if (!empty($infl['training_set_group'])) {
+                $max = ($counts['training_done'] >= (int) InfluencerConfig::get('training_set_size', 10)) ? 'review' : 'set';
+            } elseif (!empty($infl['reference_asset_id'])) {
+                $max = 'set';
+            } elseif (!empty($infl['input_method'])) {
+                $max = 'reference';
+            } else {
+                $max = 'input';
+            }
+        }
+        // Training/done are engine-owned; a stale 'training' with no pending model means it failed.
+        if (in_array($stored, array('training', 'done'), true)) { $stored = $max; }
+        $si = array_search($stored, $steps, true); $mi = array_search($max, $steps, true);
+        if ($si === false) { return $max; }
+        // Jobs in flight for this step keep the user on the furthest step.
+        $in_flight = (new InfluencerJobsModel())->has_pending((int) $infl['id']);
+        return ($in_flight || $si > $mi) ? $max : $stored;
+    }
+
+    /** Per-role counts + training-set completion for the resume rule and the cards. */
+    public static function counts(array $infl){
+        $im = new InfluencerImagesModel();
+        $cid = (int) $infl['creator_id']; $iid = (int) $infl['id'];
+        $out = array(
+            'upload'    => $im->count_role($cid, $iid, 'upload'),
+            'training'  => $im->count_role($cid, $iid, 'training'),
+            'generated' => $im->count_role($cid, $iid, 'generated'),
+            'video'     => $im->count_role($cid, $iid, 'video'),
+            'training_done' => 0,
+        );
+        if (!empty($infl['training_set_group'])) {
+            $out['training_done'] = count($im->ready_asset_ids($cid, $iid, 'training'));
+        }
+        return $out;
+    }
+
+    /* ---- names ---- */
+
+    public static function name_suggestions($creator_id, $n = 4){
+        $m = new InfluencersModel();
+        $pool = self::NAMES; shuffle($pool);
+        $out = array();
+        foreach ($pool as $name) {
+            if (!$m->name_taken($creator_id, $name)) { $out[] = $name; }
+            if (count($out) >= $n) { break; }
+        }
+        return $out;
+    }
+
+    /* ---- engine hooks ---- */
+
+    /** Reference / training-set job finished: keep the wizard status in step. */
+    public static function on_wizard_job_finished(array $job){
+        $m = new InfluencersModel();
+        $infl = $m->get_by_id($job['influencer_id']);
+        if (!$infl) { return; }
+        if ((string) $job['type'] === 'reference' && (string) $job['status'] === 'done' && empty($infl['reference_asset_id'])) {
+            $m->transition($infl['id'], array('status' => 'awaiting_reference', 'wizard_step' => 'reference'), "status IN ('draft','awaiting_reference','failed')");
+        }
+    }
+
+    /* ---- presentation ---- */
+
+    /** Card / wizard payload for one influencer. */
+    public static function influencer_json($creator_id, array $infl, $with_counts = true){
+        $creator_id = (int) $creator_id;
+        $counts = $with_counts ? self::counts($infl) : null;
+        $models = new InfluencerModelsModel();
+        $active = !empty($infl['active_model_id']) ? $models->get_by_id($infl['active_model_id']) : null;
+        $pending = !empty($infl['pending_model_id']) ? $models->get_by_id($infl['pending_model_id']) : null;
+        $cover = (new InfluencerImagesModel())->cover_asset($creator_id, (int) $infl['id']);
+        $out = array(
+            'id'                  => (int) $infl['id'],
+            'name'                => (string) $infl['name'],
+            'status'              => (string) $infl['status'],
+            'path'                => (string) ($infl['path'] ?? ''),
+            'input_method'        => (string) ($infl['input_method'] ?? ''),
+            'is_public'           => (int) $infl['is_public'],
+            'source_description'  => (string) ($infl['source_description'] ?? ''),
+            'reference_model_key' => (string) ($infl['reference_model_key'] ?? ''),
+            'steer_text'          => (string) ($infl['steer_text'] ?? ''),
+            'prompt_defaults'     => (string) ($infl['prompt_defaults'] ?? ''),
+            'negative_prompt'     => (string) ($infl['negative_prompt'] ?? ''),
+            'face_asset_id'       => (int) ($infl['face_asset_id'] ?? 0),
+            'reference_asset_id'  => (int) ($infl['reference_asset_id'] ?? 0),
+            'training_set_group'  => (string) ($infl['training_set_group'] ?? ''),
+            'active_model_id'     => (int) ($infl['active_model_id'] ?? 0),
+            'pending_model_id'    => (int) ($infl['pending_model_id'] ?? 0),
+            'trigger_word'        => $active ? (string) $active['trigger_word'] : ($pending ? (string) $pending['trigger_word'] : ''),
+            'trained_at'          => $active ? (string) $active['trained_at'] : '',
+            'share_accounts'      => InfluencersModel::share_accounts($infl),
+            'last_error'          => (string) ($infl['last_error'] ?? ''),
+            'wizard_step'         => self::resume_step($infl, $counts),
+            'counts'              => $counts,
+            'cover_url'           => $cover ? MediaService::signed_url($cover, 'thumb', $creator_id) : '',
+            'created_at'          => (string) $infl['created_at'],
+            'updated_at'          => (string) $infl['updated_at'],
+        );
+        return $out;
+    }
+
+    /** Ready, signed image rows for a role (wizard grids, still pickers). */
+    public static function images_json($creator_id, $influencer_id, $role = '', $include_excluded = false){
+        $out = array();
+        foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, $influencer_id, $role, $include_excluded) as $a) {
+            $out[] = array(
+                'id' => (int) $a['id'], 'role' => (string) $a['role'], 'job_id' => (int) $a['job_id'], 'result_index' => (int) $a['result_index'],
+                'sort_order' => (int) $a['sort_order'], 'is_excluded' => (int) $a['is_excluded'], 'status' => (string) $a['status'],
+                'type' => (string) $a['type'], 'width' => (int) $a['width'], 'height' => (int) $a['height'], 'duration' => (int) $a['duration_sec'],
+                'thumb_url'   => ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id) : '',
+                'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id) : '',
+                'moderation'  => (string) $a['moderation_status'],
+            );
+        }
+        return $out;
+    }
+
+    /** Static config the pages need: pickers by purpose, limits, prompts, whether rendering is configured. */
+    public static function page_config(){
+        return array(
+            'enabled' => InfluencerConfig::enabled(),
+            'pickers' => array(
+                'reference'    => InfluencerConfig::picker_options('reference'),
+                'training_set' => InfluencerConfig::picker_options('training_set'),
+                'image'        => InfluencerConfig::picker_options('image'),
+                'video'        => InfluencerConfig::picker_options('video'),
+                'enhance'      => InfluencerConfig::picker_options('enhance'),
+                'training'     => InfluencerConfig::picker_options('training'),
+            ),
+            'limits' => array(
+                'min_photos' => (int) InfluencerConfig::get('training_min_photos', 10),
+                'max_photos' => (int) InfluencerConfig::get('training_max_photos', 50),
+                'set_size'   => (int) InfluencerConfig::get('training_set_size', 10),
+                'steps'      => (int) InfluencerConfig::get('training_steps', 1000),
+            ),
+            'training_cost_usd' => InfluencerConfig::price(InfluencerConfig::default_model_key('training'), (int) InfluencerConfig::get('training_steps', 1000)),
+            'prompts' => array('face' => self::FACE_PROMPTS, 'image' => self::IMAGE_PROMPTS),
+            'steps'   => self::STEPS,
+        );
+    }
+}

@@ -79,6 +79,10 @@ class ApiRoutes {
         'ApiMcpController' => [
             'mcp_token_generate', 'mcp_token_revoke',
         ],
+        'ApiInfluencersController' => [
+            'influencer_list', 'influencer_get', 'influencer_create', 'influencer_save_step', 'influencer_delete', 'influencer_name_suggest',
+            'influencer_images',
+        ],
     ];
 
     private static $index = null;

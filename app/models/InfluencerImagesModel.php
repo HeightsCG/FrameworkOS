@@ -81,6 +81,17 @@ class InfluencerImagesModel extends Model {
             array('c' => (int) $creator_id, 'i' => (int) $influencer_id, 'a' => (int) $asset_id));
     }
 
+    /** The image that best represents the influencer: reference, else newest generated, else a training/upload photo. */
+    public function cover_asset($creator_id, $influencer_id){
+        $r = parent::select(
+            "SELECT a.* FROM influencer_images ii JOIN media_assets a ON a.id = ii.asset_id
+             WHERE ii.creator_id = :c AND ii.influencer_id = :i AND ii.is_excluded = 0 AND a.status = 'ready' AND a.deleted_at IS NULL
+               AND a.type = 'image' AND a.moderation_status <> 'blocked'
+             ORDER BY FIELD(ii.role, 'reference', 'generated', 'enhanced', 'face', 'training', 'upload'), ii.id DESC LIMIT 1",
+            array('c' => (int) $creator_id, 'i' => (int) $influencer_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
     /** Influencer an asset belongs to (for the media library filter/labels), or null. */
     public function influencer_for_asset($creator_id, $asset_id){
         $r = parent::select("SELECT influencer_id, role FROM influencer_images WHERE creator_id = :c AND asset_id = :a",

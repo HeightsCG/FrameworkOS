@@ -37,6 +37,7 @@
             <?php if (Permissions::can_act_as_creator()): ?>
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
+            <a href="/influencers" class="app-nav-item<?php echo ($this->controller === 'influencers' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-user-astronaut"></i> Influencers</a>
             <a href="/audience" class="app-nav-item<?php echo ($this->controller === 'audience' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-users"></i> Audience</a>
             <?php if (Permissions::team_allows('manage')): ?>
             <a href="/events" class="app-nav-item<?php echo ($this->controller === 'events' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-calendar-days"></i> Events</a>
