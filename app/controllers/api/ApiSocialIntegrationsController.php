@@ -1,5 +1,5 @@
 <?php
-/** Post for Me social accounts, Fanvue and Eromify connections, Fanvue auto-messages. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
+/** Post for Me social accounts, Fanvue connections, Fanvue auto-messages. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiSocialIntegrationsController extends BaseApiController {
 
     public function connect_accountAction(){
@@ -217,44 +217,6 @@ class ApiSocialIntegrationsController extends BaseApiController {
             $this->jsonError((string) ($e->getMessage()));
         }
         $this->jsonSuccess(['message' => 'Turned off']);
-    }
-
-    // ---- Eromify (Creator Studio) ---------------------------------------------------------
-
-    /** Save a creator's Eromify API key after checking it works. */
-    public function eromify_connectAction(){
-        $user = $this->require_creator('manage');
-        $key  = trim(html_entity_decode((string) ($this->post['api_key'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if ($key === '' || strpos($key, 'ero_') !== 0) {
-            $this->jsonError('Paste an Eromify API key (it starts with ero_live_).');
-        }
-        $v = EromifyService::verify($key);
-        if (!$v['ok']) {
-            $this->jsonError((string) ($v['error']));
-        }
-        (new EromifyAccountsModel())->connect((int) $user['user_id'], $key, $v['plan'], $v['credits']);
-        $this->jsonSuccess(['message' => 'Eromify connected', 'credits' => $v['credits'], 'plan' => $v['plan']]);
-    }
-
-    public function eromify_disconnectAction(){
-        $user = $this->require_creator('manage');
-        (new EromifyAccountsModel())->disconnect((int) $user['user_id']);
-        $this->jsonSuccess(['message' => 'Eromify disconnected']);
-    }
-
-    /** The creator's studio characters, for the automation form. */
-    public function eromify_charactersAction(){
-        $user = $this->require_creator();
-        $acct = (new EromifyAccountsModel())->get_connected_for_user((int) $user['user_id']);
-        if (!$acct) {
-            $this->jsonError('Connect Eromify in Integrations first.', ['need_connect' => true]);
-        }
-        $r = EromifyService::list_characters($acct['api_key']);
-        if (isset($r['error'])) {
-            (new EromifyAccountsModel())->set_error((int) $user['user_id'], $r['error']);
-            $this->jsonError((string) ($r['error']));
-        }
-        $this->jsonSuccess(['characters' => $r['characters']]);
     }
 
     /** Auth + plan gate for all social endpoints. Returns the user array or exits with a JSON error. */

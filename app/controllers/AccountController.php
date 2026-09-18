@@ -160,7 +160,6 @@ class AccountController extends Controller {
         $this->view->inbox_pending       = ($can_manage && $this->view->can_inbox) ? (new InboxRepliesModel())->count_pending($owner['user_id']) : 0;
         $this->view->claude_ok           = ClaudeService::configured();
         $this->view->fanvue_configured   = FanvueService::configured();
-        $this->view->eromify             = $can_manage ? (new EromifyAccountsModel())->get_for_user($owner['user_id']) : null;
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
         $this->view->notification_meta   = $notification_meta;

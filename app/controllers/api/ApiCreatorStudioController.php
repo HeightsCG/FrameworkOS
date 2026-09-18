@@ -466,16 +466,8 @@ class ApiCreatorStudioController extends BaseApiController {
             }
         } elseif ($topic === '') { $this->jsonError('Describe what to post (the topic).'); }
 
-        $src = (string) ($this->post['image_source'] ?? 'brand');
-        $image_source = in_array($src, ['character', 'influencer'], true) ? $src : 'brand';
-        $character_id = trim((string) ($this->post['character_id'] ?? ''));
+        $image_source  = (($this->post['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand';
         $influencer_id = (int) ($this->post['influencer_id'] ?? 0);
-        if ($kind === 'post' && $image_source === 'character') {
-            if (!(new EromifyAccountsModel())->get_connected_for_user($creator_id)) {
-                $this->jsonError('Connect Eromify in Settings > Integrations to use a character.');
-            }
-            if ($character_id === '') { $this->jsonError('Pick a character.'); }
-        }
         if ($kind === 'post' && $image_source === 'influencer') {
             $infl = $influencer_id > 0 ? (new InfluencersModel())->get_one($creator_id, $influencer_id) : null;
             if (!$infl) { $this->jsonError('Pick an influencer.'); }
@@ -483,8 +475,6 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         $fields = [
             'image_source'     => $image_source,
-            'character_id'     => $character_id,
-            'character_name'   => trim(html_entity_decode((string) ($this->post['character_name'] ?? ''), ENT_QUOTES)),
             'influencer_id'    => $influencer_id,
             'influencer_model_key' => (string) ($this->post['influencer_model_key'] ?? ''),
             'content_level'    => (($this->post['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe',
@@ -869,9 +859,7 @@ class ApiCreatorStudioController extends BaseApiController {
         return [
             'id'               => (int) $r['id'],
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
-            'image_source'     => in_array($r['image_source'] ?? 'brand', ['character', 'influencer'], true) ? (string) $r['image_source'] : 'brand',
-            'character_id'     => (string) ($r['character_id'] ?? ''),
-            'character_name'   => (string) ($r['character_name'] ?? ''),
+            'image_source'     => (($r['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand',
             'influencer_id'    => (int) ($r['influencer_id'] ?? 0),
             'influencer_name'  => $this->scheduler_influencer_name($r),
             'influencer_model_key' => (string) ($r['influencer_model_key'] ?? ''),

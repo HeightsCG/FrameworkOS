@@ -823,7 +823,6 @@
                 </div>
 
                 <?php $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
-                <?php $er = $this->eromify; $er_on = $er && ($er['status'] ?? '') === 'connected'; ?>
 
                 <h3 class="integ__group">Platforms &amp; tools</h3>
                 <div class="integ">
@@ -848,30 +847,6 @@
                         <div class="integ__actions">
                             <?php if ($fv_on): ?><button type="button" class="btn btn-ghost btn-sm" id="fanvueDisconnect">Disconnect</button>
                             <?php elseif ($this->fanvue_configured): ?><button type="button" class="btn btn-secondary btn-sm" id="fanvueConnect">Connect</button><?php endif; ?>
-                        </div>
-                    </div>
-
-                    <div class="integ__row">
-                        <span class="integ__icon"><i class="fa-solid fa-user-astronaut"></i></span>
-                        <div class="integ__main">
-                            <div class="integ__name">Eromify</div>
-                            <div class="integ__meta">
-                                <?php if ($er_on): ?>
-                                    <span class="integ__dot is-on"></span><?php echo htmlspecialchars(ucfirst((string) ($er['plan'] ?? 'Connected')) . ' plan' . ($er['credits'] !== null ? ' · ' . number_format((int) $er['credits']) . ' credits' : ''), ENT_QUOTES, 'UTF-8'); ?>
-                                <?php else: ?>
-                                    <span class="integ__dot"></span>Put your AI character in automated posts
-                                <?php endif; ?>
-                            </div>
-                            <?php if (!$er_on): ?>
-                            <div class="integ__inline">
-                                <input type="text" class="form-control form-control-sm" id="eromifyKey" placeholder="API key from eromify.com/studio/api" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
-                                <button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button>
-                            </div>
-                            <?php endif; ?>
-                            <?php if ($er_on && !empty($er['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                        </div>
-                        <div class="integ__actions">
-                            <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button><?php endif; ?>
                         </div>
                     </div>
 
@@ -2580,22 +2555,6 @@ $(function () {
     $('#fanvueConnect').on('click', function () { fanvue_connect('connected', $(this)); });
     $('#fanvueReconnectLink').on('click', function (e) { e.preventDefault(); fanvue_connect('connected', null); });
     $('#inboxReconnectFanvue').on('click', function () { fanvue_connect('inbox', $(this)); });
-
-    $('#eromifyConnect').on('click', function () {
-        var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'eromify_connect', { api_key: $('#eromifyKey').val() }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); }
-            else { toastr.error(o.message); $btn.prop('disabled', false); }
-        });
-    });
-    $('#eromifyKey').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#eromifyConnect').trigger('click'); } });
-    $('#eromifyDisconnect').on('click', function () {
-        ApiDataSvc.apiCall('post', 'eromify_disconnect', {}, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); setTimeout(function () { window.location.href = '/account/settings?section=connected'; }, 800); } else { toastr.error(o.message); }
-        });
-    });
 
     // ---- Inbox automation -------------------------------------------------------
     var inbox_timer = null;

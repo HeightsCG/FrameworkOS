@@ -1465,7 +1465,7 @@ jQuery(function ($) {
     function schedCard(r) {
         var isMsg = r.kind === 'message';
         var aud = isMsg ? schedTargetsSummary(r) : (r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone');
-        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'character' && r.character_name) ? (r.character_name + ' · ' + r.topic) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : r.topic));
+        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : r.topic);
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
             : (r.last_status === 'failed'
@@ -1591,7 +1591,7 @@ jQuery(function ($) {
         schedForm.audience = rule ? rule.audience : 'free';
         schedForm.cadence  = rule ? rule.cadence : 'daily';
         setSchedLevel(rule ? (rule.content_level || 'safe') : 'safe');
-        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? (rule.image_source === 'influencer' ? rule.influencer_id : rule.character_id) : '');
+        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? rule.influencer_id : '');
         setSchedAudience(schedForm.audience);
         setSchedCadence(schedForm.cadence);
         if (rule && rule.audience === 'subscribers') { $('#csSchedTierSel').val(rule.tier_id || ''); }
@@ -1637,23 +1637,16 @@ jQuery(function ($) {
         $('#csSchedShape .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('size') === size); });
         syncPressed('#csSchedShape');
     }
-    var schedCharacters = null;   // cached list from Eromify for this page load
     $('#csSchedImageSource').on('click', '.cs-seg__opt', function () { setSchedImageSource($(this).data('src')); });
     function setSchedImageSource(src, selectedId) {
-        if (src === 'character' && !(CFG.eromify && CFG.eromify.connected)) {
-            toastr.info('Connect Eromify in Settings → Integrations to use your character.');
-            src = 'brand';
-        }
         var influencers = (CFG.influencers && CFG.influencers.ready) || [];
         if (src === 'influencer' && !influencers.length) { toastr.info('Train an influencer first.'); src = 'brand'; }
-        schedForm.image_source = (src === 'character' || src === 'influencer') ? src : 'brand';
+        schedForm.image_source = (src === 'influencer') ? 'influencer' : 'brand';
         $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
         syncPressed('#csSchedImageSource');
-        var isChar = schedForm.image_source === 'character', isInf = schedForm.image_source === 'influencer';
-        $('#csSchedCharacterWrap').prop('hidden', !isChar);
+        var isInf = schedForm.image_source === 'influencer';
         $('#csSchedInfluencerWrap').prop('hidden', !isInf);
-        $('#csSchedTopic').attr('placeholder', (isChar || isInf) ? 'at a rooftop pool at golden hour, iced coffee in hand' : 'A scenic Orlando spot with a short caption');
-        if (isChar) { loadSchedCharacters(selectedId); }
+        $('#csSchedTopic').attr('placeholder', isInf ? 'at a rooftop pool at golden hour, iced coffee in hand' : 'A scenic Orlando spot with a short caption');
         if (isInf) {
             var $sel = $('#csSchedInfluencer').empty();
             influencers.forEach(function (i) { $sel.append('<option value="' + i.id + '">' + esc(i.name) + '</option>'); });
@@ -1666,21 +1659,6 @@ jQuery(function ($) {
         var inf = ((CFG.influencers && CFG.influencers.ready) || []).filter(function (i) { return String(i.id) === String($('#csSchedInfluencer').val()); })[0];
         if (inf && inf.share_accounts && inf.share_accounts.length) { renderSchedSocial(inf.share_accounts); }
     });
-    function loadSchedCharacters(selectedId) {
-        var $sel = $('#csSchedCharacter');
-        function fill() {
-            $sel.empty();
-            if (!schedCharacters.length) { $sel.append('<option value="">No characters in your Eromify studio yet</option>'); return; }
-            schedCharacters.forEach(function (c) { $sel.append('<option value="' + esc(c.id) + '" data-name="' + esc(c.name) + '">' + esc(c.name) + (c.handle && c.handle.indexOf(' ') < 0 ? ' (@' + esc(c.handle) + ')' : '') + '</option>'); });
-            if (selectedId) { $sel.val(selectedId); }
-        }
-        if (schedCharacters) { fill(); return; }
-        $sel.empty().append('<option value="">Loading…</option>');
-        ApiDataSvc.apiCall('post', 'eromify_characters', {}, function (resp) { var o = JSON.parse(resp);
-            if (!o.success) { $sel.empty().append('<option value="">' + esc(o.message) + '</option>'); return; }
-            schedCharacters = o.characters || []; fill();
-        });
-    }
     $('#csSchedAudience').on('click', '.cs-seg__opt', function () { setSchedAudience($(this).data('aud')); });
     function setSchedAudience(a) {
         schedForm.audience = (a === 'subscribers') ? 'subscribers' : 'free';
@@ -1708,13 +1686,8 @@ jQuery(function ($) {
             if (!targets.fanvue.length && !targets.cls) { toastr.info('Pick who gets the message.'); return; }
             if (msgAi && topic === '') { toastr.info('Tell the AI what the message is about.'); $('#csSchedTopic').focus(); return; }
             if (!msgAi && msgText === '') { toastr.info('Write the message.'); $('#csSchedMsgText').focus(); return; }
-        } else if (topic === '') { toastr.info(schedForm.image_source === 'character' ? 'Describe the scene for your character.' : 'Describe what to post.'); $('#csSchedTopic').focus(); return; }
-        var characterId = '', characterName = '', influencerId = '';
-        if (kind === 'post' && schedForm.image_source === 'character') {
-            characterId = $('#csSchedCharacter').val() || '';
-            characterName = $('#csSchedCharacter option:selected').data('name') || '';
-            if (!characterId) { toastr.info('Pick a character.'); return; }
-        }
+        } else if (topic === '') { toastr.info(schedForm.image_source === 'influencer' ? 'Describe the scene for her.' : 'Describe what to post.'); $('#csSchedTopic').focus(); return; }
+        var influencerId = '';
         if (kind === 'post' && schedForm.image_source === 'influencer') {
             influencerId = $('#csSchedInfluencer').val() || '';
             if (!influencerId) { toastr.info('Pick an influencer.'); return; }
@@ -1726,7 +1699,7 @@ jQuery(function ($) {
         ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
             kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
-            image_source: schedForm.image_source || 'brand', character_id: characterId, character_name: characterName, influencer_id: influencerId, content_level: schedForm.content_level || 'safe',
+            image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: schedForm.content_level || 'safe',
             size: $('#csSchedSize').val(), audience: schedForm.audience,
             tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',

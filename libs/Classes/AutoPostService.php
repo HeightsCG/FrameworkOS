@@ -18,34 +18,13 @@ class AutoPostService {
         $prompt    = $use_brand ? BrandService::image_prompt($topic, $cb) : $topic;
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 
-        // 1) Generate the image: a trained influencer (native), the creator's Eromify character, or a brand photo (OpenAI).
+        // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
         $asset_id = 0;
         if (($rule['image_source'] ?? 'brand') === 'influencer') {
             $ir = InfluencerJobService::run_for_rule($rule, $user, $topic, $size);
             if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
             $asset_id = (int) $ir['asset_id'];
             $gen = array('ok' => true);
-        } elseif (($rule['image_source'] ?? 'brand') === 'character') {
-            $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
-            if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.'); }
-            if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.'); }
-            // With AI assist on, distill one scene per run from the creator's description; off, the
-            // topic is the scene, sent word for word (no model rewrites it).
-            $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-            $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
-            $scene = $ai_assist ? EromifyService::scene_from_topic($topic, $size, $level) : $topic;
-            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $scene, $size, $level);
-            if (!$er['ok']) {
-                (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
-                return self::fail(null, 'Character image failed: ' . $er['error']);
-            }
-            if ($er['credits_remaining'] !== null) { (new EromifyAccountsModel())->set_credits($creator_id, $er['credits_remaining']); }
-            error_log('[eromify] rule ' . (int) ($rule['id'] ?? 0) . ' scene: ' . $scene . ' (model ' . ($er['model'] ?? '?') . ')');
-            $bytes = self::fetch_bytes($er['url'], 30 * 1024 * 1024);
-            if ($bytes === '') { return self::fail(null, 'Could not download the generated character image.'); }
-            $info = @getimagesizefromstring($bytes);
-            $ext  = ($info && $info[2] === IMAGETYPE_JPEG) ? 'jpg' : (($info && $info[2] === IMAGETYPE_WEBP) ? 'webp' : 'png');
-            $gen  = array('ok' => true, 'bytes' => $bytes, 'ext' => $ext);
         } else {
             $gen = ImageGenService::generate($prompt, ImageGenService::dimensions($size));
         }
@@ -73,7 +52,7 @@ class AutoPostService {
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
-        $style     = in_array(($rule['image_source'] ?? 'brand'), array('character', 'influencer'), true) ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
+        $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
         $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
         if ($caption === '') { $caption = $topic; }
@@ -113,20 +92,6 @@ class AutoPostService {
         }
 
         return array('ok' => true, 'post_id' => $post_id, 'message' => $message);
-    }
-
-    /** Download a generated image (https only) into memory, capped. '' on failure. */
-    private static function fetch_bytes($url, $max){
-        if (strpos((string) $url, 'https://') !== 0) { return ''; }
-        $buf = '';
-        $ch = curl_init($url);
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
-            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
-            CURLOPT_WRITEFUNCTION => function ($c, $chunk) use (&$buf, $max) { $buf .= $chunk; return (strlen($buf) > $max) ? 0 : strlen($chunk); },
-        ));
-        curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-        return ($code === 200 && strlen($buf) <= $max) ? $buf : '';
     }
 
     private static function fail($post_id, $message){

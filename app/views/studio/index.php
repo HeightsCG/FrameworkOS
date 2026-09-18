@@ -464,7 +464,6 @@
                             <div class="cs-am__label">Image</div>
                             <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedImageSource" role="group" aria-label="Image source">
                                 <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
-                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="character"><span>My character</span></button>
                                 <?php if (!empty($this->influencers['ready'])): ?>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"><span>Influencer</span></button>
                                 <?php endif; ?>
@@ -476,12 +475,6 @@
                                 <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
-                            </div>
-                        </div>
-                        <div class="cs-am__group" id="csSchedCharacterWrap" hidden>
-                            <div class="cs-am__field cs-am__field--full">
-                                <label class="cs-am__label" for="csSchedCharacter">Character</label>
-                                <select id="csSchedCharacter" class="form-select"><option value="">Loading…</option></select>
                             </div>
                         </div>
                         <div class="cs-am__group" id="csSchedInfluencerWrap" hidden>
@@ -570,7 +563,6 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'plans'    => $this->plans,
     'social'   => $this->social,
     'inbox'    => $this->inbox,
-    'eromify'  => array('connected' => !empty($this->eromify_connected)),
     'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),
     'brand'    => $this->brand,
     's3_ready' => !empty($this->s3_ready),
