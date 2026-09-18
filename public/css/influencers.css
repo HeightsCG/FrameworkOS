@@ -263,3 +263,5 @@
 .inf-auto:last-child{ border-bottom:none; }
 .inf-auto__name{ font-weight:600; font-size:.9rem; }
 .inf-auto__meta{ color:var(--muted); font-size:.82rem; margin-right:auto; }
+.inf .inf-btn--danger{ color:var(--danger); }
+.inf .inf-btn--danger:hover{ border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }

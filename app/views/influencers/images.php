@@ -105,6 +105,7 @@
                     <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use in a post</button>
+                    <button type="button" class="btn btn-secondary inf-btn--danger" id="inf_res_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
                 </div>
             </div>
         </section>

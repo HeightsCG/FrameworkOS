@@ -48,6 +48,17 @@ jQuery(function ($) {
         return j.status;
     }
 
+    /* shared: delete one of her files (library soft delete) after a confirm */
+    function confirm_delete(what, cb) {
+        Swal.fire({ title: 'Delete this ' + what + '?', text: 'It is removed from your library and from any posts or collections that use it.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
+            .then(function (r) { if (r.isConfirmed) { cb(); } });
+    }
+    function delete_asset(influencer_id, asset_id, cb) {
+        api('influencer_asset_delete', { id: influencer_id, asset_id: asset_id }, function (o) { if (o && o.success) { toastr.success(o.message || 'File removed'); cb(); } else { err(o); } });
+    }
+    /* shared: a thumbnail that no longer loads (deleted elsewhere) drops out of the strip */
+    function drop_broken(sel) { $(sel).find('img').on('error', function () { $(this).closest('.inf-strip__item, .inf-tile, .inf-photo').remove(); }); }
+
     var STATE_LABEL = { draft: 'Draft', awaiting_reference: 'Awaiting approval', training: 'Training', ready: 'Trained', failed: 'Failed' };
     function state_pill(inf) {
         var retrain = inf.status === 'ready' && inf.pending_model_id > 0;
@@ -712,7 +723,8 @@ jQuery(function ($) {
                     $s.append($f);
                 } else if (j.status !== 'cancelled') {
                     $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>');
-                }
+                    drop_broken('#inf_strip');
+        }
             });
         }
         api('influencer_jobs_list', { id: inf.id, type: 'image,enhance', limit: 24 }, function (o) {
@@ -736,6 +748,19 @@ jQuery(function ($) {
         $('#inf_res_download').on('click', function () {
             if (!current) { return; }
             api('influencer_asset_url', { asset_id: current.asset.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } });
+        });
+        $('#inf_res_delete').on('click', function () {
+            if (!current) { return; }
+            var gone = current.asset.id;
+            confirm_delete('image', function () {
+                delete_asset(inf.id, gone, function () {
+                    jobs.forEach(function (j) { j.assets = (j.assets || []).filter(function (a) { return a.id !== gone; }); });
+                    current = null;
+                    var next = jobs.filter(function (j) { return j.assets && j.assets.length; })[0];
+                    if (next) { select(next, next.assets[0]); } else { show_current(); }
+                    render_strip();
+                });
+            });
         });
         $('#inf_res_post').on('click', function () {
             if (!current) { return; }
@@ -797,6 +822,7 @@ jQuery(function ($) {
             });
             if (!still || !$g.find('.is-on').length) { still = imgs[0].id; $g.find('.inf-photo').first().addClass('is-on'); }
             $('#inf_vgo').prop('disabled', false);
+            drop_broken('#inf_stills');
         });
 
         function busy(t) { $('#inf_vidle').prop('hidden', true); $('#inf_video').prop('hidden', true); $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }
@@ -826,6 +852,7 @@ jQuery(function ($) {
                     $f.on('click', function () { toastr.error(j.error || 'Generation failed'); }); $s.append($f);
                 } else if (j.status !== 'cancelled') { $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>'); }
             });
+            drop_broken('#inf_vstrip');
         }
         function watch(job_id) {
             if (stop_poll) { stop_poll(); }
@@ -855,6 +882,19 @@ jQuery(function ($) {
         });
         $('#inf_vres_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.asset.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
         $('#inf_vres_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.asset.id)); } catch (e) {} window.location = '/studio'; });
+        $('#inf_vres_delete').on('click', function () {
+            if (!current) { return; }
+            var gone = current.asset.id;
+            confirm_delete('video', function () {
+                delete_asset(inf.id, gone, function () {
+                    jobs.forEach(function (j) { j.assets = (j.assets || []).filter(function (a) { return a.id !== gone; }); });
+                    current = null;
+                    var next = jobs.filter(function (j) { return j.assets && j.assets.length; })[0];
+                    if (next) { select(next, next.assets[0]); } else { show_current(); }
+                    render_strip();
+                });
+            });
+        });
     }
 
     /* =====================================================================
@@ -881,6 +921,7 @@ jQuery(function ($) {
                     $t.on('click', function () { open_asset(a); });
                     $g.append($t);
                 });
+                drop_broken('#inf_gal');
             });
         }
         function open_asset(a) {
@@ -904,6 +945,11 @@ jQuery(function ($) {
         $(document).on('keydown', function (e) { if (e.key === 'Escape') { close_lightbox(); } });
         $('#inf_lightbox_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
         $('#inf_lightbox_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.id)); } catch (e) {} window.location = '/studio'; });
+        $('#inf_lightbox_delete').on('click', function () {
+            if (!current) { return; }
+            var gone = current.id;
+            confirm_delete(current.type === 'video' ? 'video' : 'image', function () { delete_asset(inf.id, gone, function () { close_lightbox(); current = null; load(); }); });
+        });
         load();
     }
 

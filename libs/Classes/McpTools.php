@@ -277,6 +277,78 @@ class McpTools {
             'properties' => array('body' => array('type' => 'string'),
                 'segment' => array('type' => 'string', 'enum' => array('all', 'followers', 'subscribers')))));
 
+
+        // ---- AI influencers (create, train once, generate on demand) ----
+        $infl = array('type' => 'object', 'required' => array('influencer_id'), 'properties' => array('influencer_id' => array('type' => 'integer')));
+        $t[] = array('name' => 'list_influencers', 'description' => 'List the creator\'s AI influencers with status, trigger word and counts. Status ready = trained and usable.', 'inputSchema' => $none);
+        $t[] = array('name' => 'get_influencer', 'description' => 'One influencer: status, path, wizard step, trigger word, prompt defaults, counts, cover image.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance), each with a label, what it is good at, price and durations. Pass model_key values from here to the generate tools.', 'inputSchema' => $none);
+        $t[] = array('name' => 'create_influencer', 'description' => 'Create an influencer. path "photos" = train from 10-50 uploaded photos (add_influencer_photo); path "reference" = describe her or upload one face photo, generate a reference, then a 10-image training set.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('name'),
+            'properties' => array('name' => array('type' => 'string', 'description' => 'Unique per account'),
+                'path' => array('type' => 'string', 'enum' => array('photos', 'reference'), 'description' => 'Default "photos".'))));
+        $t[] = array('name' => 'update_influencer', 'description' => 'Update her settings. Any subset: name, source_description (face description for the reference path), reference_model_key, steer_text (training-set steering), prompt_defaults (prepended to every prompt), negative_prompt, is_public, share_accounts (default share targets for her automations; see list_share_targets).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'name' => array('type' => 'string'), 'source_description' => array('type' => 'string'),
+                'reference_model_key' => array('type' => 'string'), 'steer_text' => array('type' => 'string'), 'prompt_defaults' => array('type' => 'string'),
+                'negative_prompt' => array('type' => 'string'), 'is_public' => array('type' => 'boolean'),
+                'share_accounts' => array('type' => 'array', 'items' => array('type' => 'string')))));
+        $t[] = array('name' => 'delete_influencer', 'description' => 'Remove an influencer (her media stays in the library).', 'inputSchema' => $infl);
+        $t[] = array('name' => 'add_influencer_photo', 'description' => 'Fetch a PUBLIC image URL and attach it to her. role "upload" = a training photo (photos path, 10-50 needed); role "face" = the single face photo that becomes her reference (reference path).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'url'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'url' => array('type' => 'string', 'description' => 'Public https URL of a JPG/PNG/WebP'),
+                'role' => array('type' => 'string', 'enum' => array('upload', 'face')))));
+        $t[] = array('name' => 'remove_influencer_image', 'description' => 'Detach one of her uploaded/training images.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'delete_influencer_asset', 'description' => 'Delete one of her generated or uploaded files from the media library (removes it from posts/collections too).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'list_influencer_images', 'description' => 'Her images by role (upload, face, reference, training, generated, video, enhanced) with signed preview URLs.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'role' => array('type' => 'string', 'enum' => array('upload', 'face', 'reference', 'training', 'generated', 'video', 'enhanced')))));
+        $t[] = array('name' => 'generate_influencer_reference', 'description' => 'Reference path: generate one reference image from her face description (text input). Returns a job id; poll get_influencer_job, then approve_influencer_reference with the landed asset id.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'source_description' => array('type' => 'string', 'description' => 'Face description; saved on her when given.'),
+                'reference_model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.reference; affects only the reference image.'))));
+        $t[] = array('name' => 'approve_influencer_reference', 'description' => 'Approve a reference image (a generated candidate or her face photo) so the training set can be built from it.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'generate_influencer_training_set', 'description' => 'Reference path: generate the 10 square training images from the approved reference (one job each). Poll get_influencer_training_set until complete, then train_influencer.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'steer_text' => array('type' => 'string', 'description' => 'Optional steering appended to every training image prompt.'))));
+        $t[] = array('name' => 'get_influencer_training_set', 'description' => 'Progress of her training set: done/failed/active counts and every slot with its image or error.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'retry_influencer_training_slot', 'description' => 'Retry a failed training-set slot (same seed) or regenerate a finished one (new seed).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'job_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'job_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'train_influencer', 'description' => 'Train (or retrain) her model: photos path uses her 10-50 uploads, reference path her complete 10-image set. About $2 and a few minutes; poll get_influencer until status is ready. A retrain keeps the current model until the new one succeeds.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'list_influencer_models', 'description' => 'Her trained models (history): status, active flag, trigger word, errors.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'generate_influencer_image', 'description' => 'Generate images of a TRAINED influencer with her weights. Include her trigger word (get_influencer) and name the subject, e.g. "<trigger> photo of a woman at a rooftop cafe at golden hour". Returns a job id; poll get_influencer_job until done for the asset ids. Same seed + prompt reproduces the image.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'prompt'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string'),
+                'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.image'),
+                'image_size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'num_images' => array('type' => 'integer', 'description' => '1-4'), 'seed' => array('type' => 'integer', 'description' => 'Pin to reproduce'),
+                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy')),
+                'guidance' => array('type' => 'number'), 'steps' => array('type' => 'integer'), 'lora_scale' => array('type' => 'number', 'description' => 'Likeness strength 0.1-2, default 1'))));
+        $t[] = array('name' => 'generate_influencer_video', 'description' => 'Image-to-video from one of her stills (a generated/enhanced/reference asset id). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string', 'description' => 'The motion'),
+                'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.video'), 'duration' => array('type' => 'string', 'description' => 'Seconds; must be one the model offers'),
+                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy')))));
+        $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of her images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for her (returned as text, nothing is rendered).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'))));
+        $t[] = array('name' => 'get_influencer_job', 'description' => 'One generation/training job: status (queued, submitting, running, landing, done, failed), error, seed, cost and the landed assets with signed URLs.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'list_influencer_jobs', 'description' => 'Her recent jobs, newest first, optionally by type.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'type' => array('type' => 'string', 'description' => 'Comma list of reference,training_set,training,image,video,enhance'),
+                'limit' => array('type' => 'integer', 'description' => '1-100, default 24'))));
+
         // ---- Automation run (generates + publishes) ----
         $t[] = array('name' => 'run_automation_now', 'description' => 'Run a Scheduler automation immediately: generates an image, writes a caption, and PUBLISHES a post.', 'inputSchema' => $id);
 
@@ -555,6 +627,72 @@ class McpTools {
                 return array('broadcast_id' => (int) $bid, 'recipients' => (int) $count);
             }
 
+
+            // AI influencers
+            case 'list_influencers': {
+                $out = array();
+                foreach ((new InfluencersModel())->list_for_creator($cid) as $row) { $out[] = InfluencerService::influencer_json($cid, $row); }
+                return array('influencers' => $out);
+            }
+            case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
+            case 'influencer_model_options':  return array('enabled' => InfluencerConfig::enabled(), 'reference' => InfluencerConfig::picker_options('reference'), 'image' => InfluencerConfig::picker_options('image'), 'video' => InfluencerConfig::picker_options('video'), 'enhance' => InfluencerConfig::picker_options('enhance'));
+            case 'create_influencer': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::create($cid, (string) ($a['name'] ?? ''), (string) ($a['path'] ?? 'photos')));
+            }
+            case 'update_influencer': {
+                $in = array_intersect_key($a, array_flip(array('name', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts')));
+                return self::result(InfluencerActions::update($cid, self::influencer($cid, $a), $in));
+            }
+            case 'delete_influencer':          return self::result(InfluencerActions::delete($cid, self::influencer($cid, $a)));
+            case 'add_influencer_photo': {
+                $user = self::user($cid);
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                $img  = MediaIngestService::fetch_image((string) ($a['url'] ?? ''));
+                return self::result(InfluencerActions::attach_photo($cid, $user, self::influencer($cid, $a), $img['bytes'], $img['ext'], $img['mime'], (string) ($a['role'] ?? 'upload')));
+            }
+            case 'remove_influencer_image':    return self::result(InfluencerActions::remove_image($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
+            case 'delete_influencer_asset':    return self::result(InfluencerActions::delete_asset($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
+            case 'list_influencer_images': {
+                $infl = self::influencer($cid, $a);
+                $role = in_array($a['role'] ?? '', InfluencerImagesModel::ROLES, true) ? $a['role'] : '';
+                return array('images' => InfluencerService::images_json($cid, (int) $infl['id'], $role));
+            }
+            case 'generate_influencer_reference': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::reference_generate($cid, self::influencer($cid, $a), array_intersect_key($a, array_flip(array('source_description', 'reference_model_key')))));
+            }
+            case 'approve_influencer_reference': return self::result(InfluencerActions::reference_pick($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
+            case 'generate_influencer_training_set': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::training_set_start($cid, self::influencer($cid, $a), array_key_exists('steer_text', $a) ? (string) $a['steer_text'] : null));
+            }
+            case 'get_influencer_training_set':   return self::result(InfluencerActions::training_set_status($cid, self::influencer($cid, $a)));
+            case 'retry_influencer_training_slot': return self::result(InfluencerActions::training_set_retry($cid, self::influencer($cid, $a), (int) ($a['job_id'] ?? 0)));
+            case 'train_influencer': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::train($cid, self::influencer($cid, $a)));
+            }
+            case 'list_influencer_models':     return self::result(InfluencerActions::models($cid, self::influencer($cid, $a)));
+            case 'generate_influencer_image': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::generate_image($cid, self::influencer($cid, $a), $a, 'studio'));
+            }
+            case 'generate_influencer_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::generate_video($cid, self::influencer($cid, $a), $a, 'studio'));
+            }
+            case 'enhance_influencer_image': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                return self::result(InfluencerActions::enhance($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), (string) ($a['level'] ?? 'safe'), 'studio'));
+            }
+            case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer($cid, $a), (string) ($a['hint'] ?? '')));
+            case 'get_influencer_job': {
+                $job = (new InfluencerJobsModel())->get_one($cid, (int) ($a['job_id'] ?? 0));
+                return array('job' => InfluencerJobService::job_json($cid, self::need($job, 'Job not found')));
+            }
+            case 'list_influencer_jobs':       return self::result(InfluencerActions::jobs($cid, self::influencer($cid, $a), (string) ($a['type'] ?? ''), self::lim($a, 24)));
+
             // Run automation now (generates + publishes)
             case 'run_automation_now': {
                 $user = self::user($cid);
@@ -654,6 +792,18 @@ class McpTools {
         return $res;
     }
 
+
+    /** The creator's influencer from influencer_id (or id), or an error. */
+    private static function influencer($cid, array $a){
+        $id = (int) ($a['influencer_id'] ?? ($a['id'] ?? 0));
+        return self::need((new InfluencersModel())->get_one($cid, $id), 'Influencer not found');
+    }
+    /** Shared-service result -> tool payload (errors become tool errors). */
+    private static function result(array $r){
+        if (empty($r['ok'])) { throw new RuntimeException((string) ($r['error'] ?? 'Request failed')); }
+        unset($r['ok'], $r['error']);
+        return $r;
+    }
     private static function lim($a, $default){
         $n = (int) ($a['limit'] ?? $default);
         return ($n < 1) ? $default : (($n > 100) ? 100 : $n);
