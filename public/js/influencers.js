@@ -133,7 +133,7 @@ jQuery(function ($) {
     function init_create() {
         var inf   = CFG.influencer || null;
         var path  = inf ? inf.path : '';
-        var STEP_LABELS = { name: 'Name', photos: 'Photos', train: 'Train', input: 'Input', reference: 'Reference', set: 'Training set', review: 'Review', training: 'Training', done: 'Done' };
+        var STEP_LABELS = { name: 'Name', photos: 'Photos', input: 'Input', reference: 'Reference', set: 'Training set', review: 'Review', training: 'Training', done: 'Done' };
         var poll_timer = null;
 
         function steps_for(p) { return (C.steps && C.steps[p]) ? C.steps[p] : ['name']; }
@@ -241,7 +241,7 @@ jQuery(function ($) {
                     '</div>';
             }
             $('#inf_panel').html(html);
-            $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'train' : 'review'); });
+            $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'review'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
             if (!failed) { render_settings(); }
         }
@@ -316,7 +316,8 @@ jQuery(function ($) {
             $('#inf_count').text(n);
             $('#inf_count_bar').css('width', Math.min(100, n / min * 100) + '%').toggleClass('is-met', n >= min);
             $('#inf_count_txt').text(n >= min ? (n + ' of ' + max + ' max') : (n + ' of ' + min + ' minimum'));
-            $('#inf_photos_next').prop('disabled', n < min);
+            $('#inf_photos_train').prop('disabled', n < min || upload_active > 0 || !C.enabled);
+            $('#inf_photos_cost').text(n >= min ? money(C.training_cost_usd) + ' to train' : '');
             $('#inf_drop').toggleClass('is-full', n >= max);
         }
         function upload_start(file) {
@@ -347,14 +348,16 @@ jQuery(function ($) {
                 .always(function () { upload_active--; photos_counter(); upload_pump(); });
         }
         function render_photos() {
-            var html = '<h2 class="inf-wiz__h">Add her photos</h2>' +
+            var retrain = inf.active_model_id > 0;
+            var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' + esc(inf.name) : 'Add her photos') + '</h2>' +
                 '<p class="inf-wiz__p">Different angles, expressions and lighting, sharp and well lit, only her in frame.</p>' +
                 '<div class="inf-drop" id="inf_drop"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Drop photos here</strong> or <button type="button" class="inf-link" id="inf_pick">choose files</button></span><small>JPG, PNG or WebP, up to 15 MB each</small></div>' +
                 '<input type="file" id="inf_files" accept="image/jpeg,image/png,image/webp" multiple hidden>' +
                 '<div class="inf-counter"><div class="inf-counter__row"><span class="inf-counter__n" id="inf_count">0</span><span class="inf-counter__t" id="inf_count_txt"></span></div><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_count_bar"></div></div></div>' +
                 '<div class="inf-photos" id="inf_photos"></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_photos_back">Back</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_photos_next" disabled>Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
+                '<span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
+                '<button type="button" class="btn btn-primary" id="inf_photos_train" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
             $('#inf_panel').html(html);
             photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append(photo_tile(img)); }); photos_counter(); });
             $('#inf_pick').on('click', function () { $('#inf_files').trigger('click'); });
@@ -363,30 +366,8 @@ jQuery(function ($) {
             $drop.on('dragover', function (e) { e.preventDefault(); $drop.addClass('is-dragover'); })
                  .on('dragleave drop', function () { $drop.removeClass('is-dragover'); })
                  .on('drop', function (e) { e.preventDefault(); var f = e.originalEvent.dataTransfer.files; Array.prototype.slice.call(f).forEach(upload_start); });
-            $('#inf_photos_back').on('click', function () { go_back('photos'); });
-            $('#inf_photos_next').on('click', function () {
-                api('influencer_save_step', { id: inf.id, step: 'train' }, function (o) { if (o && o.success) { inf = o.influencer; show('train'); } else { err(o); } });
-            });
-        }
-
-        /* --- Path A: Train (review + one action) --- */
-        function render_train() {
-            var retrain = inf.active_model_id > 0;
-            var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' : 'Train ') + esc(inf.name) + '</h2>' +
-                '<p class="inf-wiz__p">' + (retrain ? 'Her current model keeps working until the new one finishes. ' : '') + 'Training takes a few minutes and runs once; afterwards she generates on demand.</p>' +
-                '<div class="inf-summary"><span><strong id="inf_train_n">…</strong> photos</span><span><strong>' + money(C.training_cost_usd) + '</strong> estimated</span><span><strong>' + esc(LIM.steps) + '</strong> steps</span></div>' +
-                '<div class="inf-photos inf-photos--sm" id="inf_train_grid"></div>' +
-                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_train_back">Back</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_train_go" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
-            $('#inf_panel').html(html);
-            photos_load(function () {
-                $('#inf_train_n').text(photos.length);
-                photos.forEach(function (img) { $('#inf_train_grid').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
-                $('#inf_train_go').prop('disabled', photos.length < LIM.min_photos || !C.enabled);
-                if (!C.enabled) { toastr.info('Rendering is not configured yet'); }
-            });
-            $('#inf_train_back').on('click', function () { if (retrain) { window.location = '/influencers'; } else { go_back('train'); } });
-            $('#inf_train_go').on('click', function () {
+            $('#inf_photos_back').on('click', function () { if (retrain) { window.location = '/influencers'; } else { go_back('photos'); } });
+            $('#inf_photos_train').on('click', function () {
                 var $b = $(this).prop('disabled', true);
                 api('influencer_train', { id: inf.id }, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Training started'); show('training'); }
@@ -612,7 +593,7 @@ jQuery(function ($) {
             });
         }
 
-        var RENDER = { name: render_name, photos: render_photos, train: render_train, input: render_input, reference: render_reference, set: render_set, review: render_review, training: render_training, done: render_done };
+        var RENDER = { name: render_name, photos: render_photos, input: render_input, reference: render_reference, set: render_set, review: render_review, training: render_training, done: render_done };
         window.INF_WIZ = { register: function (step, fn) { RENDER[step] = fn; }, get: function () { return inf; }, set: function (v) { inf = v; }, show: function (s) { show(s); }, back: go_back, steps: visible_steps, path: function () { return path; } };
 
         function show(step) {
@@ -633,7 +614,7 @@ jQuery(function ($) {
                         .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
                 });
             }
-            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'train' : 'review'); return; }
+            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'photos' : 'review'); return; }
             show(inf.wizard_step || 'name');
         }
     }

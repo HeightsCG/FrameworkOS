@@ -9,7 +9,7 @@ class InfluencerService {
 
     /** Wizard steps per path, in order. 'training' and 'done' are reached by the engine. */
     const STEPS = array(
-        'photos'    => array('name', 'photos', 'train', 'training', 'done'),
+        'photos'    => array('name', 'photos', 'training', 'done'),
         'reference' => array('name', 'input', 'reference', 'set', 'review', 'training', 'done'),
     );
 
@@ -69,7 +69,7 @@ class InfluencerService {
         if ($counts === null) { $counts = self::counts($infl); }
 
         if ($path === 'photos') {
-            $max = ($counts['upload'] >= (int) InfluencerConfig::get('training_min_photos', 10)) ? 'train' : 'photos';
+            $max = 'photos';   // uploading and training happen on the same step
         } else {
             if (!empty($infl['training_set_group'])) {
                 $max = ($counts['training_done'] >= (int) InfluencerConfig::get('training_set_size', 10)) ? 'review' : 'set';
