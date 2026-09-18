@@ -48,8 +48,8 @@
     <?php endif; ?>
 
     <ul class="nav nav-tabs cs-tabs" id="csTabs" role="tablist">
-        <li class="nav-item" role="presentation"><button class="nav-link active" id="csTabLibrary" data-bs-toggle="tab" data-bs-target="#csPaneLibrary" type="button" role="tab"><i class="fa-solid fa-images"></i> Library</button></li>
-        <li class="nav-item" role="presentation"><button class="nav-link" id="csTabPosts" data-bs-toggle="tab" data-bs-target="#csPanePosts" type="button" role="tab"><i class="fa-solid fa-rectangle-list"></i> Posts</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link active" id="csTabPosts" data-bs-toggle="tab" data-bs-target="#csPanePosts" type="button" role="tab"><i class="fa-solid fa-rectangle-list"></i> Posts</button></li>
+        <li class="nav-item" role="presentation"><button class="nav-link" id="csTabLibrary" data-bs-toggle="tab" data-bs-target="#csPaneLibrary" type="button" role="tab"><i class="fa-solid fa-images"></i> Library</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCalendar" data-bs-toggle="tab" data-bs-target="#csPaneCalendar" type="button" role="tab"><i class="fa-solid fa-calendar-days"></i> Calendar</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCollections" data-bs-toggle="tab" data-bs-target="#csPaneCollections" type="button" role="tab"><i class="fa-solid fa-folder"></i> Collections</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabScheduler" data-bs-toggle="tab" data-bs-target="#csPaneScheduler" type="button" role="tab"><i class="fa-solid fa-robot"></i> Scheduler</button></li>
@@ -58,7 +58,7 @@
     <div class="tab-content cs-tabcontent">
 
         <!-- ============ LIBRARY ============ -->
-        <div class="tab-pane fade show active" id="csPaneLibrary" role="tabpanel">
+        <div class="tab-pane fade" id="csPaneLibrary" role="tabpanel">
             <div class="cs-toolbar">
                 <div class="input-group cs-search">
                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -112,7 +112,7 @@
             </div>
         </div>
 
-        <div class="tab-pane fade" id="csPanePosts" role="tabpanel">
+        <div class="tab-pane fade show active" id="csPanePosts" role="tabpanel">
             <div class="cs-toolbar">
                 <div class="input-group cs-search">
                     <span class="input-group-text"><i class="fa-solid fa-magnifying-glass"></i></span>

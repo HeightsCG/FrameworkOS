@@ -1512,7 +1512,7 @@ jQuery(function ($) {
             return;
         }
         m = /^#library-influencer-(\d+)$/.exec(window.location.hash || '');
-        if (m && $('#csFilterInfluencer').length) { $('#csFilterInfluencer').val(m[1]); state.filters.influencer = m[1]; loadLibrary(); }
+        if (m && $('#csFilterInfluencer').length) { gotoLibraryTab(); $('#csFilterInfluencer').val(m[1]); state.filters.influencer = m[1]; loadLibrary(); }
     })();
     $('#csSchedNewMsg').on('click', function () { openSchedForm(null, 'message'); });
     $('#csSchedList').on('click', '[data-sched-edit]', function () {
@@ -1797,4 +1797,5 @@ jQuery(function ($) {
 
     loadCollections();
     loadLibrary();
+    loadPosts();   // Posts is the first tab, so it does not get a shown.bs.tab on load
 });
