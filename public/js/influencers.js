@@ -26,6 +26,28 @@ jQuery(function ($) {
     }
     function money(n) { return '$' + (Math.round((n || 0) * 100) / 100).toFixed(2); }
 
+    /* shared: poll one job until it is terminal; human status text */
+    function poll_job(job_id, on_update, on_done) {
+        var t = setTimeout(function tick() {
+            api('influencer_job_get', { job_id: job_id }, function (o) {
+                if (!o || !o.success) { t = setTimeout(tick, 4000); return; }
+                var j = o.job;
+                if (on_update) { on_update(j); }
+                if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') { on_done(j); return; }
+                t = setTimeout(tick, 3000);
+            });
+        }, 1500);
+        return function () { clearTimeout(t); };
+    }
+    function status_text(j) {
+        if (j.status === 'queued' && j.wait_reason) { return 'Waiting for a slot'; }
+        if (j.status === 'queued') { return 'Queued'; }
+        if (j.status === 'submitting') { return 'Sending'; }
+        if (j.status === 'running') { return 'Generating'; }
+        if (j.status === 'landing') { return 'Saving'; }
+        return j.status;
+    }
+
     var STATE_LABEL = { draft: 'Draft', awaiting_reference: 'Awaiting approval', training: 'Training', ready: 'Trained', failed: 'Failed' };
     function state_pill(inf) {
         var retrain = inf.status === 'ready' && inf.pending_model_id > 0;
@@ -389,27 +411,6 @@ jQuery(function ($) {
         }
         function seg_bind(id, on_change) { $('#' + id).on('click', '.inf-seg__opt', function () { $('#' + id + ' .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); if (on_change) { on_change($(this).data('value')); } }); }
         function seg_value(id) { return $('#' + id + ' .inf-seg__opt.is-on').data('value'); }
-        function poll_job(job_id, on_update, on_done) {
-            var t = setTimeout(function tick() {
-                api('influencer_job_get', { job_id: job_id }, function (o) {
-                    if (!o || !o.success) { t = setTimeout(tick, 4000); return; }
-                    var j = o.job;
-                    if (on_update) { on_update(j); }
-                    if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') { on_done(j); return; }
-                    t = setTimeout(tick, 3000);
-                });
-            }, 1500);
-            return function () { clearTimeout(t); };
-        }
-        function status_text(j) {
-            if (j.status === 'queued' && j.wait_reason) { return 'Waiting for a slot'; }
-            if (j.status === 'queued') { return 'Queued'; }
-            if (j.status === 'submitting') { return 'Sending'; }
-            if (j.status === 'running') { return 'Generating'; }
-            if (j.status === 'landing') { return 'Saving'; }
-            return j.status;
-        }
-
         /* --- Path B: Input --- */
         function render_input() {
             var html = '<h2 class="inf-wiz__h">How should her reference be made?</h2>' +

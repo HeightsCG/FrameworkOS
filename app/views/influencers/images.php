@@ -28,7 +28,7 @@
 
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
-                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($infl['trigger_word']); ?> candid photo at a rooftop cafe at golden hour, iced coffee in hand"></textarea>
+                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($infl['trigger_word']); ?> photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera"></textarea>
             </div>
             <div class="inf-field">
                 <div class="inf-label">Prebuilt</div>

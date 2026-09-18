@@ -27,12 +27,12 @@ class InfluencerService {
 
     /** Drop-in scene prompts for Generate Images (the trigger word is typed by the user). */
     const IMAGE_PROMPTS = array(
-        'candid photo at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, film grain',
-        'mirror selfie in a bright bedroom, oversized knit sweater, morning light, phone in hand',
-        'walking on a beach boardwalk at sunset, sundress, wind in hair, shot on 35mm',
-        'sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background',
-        'gym mirror photo, athletic set, water bottle, bright overhead light, confident pose',
-        'night out portrait, string lights behind, subtle smile, shallow depth of field',
+        'photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, looking at the camera, film grain',
+        'mirror selfie of a woman in a bright bedroom, oversized knit sweater, morning light, phone in hand',
+        'photo of a woman walking on a beach boardwalk at sunset, sundress, wind in her hair, shot on 35mm',
+        'photo of a woman sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background, smiling',
+        'gym mirror photo of a woman in an athletic set, water bottle, bright overhead light, confident pose',
+        'night out portrait of a woman, string lights behind, subtle smile, shallow depth of field',
     );
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. */
