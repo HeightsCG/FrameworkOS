@@ -316,7 +316,7 @@ class InfluencerActions {
         $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'square';
         $n     = max(1, min(4, (int) ($in['num_images'] ?? 1)));
         $seed  = (int) ($in['seed'] ?? 0);
-        $level = (($in['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $level = 'safe';
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
@@ -349,7 +349,7 @@ class InfluencerActions {
         $durs = array_values((array) ($mk['durations'] ?? array()));
         $dur  = (string) ($in['duration'] ?? ($durs[0] ?? '5'));
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
-        $level = (($in['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $level = 'safe';
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
@@ -364,7 +364,7 @@ class InfluencerActions {
     }
 
     /** Enhance (upscale) one of her images into a new asset. */
-    public static function enhance($cid, array $infl, $aid, $model_key = '', $level = 'safe', $origin = 'studio'){
+    public static function enhance($cid, array $infl, $aid, $model_key = '', $unused_level = 'safe', $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $aid = (int) $aid;
         $a   = (new MediaAssetsModel())->get_one($cid, $aid);
@@ -378,7 +378,7 @@ class InfluencerActions {
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'enhance', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'prompt' => $src_prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'input_asset_id' => $aid, 'params' => array('level' => ($level === 'spicy') ? 'spicy' : 'safe', 'num_images' => 1),
+                'input_asset_id' => $aid, 'params' => array('level' => 'safe', 'num_images' => 1),
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);

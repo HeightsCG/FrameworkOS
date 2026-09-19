@@ -664,7 +664,7 @@ jQuery(function ($) {
         $('#inf_who').on('change', function () { window.location = '/influencers/images/' + this.value; });
         $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
         $('#inf_model').on('click', '.inf-opt', function () { $('#inf_model .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); cost(); });
-        seg_pick('inf_size'); seg_pick('inf_n'); seg_pick('inf_level');
+        seg_pick('inf_size'); seg_pick('inf_n');
         $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(inf.trigger_word + ' ' + prompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_prompt_auto').on('click', function () {
             var $b = $(this).prop('disabled', true);
@@ -681,7 +681,7 @@ jQuery(function ($) {
             if (prompt == '') { toastr.error('Write a prompt first'); return; }
             if (inf.trigger_word && prompt.indexOf(inf.trigger_word) < 0) { toastr.info('Add her trigger word ' + inf.trigger_word + ' to get her'); }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
-            var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'), level: seg_val('inf_level'),
+            var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'),
                 seed: $('#inf_seed').val().trim(), lora_scale: $('#inf_lora').val().trim(), guidance: $('#inf_guidance').val().trim(), steps: $('#inf_steps').val().trim() }, overrides || {});
             $('#inf_gen_go, #inf_res_again').prop('disabled', true);
             busy('Sending');
@@ -816,7 +816,6 @@ jQuery(function ($) {
         $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
         $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });
-        $('#inf_vlevel').on('click', '.inf-seg__opt', function () { $('#inf_vlevel .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); });
         durations();
 
         /* stills: every image of hers, newest generated first */
@@ -886,7 +885,7 @@ jQuery(function ($) {
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
             var $b = $(this).prop('disabled', true);
             busy('Sending');
-            api('influencer_generate_video', { id: inf.id, asset_id: still, prompt: $('#inf_vprompt').val().trim(), model_key: model_key(), duration: seg_val('inf_vdur'), level: seg_val('inf_vlevel') }, function (o) {
+            api('influencer_generate_video', { id: inf.id, asset_id: still, prompt: $('#inf_vprompt').val().trim(), model_key: model_key(), duration: seg_val('inf_vdur') }, function (o) {
                 if (!o || !o.success) { err(o); $b.prop('disabled', false); show_current(); return; }
                 spend_credits(price_of('video', 1)); cost();
                 jobs.unshift(o.job); render_strip(); watch(o.job.id);

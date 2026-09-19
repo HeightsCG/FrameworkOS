@@ -567,7 +567,7 @@ class InfluencerJobService {
         if ($balance < $price) { return array('ok' => false, 'error' => Plan::credits_message('image', $price, $balance)); }
 
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-        $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+        $level = 'safe';
         $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, $level) : $topic;
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));

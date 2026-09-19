@@ -1590,7 +1590,6 @@ jQuery(function ($) {
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.audience = rule ? rule.audience : 'free';
         schedForm.cadence  = rule ? rule.cadence : 'daily';
-        setSchedLevel(rule ? (rule.content_level || 'safe') : 'safe');
         setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? rule.influencer_id : '');
         setSchedAudience(schedForm.audience);
         setSchedCadence(schedForm.cadence);
@@ -1625,12 +1624,6 @@ jQuery(function ($) {
     // Mirror the visual selected state to aria-pressed for segmented controls and day pills.
     function syncPressed(sel) { $(sel).find('.cs-seg__opt, .cs-sched__day').each(function () { $(this).attr('aria-pressed', $(this).hasClass('is-on') ? 'true' : 'false'); }); }
     $('#csSchedShape').on('click', '.cs-seg__opt', function () { setSchedSize($(this).data('size')); });
-    $('#csSchedLevel').on('click', '.cs-seg__opt', function () { setSchedLevel($(this).data('level')); });
-    function setSchedLevel(level) {
-        schedForm.content_level = (level === 'spicy') ? 'spicy' : 'safe';
-        $('#csSchedLevel .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('level') === schedForm.content_level); });
-        syncPressed('#csSchedLevel');
-    }
     function setSchedSize(size) {
         size = (size === 'portrait' || size === 'landscape') ? size : 'square';
         $('#csSchedSize').val(size);
@@ -1699,7 +1692,7 @@ jQuery(function ($) {
         ApiDataSvc.apiCall('post', 'scheduler_save', {
             id: $('#csSchedId').val(), name: name, topic: topic,
             kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
-            image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: schedForm.content_level || 'safe',
+            image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: 'safe',
             size: $('#csSchedSize').val(), audience: schedForm.audience,
             tier_id: schedForm.audience === 'subscribers' ? ($('#csSchedTierSel').val() || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',

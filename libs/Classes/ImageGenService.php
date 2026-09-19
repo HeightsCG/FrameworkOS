@@ -7,7 +7,7 @@
  * McpTools generate_image. Not metered in AI credits.
  *
  * Model: InfluencerConfig::get('brand_model') (app.ini infl_brand_model), default flux_pro_11.
- * A 'spicy' request moves to the first brand model that allows it (flux_schnell).
+ * Everything renders with the provider's safety filter on.
  */
 class ImageGenService {
 
@@ -18,29 +18,20 @@ class ImageGenService {
         return in_array((string) $key, array('square', 'portrait', 'landscape'), true) ? (string) $key : 'square';
     }
 
-    /** The model that will render a brand image at this content level (null when none is configured). */
-    public static function model_for($level = 'safe'){
-        $spicy = ((string) $level === 'spicy');
-        $key   = (string) InfluencerConfig::get('brand_model', 'flux_pro_11');
-        $m     = InfluencerConfig::resolve_model('reference', $key);
-        if ($m && (!$spicy || in_array('spicy', (array) ($m['levels'] ?? array()), true))) { return $m; }
-        foreach (InfluencerConfig::picker('reference') as $opt) {
-            $c = InfluencerConfig::model((string) $opt['key']);
-            if ($c && in_array('spicy', (array) ($c['levels'] ?? array()), true)) { return $c; }
-        }
-        return $m;
+    /** The model that renders brand images (null when none is configured). */
+    public static function model_for(){
+        return InfluencerConfig::resolve_model('reference', (string) InfluencerConfig::get('brand_model', 'flux_pro_11'));
     }
 
     /**
      * Generate one image. Returns ['ok'=>bool, 'bytes'|'error', 'ext', 'mime', 'seed', 'model_key'].
-     * $size: square|portrait|landscape. $level: safe|spicy.
+     * $size: square|portrait|landscape.
      */
-    public static function generate($prompt, $size = 'square', $level = 'safe'){
+    public static function generate($prompt, $size = 'square'){
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Image generation is not configured (no fal.ai key).'); }
         $prompt = trim((string) $prompt);
         if ($prompt === '') { return array('ok' => false, 'error' => 'Describe the image you want to generate.'); }
-        $level = ((string) $level === 'spicy') ? 'spicy' : 'safe';
-        $model = self::model_for($level);
+        $model = self::model_for();
         if (!$model) { return array('ok' => false, 'error' => 'No image model is configured.'); }
         $class = InfluencerConfig::provider_class((string) $model['provider']);
         if ($class === '') { return array('ok' => false, 'error' => 'The image provider is not configured.'); }
@@ -54,7 +45,7 @@ class ImageGenService {
             'num_images'      => 1,
             'image_size'      => self::dimensions($size),
             'aspect_ratio'    => '1:1',
-            'level'           => $level,
+            'level'           => 'safe',
         );
         $sub = $class::generate_image($req);
         if (empty($sub['ok'])) { return array('ok' => false, 'error' => self::friendly($sub)); }
@@ -93,7 +84,7 @@ class ImageGenService {
         $code = (string) ($r['error_code'] ?? '');
         $msg  = (string) ($r['error'] ?? '');
         if ($msg !== '') { error_log('[imagegen] fal ' . $code . ': ' . $msg); }
-        if ($code === 'content_policy') { return 'That prompt was rejected by the safety filter. Try describing something different, or set the content level to Spicy.'; }
+        if ($code === 'content_policy') { return 'That prompt was rejected by the safety filter. Try describing something different.'; }
         if ($code === 'auth')           { return 'Image generation is not configured (fal.ai key rejected).'; }
         if ($code === 'validation' && $msg !== '') { return 'The image model rejected the request: ' . mb_substr($msg, 0, 200); }
         if (!empty($r['retryable']))    { return 'The image service is busy. Try again in a moment.'; }

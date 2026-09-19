@@ -227,19 +227,16 @@ $(function () {
     <div class="billing__section billing__section--first">
         <div class="billing__section-head">
             <h2 class="billing__section-title">Usage</h2>
-            <div class="billing__section-tools">
-                <span class="billing__section-meta">Period <?php echo $e(date('M j', strtotime($usage['period_start']))); ?> &ndash; <?php echo $e(date('M j, Y', strtotime($usage['period_end']))); ?></span>
-                <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy AI credits</button>
-            </div>
+            <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy AI credits</button>
         </div>
         <div class="usage">
             <?php foreach ($usage['rows'] as $r): ?>
             <?php if ($r['kind'] === 'credits'): ?>
-            <?php $bal = (int) $usage['ai_credit_balance']; $spent = (int) $usage['ai_credit_spent']; $pct = $grant_n > 0 ? min(100, round($spent / $grant_n * 100)) : 0; ?>
+            <?php $spent = (int) $usage['ai_credit_spent']; $pct = $grant_n > 0 ? min(100, round($spent / $grant_n * 100)) : 0; ?>
             <div class="usage__row">
                 <span class="usage__label"><?php echo $e($r['label']); ?></span>
                 <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
-                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?> used &middot; <?php echo number_format($bal); ?> left</span>
+                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?></span>
             </div>
             <?php elseif ($r['kind'] === 'percent'): ?>
             <div class="usage__row usage__row--text">

@@ -490,13 +490,6 @@
 
                 <div class="cs-am__section" data-kind="post">
                     <div class="cs-am__field">
-                        <div class="cs-am__label">Content</div>
-                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedLevel" role="group" aria-label="Content level">
-                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-level="safe"><span>Feed-safe</span></button>
-                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-level="spicy"><span>Spicy</span></button>
-                        </div>
-                    </div>
-                    <div class="cs-am__field">
                         <div class="cs-am__label">Audience</div>
                         <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAudience" role="group" aria-label="Audience">
                             <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-aud="free"><span>Everyone</span></button>

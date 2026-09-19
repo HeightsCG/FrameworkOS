@@ -8,7 +8,6 @@ class MediaGenerateJob {
         $prompt     = (string) ($payload['prompt'] ?? '');
         $size_key   = (string) ($payload['size'] ?? 'square');
         $watermark  = !empty($payload['watermark']);
-        $level      = (($payload['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
         $model      = new MediaAssetsModel();
 
         $rows = (new UsersModel())->get_user_by_id($creator_id);
@@ -18,7 +17,7 @@ class MediaGenerateJob {
             return 'FAIL creator/asset missing';
         }
         try {
-            $res = ImageGenService::generate($prompt, $size_key, $level);
+            $res = ImageGenService::generate($prompt, $size_key);
             if (empty($res['ok'])) {
                 $model->set_failed($creator_id, $asset_id, $res['error'] ?? 'Generation failed. Try again.');
                 return 'FAIL ' . ($res['error'] ?? 'generation');

@@ -27,7 +27,7 @@ class AutoPostService {
             $asset_id = (int) $ir['asset_id'];
             $gen = array('ok' => true);
         } else {
-            $gen = ImageGenService::generate($prompt, $size, (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe');
+            $gen = ImageGenService::generate($prompt, $size);
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
 
@@ -53,7 +53,7 @@ class AutoPostService {
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
-        $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? ((($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'tease') : '';
+        $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
         $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
         if ($caption === '') { $caption = $topic; }

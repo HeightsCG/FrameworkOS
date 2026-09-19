@@ -172,7 +172,6 @@ class McpTools {
                 'social_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets, e.g. ["fanvue"]. See list_share_targets.'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); the topic is then the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
-                'content_level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'Influencer automations only. "safe" = feed-safe fashion/swimwear look (default). "spicy" = boudoir/lingerie-level tease for subscriber content, still no nudity or explicit acts.'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
             )));
@@ -188,7 +187,6 @@ class McpTools {
                 'use_brand' => array('type' => 'boolean'), 'active' => array('type' => 'boolean'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); the topic is then the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
-                'content_level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'Influencer automations only. "safe" = feed-safe fashion/swimwear look (default). "spicy" = boudoir/lingerie-level tease for subscriber content, still no nudity or explicit acts.'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
@@ -258,7 +256,6 @@ class McpTools {
             'type' => 'object', 'required' => array('prompt'),
             'properties' => array('prompt' => array('type' => 'string'),
                 'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
-                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'spicy turns the safety filter off'),
                 'use_brand' => array('type' => 'boolean', 'description' => 'Apply brand style (default true).'))));
         $t[] = array('name' => 'upload_image_from_url', 'description' => 'Fetch a PUBLIC image URL and add it to the media library. Images only.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('url'),
@@ -331,13 +328,12 @@ class McpTools {
                 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.image'),
                 'image_size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
                 'num_images' => array('type' => 'integer', 'description' => '1-4'), 'seed' => array('type' => 'integer', 'description' => 'Pin to reproduce'),
-                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy')),
                 'guidance' => array('type' => 'number'), 'steps' => array('type' => 'integer'), 'lora_scale' => array('type' => 'number', 'description' => 'Likeness strength 0.1-2, default 1'))));
         $t[] = array('name' => 'generate_influencer_video', 'description' => 'Image-to-video from one of her stills (a generated/enhanced/reference asset id). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string', 'description' => 'The motion'),
                 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.video'), 'duration' => array('type' => 'string', 'description' => 'Seconds; must be one the model offers'),
-                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy')))));
+                )));
         $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of her images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
@@ -591,8 +587,7 @@ class McpTools {
                         $final = BrandService::image_prompt($prompt, (array) $cb);
                     }
                 }
-                $level = (($a['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
-                $res = ImageGenService::generate($final, $size, $level);
+                $res = ImageGenService::generate($final, $size);
                 if (empty($res['ok'])) { throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown')); }
                 return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
             }

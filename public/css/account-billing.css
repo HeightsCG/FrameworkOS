@@ -28,9 +28,7 @@
 /* usage */
 .billing__section--first{margin-top:0; margin-bottom:2.2rem;}
 .billing__section-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem;}
-.billing__section-tools{display:flex; align-items:center; gap:1rem;}
 .billing__section-head .billing__section-title{margin:0;}
-.billing__section-meta{font-size:.82rem; color:var(--muted);}
 .billing__head--section{margin-bottom:1rem;}
 .usage{background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs);}
 .usage__row{display:grid; grid-template-columns:200px 1fr 220px; align-items:center; gap:1.2rem; padding:.8rem 1.1rem; border-bottom:1px solid var(--line2);}

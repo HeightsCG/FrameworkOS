@@ -40,13 +40,6 @@
                 <div class="inf-label">Duration</div>
                 <div class="inf-seg" id="inf_vdur" role="group" aria-label="Duration"></div>
             </div>
-            <details class="inf-more" id="inf_vmore">
-                <summary>More settings</summary>
-                <div class="inf-grid inf-more__body">
-                    <div class="inf-field"><div class="inf-label">Content</div>
-                        <div class="inf-seg" id="inf_vlevel" role="group"><button type="button" class="inf-seg__opt is-on" data-value="safe" aria-pressed="true"><span>Safe</span></button><button type="button" class="inf-seg__opt" data-value="spicy" aria-pressed="false"><span>Spicy</span></button></div></div>
-                </div>
-            </details>
             <div class="inf-gen__submit">
                 <span class="inf-wiz__meta" id="inf_vcost"></span>
                 <button type="button" class="btn btn-primary" id="inf_vgo" disabled><i class="fa-solid fa-clapperboard"></i> Generate video</button>

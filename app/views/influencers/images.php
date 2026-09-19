@@ -62,8 +62,6 @@
                     <div class="inf-field"><label class="inf-label" for="inf_seed">Seed</label><input type="text" inputmode="numeric" class="form-control" id="inf_seed" placeholder="Random"></div>
                     <div class="inf-field"><div class="inf-label">Images per run</div>
                         <div class="inf-seg" id="inf_n" role="group"><button type="button" class="inf-seg__opt is-on" data-value="1" aria-pressed="true"><span>1</span></button><button type="button" class="inf-seg__opt" data-value="2" aria-pressed="false"><span>2</span></button><button type="button" class="inf-seg__opt" data-value="4" aria-pressed="false"><span>4</span></button></div></div>
-                    <div class="inf-field"><div class="inf-label">Content</div>
-                        <div class="inf-seg" id="inf_level" role="group"><button type="button" class="inf-seg__opt is-on" data-value="safe" aria-pressed="true"><span>Safe</span></button><button type="button" class="inf-seg__opt" data-value="spicy" aria-pressed="false"><span>Spicy</span></button></div></div>
                     <div class="inf-field"><label class="inf-label" for="inf_lora">Likeness strength</label><input type="text" inputmode="decimal" class="form-control" id="inf_lora" placeholder="1.0"></div>
                     <div class="inf-field"><label class="inf-label" for="inf_guidance">Guidance</label><input type="text" inputmode="decimal" class="form-control" id="inf_guidance" placeholder="3.5"></div>
                     <div class="inf-field"><label class="inf-label" for="inf_steps">Steps</label><input type="text" inputmode="numeric" class="form-control" id="inf_steps" placeholder="28"></div>
