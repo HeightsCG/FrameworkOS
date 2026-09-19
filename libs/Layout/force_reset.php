@@ -4,6 +4,10 @@
 <?php include __DIR__ . '/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
     <meta name="robots" content="noindex, nofollow">
     <?php echo CSRF::meta(); ?>
     <title>Change password &middot; <?php echo Main::site_name(); ?></title>

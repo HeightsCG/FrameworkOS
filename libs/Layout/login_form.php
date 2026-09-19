@@ -31,6 +31,7 @@
     <meta name="twitter:title" content="<?php echo $seo_title; ?>">
     <meta name="twitter:description" content="<?php echo $seo_desc; ?>">
     <meta name="twitter:image" content="<?php echo $seo_base; ?>/images/og-image.png">
+    <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
     <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">

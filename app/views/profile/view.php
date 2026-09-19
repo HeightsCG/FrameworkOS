@@ -21,6 +21,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
 <?php include Main::app_path() . '/libs/Layout/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+    <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
     <?php echo CSRF::meta(); ?>
     <title><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?></title>
     <?php
