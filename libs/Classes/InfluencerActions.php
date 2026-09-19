@@ -389,16 +389,24 @@ class InfluencerActions {
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))));
     }
 
-    /** Claude writes a scene prompt for her (returned as text; nothing is rendered). */
-    public static function prompt_auto($cid, array $infl, $hint = ''){
+    /** Claude writes a scene prompt (image) or a motion prompt (video) for her; returned as text, nothing is rendered. */
+    public static function prompt_auto($cid, array $infl, $hint = '', $kind = 'image'){
         $trigger = '';
         if (!empty($infl['active_model_id'])) { $mdl = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']); $trigger = $mdl ? (string) $mdl['trigger_word'] : ''; }
         if (!ClaudeService::configured()) { return self::fail('Prompt writing is not available right now.'); }
         $hint = mb_substr(trim((string) $hint), 0, 500);
-        $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific woman. '
-            . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
-            . 'Always name the subject ("photo of a woman ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
-        $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
+        if ($kind === 'video') {
+            $system = 'You write one motion prompt for an image-to-video model. The starting image already shows a specific woman and the scene; '
+                . 'describe ONLY what happens over 5 to 10 seconds: her movement and expression, then one simple camera move (slow push in, gentle dolly, handheld, static). '
+                . 'Output ONLY the prompt text, one line, 15 to 35 words, present tense, no quotes, no preamble, no scene description, no outfit. '
+                . 'Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
+            $ask = 'Write a motion prompt for a short clip of ' . $infl['name'] . '.' . ($hint !== '' ? ' Idea: ' . $hint : ' Pick a natural, subtle movement.');
+        } else {
+            $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific woman. '
+                . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
+                . 'Always name the subject ("photo of a woman ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
+            $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
+        }
         $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 200, 30, 'low');
         if (empty($r['ok']) || trim((string) $r['text']) === '') { return self::fail('Could not write a prompt right now.'); }
         $text = trim(preg_replace('/\s+/', ' ', (string) $r['text']));

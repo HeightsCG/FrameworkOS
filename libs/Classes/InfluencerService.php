@@ -26,6 +26,16 @@ class InfluencerService {
     );
 
     /** Drop-in scene prompts for Generate Images (the trigger word is added at render time). */
+    /** Drop-in motion prompts for Generate Videos (image-to-video: the still supplies the look). */
+    const VIDEO_PROMPTS = array(
+        'she turns toward the camera and smiles, hair moving in a light breeze, slow push in',
+        'she laughs and tucks her hair behind her ear, handheld feel, soft natural light',
+        'she looks over her shoulder at the camera, then back out to the view, gentle dolly left',
+        'she takes a slow sip of her drink and glances up, steady camera, shallow depth of field',
+        'she walks slowly toward the camera, fabric and hair moving, sun flare passing through',
+        'she stretches and settles back with a relaxed smile, camera drifts in slowly, warm light',
+    );
+
     const IMAGE_PROMPTS = array(
         'photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, looking at the camera, film grain',
         'mirror selfie of a woman in a bright bedroom, oversized knit sweater, morning light, phone in hand',
@@ -243,7 +253,7 @@ class InfluencerService {
             'training_cost_usd' => InfluencerConfig::price(InfluencerConfig::default_model_key('training'), (int) InfluencerConfig::get('training_steps', 1000)),
             'ai_prices' => PlanTiers::AI_PRICES,   // what each run costs the account in AI credits
             'ai_credits' => 0,                     // the owner's balance; set per request by the page controller
-            'prompts' => array('face' => self::FACE_PROMPTS, 'image' => self::IMAGE_PROMPTS),
+            'prompts' => array('face' => self::FACE_PROMPTS, 'image' => self::IMAGE_PROMPTS, 'video' => self::VIDEO_PROMPTS),
             'steps'   => self::STEPS,
         );
     }

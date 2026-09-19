@@ -741,8 +741,7 @@ jQuery(function ($) {
             jobs = o.jobs || []; render_strip();
             var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];
             if (running) { busy(status_text(running)); watch(running.id); return; }
-            var last = jobs.filter(function (j) { return j.assets && j.assets.length; })[0];
-            if (last) { select(last, last.assets[0]); }
+            // Earlier results live in the strip below; the stage stays empty until she generates or picks one.
         });
 
         /* --- result actions --- */
@@ -803,6 +802,15 @@ jQuery(function ($) {
         if (!inf) { return; }
         var jobs = [], current = null, stop_poll = null;
         var still = parseInt($('#inf_gen').data('still'), 10) || 0;
+        var vprompts = (C.prompts && C.prompts.video) || [];
+        $('#inf_vprompt_chips').on('click', '.inf-chip--text', function () { $('#inf_vprompt').val(vprompts[$(this).data('i')]).trigger('focus'); });
+        $('#inf_vprompt_auto').on('click', function () {
+            var $b = $(this).prop('disabled', true);
+            api('influencer_prompt_auto', { id: inf.id, kind: 'video', hint: $('#inf_vprompt').val().trim() }, function (o) {
+                $b.prop('disabled', false);
+                if (o && o.success) { $('#inf_vprompt').val(o.prompt).trigger('focus'); } else { err(o); }
+            });
+        });
 
         function seg_val(id) { return $('#' + id + ' .inf-seg__opt.is-on').data('value'); }
         function model_key() { return $('#inf_vmodel .inf-opt.is-on').data('key') || ''; }
@@ -814,7 +822,8 @@ jQuery(function ($) {
             $('#inf_vdur .inf-seg__opt.is-on').attr('aria-pressed', 'true');
             cost();
         }
-        function cost() { $('#inf_vcost').text(credits_text(price_of('video', 1))); }
+        function vprice() { var m = model_opt(model_key()); return (m && m.credits) ? m.credits : price_of('video', 1); }
+        function cost() { $('#inf_vcost').text(credits_text(vprice())); }
         $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
         $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });
@@ -829,11 +838,14 @@ jQuery(function ($) {
             if (!imgs.length) { $g.html('<span class="inf-wiz__meta">No images of her yet. Generate one first.</span>'); return; }
             imgs.forEach(function (img) {
                 var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === still ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
-                $t.on('click', function () { still = img.id; $('#inf_stills .inf-photo').removeClass('is-on'); $t.addClass('is-on'); $('#inf_vgo').prop('disabled', false); });
+                $t.attr('aria-pressed', img.id === still ? 'true' : 'false').attr('aria-label', 'Use this image');
+                $t.on('click', function () { still = img.id; $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false'); $t.addClass('is-on').attr('aria-pressed', 'true'); $('#inf_vgo').prop('disabled', false); $('#inf_still_hint').prop('hidden', true); });
                 $g.append($t);
             });
-            if (!still || !$g.find('.is-on').length) { still = imgs[0].id; $g.find('.inf-photo').first().addClass('is-on'); }
-            $('#inf_vgo').prop('disabled', false);
+            // Only a still handed over from "Make video" is preselected; otherwise she picks one.
+            if (still && !$g.find('.is-on').length) { still = 0; }
+            $('#inf_vgo').prop('disabled', !still);
+            $('#inf_still_hint').prop('hidden', !!still);
             drop_broken('#inf_stills');
         });
 
@@ -879,8 +891,7 @@ jQuery(function ($) {
             jobs = o.jobs || []; render_strip();
             var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];
             if (running) { busy(status_text(running)); watch(running.id); return; }
-            var last = jobs.filter(function (j) { return j.assets && j.assets.length; })[0];
-            if (last) { select(last, last.assets[0]); }
+            // Earlier videos live in the strip below; the stage stays empty until she generates or picks one.
         });
         $('#inf_vgo').on('click', function () {
             if (!still) { toastr.error('Pick a still of her first'); return; }
@@ -889,7 +900,7 @@ jQuery(function ($) {
             busy('Sending');
             api('influencer_generate_video', { id: inf.id, asset_id: still, prompt: $('#inf_vprompt').val().trim(), model_key: model_key(), duration: seg_val('inf_vdur') }, function (o) {
                 if (!o || !o.success) { err(o); $b.prop('disabled', false); show_current(); return; }
-                spend_credits(price_of('video', 1)); cost();
+                spend_credits(vprice()); cost();
                 jobs.unshift(o.job); render_strip(); watch(o.job.id);
             });
         });

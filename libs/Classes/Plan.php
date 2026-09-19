@@ -178,6 +178,8 @@ class Plan {
     {
         $unit = (int) (PlanTiers::AI_PRICES[(string) $type] ?? 0);
         if ($unit <= 0) { return 0; }
+        $model = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;   // e.g. the cinematic video model costs more
+        if ($model && isset($model['credits']) && (int) $model['credits'] > 0) { $unit = (int) $model['credits']; }
         $n = ((string) $type === 'image') ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
         return $unit * $n;
     }

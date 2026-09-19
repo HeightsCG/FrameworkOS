@@ -206,7 +206,8 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_prompt_autoAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $this->answer(InfluencerActions::prompt_auto($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), $this->text('hint', 500)));
+        $kind = ((string) ($this->post['kind'] ?? 'image') === 'video') ? 'video' : 'image';
+        $this->answer(InfluencerActions::prompt_auto($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), $this->text('hint', 500), $kind));
     }
 
     /** Delete one of her generated/uploaded files from the library. */

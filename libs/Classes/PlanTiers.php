@@ -32,7 +32,7 @@ class PlanTiers {
     );
 
     /** What each AI job type costs in AI credits (per output). Training is free: the influencer count gates it. */
-    const AI_PRICES = array('image' => 1, 'enhance' => 1, 'video' => 20);
+    const AI_PRICES = array('image' => 5, 'enhance' => 1, 'video' => 20);
 
     /** Top-up packs: $1 = 1 AI credit. */
     const AI_PACKS = array(10, 25, 50, 100);

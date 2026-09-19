@@ -337,9 +337,9 @@ class McpTools {
         $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of her images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for her (returned as text, nothing is rendered).', 'inputSchema' => array(
+        $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for an image of her, or a motion prompt for a video (returned as text, nothing is rendered).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
-            'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'))));
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'), 'kind' => array('type' => 'string', 'enum' => array('image', 'video'), 'description' => 'Default image'))));
         $t[] = array('name' => 'get_influencer_job', 'description' => 'One generation/training job: status (queued, submitting, running, landing, done, failed), error, seed, cost and the landed assets with signed URLs.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'list_influencer_jobs', 'description' => 'Her recent jobs, newest first, optionally by type.', 'inputSchema' => array(
@@ -687,7 +687,7 @@ class McpTools {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
                 return self::result(InfluencerActions::enhance($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), (string) ($a['level'] ?? 'safe'), 'studio'));
             }
-            case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer($cid, $a), (string) ($a['hint'] ?? '')));
+            case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer($cid, $a), (string) ($a['hint'] ?? ''), (($a['kind'] ?? 'image') === 'video') ? 'video' : 'image'));
             case 'get_influencer_job': {
                 $job = (new InfluencerJobsModel())->get_one($cid, (int) ($a['job_id'] ?? 0));
                 return array('job' => InfluencerJobService::job_json($cid, self::need($job, 'Job not found')));

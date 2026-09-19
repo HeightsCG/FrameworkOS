@@ -68,11 +68,11 @@ class InfluencerConfig {
         'hailuo_02' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/minimax/hailuo-02/standard/image-to-video'),
             'label' => 'Natural motion', 'purpose' => 'Smooth, budget friendly',
             'price_usd' => 0.045, 'price_unit' => 'second', 'levels' => array('safe'),
-            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true)),
+            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => 20),
         'kling_v3' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/image-to-video'),
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
             'price_usd' => 0.084, 'price_unit' => 'second', 'levels' => array('safe'),
-            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5)),
+            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => 30),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
@@ -236,6 +236,7 @@ class InfluencerConfig {
                 'price_usd' => (float) $m['price_usd'],
                 'price_unit'=> $m['price_unit'],
                 'durations' => array_values((array) ($m['durations'] ?? array())),
+                'credits'   => isset($m['credits']) ? (int) $m['credits'] : null,   // AI credits per run when it differs from the type's default
             );
         }
         return $out;
