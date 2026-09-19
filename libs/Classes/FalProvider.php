@@ -51,7 +51,10 @@ class FalProvider implements InfluencerProvider {
         $in['prompt'] = (string) ($req['prompt'] ?? '');
         if (!empty($req['seed'])) { $in['seed'] = (int) $req['seed']; }
         $n = max(1, min(4, (int) ($req['num_images'] ?? 1)));
-        $spicy = (($req['level'] ?? 'safe') === 'spicy');
+        // fal's post-render safety checker does not error: it hands back a BLACK image for
+        // anything it flags (tease/lingerie included). It is always off; the models themselves
+        // are the limit, and the platform's own moderation (cron/moderate.php) reviews what lands.
+        $spicy = true;
 
         if (strpos($ep, 'nano-banana') !== false) {
             // Reference edit: prompt + image_urls; aspect ratio string; output png.
@@ -79,7 +82,7 @@ class FalProvider implements InfluencerProvider {
         }
         if (strpos($ep, 'flux-pro') !== false) {
             $in['output_format']    = 'jpeg';
-            $in['safety_tolerance'] = $spicy ? '5' : '2';
+            $in['safety_tolerance'] = $spicy ? '6' : '2';
         } else {
             $in['output_format']         = 'png';
             $in['enable_safety_checker'] = !$spicy;
@@ -166,8 +169,10 @@ class FalProvider implements InfluencerProvider {
         if (!$r['ok']) { return self::map_error($r); }
         $j = (array) $r['json'];
         $outputs = array();
-        foreach ((array) ($j['images'] ?? array()) as $img) {
+        $flagged = 0;
+        foreach (array_values((array) ($j['images'] ?? array())) as $i => $img) {
             if (empty($img['url'])) { continue; }
+            if (!empty($j['has_nsfw_concepts'][$i])) { $flagged++; continue; }   // the checker blanked this one: never store a black image
             $outputs[] = array('kind' => 'image', 'url' => (string) $img['url'], 'content_type' => (string) ($img['content_type'] ?? ''),
                 'width' => (int) ($img['width'] ?? 0), 'height' => (int) ($img['height'] ?? 0), 'file_size' => (int) ($img['file_size'] ?? 0),
                 'seed' => isset($j['seed']) ? (int) $j['seed'] : null);
@@ -187,6 +192,7 @@ class FalProvider implements InfluencerProvider {
                 'width' => 0, 'height' => 0, 'file_size' => (int) ($j['diffusers_lora_file']['file_size'] ?? 0), 'seed' => null,
                 'config_url' => (string) ($j['config_file']['url'] ?? ''));
         }
+        if (empty($outputs) && $flagged > 0) { return self::fail('The image was blocked by the provider\'s safety filter', 'content_policy', false, $r['code']); }
         if (empty($outputs)) { return self::fail('fal.ai returned no output', 'provider', true, $r['code']); }
         return array('ok' => true, 'outputs' => $outputs, 'seed' => isset($j['seed']) ? (int) $j['seed'] : null,
             'raw' => $j, 'error' => '', 'error_code' => '', 'retryable' => false);

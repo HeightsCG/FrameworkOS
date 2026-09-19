@@ -489,6 +489,7 @@
                 </div>
 
                 <div class="cs-am__section" data-kind="post">
+                    <div class="cs-am__trio">
                     <div class="cs-am__field">
                         <div class="cs-am__label">Audience</div>
                         <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAudience" role="group" aria-label="Audience">
@@ -511,6 +512,7 @@
                             <button type="button" class="cs-seg__opt" aria-pressed="false" data-on="0"><span>No</span></button>
                         </div>
                         <input type="checkbox" id="csSchedComments" checked hidden>
+                    </div>
                     </div>
                     <div class="cs-am__field cs-am__field--full" id="csSchedCaptionWrap" hidden>
                         <label class="cs-am__label" for="csSchedCaption">Caption</label>
