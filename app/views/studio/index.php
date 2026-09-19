@@ -270,89 +270,170 @@
 <input type="file" id="csFileInput" accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/quicktime,video/webm" multiple hidden>
 
 <!-- ============ POST COMPOSER (modal) ============ -->
-<div class="modal fade cs-composer" id="csComposer" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true">
-    <div class="modal-dialog modal-fullscreen">
-        <div class="modal-content">
-            <div class="modal-header cs-comp__head">
-                <h5 class="modal-title" id="csCompTitle">New post</h5>
-                <span class="cs-comp__save" id="csCompSave"></span>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body cs-comp__body">
-
-                <!-- editing controls -->
-                <div class="cs-comp__edit">
-                    <div class="cs-comp__media" id="csCompMedia"></div>
-                    <div class="cs-comp__mediaactions">
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompAdd"><i class="fa-solid fa-photo-film"></i> Add from Library</button>
-                        <button type="button" class="btn btn-outline-secondary btn-sm" id="csCompUpload"><i class="fa-solid fa-arrow-up-from-bracket"></i> Upload</button>
-                    </div>
-
-                    <label class="cs-flabel" for="csCompCaption">Caption</label>
-                    <textarea id="csCompCaption" class="form-control" rows="4" maxlength="3000" placeholder="Write a caption…"></textarea>
-                    <div class="cs-comp__count"><span id="csCompCount">0</span> / 3000</div>
-
-                    <label class="cs-flabel">Who can see this post</label>
-                    <div class="cs-seg cs-seg--3" id="csCompAudience">
-                        <button type="button" class="cs-seg__opt is-on" data-aud="free"><i class="fa-solid fa-globe"></i> <span><strong>Everyone</strong><small>Anyone can see it</small></span></button>
-                        <button type="button" class="cs-seg__opt" data-aud="subscribers"><i class="fa-solid fa-lock"></i> <span><strong>Subscribers</strong><small>Members only</small></span></button>
-                        <button type="button" class="cs-seg__opt" data-aud="ppv"><i class="fa-solid fa-dollar-sign"></i> <span><strong>Pay-per-view</strong><small>Unlock to view</small></span></button>
-                    </div>
-                    <div class="cs-comp__tier" id="csCompTier" hidden>
-                        <label class="cs-flabel" for="csCompTierSel">Available to</label>
-                        <select id="csCompTierSel" class="form-select"><option value="">All Subscribers</option></select>
-                    </div>
-                    <div class="cs-comp__ppv" id="csCompPpv" hidden>
-                        <label class="cs-flabel" for="csCompPpvPrice">Unlock price</label>
-                        <div class="cs-ppvprice">
-                            <span class="cs-ppvprice__cur">$</span>
-                            <input type="number" class="form-control" id="csCompPpvPrice" min="3" max="500" step="1" value="5" inputmode="numeric">
-                            <span class="cs-ppvprice__hint" id="csCompPpvCredits">= 50 credits</span>
-                        </div>
-                        <p class="cs-ppvprice__note">Fans spend credits to unlock this post. $3–$500.</p>
-                    </div>
-
-                    <label class="cs-flabel">Options</label>
-                    <label class="cs-comp__opt" for="csCompComments">
-                        <span>Allow comments<small>Fans can comment on this post.</small></span>
-                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csCompComments" checked></span>
-                    </label>
-
-                    <label class="cs-flabel" id="csCompSocialLabel">Cross-post to social</label>
-                    <div id="csCompSocial" class="cs-comp__social"></div>
-
-                    <div class="cs-comp__sched" id="csCompSchedule" hidden>
-                        <input type="datetime-local" id="csCompSchedAt" class="form-control">
-                        <small class="text-muted">Times are in your timezone (<span id="csCompTz">UTC</span>).</small>
-                    </div>
-                    <div class="cs-comp__validation" id="csCompValidation" hidden></div>
-                    <div class="cs-comp__actions">
-                        <button type="button" class="btn btn-primary" id="csPublishNow">Publish Now</button>
-                        <button type="button" class="btn btn-outline-secondary" id="csSchedule">Schedule</button>
-                        <button type="button" class="btn btn-outline-secondary" id="csSaveDraft">Save as Draft</button>
+<div class="modal fade cs-composer" id="csComposer" tabindex="-1" data-bs-backdrop="static" data-bs-keyboard="false" aria-hidden="true" aria-labelledby="csCompTitle">
+    <div class="modal-dialog cs-pe">
+        <div class="modal-content cs-pe__surface">
+            <header class="cs-pe__header">
+                <div class="cs-pe__heading">
+                    <span class="cs-pe__eyebrow" id="csPeEyebrow">New post</span>
+                    <div class="cs-pe__titlerow">
+                        <h2 class="cs-pe__title" id="csCompTitle">Create post</h2>
+                        <span class="cs-pe__status" id="csPeStatus"><span class="cs-pe__statusdot" aria-hidden="true"></span><span id="csPeStatusText">Draft</span></span>
                     </div>
                 </div>
+                <div class="cs-pe__headtools">
+                    <button type="button" class="cs-pe__pvtoggle" id="csPePreviewBtn" aria-pressed="false" aria-controls="csPePreview">Preview</button>
+                    <button type="button" class="btn-close cs-pe__close" id="csPeClose" aria-label="Close"></button>
+                </div>
+            </header>
 
-                <!-- live preview -->
-                <div class="cs-comp__preview">
-                    <div class="cs-comp__pvhead">
-                        <span class="cs-dv__label mb-0">Preview</span>
-                        <div class="cs-seg cs-seg--sm" id="csCompView">
-                            <button type="button" class="cs-seg__opt is-on" data-view="sub">Subscriber</button>
-                            <button type="button" class="cs-seg__opt" data-view="pub">Non-Subscribers</button>
+            <div class="cs-pe__body">
+                <nav class="cs-pe__nav" aria-label="Post sections">
+                    <label class="cs-pe__navselect-label" for="csPeNavSelect">Section</label>
+                    <select class="form-select cs-pe__navselect" id="csPeNavSelect">
+                        <option value="content">Content</option>
+                        <option value="audience">Audience</option>
+                        <option value="distribution">Distribution</option>
+                        <option value="publish">Publish</option>
+                    </select>
+                    <div class="cs-pe__navlist" id="csPeNav">
+                        <button type="button" class="cs-pe__navitem" data-section="content" aria-current="true"><span class="cs-pe__navlabel">Content</span><span class="cs-pe__navsum" data-sum="content"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
+                        <button type="button" class="cs-pe__navitem" data-section="audience"><span class="cs-pe__navlabel">Audience</span><span class="cs-pe__navsum" data-sum="audience"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
+                        <button type="button" class="cs-pe__navitem" data-section="distribution"><span class="cs-pe__navlabel">Distribution</span><span class="cs-pe__navsum" data-sum="distribution"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
+                        <button type="button" class="cs-pe__navitem" data-section="publish"><span class="cs-pe__navlabel">Publish</span><span class="cs-pe__navsum" data-sum="publish"></span><span class="cs-pe__navflag" hidden>Needs attention</span></button>
+                    </div>
+                </nav>
+
+                <div class="cs-pe__main" id="csPeMain">
+
+                    <section class="cs-pe__section" data-section="content" aria-labelledby="csPeH_content">
+                        <h3 class="cs-pe__h" id="csPeH_content" tabindex="-1">Content</h3>
+                        <p class="cs-pe__sub">Add media and write the message your audience will see.</p>
+
+                        <div id="csCompModNote" class="cs-comp__modnote" hidden></div>
+
+                        <div class="cs-pe__field">
+                            <span class="cs-pe__label" id="csPeMediaLabel">Media</span>
+                            <div class="cs-pe__media" id="csCompMedia" role="group" aria-labelledby="csPeMediaLabel"></div>
+                            <p class="cs-pe__hint" id="csPeMediaHint" hidden>First item becomes the cover &middot; Drag to reorder</p>
+                            <p class="cs-pe__live" id="csPeUploadStatus" aria-live="polite"></p>
+                            <p class="cs-pe__error" id="csPeErr_media" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-pe__field">
+                            <div class="cs-pe__labelrow">
+                                <label class="cs-pe__label" for="csCompCaption">Caption</label>
+                                <span class="cs-pe__count" id="csPeCount"><span id="csCompCount">0</span> / 3000</span>
+                            </div>
+                            <textarea id="csCompCaption" class="form-control cs-pe__caption" rows="6" maxlength="3000" placeholder="Write a caption…" aria-describedby="csPeCount csPeErr_caption"></textarea>
+                            <p class="cs-pe__error" id="csPeErr_caption" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-pe__switchrow">
+                            <label class="cs-pe__switchtext" for="csCompComments"><span class="cs-pe__switchlabel">Allow comments</span><span class="cs-pe__switchsub">Fans can comment on this post.</span></label>
+                            <div class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="csCompComments" checked></div>
+                        </div>
+                    </section>
+
+                    <section class="cs-pe__section" data-section="audience" aria-labelledby="csPeH_audience" hidden>
+                        <h3 class="cs-pe__h" id="csPeH_audience" tabindex="-1">Audience</h3>
+                        <p class="cs-pe__sub">Choose who can access this post.</p>
+
+                        <div class="cs-pe__choices" id="csCompAudience" role="radiogroup" aria-label="Audience">
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="true" data-aud="free"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Everyone</span><span class="cs-pe__choicesub">Anyone can view this post.</span></span></button>
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-aud="subscribers"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Subscribers</span><span class="cs-pe__choicesub">Only active subscribers can view this post.</span></span></button>
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-aud="ppv"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Pay-per-view</span><span class="cs-pe__choicesub">Viewers pay to unlock this post.</span></span></button>
+                        </div>
+
+                        <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompTier" hidden>
+                            <label class="cs-pe__label" for="csCompTierSel">Tier</label>
+                            <select id="csCompTierSel" class="form-select"><option value="">All subscribers</option></select>
+                        </div>
+
+                        <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompPpv" hidden>
+                            <label class="cs-pe__label" for="csCompPpvPrice">Unlock price</label>
+                            <div class="cs-pe__price">
+                                <span class="cs-pe__cur" aria-hidden="true">$</span>
+                                <input type="number" class="form-control" id="csCompPpvPrice" min="3" max="500" step="1" value="5" inputmode="numeric" aria-describedby="csCompPpvCredits csPeErr_price">
+                                <span class="cs-pe__credits" id="csCompPpvCredits">= 50 credits</span>
+                            </div>
+                            <p class="cs-pe__hint">Fans spend credits to unlock this post. $3 to $500.</p>
+                            <p class="cs-pe__error" id="csPeErr_price" role="alert" hidden></p>
+                        </div>
+                    </section>
+
+                    <section class="cs-pe__section" data-section="distribution" aria-labelledby="csPeH_distribution" hidden>
+                        <h3 class="cs-pe__h" id="csPeH_distribution" tabindex="-1">Distribution</h3>
+                        <p class="cs-pe__sub">Choose where else this post should be published.</p>
+
+                        <div class="cs-pe__desttools" id="csPeDestTools">
+                            <label class="visually-hidden" for="csPeDestSearch">Filter accounts</label>
+                            <input type="search" class="form-control cs-pe__destsearch" id="csPeDestSearch" placeholder="Filter accounts" autocomplete="off">
+                            <span class="cs-pe__destcount" id="csPeDestCount" aria-live="polite"></span>
+                        </div>
+                        <div class="cs-pe__destlist" id="csCompSocial" role="group" aria-label="Connected accounts"></div>
+                        <p class="cs-pe__empty" id="csPeDestEmpty" hidden></p>
+                        <p class="cs-pe__empty" id="csPeDestNone" hidden>No accounts match that filter.</p>
+                        <p class="cs-pe__error" id="csPeErr_share" role="alert" hidden></p>
+                    </section>
+
+                    <section class="cs-pe__section" data-section="publish" aria-labelledby="csPeH_publish" hidden>
+                        <h3 class="cs-pe__h" id="csPeH_publish" tabindex="-1">Publish</h3>
+                        <p class="cs-pe__sub">Choose when this post should become available.</p>
+
+                        <div class="cs-pe__choices" id="csPeMode" role="radiogroup" aria-label="Publishing mode">
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="true" data-mode="now"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Publish now</span><span class="cs-pe__choicesub">Publish immediately after confirmation.</span></span></button>
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-mode="schedule"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Schedule</span><span class="cs-pe__choicesub">Choose a future date and time.</span></span></button>
+                            <button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-mode="draft"><span class="cs-pe__choicemark" aria-hidden="true"></span><span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">Save as draft</span><span class="cs-pe__choicesub">Save without publishing.</span></span></button>
+                        </div>
+                        <p class="cs-pe__published" id="csPePublishedNote" hidden>This post is live. Saving applies your changes right away.</p>
+
+                        <div class="cs-pe__reveal cs-pe__sub-field" id="csCompSchedule" hidden>
+                            <div class="cs-pe__row">
+                                <div class="cs-pe__field">
+                                    <label class="cs-pe__label" for="csPeDate">Date</label>
+                                    <input type="date" class="form-control" id="csPeDate" aria-describedby="csPeErr_schedule">
+                                </div>
+                                <div class="cs-pe__field">
+                                    <label class="cs-pe__label" for="csPeTime">Time</label>
+                                    <input type="time" class="form-control" id="csPeTime" aria-describedby="csPeErr_schedule">
+                                </div>
+                            </div>
+                            <p class="cs-pe__hint">Time zone: <span id="csCompTz">UTC</span></p>
+                            <input type="hidden" id="csCompSchedAt" value="">
+                            <p class="cs-pe__error" id="csPeErr_schedule" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-pe__validation" id="csCompValidation" role="alert" hidden></div>
+                    </section>
+
+                </div>
+
+                <aside class="cs-pe__preview" id="csPePreview" aria-label="Preview">
+                    <div class="cs-pe__pvhead">
+                        <span class="cs-pe__pvtitle">Preview</span>
+                        <div class="cs-pe__viewseg" id="csCompView" role="group" aria-label="Preview as">
+                            <button type="button" class="cs-pe__viewopt is-on" aria-pressed="true" data-view="sub">Subscriber</button>
+                            <button type="button" class="cs-pe__viewopt" aria-pressed="false" data-view="pub">Public</button>
                         </div>
                     </div>
                     <div class="cs-preview-wrap">
                         <div class="cs-preview-card" id="csPreviewCard"></div>
                     </div>
-                </div>
-
+                </aside>
             </div>
+
+            <footer class="cs-pe__footer">
+                <span class="cs-pe__savestate" id="csCompSave" aria-live="polite"></span>
+                <div class="cs-pe__actions">
+                    <button type="button" class="btn cs-pe__btn cs-pe__btn--ghost" id="csPeSecondary">Save draft</button>
+                    <button type="button" class="btn btn-primary cs-pe__btn" id="csPePrimary">Continue</button>
+                </div>
+            </footer>
         </div>
     </div>
 </div>
 
-<!-- ============ MEDIA PICKER (modal) ============ -->
 <div class="modal fade" id="csPicker" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">

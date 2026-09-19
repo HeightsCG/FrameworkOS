@@ -751,17 +751,57 @@ jQuery(function ($) {
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
     function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
+    function socialPlatformName(p){ var m = { x: 'X', twitter: 'X', instagram: 'Instagram', facebook: 'Facebook', tiktok: 'TikTok', bluesky: 'Bluesky', threads: 'Threads', youtube: 'YouTube', linkedin: 'LinkedIn', pinterest: 'Pinterest', fanvue: 'Fanvue' }; p = String(p || '').toLowerCase(); return m[p] || (p.charAt(0).toUpperCase() + p.slice(1)); }
+
+    /* ---- distribution: filterable list of every connected account; checkboxes keep data-acct so composer.share is unchanged ---- */
     function renderSocial(){
         var $wrap = $('#csCompSocial').empty();
         var soc = CFG.social || { accounts: [], can_post: false };
-        if (!soc.accounts || !soc.accounts.length) { $wrap.html('<p class="cs-comp__socialnote">No accounts connected yet — <a href="/account/settings?section=connected">connect your accounts</a> to cross-post.</p>'); return; }
-        if (!soc.can_post) { $wrap.html('<p class="cs-comp__socialnote">Sharing to social is not part of your current plan. <a href="/account/billing">See plans</a>.</p>'); return; }
-        soc.accounts.forEach(function (a) {
-            var on = composer.share.has(a.id);
-            $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + '><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>');
+        var accounts = soc.accounts || [];
+        var $empty = $('#csPeDestEmpty').prop('hidden', true).empty();
+        $('#csPeDestNone').prop('hidden', true);
+        $('#csPeDestSearch').val('');
+        if (!accounts.length) {
+            $('#csPeDestTools').prop('hidden', true);
+            $empty.prop('hidden', false).html('No connected accounts yet. Connect one in <a href="/account/settings?section=connected">Settings</a> and it will appear here.');
+            peUpdateDestCount(); return;
+        }
+        if (!soc.can_post) {
+            $('#csPeDestTools').prop('hidden', true);
+            $empty.prop('hidden', false).html('Sharing to social is not part of your current plan. <a href="/account/billing">See plans</a>.');
+            peUpdateDestCount(); return;
+        }
+        $('#csPeDestTools').prop('hidden', false);
+        accounts.forEach(function (a) {
+            var on = composer.share.has(String(a.id));
+            var off = a.status && a.status !== 'connected';
+            var name = a.username || a.platform, plat = socialPlatformName(a.platform);
+            var id = 'csPeDest_' + String(a.id).replace(/[^A-Za-z0-9_-]/g, '_');
+            $wrap.append('<label class="cs-pe__dest' + (on ? ' is-on' : '') + (off ? ' is-off' : '') + '" for="' + id + '" data-search="' + esc((name + ' ' + plat).toLowerCase()) + '">' +
+                '<input class="form-check-input" type="checkbox" id="' + id + '" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
+                '<i class="' + socialIconClass(a.platform) + ' cs-pe__desticon" aria-hidden="true"></i>' +
+                '<span class="cs-pe__destname" title="' + esc(name) + '">' + esc(name) + '</span>' +
+                (off ? '<span class="cs-pe__deststate">Disconnected</span>' : '') +
+                '<span class="cs-pe__destplat">' + esc(plat) + '</span></label>');
         });
+        peUpdateDestCount();
     }
-    $('#csCompSocial').on('change', 'input[data-acct]', function () { var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id); });
+    function peUpdateDestCount() {
+        var n = composer.share.size, total = $('#csCompSocial input[data-acct]').length;
+        $('#csPeDestCount').text(total ? (n + ' of ' + total + ' selected') : '');
+        peSum('distribution', n === 0 ? 'No social accounts' : (n + ' social account' + (n === 1 ? '' : 's')));
+    }
+    $('#csCompSocial').on('change', 'input[data-acct]', function () {
+        var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id);
+        $(this).closest('.cs-pe__dest').toggleClass('is-on', this.checked);
+        peUpdateDestCount(); peMarkDirty();
+    });
+    $('#csPeDestSearch').on('input', function () {
+        var q = String(this.value || '').trim().toLowerCase(), shown = 0;
+        $('#csCompSocial .cs-pe__dest').each(function () { var hit = q === '' || String($(this).data('search')).indexOf(q) >= 0; $(this).prop('hidden', !hit); if (hit) shown++; });
+        $('#csPeDestNone').prop('hidden', shown > 0 || !$('#csCompSocial .cs-pe__dest').length);
+    });
+
     var composerModal = bootstrap.Modal.getOrCreateInstance('#csComposer');
     var pickerModal = bootstrap.Modal.getOrCreateInstance('#csPicker');
     var pickerAssets = [], pickerSel = new Set();
@@ -772,7 +812,121 @@ jQuery(function ($) {
 
     $('#csNewPostBtn').on('click', function () { openComposer(null); });
 
+    /* ---- sections + nav ---- */
+    var PE_SECTIONS = ['content', 'audience', 'distribution', 'publish'];
+    var peOpener = null, peSaving = false;
+    function peShowSection(key, focusHeading) {
+        if (PE_SECTIONS.indexOf(key) < 0) key = 'content';
+        composer.section = key;
+        $('#csPeMain .cs-pe__section').each(function () { $(this).prop('hidden', $(this).data('section') !== key); });
+        $('#csPeNav .cs-pe__navitem').each(function () { if ($(this).data('section') === key) $(this).attr('aria-current', 'true'); else $(this).removeAttr('aria-current'); });
+        $('#csPeNavSelect').val(key);
+        $('#csPeMain').scrollTop(0);
+        peUpdateFooter();
+        if (focusHeading) { var h = document.getElementById('csPeH_' + key); if (h) h.focus({ preventScroll: true }); }
+    }
+    $('#csPeNav').on('click', '.cs-pe__navitem', function () { peShowSection($(this).data('section'), true); });
+    $('#csPeNav').on('keydown', '.cs-pe__navitem', function (e) {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault();
+        var items = $('#csPeNav .cs-pe__navitem'), i = items.index(this);
+        items.eq((i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length).trigger('focus');
+    });
+    $('#csPeNavSelect').on('change', function () { peShowSection(this.value, true); });
+    $('#csPePreviewBtn').on('click', function () { var open = !$('#csComposer .cs-pe').hasClass('is-preview-open'); $('#csComposer .cs-pe').toggleClass('is-preview-open', open); $(this).attr('aria-pressed', open ? 'true' : 'false'); });
+
+    function peSum(key, text) { $('#csPeNav [data-sum="' + key + '"]').text(text); }
+    function peUpdateSummaries() {
+        var n = composer.assets.length;
+        peSum('content', (n ? (n + ' media') : 'No media') + ' · ' + (composer.caption.trim() ? 'Caption added' : 'No caption'));
+        var aud = 'Everyone';
+        if (composer.audience === 'subscribers') { var t = composer.tier_id ? $('#csCompTierSel option[value="' + composer.tier_id + '"]').text().split(' · ')[0] : ''; aud = 'Subscribers' + (t ? ' · ' + t : ' · All'); }
+        else if (composer.audience === 'ppv') { aud = 'Pay-per-view · $' + (parseInt(composer.ppv_price, 10) || 0); }
+        peSum('audience', aud);
+        peUpdateDestCount();
+        if (composer.state === 'published') { peSum('publish', 'Published'); }
+        else if (composer.mode === 'schedule') { var d = peScheduleDate(); peSum('publish', d ? ('Scheduled · ' + peFmtDate(d)) : 'Scheduled · pick a time'); }
+        else if (composer.mode === 'draft') { peSum('publish', 'Save as draft'); }
+        else { peSum('publish', 'Publish now'); }
+    }
+    function peFmtDate(d) { var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; var h = d.getHours(), m = d.getMinutes(); return mo[d.getMonth()] + ' ' + d.getDate() + ', ' + ((h % 12) || 12) + ':' + (m < 10 ? '0' : '') + m + ' ' + (h < 12 ? 'AM' : 'PM'); }
+    function peUpdateFooter() {
+        var s = composer.section || 'content', pub = composer.state === 'published';
+        var $sec = $('#csPeSecondary'), $pri = $('#csPePrimary');
+        if (s === 'content') { $sec.prop('hidden', pub).text('Save draft'); } else { $sec.prop('hidden', false).text('Back'); }
+        if (s !== 'publish') { $pri.text('Continue'); }
+        else if (pub) { $pri.text('Save changes'); }
+        else { $pri.text(composer.mode === 'schedule' ? 'Schedule post' : (composer.mode === 'draft' ? 'Save draft' : 'Publish now')); }
+    }
+    $('#csPeSecondary').on('click', function () {
+        var i = PE_SECTIONS.indexOf(composer.section || 'content');
+        if (i <= 0) { runAction('draft'); return; }
+        peShowSection(PE_SECTIONS[i - 1], true);
+    });
+    $('#csPePrimary').on('click', function () {
+        var s = composer.section || 'content', i = PE_SECTIONS.indexOf(s);
+        if (s !== 'publish') { peShowSection(PE_SECTIONS[i + 1], true); return; }
+        if (composer.state === 'published') { runAction('update'); return; }
+        runAction(composer.mode === 'schedule' ? 'schedule' : (composer.mode === 'draft' ? 'draft' : 'publish'));
+    });
+
+    /* ---- validation: every section, inline message + nav flag ---- */
+    var PE_ERR_SECTION = { media: 'content', caption: 'content', price: 'audience', share: 'distribution', schedule: 'publish' };
+    function peSetError(key, msg, $field) {
+        $('#csPeErr_' + key).text(msg).prop('hidden', false);
+        if ($field) $field.addClass('is-invalid');
+        $('#csPeNav [data-section="' + PE_ERR_SECTION[key] + '"] .cs-pe__navflag').prop('hidden', false);
+    }
+    function peClearError(key) {
+        $('#csPeErr_' + key).prop('hidden', true).text('');
+        var sec = PE_ERR_SECTION[key];
+        $('#csPeMain [data-section="' + sec + '"] .is-invalid').removeClass('is-invalid');
+        if (!$('#csPeMain [data-section="' + sec + '"] .cs-pe__error:not([hidden])').length) $('#csPeNav [data-section="' + sec + '"] .cs-pe__navflag').prop('hidden', true);
+    }
+    function peClearErrors() { Object.keys(PE_ERR_SECTION).forEach(peClearError); $('#csCompValidation').prop('hidden', true).empty(); }
+    function peScheduleDate() {
+        var d = $('#csPeDate').val(), t = $('#csPeTime').val();
+        if (!d || !t) return null;
+        var x = new Date(d + 'T' + t + ':00'); return isNaN(x.getTime()) ? null : x;
+    }
+    function peSyncSchedAt() { var d = $('#csPeDate').val(), t = $('#csPeTime').val(); $('#csCompSchedAt').val(d && t ? (d + 'T' + t) : ''); }
+    function peValidate(kind) {
+        peClearErrors();
+        var errors = [];
+        if (composer.caption.length > 3000) errors.push({ key: 'caption', msg: 'Captions can be up to 3,000 characters.', $f: $('#csCompCaption'), focus: '#csCompCaption' });
+        if (kind !== 'draft' && !composer.caption.trim() && !composer.assets.length) errors.push({ key: 'media', msg: 'Add a photo, video, or caption before publishing.', focus: '#csCompCaption' });
+        var priceBad = false;
+        if (composer.audience === 'ppv') {
+            var p = parseInt(composer.ppv_price, 10);
+            priceBad = isNaN(p) || p < 3 || p > 500 || String(composer.ppv_price).indexOf('-') === 0;
+            if (priceBad) errors.push({ key: 'price', msg: 'Enter a whole-dollar price between $3 and $500.', $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' });
+        }
+        // The server's own verdict on the saved post (media processing, moderation, PPV rules), routed to its section.
+        if (kind !== 'draft' && composer.validation && composer.validation.ok === false && (composer.caption.trim() || composer.assets.length)) {
+            var reason = composer.validation.reason || 'This post can\u2019t be published yet.';
+            if (/price/i.test(reason)) { if (!priceBad) errors.push({ key: 'price', msg: reason, $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' }); }
+            else errors.push({ key: 'media', msg: reason, focus: '#csCompMedia [data-pe-add], #csCompCaption' });
+        }
+        var offSel = $('#csCompSocial input[data-acct]:checked:disabled').length;
+        if (offSel) errors.push({ key: 'share', msg: 'A selected account is disconnected. Unselect it or reconnect it in Settings.', focus: '#csPeDestSearch' });
+        if (kind === 'schedule') {
+            var d = peScheduleDate();
+            if (!d) errors.push({ key: 'schedule', msg: 'Pick a date and time.', $f: $('#csPeDate').val() ? $('#csPeTime') : $('#csPeDate'), focus: $('#csPeDate').val() ? '#csPeTime' : '#csPeDate' });
+            else if (d.getTime() <= Date.now() + 60000) errors.push({ key: 'schedule', msg: 'Pick a date and time in the future.', $f: $('#csPeDate'), focus: '#csPeDate' });
+        }
+        errors.forEach(function (e) { peSetError(e.key, e.msg, e.$f); });
+        return errors;
+    }
+    function peShowServerError(msg) {
+        var text = msg || 'Something went wrong.';
+        var key = /media|photo|video|caption|processing|blocked|removed/i.test(text) ? 'media' : (/price|pay-per-view/i.test(text) ? 'price' : (/date|time|future|schedule/i.test(text) ? 'schedule' : ''));
+        if (key) { peSetError(key, text); peShowSection(PE_ERR_SECTION[key], false); setTimeout(function () { $('#csPeErr_' + key).closest('.cs-pe__field').find('.form-control, .form-select, .cs-pe__mbtn').first().trigger('focus'); }, 30); }
+        else { peShowSection('publish', false); $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + esc(text)); }
+    }
+
+    /* ---- open / new / load ---- */
     function openComposer(postId) {
+        peOpener = document.activeElement;
         if (postId) { composerModal.show(); loadPost(postId); return; }
         ApiDataSvc.apiCall('post', 'post_open_draft', function (resp) { var o = JSON.parse(resp);
             if (o && o.success && o.draft) {
@@ -786,33 +940,44 @@ jQuery(function ($) {
             } else { newComposer(); composerModal.show(); }
         });
     }
+    $('#csComposer').on('hidden.bs.modal', function () {
+        clearInterval(pvTimer);
+        $('#csComposer .cs-pe').removeClass('is-preview-open'); $('#csPePreviewBtn').attr('aria-pressed', 'false');
+        if (peOpener && peOpener.focus) { try { peOpener.focus(); } catch (e) {} } peOpener = null;
+    });
+    $('#csComposer').on('shown.bs.modal', function () { $('#csCompCaption').trigger('focus'); });
 
-    function resetScheduleUI() { $('#csCompSchedule').prop('hidden', true); $('#csSchedule').text('Schedule'); }
+    function resetScheduleUI() { $('#csPeDate, #csPeTime, #csCompSchedAt').val(''); }
     function newComposer() {
-        composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+        clearTimeout(composer.saveTimer);
+        composer = { id: null, caption: '', audience: 'free', tier_id: '', lastTier: '', ppv_price: 5, lastPpv: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         composer.share = new Set();
         composer.state = 'draft';
-        $('#csCompTitle').text('New Post');
-        $('#csCompSchedAt').val('');
         resetScheduleUI();
         setSaveStatus('');
+        peSnapshot();
         renderComposer();
+        peShowSection('content', false);
     }
     function setComposer(p) {
+        clearTimeout(composer.saveTimer);
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
-        composer.tier_id = p.tier_id ? String(p.tier_id) : '';
+        composer.tier_id = p.tier_id ? String(p.tier_id) : ''; composer.lastTier = composer.tier_id;
         composer.moderation = p.moderation || 'ok';
-        composer.ppv_price = p.ppv_price_dollars || 5;
+        composer.ppv_price = p.ppv_price_dollars || 5; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
         composer.state = p.state || 'draft';
         composer.assets = p.assets || []; composer.coverDisplay = p.cover_display_url || ''; composer.coverBlurred = p.cover_blurred_url || '';
         composer.validation = p.validation || { ok: true, reason: '' };
-        $('#csCompTitle').text(p.state === 'published' ? 'Edit Post' : 'New Post');
+        composer.mode = (composer.state === 'scheduled') ? 'schedule' : 'now';
+        composer.dirty = false;
         resetScheduleUI();
-        if (p.scheduled_local) $('#csCompSchedAt').val(p.scheduled_local);
+        if (p.scheduled_local) { var parts = String(p.scheduled_local).replace(' ', 'T').split('T'); $('#csPeDate').val(parts[0] || ''); $('#csPeTime').val((parts[1] || '').slice(0, 5)); peSyncSchedAt(); }
         setSaveStatus('Saved');
+        peSnapshot();
         renderComposer();
+        peShowSection('content', false);
     }
     function loadPost(id) {
         $('#csPreviewCard').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>');
@@ -821,15 +986,17 @@ jQuery(function ($) {
 
     function coverId() { return composer.assets.length ? composer.assets[0].id : 0; }
 
+    // What the post looked like when the editor opened (or after an explicit save): "Discard changes" reverts to this.
+    function peStateFields() {
+        return { caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? String(composer.ppv_price || '') : ''),
+                 asset_ids: composer.assets.map(function (a) { return a.id; }), comments_enabled: (composer.comments_enabled ? '1' : '0') };
+    }
+    function peSnapshot() { composer.snapshot = { id: composer.id, fields: peStateFields() }; }
+    function peChangedSinceOpen() { return !composer.snapshot || JSON.stringify(peStateFields()) !== JSON.stringify(composer.snapshot.fields); }
+
     // Notice shown in the composer when the post's media is flagged adult (or still scanning).
     function renderModNote() {
         var $note = $('#csCompModNote');
-        if (!$note.length) {
-            // Place it above the "Who can see this" label that precedes the audience control.
-            var $anchor = $('#csCompAudience').prevAll('.cs-dv__label').first();
-            if (!$anchor.length) { $anchor = $('#csCompAudience'); }
-            $note = $('<div id="csCompModNote" class="cs-comp__modnote" hidden></div>').insertBefore($anchor);
-        }
         if (composer.moderation === 'blocked') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--blocked').prop('hidden', false)
                 .html('<i class="fa-solid fa-ban"></i> This post contains media that was <strong>blocked</strong> by our content check and can\'t be published. Remove it to continue.');
@@ -845,85 +1012,150 @@ jQuery(function ($) {
     }
 
     function renderComposer() {
+        var pub = composer.state === 'published', sch = composer.state === 'scheduled';
+        $('#csPeEyebrow').text(pub || sch || composer.id ? 'Edit post' : 'New post');
+        $('#csCompTitle').text(pub ? 'Edit post' : 'Create post');
+        $('#csPeStatusText').text(pub ? 'Published' : (sch ? 'Scheduled' : 'Draft'));
+        $('#csPeStatus').toggleClass('is-published', pub).toggleClass('is-scheduled', sch);
         $('#csCompCaption').val(composer.caption);
-        
-        $('#csCompCount').text(composer.caption.length);
-        $('#csCompAudience .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('aud') === composer.audience); });
+        peRenderCount();
+        $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === composer.audience ? 'true' : 'false'); });
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
         $('#csCompTierSel').val(composer.tier_id || '');
         $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
         $('#csCompPpvPrice').val(composer.ppv_price || 5);
         renderPpvCredits();
         $('#csCompComments').prop('checked', composer.comments_enabled != 0);
+        $('#csPeMode .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('mode') === composer.mode ? 'true' : 'false'); });
+        $('#csPeMode').prop('hidden', pub);
+        $('#csPePublishedNote').prop('hidden', !pub);
+        $('#csCompSchedule').prop('hidden', pub || composer.mode !== 'schedule');
+        peClearErrors();
         renderModNote();
         renderSocial();
         renderCompMedia();
         renderPreview();
-        updateValidation();
-        var pub = composer.state === 'published';
-        $('#csPublishNow').text(pub ? 'Update post' : 'Publish Now');
-        $('#csSchedule, #csSaveDraft').toggle(!pub);
+        peUpdateSummaries();
+        peUpdateFooter();
     }
+    function peRenderCount() { var n = composer.caption.length; $('#csCompCount').text(n); $('#csPeCount').toggleClass('is-over', n > 3000); }
 
+    /* ---- media: empty drop zone, or a grid with reorder/remove ---- */
+    function peMediaButtons(cls) {
+        return '<div class="' + cls + '"><button type="button" class="cs-pe__mbtn" data-pe-add>Media library</button>' +
+               '<button type="button" class="cs-pe__mbtn" data-pe-upload' + (S3_READY ? '' : ' disabled title="Media storage is not set up yet"') + '>Upload</button></div>';
+    }
     function renderCompMedia() {
         var $m = $('#csCompMedia').empty();
-        if (!composer.assets.length) { $m.append('<div class="cs-comp__mediaempty"><i class="fa-solid fa-cloud-arrow-up"></i><span>Add photos or video</span><small>Pick from your library or upload — drag to reorder, first is the cover.</small></div>'); return; }
+        $('#csPeMediaHint').prop('hidden', composer.assets.length < 2);
+        if (!composer.assets.length) {
+            $m.append('<div class="cs-pe__drop" id="csPeDrop"><i class="fa-solid fa-arrow-up-from-bracket cs-pe__dropicon" aria-hidden="true"></i>' +
+                '<span class="cs-pe__droptitle">Add photos or video</span><span class="cs-pe__dropsub">Choose from your library or upload files.</span>' + peMediaButtons('cs-pe__dropactions') + '</div>');
+            return;
+        }
+        var $g = $('<div class="cs-pe__grid" id="csPeGrid">');
         composer.assets.forEach(function (a, i) {
-            var $it = $('<div class="cs-comp__item" draggable="true">').attr('data-id', a.id).attr('data-i', i);
-            if (a.missing) { $it.addClass('is-missing').append('<div class="cs-comp__itemph"><i class="fa-solid fa-triangle-exclamation"></i></div>'); }
-            else if (a.thumb_url) { $it.append($('<img>').attr('src', a.thumb_url)); }
-            else { $it.append('<div class="cs-comp__itemph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>'); }
-            if (i === 0) $it.append('<span class="cs-comp__cover">Cover</span>');
-            if (a.type === 'video') $it.append('<span class="cs-comp__vid"><i class="fa-solid fa-play"></i></span>');
-            $it.append('<button type="button" class="cs-comp__rm" title="Remove from post"><i class="fa-solid fa-xmark"></i></button>');
-            $m.append($it);
+            var $it = $('<div class="cs-pe__item" draggable="true">').attr('data-id', a.id).attr('data-i', i);
+            if (a.missing) { $it.addClass('is-missing').append('<div class="cs-pe__itemph"><i class="fa-solid fa-triangle-exclamation"></i></div>'); }
+            else if (a.thumb_url) { $it.append($('<img alt="">').attr('src', a.thumb_url)); }
+            else { $it.append('<div class="cs-pe__itemph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>'); }
+            if (i === 0) $it.append('<span class="cs-pe__cover">Cover</span>');
+            if (a.type === 'video') $it.append('<span class="cs-pe__vid" aria-hidden="true"><i class="fa-solid fa-play"></i></span>');
+            $it.append('<button type="button" class="cs-pe__itembtn cs-pe__itembtn--left" data-pe-move="-1" aria-label="Move earlier"' + (i === 0 ? ' disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>');
+            $it.append('<button type="button" class="cs-pe__itembtn cs-pe__itembtn--right" data-pe-move="1" aria-label="Move later"' + (i === composer.assets.length - 1 ? ' disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>');
+            $it.append('<button type="button" class="cs-pe__itembtn cs-pe__itembtn--rm" data-pe-rm aria-label="Remove from post"><i class="fa-solid fa-xmark"></i></button>');
+            $g.append($it);
         });
+        $g.append(peMediaButtons('cs-pe__gridtools'));
+        $m.append($g);
     }
-
+    function peMoveAsset(from, to) {
+        if (to < 0 || to >= composer.assets.length || from === to) return;
+        var m = composer.assets.splice(from, 1)[0]; composer.assets.splice(to, 0, m);
+        if (to === 0 || from === 0) { composer.coverDisplay = ''; composer.coverBlurred = ''; }
+        renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
+    }
     var dragIdx = null;
     $('#csCompMedia')
-        .on('dragstart', '.cs-comp__item', function (e) { dragIdx = $(this).data('i'); e.originalEvent.dataTransfer.effectAllowed = 'move'; })
-        .on('dragover', '.cs-comp__item', function (e) { e.preventDefault(); })
-        .on('drop', '.cs-comp__item', function (e) {
-            e.preventDefault(); var to = $(this).data('i');
-            if (dragIdx === null || to === dragIdx) return;
-            var m = composer.assets.splice(dragIdx, 1)[0]; composer.assets.splice(to, 0, m);
-            if (to === 0 || dragIdx === 0) { composer.coverDisplay = ''; composer.coverBlurred = ''; } // cover changed
-            dragIdx = null;
-            renderCompMedia(); renderPreview(); scheduleSave();
-        })
-        .on('click', '.cs-comp__rm', function (e) {
-            e.stopPropagation(); var id = $(this).closest('.cs-comp__item').data('id');
+        .on('click', '[data-pe-add]', openPicker)
+        .on('click', '[data-pe-upload]', function () { uploadOnComplete = composerAddAsset; peUploadsStarted($('#csFileInput')); pickFiles(); })
+        .on('click', '[data-pe-move]', function (e) { e.stopPropagation(); var i = $(this).closest('.cs-pe__item').data('i'); var d = parseInt($(this).data('pe-move'), 10); peMoveAsset(i, i + d); setTimeout(function () { $('#csCompMedia .cs-pe__item').eq(i + d).find('[data-pe-move="' + d + '"]').trigger('focus'); }, 0); })
+        .on('click', '[data-pe-rm]', function (e) {
+            e.stopPropagation(); var id = $(this).closest('.cs-pe__item').data('id');
             var wasCover = composer.assets.length && composer.assets[0].id == id;
             composer.assets = composer.assets.filter(function (a) { return a.id != id; });
-            if (wasCover) { composer.coverDisplay = ''; composer.coverBlurred = ''; } // stale cover — let it refresh
-            renderCompMedia(); renderPreview(); scheduleSave();
+            if (wasCover) { composer.coverDisplay = ''; composer.coverBlurred = ''; }
+            peClearError('media');
+            renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
+        })
+        .on('dragstart', '.cs-pe__item', function (e) { dragIdx = $(this).data('i'); $(this).addClass('is-dragging'); e.originalEvent.dataTransfer.effectAllowed = 'move'; })
+        .on('dragend', '.cs-pe__item', function () { $(this).removeClass('is-dragging'); })
+        .on('dragover', '.cs-pe__item', function (e) { e.preventDefault(); })
+        .on('drop', '.cs-pe__item', function (e) {
+            var dt = e.originalEvent.dataTransfer;
+            if (dragIdx === null && dt && dt.files && dt.files.length) return;   // a file drop: handled by the zone below
+            e.preventDefault(); e.stopPropagation();
+            var to = $(this).data('i');
+            if (dragIdx === null || to === dragIdx) { dragIdx = null; return; }
+            var from = dragIdx; dragIdx = null; peMoveAsset(from, to);
+        })
+        .on('dragenter dragover', '.cs-pe__drop, .cs-pe__grid', function (e) {
+            var dt = e.originalEvent.dataTransfer; if (dragIdx !== null || !dt || !dt.types || Array.prototype.indexOf.call(dt.types, 'Files') < 0) return;
+            e.preventDefault(); if (S3_READY) $(this).addClass('is-dragover');
+        })
+        .on('dragleave', '.cs-pe__drop, .cs-pe__grid', function (e) { if (e.target === this) $(this).removeClass('is-dragover'); })
+        .on('drop', '.cs-pe__drop, .cs-pe__grid', function (e) {
+            var dt = e.originalEvent.dataTransfer; $(this).removeClass('is-dragover');
+            if (dragIdx !== null || !dt || !dt.files || !dt.files.length) return;
+            e.preventDefault(); e.stopPropagation();
+            if (!S3_READY) { toastr.info("Media storage isn't set up yet, so uploads are off."); return; }
+            peUploadsStarted(dt.files.length);
+            handleFiles(dt.files, composerAddAsset);
         });
+    // Upload progress lives in the shared tray; the editor announces the count so screen readers hear it too.
+    var peUploading = 0;
+    function peUploadsStarted(n) {
+        if (n && n.jquery) { n.off('change.pe').one('change.pe', function () { peUploadsStarted(this.files ? this.files.length : 0); }); return; }
+        n = parseInt(n, 10) || 0; if (!n) return;
+        peUploading += n; peUploadStatus();
+        setTimeout(function () { if (peUploading > 0) { peUploading = 0; peUploadStatus(); } }, 600000);   // safety: clear a stuck counter after 10 minutes
+    }
+    function peUploadStatus() { $('#csPeUploadStatus').text(peUploading > 0 ? ('Uploading ' + peUploading + ' file' + (peUploading === 1 ? '' : 's') + '… progress is in the tray at the bottom right.') : ''); }
 
-    function setSaveStatus(t) { $('#csCompSave').text(t); }
-    function scheduleSave() { clearTimeout(composer.saveTimer); setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
+    function setSaveStatus(t) {
+        var $s = $('#csCompSave').removeClass('is-unsaved is-failed');
+        if (t === 'Not saved') $s.addClass('is-failed').text('Not saved. We’ll retry when you make a change.');
+        else if (t === 'Unsaved changes') $s.addClass('is-unsaved').text('Unsaved changes');
+        else $s.text(t);
+    }
+    function peMarkDirty() { composer.dirty = true; if (composer.caption.trim() || composer.assets.length || composer.id) setSaveStatus('Unsaved changes'); }
+    function scheduleSave() { clearTimeout(composer.saveTimer); if (composer.caption.trim() || composer.assets.length || composer.id) setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
+        clearTimeout(composer.saveTimer);
         var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
+        var sentIds = data.asset_ids.join(',');
         ApiDataSvc.apiCall('post', 'post_save', data, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) {
                     composer.id = o.id;
                     var oldIds = composer.assets.map(function (a) { return a.id; }).join(',');
+                    // Media changed while this save was in flight (an upload landed, a reorder):
+                    // keep the local list and save again rather than overwrite it with the stale server copy.
+                    if (oldIds !== sentIds) { composer.validation = o.post.validation; if (cb) { saveNow(cb); } else { scheduleSave(); } return; }
                     var newIds = (o.post.assets || []).map(function (a) { return a.id; }).join(',');
                     var hadCover = !!composer.coverDisplay;
                     composer.coverDisplay = o.post.cover_display_url; composer.coverBlurred = o.post.cover_blurred_url;
                     composer.assets = o.post.assets; composer.validation = o.post.validation;
-                    setSaveStatus('Saved');
-                    // Only rebuild the media (which re-fetches images) when the media set
-                    // actually changed, or the cover just became available. Otherwise a
-                    // caption-only autosave leaves the images untouched.
-                    if (oldIds !== newIds || (!hadCover && composer.coverDisplay)) { renderCompMedia(); renderPreview(); }
+                    if (o.post.moderation) { composer.moderation = o.post.moderation; renderModNote(); }
+                    composer.dirty = false;
+                    setSaveStatus(composer.id ? 'Saved' : '');
+                    if (oldIds !== newIds || (!hadCover && composer.coverDisplay)) { renderCompMedia(); renderPreview(); peUpdateSummaries(); }
                     else { updatePreviewCaption(); }
-                    updateValidation();
                     if (cb) cb(true);
                 } else { setSaveStatus('Not saved'); if (cb) cb(false); }
             });
     }
 
+    /* ---- preview ---- */
     function renderPreview() {
         var isPpv = composer.audience === 'ppv';
         // PPV is locked for everyone until purchased, so it shows locked in both preview views.
@@ -934,14 +1166,12 @@ jQuery(function ($) {
             media = '<div class="cs-pv__media cs-pv__media--empty"><i class="fa-solid fa-image"></i></div>';
         } else {
             if (composer.pvIdx == null || composer.pvIdx >= assets.length || composer.pvIdx < 0) composer.pvIdx = 0;
-            // Preview from each asset's (watermarked) thumb; the locked view CSS-blurs them so the
-            // creator sees roughly what a non-subscriber gets. Real delivery uses server variants.
             var slides = assets.map(function (a, i) {
                 var inner;
                 if (a.type === 'video' && a.video_url && !locked) {
                     inner = '<video src="' + esc(a.video_url) + '"' + (a.thumb_url ? ' poster="' + esc(a.thumb_url) + '"' : '') + ' controls preload="metadata" playsinline></video>';
                 } else {
-                    inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
+                    inner = a.thumb_url ? '<img src="' + esc(a.thumb_url) + '" alt="">' : '<div class="cs-pv__slideph"><i class="fa-solid ' + typeIcon(a.type) + '"></i></div>';
                     if (a.type === 'video') { inner += '<span class="cs-pv__play"><i class="fa-solid fa-play"></i></span>'; }
                 }
                 return '<div class="cs-pv__slide' + (i === composer.pvIdx ? ' is-on' : '') + '">' + inner + '</div>';
@@ -952,7 +1182,7 @@ jQuery(function ($) {
                       '<button type="button" class="cs-pv__nav cs-pv__nav--next" data-pv="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
                       '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
             }
-            var lockLabel = isPpv ? ('Unlock for $' + Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0))) : 'Subscribe to Unlock';
+            var lockLabel = isPpv ? ('Unlock for $' + Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0))) : 'Subscribe to unlock';
             var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid ' + (isPpv ? 'fa-dollar-sign' : 'fa-lock') + '"></i><span>' + lockLabel + '</span></div>' : '';
             media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
         }
@@ -964,11 +1194,10 @@ jQuery(function ($) {
             '<span class="cs-pv__avatar"' + avStyle + '>' + avInit + '</span>' +
             '<span class="cs-pv__who"><span class="cs-pv__name">' + esc(cr.display_name || 'Your name') + '</span>' +
             '<span class="cs-pv__handle">@' + esc(cr.u_name || 'handle') + '</span></span></div>';
-        $('#csPreviewCard').html(head + media + '<div class="cs-pv__body">' + cap + '</div>');
+        var meta = (composer.comments_enabled == 0) ? '<p class="cs-pv__cap cs-pv__cap--muted cs-pv__meta">Comments are off.</p>' : '';
+        $('#csPreviewCard').html(head + media + '<div class="cs-pv__body">' + cap + meta + '</div>');
         pvAutoplay();
     }
-
-    // Carousel nav — toggle the active slide/dot without re-rendering (no image refetch).
     var pvTimer = null;
     function pvGo(dir) {
         var $slides = $('#csPreviewCard .cs-pv__slide'); var n = $slides.length; if (n < 2) return;
@@ -984,54 +1213,68 @@ jQuery(function ($) {
             pvTimer = setInterval(function () {
                 if ($('#csPreviewCard .cs-pv__slide').length < 2) { clearInterval(pvTimer); return; }
                 var v = document.querySelector('#csPreviewCard .cs-pv__slide.is-on video');
-                if (v && !v.paused) { return; } // don't interrupt a playing video
+                if (v && !v.paused) { return; }
                 pvGo(1);
             }, 3500);
         }
     }
-    $('#csPreviewCard').on('click', '.cs-pv__nav', function () {
-        pvGo($(this).data('pv') === 'next' ? 1 : -1);
-        pvAutoplay(); // restart the countdown after a manual move
-    });
-    $('#csComposer').on('hidden.bs.modal', function () { clearInterval(pvTimer); });
-
-    // Update ONLY the caption in the preview — never rebuild the <img> (that refetch
-    // is what made the image flicker on every keystroke).
+    $('#csPreviewCard').on('click', '.cs-pv__nav', function () { pvGo($(this).data('pv') === 'next' ? 1 : -1); pvAutoplay(); });
     function updatePreviewCaption() {
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';
+        var meta = (composer.comments_enabled == 0) ? '<p class="cs-pv__cap cs-pv__cap--muted cs-pv__meta">Comments are off.</p>' : '';
         var $body = $('#csPreviewCard .cs-pv__body');
-        if ($body.length) { $body.html(cap); } else { renderPreview(); }
+        if ($body.length) { $body.html(cap + meta); } else { renderPreview(); }
     }
+    $('#csCompView').on('click', '.cs-pe__viewopt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-pe__viewopt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); renderPreview(); });
 
-    function updateValidation() {
-        $('#csCompValidation').prop('hidden', true).text('');
+    /* ---- field handlers ---- */
+    $('#csCompCaption').on('input', function () { composer.caption = this.value; peRenderCount(); peClearError('caption'); peClearError('media'); updatePreviewCaption(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
+    function peSetAudience(aud) {
+        if (composer.audience === 'subscribers') composer.lastTier = composer.tier_id;
+        if (composer.audience === 'ppv') composer.lastPpv = composer.ppv_price;
+        composer.audience = aud;
+        composer.tier_id = (aud === 'subscribers') ? (composer.lastTier || '') : '';
+        if (aud === 'ppv') composer.ppv_price = composer.lastPpv || 5;
+        $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === aud ? 'true' : 'false'); });
+        $('#csCompTier').prop('hidden', aud !== 'subscribers'); $('#csCompTierSel').val(composer.tier_id || '');
+        $('#csCompPpv').prop('hidden', aud !== 'ppv'); $('#csCompPpvPrice').val(composer.ppv_price || 5); renderPpvCredits();
+        if (aud !== 'ppv') peClearError('price');
+        renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     }
-
-    $('#csCompCaption').on('input', function () { composer.caption = this.value; $('#csCompCount').text(this.value.length); updatePreviewCaption(); scheduleSave(); });
-    $('#csCompAudience').on('click', '.cs-seg__opt', function () {
-        composer.audience = $(this).data('aud');
-        if (composer.audience !== 'subscribers') composer.tier_id = '';
-        $('#csCompAudience .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on');
-        $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
-        $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
-        renderPreview(); updateValidation(); scheduleSave();
+    $('#csCompAudience').on('click', '.cs-pe__choice', function () { peSetAudience($(this).data('aud')); });
+    $('#csCompAudience, #csPeMode').on('keydown', '.cs-pe__choice', function (e) {
+        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+        e.preventDefault(); var items = $(this).parent().find('.cs-pe__choice'), i = items.index(this);
+        items.eq((i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length).trigger('focus').trigger('click');
     });
-    $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; scheduleSave(); });
-    // PPV price (dollars). Clamp $3–$500; show the credits equivalent ($1 = 10 credits).
+    $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; composer.lastTier = this.value; peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     function renderPpvCredits() { $('#csCompPpvCredits').text('= ' + (Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0)) * 10) + ' credits'); }
-    $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; renderPpvCredits(); updateValidation(); scheduleSave(); });
-    $('#csCompPpvPrice').on('blur', function () { var d = Math.max(3, Math.min(500, parseInt(this.value, 10) || 3)); composer.ppv_price = d; this.value = d; renderPpvCredits(); scheduleSave(); });
-    $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; scheduleSave(); });
-    $('#csCompView').on('click', '.cs-seg__opt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-seg__opt').removeClass('is-on'); $(this).addClass('is-on'); renderPreview(); });
+    $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; composer.lastPpv = this.value; renderPpvCredits(); peClearError('price'); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
+    $('#csCompPpvPrice').on('blur', function () { var d = Math.max(3, Math.min(500, parseInt(this.value, 10) || 3)); composer.ppv_price = d; composer.lastPpv = d; this.value = d; renderPpvCredits(); renderPreview(); peUpdateSummaries(); scheduleSave(); });
+    $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; updatePreviewCaption(); peMarkDirty(); scheduleSave(); });
+    function peSetMode(mode) {
+        composer.mode = mode;
+        $('#csPeMode .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('mode') === mode ? 'true' : 'false'); });
+        $('#csCompSchedule').prop('hidden', mode !== 'schedule');
+        if (mode === 'schedule' && !$('#csPeDate').val()) {
+            var d = new Date(Date.now() + 3600000); d.setSeconds(0, 0);
+            var pad = function (n) { return (n < 10 ? '0' : '') + n; };
+            $('#csPeDate').val(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate())); $('#csPeTime').val(pad(d.getHours()) + ':' + pad(d.getMinutes())); peSyncSchedAt();
+        }
+        if (mode !== 'schedule') peClearError('schedule');
+        peUpdateSummaries(); peUpdateFooter();
+    }
+    $('#csPeMode').on('click', '.cs-pe__choice', function () { peSetMode($(this).data('mode')); });
+    $('#csPeDate, #csPeTime').on('change input', function () { peSyncSchedAt(); peClearError('schedule'); peUpdateSummaries(); });
 
-    $('#csCompUpload').on('click', function () { uploadOnComplete = composerAddAsset; pickFiles(); });
+    /* ---- uploads + library picker ---- */
     function composerAddAsset(asset) {
+        if (peUploading > 0) { peUploading--; peUploadStatus(); }
         if (!asset || composer.assets.some(function (a) { return a.id === asset.id; })) return;
         composer.assets.push({ id: asset.id, type: asset.type, thumb_url: asset.thumb_url, video_url: asset.video_url || '', duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
-        renderCompMedia(); renderPreview(); scheduleSave();
+        peClearError('media');
+        renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     }
-
-    $('#csCompAdd').on('click', openPicker);
     function openPicker() {
         pickerSel = new Set();
         $('#csPickerGrid').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span> Loading…</div>').prop('hidden', false);
@@ -1064,49 +1307,75 @@ jQuery(function ($) {
         $t.toggleClass('is-selected', pickerSel.has(id));
         $('#csPickerCount').text(pickerSel.size);
     });
+    $('#csPickerGrid').on('keydown', '.cs-tile--pick', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $(this).trigger('click'); } });
     $('#csPickerAdd').on('click', function () {
         Array.from(pickerSel).forEach(function (id) {
             var a = pickerAssets.filter(function (x) { return x.id === id; })[0];
             if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, type: a.type, thumb_url: a.thumb_url, video_url: a.video_url || '', duration: a.duration, status: a.status, is_cover: 0, missing: false });
         });
-        pickerModal.hide(); renderCompMedia(); renderPreview(); scheduleSave();
+        pickerModal.hide(); peClearError('media'); renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     });
 
+    /* ---- actions: publish / schedule / draft / update ---- */
     function runAction(kind) {
-        var $btns = $('#csPublishNow, #csSchedule, #csSaveDraft').prop('disabled', true);
-        function done() { $btns.prop('disabled', false); }
-        function fail(o) { done(); $('#csCompValidation').prop('hidden', false).html('<i class="fa-solid fa-circle-info"></i> ' + esc((o && o.message) || 'Something went wrong.')); }
+        if (peSaving) return;
+        var errors = peValidate(kind);
+        if (errors.length) {
+            var first = errors[0];
+            peShowSection(PE_ERR_SECTION[first.key], false);
+            setTimeout(function () { $(first.focus).filter(':visible').first().trigger('focus'); }, 30);
+            return;
+        }
+        peSaving = true;
+        var $btns = $('#csPePrimary, #csPeSecondary').prop('disabled', true);
+        var label = $('#csPePrimary').text();
+        $('#csPePrimary').html('<span class="spinner-border spinner-border-sm"></span> Saving…');
+        function done() { peSaving = false; $btns.prop('disabled', false); $('#csPePrimary').text(label); }
+        function fail(o) { done(); peShowServerError(o && o.message); }
         saveNow(function (ok) {
             if (!ok) { done(); toastr.error('Could not save the post. Please try again.'); return; }
-            // Empty post: nothing was saved (id 0), so there's nothing to publish/schedule.
             if (!composer.id) {
                 done();
-                if (kind === 'draft') { toastr.info('Add a caption or media before saving a draft.'); }
+                if (kind === 'draft') { peSetError('media', 'Add a caption or media before saving a draft.'); peShowSection('content', false); $('#csCompCaption').trigger('focus'); }
                 else { fail({ message: 'Add a photo, video, or caption before publishing.' }); }
                 return;
             }
-            if (kind === 'update') { done(); toastr.success('Post updated'); composerModal.hide(); afterComposer(); return; }
-            if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Saved as draft'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else ApiDataSvc.apiCall('post', 'post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
+            if (kind === 'update') { done(); peSnapshot(); toastr.success('Changes saved'); composerModal.hide(); afterComposer(); return; }
+            if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Draft saved'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else ApiDataSvc.apiCall('post', 'post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
         });
     }
-    $('#csPublishNow').on('click', function () { runAction(composer.state === 'published' ? 'update' : 'publish'); });
-    $('#csSaveDraft').on('click', function () { runAction('draft'); });
-    $('#csSchedule').on('click', function () {
-        if ($('#csCompSchedule').prop('hidden')) {
-            if (!$('#csCompSchedAt').val()) {
-                var d = new Date(Date.now() + 3600000); d.setSeconds(0, 0);
-                var pad = function (n) { return (n < 10 ? '0' : '') + n; };
-                $('#csCompSchedAt').val(d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + 'T' + pad(d.getHours()) + ':' + pad(d.getMinutes()));
+
+    /* ---- closing: never lose typed content silently ---- */
+    function peRequestClose() {
+        var hasContent = composer.caption.trim() || composer.assets.length;
+        if (!hasContent || !peChangedSinceOpen()) { composerModal.hide(); return; }
+        clearTimeout(composer.saveTimer);   // nothing autosaves while the question is open
+        var snap = composer.snapshot;
+        dialog({
+            title: 'Discard changes?',
+            bodyHtml: '<p class="text-body-secondary mb-0">You have changes since you opened this post. Discard them, or save the post as a draft.</p>',
+            okText: 'Discard', danger: true,
+            extra: { text: 'Save draft', onClick: function () { composerModal.show(); runAction('draft'); } },
+            onOk: function () {
+                clearTimeout(composer.saveTimer); composer.dirty = false;
+                if (composer.id && snap && !snap.id) {
+                    // This draft only exists because of autosave during this session: remove it.
+                    ApiDataSvc.apiCall('post', 'post_delete', { id: composer.id }, function () { afterComposer(); });
+                } else if (composer.id && snap && snap.id) {
+                    // Put the post back the way it was when the editor opened.
+                    var f = snap.fields;
+                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_id: f.tier_id, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled }, function () { afterComposer(); });
+                }
+                composerModal.hide();
             }
-            $('#csCompSchedule').prop('hidden', false);
-            $('#csSchedule').text('Schedule for this time');
-            $('#csCompSchedAt').trigger('focus');
-            return;
-        }
-        runAction('schedule');
-    });
+        });
+        // Keep editing: resume autosave for whatever was pending.
+        $('#csModal').one('hidden.bs.modal', function () { if ($('#csComposer').hasClass('show') && composer.dirty) { scheduleSave(); } });
+    }
+    $('#csPeClose').on('click', peRequestClose);
+    $('#csComposer').on('keydown', function (e) { if (e.key === 'Escape' && !$('#csPicker').hasClass('show') && !$('#csModal').hasClass('show')) { e.preventDefault(); peRequestClose(); } });
     function afterComposer() { loadLibrary(); loadPosts(); loadCalendar(); }
 
     // Hand-off from the Influencers pages ("Use in a post"): open a fresh composer with that asset attached.
@@ -1418,11 +1687,11 @@ jQuery(function ($) {
     }
 
     function openComposerScheduled(dateStr) {
+        peOpener = document.activeElement;
         newComposer();
         composerModal.show();
-        $('#csCompSchedAt').val(dateStr + 'T12:00');
-        $('#csCompSchedule').prop('hidden', false);
-        $('#csSchedule').text('Schedule for this time');
+        $('#csPeDate').val(dateStr); $('#csPeTime').val('12:00'); peSyncSchedAt();
+        peSetMode('schedule');
     }
 
 

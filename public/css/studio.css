@@ -141,37 +141,11 @@
 .cs-up__retry{ background:none; border:none; color:var(--violet); font-weight:600; font-size:.78rem; cursor:pointer; padding:.1rem .3rem; margin-left:.3rem; }
 
 /* ===================== POST COMPOSER ===================== */
-.cs-comp__head{ align-items:center; gap:1rem; }
-.cs-comp__head .modal-title{ font-weight:700; }
-.cs-comp__save{ font-size:.8rem; color:var(--muted); margin-right:auto; min-height:1em; }
 /* (1) Wider centered container so the content uses the screen instead of hugging
    a narrow strip; the edit column grows to fill, preview stays a fixed card. */
-.cs-comp__body{ display:flex; gap:2.5rem; padding:1.5rem 2rem 2rem; overflow:auto; align-items:flex-start; max-width:1160px; width:100%; margin:0 auto; }
-.cs-comp__edit{ flex:1 1 auto; min-width:0; }
-.cs-comp__preview{ flex:0 0 360px; position:sticky; top:0; display:flex; flex-direction:column; }
 /* (2) One consistent, tighter vertical rhythm between sections. */
-.cs-comp__edit .cs-dv__label{ margin-bottom:.35rem; }
-.cs-comp__edit .cs-dv__label.mt-3, .cs-comp__edit .cs-dv__label.mt-4{ margin-top:1rem !important; }
-.cs-comp__tier{ margin-top:.75rem; }
-.cs-comp__actions{ display:flex; gap:.6rem; margin-top:1.1rem; flex-wrap:wrap; }
-.cs-comp__actions .btn{ flex:1 1 auto; display:inline-flex; align-items:center; justify-content:center; gap:.4rem; }
-.cs-comp__actions #csPublishNow{ flex:2 1 140px; }
 
 /* media strip */
-.cs-comp__media{ display:flex; flex-wrap:wrap; gap:.6rem; margin-bottom:.6rem; }
-.cs-comp__mediaempty{ width:100%; padding:1.6rem; text-align:center; color:var(--muted); font-size:.86rem; border:1px dashed var(--line); border-radius:var(--r-sm); }
-.cs-comp__item{ position:relative; width:96px; height:96px; border-radius:var(--r-sm); overflow:hidden; background:#eceaf6; border:1px solid var(--line); cursor:grab; }
-.cs-comp__item img{ width:100%; height:100%; object-fit:cover; display:block; }
-.cs-comp__item.is-missing{ border-color:var(--danger); }
-.cs-comp__itemph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--muted2); font-size:1.3rem; }
-.cs-comp__item.is-missing .cs-comp__itemph{ color:var(--danger); }
-.cs-comp__cover{ position:absolute; left:0; bottom:0; right:0; background:rgba(91,75,224,.92); color:#fff; font-size:.68rem; font-weight:700; text-align:center; padding:.12rem; letter-spacing:.02em; }
-.cs-comp__vid{ position:absolute; left:.25rem; top:.25rem; background:rgba(12,10,25,.65); color:#fff; width:20px; height:20px; border-radius:var(--r-sm); display:flex; align-items:center; justify-content:center; font-size:.62rem; }
-.cs-comp__rm{ position:absolute; right:.2rem; top:.2rem; width:20px; height:20px; border:none; border-radius:50%; background:rgba(12,10,25,.65); color:#fff; font-size:.65rem; cursor:pointer; display:flex; align-items:center; justify-content:center; }
-.cs-comp__rm:hover{ background:var(--danger); }
-.cs-comp__mediaactions{ display:flex; gap:.5rem; margin-bottom:.4rem; }
-.cs-comp__mediaactions .btn{ display:inline-flex; align-items:center; gap:.4rem; }
-.cs-comp__count{ text-align:right; font-size:.78rem; color:var(--muted); margin-top:.25rem; }
 
 /* segmented control */
 .cs-seg{ display:flex; gap:.5rem; }
@@ -185,16 +159,10 @@
 .cs-seg--sm .cs-seg__opt{ padding:.35rem .7rem; font-size:.8rem; font-weight:600; justify-content:center; flex:0 0 auto; white-space:nowrap; }
 
 /* publishing */
-.cs-comp__when{ display:flex; flex-wrap:wrap; gap:1rem; padding:.2rem 0 .3rem; }
 .cs-radio{ display:inline-flex; align-items:center; gap:.4rem; font-size:.9rem; cursor:pointer; }
 .cs-radio input{ accent-color:var(--violet); }
-.cs-comp__sched{ margin:.4rem 0 .2rem; }
-.cs-comp__sched input{ max-width:260px; }
-.cs-comp__validation{ display:flex; align-items:center; gap:.45rem; background:var(--warning-bg); color:var(--warning); font-size:.84rem; padding:.55rem .75rem; border-radius:var(--r-sm); margin:.8rem 0; }
-.cs-comp__primary{ margin-top:1rem; }
 
 /* live preview card */
-.cs-comp__pvhead{ display:flex; align-items:center; justify-content:space-between; gap:1rem; width:100%; max-width:360px; margin-bottom:.7rem; }
 .cs-preview-wrap{ width:100%; display:flex; justify-content:flex-start; }
 .cs-preview-card{ width:100%; max-width:360px; border:1px solid var(--line); border-radius:var(--r-sm); overflow:hidden; background:var(--surface); box-shadow:var(--sh); }
 .cs-pv__top{ display:flex; align-items:center; gap:.5rem; padding:.7rem .9rem; }
@@ -219,9 +187,6 @@
 .cs-tile__added{ position:absolute; inset:0; z-index:3; display:flex; align-items:center; justify-content:center; background:rgba(91,75,224,.55); color:#fff; font-weight:700; font-size:.8rem; }
 
 @media (max-width:820px){
-    .cs-comp__body{ flex-direction:column; align-items:stretch; }
-    .cs-comp__edit{ max-width:none; }
-    .cs-comp__preview{ position:static; }
 }
 
 /* ---- gate ---- */
@@ -247,10 +212,6 @@
 }
 
 /* composer: options toggle row */
-.cs-comp__opt{ display:flex; align-items:center; justify-content:space-between; gap:.7rem; padding:.6rem .8rem; border:1px solid var(--line); border-radius:var(--r-sm); cursor:pointer; margin:0; }
-.cs-comp__opt > span:first-child{ display:flex; flex-direction:column; font-size:.88rem; font-weight:600; }
-.cs-comp__opt small{ font-weight:400; color:var(--muted); font-size:.78rem; }
-#csComposer .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
 
 /* ===================== POSTS LIST ===================== */
 .cs-posts{ display:flex; flex-direction:column; gap:.5rem; }
@@ -290,8 +251,6 @@
 }
 
 /* composer: share-to-social chips */
-.cs-comp__social{ display:flex; flex-wrap:wrap; gap:.5rem; }
-.cs-comp__socialnote{ font-size:.84rem; color:var(--muted); margin:0; }
 .cs-social{ display:inline-flex; align-items:center; gap:.5rem; padding:.4rem .7rem; border:1px solid var(--line); border-radius:var(--r-sm); cursor:pointer; margin:0; font-size:.84rem; }
 .cs-social:has(input:checked){ border-color:var(--violet); background:var(--vsoft); }
 .cs-social .form-check-input{ margin:0; cursor:pointer; }
@@ -377,19 +336,10 @@
 
 /* ===================== COMPOSER POLISH ===================== */
 /* Section markers — a small violet tick anchors each section for rhythm */
-.cs-comp__body .cs-dv__label{ color:var(--t2); display:inline-flex; align-items:center; gap:.5rem; }
-.cs-comp__body .cs-dv__label::before{ content:""; width:3px; height:.7rem; border-radius:2px; background:var(--violet); flex:none; }
-.cs-comp__pvhead .cs-dv__label::before{ display:none; }
 
 /* Fields — violet focus ring */
-.cs-comp__edit .form-control:focus, .cs-comp__edit .form-select:focus, .cs-comp__sched input:focus{ border-color:var(--violet); box-shadow:0 0 0 3px rgba(91,75,224,.15); }
-.cs-comp__edit textarea.form-control{ resize:vertical; }
 
 /* Inviting media drop state */
-.cs-comp__mediaempty{ display:flex; flex-direction:column; align-items:center; gap:.35rem; padding:1.9rem 1.2rem; text-align:center; border:1.5px dashed #d7d3ee; background:linear-gradient(180deg, rgba(91,75,224,.04), rgba(91,75,224,.015)); color:var(--t2); border-radius:var(--r-sm); }
-.cs-comp__mediaempty i{ font-size:1.5rem; color:var(--violet); }
-.cs-comp__mediaempty span{ font-size:.9rem; font-weight:600; color:var(--text); }
-.cs-comp__mediaempty small{ font-size:.78rem; color:var(--muted); max-width:36ch; line-height:1.4; }
 
 /* Live preview as a real post card (the signature) */
 .cs-preview-card{ box-shadow:0 16px 36px -18px rgba(40,30,96,.42); border-color:var(--line2); }
@@ -459,12 +409,6 @@
 .cs-seg--3{ gap:.4rem; }
 .cs-seg--3 .cs-seg__opt{ padding:.6rem .55rem; gap:.45rem; }
 .cs-seg--3 .cs-seg__opt small{ font-size:.7rem; }
-.cs-comp__ppv{ margin-top:.75rem; }
-.cs-ppvprice{ display:flex; align-items:center; gap:.5rem; }
-.cs-ppvprice__cur{ font-size:1.05rem; font-weight:700; color:var(--t2); }
-.cs-ppvprice .form-control{ max-width:110px; font-weight:600; }
-.cs-ppvprice__hint{ font-size:.82rem; color:var(--muted); font-weight:600; }
-.cs-ppvprice__note{ font-size:.78rem; color:var(--muted); margin:.4rem 0 0; }
 .cs-post__aud--ppv{ color:var(--violet7); font-weight:600; }
 .cs-post__aud--ppv i{ color:var(--violet); }
 
@@ -483,48 +427,25 @@
 .cs-comp__modnote--blocked strong{ color:#fff; }
 
 /* Composer section rhythm (restores spacing after inline section labels were removed) */
-.cs-comp__edit #csCompAudience{ margin-top:1.3rem; }
-.cs-comp__edit .cs-comp__opt{ margin-top:1.3rem; }
-.cs-comp__edit .cs-comp__social:not(:empty){ margin-top:1.3rem; }
 /* ===================== RELEASES (co-star registry) ===================== */
 
 /* co-star modal */
 
 /* ===================== COMPOSER POLISH ===================== */
 /* Social accounts: refined selectable pills (not vanilla checkbox boxes) */
-.cs-comp__social .cs-social{ padding:.48rem .85rem .48rem .7rem; border-radius:var(--r-sm); background:var(--surface); position:relative; transition:border-color .14s, background .14s, box-shadow .14s, color .14s; }
-.cs-comp__social .cs-social .form-check-input{ position:absolute; opacity:0; width:0; height:0; margin:0; pointer-events:none; }
-.cs-comp__social .cs-social i{ font-size:1rem; color:var(--muted); transition:color .14s; }
-.cs-comp__social .cs-social__name{ font-weight:600; color:var(--t2); transition:color .14s; }
-.cs-comp__social .cs-social:hover{ border-color:var(--muted2); }
-.cs-comp__social .cs-social:has(input:checked){ border-color:var(--violet); background:var(--vsoft); box-shadow:inset 0 0 0 1px var(--violet); }
-.cs-comp__social .cs-social:has(input:checked) i,
-.cs-comp__social .cs-social:has(input:checked) .cs-social__name{ color:var(--violet7); }
-.cs-comp__social .cs-social:has(input:checked)::after{ content:"\f00c"; font-family:"Font Awesome 6 Free"; font-weight:900; font-size:.66rem; color:var(--violet7); margin-left:.2rem; }
 
 /* Caption: a touch more presence */
-.cs-comp__edit #csCompCaption{ font-size:.95rem; line-height:1.5; padding:.75rem .85rem; min-height:110px; }
 
 /* Comments row: refined, interactive */
-.cs-comp__edit .cs-comp__opt{ background:var(--surface); transition:border-color .14s, background .14s; }
-.cs-comp__edit .cs-comp__opt:hover{ border-color:var(--muted2); background:rgba(91,75,224,.02); }
 
 /* Audience segmented control: subtle lift on the active choice */
-.cs-comp__edit #csCompAudience .cs-seg__opt{ transition:border-color .14s, background .14s, box-shadow .14s; }
-.cs-comp__edit #csCompAudience .cs-seg__opt.is-on{ box-shadow:0 1px 0 rgba(91,75,224,.15), inset 0 0 0 1px var(--violet); }
 
 /* Media dropzone: warmer, more inviting */
-.cs-comp__mediaempty{ transition:border-color .14s, background .14s; }
-.cs-comp__mediaempty:hover{ border-color:var(--violet); background:linear-gradient(180deg, rgba(91,75,224,.06), rgba(91,75,224,.02)); }
 
 /* Group media-action buttons with the dropzone above; clear break before the caption */
-.cs-comp__edit .cs-comp__media{ margin-bottom:.5rem; }
-.cs-comp__edit .cs-comp__mediaactions{ margin-bottom:1.4rem; }
 
 /* Consistent input sizing across the Studio + its modals (app standard = .9rem) */
 .cs .form-control, .cs .form-select,
-.cs-comp__edit .form-control, .cs-comp__edit .form-select{ font-size:.9rem; }
-.cs-comp__edit #csCompCaption{ font-size:.9rem; }
 .cs-filter{ font-size:.9rem; }
 
 /* Consistent brand focus ring on every studio input (UI standards) */
@@ -534,27 +455,11 @@
 
 /* ===================== COMPOSER FORM v2 (clean field labels + refined inputs) ===================== */
 /* Clean, sentence-case field labels (Stripe/Linear style) — the single source of section rhythm */
-.cs-comp__edit .cs-flabel{ display:block; font-size:.82rem; font-weight:600; color:var(--text); letter-spacing:0; text-transform:none; margin:1.5rem 0 .5rem; }
-.cs-comp__edit .cs-flabel::before{ display:none; }   /* kill any inherited accent bar */
 /* Labels now own the spacing — remove the ad-hoc top margins so gaps don't double up */
-.cs-comp__edit #csCompAudience,
-.cs-comp__edit .cs-comp__opt,
-.cs-comp__edit .cs-comp__social:not(:empty){ margin-top:0; }
-.cs-comp__edit .cs-comp__mediaactions{ margin-bottom:0; }
 
 /* Refined inputs: consistent neutral border, comfortable padding, one clear focus ring */
-.cs-comp__edit .form-control,
-.cs-comp__edit .form-select{ border:1px solid #dcdce4; border-radius:var(--r-sm); background:var(--surface); color:var(--text); padding:.6rem .8rem; box-shadow:none; transition:border-color .14s, box-shadow .14s; }
-.cs-comp__edit .form-control::placeholder{ color:var(--muted2); }
-.cs-comp__edit .form-control:hover,
-.cs-comp__edit .form-select:hover{ border-color:var(--muted2); }
-.cs-comp__edit .form-control:focus,
-.cs-comp__edit .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 3px var(--vsoft); outline:none; }
 
 /* Unify ALL studio modal-form labels (scheduler, generate) to the clean sentence-case style */
-.cs-comp__edit .cs-dv__label{ font-size:.82rem !important; font-weight:600 !important; color:var(--text) !important; text-transform:none !important; letter-spacing:0 !important; margin-bottom:.5rem !important; }
-.cs-comp__edit .cs-dv__label::before{ display:none !important; }
-.cs-comp__edit .cs-dv__label.mt-3{ margin-top:1.5rem !important; }
 
 /* ============================================================
    COMPOSER CONTROL SYSTEM — Stripe Dashboard treatment
@@ -563,50 +468,20 @@
 :root{ --cs-border:#e4e4ea; --cs-border-hover:#c9ccd6; --cs-ishadow:0 1px 1px rgba(15,17,26,.03); }
 
 /* labels — Stripe slate, medium weight */
-.cs-comp__edit .cs-flabel,
-.cs-comp__edit .cs-dv__label{ color:#3c4257 !important; font-weight:600 !important; font-size:.82rem !important; }
 
 /* text inputs / textareas / selects */
-.cs-comp__edit .form-control,
-.cs-comp__edit .form-select{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); padding:.62rem .75rem; color:var(--text); font-size:.9rem; box-shadow:var(--cs-ishadow); transition:border-color .14s, box-shadow .14s; }
-.cs-comp__edit .form-control::placeholder{ color:#8a8f9c; }
-.cs-comp__edit .form-control:hover, .cs-comp__edit .form-select:hover{ border-color:var(--cs-border-hover); }
-.cs-comp__edit .form-control:focus, .cs-comp__edit .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 3px var(--vsoft); outline:none; }
-.cs-comp__edit #csCompCaption{ min-height:118px; line-height:1.5; }
 
 /* audience — Stripe radio cards: white + hairline; selected = accent border + tint */
-.cs-comp__edit #csCompAudience{ gap:.6rem; }
-.cs-comp__edit #csCompAudience .cs-seg__opt{ background:#fff; border:1px solid var(--cs-border) !important; box-shadow:var(--cs-ishadow) !important; border-radius:var(--r-sm); padding:.72rem .8rem; transition:border-color .14s, box-shadow .14s, background .14s; }
-.cs-comp__edit #csCompAudience .cs-seg__opt:hover{ border-color:var(--cs-border-hover) !important; }
-.cs-comp__edit #csCompAudience .cs-seg__opt.is-on{ background:var(--vsoft); border-color:var(--violet) !important; box-shadow:0 0 0 1px var(--violet) !important; }
-.cs-comp__edit #csCompAudience .cs-seg__opt i{ color:#8a8f9c; }
-.cs-comp__edit #csCompAudience .cs-seg__opt.is-on i{ color:var(--violet); }
-.cs-comp__edit #csCompAudience .cs-seg__opt strong{ color:var(--text); }
-.cs-comp__edit #csCompAudience .cs-seg__opt small{ color:#6b7280; }
-.cs-comp__edit #csCompAudience .cs-seg__opt.is-on strong{ color:var(--violet7); }
 
 /* comments option row */
-.cs-comp__edit .cs-comp__opt{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); box-shadow:var(--cs-ishadow); padding:.78rem .9rem; transition:border-color .14s; }
-.cs-comp__edit .cs-comp__opt:hover{ border-color:var(--cs-border-hover); }
 
 /* social chips — white + hairline; selected = accent border + tint */
-.cs-comp__social{ gap:.55rem; }
-.cs-comp__social .cs-social{ background:#fff; border:1px solid var(--cs-border); border-radius:var(--r-sm); padding:.5rem .8rem; box-shadow:var(--cs-ishadow); font-size:.85rem; transition:border-color .14s, background .14s; }
-.cs-comp__social .cs-social:hover{ border-color:var(--cs-border-hover); }
-.cs-comp__social .cs-social:has(input:checked){ background:var(--vsoft); border-color:var(--violet); box-shadow:0 0 0 1px var(--violet); }
-.cs-comp__social .cs-social:has(input:checked) i,
-.cs-comp__social .cs-social:has(input:checked) .cs-social__name{ color:var(--violet7); }
 
 /* media dropzone — light, crisp dashed */
-.cs-comp__mediaempty{ border:1.5px dashed var(--cs-border); background:#fbfbfc; transition:border-color .14s, background .14s; }
-.cs-comp__mediaempty:hover{ border-color:var(--violet); background:var(--vsoft); }
 
 /* buttons — subtle Stripe elevation */
-.cs-comp__actions .btn-primary{ box-shadow:0 1px 1px rgba(15,17,26,.08), 0 1px 2px rgba(91,75,224,.28); }
-.cs-comp__actions .btn-outline-secondary{ background:#fff; box-shadow:var(--cs-ishadow); }
 
 /* ppv price input */
-.cs-comp__edit .cs-ppvprice .form-control{ text-align:center; max-width:120px; }
 .cs-sched__kind{ color:var(--violet); margin-right:.15rem; }
 
 /* ---- Automation form (scheduler modal): grouped sections ---- */
@@ -614,7 +489,6 @@
 .cs-sf__section{ padding:1.15rem 0; border-top:1px solid var(--line); }
 .cs-sf__section:first-child{ border-top:0; padding-top:1.1rem; }
 .cs-sf__title{ font-size:.7rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:0 0 .75rem; }
-.cs-comp__edit .cs-sf__label{ display:block; font-size:.82rem; font-weight:600; color:#3c4257; margin:0 0 .4rem; }
 .cs-sf__section > .cs-sf__label:not(:first-child), .cs-sf__section > div + .cs-sf__label, .cs-sf__section > label + .cs-sf__label{ margin-top:1rem; }
 .cs-sf__hint{ font-size:.78rem; color:var(--muted); margin-top:.35rem; }
 .cs-sf__grid{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
@@ -639,7 +513,6 @@
 .cs-sf .cs-sched__time .form-control{ max-width:128px; height:38px; padding:.42rem .6rem; }
 .cs-sf .cs-sched__days{ margin-top:0; gap:.25rem; }
 .cs-sf .cs-sched__day{ width:36px; height:38px; font-size:.78rem; }
-.cs-sf .cs-comp__social:not(:empty){ margin-top:0; }
 @media (max-width:640px){ .cs-sf__grid{ grid-template-columns:1fr; } }
 .cs-sf > .cs-sf__section:first-of-type{ border-top:0; }
 .cs-sf .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
@@ -680,9 +553,6 @@
 .cs-prop .cs-seg--compact .cs-seg__opt.is-on{ background:#fff; color:var(--text); box-shadow:0 1px 2px rgba(15,17,26,.10), 0 0 0 1px rgba(15,17,26,.05); }
 .cs-prop .form-switch{ min-height:0; padding:0; margin:0; display:flex; align-items:center; }
 .cs-prop .form-switch .form-check-input{ margin:0; width:2.1em; height:1.2em; cursor:pointer; }
-.cs-prop .cs-comp__social{ gap:.35rem; padding:.15rem 0; }
-.cs-prop .cs-comp__social .cs-social{ padding:.2rem .55rem .2rem .5rem; font-size:.78rem; gap:.35rem; border-radius:6px; }
-.cs-prop .cs-comp__social .cs-social i{ font-size:.8rem; }
 .cs-prop .cs-sf__row{ gap:.6rem; }
 .cs-prop .cs-sched__days{ gap:.2rem; }
 .cs-prop .cs-sched__day{ width:32px; height:32px; font-size:.74rem; border-radius:6px; }
@@ -837,4 +707,216 @@
     #csSchedulerModal .cs-ae__day.is-on::before{ margin-right:2px; }
     #csSchedulerModal .cs-ae__footer{ padding:12px 20px; flex-wrap:wrap; }
     #csSchedulerModal .cs-ae__btn{ padding:0 16px; }
+}
+
+/* ---- Post editor (#csComposer) — one surface, fixed header/footer, left section nav, one section at a time, persistent preview. Scoped; no globals touched. ---- */
+#csComposer{ z-index:1600; }
+#csModal.modal, #csPicker.modal{ z-index:1700; }   /* confirm dialogs + the media library picker open above the editors (1600) */
+.modal-backdrop ~ .modal-backdrop{ z-index:1650; }   /* the second modal's backdrop dims the editor underneath, not the page behind it */
+#csComposer .cs-pe{ max-width:min(1320px, calc(100vw - 48px)); width:auto; margin:24px auto; min-height:0; }
+#csComposer .cs-pe__surface{ height:min(820px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:6px; background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; position:relative; }
+#csComposer .cs-pe__header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:24px 32px 20px; border-bottom:1px solid var(--line); flex:none; }
+#csComposer .cs-pe__eyebrow{ display:block; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+#csComposer .cs-pe__titlerow{ display:flex; align-items:center; gap:16px; min-width:0; flex-wrap:wrap; }
+#csComposer .cs-pe__title{ font-size:24px; font-weight:700; letter-spacing:-.02em; line-height:1.2; margin:0; color:var(--text); }
+#csComposer .cs-pe__status{ display:inline-flex; align-items:center; gap:8px; font-size:14px; color:var(--t2); }
+#csComposer .cs-pe__statusdot{ width:8px; height:8px; border-radius:50%; background:var(--muted2); }
+#csComposer .cs-pe__status.is-published .cs-pe__statusdot{ background:var(--success); }
+#csComposer .cs-pe__status.is-scheduled .cs-pe__statusdot{ background:var(--violet); }
+#csComposer .cs-pe__headtools{ display:flex; align-items:center; gap:12px; flex:none; }
+#csComposer .cs-pe__pvtoggle{ display:none; height:36px; padding:0 14px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.14); border-radius:5px; cursor:pointer; }
+#csComposer .cs-pe__pvtoggle[aria-pressed="true"]{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); }
+#csComposer .cs-pe__close{ width:32px; height:32px; padding:0; margin:0; flex:none; border-radius:4px; background-size:14px; opacity:.6; }
+#csComposer .cs-pe__close:hover{ background-color:rgba(20,18,40,.06); opacity:1; }
+
+#csComposer .cs-pe__body{ flex:1 1 auto; display:flex; min-height:0; position:relative; }
+#csComposer .cs-pe__nav{ flex:0 0 210px; border-right:1px solid var(--line); padding:24px 0; overflow:auto; }
+#csComposer .cs-pe__navselect, #csComposer .cs-pe__navselect-label{ display:none; }
+#csComposer .cs-pe__navitem{ display:block; width:100%; text-align:left; background:none; border:0; border-left:3px solid transparent; padding:12px 24px 12px 21px; cursor:pointer; }
+#csComposer .cs-pe__navitem:hover .cs-pe__navlabel{ color:var(--text); }
+#csComposer .cs-pe__navitem[aria-current="true"]{ border-left-color:var(--violet); }
+#csComposer .cs-pe__navitem[aria-current="true"] .cs-pe__navlabel{ font-weight:700; color:var(--text); }
+#csComposer .cs-pe__navlabel{ display:block; font-size:15px; font-weight:500; color:var(--t2); line-height:1.3; }
+#csComposer .cs-pe__navsum{ display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; font-size:13px; color:var(--muted); line-height:1.35; margin-top:2px; overflow:hidden; }
+#csComposer .cs-pe__navflag{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--danger); margin-top:4px; }
+#csComposer .cs-pe__navflag::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--danger); }
+#csComposer .cs-pe__navflag[hidden]{ display:none; }
+
+#csComposer .cs-pe__main{ flex:1 1 auto; min-width:0; overflow:auto; padding:28px 40px 40px; }
+#csComposer .cs-pe__section[hidden]{ display:none; }
+#csComposer .cs-pe__h{ font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.2; margin:0; color:var(--text); outline:none; }
+#csComposer .cs-pe__h:focus-visible{ box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); border-radius:4px; }
+#csComposer .cs-pe__sub{ font-size:15px; color:var(--muted); margin:6px 0 24px; }
+#csComposer .cs-pe__field{ display:flex; flex-direction:column; gap:6px; margin-bottom:20px; min-width:0; }
+#csComposer .cs-pe__field[hidden], #csComposer .cs-pe__sub-field[hidden], #csComposer [hidden].cs-pe__reveal{ display:none; }
+#csComposer .cs-pe__row{ display:grid; grid-template-columns:1fr 1fr; column-gap:24px; }
+#csComposer .cs-pe__label{ font-size:14px; font-weight:500; color:var(--t2); line-height:1.3; }
+#csComposer .cs-pe__labelrow{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
+#csComposer .cs-pe__count{ font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+#csComposer .cs-pe__count.is-over{ color:var(--danger); }
+#csComposer .cs-pe__hint{ font-size:13px; color:var(--muted); margin:2px 0 0; }
+#csComposer .cs-pe__hint[hidden]{ display:none; }
+#csComposer .cs-pe__live{ font-size:13px; color:var(--t2); margin:0; min-height:0; }
+#csComposer .cs-pe__live:empty{ display:none; }
+#csComposer .cs-pe__error{ font-size:13px; color:var(--danger); margin:0; }
+#csComposer .cs-pe__error[hidden]{ display:none; }
+#csComposer .form-control, #csComposer .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:5px; box-shadow:none; background-color:#fff; }
+#csComposer textarea.form-control{ height:auto; min-height:150px; padding:12px 14px; line-height:1.5; resize:vertical; }
+#csComposer .form-control:focus, #csComposer .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); outline:none; }
+#csComposer .form-control.is-invalid, #csComposer .form-select.is-invalid{ border-color:var(--danger); background-image:none; }
+#csComposer .cs-pe__reveal{ animation:csPeReveal .12s ease-out both; }
+@keyframes csPeReveal{ from{ opacity:0; transform:translateY(-3px); } to{ opacity:1; transform:none; } }
+@media (prefers-reduced-motion: reduce){ #csComposer .cs-pe__reveal{ animation:none; } }
+
+/* media */
+#csComposer .cs-pe__drop{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:36px 20px; text-align:center; border:1px dashed rgba(20,18,40,.22); border-radius:5px; background:#fafafb; transition:border-color .12s, background .12s; }
+#csComposer .cs-pe__drop.is-dragover{ border-color:var(--violet); background:var(--vsoft); }
+#csComposer .cs-pe__dropicon{ font-size:26px; color:var(--text); margin-bottom:6px; }
+#csComposer .cs-pe__droptitle{ font-size:16px; font-weight:600; color:var(--text); }
+#csComposer .cs-pe__dropsub{ font-size:14px; color:var(--muted); }
+#csComposer .cs-pe__dropactions{ display:flex; gap:12px; margin-top:14px; }
+#csComposer .cs-pe__mbtn{ height:44px; padding:0 20px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.18); border-radius:5px; cursor:pointer; }
+#csComposer .cs-pe__mbtn:hover{ background:rgba(20,18,40,.03); }
+#csComposer .cs-pe__mbtn:disabled{ color:var(--muted2); cursor:not-allowed; }
+#csComposer .cs-pe__grid{ display:flex; flex-wrap:wrap; gap:10px; padding:14px; border:1px solid rgba(20,18,40,.12); border-radius:5px; background:#fff; }
+#csComposer .cs-pe__grid.is-dragover{ border-color:var(--violet); border-style:dashed; background:var(--vsoft); }
+#csComposer .cs-pe__item{ position:relative; width:112px; height:112px; border-radius:4px; overflow:hidden; background:#eceaf6; border:1px solid var(--line); cursor:grab; }
+#csComposer .cs-pe__item img{ width:100%; height:100%; object-fit:cover; display:block; }
+#csComposer .cs-pe__item.is-missing{ border-color:var(--danger); }
+#csComposer .cs-pe__item.is-dragging{ opacity:.5; }
+#csComposer .cs-pe__itemph{ width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--muted2); font-size:1.3rem; }
+#csComposer .cs-pe__item.is-missing .cs-pe__itemph{ color:var(--danger); }
+#csComposer .cs-pe__cover{ position:absolute; left:0; bottom:0; right:0; background:rgba(20,18,40,.78); color:#fff; font-size:11px; font-weight:600; text-align:center; padding:3px; letter-spacing:.04em; text-transform:uppercase; }
+#csComposer .cs-pe__vid{ position:absolute; left:6px; top:6px; background:rgba(12,10,25,.65); color:#fff; width:22px; height:22px; border-radius:4px; display:flex; align-items:center; justify-content:center; font-size:10px; }
+#csComposer .cs-pe__itembtn{ position:absolute; top:6px; width:24px; height:24px; border:0; border-radius:4px; background:rgba(12,10,25,.65); color:#fff; font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+#csComposer .cs-pe__itembtn:hover{ background:rgba(12,10,25,.9); }
+#csComposer .cs-pe__itembtn--rm{ right:6px; }
+#csComposer .cs-pe__itembtn--rm:hover{ background:var(--danger); }
+#csComposer .cs-pe__itembtn--left{ right:62px; }
+#csComposer .cs-pe__itembtn--right{ right:34px; }
+#csComposer .cs-pe__itembtn:disabled{ opacity:.35; cursor:default; }
+#csComposer .cs-pe__itembtn:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
+#csComposer .cs-pe__gridtools{ display:flex; gap:10px; width:100%; }
+#csComposer .cs-pe__gridtools .cs-pe__mbtn{ height:40px; padding:0 14px; }
+
+/* switch row */
+#csComposer .cs-pe__switchrow{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0; border-top:1px solid var(--line2); }
+#csComposer .cs-pe__switchtext{ display:flex; flex-direction:column; gap:2px; cursor:pointer; }
+#csComposer .cs-pe__switchlabel{ font-size:15px; font-weight:600; color:var(--text); }
+#csComposer .cs-pe__switchsub{ font-size:13px; color:var(--muted); }
+#csComposer .cs-pe__switch{ display:flex; align-items:center; min-height:0; padding:0; margin:0; }
+#csComposer .cs-pe__switch .form-check-input{ width:40px; height:22px; margin:0; cursor:pointer; border-color:rgba(20,18,40,.2); }
+#csComposer .cs-pe__switch .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+#csComposer .cs-pe__switch .form-check-input:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); }
+
+/* choice rows (audience, publish mode) */
+#csComposer .cs-pe__choices{ display:flex; flex-direction:column; border:1px solid rgba(20,18,40,.12); border-radius:5px; overflow:hidden; margin-bottom:20px; }
+#csComposer .cs-pe__choice{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:12px 16px; text-align:left; background:#fff; border:0; border-top:1px solid var(--line2); cursor:pointer; }
+#csComposer .cs-pe__choice:first-child{ border-top:0; }
+#csComposer .cs-pe__choice:hover{ background:rgba(20,18,40,.025); }
+#csComposer .cs-pe__choice[aria-checked="true"]{ background:rgba(91,75,224,.05); }
+#csComposer .cs-pe__choicemark{ width:18px; height:18px; flex:none; border-radius:50%; border:1.5px solid rgba(20,18,40,.3); position:relative; }
+#csComposer .cs-pe__choice[aria-checked="true"] .cs-pe__choicemark{ border-color:var(--violet); }
+#csComposer .cs-pe__choice[aria-checked="true"] .cs-pe__choicemark::after{ content:""; position:absolute; inset:3px; border-radius:50%; background:var(--violet); }
+#csComposer .cs-pe__choicetext{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+#csComposer .cs-pe__choicelabel{ font-size:15px; font-weight:600; color:var(--text); }
+#csComposer .cs-pe__choice[aria-checked="true"] .cs-pe__choicelabel{ color:var(--violet7); }
+#csComposer .cs-pe__choicesub{ font-size:13px; color:var(--muted); }
+#csComposer .cs-pe__choice:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--violet); }
+#csComposer .cs-pe__sub-field{ padding-left:0; }
+#csComposer .cs-pe__price{ display:flex; align-items:center; gap:10px; }
+#csComposer .cs-pe__cur{ font-size:16px; font-weight:600; color:var(--t2); }
+#csComposer .cs-pe__price .form-control{ max-width:140px; font-weight:600; }
+#csComposer .cs-pe__credits{ font-size:14px; color:var(--muted); }
+#csComposer .cs-pe__published{ font-size:14px; color:var(--t2); margin:0 0 20px; }
+#csComposer .cs-pe__published[hidden]{ display:none; }
+#csComposer .cs-pe__validation{ display:flex; align-items:flex-start; gap:8px; font-size:14px; color:var(--danger); margin:8px 0 0; }
+#csComposer .cs-pe__validation[hidden]{ display:none; }
+
+/* distribution */
+#csComposer .cs-pe__desttools{ display:flex; align-items:center; gap:16px; margin-bottom:12px; }
+#csComposer .cs-pe__desttools[hidden]{ display:none; }
+#csComposer .cs-pe__destsearch{ max-width:320px; }
+#csComposer .cs-pe__destcount{ font-size:13px; color:var(--muted); white-space:nowrap; }
+#csComposer .cs-pe__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:5px; max-height:420px; overflow:auto; }
+#csComposer .cs-pe__destlist:empty{ display:none; }
+#csComposer .cs-pe__dest{ display:flex; align-items:center; gap:14px; padding:0 16px; min-height:48px; border-top:1px solid var(--line2); cursor:pointer; margin:0; }
+#csComposer .cs-pe__dest:first-child{ border-top:0; }
+#csComposer .cs-pe__dest:hover{ background:rgba(20,18,40,.025); }
+#csComposer .cs-pe__dest[hidden]{ display:none; }
+#csComposer .cs-pe__dest.is-on{ background:rgba(91,75,224,.05); }
+#csComposer .cs-pe__dest.is-off{ color:var(--muted2); cursor:not-allowed; }
+#csComposer .cs-pe__dest .form-check-input{ width:18px; height:18px; margin:0; flex:none; cursor:pointer; }
+#csComposer .cs-pe__dest .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+#csComposer .cs-pe__dest .form-check-input:focus{ box-shadow:0 0 0 2px rgba(91,75,224,.25); }
+#csComposer .cs-pe__dest:focus-within{ box-shadow:inset 0 0 0 2px var(--violet); }
+#csComposer .cs-pe__desticon{ width:20px; text-align:center; font-size:16px; color:var(--t2); flex:none; }
+#csComposer .cs-pe__destname{ font-size:15px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#csComposer .cs-pe__destplat{ font-size:13px; color:var(--muted); margin-left:auto; flex:none; }
+#csComposer .cs-pe__deststate{ font-size:12px; color:var(--danger); flex:none; }
+#csComposer .cs-pe__empty{ font-size:14px; color:var(--muted); margin:8px 0 0; }
+#csComposer .cs-pe__empty[hidden]{ display:none; }
+#csComposer .cs-pe__empty a{ color:var(--violet7); text-decoration:underline; }
+
+/* preview column */
+#csComposer .cs-pe__preview{ flex:0 0 340px; display:flex; flex-direction:column; border-left:1px solid var(--line); background:#faf9f7; padding:24px; overflow:auto; }
+#csComposer .cs-pe__pvhead{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+#csComposer .cs-pe__pvtitle{ font-size:18px; font-weight:700; letter-spacing:-.01em; color:var(--text); }
+#csComposer .cs-pe__viewseg{ display:flex; border:1px solid rgba(20,18,40,.14); border-radius:5px; overflow:hidden; background:#fff; }
+#csComposer .cs-pe__viewopt{ height:32px; padding:0 12px; font-size:13px; font-weight:500; color:var(--t2); background:#fff; border:0; border-left:1px solid rgba(20,18,40,.1); cursor:pointer; }
+#csComposer .cs-pe__viewopt:first-child{ border-left:0; }
+#csComposer .cs-pe__viewopt.is-on{ background:var(--vsoft); color:var(--violet7); font-weight:600; box-shadow:inset 0 0 0 1px var(--violet); }
+#csComposer .cs-pe__viewopt:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--violet); }
+#csComposer .cs-preview-wrap{ width:100%; }
+#csComposer .cs-preview-card{ max-width:none; width:100%; border-radius:5px; box-shadow:0 1px 2px rgba(20,18,40,.06); border-color:rgba(20,18,40,.1); }
+
+/* footer */
+#csComposer .cs-pe__footer{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 32px; border-top:1px solid var(--line); flex:none; }
+#csComposer .cs-pe__savestate{ font-size:14px; color:var(--muted); }
+#csComposer .cs-pe__savestate.is-unsaved{ color:var(--t2); }
+#csComposer .cs-pe__savestate.is-failed{ color:var(--danger); }
+#csComposer .cs-pe__actions{ display:flex; align-items:center; gap:12px; margin-left:auto; }
+#csComposer .cs-pe__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:5px; }
+#csComposer .cs-pe__btn--ghost{ background:#fff; border:1px solid rgba(20,18,40,.14); color:var(--text); }
+#csComposer .cs-pe__btn--ghost:hover{ background:rgba(20,18,40,.04); }
+#csComposer .cs-pe__btn--ghost[hidden]{ display:none; }
+
+/* focus */
+#csComposer .cs-pe__navitem:focus-visible, #csComposer .cs-pe__btn:focus-visible, #csComposer .cs-pe__mbtn:focus-visible, #csComposer .cs-pe__pvtoggle:focus-visible, #csComposer .cs-pe__close:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
+#csComposer .cs-pe__navitem:focus-visible{ box-shadow:inset 0 0 0 2px var(--violet); }
+#csComposer .cs-pe__item:focus-within{ box-shadow:0 0 0 2px var(--violet); }
+.cs-tray{ z-index:1700; }   /* upload progress tray stays visible above the editor */
+body.modal-open .cs-tray{ bottom:112px; }   /* clear the editor footer so Save / Continue stay reachable */
+
+@media (max-width:1100px){
+    #csComposer .cs-pe__nav{ flex-basis:180px; }
+    #csComposer .cs-pe__navitem{ padding:12px 16px 12px 13px; }
+    #csComposer .cs-pe__main{ padding:24px 28px 32px; }
+    #csComposer .cs-pe__pvtoggle{ display:inline-flex; align-items:center; }
+    #csComposer .cs-pe__preview{ display:none; position:absolute; top:0; right:0; bottom:0; width:min(380px, 100%); z-index:2; box-shadow:-12px 0 32px -20px rgba(20,18,40,.35); }
+    #csComposer .cs-pe.is-preview-open .cs-pe__preview{ display:flex; }
+}
+@media (max-width:720px){
+    #csComposer .cs-pe{ max-width:none; width:auto; margin:0; }
+    #csComposer .cs-pe__surface{ height:100vh; height:100dvh; border-radius:0; }
+    #csComposer .cs-pe__header{ padding:16px 20px 12px; }
+    #csComposer .cs-pe__title{ font-size:20px; }
+    #csComposer .cs-pe__body{ flex-direction:column; }
+    #csComposer .cs-pe__nav{ flex:none; border-right:0; border-bottom:1px solid var(--line); padding:12px 20px; overflow:visible; }
+    #csComposer .cs-pe__navlist{ display:none; }
+    #csComposer .cs-pe__navselect{ display:block; }
+    #csComposer .cs-pe__navselect-label{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    #csComposer .cs-pe__main{ padding:20px 20px 32px; }
+    #csComposer .cs-pe__h{ font-size:22px; }
+    #csComposer .cs-pe__row{ grid-template-columns:1fr; }
+    #csComposer .cs-pe__desttools{ flex-wrap:wrap; }
+    #csComposer .cs-pe__destsearch{ max-width:none; }
+    #csComposer .cs-pe__dropactions{ flex-direction:column; width:100%; }
+    #csComposer .cs-pe__mbtn{ width:100%; }
+    #csComposer .cs-pe__item{ width:96px; height:96px; }
+    #csComposer .cs-pe__preview{ width:100%; padding:16px 20px; }
+    #csComposer .cs-pe__footer{ padding:12px 20px; flex-wrap:wrap; }
+    #csComposer .cs-pe__savestate{ flex:1 1 100%; font-size:13px; }
+    #csComposer .cs-pe__actions{ width:100%; }
+    #csComposer .cs-pe__actions .cs-pe__btn{ flex:1 1 0; padding:0 12px; }
 }
