@@ -855,14 +855,14 @@ jQuery(function ($) {
                     $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false');
                     still = was ? 0 : img.id;
                     if (!was) { $t.addClass('is-on').attr('aria-pressed', 'true'); }
-                    $('#inf_vgo').prop('disabled', !still); $('#inf_still_hint').prop('hidden', !!still);
+                    $('#inf_vgo').prop('disabled', !still);
                 });
                 $g.append($t);
             });
             // Only a still handed over from "Make video" is preselected; otherwise she picks one.
             if (still && !$g.find('.is-on').length) { still = 0; }
             $('#inf_vgo').prop('disabled', !still);
-            $('#inf_still_hint').prop('hidden', !!still);
+           
             drop_broken('#inf_stills');
         });
 

@@ -17,12 +17,10 @@
     <div class="inf-gen" id="inf_gen" data-still="<?php echo (int) ($this->still_asset_id ?? 0); ?>">
         <form class="inf-gen__form" id="inf_vid_form" autocomplete="off" onsubmit="return false;">
             <div class="inf-field">
-                <div class="inf-field__row"><div class="inf-label">Image</div><a class="inf-link" href="/influencers/images/<?php echo (int) $infl['id']; ?>">Generate more</a></div>
-                <p class="inf-wiz__meta" id="inf_still_hint" hidden>Pick the image the video starts from.</p>
                 <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading her images…</span></div>
             </div>
             <div class="inf-field">
-                <div class="inf-field__row"><label class="inf-label" for="inf_vprompt">Motion</label><button type="button" class="inf-link" id="inf_vprompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
+                <div class="inf-field__row"><label class="visually-hidden" for="inf_vprompt">Prompt</label><button type="button" class="inf-link" id="inf_vprompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
                 <textarea class="form-control" id="inf_vprompt" maxlength="2000" placeholder="She turns toward the camera and smiles, hair moving in a light breeze, slow push in"></textarea>
             </div>
             <div class="inf-field">
