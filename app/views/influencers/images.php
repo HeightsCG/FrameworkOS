@@ -1,12 +1,10 @@
 <?php require __DIR__ . '/_top.php'; ?>
 <?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; ?>
 
-    <header class="inf-head">
-        <div>
-            <p class="inf-head__sub">Describe the scene. She is added to every prompt for you.</p>
-        </div>
-        <div class="inf-head__actions">
-            <label class="inf-who" for="inf_who">
+
+    <div class="inf-gen" id="inf_gen">
+        <form class="inf-gen__form" id="inf_gen_form" autocomplete="off" onsubmit="return false;">
+            <label class="inf-who inf-who--form" for="inf_who">
                 <span class="inf-who__badge"><?php if (!empty($infl['cover_url'])): ?><img src="<?php echo $e($infl['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user"></i><?php endif; ?></span>
                 <select class="form-select inf-who__select" id="inf_who">
                     <?php foreach ($ready as $r): ?>
@@ -14,11 +12,6 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-        </div>
-    </header>
-
-    <div class="inf-gen" id="inf_gen">
-        <form class="inf-gen__form" id="inf_gen_form" autocomplete="off" onsubmit="return false;">
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
                 <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera"></textarea>
