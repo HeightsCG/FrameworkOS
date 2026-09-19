@@ -39,39 +39,41 @@ class AiCreditsModel extends Model {
     }
 
     /**
-     * The plan's monthly grant for one billing period, at most once per period: the
-     * grant-period stamp and the balance move in the same transaction, guarded by
-     * "stamp <> this period", so two concurrent callers cannot both grant.
-     * Returns true when this call granted.
+     * The plan's grant for one billing period. The row remembers the period and how much
+     * that period's grant has added so far, so this is idempotent: a new period grants the
+     * full amount; the same period grants only the difference when the plan's amount went
+     * up (upgrade, or a higher allowance). Row-locked, so concurrent callers cannot both
+     * grant. Returns the credits added (0 when nothing was due).
      */
     public function grant_for_period($user_id, $period_key, $credits, $description){
         $user_id = (int) $user_id;
         $credits = (int) $credits;
-        if ($credits <= 0 || (string) $period_key === '') { return false; }
+        if ($credits <= 0 || (string) $period_key === '') { return 0; }
         $this->db->beginTransaction();
         try {
-            $sth = $this->db->prepare(
-                "UPDATE user_accounts SET ai_credit_grant_period = :p, ai_credit_balance = ai_credit_balance + :n, updated_at = :now
-                 WHERE user_id = :u AND deleted = 0 AND (ai_credit_grant_period IS NULL OR ai_credit_grant_period <> :p2)"
-            );
-            $sth->bindValue(':p', (string) $period_key);
-            $sth->bindValue(':p2', (string) $period_key);
-            $sth->bindValue(':n', $credits, PDO::PARAM_INT);
-            $sth->bindValue(':now', date('Y-m-d H:i:s'));
+            $sth = $this->db->prepare("SELECT ai_credit_balance, ai_credit_grant_period, ai_credit_grant_amount FROM user_accounts WHERE user_id = :u AND deleted = 0 FOR UPDATE");
             $sth->bindValue(':u', $user_id, PDO::PARAM_INT);
             $sth->execute();
-            if ($sth->rowCount() !== 1) { $this->db->rollBack(); return false; }
-            $bal = $this->db->prepare("SELECT ai_credit_balance FROM user_accounts WHERE user_id = :u");
-            $bal->bindValue(':u', $user_id, PDO::PARAM_INT);
-            $bal->execute();
-            $after = (int) $bal->fetchColumn();
-            $this->ledger($user_id, 'plan_grant', $credits, $after, (string) $description, null, null);
+            $row = $sth->fetch(PDO::FETCH_ASSOC);
+            if (!$row) { $this->db->rollBack(); return 0; }
+            $same  = ((string) $row['ai_credit_grant_period'] === (string) $period_key);
+            $delta = $same ? $credits - (int) $row['ai_credit_grant_amount'] : $credits;
+            if ($delta <= 0) { $this->db->rollBack(); return 0; }
+            $after = (int) $row['ai_credit_balance'] + $delta;
+            $upd = $this->db->prepare("UPDATE user_accounts SET ai_credit_grant_period = :p, ai_credit_grant_amount = :a, ai_credit_balance = :b, updated_at = :now WHERE user_id = :u");
+            $upd->bindValue(':p', (string) $period_key);
+            $upd->bindValue(':a', $credits, PDO::PARAM_INT);
+            $upd->bindValue(':b', $after, PDO::PARAM_INT);
+            $upd->bindValue(':now', date('Y-m-d H:i:s'));
+            $upd->bindValue(':u', $user_id, PDO::PARAM_INT);
+            $upd->execute();
+            $this->ledger($user_id, 'plan_grant', $delta, $after, (string) $description, null, null);
             $this->db->commit();
-            return true;
+            return $delta;
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) { $this->db->rollBack(); }
             error_log('[ai_credits] grant_for_period failed: ' . $e->getMessage());
-            return false;
+            return 0;
         }
     }
 

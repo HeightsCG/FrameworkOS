@@ -134,13 +134,9 @@ class ApiBillingController extends BaseApiController {
         $period_end = $sub->items->data[0]->current_period_end ?? null;
         $this->billingModel->save_subscription($user_id, $sub->id, $price_id, $sub->status, $period_end, $sub->cancel_at_period_end ? 1 : 0);
 
-        // Moving up mid-period: top the balance up to the new plan's monthly credits right away.
+        // Moving up mid-period: the grant tops the balance up to the new plan's amount right away.
         $fresh = $this->userModel->get_user_by_id($user_id)[0];
-        $old_n = (int) (PlanTiers::get((string) ($user['plan_tier'] ?? ''))['limits']['ai_credits'] ?? 0);
-        $new_n = (int) Plan::limit($fresh, 'ai_credits');
-        if ($new_n > $old_n && (string) ($fresh['ai_credit_grant_period'] ?? '') === Plan::period_key($fresh)) {
-            (new AiCreditsModel())->apply_delta($user_id, $new_n - $old_n, 'plan_grant', Plan::tier_name($fresh) . ' plan: ' . ($new_n - $old_n) . ' extra AI credits for this period');
-        }
+        Plan::grant_monthly($fresh);
 
         $this->jsonSuccess(['message' => 'Your plan is now ' . Plan::tier_name($fresh), 'tier' => Plan::tier($fresh)]);
     }

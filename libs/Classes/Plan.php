@@ -183,8 +183,10 @@ class Plan {
     }
 
     /**
-     * Add this period's plan credits if not granted yet. Safe to call on every read;
-     * the model guards against double grants. Returns true when it granted.
+     * Bring this period's plan credits up to the tier's amount: the full amount on a new
+     * period, the difference when the amount rose mid-period (upgrade or a raised
+     * allowance). Safe to call on every read; the model makes it idempotent. Returns true
+     * when credits were added.
      */
     public static function grant_monthly($user): bool
     {
@@ -192,9 +194,10 @@ class Plan {
         $n = (int) self::limit($user, 'ai_credits');
         if ($n <= 0) { return false; }
         $key = self::period_key($user);
-        if ((string) ($user['ai_credit_grant_period'] ?? '') === $key) { return false; }
-        return (new AiCreditsModel())->grant_for_period((int) $user['user_id'], $key, $n,
-            self::tier_name($user) . ' plan: ' . $n . ' AI credits for ' . date('M j', strtotime($key)) . ' to ' . date('M j', strtotime(self::period_bounds($user)[1])));
+        if ((string) ($user['ai_credit_grant_period'] ?? '') === $key && (int) ($user['ai_credit_grant_amount'] ?? 0) >= $n) { return false; }
+        $added = (new AiCreditsModel())->grant_for_period((int) $user['user_id'], $key, $n,
+            self::tier_name($user) . ' plan: AI credits for ' . date('M j', strtotime($key)) . ' to ' . date('M j', strtotime(self::period_bounds($user)[1])));
+        return $added > 0;
     }
 
     /** The message shown when a job cannot be paid for. */
