@@ -694,53 +694,147 @@
   .cs-props .form-select{ width:100%; }
 }
 
-/* ---- Automation modal (#csSchedulerModal) — two-column grid, three titled sections. Scoped; no globals touched. ---- */
-#csSchedulerModal .cs-am{ max-width:720px; margin:.5rem auto; min-height:calc(100% - 1rem); }
-#csSchedulerModal .cs-am__header{ padding:24px; border-bottom:1px solid var(--line); align-items:center; }
-#csSchedulerModal .cs-am__title{ font-size:18px; font-weight:600; line-height:1.3; margin:0; }
-#csSchedulerModal .cs-am__close{ width:32px; height:32px; padding:0; margin:0 0 0 auto; border-radius:8px; background-size:14px; opacity:.6; transition:background-color .12s, opacity .12s; }
-#csSchedulerModal .cs-am__close:hover{ background-color:rgba(20,18,40,.06); opacity:1; }
-#csSchedulerModal .cs-am__body{ padding:20px 24px; overflow:visible; max-height:none; }
-#csSchedulerModal .cs-am__section{ display:grid; grid-template-columns:1fr 1fr; column-gap:16px; row-gap:14px; align-items:start; padding:14px 0; }
-#csSchedulerModal .cs-am__body > .cs-am__section:first-of-type{ padding-top:0; }
-#csSchedulerModal .cs-am__body > .cs-am__section:last-of-type{ padding-bottom:0; }
-#csSchedulerModal .cs-am__section + .cs-am__section{ border-top:1px solid var(--line); }
-#csSchedulerModal .cs-am__section[hidden]{ display:none; }
-#csSchedulerModal .cs-am__group{ display:contents; }
-#csSchedulerModal .cs-am__group[hidden]{ display:none; }
-#csSchedulerModal .cs-am__field{ display:flex; flex-direction:column; align-items:stretch; gap:4px; min-width:0; }
-#csSchedulerModal .cs-am__field--full{ grid-column:1 / -1; }
-#csSchedulerModal .cs-am__trio{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr; column-gap:16px; align-items:start; }
-#csSchedulerModal .cs-am__field--toggle{ align-self:stretch; justify-content:space-between; }
-#csSchedulerModal .cs-am__field[hidden]{ display:none; }
-#csSchedulerModal .cs-am__label{ font-size:13px; font-weight:500; color:var(--muted); margin:0; line-height:1.3; }
-#csSchedulerModal .form-control, #csSchedulerModal .form-select{ width:100%; height:40px; padding:0 12px; font-size:14px; border:1px solid var(--line); border-radius:8px; box-shadow:none; background:#fff; }
-#csSchedulerModal textarea.form-control{ height:72px; min-height:72px; padding:10px 12px; line-height:1.45; }
-#csSchedulerModal .form-control:focus, #csSchedulerModal .form-select:focus{ border-color:transparent; box-shadow:0 0 0 2px var(--violet); outline:none; }
-#csSchedulerModal .form-control::placeholder{ color:var(--muted2); }
-#csSchedulerModal .cs-am__seg{ display:flex; width:100%; gap:0; padding:3px; border:1px solid var(--line); border-radius:8px; background:transparent; box-shadow:none; height:auto; }
-#csSchedulerModal .cs-am__seg .cs-seg__opt{ flex:1 1 0; min-width:0; width:0; justify-content:center; text-align:center; height:32px; padding:0 6px; font-size:13px; font-weight:500; color:var(--muted); border:0; border-radius:6px; background:transparent; box-shadow:none; overflow:hidden; }
-#csSchedulerModal .cs-am__seg .cs-seg__opt span{ white-space:nowrap; }
-#csSchedulerModal .cs-am__seg .cs-seg__opt i{ font-size:13px; margin-right:6px; color:inherit; flex:none; }
-#csSchedulerModal .cs-am__seg .cs-seg__opt:hover{ color:var(--text); background:transparent; }
-#csSchedulerModal .cs-am__seg .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--violet7); box-shadow:inset 0 0 0 1px var(--violet); }
-#csSchedulerModal .cs-am__toggle{ display:flex; align-items:center; height:20px; padding:0; margin:0; min-height:0; }
-#csSchedulerModal .cs-am__field--toggle .cs-am__toggle{ margin-top:auto; }
-#csSchedulerModal .cs-am__toggle .form-check-input{ width:36px; height:20px; margin:0; flex:none; cursor:pointer; }
-#csSchedulerModal .cs-am__toggle .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
-#csSchedulerModal .cs-am__toggle .form-check-input:focus{ border-color:var(--violet); box-shadow:0 0 0 2px var(--vsoft); }
-#csSchedulerModal .cs-am__chips{ display:flex; flex-wrap:wrap; gap:8px; }
-#csSchedulerModal .cs-am__chips .form-select{ flex:1 1 100%; }
-#csSchedulerModal .cs-am__chips .cs-social{ flex:0 0 auto; height:32px; padding:0 12px 0 10px; gap:6px; border-radius:8px; font-size:13px; box-shadow:none; }
-#csSchedulerModal .cs-am__chips .cs-social i{ font-size:16px; }
-#csSchedulerModal .cs-sched__days{ display:flex; flex-wrap:nowrap; margin:0; gap:6px; width:100%; }
-#csSchedulerModal .cs-sched__day{ flex:1 1 0; min-width:0; width:auto; height:36px; padding:0; font-size:13px; font-weight:500; color:var(--muted); border:1px solid var(--line); border-radius:8px; background:#fff; }
-#csSchedulerModal .cs-sched__day:hover{ color:var(--text); }
-#csSchedulerModal .cs-sched__day.is-on{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); }
-#csSchedulerModal .cs-am__footer{ padding:24px; justify-content:flex-end; gap:8px; border-top:1px solid var(--line); }
-#csSchedulerModal .cs-am__footer .cs-am__btn{ height:40px; padding:0 16px; margin:0; font-size:14px; font-weight:600; border-radius:8px; }
-#csSchedulerModal .cs-am__btn--ghost{ background:transparent; border:1px solid transparent; color:var(--t2); }
-#csSchedulerModal .cs-am__btn--ghost:hover{ background:rgba(20,18,40,.06); color:var(--text); }
-/* Keyboard focus: same 2px accent ring as inputs, on every interactive control in the modal */
-#csSchedulerModal .cs-am__seg .cs-seg__opt:focus-visible, #csSchedulerModal .cs-sched__day:focus-visible, #csSchedulerModal .cs-am__btn:focus-visible, #csSchedulerModal .cs-am__close:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
-#csSchedulerModal .cs-am__chips .cs-social:focus-within{ box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
+/* ---- Automation editor (#csSchedulerModal) — one surface, fixed header/footer, left section nav, one section at a time. Scoped; no globals touched. ---- */
+#csSchedulerModal .cs-ae{ max-width:min(1160px, calc(100vw - 48px)); width:auto; margin:24px auto; min-height:0; }
+#csSchedulerModal .cs-ae__surface{ height:min(760px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:6px; background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; }
+#csSchedulerModal .cs-ae__header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:24px 32px 20px; border-bottom:1px solid var(--line); flex:none; }
+#csSchedulerModal .cs-ae__eyebrow{ display:block; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+#csSchedulerModal .cs-ae__titlerow{ display:flex; align-items:center; gap:16px; min-width:0; flex-wrap:wrap; }
+#csSchedulerModal .cs-ae__title{ font-size:24px; font-weight:700; letter-spacing:-.02em; line-height:1.2; margin:0; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:60vw; }
+#csSchedulerModal .cs-ae__status{ display:inline-flex; align-items:center; gap:8px; font-size:14px; color:var(--t2); }
+#csSchedulerModal .cs-ae__statusdot{ width:8px; height:8px; border-radius:50%; background:var(--muted2); }
+#csSchedulerModal .cs-ae__status.is-active .cs-ae__statusdot{ background:var(--success); }
+#csSchedulerModal .cs-ae__close{ width:32px; height:32px; padding:0; margin:0; flex:none; border-radius:4px; background-size:14px; opacity:.6; }
+#csSchedulerModal .cs-ae__close:hover{ background-color:rgba(20,18,40,.06); opacity:1; }
+
+#csSchedulerModal .cs-ae__body{ flex:1 1 auto; display:flex; min-height:0; }
+#csSchedulerModal .cs-ae__nav{ flex:0 0 240px; border-right:1px solid var(--line); padding:24px 0; overflow:auto; }
+#csSchedulerModal .cs-ae__navselect, #csSchedulerModal .cs-ae__navselect-label{ display:none; }
+#csSchedulerModal .cs-ae__navitem{ display:block; width:100%; text-align:left; background:none; border:0; border-left:3px solid transparent; padding:12px 32px 12px 29px; cursor:pointer; }
+#csSchedulerModal .cs-ae__navitem:hover .cs-ae__navlabel{ color:var(--text); }
+#csSchedulerModal .cs-ae__navitem[aria-current="true"]{ border-left-color:var(--violet); }
+#csSchedulerModal .cs-ae__navitem[aria-current="true"] .cs-ae__navlabel{ font-weight:700; color:var(--text); }
+#csSchedulerModal .cs-ae__navlabel{ display:block; font-size:15px; font-weight:500; color:var(--t2); line-height:1.3; }
+#csSchedulerModal .cs-ae__navsum{ display:block; font-size:13px; color:var(--muted); line-height:1.35; margin-top:2px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#csSchedulerModal .cs-ae__navflag{ display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--danger); margin-top:4px; }
+#csSchedulerModal .cs-ae__navflag::before{ content:""; width:6px; height:6px; border-radius:50%; background:var(--danger); }
+#csSchedulerModal .cs-ae__navflag[hidden]{ display:none; }
+
+#csSchedulerModal .cs-ae__main{ flex:1 1 auto; min-width:0; overflow:auto; padding:28px 40px 40px; }
+#csSchedulerModal .cs-ae__section[hidden]{ display:none; }
+#csSchedulerModal .cs-ae__h{ font-size:28px; font-weight:700; letter-spacing:-.02em; line-height:1.2; margin:0; color:var(--text); outline:none; }
+#csSchedulerModal .cs-ae__h:focus-visible{ box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); border-radius:4px; }
+#csSchedulerModal .cs-ae__sub{ font-size:15px; color:var(--muted); margin:6px 0 28px; }
+
+#csSchedulerModal .cs-ae__field{ display:flex; flex-direction:column; gap:6px; margin-bottom:20px; min-width:0; }
+#csSchedulerModal .cs-ae__field[hidden], #csSchedulerModal .cs-ae__row[hidden], #csSchedulerModal [data-kind][hidden]{ display:none; }
+#csSchedulerModal .cs-ae__row{ display:grid; grid-template-columns:1fr 1fr; column-gap:32px; align-items:start; }
+#csSchedulerModal .cs-ae__row > .cs-ae__field + .cs-ae__field{ position:relative; }
+#csSchedulerModal .cs-ae__row > .cs-ae__field + .cs-ae__field::before{ content:""; position:absolute; left:-16px; top:26px; bottom:4px; width:1px; background:var(--line); }
+#csSchedulerModal .cs-ae__row > .cs-ae__field[hidden] + .cs-ae__field::before, #csSchedulerModal .cs-ae__row.is-single > .cs-ae__field::before{ display:none; }
+#csSchedulerModal .cs-ae__row.is-single{ grid-template-columns:1fr; }
+#csSchedulerModal .cs-ae__label{ font-size:14px; font-weight:500; color:var(--t2); line-height:1.3; }
+#csSchedulerModal .form-control, #csSchedulerModal .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:5px; box-shadow:none; background-color:#fff; }
+#csSchedulerModal textarea.form-control{ height:auto; min-height:120px; padding:12px 14px; line-height:1.5; resize:vertical; }
+#csSchedulerModal .form-control:focus, #csSchedulerModal .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); outline:none; }
+#csSchedulerModal .form-control.is-invalid, #csSchedulerModal .form-select.is-invalid{ border-color:var(--danger); background-image:none; }
+#csSchedulerModal .cs-ae__error{ font-size:13px; color:var(--danger); margin:0; }
+#csSchedulerModal .cs-ae__error[hidden]{ display:none; }
+
+/* compact segmented controls */
+#csSchedulerModal .cs-ae__seg{ display:flex; gap:0; padding:0; border:1px solid rgba(20,18,40,.14); border-radius:5px; background:#fff; overflow:hidden; }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt{ flex:1 1 0; min-width:0; width:0; justify-content:center; text-align:center; height:44px; padding:0 10px; gap:8px; font-size:14px; font-weight:500; color:var(--t2); border:0; border-left:1px solid rgba(20,18,40,.1); border-radius:0; background:#fff; box-shadow:none; transition:background .12s, color .12s; }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt:first-child{ border-left:0; }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt span{ white-space:nowrap; display:inline; }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt i{ font-size:14px; color:inherit; flex:none; }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt:hover{ color:var(--text); background:rgba(20,18,40,.03); }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--violet7); font-weight:600; box-shadow:inset 0 0 0 1px var(--violet); }
+#csSchedulerModal .cs-ae__seg .cs-seg__opt:disabled{ color:var(--muted2); cursor:not-allowed; }
+
+/* switches */
+#csSchedulerModal .cs-ae__field--switch{ flex-direction:row; align-items:center; justify-content:space-between; gap:16px; padding:12px 0; border-top:1px solid var(--line2); margin-bottom:0; }
+#csSchedulerModal .cs-ae__field--switch + .cs-ae__field--switch{ border-top:1px solid var(--line2); }
+#csSchedulerModal .cs-ae__field--switch .cs-ae__label{ font-size:15px; color:var(--text); }
+#csSchedulerModal .cs-ae__switch{ display:flex; align-items:center; min-height:0; padding:0; margin:0; }
+#csSchedulerModal .cs-ae__switch .form-check-input{ width:40px; height:22px; margin:0; cursor:pointer; border-color:rgba(20,18,40,.2); }
+#csSchedulerModal .cs-ae__switch .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+#csSchedulerModal .cs-ae__switch .form-check-input:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); }
+#csSchedulerModal .cs-ae__reveal{ animation:csAeReveal .12s ease-out both; }
+@keyframes csAeReveal{ from{ opacity:0; transform:translateY(-3px); } to{ opacity:1; transform:none; } }
+#csSchedulerModal #csSchedInfluencerWrap{ border-top:1px solid var(--line); padding-top:20px; }
+#csSchedulerModal.modal{ z-index:1600; }   /* above the floating messenger toggle (1500) so the footer is never covered */
+@media (prefers-reduced-motion: reduce){ #csSchedulerModal .cs-ae__reveal{ animation:none; } }
+
+/* destinations */
+#csSchedulerModal .cs-ae__desttools{ display:flex; align-items:center; gap:16px; margin-bottom:12px; }
+#csSchedulerModal .cs-ae__destsearch{ max-width:320px; }
+#csSchedulerModal .cs-ae__destcount{ font-size:13px; color:var(--muted); white-space:nowrap; }
+#csSchedulerModal .cs-ae__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:5px; max-height:380px; overflow:auto; }
+#csSchedulerModal .cs-ae__destlist:empty{ display:none; }
+#csSchedulerModal .cs-ae__dest{ display:flex; align-items:center; gap:14px; padding:0 16px; min-height:48px; border-top:1px solid var(--line2); cursor:pointer; margin:0; }
+#csSchedulerModal .cs-ae__dest:first-child{ border-top:0; }
+#csSchedulerModal .cs-ae__dest:hover{ background:rgba(20,18,40,.025); }
+#csSchedulerModal .cs-ae__dest[hidden]{ display:none; }
+#csSchedulerModal .cs-ae__dest .form-check-input{ width:18px; height:18px; margin:0; flex:none; cursor:pointer; }
+#csSchedulerModal .cs-ae__dest .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
+#csSchedulerModal .cs-ae__dest .form-check-input:focus{ box-shadow:0 0 0 2px rgba(91,75,224,.25); }
+#csSchedulerModal .cs-ae__desticon{ width:20px; text-align:center; font-size:16px; color:var(--t2); flex:none; }
+#csSchedulerModal .cs-ae__destname{ font-size:15px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+#csSchedulerModal .cs-ae__destplat{ font-size:13px; color:var(--muted); margin-left:auto; flex:none; }
+#csSchedulerModal .cs-ae__dest.is-on{ background:rgba(91,75,224,.05); }
+#csSchedulerModal .cs-ae__empty{ font-size:14px; color:var(--muted); margin:8px 0 0; }
+#csSchedulerModal .cs-ae__empty a{ color:var(--violet7); text-decoration:underline; }
+#csSchedulerModal .cs-ae__targets{ display:flex; flex-direction:column; gap:8px; }
+#csSchedulerModal .cs-ae__targets .cs-social{ height:40px; padding:0 14px; gap:10px; border-radius:5px; font-size:14px; box-shadow:none; }
+#csSchedulerModal .cs-ae__targets .form-select{ margin-top:4px; }
+
+/* schedule */
+#csSchedulerModal .cs-ae__days{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; }
+#csSchedulerModal .cs-ae__day{ height:44px; padding:0; font-size:14px; font-weight:500; color:var(--t2); border:1px solid rgba(20,18,40,.14); border-radius:5px; background:#fff; cursor:pointer; }
+#csSchedulerModal .cs-ae__day:hover{ color:var(--text); background:rgba(20,18,40,.03); }
+#csSchedulerModal .cs-ae__day.is-on{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); font-weight:700; }
+#csSchedulerModal .cs-ae__day.is-on::before{ content:"\2713"; font-size:11px; margin-right:5px; }
+
+/* footer */
+#csSchedulerModal .cs-ae__footer{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 32px; border-top:1px solid var(--line); flex:none; }
+#csSchedulerModal .cs-ae__delete{ background:none; border:0; padding:0; font-size:15px; color:var(--t2); cursor:pointer; }
+#csSchedulerModal .cs-ae__delete:hover{ color:var(--danger); text-decoration:underline; }
+#csSchedulerModal .cs-ae__delete[hidden]{ display:none; }
+#csSchedulerModal .cs-ae__actions{ display:flex; align-items:center; gap:12px; margin-left:auto; }
+#csSchedulerModal .cs-ae__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:5px; }
+#csSchedulerModal .cs-ae__btn--ghost{ background:#fff; border:1px solid rgba(20,18,40,.14); color:var(--text); }
+#csSchedulerModal .cs-ae__btn--ghost:hover{ background:rgba(20,18,40,.04); }
+
+/* keyboard focus */
+#csSchedulerModal .cs-ae__navitem:focus-visible, #csSchedulerModal .cs-seg__opt:focus-visible, #csSchedulerModal .cs-ae__day:focus-visible, #csSchedulerModal .cs-ae__btn:focus-visible, #csSchedulerModal .cs-ae__delete:focus-visible, #csSchedulerModal .cs-ae__close:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); }
+#csSchedulerModal .cs-ae__navitem:focus-visible{ box-shadow:inset 0 0 0 2px var(--violet); }
+#csSchedulerModal .cs-ae__dest:focus-within{ box-shadow:inset 0 0 0 2px var(--violet); }
+
+@media (max-width:1024px){
+    #csSchedulerModal .cs-ae__nav{ flex-basis:200px; }
+    #csSchedulerModal .cs-ae__navitem{ padding:12px 20px 12px 17px; }
+    #csSchedulerModal .cs-ae__main{ padding:24px 28px 32px; }
+}
+@media (max-width:720px){
+    #csSchedulerModal .cs-ae{ max-width:none; width:auto; margin:0; }
+    #csSchedulerModal .cs-ae__surface{ height:100vh; height:100dvh; border-radius:0; }
+    #csSchedulerModal .cs-ae__header{ padding:20px 20px 16px; }
+    #csSchedulerModal .cs-ae__title{ font-size:20px; max-width:100%; white-space:normal; }
+    #csSchedulerModal .cs-ae__body{ flex-direction:column; }
+    #csSchedulerModal .cs-ae__nav{ flex:none; border-right:0; border-bottom:1px solid var(--line); padding:12px 20px; overflow:visible; }
+    #csSchedulerModal .cs-ae__navlist{ display:none; }
+    #csSchedulerModal .cs-ae__navselect{ display:block; }
+    #csSchedulerModal .cs-ae__navselect-label{ display:block; font-size:12px; color:var(--muted); margin-bottom:4px; }
+    #csSchedulerModal .cs-ae__main{ padding:20px 20px 32px; }
+    #csSchedulerModal .cs-ae__h{ font-size:22px; }
+    #csSchedulerModal .cs-ae__sub{ margin-bottom:20px; }
+    #csSchedulerModal .cs-ae__row{ grid-template-columns:1fr; row-gap:0; }
+    #csSchedulerModal .cs-ae__row > .cs-ae__field + .cs-ae__field::before{ display:none; }
+    #csSchedulerModal .cs-ae__desttools{ flex-wrap:wrap; }
+    #csSchedulerModal .cs-ae__destsearch{ max-width:none; }
+    #csSchedulerModal .cs-ae__days{ gap:4px; }
+    #csSchedulerModal .cs-ae__day{ font-size:13px; }
+    #csSchedulerModal .cs-ae__day.is-on::before{ margin-right:2px; }
+    #csSchedulerModal .cs-ae__footer{ padding:12px 20px; flex-wrap:wrap; }
+    #csSchedulerModal .cs-ae__btn{ padding:0 16px; }
+}

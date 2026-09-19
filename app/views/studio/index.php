@@ -423,125 +423,210 @@
 
 <!-- ============ SCHEDULER — automation form ============ -->
 <div class="modal fade" id="csSchedulerModal" tabindex="-1" aria-hidden="true" aria-labelledby="csSchedModalTitle">
-    <div class="modal-dialog modal-dialog-centered cs-am">
-        <div class="modal-content">
-            <div class="modal-header cs-am__header">
-                <h5 class="modal-title cs-am__title" id="csSchedModalTitle">New automation</h5>
-                <button type="button" class="btn-close cs-am__close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body cs-am__body">
+    <div class="modal-dialog cs-ae">
+        <div class="modal-content cs-ae__surface">
+            <header class="cs-ae__header">
+                <div class="cs-ae__heading">
+                    <span class="cs-ae__eyebrow" id="csSchedEyebrow">Automation</span>
+                    <div class="cs-ae__titlerow">
+                        <h2 class="cs-ae__title" id="csSchedModalTitle">New automation</h2>
+                        <span class="cs-ae__status" id="csSchedStatus" hidden><span class="cs-ae__statusdot" aria-hidden="true"></span><span id="csSchedStatusText">Active</span></span>
+                    </div>
+                </div>
+                <button type="button" class="btn-close cs-ae__close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </header>
+
+            <div class="cs-ae__body">
                 <input type="hidden" id="csSchedId" value="0">
                 <input type="hidden" id="csSchedKind" value="post">
                 <input type="hidden" id="csSchedSize" value="square">
+                <input type="checkbox" id="csSchedBrand" checked hidden>
 
-                <div class="cs-am__section">
-                    <div class="cs-am__field cs-am__field--full">
-                        <label class="cs-am__label" for="csSchedName">Name</label>
-                        <input type="text" class="form-control" id="csSchedName" maxlength="190" placeholder="Daily Orlando tip">
+                <nav class="cs-ae__nav" aria-label="Automation sections">
+                    <label class="cs-ae__navselect-label" for="csSchedNavSelect">Section</label>
+                    <select class="form-select cs-ae__navselect" id="csSchedNavSelect">
+                        <option value="content">Content</option>
+                        <option value="publishing" data-kind="post">Publishing</option>
+                        <option value="destinations">Destinations</option>
+                        <option value="schedule">Schedule</option>
+                    </select>
+                    <div class="cs-ae__navlist" id="csSchedNav">
+                        <button type="button" class="cs-ae__navitem" data-section="content" aria-current="true">
+                            <span class="cs-ae__navlabel">Content</span>
+                            <span class="cs-ae__navsum" data-sum="content"></span>
+                            <span class="cs-ae__navflag" hidden>Needs attention</span>
+                        </button>
+                        <button type="button" class="cs-ae__navitem" data-section="publishing" data-kind="post">
+                            <span class="cs-ae__navlabel">Publishing</span>
+                            <span class="cs-ae__navsum" data-sum="publishing"></span>
+                            <span class="cs-ae__navflag" hidden>Needs attention</span>
+                        </button>
+                        <button type="button" class="cs-ae__navitem" data-section="destinations">
+                            <span class="cs-ae__navlabel">Destinations</span>
+                            <span class="cs-ae__navsum" data-sum="destinations"></span>
+                            <span class="cs-ae__navflag" hidden>Needs attention</span>
+                        </button>
+                        <button type="button" class="cs-ae__navitem" data-section="schedule">
+                            <span class="cs-ae__navlabel">Schedule</span>
+                            <span class="cs-ae__navsum" data-sum="schedule"></span>
+                            <span class="cs-ae__navflag" hidden>Needs attention</span>
+                        </button>
                     </div>
-                    <div class="cs-am__field cs-am__field--full" id="csSchedTopicWrap">
-                        <label class="cs-am__label" for="csSchedTopic"><span data-kind="post">Scene</span><span data-kind="message" hidden>Topic</span></label>
-                        <textarea class="form-control" id="csSchedTopic" rows="4" placeholder="A scenic Orlando spot with a short caption"></textarea>
-                    </div>
+                </nav>
 
-                    <div class="cs-am__group" data-kind="message" hidden>
-                        <div class="cs-am__field cs-am__field--full">
-                            <div class="cs-am__label">Send to</div>
-                            <div class="cs-comp__social cs-am__chips" id="csSchedTargets"></div>
-                        </div>
-                        <div class="cs-am__field cs-am__field--toggle">
-                            <label class="cs-am__label" for="csSchedMsgAi">Write with AI</label>
-                            <div class="cs-am__toggle form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedMsgAi"></div>
-                        </div>
-                        <div class="cs-am__field cs-am__field--full" id="csSchedMsgTextWrap">
-                            <label class="cs-am__label" for="csSchedMsgText">Message</label>
-                            <textarea class="form-control" id="csSchedMsgText" rows="4" maxlength="5000" placeholder="New drop this week. Check your inbox Friday."></textarea>
-                        </div>
-                    </div>
+                <div class="cs-ae__main" id="csSchedMain">
 
-                    <div class="cs-am__group" data-kind="post">
-                        <div class="cs-am__field">
-                            <label class="cs-am__label" for="csSchedImage">Image</label>
-                            <select id="csSchedImage" class="form-select">
-                                <option value="brand">Brand photo</option>
-                                <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
-                                <option value="infl:<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                    <section class="cs-ae__section" data-section="content" aria-labelledby="csSchedH_content">
+                        <h3 class="cs-ae__h" id="csSchedH_content" tabindex="-1">Content</h3>
+                        <p class="cs-ae__sub">Define what this automation creates.</p>
+
+                        <div class="cs-ae__field">
+                            <label class="cs-ae__label" for="csSchedName">Name</label>
+                            <input type="text" class="form-control" id="csSchedName" maxlength="190" autocomplete="off" aria-describedby="csSchedErr_name">
+                            <p class="cs-ae__error" id="csSchedErr_name" role="alert" hidden></p>
                         </div>
-                        <div class="cs-am__field">
-                            <div class="cs-am__label">Shape</div>
-                            <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedShape" role="group" aria-label="Shape">
-                                <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
-                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
-                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
+
+                        <div class="cs-ae__field cs-ae__field--switch" data-kind="message" hidden>
+                            <label class="cs-ae__label" for="csSchedMsgAi">Write with AI</label>
+                            <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedMsgAi"></div>
+                        </div>
+
+                        <div class="cs-ae__field" id="csSchedTopicWrap">
+                            <label class="cs-ae__label" for="csSchedTopic"><span data-kind="post">Scene</span><span data-kind="message" hidden>Topic</span></label>
+                            <textarea class="form-control cs-ae__textarea" id="csSchedTopic" rows="5" aria-describedby="csSchedErr_topic"></textarea>
+                            <p class="cs-ae__error" id="csSchedErr_topic" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-ae__field" id="csSchedMsgTextWrap" data-kind="message" hidden>
+                            <label class="cs-ae__label" for="csSchedMsgText">Message</label>
+                            <textarea class="form-control cs-ae__textarea" id="csSchedMsgText" rows="5" maxlength="5000" aria-describedby="csSchedErr_message"></textarea>
+                            <p class="cs-ae__error" id="csSchedErr_message" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-ae__row" data-kind="post">
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedImageSourceLabel">Image source</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedImageSource" role="group" aria-labelledby="csSchedImageSourceLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"<?php echo empty($this->influencers['ready']) ? ' disabled title="Train an influencer first"' : ''; ?>><span>Influencer</span></button>
+                                </div>
+                            </div>
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedShapeLabel">Format</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedShape" role="group" aria-labelledby="csSchedShapeLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <input type="checkbox" id="csSchedBrand" checked hidden>
-                </div>
+                        <div class="cs-ae__field cs-ae__reveal" id="csSchedInfluencerWrap" data-kind="post" hidden>
+                            <label class="cs-ae__label" for="csSchedInfluencer">Influencer</label>
+                            <select id="csSchedInfluencer" class="form-select" aria-describedby="csSchedErr_influencer">
+                                <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
+                                <option value="<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="cs-ae__error" id="csSchedErr_influencer" role="alert" hidden></p>
+                        </div>
+                    </section>
 
-                <div class="cs-am__section" data-kind="post">
-                    <div class="cs-am__trio">
-                    <div class="cs-am__field">
-                        <label class="cs-am__label" for="csSchedAudience">Audience</label>
-                        <select id="csSchedAudience" class="form-select">
-                            <option value="free">Everyone</option>
-                            <option value="subscribers">All subscribers</option>
-                            <?php foreach ((array) $this->plans as $pl): ?>
-                            <option value="tier:<?php echo (int) $pl['id']; ?>"><?php echo htmlspecialchars((string) $pl['name'], ENT_QUOTES, 'UTF-8'); ?> subscribers</option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="cs-am__field">
-                        <div class="cs-am__label">AI captions</div>
-                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAiSeg" role="group" aria-label="AI captions">
-                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-ai="1"><span>Yes</span></button>
-                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-ai="0"><span>No</span></button>
-                        </div>
-                        <input type="checkbox" id="csSchedAi" checked hidden>
-                    </div>
-                    <div class="cs-am__field">
-                        <div class="cs-am__label">Allow comments</div>
-                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedCommentsSeg" role="group" aria-label="Allow comments">
-                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-on="1"><span>Yes</span></button>
-                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-on="0"><span>No</span></button>
-                        </div>
-                        <input type="checkbox" id="csSchedComments" checked hidden>
-                    </div>
-                    </div>
-                    <div class="cs-am__field cs-am__field--full" id="csSchedCaptionWrap" hidden>
-                        <label class="cs-am__label" for="csSchedCaption">Caption</label>
-                        <textarea class="form-control" id="csSchedCaption" rows="2" maxlength="5000" placeholder="Posted exactly as written with every run"></textarea>
-                    </div>
-                </div>
+                    <section class="cs-ae__section" data-section="publishing" data-kind="post" aria-labelledby="csSchedH_publishing" hidden>
+                        <h3 class="cs-ae__h" id="csSchedH_publishing" tabindex="-1">Publishing</h3>
+                        <p class="cs-ae__sub">Control who can see the content and how the post behaves.</p>
 
-                <div class="cs-am__section">
-                    <div class="cs-am__field cs-am__field--full" id="csSchedSocialRow" hidden>
-                        <div class="cs-am__label">Share to</div>
-                        <div id="csSchedSocial" class="cs-comp__social cs-am__chips"></div>
-                    </div>
-                    <div class="cs-am__field">
-                        <div class="cs-am__label">Schedule</div>
-                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedCadence" role="group" aria-label="Schedule frequency">
-                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-cad="daily"><span>Daily</span></button>
-                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-cad="weekly"><span>Weekly</span></button>
+                        <div class="cs-ae__row" id="csSchedAudienceRow">
+                            <div class="cs-ae__field">
+                                <label class="cs-ae__label" for="csSchedAudience">Audience</label>
+                                <select id="csSchedAudience" class="form-select">
+                                    <option value="free">Everyone</option>
+                                    <option value="subscribers">Subscribers</option>
+                                </select>
+                            </div>
+                            <div class="cs-ae__field cs-ae__reveal" id="csSchedTier" hidden>
+                                <label class="cs-ae__label" for="csSchedTierSel">Tier</label>
+                                <select id="csSchedTierSel" class="form-select">
+                                    <option value="">All tiers</option>
+                                    <?php foreach ((array) $this->plans as $pl): ?>
+                                    <option value="<?php echo (int) $pl['id']; ?>"><?php echo htmlspecialchars((string) $pl['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
-                    </div>
-                    <div class="cs-am__field">
-                        <label class="cs-am__label" for="csSchedTime">Time</label>
-                        <input type="time" id="csSchedTime" class="form-control" value="09:00">
-                    </div>
-                    <div class="cs-am__field cs-am__field--full" id="csSchedDaysRow" hidden>
-                        <div class="cs-sched__days" id="csSchedDays" role="group" aria-label="Days of the week"></div>
-                    </div>
+
+                        <div class="cs-ae__field cs-ae__field--switch">
+                            <label class="cs-ae__label" for="csSchedAi">AI captions</label>
+                            <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedAi" checked></div>
+                        </div>
+                        <div class="cs-ae__field cs-ae__reveal" id="csSchedCaptionWrap" hidden>
+                            <label class="cs-ae__label" for="csSchedCaption">Caption</label>
+                            <textarea class="form-control cs-ae__textarea" id="csSchedCaption" rows="3" maxlength="5000"></textarea>
+                        </div>
+
+                        <div class="cs-ae__field cs-ae__field--switch">
+                            <label class="cs-ae__label" for="csSchedComments">Allow comments</label>
+                            <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedComments" checked></div>
+                        </div>
+                    </section>
+
+                    <section class="cs-ae__section" data-section="destinations" aria-labelledby="csSchedH_destinations" hidden>
+                        <h3 class="cs-ae__h" id="csSchedH_destinations" tabindex="-1">Destinations</h3>
+                        <p class="cs-ae__sub"><span data-kind="post">Choose where this automation publishes.</span><span data-kind="message" hidden>Choose who receives the message.</span></p>
+
+                        <div data-kind="post">
+                            <div class="cs-ae__desttools">
+                                <label class="visually-hidden" for="csSchedDestSearch">Filter accounts</label>
+                                <input type="search" class="form-control cs-ae__destsearch" id="csSchedDestSearch" placeholder="Filter accounts" autocomplete="off">
+                                <span class="cs-ae__destcount" id="csSchedDestCount" aria-live="polite"></span>
+                            </div>
+                            <div class="cs-ae__destlist" id="csSchedSocial" role="group" aria-label="Connected accounts"></div>
+                            <p class="cs-ae__empty" id="csSchedDestEmpty" hidden>No connected accounts yet. Connect one in <a href="/account/settings?section=connected">Settings</a> and it will appear here.</p>
+                            <p class="cs-ae__empty" id="csSchedDestNone" hidden>No accounts match that filter.</p>
+                        </div>
+
+                        <div class="cs-ae__field" data-kind="message" hidden>
+                            <span class="cs-ae__label">Send to</span>
+                            <div class="cs-ae__targets" id="csSchedTargets"></div>
+                            <p class="cs-ae__error" id="csSchedErr_targets" role="alert" hidden></p>
+                        </div>
+                    </section>
+
+                    <section class="cs-ae__section" data-section="schedule" aria-labelledby="csSchedH_schedule" hidden>
+                        <h3 class="cs-ae__h" id="csSchedH_schedule" tabindex="-1">Schedule</h3>
+                        <p class="cs-ae__sub">Choose when this automation runs.</p>
+
+                        <div class="cs-ae__row">
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedCadenceLabel">Frequency</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedCadence" role="group" aria-labelledby="csSchedCadenceLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-cad="daily"><span>Daily</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-cad="weekly"><span>Weekly</span></button>
+                                </div>
+                            </div>
+                            <div class="cs-ae__field">
+                                <label class="cs-ae__label" for="csSchedTime">Time</label>
+                                <input type="time" id="csSchedTime" class="form-control" value="09:00">
+                            </div>
+                        </div>
+
+                        <div class="cs-ae__field cs-ae__reveal" id="csSchedDaysRow" hidden>
+                            <span class="cs-ae__label" id="csSchedDaysLabel">Days</span>
+                            <div class="cs-ae__days" id="csSchedDays" role="group" aria-labelledby="csSchedDaysLabel"></div>
+                            <p class="cs-ae__error" id="csSchedErr_days" role="alert" hidden></p>
+                        </div>
+                    </section>
+
                 </div>
             </div>
-            <div class="modal-footer cs-am__footer">
-                <button type="button" class="btn cs-am__btn cs-am__btn--ghost" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary cs-am__btn" id="csSchedSave">Save automation</button>
-            </div>
+
+            <footer class="cs-ae__footer">
+                <button type="button" class="cs-ae__delete" id="csSchedDelete" hidden>Delete automation</button>
+                <div class="cs-ae__actions">
+                    <button type="button" class="btn cs-ae__btn cs-ae__btn--ghost" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary cs-ae__btn" id="csSchedSave">Save changes</button>
+                </div>
+            </footer>
         </div>
     </div>
 </div>
