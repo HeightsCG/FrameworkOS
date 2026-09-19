@@ -28,6 +28,16 @@ class AiCreditsModel extends Model {
         );
     }
 
+    /** Credits spent on runs since $since (UTC), net of refunds. */
+    public function spent_since($user_id, $since){
+        $rows = parent::select(
+            "SELECT COALESCE(SUM(credits), 0) AS n FROM ai_credit_transactions
+             WHERE user_id = :u AND type IN ('spend', 'refund') AND created_at >= :s",
+            array('u' => (int) $user_id, 's' => (string) $since)
+        );
+        return max(0, -(int) ((is_array($rows) && count($rows)) ? $rows[0]['n'] : 0));
+    }
+
     /** Credit a completed purchase, idempotent by Stripe PaymentIntent id. Returns the new balance. */
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'AI credit purchase'){
         $existing = parent::select(

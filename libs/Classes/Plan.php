@@ -247,6 +247,7 @@ class Plan {
         }
         return array('tier' => $tier, 'tier_name' => self::tier_name($user), 'period_start' => $start, 'period_end' => $end,
             'period_key' => substr($start, 0, 10), 'ai_credit_balance' => (int) (new AiCreditsModel())->get_balance($uid),
+            'ai_credit_spent' => (int) (new AiCreditsModel())->spent_since($uid, $start),
             'ai_prices' => PlanTiers::AI_PRICES, 'rows' => $rows);
     }
 }

@@ -42,8 +42,8 @@
 .usage__row--over .usage__fill{background:var(--warning);}
 .usage__row--over .usage__val b{color:var(--warning);}
 .usage__row--text .usage__text{font-size:.85rem; color:var(--t2);}
-.usage__link{margin-left:.6rem; font-weight:500; color:var(--violet7);}
-.usage__link:hover{text-decoration:underline;}
+.app-shell a.usage__link{margin-left:.6rem; font-weight:500; color:var(--violet7); text-decoration:none;}
+.app-shell a.usage__link:hover{text-decoration:underline;}
 
 /* plan grid */
 .plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.1rem; align-items:stretch;}
@@ -85,7 +85,7 @@
 .pack__p{font-size:.85rem; font-weight:600; color:var(--violet7); margin-top:.25rem;}
 .packs__note{margin:.8rem 0 1rem; font-size:.8rem; color:var(--muted);}
 .billing__loading{display:flex; justify-content:center; padding:1.2rem 0;}
-.invoices__num{text-align:right; font-variant-numeric:tabular-nums;}
+.invoices th.invoices__num,.invoices td.invoices__num{text-align:right; font-variant-numeric:tabular-nums;}
 .invoices__num.is-pos{color:var(--success);}
 .invoices__num.is-neg{color:var(--t2);}
 

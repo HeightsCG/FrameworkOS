@@ -232,11 +232,11 @@ $(function () {
         <div class="usage">
             <?php foreach ($usage['rows'] as $r): ?>
             <?php if ($r['kind'] === 'credits'): ?>
-            <?php $bal = (int) $usage['ai_credit_balance']; $pct = $grant_n > 0 ? min(100, round($bal / $grant_n * 100)) : 0; ?>
+            <?php $bal = (int) $usage['ai_credit_balance']; $spent = (int) $usage['ai_credit_spent']; $pct = $grant_n > 0 ? min(100, round($spent / $grant_n * 100)) : 0; ?>
             <div class="usage__row">
                 <span class="usage__label"><?php echo $e($r['label']); ?></span>
                 <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
-                <span class="usage__val"><b><?php echo number_format($bal); ?></b> of <?php echo number_format($grant_n); ?> <a href="#" class="usage__link" id="buy_credits">Buy credits</a></span>
+                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?> used &middot; <?php echo number_format($bal); ?> left <a href="#" class="usage__link" id="buy_credits">Buy credits</a></span>
             </div>
             <?php elseif ($r['kind'] === 'percent'): ?>
             <div class="usage__row usage__row--text">
