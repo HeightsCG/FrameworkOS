@@ -497,7 +497,7 @@
                             <button type="button" class="cs-seg__opt" aria-pressed="false" data-aud="subscribers"><span>Subscribers</span></button>
                         </div>
                     </div>
-                    <div class="cs-am__field cs-am__field--start">
+                    <div class="cs-am__field">
                         <div class="cs-am__label">AI captions</div>
                         <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAiSeg" role="group" aria-label="AI captions">
                             <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-ai="1"><span>Yes</span></button>
