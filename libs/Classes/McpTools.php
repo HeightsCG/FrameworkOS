@@ -68,6 +68,7 @@ class McpTools {
         $t[] = array('name' => 'list_media',    'description' => 'List media library assets.', 'inputSchema' => $limit);
         $t[] = array('name' => 'get_media',     'description' => 'Get one media asset.', 'inputSchema' => $id);
         $t[] = array('name' => 'storage_usage', 'description' => 'Total media storage bytes and asset count.', 'inputSchema' => $none);
+        $t[] = array('name' => 'get_plan_usage', 'description' => 'The account\'s plan tier, billing period, AI credit balance and what is in use against each plan limit (seats, influencers, automations, storage).', 'inputSchema' => $none);
         $t[] = array('name' => 'set_media_description', 'description' => 'Set a media asset\'s description.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'description'),
             'properties' => array('id' => array('type' => 'integer'), 'description' => array('type' => 'string'))));
@@ -439,6 +440,7 @@ class McpTools {
             case 'list_media':   return array('media' => array_slice((array) (new MediaAssetsModel())->get_for_creator($cid, array()), 0, self::lim($a, 25)));
             case 'get_media':    return self::need((new MediaAssetsModel())->get_one($cid, $iid), 'Media not found');
             case 'storage_usage':return array('bytes' => (int) (new MediaAssetsModel())->total_bytes($cid), 'count' => (int) (new MediaAssetsModel())->count_for_creator($cid));
+            case 'get_plan_usage': return Plan::usage(self::user($cid));
             case 'set_media_description': return $ok((new MediaAssetsModel())->set_description($cid, $iid, (string) ($a['description'] ?? '')));
             case 'delete_media': return $ok((new MediaAssetsModel())->soft_delete($cid, $iid));
 
@@ -505,6 +507,8 @@ class McpTools {
                 if (trim((string) ($a['name'] ?? '')) === '' || trim((string) ($a['topic'] ?? '')) === '') {
                     throw new InvalidArgumentException('name and topic are required');
                 }
+                $cap = Plan::check_count(self::user($cid), 'automations', (new SchedulerRulesModel())->count_for_creator($cid));
+                if (empty($cap['ok'])) { throw new RuntimeException($cap['message'] . ' Upgrade at /account/billing.'); }
                 return array('id' => (int) (new SchedulerRulesModel())->create($cid, $a));
             }
             case 'update_automation':     return $ok((new SchedulerRulesModel())->update_rule($cid, $iid, $a));
@@ -718,8 +722,9 @@ class McpTools {
         return $r[0];
     }
 
+    /** Every feature is on every plan; the only gate is having an active plan. */
     private static function requirePlan($cid, $capability, $message){
-        if (!Plan::can(self::user($cid), $capability)) { throw new RuntimeException($message); }
+        if (!Plan::can_use_creator_features(self::user($cid))) { throw new RuntimeException('This needs an active plan. Choose one at /account/billing.'); }
     }
 
     private static function planFields($a, $row){

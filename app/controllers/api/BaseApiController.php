@@ -131,13 +131,9 @@ class BaseApiController extends Controller {
 
     // ---- Inbox automation (Settings > Inbox Automation) -------------------------------
 
-    /** Owner account for inbox automation: Manager+, active plan, and the inbox_automation tier flag. */
+    /** Owner account for inbox automation: Manager+ with an active plan (included on every plan). */
     protected function inbox_user(): array{
-        $user = $this->require_creator('manage');
-        if (!Plan::can($user, 'inbox_automation')) {
-            $this->jsonError('AI inbox replies are included in Pro and Studio plans.', ['need_plan' => true]);
-        }
-        return $user;
+        return $this->require_creator('manage');
     }
 
     // ---- Fanvue welcome & trigger messages (Fanvue is the source of truth) --------------
@@ -154,4 +150,9 @@ class BaseApiController extends Controller {
         return $token;
     }
 
+    /** Answer a Plan::check_count() refusal: message + need_plan/need_upgrade so the UI can link to billing. */
+    protected function limitError(array $r): void {
+        $extra = array_intersect_key($r, array_flip(['need_plan', 'need_upgrade', 'limit', 'used']));
+        $this->jsonError((string) ($r['message'] ?? 'Plan limit reached'), $extra);
+    }
 }

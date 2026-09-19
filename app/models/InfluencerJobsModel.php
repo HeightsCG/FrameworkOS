@@ -31,6 +31,7 @@ class InfluencerJobsModel extends Model {
             'input_asset_id'  => isset($f['input_asset_id']) ? (int) $f['input_asset_id'] : null,
             'model_id'        => isset($f['model_id']) ? (int) $f['model_id'] : null,
             'result_model_id' => isset($f['result_model_id']) ? (int) $f['result_model_id'] : null,
+            'credits_charged' => max(0, (int) ($f['credits_charged'] ?? 0)),
             'created_at'      => $now,
             'updated_at'      => $now,
         ));

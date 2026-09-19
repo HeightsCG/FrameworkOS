@@ -223,9 +223,9 @@ class ApiCreatorStudioController extends BaseApiController {
         }
 
         // Free trial — an explicit toggle plus the value & unit (day/week/month) the
-        // creator actually picked, stored as-is. A Pro+ feature, forced off on free
-        // tiers or lower plans. The day-count Stripe needs is derived only at checkout.
-        $trial_enabled = !empty($this->post['trial_enabled']) && Plan::can($user, 'trials') && $price_cents > 0;
+        // creator actually picked, stored as-is; forced off on free tiers. The
+        // day-count Stripe needs is derived only at checkout.
+        $trial_enabled = !empty($this->post['trial_enabled']) && $price_cents > 0;
         $trial_unit    = (string) ($this->post['trial_unit'] ?? 'day');
         if (!in_array($trial_unit, ['day', 'week', 'month'], true)) { $trial_unit = 'day'; }
         $trial_value   = $trial_enabled ? max(1, min(365, (int) ($this->post['trial_value'] ?? 1))) : 0;
@@ -291,12 +291,9 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /* ---------- Discount / promo codes (Pro+ monetization) ---------- */
 
-    /** Create or edit a discount code. Pro+ only. */
+    /** Create or edit a discount code. */
     public function save_promo_codeAction(){
         $user = $this->require_creator('manage');
-        if (!Plan::can($user, 'promo_codes')) {
-            $this->jsonError('Discount codes are available on Pro and Studio plans.', ['need_upgrade' => true]);
-        }
         $user_id = (int) $user['user_id'];
         $id      = (int) ($this->post['id'] ?? 0);
 
@@ -365,12 +362,9 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /* ---------- Content Studio: media vault ---------- */
 
-    /** Create or update a content bundle (Pro+). Only the creator's own published PPV posts may be grouped. */
+    /** Create or update a content bundle. Only the creator's own published PPV posts may be grouped. */
     public function save_bundleAction(){
         $user = $this->require_creator('manage');
-        if (!Plan::can($user, 'bundles')) {
-            $this->jsonError('Content bundles are available on Pro and Studio plans.', ['need_upgrade' => true]);
-        }
         $user_id = (int) $user['user_id'];
         $id      = (int) ($this->post['id'] ?? 0);
 
@@ -451,9 +445,6 @@ class ApiCreatorStudioController extends BaseApiController {
         if (is_string($targets)) { $targets = json_decode(html_entity_decode($targets, ENT_QUOTES, 'UTF-8'), true) ?: []; }
         if ($name === '')  { $this->jsonError('Give your automation a name.'); }
         if ($kind === 'message') {
-            if (!Plan::can($user, 'inbox_automation')) {
-                $this->jsonError('Scheduled messages are included in Pro and Studio plans.', ['need_plan' => true]);
-            }
             $t = SchedulerRulesModel::targets(['message_targets' => json_encode((array) $targets)]);
             if (empty($t['fanvue']) && $t['cls'] === '') { $this->jsonError('Pick who receives the message.'); }
             if ($msg_ai && $topic === '')   { $this->jsonError('Tell the AI what the message is about (the topic).'); }
@@ -502,6 +493,8 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($id > 0 && $model->get_one($creator_id, $id)) {
             $model->update_rule($creator_id, $id, $fields);
         } else {
+            $cap = Plan::check_count($user, 'automations', $model->count_for_creator($creator_id));
+            if (empty($cap['ok'])) { $this->limitError($cap); }
             $id = (int) $model->create($creator_id, $fields);
         }
         $this->jsonSuccess(['message' => 'Automation saved', 'id' => $id]);

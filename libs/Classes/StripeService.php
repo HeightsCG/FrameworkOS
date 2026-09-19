@@ -487,6 +487,29 @@ class StripeService {
     }
 
     /** Schedule (or undo) cancellation of a subscription at period end, on the connected account. */
+    /**
+     * Move a PLATFORM subscription to another price (upgrade/downgrade). The prorated
+     * difference is invoiced right away (an upgrade charges the card now; a downgrade
+     * leaves a credit for the next invoice). Billing anchor unchanged so the billing
+     * period (and the monthly AI credit grant) stays put. Throws on Stripe errors so the
+     * caller can tell a declined card from anything else.
+     */
+    public static function change_subscription_price($subscription_id, $price_id)
+    {
+        $client = self::client();
+        $sub    = $client->subscriptions->retrieve($subscription_id, array('expand' => array('items.data')));
+        $item   = $sub->items->data[0] ?? null;
+        if (!$item) { throw new RuntimeException('Subscription has no items'); }
+        return $client->subscriptions->update($subscription_id, array(
+            'items'                => array(array('id' => $item->id, 'price' => (string) $price_id)),
+            'proration_behavior'   => 'always_invoice',
+            'billing_cycle_anchor' => 'unchanged',
+            'cancel_at_period_end' => false,
+            'payment_behavior'     => 'error_if_incomplete',
+            'expand'               => array('items.data'),
+        ));
+    }
+
     public static function set_subscription_cancel_at_period_end($account_id, $subscription_id, $cancel): bool
     {
         try {

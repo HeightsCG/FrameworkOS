@@ -13,7 +13,7 @@ class MessageBlastService {
 
     public static function run_rule(array $rule, array $user){
         try {
-            if (!Plan::can_use_creator_features($user) || !Plan::can($user, 'inbox_automation')) {
+            if (!Plan::can_use_creator_features($user)) {
                 return self::fail('Your plan does not include scheduled messages.');
             }
             $targets = SchedulerRulesModel::targets($rule);

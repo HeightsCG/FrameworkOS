@@ -659,10 +659,9 @@
                     <div class="settings__upgrade">
                         <i class="fa-solid fa-lock settings__upgrade-icon"></i>
                         <div>
-                            <div class="settings__upgrade-title">AI inbox replies are included in Pro and Studio</div>
-                            <p class="settings__upgrade-text">Upgrade to let Claude draft and send replies to your fans, with quiet hours, an approval queue and your own guardrails.</p>
+                            <div class="settings__upgrade-title">Managed by the account owner</div>
+                            <p class="settings__upgrade-text">Inbox automation is set up by the owner or a manager on this account.</p>
                         </div>
-                        <a href="/account/billing" class="btn btn-primary">View plans</a>
                     </div>
                 <?php else: ?>
                 <?php $is = $this->inbox_settings; $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>

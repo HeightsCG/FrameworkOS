@@ -113,7 +113,7 @@ class InboxAutomationService {
 
         $settings = (new InboxSettingsModel())->get_for_creator($creator_id);
         if (empty($settings['cls_enabled']))                      { return self::skip('disabled'); }
-        if (!Plan::can_use_creator_features($owner) || !Plan::can($owner, 'inbox_automation')) { return self::skip('plan'); }
+        if (!Plan::can_use_creator_features($owner))                 { return self::skip('plan'); }
         if ($text === '')                                         { return self::skip('no_text'); }
         if ((new BlocksModel())->is_blocked($creator_id, $fan_id)) { return self::skip('blocked'); }
 
@@ -201,7 +201,7 @@ class InboxAutomationService {
 
         // --- guards (cheap → expensive) -------------------------------------------
         if (empty($settings['fanvue_enabled']))                     { return self::skip('disabled'); }
-        if (!Plan::can_use_creator_features($owner) || !Plan::can($owner, 'inbox_automation')) { return self::skip('plan'); }
+        if (!Plan::can_use_creator_features($owner))                 { return self::skip('plan'); }
         if ($fan_uuid === '')                                       { return self::skip('no_fan'); }
         if (($d['sender'] ?? '') !== 'fan')                         { return self::skip('not_fan'); }
         if (!empty($d['is_automated']))                             { return self::skip('automated'); }

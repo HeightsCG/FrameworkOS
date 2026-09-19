@@ -90,6 +90,12 @@ class SchedulerRulesModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** All rules, post + message, active or not: what the list shows is what counts against the plan. */
+    public function count_for_creator($creator_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM scheduler_rules WHERE creator_id = :c", array('c' => (int) $creator_id));
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
+    }
+
     public function list_for_creator($creator_id){
         return parent::select("SELECT * FROM scheduler_rules WHERE creator_id = :c ORDER BY created_at DESC",
             array('c' => (int) $creator_id));

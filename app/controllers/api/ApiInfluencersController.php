@@ -8,12 +8,9 @@
 class ApiInfluencersController extends BaseApiController {
 
     /** Creator gate + ai_tools plan flag. */
+    /** Owner row for influencer actions: content role + an active plan (require_creator checks both). */
     private function ai_user(){
-        $user = $this->require_creator('content');
-        if (!Plan::can($user, 'ai_tools')) {
-            $this->jsonError('AI influencers are available on Pro and Studio plans.', ['need_upgrade' => true]);
-        }
-        return $user;
+        return $this->require_creator('content');
     }
 
     private function text($key, $max = 5000){
@@ -30,7 +27,7 @@ class ApiInfluencersController extends BaseApiController {
     /** Answer with a shared-service result: error -> jsonError (with need_* flags), ok -> jsonSuccess(payload). */
     private function answer(array $r){
         if (empty($r['ok'])) {
-            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan']));
+            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'need_credits', 'price', 'balance']));
             $this->jsonError((string) $r['error'], $extra);
         }
         unset($r['ok'], $r['error']);
@@ -202,7 +199,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_job_retryAction(){
         $user = $this->ai_user();
         $r = InfluencerJobService::retry((int) $user['user_id'], (int) ($this->post['job_id'] ?? 0));
-        if (empty($r['ok'])) { $this->jsonError((string) $r['error']); }
+        if (empty($r['ok'])) { $this->jsonError((string) $r['error'], array_intersect_key($r, array_flip(['need_credits']))); }
         $this->jsonSuccess(['job_id' => (int) $r['job_id']]);
     }
 

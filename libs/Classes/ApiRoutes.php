@@ -18,6 +18,7 @@ class ApiRoutes {
         ],
         'ApiBillingController' => [
             'create_subscription', 'abandon_subscription', 'sync_subscription', 'cancel_subscription', 'resume_subscription', 'cancel_now_subscription',
+            'change_subscription', 'buy_ai_credits', 'confirm_ai_credit_purchase',
             'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
             'disconnect_payout_account',
         ],

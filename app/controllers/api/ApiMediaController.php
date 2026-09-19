@@ -51,10 +51,6 @@ class ApiMediaController extends BaseApiController {
     public function media_generateAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
-        // AI image generation is a Pro+ tier feature.
-        if (!Plan::can($user, 'ai_tools')) {
-            $this->jsonError('AI image generation is available on Pro and Studio plans.', ['need_upgrade' => true]);
-        }
         if (!S3Service::configured()) {
             $this->jsonError('Image generation is unavailable right now. Please try again shortly.');
         }

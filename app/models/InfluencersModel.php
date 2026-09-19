@@ -44,6 +44,12 @@ class InfluencersModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** Every non-deleted influencer counts against the plan (draft, training, ready or failed). */
+    public function count_for_creator($creator_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM influencers WHERE creator_id = :c AND deleted_at IS NULL", array('c' => (int) $creator_id));
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
+    }
+
     public function list_for_creator($creator_id){
         return (array) parent::select(
             "SELECT * FROM influencers WHERE creator_id = :c AND deleted_at IS NULL ORDER BY created_at DESC, id DESC",

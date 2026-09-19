@@ -17,7 +17,10 @@ jQuery(function ($) {
     }
 
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
-    function err(o, fallback) { toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.'); }
+    function err(o, fallback) {
+        if (o && (o.need_credits || o.need_upgrade || o.need_plan)) { return; }   // ApiDataSvc already showed the billing toast
+        toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
+    }
     function api(endpoint, body, cb) {
         ApiDataSvc.apiCall('post', endpoint, body, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) {}
@@ -25,6 +28,13 @@ jQuery(function ($) {
         });
     }
     function money(n) { return '$' + (Math.round((n || 0) * 100) / 100).toFixed(2); }
+    /* "3 credits · 27 left" for a run that costs n credits; the balance comes from the page config and is kept current after each run */
+    function credits_text(n) {
+        var left = parseInt(C.ai_credits, 10) || 0;
+        return n + ' credit' + (n === 1 ? '' : 's') + ' \u00b7 ' + left + ' left';
+    }
+    function spend_credits(n) { C.ai_credits = Math.max(0, (parseInt(C.ai_credits, 10) || 0) - n); }
+    function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }
 
     /* shared: poll one job until it is terminal; human status text */
     function poll_job(job_id, on_update, on_done) {
@@ -328,7 +338,7 @@ jQuery(function ($) {
             $('#inf_count_bar').css('width', Math.min(100, n / min * 100) + '%').toggleClass('is-met', n >= min);
             $('#inf_count_txt').text(n >= min ? (n + ' of ' + max + ' max') : (n + ' of ' + min + ' minimum'));
             $('#inf_photos_train').prop('disabled', n < min || upload_active > 0 || !C.enabled);
-            $('#inf_photos_cost').text(n >= min ? money(C.training_cost_usd) + ' to train' : '');
+            $('#inf_photos_cost').text(n >= min ? 'Training is included in your plan' : '');
             $('#inf_drop').toggleClass('is-full', n >= max);
         }
         function upload_start(file) {
@@ -583,7 +593,7 @@ jQuery(function ($) {
             var retrain = inf.active_model_id > 0;
             var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' : 'Train ') + esc(inf.name) + '</h2>' +
                 '<p class="inf-wiz__p">' + (retrain ? 'Her current model keeps working until the new one finishes. ' : '') + 'Training takes a few minutes and runs once; afterwards she generates on demand.</p>' +
-                '<div class="inf-summary"><span><strong id="inf_rev_n">…</strong> images</span><span><strong>' + money(C.training_cost_usd) + '</strong> estimated</span><span><strong>' + esc(LIM.steps) + '</strong> steps</span></div>' +
+                '<div class="inf-summary"><span><strong id="inf_rev_n">…</strong> images</span><span><strong>Included</strong> in your plan</span><span><strong>' + esc(LIM.steps) + '</strong> steps</span></div>' +
                 '<div class="inf-photos inf-photos--sm" id="inf_rev_grid"></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_rev_back">Back</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_rev_go" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
@@ -647,9 +657,8 @@ jQuery(function ($) {
         function model_key() { return $('#inf_model .inf-opt.is-on').data('key') || ''; }
         function model_label(key) { var m = (C.pickers.image || []).filter(function (o) { return o.key === key; })[0]; return m ? m.label : key; }
         function cost() {
-            var m = (C.pickers.image || []).filter(function (o) { return o.key === model_key(); })[0];
             var n = parseInt(seg_val('inf_n'), 10) || 1;
-            $('#inf_gen_cost').text(m ? money(m.price_usd * n) + ' estimated' : '');
+            $('#inf_gen_cost').text(credits_text(price_of('image', n)));
         }
 
         $('#inf_who').on('change', function () { window.location = '/influencers/images/' + this.value; });
@@ -678,6 +687,7 @@ jQuery(function ($) {
             busy('Sending');
             api('influencer_generate_image', body, function (o) {
                 if (!o || !o.success) { err(o); $('#inf_gen_go, #inf_res_again').prop('disabled', false); show_current(); return; }
+                spend_credits(price_of('image', parseInt(body.num_images, 10) || 1)); cost();
                 jobs.unshift(o.job); render_strip();
                 watch(o.job.id);
             });
@@ -774,6 +784,7 @@ jQuery(function ($) {
             api('influencer_enhance', { id: inf.id, asset_id: current.asset.id }, function (o) {
                 $b.prop('disabled', false);
                 if (!o || !o.success) { err(o); return; }
+                spend_credits(price_of('enhance', 1)); cost();
                 jobs.unshift(o.job); render_strip(); watch(o.job.id);
             });
         });
@@ -801,7 +812,7 @@ jQuery(function ($) {
             $('#inf_vdur .inf-seg__opt.is-on').attr('aria-pressed', 'true');
             cost();
         }
-        function cost() { var m = model_opt(model_key()); var d = parseInt(seg_val('inf_vdur'), 10) || 5; $('#inf_vcost').text(m ? money(m.price_usd * d) + ' estimated' : ''); }
+        function cost() { $('#inf_vcost').text(credits_text(price_of('video', 1))); }
         $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
         $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });
@@ -877,6 +888,7 @@ jQuery(function ($) {
             busy('Sending');
             api('influencer_generate_video', { id: inf.id, asset_id: still, prompt: $('#inf_vprompt').val().trim(), model_key: model_key(), duration: seg_val('inf_vdur'), level: seg_val('inf_vlevel') }, function (o) {
                 if (!o || !o.success) { err(o); $b.prop('disabled', false); show_current(); return; }
+                spend_credits(price_of('video', 1)); cost();
                 jobs.unshift(o.job); render_strip(); watch(o.job.id);
             });
         });

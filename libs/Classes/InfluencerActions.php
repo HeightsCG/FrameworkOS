@@ -25,6 +25,8 @@ class InfluencerActions {
         $path = ($path === 'reference') ? 'reference' : 'photos';
         if ($name === '') { return self::fail('Give her a name.'); }
         $m = new InfluencersModel();
+        $cap = Plan::check_count(InfluencerJobService::user($cid), 'influencers', $m->count_for_creator($cid));
+        if (empty($cap['ok'])) { return self::fail($cap['message'], array_intersect_key($cap, array_flip(array('need_plan', 'need_upgrade', 'limit', 'used')))); }
         if ($m->name_taken($cid, $name)) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $id = $m->create($cid, $name, $path, 0);
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }
@@ -320,10 +322,14 @@ class InfluencerActions {
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
         $params = array('image_size' => $size, 'num_images' => $n, 'level' => $level, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
             'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0));
-        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
-            'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'], 'prompt' => $prompt,
-            'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'seed' => $seed > 0 ? $seed : null, 'params' => $params,
-        ));
+        try {
+            $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
+                'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'], 'prompt' => $prompt,
+                'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'seed' => $seed > 0 ? $seed : null, 'params' => $params,
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
         if ($job_id <= 0) { return self::fail('Could not start the run.'); }
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id)), 'trigger_word' => $trigger));
     }
@@ -344,11 +350,15 @@ class InfluencerActions {
         $dur  = (string) ($in['duration'] ?? ($durs[0] ?? '5'));
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
         $level = (($in['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
-        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
-            'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
-            'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'input_asset_id' => $aid,
-            'params' => array('duration' => $dur, 'level' => $level, 'user_prompt' => $user_prompt),
-        ));
+        try {
+            $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
+                'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
+                'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'input_asset_id' => $aid,
+                'params' => array('duration' => $dur, 'level' => $level, 'user_prompt' => $user_prompt),
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
         if ($job_id <= 0) { return self::fail('Could not start the video.'); }
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))));
     }
@@ -365,10 +375,14 @@ class InfluencerActions {
         if (!$mk) { return self::fail('No enhance model is configured.'); }
         $src_prompt = '';   // the prompt that produced the source rides along; nothing else is added
         if (!empty($link['job_id'])) { $sj = (new InfluencerJobsModel())->get_one($cid, (int) $link['job_id']); $src_prompt = $sj ? (string) $sj['prompt'] : ''; }
-        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'enhance', array(
-            'origin' => $origin, 'model_key' => (string) $mk['key'], 'prompt' => $src_prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-            'input_asset_id' => $aid, 'params' => array('level' => ($level === 'spicy') ? 'spicy' : 'safe', 'num_images' => 1),
-        ));
+        try {
+            $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'enhance', array(
+                'origin' => $origin, 'model_key' => (string) $mk['key'], 'prompt' => $src_prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
+                'input_asset_id' => $aid, 'params' => array('level' => ($level === 'spicy') ? 'spicy' : 'safe', 'num_images' => 1),
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
         if ($job_id <= 0) { return self::fail('Could not start the enhancement.'); }
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))));
     }

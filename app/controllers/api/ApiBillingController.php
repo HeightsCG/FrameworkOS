@@ -17,6 +17,12 @@ class ApiBillingController extends BaseApiController {
             $user_id = (int) Session::get('user_id');
             $user    = $this->userModel->get_user_by_id($user_id)[0];
 
+            // A live plan is changed with change_subscription (prorated); a second
+            // subscription here would bill twice.
+            if (!empty($user['stripe_subscription_id']) && in_array((string) ($user['subscription_status'] ?? ''), ['active', 'trialing', 'past_due'], true)) {
+                $this->jsonError('You already have a plan. Use Change plan instead.');
+            }
+
             $customer_id = $user['stripe_customer_id'] ?? '';
             if (empty($customer_id)) {
                 $customer = $stripe->customers->create([
@@ -81,6 +87,123 @@ class ApiBillingController extends BaseApiController {
         } catch (\Throwable $e) {
             error_log('[stripe] create_subscription: ' . $e->getMessage());
             $this->jsonError('Could not start the subscription. Please try again.');
+        }
+    }
+
+    /** Upgrade or downgrade the live platform plan in place (prorated, same renewal date). */
+    public function change_subscriptionAction(){
+
+        if (empty(Session::get('user_id'))) {
+            $this->jsonError('Not authorized');
+        }
+
+        $price_id = trim((string) ($this->post['price_id'] ?? ''));
+        if ($price_id === '') {
+            $this->jsonError('Please choose a plan');
+        }
+
+        $user_id = (int) Session::get('user_id');
+        $user    = $this->userModel->get_user_by_id($user_id)[0];
+        $sub_id  = (string) ($user['stripe_subscription_id'] ?? '');
+        $status  = (string) ($user['subscription_status'] ?? '');
+
+        if ($sub_id === '' || !in_array($status, ['active', 'trialing'], true)) {
+            $this->jsonError($status === 'past_due' ? 'Update your payment method before changing plans.' : 'You don\'t have a plan to change. Choose a plan first.');
+        }
+        if ($price_id === (string) ($user['stripe_price_id'] ?? '')) {
+            $this->jsonError('That is already your plan.');
+        }
+        $known = false;
+        foreach (StripeService::get_plans() as $p) {
+            if ($p['price_id'] === $price_id) { $known = true; break; }
+        }
+        if (!$known) {
+            $this->jsonError('That plan is not available.');
+        }
+
+        try {
+            $sub = StripeService::change_subscription_price($sub_id, $price_id);
+        } catch (\Stripe\Exception\CardException $e) {
+            error_log('[stripe] change_subscription card: ' . $e->getMessage());
+            $this->jsonError('We couldn\'t charge your card for the upgrade. Update your payment method and try again.');
+        } catch (\Throwable $e) {
+            error_log('[stripe] change_subscription: ' . $e->getMessage());
+            $this->jsonError('Could not change the plan. Please try again.');
+        }
+
+        $period_end = $sub->items->data[0]->current_period_end ?? null;
+        $this->billingModel->save_subscription($user_id, $sub->id, $price_id, $sub->status, $period_end, $sub->cancel_at_period_end ? 1 : 0);
+
+        // Moving up mid-period: top the balance up to the new plan's monthly credits right away.
+        $fresh = $this->userModel->get_user_by_id($user_id)[0];
+        $old_n = (int) (PlanTiers::get((string) ($user['plan_tier'] ?? ''))['limits']['ai_credits'] ?? 0);
+        $new_n = (int) Plan::limit($fresh, 'ai_credits');
+        if ($new_n > $old_n && (string) ($fresh['ai_credit_grant_period'] ?? '') === Plan::period_key($fresh)) {
+            (new AiCreditsModel())->apply_delta($user_id, $new_n - $old_n, 'plan_grant', Plan::tier_name($fresh) . ' plan: ' . ($new_n - $old_n) . ' extra AI credits for this period');
+        }
+
+        $this->jsonSuccess(['message' => 'Your plan is now ' . Plan::tier_name($fresh), 'tier' => Plan::tier($fresh)]);
+    }
+
+    /* ---------- AI credits ($1 = 1 credit) ---------- */
+
+    public function buy_ai_creditsAction(){
+        $user    = $this->require_creator('owner');
+        $dollars = (int) ($this->post['dollars'] ?? 0);
+        if (!in_array($dollars, PlanTiers::AI_PACKS, true)) {
+            $this->jsonError('Choose a valid credit pack');
+        }
+
+        try {
+            $stripe = StripeService::client();
+            list($user, $customer_id) = $this->ensure_stripe_customer($stripe);
+            $cents  = $dollars * 100;
+            $intent = $stripe->paymentIntents->create([
+                'amount'                    => $cents,
+                'currency'                  => 'usd',
+                'customer'                  => $customer_id,
+                'automatic_payment_methods' => ['enabled' => true],
+                'description'               => $dollars . ' AI credits',
+                'metadata'                  => [
+                    'user_id' => (string) $user['user_id'],
+                    'credits' => (string) $dollars,
+                    'type'    => 'ai_credit_purchase',
+                ],
+            ]);
+            $this->jsonSuccess(['client_secret' => $intent->client_secret, 'credits' => $dollars, 'total_cents' => $cents, 'message' => 'Payment ready']);
+        } catch (\Throwable $e) {
+            error_log('[stripe] buy_ai_credits: ' . $e->getMessage());
+            $this->jsonError('Could not start the purchase. Please try again.');
+        }
+    }
+
+    public function confirm_ai_credit_purchaseAction(){
+        $user  = $this->require_creator('owner');
+        $pi_id = (string) ($this->post['payment_intent_id'] ?? '');
+        if ($pi_id === '') {
+            $this->jsonError('Payment reference is required');
+        }
+
+        try {
+            $user_id = (int) $user['user_id'];
+            $intent  = StripeService::client()->paymentIntents->retrieve($pi_id);
+
+            if ((string) ($intent->metadata['type'] ?? '') !== 'ai_credit_purchase'
+                || (int) ($intent->metadata['user_id'] ?? 0) !== $user_id
+                || (string) $intent->customer !== (string) ($user['stripe_customer_id'] ?? '')) {
+                $this->jsonError('This payment could not be verified');
+            }
+            if ($intent->status !== 'succeeded') {
+                $this->jsonError('Payment has not completed yet');
+            }
+
+            $credits = (int) ($intent->metadata['credits'] ?? 0);
+            $balance = (new AiCreditsModel())->credit_purchase($user_id, $credits, $intent->id, 'Bought ' . $credits . ' AI credits');
+            $this->jsonSuccess(['balance' => (int) $balance, 'message' => $credits . ' AI credits added']);
+
+        } catch (\Throwable $e) {
+            error_log('[stripe] confirm_ai_credit_purchase: ' . $e->getMessage());
+            $this->jsonError('Could not confirm the purchase');
         }
     }
 
@@ -447,7 +570,7 @@ class ApiBillingController extends BaseApiController {
     /* ---------- Social publishing (Post for Me) ---------- */
 
     /** Ensure the logged-in user has a Stripe customer; returns [user, customer_id]. */
-    private function ensure_stripe_customer($stripe): string{
+    private function ensure_stripe_customer($stripe): array{
         $user_id     = (int) Session::get('user_id');
         $user        = $this->userModel->get_user_by_id($user_id)[0];
         $customer_id = $user['stripe_customer_id'] ?? '';

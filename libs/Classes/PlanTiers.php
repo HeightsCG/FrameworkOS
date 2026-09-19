@@ -1,18 +1,41 @@
 <?php
 /**
  * Canonical definition of the platform plan tiers — the SINGLE source of truth
- * for what each plan includes. Everything (limits, feature flags, and the copy
- * shown on the billing page) lives here in code; NOTHING is read from Stripe
- * metadata. A Stripe plan is matched to a tier purely by its product NAME
- * (see match()), so Stripe only owns pricing, not product semantics.
+ * for what each plan includes (docs/pricing-model.md). Everything lives here in
+ * code; NOTHING is read from Stripe metadata. A Stripe plan is matched to a tier
+ * purely by its product NAME (see match()), so Stripe only owns pricing.
  *
- * Enforcement reads these via the Plan class: Plan::tier(), Plan::can(),
- * Plan::limit(). The billing page renders the `features` bullets.
+ * Six things differ between tiers (ROWS); everything else the platform does is
+ * included on every plan (INCLUDED). Enforcement reads these via Plan::limit(),
+ * Plan::check_count() and the AI-credit charge in InfluencerJobService.
  *
- *   limits.socials/sub_tiers/etc: 0 means "unlimited".
+ *   limits.*: 0 means "unlimited".
  *   limits.fee_percent: the platform's take rate for this tier.
+ *   limits.ai_credits: AI credits added to the account every billing date.
  */
 class PlanTiers {
+
+    /** The comparison rows, in billing-page order. kind drives formatting + usage source. */
+    const ROWS = array(
+        array('key' => 'fee_percent', 'label' => 'Platform take rate',    'noun' => '',                 'kind' => 'percent'),
+        array('key' => 'seats',       'label' => 'Team seats',            'noun' => 'team seats',       'kind' => 'count'),
+        array('key' => 'influencers', 'label' => 'AI influencers',        'noun' => 'AI influencers',   'kind' => 'count'),
+        array('key' => 'ai_credits',  'label' => 'AI credits / month',    'noun' => 'AI credits',       'kind' => 'credits'),
+        array('key' => 'automations', 'label' => 'Scheduled automations', 'noun' => 'automations',      'kind' => 'count'),
+        array('key' => 'storage_gb',  'label' => 'Storage',               'noun' => 'GB of storage',    'kind' => 'gb'),
+    );
+
+    /** Shown under the plan grid: on every plan, no limits. */
+    const INCLUDED = array(
+        'Unlimited social connections', 'Unlimited membership tiers', 'Brand images &amp; AI captions', 'Inbox automation &amp; AI replies',
+        'Bundles, promo codes &amp; free trials', 'Analytics &amp; exports', 'Claude connector',
+    );
+
+    /** What each AI job type costs in AI credits (per output). Training is free: the influencer count gates it. */
+    const AI_PRICES = array('image' => 1, 'enhance' => 1, 'video' => 3);
+
+    /** Top-up packs: $1 = 1 AI credit. */
+    const AI_PACKS = array(10, 25, 50, 100);
 
     const TIERS = array(
 
@@ -24,44 +47,14 @@ class PlanTiers {
             'match'       => array('creator'),   // product-name keywords (lowercased, substring)
             'recommended' => false,
             'limits'      => array(
-                'seats'      => 1,
-                'profiles'   => 1,
-                'socials'    => 3,
-                'sub_tiers'  => 1,
-                'storage_gb' => 50,
-                'fee_percent'=> 10,
-            ),
-            'payouts'    => 'monthly',
-            'scheduling' => 'basic',
-            'analytics'  => 'basic',
-            'support'    => 'standard',
-            'flags'      => array(
-                'social_posting'      => true,
-                'ppv'                 => true,
-                'tips'                => true,
-                'bundles'             => false,
-                'trials'              => false,
-                'promo_codes'         => false,
-                'advanced_scheduling' => false,
-                'ai_tools'            => false,
-                'inbox_automation'    => false,
-                'brand_kit'           => false,
-                'premium_templates'   => false,
-                'advanced_analytics'  => false,
-                'agency_analytics'    => false,
-                'approval_workflow'   => false,
-                'split_payouts'       => false,
-                'white_label'         => false,
-                'api_access'          => false,
-            ),
-            'features'   => array(
-                '1 seat — just you',
-                '1 creator profile',
-                '3 connected social accounts',
-                'PPV, 1 subscription tier &amp; tips',
-                'Basic scheduling &amp; analytics',
-                '10% platform fee',
-                '50 GB storage',
+                'fee_percent' => 10,
+                'seats'       => 1,
+                'influencers' => 1,
+                'ai_credits'  => 30,
+                'automations' => 5,
+                'storage_gb'  => 25,
+                'socials'     => 0,
+                'sub_tiers'   => 0,
             ),
         ),
 
@@ -73,46 +66,14 @@ class PlanTiers {
             'match'       => array('pro'),
             'recommended' => true,
             'limits'      => array(
-                'seats'      => 3,
-                'profiles'   => 1,
-                'socials'    => 10,
-                'sub_tiers'  => 0,   // unlimited
-                'storage_gb' => 500,
-                'fee_percent'=> 5,
-            ),
-            'payouts'    => 'weekly',
-            'scheduling' => 'advanced',
-            'analytics'  => 'advanced',
-            'support'    => 'priority',
-            'flags'      => array(
-                'social_posting'      => true,
-                'ppv'                 => true,
-                'tips'                => true,
-                'bundles'             => true,
-                'trials'              => true,
-                'promo_codes'         => true,
-                'advanced_scheduling' => true,
-                'ai_tools'            => true,
-                'inbox_automation'    => true,
-                'brand_kit'           => true,
-                'premium_templates'   => true,
-                'advanced_analytics'  => true,
-                'agency_analytics'    => false,
-                'approval_workflow'   => false,
-                'split_payouts'       => false,
-                'white_label'         => false,
-                'api_access'          => false,
-            ),
-            'features'   => array(
-                'Everything in Creator, plus:',
-                '3 seats + collaborator roles',
-                '10 connected socials',
-                'AI tools, premium templates &amp; brand kit',
-                'AI inbox replies &amp; approval queue',
-                'Multiple tiers, bundles, trials &amp; promo codes',
-                'Advanced scheduling &amp; analytics',
-                '5% platform fee',
-                '500 GB storage',
+                'fee_percent' => 5,
+                'seats'       => 3,
+                'influencers' => 3,
+                'ai_credits'  => 60,
+                'automations' => 20,
+                'storage_gb'  => 100,
+                'socials'     => 0,
+                'sub_tiers'   => 0,
             ),
         ),
 
@@ -124,46 +85,14 @@ class PlanTiers {
             'match'       => array('studio'),
             'recommended' => false,
             'limits'      => array(
-                'seats'      => 10,
-                'profiles'   => 10,
-                'socials'    => 50,
-                'sub_tiers'  => 0,   // unlimited
-                'storage_gb' => 2048,
-                'fee_percent'=> 2,
-            ),
-            'payouts'    => 'on_demand',
-            'scheduling' => 'advanced',
-            'analytics'  => 'agency',
-            'support'    => 'dedicated',
-            'flags'      => array(
-                'social_posting'      => true,
-                'ppv'                 => true,
-                'tips'                => true,
-                'bundles'             => true,
-                'trials'              => true,
-                'promo_codes'         => true,
-                'advanced_scheduling' => true,
-                'ai_tools'            => true,
-                'inbox_automation'    => true,
-                'brand_kit'           => true,
-                'premium_templates'   => true,
-                'advanced_analytics'  => true,
-                'agency_analytics'    => true,
-                'approval_workflow'   => true,
-                'split_payouts'       => true,
-                'white_label'         => true,
-                'api_access'          => true,
-            ),
-            'features'   => array(
-                'Everything in Pro, plus:',
-                '10 seats with roles &amp; permissions',
-                'Up to 10 creator profiles',
-                '50+ connected socials',
-                'Team approval workflows',
-                'Agency analytics + exports',
-                'White-label + API access',
-                '2% platform fee',
-                '2 TB storage',
+                'fee_percent' => 3,
+                'seats'       => 10,
+                'influencers' => 10,
+                'ai_credits'  => 90,
+                'automations' => 0,
+                'storage_gb'  => 500,
+                'socials'     => 0,
+                'sub_tiers'   => 0,
             ),
         ),
     );
@@ -180,6 +109,25 @@ class PlanTiers {
     public static function get($key)
     {
         return self::TIERS[(string) $key] ?? null;
+    }
+
+    /** One ROWS entry by key, or null. */
+    public static function row($key)
+    {
+        foreach (self::ROWS as $r) { if ($r['key'] === (string) $key) { return $r; } }
+        return null;
+    }
+
+    /** A limit value as shown on the billing page: 0 → Unlimited, 25 → "25 GB", 10 → "10%". */
+    public static function fmt_limit($key, $v): string
+    {
+        $row  = self::row($key);
+        $kind = $row ? $row['kind'] : 'count';
+        $v    = (float) $v;
+        if ($kind === 'percent') { return rtrim(rtrim(number_format($v, 1), '0'), '.') . '%'; }
+        if ($v <= 0) { return 'Unlimited'; }
+        if ($kind === 'gb') { return number_format($v) . ' GB'; }
+        return number_format($v);
     }
 
     /**

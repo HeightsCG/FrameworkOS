@@ -21,15 +21,6 @@ window.INF_CONFIG = <?php echo json_encode(array(
         <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
     </div>
 </div>
-<?php elseif (empty($this->can_ai)): ?>
-<div class="plan-lock">
-    <div class="plan-lock__card">
-        <div class="plan-lock__icon"><i class="fa-solid fa-user-astronaut"></i></div>
-        <h2 class="plan-lock__title">Pro and Studio feature</h2>
-        <p class="plan-lock__text">AI influencers, image and video generation are included with the Pro and Studio plans.</p>
-        <a href="/account/billing" class="plan-lock__btn">See plans</a>
-    </div>
-</div>
 <?php else: ?>
 <script src="/js/influencers.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers.js'); ?>"></script>
 <?php endif; ?>

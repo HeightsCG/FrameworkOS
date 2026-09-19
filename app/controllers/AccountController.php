@@ -32,7 +32,7 @@ class AccountController extends Controller {
         $is_owner_creator = Permissions::is_owner_creator();                           // payouts / billing
 
         $can_post = Plan::can_social_post($owner);
-        $this->view->can_trials = Plan::can($owner, 'trials');   // free-trial field is Pro+ only
+        $this->view->can_trials = true;   // free trials are included on every plan
 
         // Platform display metadata (label, Font Awesome icon), in display order.
         $platform_meta = array(
@@ -120,9 +120,9 @@ class AccountController extends Controller {
         $this->view->creator_links       = $can_content ? (new CreatorLinksModel())->get_for_user($owner['user_id']) : array();
         $this->view->creator_plans       = $can_manage  ? (new CreatorPlansModel())->get_for_user($owner['user_id']) : array();
         $this->view->promo_codes         = $can_manage  ? (new CreatorPromoCodesModel())->get_for_user($owner['user_id']) : array();
-        $this->view->can_promo           = Plan::can($owner, 'promo_codes');   // discount codes are Pro+
+        $this->view->can_promo           = true;   // discount codes are included on every plan
 
-        // Content bundles (Pro+): the creator's bundles + the Library media they can add.
+        // Content bundles: the creator's bundles + the Library media they can add.
         $bundlesModel = new ContentBundlesModel();
         $bundles = $can_manage ? (array) $bundlesModel->get_for_creator($owner['user_id']) : array();
         foreach ($bundles as &$b) { $b['asset_ids'] = $bundlesModel->get_item_asset_ids((int) $b['id']); }
@@ -143,7 +143,7 @@ class AccountController extends Controller {
         }
         $this->view->content_bundles     = $bundles;
         $this->view->bundle_media        = $bundle_media;
-        $this->view->can_bundles         = Plan::can($owner, 'bundles');   // bundles are Pro+
+        $this->view->can_bundles         = true;   // bundles are included on every plan
         $this->view->creator_brand       = $can_content ? (new CreatorBrandModel())->get_for_user($owner['user_id']) : array();
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;
@@ -155,7 +155,7 @@ class AccountController extends Controller {
         $this->view->fanvue              = $can_post ? (new FanvueAccountsModel())->get_for_user($owner['user_id']) : null;
         $fv_row = $this->view->fanvue;
         $this->view->fanvue_chat_ok      = $fv_row && ($fv_row['status'] ?? '') === 'connected' && FanvueAccountsModel::has_chat_scope($fv_row);
-        $this->view->can_inbox           = $can_manage && Plan::can($owner, 'inbox_automation');
+        $this->view->can_inbox           = $can_manage;   // inbox automation is included on every plan
         $this->view->inbox_settings      = $can_manage ? (new InboxSettingsModel())->get_for_creator($owner['user_id']) : InboxSettingsModel::defaults();
         $this->view->inbox_pending       = ($can_manage && $this->view->can_inbox) ? (new InboxRepliesModel())->count_pending($owner['user_id']) : 0;
         $this->view->claude_ok           = ClaudeService::configured();
@@ -225,8 +225,30 @@ class AccountController extends Controller {
     public function billingAction(){
         $user = $this->userModel->get_user_by_id(Session::get('user_id'));
         if (is_array($user) && count($user) === 1) {
-            $customer_id           = $user[0]['stripe_customer_id'] ?? '';
-            $this->view->user      = $user[0];
+            $u = $user[0];
+            // A renewal Stripe billed while we weren't looking: refresh the cached period
+            // end so the billing period (and this month's AI credits) are right.
+            if (!empty($u['stripe_subscription_id']) && in_array((string) ($u['subscription_status'] ?? ''), array('active', 'trialing', 'past_due'), true)
+                && !empty($u['subscription_current_period_end']) && strtotime((string) $u['subscription_current_period_end']) < time()) {
+                try {
+                    $sub = StripeService::client()->subscriptions->retrieve((string) $u['stripe_subscription_id']);
+                    if (in_array((string) $sub->status, array('canceled', 'incomplete_expired'), true)) {
+                        $this->billingModel->clear_subscription((int) $u['user_id']);
+                    } else {
+                        $this->billingModel->save_subscription((int) $u['user_id'], $sub->id, $sub->items->data[0]->price->id ?? $u['stripe_price_id'],
+                            $sub->status, $sub->items->data[0]->current_period_end ?? null, $sub->cancel_at_period_end ? 1 : 0);
+                    }
+                    $u = $this->userModel->get_user_by_id(Session::get('user_id'))[0];
+                } catch (\Throwable $e) {
+                    error_log('[stripe] billing refresh: ' . $e->getMessage());
+                }
+            }
+            $customer_id           = $u['stripe_customer_id'] ?? '';
+            $this->view->user      = $u;
+            $this->view->has_plan  = in_array((string) ($u['subscription_status'] ?? ''), array('active', 'trialing', 'past_due'), true);
+            $this->view->tier      = Plan::tier($u);
+            $this->view->usage     = $this->view->has_plan ? Plan::usage($u) : null;
+            $this->view->ai_history= $this->view->has_plan ? (array) (new AiCreditsModel())->get_transactions((int) $u['user_id'], 10) : array();
             $this->view->plans     = StripeService::get_plans();
             $this->view->invoices  = StripeService::get_invoices($customer_id);
             $this->view->cards     = StripeService::get_payment_methods($customer_id);

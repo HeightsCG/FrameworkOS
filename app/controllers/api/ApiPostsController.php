@@ -492,9 +492,9 @@ class ApiPostsController extends BaseApiController {
 
         // Free trial: compute the actual trial-end date from the plan's value + unit
         // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day
-        // conversion. Only while enabled and the creator's tier still allows trials.
+        // conversion. Only while enabled.
         $trial_end = 0;
-        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && Plan::can($creator, 'trials')) {
+        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0) {
             $tu = in_array(($plan['trial_unit'] ?? 'day'), ['day', 'week', 'month'], true) ? $plan['trial_unit'] : 'day';
             $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
         }

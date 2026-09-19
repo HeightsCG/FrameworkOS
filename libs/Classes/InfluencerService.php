@@ -241,6 +241,8 @@ class InfluencerService {
                 'steps'      => (int) InfluencerConfig::get('training_steps', 1000),
             ),
             'training_cost_usd' => InfluencerConfig::price(InfluencerConfig::default_model_key('training'), (int) InfluencerConfig::get('training_steps', 1000)),
+            'ai_prices' => PlanTiers::AI_PRICES,   // what each run costs the account in AI credits
+            'ai_credits' => 0,                     // the owner's balance; set per request by the page controller
             'prompts' => array('face' => self::FACE_PROMPTS, 'image' => self::IMAGE_PROMPTS),
             'steps'   => self::STEPS,
         );

@@ -35,9 +35,36 @@ class InfluencerJobService {
         if (!isset($f['seed']) || $f['seed'] === null || $f['seed'] === '' || (int) $f['seed'] <= 0) {
             $f['seed'] = random_int(1, 2147483647);   // always recorded so any result can be reproduced
         }
+        // Pay for the run in AI credits up front (refunded if it fails or is cancelled).
+        $price = Plan::ai_price($type, $f);
+        if ($price > 0) {
+            $user = self::user($creator_id);
+            if (!Plan::can_use_creator_features($user)) {
+                throw new PlanLimitException('Choose a plan to generate with AI.', array('need_plan' => true));
+            }
+            Plan::grant_monthly($user);
+            $credits = new AiCreditsModel();
+            $after = $credits->apply_delta($creator_id, -$price, 'spend', ucfirst((string) $type) . ' run');
+            if ($after === false) {
+                $balance = $credits->get_balance($creator_id);
+                throw new PlanLimitException(Plan::credits_message($type, $price, $balance),
+                    array('need_credits' => true, 'price' => $price, 'balance' => $balance));
+            }
+            $f['credits_charged'] = $price;
+        }
         $id = (new InfluencerJobsModel())->create($creator_id, $influencer_id, $type, $f);
+        if ($id <= 0 && $price > 0) {
+            (new AiCreditsModel())->apply_delta($creator_id, $price, 'refund', 'Run could not be created');
+        }
         if ($id > 0 && $dispatch) { self::dispatch($id, 0); }
         return $id;
+    }
+
+    /** Give a failed/cancelled job's credits back. Only call after a guarded terminal transition returned 1. */
+    private static function refund_credits($job){
+        if (!is_array($job) || (int) ($job['credits_charged'] ?? 0) <= 0) { return; }
+        (new AiCreditsModel())->apply_delta((int) $job['creator_id'], (int) $job['credits_charged'], 'refund',
+            ucfirst((string) $job['type']) . ' run ' . (int) $job['id'] . ' did not complete', (int) $job['id']);
     }
 
     /** Put (or re-put) a job on the shared queue after $delay seconds. Returns the queue job id. */
@@ -53,10 +80,23 @@ class InfluencerJobService {
         $m = new InfluencerJobsModel();
         $job = $m->get_one($creator_id, $job_id);
         if (!$job) { return array('ok' => false, 'error' => 'Job not found'); }
+        if ((string) $job['status'] !== 'failed') { return array('ok' => false, 'error' => 'Only a failed job can be retried'); }
+        // The failure refunded the credits; a retry pays again.
+        $price = (int) $job['credits_charged'];
+        if ($price > 0) {
+            $credits = new AiCreditsModel();
+            Plan::grant_monthly(self::user($creator_id));
+            if ($credits->apply_delta($creator_id, -$price, 'spend', ucfirst((string) $job['type']) . ' run ' . (int) $job_id . ' retry', (int) $job_id) === false) {
+                return array('ok' => false, 'need_credits' => true, 'error' => Plan::credits_message((string) $job['type'], $price, $credits->get_balance($creator_id)));
+            }
+        }
         $n = $m->transition($job_id, 'failed', array('status' => 'queued', 'provider_index' => 0, 'error' => null, 'error_code' => null,
             'wait_reason' => null, 'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null,
             'provider_cancel_url' => null, 'poll_count' => 0, 'deadline_at' => null, 'submitted_at' => null, 'landed_at' => null, 'finished_at' => null));
-        if ($n !== 1) { return array('ok' => false, 'error' => 'Only a failed job can be retried'); }
+        if ($n !== 1) {
+            if ($price > 0) { (new AiCreditsModel())->apply_delta($creator_id, $price, 'refund', 'Retry of run ' . (int) $job_id . ' lost a race', (int) $job_id); }
+            return array('ok' => false, 'error' => 'Only a failed job can be retried');
+        }
         self::dispatch($job_id, 0);
         return array('ok' => true, 'job_id' => (int) $job_id);
     }
@@ -71,6 +111,7 @@ class InfluencerJobService {
             $class = InfluencerConfig::provider_class((string) $job['provider']);
             if ($class !== '') { try { $class::cancel(self::handle($job)); } catch (\Throwable $e) {} }
         }
+        if ($n === 1) { self::refund_credits($job); }
         return array('ok' => $n === 1, 'error' => $n === 1 ? '' : 'This job can no longer be cancelled');
     }
 
@@ -105,8 +146,9 @@ class InfluencerJobService {
             }
         } catch (\Throwable $e) {
             error_log('[influencer] job ' . (int) $job_id . ' step error: ' . $e->getMessage());
-            $m->transition($job['id'], array('queued', 'submitting', 'running', 'landing'), array('status' => 'failed', 'error_code' => 'provider',
+            $n = $m->transition($job['id'], array('queued', 'submitting', 'running', 'landing'), array('status' => 'failed', 'error_code' => 'provider',
                 'error' => mb_substr('Internal error: ' . $e->getMessage(), 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));
+            if ($n === 1) { self::refund_credits($job); }
             self::after_terminal($m->get_by_id($job_id));
             return self::out('failed', true, null, $e->getMessage());
         }
@@ -390,8 +432,9 @@ class InfluencerJobService {
 
     private static function fail_job($job, InfluencerJobsModel $m, $from, $code, $error){
         if (!$job) { return self::out('failed', true, null, (string) $error); }
-        $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
+        $n = $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
             'error' => mb_substr((string) $error, 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));
+        if ($n === 1) { self::refund_credits($job); }
         self::after_terminal($m->get_by_id($job['id']));
         return self::out('failed', true, null, (string) $error);
     }
@@ -517,6 +560,12 @@ class InfluencerJobService {
         if (!$model || (string) $model['status'] !== 'ready') { return array('ok' => false, 'error' => $infl['name'] . ' has no active model.'); }
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Rendering is not configured (no provider key).'); }
 
+        // Nothing is spent (not even the scene prompt) when the account cannot pay for the image.
+        Plan::grant_monthly($user);
+        $price = Plan::ai_price('image', array('params' => array('num_images' => 1)));
+        $balance = (new AiCreditsModel())->get_balance($cid);
+        if ($balance < $price) { return array('ok' => false, 'error' => Plan::credits_message('image', $price, $balance)); }
+
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
         $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, $level) : $topic;
@@ -529,11 +578,15 @@ class InfluencerJobService {
         $mk = InfluencerConfig::resolve_model('image', (string) ($rule['influencer_model_key'] ?? ''));
         if (!$mk) { return array('ok' => false, 'error' => 'No image model is configured.'); }
 
-        $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
-            'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
-            'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-            'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'level' => $level, 'scene' => (string) $scene),
-        ), false);
+        try {
+            $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
+                'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
+                'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
+                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'level' => $level, 'scene' => (string) $scene),
+            ), false);
+        } catch (PlanLimitException $e) {
+            return array('ok' => false, 'error' => $e->getMessage());
+        }
         if ($job_id <= 0) { return array('ok' => false, 'error' => 'Could not create the generation job.'); }
         error_log('[influencer] rule ' . (int) ($rule['id'] ?? 0) . ' job ' . $job_id . ' prompt: ' . $prompt);
         $job = self::run_inline($job_id);

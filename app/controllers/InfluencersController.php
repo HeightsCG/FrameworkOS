@@ -22,9 +22,12 @@ class InfluencersController extends Controller {
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user) { header('Location: /'); exit; }
         $this->view->needs_plan = !Plan::can_use_creator_features($user);
-        $this->view->can_ai     = Plan::can($user, 'ai_tools');
+        $this->view->can_ai     = Plan::can_use_creator_features($user);
         $this->view->creator_id = (int) $creator_id;
-        $this->view->config     = InfluencerService::page_config();
+        Plan::grant_monthly($user);
+        $cfg = InfluencerService::page_config();
+        $cfg['ai_credits'] = (new AiCreditsModel())->get_balance((int) $creator_id);
+        $this->view->config     = $cfg;
         $this->view->ready      = array();
         foreach ((new InfluencersModel())->list_ready($creator_id) as $r) {
             $this->view->ready[] = array('id' => (int) $r['id'], 'name' => (string) $r['name']);
