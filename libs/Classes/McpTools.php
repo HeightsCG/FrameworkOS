@@ -254,10 +254,11 @@ class McpTools {
                 'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
 
         // ---- Media creation ----
-        $t[] = array('name' => 'generate_image', 'description' => 'Generate an AI image (Pro/Studio) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_image', 'description' => 'Generate a brand AI image (Flux on fal.ai, no AI credits used) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('prompt'),
             'properties' => array('prompt' => array('type' => 'string'),
                 'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'level' => array('type' => 'string', 'enum' => array('safe', 'spicy'), 'description' => 'spicy turns the safety filter off'),
                 'use_brand' => array('type' => 'boolean', 'description' => 'Apply brand style (default true).'))));
         $t[] = array('name' => 'upload_image_from_url', 'description' => 'Fetch a PUBLIC image URL and add it to the media library. Images only.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('url'),
@@ -590,9 +591,10 @@ class McpTools {
                         $final = BrandService::image_prompt($prompt, (array) $cb);
                     }
                 }
-                $res = ImageGenService::generate($final, ImageGenService::dimensions($size));
+                $level = (($a['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+                $res = ImageGenService::generate($final, $size, $level);
                 if (empty($res['ok'])) { throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown')); }
-                return self::ingestImage($cid, $user, $res['bytes'], 'png', 'image/png', 'Generated · ' . mb_substr($prompt, 0, 40));
+                return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
             }
             case 'upload_image_from_url': {
                 $user = self::user($cid);

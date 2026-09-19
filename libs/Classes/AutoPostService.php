@@ -27,7 +27,7 @@ class AutoPostService {
             $asset_id = (int) $ir['asset_id'];
             $gen = array('ok' => true);
         } else {
-            $gen = ImageGenService::generate($prompt, ImageGenService::dimensions($size));
+            $gen = ImageGenService::generate($prompt, $size, (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe');
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
 

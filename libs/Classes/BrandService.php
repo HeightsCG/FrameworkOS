@@ -21,12 +21,10 @@ class BrandService {
         if (!empty($cb['colors']))   { $style[] = 'colour palette: ' . implode(', ', array_slice((array) $cb['colors'], 0, 5)); }
         $name  = !empty($cb['brand_name']) ? (' for the brand "' . $cb['brand_name'] . '"') : '';
 
-        $guide  = trim((string) $prompt) . '.';
-        $guide .= ' Render this as a high-quality, photorealistic, professional photograph — natural lighting, sharp focus,'
-                . ' rich detail, tasteful composition, editorial / magazine quality that a creator would be proud to sell' . $name . '.';
-        if ($style) { $guide .= ' Style guidance — ' . implode('; ', $style) . '.'; }
-        $guide .= ' Absolutely NO text, words, letters, captions, titles, typography, logos, watermarks, infographics,'
-                . ' posters, memes, clip-art, cartoons or flat vector illustrations. It must be a real photographic image, not a graphic containing words.';
+        $guide  = rtrim(trim((string) $prompt), '.') . '.';
+        $guide .= ' Photorealistic professional photograph, natural lighting, sharp focus, rich detail, editorial quality' . $name . '.';
+        if ($style) { $guide .= ' ' . ucfirst(implode('; ', $style)) . '.'; }
+        $guide .= ' No text, logos or watermarks.';
         return $guide;
     }
 

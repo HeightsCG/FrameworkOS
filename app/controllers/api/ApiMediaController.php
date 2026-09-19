@@ -81,6 +81,7 @@ class ApiMediaController extends BaseApiController {
             'prompt'     => $final,
             'size'       => $size_key,
             'watermark'  => !empty($user['watermark_enabled']),
+            'level'      => ((string) ($this->post['level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe',
         ]);
         if ($job_id <= 0) {
             $model->set_failed($creator_id, $asset_id, 'Could not queue the generation.');

@@ -27,7 +27,8 @@
 
 /* usage */
 .billing__section--first{margin-top:0; margin-bottom:2.2rem;}
-.billing__section-head{display:flex; align-items:baseline; justify-content:space-between; gap:1rem; margin-bottom:1rem;}
+.billing__section-head{display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:1rem;}
+.billing__section-tools{display:flex; align-items:center; gap:1rem;}
 .billing__section-head .billing__section-title{margin:0;}
 .billing__section-meta{font-size:.82rem; color:var(--muted);}
 .billing__head--section{margin-bottom:1rem;}
@@ -42,8 +43,6 @@
 .usage__row--over .usage__fill{background:var(--warning);}
 .usage__row--over .usage__val b{color:var(--warning);}
 .usage__row--text .usage__text{font-size:.85rem; color:var(--t2);}
-.app-shell a.usage__link{margin-left:.6rem; font-weight:500; color:var(--violet7); text-decoration:none;}
-.app-shell a.usage__link:hover{text-decoration:underline;}
 
 /* plan grid */
 .plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.1rem; align-items:stretch;}

@@ -95,6 +95,7 @@ class InfluencerConfig {
     );
 
     const DEFAULTS = array(
+        'brand_model'                 => 'flux_pro_11',   // brand (non-influencer) images: a 'reference' op model
         'cap_per_influencer'          => 3,
         'cap_per_account'             => 6,
         'cap_wait_seconds'            => 20,

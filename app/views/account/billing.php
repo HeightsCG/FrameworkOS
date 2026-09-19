@@ -128,7 +128,7 @@ $(function () {
     });
 
     /* ---- AI credits (top up) ---- */
-    $('#buy_credits').on('click', function (e) { e.preventDefault(); $('#credits_modal').modal('show'); });
+    $('#buy_credits').on('click', function () { $('#credits_modal').modal('show'); });
     $('#credit_packs').on('click', '.pack', function () {
         var dollars = $(this).data('dollars');
         $('#credit_packs .pack').removeClass('is-on'); $(this).addClass('is-on');
@@ -227,7 +227,10 @@ $(function () {
     <div class="billing__section billing__section--first">
         <div class="billing__section-head">
             <h2 class="billing__section-title">Usage</h2>
-            <span class="billing__section-meta">Period <?php echo $e(date('M j', strtotime($usage['period_start']))); ?> &ndash; <?php echo $e(date('M j, Y', strtotime($usage['period_end']))); ?></span>
+            <div class="billing__section-tools">
+                <span class="billing__section-meta">Period <?php echo $e(date('M j', strtotime($usage['period_start']))); ?> &ndash; <?php echo $e(date('M j, Y', strtotime($usage['period_end']))); ?></span>
+                <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy AI credits</button>
+            </div>
         </div>
         <div class="usage">
             <?php foreach ($usage['rows'] as $r): ?>
@@ -236,7 +239,7 @@ $(function () {
             <div class="usage__row">
                 <span class="usage__label"><?php echo $e($r['label']); ?></span>
                 <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
-                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?> used &middot; <?php echo number_format($bal); ?> left <a href="#" class="usage__link" id="buy_credits">Buy credits</a></span>
+                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?> used &middot; <?php echo number_format($bal); ?> left</span>
             </div>
             <?php elseif ($r['kind'] === 'percent'): ?>
             <div class="usage__row usage__row--text">
