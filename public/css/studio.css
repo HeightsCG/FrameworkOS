@@ -711,7 +711,6 @@
 #csSchedulerModal .cs-am__field{ display:flex; flex-direction:column; align-items:stretch; gap:4px; min-width:0; }
 #csSchedulerModal .cs-am__field--full{ grid-column:1 / -1; }
 #csSchedulerModal .cs-am__trio{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr; column-gap:16px; align-items:start; }
-#csSchedulerModal .cs-am__field--start{ grid-column-start:1; }
 #csSchedulerModal .cs-am__field--toggle{ align-self:stretch; justify-content:space-between; }
 #csSchedulerModal .cs-am__field[hidden]{ display:none; }
 #csSchedulerModal .cs-am__label{ font-size:13px; font-weight:500; color:var(--muted); margin:0; line-height:1.3; }

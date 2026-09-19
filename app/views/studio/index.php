@@ -461,13 +461,13 @@
 
                     <div class="cs-am__group" data-kind="post">
                         <div class="cs-am__field">
-                            <div class="cs-am__label">Image</div>
-                            <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedImageSource" role="group" aria-label="Image source">
-                                <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
-                                <?php if (!empty($this->influencers['ready'])): ?>
-                                <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"><span>Influencer</span></button>
-                                <?php endif; ?>
-                            </div>
+                            <label class="cs-am__label" for="csSchedImage">Image</label>
+                            <select id="csSchedImage" class="form-select">
+                                <option value="brand">Brand photo</option>
+                                <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
+                                <option value="infl:<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         <div class="cs-am__field">
                             <div class="cs-am__label">Shape</div>
@@ -475,12 +475,6 @@
                                 <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
                                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
-                            </div>
-                        </div>
-                        <div class="cs-am__group" id="csSchedInfluencerWrap" hidden>
-                            <div class="cs-am__field cs-am__field--full">
-                                <label class="cs-am__label" for="csSchedInfluencer">Influencer</label>
-                                <select id="csSchedInfluencer" class="form-select"></select>
                             </div>
                         </div>
                     </div>
@@ -491,11 +485,14 @@
                 <div class="cs-am__section" data-kind="post">
                     <div class="cs-am__trio">
                     <div class="cs-am__field">
-                        <div class="cs-am__label">Audience</div>
-                        <div class="cs-seg cs-seg--compact cs-am__seg" id="csSchedAudience" role="group" aria-label="Audience">
-                            <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-aud="free"><span>Everyone</span></button>
-                            <button type="button" class="cs-seg__opt" aria-pressed="false" data-aud="subscribers"><span>Subscribers</span></button>
-                        </div>
+                        <label class="cs-am__label" for="csSchedAudience">Audience</label>
+                        <select id="csSchedAudience" class="form-select">
+                            <option value="free">Everyone</option>
+                            <option value="subscribers">All subscribers</option>
+                            <?php foreach ((array) $this->plans as $pl): ?>
+                            <option value="tier:<?php echo (int) $pl['id']; ?>"><?php echo htmlspecialchars((string) $pl['name'], ENT_QUOTES, 'UTF-8'); ?> subscribers</option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
                     <div class="cs-am__field">
                         <div class="cs-am__label">AI captions</div>
@@ -517,10 +514,6 @@
                     <div class="cs-am__field cs-am__field--full" id="csSchedCaptionWrap" hidden>
                         <label class="cs-am__label" for="csSchedCaption">Caption</label>
                         <textarea class="form-control" id="csSchedCaption" rows="2" maxlength="5000" placeholder="Posted exactly as written with every run"></textarea>
-                    </div>
-                    <div class="cs-am__field cs-am__field--full" id="csSchedTier" hidden>
-                        <label class="cs-am__label" for="csSchedTierSel">Tier</label>
-                        <select id="csSchedTierSel" class="form-select"><option value="">All subscribers</option></select>
                     </div>
                 </div>
 

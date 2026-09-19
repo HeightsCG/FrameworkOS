@@ -18,7 +18,11 @@ jQuery(function ($) {
 
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
     function err(o, fallback) {
-        if (o && (o.need_credits || o.need_upgrade || o.need_plan)) { return; }   // ApiDataSvc already showed the billing toast
+        if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {   // plan / credit refusals link to Billing
+            toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
+                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = '/account/billing'; } });
+            return;
+        }
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
     }
     function api(endpoint, body, cb) {
