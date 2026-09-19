@@ -2,7 +2,6 @@
 
     <header class="inf-head">
         <div>
-            <h1 class="inf-head__title">Your Influencers</h1>
             <p class="inf-head__sub">Create her once, train her once, then generate images and videos any time.</p>
         </div>
         <div class="inf-head__actions">

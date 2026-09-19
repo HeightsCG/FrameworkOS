@@ -3,7 +3,6 @@
 
     <header class="inf-head">
         <div>
-            <h1 class="inf-head__title">Gallery</h1>
             <p class="inf-head__sub">Everything generated for her lives in your media library, attached to her.</p>
         </div>
         <div class="inf-head__actions">

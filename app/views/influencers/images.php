@@ -3,7 +3,6 @@
 
     <header class="inf-head">
         <div>
-            <h1 class="inf-head__title">Generate Images</h1>
             <p class="inf-head__sub">Describe the scene. She is added to every prompt for you.</p>
         </div>
         <div class="inf-head__actions">
@@ -72,7 +71,7 @@
             <div class="inf-gen__stage" id="inf_stage">
                 <div class="inf-gen__idle" id="inf_idle">
                     <i class="fa-regular fa-image"></i>
-                    <p>Her images will appear here.</p>
+                    <p>Images will appear here.</p>
                 </div>
                 <div class="inf-gen__busy" id="inf_busy" hidden>
                     <span class="spinner-border text-primary" role="status"></span>

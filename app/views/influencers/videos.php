@@ -2,10 +2,6 @@
 <?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; ?>
 
     <header class="inf-head">
-        <div>
-            <h1 class="inf-head__title">Generate Videos</h1>
-            <p class="inf-head__sub">A still of her supplies the likeness; the prompt describes the motion.</p>
-        </div>
         <div class="inf-head__actions">
             <label class="inf-who" for="inf_who">
                 <span class="inf-who__badge"><?php if (!empty($infl['cover_url'])): ?><img src="<?php echo $e($infl['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user"></i><?php endif; ?></span>
@@ -21,7 +17,7 @@
     <div class="inf-gen" id="inf_gen" data-still="<?php echo (int) ($this->still_asset_id ?? 0); ?>">
         <form class="inf-gen__form" id="inf_vid_form" autocomplete="off" onsubmit="return false;">
             <div class="inf-field">
-                <div class="inf-field__row"><div class="inf-label">Still</div><a class="inf-link" href="/influencers/images/<?php echo (int) $infl['id']; ?>">Generate more</a></div>
+                <div class="inf-field__row"><div class="inf-label">Image</div><a class="inf-link" href="/influencers/images/<?php echo (int) $infl['id']; ?>">Generate more</a></div>
                 <p class="inf-wiz__meta" id="inf_still_hint" hidden>Pick the image the video starts from.</p>
                 <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading her images…</span></div>
             </div>
@@ -57,7 +53,7 @@
 
         <section class="inf-gen__preview">
             <div class="inf-gen__stage" id="inf_vstage">
-                <div class="inf-gen__idle" id="inf_vidle"><i class="fa-solid fa-clapperboard"></i><p>Her videos will appear here.</p></div>
+                <div class="inf-gen__idle" id="inf_vidle"><i class="fa-solid fa-clapperboard"></i><p>Videos will appear here.</p></div>
                 <div class="inf-gen__busy" id="inf_vbusy" hidden><span class="spinner-border text-primary" role="status"></span><p id="inf_vbusy_text">Generating</p></div>
                 <video class="inf-gen__video" id="inf_video" controls playsinline hidden></video>
             </div>

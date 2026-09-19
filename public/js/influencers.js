@@ -839,7 +839,13 @@ jQuery(function ($) {
             imgs.forEach(function (img) {
                 var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === still ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
                 $t.attr('aria-pressed', img.id === still ? 'true' : 'false').attr('aria-label', 'Use this image');
-                $t.on('click', function () { still = img.id; $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false'); $t.addClass('is-on').attr('aria-pressed', 'true'); $('#inf_vgo').prop('disabled', false); $('#inf_still_hint').prop('hidden', true); });
+                $t.on('click', function () {
+                    var was = (still === img.id);   // clicking the chosen image again clears the choice
+                    $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false');
+                    still = was ? 0 : img.id;
+                    if (!was) { $t.addClass('is-on').attr('aria-pressed', 'true'); }
+                    $('#inf_vgo').prop('disabled', !still); $('#inf_still_hint').prop('hidden', !!still);
+                });
                 $g.append($t);
             });
             // Only a still handed over from "Make video" is preselected; otherwise she picks one.
@@ -894,7 +900,7 @@ jQuery(function ($) {
             // Earlier videos live in the strip below; the stage stays empty until she generates or picks one.
         });
         $('#inf_vgo').on('click', function () {
-            if (!still) { toastr.error('Pick a still of her first'); return; }
+            if (!still) { toastr.error('Pick an image first'); return; }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
             var $b = $(this).prop('disabled', true);
             busy('Sending');

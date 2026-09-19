@@ -16,7 +16,7 @@
 .inf-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-3); margin-bottom:var(--sp-4); flex-wrap:wrap; }
 .inf-head__title{ font-size:1.6rem; font-weight:700; letter-spacing:-.02em; margin:0; }
 .inf-head__sub{ color:var(--muted); font-size:.9rem; margin:.3rem 0 0; }
-.inf-head__actions{ display:flex; gap:.6rem; flex-shrink:0; align-items:center; }
+.inf-head__actions{ display:flex; gap:.6rem; flex-shrink:0; align-items:center; margin-left:auto; }
 .inf-head__actions .btn{ display:inline-flex; align-items:center; gap:.45rem; }
 .inf-back{ display:inline-flex; align-items:center; gap:.4rem; color:var(--muted); font-size:.82rem; font-weight:600; text-decoration:none; margin-bottom:.35rem; }
 .inf-back:hover{ color:var(--text); }
@@ -155,6 +155,7 @@
 .inf-ref__row .inf-photo{ width:132px; }
 .inf-photo--pick{ padding:0; cursor:pointer; }
 .inf-photo.is-on{ outline:2px solid var(--violet); outline-offset:-2px; }
+.inf-stills > .inf-wiz__meta{ grid-column:1 / -1; }   /* the empty-state line spans the picker instead of squeezing into one cell */
 /* still picker: the chosen image is unmistakable (ring + check), the others step back */
 .inf-stills .inf-photo--pick{ cursor:pointer; border:0; padding:0; transition:opacity .12s, outline-color .12s; }
 .inf-stills .inf-photo--pick:hover{ outline:2px solid var(--muted2); outline-offset:-2px; }
