@@ -41,17 +41,28 @@ jQuery(function ($) {
     function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }
 
     /* shared: poll one job until it is terminal; human status text */
+    // Polls a job until it is terminal. A request that never answers (network blip, a 5xx while the
+    // worker is busy landing the file) used to end the loop and leave the spinner up for good, so
+    // every tick has a watchdog: no answer within 20s means ask again.
     function poll_job(job_id, on_update, on_done) {
-        var t = setTimeout(function tick() {
+        var t = null, dog = null, stopped = false, seq = 0;
+        function schedule(ms) { clearTimeout(t); t = setTimeout(tick, ms); }
+        function tick() {
+            if (stopped) { return; }
+            var my = ++seq;
+            clearTimeout(dog); dog = setTimeout(function () { if (!stopped && my === seq) { schedule(0); } }, 20000);
             api('influencer_job_get', { job_id: job_id }, function (o) {
-                if (!o || !o.success) { t = setTimeout(tick, 4000); return; }
+                if (stopped || my !== seq) { return; }
+                clearTimeout(dog);
+                if (!o || !o.success) { schedule(4000); return; }
                 var j = o.job;
                 if (on_update) { on_update(j); }
-                if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') { on_done(j); return; }
-                t = setTimeout(tick, 3000);
+                if (j.status === 'done' || j.status === 'failed' || j.status === 'cancelled') { stopped = true; on_done(j); return; }
+                schedule(3000);
             });
-        }, 1500);
-        return function () { clearTimeout(t); };
+        }
+        schedule(1500);
+        return function () { stopped = true; clearTimeout(t); clearTimeout(dog); };
     }
     function status_text(j) {
         if (j.status === 'queued' && j.wait_reason) { return 'Waiting for a slot'; }
