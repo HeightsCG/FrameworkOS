@@ -3,11 +3,11 @@
 -- (credit_balance / credit_transactions, $1 = 10 credits).
 -- Apply by hand:
 --   mysql -h127.0.0.1 -ucasivo -p'...' contentos --protocol=TCP < sql/2026-09-19_ai_credits.sql
+-- Already applied on prod. Follow with sql/2026-09-19_ai_credits_grant_amount.sql.
 
 ALTER TABLE user_accounts
   ADD COLUMN ai_credit_balance      INT NOT NULL DEFAULT 0 AFTER credit_balance,
-  ADD COLUMN ai_credit_grant_period CHAR(10) DEFAULT NULL AFTER ai_credit_balance,
-  ADD COLUMN ai_credit_grant_amount INT NOT NULL DEFAULT 0 AFTER ai_credit_grant_period;   -- what this period's grant added so far (topped up when the plan amount rises)
+  ADD COLUMN ai_credit_grant_period CHAR(10) DEFAULT NULL AFTER ai_credit_balance;
 
 CREATE TABLE IF NOT EXISTS ai_credit_transactions (
   id                       BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -23,12 +23,6 @@ CREATE TABLE IF NOT EXISTS ai_credit_transactions (
   UNIQUE KEY uq_ai_credit_pi (stripe_payment_intent_id),
   KEY idx_ai_credit_user (user_id, id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
-
--- Backfill (only matters if grants already ran before the column existed): what each
--- account's current-period grant has added so far.
-UPDATE user_accounts u
-   SET ai_credit_grant_amount = (SELECT COALESCE(SUM(t.credits), 0) FROM ai_credit_transactions t WHERE t.user_id = u.user_id AND t.type = 'plan_grant')
- WHERE ai_credit_grant_period IS NOT NULL;
 
 -- What a job was charged, so a failure/cancel refunds exactly that.
 ALTER TABLE influencer_jobs
