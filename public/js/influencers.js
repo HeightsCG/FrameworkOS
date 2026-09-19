@@ -260,8 +260,7 @@ jQuery(function ($) {
                 html = '<div class="inf-progress">' +
                     '<div class="inf-progress__ic inf-progress__ic--ok"><i class="fa-solid fa-check"></i></div>' +
                     '<h2 class="inf-progress__t">' + esc(inf.name) + ' is trained</h2>' +
-                    '<p class="inf-progress__x">Include her trigger word in every prompt to get her.</p>' +
-                    '<span class="inf-trigger" id="inf_trigger">' + esc(inf.trigger_word) + ' <button type="button" title="Copy" data-copy="' + esc(inf.trigger_word) + '"><i class="fa-regular fa-copy"></i></button></span>' +
+                    '<p class="inf-progress__x">Pick her on the Generate pages and describe the scene.</p>' +
                     '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Your influencers</a><a href="/influencers/images/' + inf.id + '" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a></div>' +
                     '</div>';
             }
@@ -669,7 +668,7 @@ jQuery(function ($) {
         $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
         $('#inf_model').on('click', '.inf-opt', function () { $('#inf_model .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); cost(); });
         seg_pick('inf_size'); seg_pick('inf_n');
-        $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(inf.trigger_word + ' ' + prompts[$(this).data('i')]).trigger('focus'); });
+        $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(prompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_prompt_auto').on('click', function () {
             var $b = $(this).prop('disabled', true);
             api('influencer_prompt_auto', { id: inf.id, hint: $('#inf_prompt').val().trim() }, function (o) {
@@ -683,7 +682,6 @@ jQuery(function ($) {
         function generate(overrides) {
             var prompt = $('#inf_prompt').val().trim();
             if (prompt == '') { toastr.error('Write a prompt first'); return; }
-            if (inf.trigger_word && prompt.indexOf(inf.trigger_word) < 0) { toastr.info('Add her trigger word ' + inf.trigger_word + ' to get her'); }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
             var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'),
                 seed: $('#inf_seed').val().trim(), lora_scale: $('#inf_lora').val().trim(), guidance: $('#inf_guidance').val().trim(), steps: $('#inf_steps').val().trim() }, overrides || {});

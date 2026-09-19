@@ -4,7 +4,7 @@
     <header class="inf-head">
         <div>
             <h1 class="inf-head__title">Generate Images</h1>
-            <p class="inf-head__sub">Include her trigger word in the prompt to get her.</p>
+            <p class="inf-head__sub">Describe the scene. She is added to every prompt for you.</p>
         </div>
         <div class="inf-head__actions">
             <label class="inf-who" for="inf_who">
@@ -20,15 +20,9 @@
 
     <div class="inf-gen" id="inf_gen">
         <form class="inf-gen__form" id="inf_gen_form" autocomplete="off" onsubmit="return false;">
-            <div class="inf-trigger inf-trigger--row">
-                <span>Trigger word</span>
-                <code id="inf_trigger_word"><?php echo $e($infl['trigger_word']); ?></code>
-                <button type="button" title="Copy" data-copy="<?php echo $e($infl['trigger_word']); ?>"><i class="fa-regular fa-copy"></i></button>
-            </div>
-
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
-                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($infl['trigger_word']); ?> photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera"></textarea>
+                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera"></textarea>
             </div>
             <div class="inf-field">
                 <div class="inf-label">Prebuilt</div>

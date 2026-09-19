@@ -322,7 +322,7 @@ class McpTools {
             'properties' => array('influencer_id' => array('type' => 'integer'), 'job_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'train_influencer', 'description' => 'Train (or retrain) her model: photos path uses her 10-50 uploads, reference path her complete 10-image set. About $2 and a few minutes; poll get_influencer until status is ready. A retrain keeps the current model until the new one succeeds.', 'inputSchema' => $infl);
         $t[] = array('name' => 'list_influencer_models', 'description' => 'Her trained models (history): status, active flag, trigger word, errors.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'generate_influencer_image', 'description' => 'Generate images of a TRAINED influencer with her weights. Include her trigger word (get_influencer) and name the subject, e.g. "<trigger> photo of a woman at a rooftop cafe at golden hour". Returns a job id; poll get_influencer_job until done for the asset ids. Same seed + prompt reproduces the image.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_influencer_image', 'description' => 'Generate images of a TRAINED influencer with her weights. Her trigger word is added automatically; just name the subject, e.g. "photo of a woman at a rooftop cafe at golden hour". Returns a job id; poll get_influencer_job until done for the asset ids. Same seed + prompt reproduces the image.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'prompt'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string'),
                 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.image'),

@@ -25,7 +25,7 @@ class InfluencerService {
         'Portrait photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, natural look, plain background, soft window light',
     );
 
-    /** Drop-in scene prompts for Generate Images (the trigger word is typed by the user). */
+    /** Drop-in scene prompts for Generate Images (the trigger word is added at render time). */
     const IMAGE_PROMPTS = array(
         'photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, looking at the camera, film grain',
         'mirror selfie of a woman in a bright bedroom, oversized knit sweater, morning light, phone in hand',

@@ -296,7 +296,7 @@ class InfluencerActions {
     /**
      * Image run with her active weights. $in: prompt (required), model_key, image_size,
      * num_images, seed, level, guidance, steps, lora_scale. The prompt sent is her defaults +
-     * the prompt, nothing else (the trigger word is not doubled when both carry it).
+     * the prompt, with her trigger word put in front when neither carries it.
      */
     public static function generate_image($cid, array $infl, array $in, $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
@@ -310,7 +310,9 @@ class InfluencerActions {
         if ($defaults !== '' && $trigger !== '' && stripos($defaults, $trigger) !== false && stripos($user_prompt, $trigger) !== false) {
             $defaults = trim(str_ireplace($trigger, '', $defaults));
         }
-        $prompt = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
+        // The trigger word identifies her to the model; the user never has to type it.
+        $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
+        $prompt = trim($lead . ($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
         $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'square';
@@ -395,13 +397,12 @@ class InfluencerActions {
         $hint = mb_substr(trim((string) $hint), 0, 500);
         $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific woman. '
             . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
-            . ($trigger !== '' ? 'The prompt MUST start with the exact token "' . $trigger . '" (this identifies her). ' : '')
             . 'Always name the subject ("photo of a woman ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
         $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
         $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 200, 30, 'low');
         if (empty($r['ok']) || trim((string) $r['text']) === '') { return self::fail('Could not write a prompt right now.'); }
         $text = trim(preg_replace('/\s+/', ' ', (string) $r['text']));
-        if ($trigger !== '' && stripos($text, $trigger) === false) { $text = $trigger . ' ' . $text; }
+        if ($trigger !== '') { $text = trim(str_ireplace($trigger, '', $text)); }   // added at render time, never shown
         return self::okr(array('prompt' => $text));
     }
 
