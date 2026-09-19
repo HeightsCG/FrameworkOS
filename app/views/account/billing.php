@@ -240,7 +240,6 @@ $(function () {
                     <?php if ($grant_n > 0 && !$canceling): ?><span class="usage__credits-next">+<?php echo $grant_n; ?> on <?php echo $e(date('M j', strtotime($usage['period_end']))); ?></span><?php endif; ?>
                 </div>
                 <div class="usage__val">
-                    <span class="usage__prices">Image 1 &middot; Enhance 1 &middot; Video 3</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy credits</button>
                 </div>
             </div>

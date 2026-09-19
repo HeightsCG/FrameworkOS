@@ -48,7 +48,6 @@
 .usage__credits-l{font-size:.85rem; color:var(--muted);}
 .usage__credits-next{font-size:.78rem; font-weight:600; color:var(--violet7); background:var(--vsoft); padding:.15rem .45rem; border-radius:2px;}
 .usage__row--credits .usage__val{display:flex; align-items:center; justify-content:flex-end; gap:.8rem;}
-.usage__prices{font-size:.78rem; color:var(--muted);}
 
 /* plan grid */
 .plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.1rem; align-items:stretch;}
