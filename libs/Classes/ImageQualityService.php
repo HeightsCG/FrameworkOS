@@ -16,7 +16,7 @@ class ImageQualityService {
     const ASK = 'Inspect this AI-generated photo of a person for anatomy errors. Count fingers and toes, check that every visible arm and leg has a plausible path to the body, that hands and feet could exist and are attached the right way round, that limbs are not merged or duplicated, and that the face is intact. Rate severity 0-10 with these anchors: 0 = nothing wrong; 2 = fingers slightly soft or hidden, nothing a viewer would notice; 4 = one hand or foot looks a little off on close inspection; 6 = fingers or toes clearly merged or miscounted, a viewer looking at the hand or foot would notice; 8 = an arm or leg missing, extra, or attached impossibly, or feet/hands obviously deformed; 10 = grossly deformed. Hidden or cropped hands and feet are not errors. Answer with JSON only, no prose: {"severity": <0-10>, "issues": "short plain-language description of the noticeable errors, or empty"}.';
 
     /** Renders at or above this severity are re-rolled. */
-    const FAIL_AT = 4;
+    const FAIL_AT = 6;
 
     /** @return array ['ok'=>bool, 'issues'=>string, 'severity'=>int, 'checked'=>bool] */
     public static function check($bytes, $mime = 'image/jpeg'): array {
@@ -34,7 +34,7 @@ class ImageQualityService {
             }
             if (!is_array($j)) { return array('ok' => true, 'issues' => '', 'checked' => false); }
             $sev = max(0, min(10, (int) $j['severity']));
-            return array('ok' => $sev < self::FAIL_AT, 'issues' => trim((string) ($j['issues'] ?? '')), 'severity' => $sev, 'checked' => true);
+            return array('ok' => $sev < self::FAIL_AT, 'issues' => mb_substr(trim((string) ($j['issues'] ?? '')), 0, 180), 'severity' => $sev, 'checked' => true);
         } catch (\Throwable $e) {
             error_log('[quality] ' . $e->getMessage());
             return array('ok' => true, 'issues' => '', 'checked' => false);
