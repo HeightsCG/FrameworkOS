@@ -1803,7 +1803,8 @@ $(function () {
         $('.wallet-panel').removeClass('is-active').filter('[data-wpanel="' + t + '"]').addClass('is-active');
     });
     (function () {
-        var m = (window.location.search.match(/[?&]tab=([a-z]+)/) || [])[1];
+        // `params` was captured before the one-time query strip above; location.search is already empty here.
+        var m = (params.get('tab') || '').replace(/[^a-z]/g, '');
         if (m && $('.wallet-tab[data-wtab="' + m + '"]').length) { $('.wallet-tab[data-wtab="' + m + '"]').trigger('click'); }
     })();
 

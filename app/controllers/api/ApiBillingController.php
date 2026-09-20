@@ -340,6 +340,7 @@ class ApiBillingController extends BaseApiController {
                 'currency'                  => 'usd',
                 'customer'                  => $customer_id,
                 'automatic_payment_methods' => ['enabled' => true],
+                'setup_future_usage'        => 'off_session',   // keep the card on file for auto-replenishment
                 'metadata'                  => [
                     'user_id'    => (string) $user['user_id'],
                     'credits'    => (string) $package['credits'],
