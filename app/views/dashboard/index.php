@@ -188,6 +188,15 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         return $h;
     };
     $bucket_label = array('delivered' => 'Delivered', 'pending' => 'Pending', 'failed' => 'Failed');
+    // "YouTube 280 · X 4" — per-platform breakdown line under a social metric.
+    $social_sub = function (array $per, $key) use (&$plat_name, $fmt_num) {
+        $parts = array();
+        foreach ($per as $pl => $m) {
+            $v = $key === 'eng' ? (int) $m['likes'] + (int) $m['comments'] + (int) $m['shares'] : (int) $m[$key];
+            $parts[] = $plat_name($pl) . ' ' . $fmt_num($v);
+        }
+        return implode(' · ', $parts);
+    };
     $plat_name = function ($pl) { $n = array('x' => 'X', 'tiktok' => 'TikTok', 'tiktok_business' => 'TikTok', 'youtube' => 'YouTube', 'linkedin' => 'LinkedIn'); return $n[$pl] ?? ucfirst((string) $pl); };
     ?>
     <section class="dash__tab-panel" data-panel="content">
@@ -206,7 +215,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
         <div class="dash__panel">
             <div class="dash__panel-head">
-                <div><h2 class="dash__panel-title">All posts</h2><span class="dash__panel-sub"><?php echo $fmt_num(count($pt)); ?> published or scheduled · views column is <?php echo htmlspecialchars(strtolower($range_label), ENT_QUOTES, 'UTF-8'); ?>, the rest all-time</span></div>
+                <div><h2 class="dash__panel-title">All posts</h2><span class="dash__panel-sub"><?php echo $fmt_num(count($pt)); ?> published or scheduled · views column is <?php echo htmlspecialchars(strtolower($range_label), ENT_QUOTES, 'UTF-8'); ?>, the rest all-time · social columns are the cross-posted copies</span></div>
             </div>
             <?php if (empty($pt)): ?>
             <div class="dash__empty">No published posts yet. Publish from the Content Studio and every post shows up here with its views, engagement, unlocks, revenue, and where it was shared.</div>
@@ -223,6 +232,8 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                         <th data-sort="num">Unlocks</th>
                         <th data-sort="num">Revenue</th>
                         <th data-sort="num">Shared</th>
+                        <th data-sort="num">Social views</th>
+                        <th data-sort="num">Social eng.</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -248,6 +259,13 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                         </td>
                         <td data-v="<?php echo (int) $p['earnings_cents']; ?>"><span class="dash__num<?php echo (int) $p['earnings_cents'] > 0 ? ' dash__num--money' : ' dash__num--na'; ?>"><?php echo (int) $p['earnings_cents'] > 0 ? $fmt_money($p['earnings_cents']) : '—'; ?></span></td>
                         <td data-v="<?php echo count($p['platforms']); ?>"><span class="dash__plats<?php echo $p['share_status'] === 'failed' ? ' is-failed' : ($p['share_status'] === 'pending' ? ' is-pending' : ''); ?>"><?php echo empty($p['platforms']) ? '<span class="dash__num dash__num--na">—</span>' : $plat_icons($p['platforms']); ?></span></td>
+                        <?php $so = $p['social']; $so_eng = $so ? (int) $so['likes'] + (int) $so['comments'] + (int) $so['shares'] : 0; ?>
+                        <td data-v="<?php echo $so ? (int) $so['views'] : -1; ?>">
+                            <?php if ($so): ?><span class="dash__num"><?php echo $fmt_num($so['views']); ?></span><span class="dash__num-sub"><?php echo htmlspecialchars($social_sub($so['per_platform'], 'views'), ENT_QUOTES, 'UTF-8'); ?></span><?php else: ?><span class="dash__num dash__num--na">—</span><?php endif; ?>
+                        </td>
+                        <td data-v="<?php echo $so ? $so_eng : -1; ?>">
+                            <?php if ($so): ?><span class="dash__num"><?php echo $fmt_num($so_eng); ?></span><span class="dash__num-sub"><?php echo htmlspecialchars($social_sub($so['per_platform'], 'eng'), ENT_QUOTES, 'UTF-8'); ?></span><?php else: ?><span class="dash__num dash__num--na">—</span><?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -278,6 +296,26 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                     <?php foreach ($bucket_label as $key => $lbl): ?>
                     <span class="dash__bucket dash__bucket--<?php echo $key; ?>"><i class="fa-solid <?php echo $key === 'delivered' ? 'fa-circle-check' : ($key === 'failed' ? 'fa-circle-xmark' : 'fa-clock'); ?>"></i> <?php echo $fmt_num($ss['buckets'][$key]); ?> <?php echo strtolower($lbl); ?></span>
                     <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($ss['metrics'])): ?>
+                <div class="dash__panel-head dash__panel-head--inner"><div><h3 class="dash__panel-title dash__panel-title--sm">Engagement on shared copies</h3><span class="dash__panel-sub">all-time · synced from each platform</span></div></div>
+                <div class="dash__table-wrap">
+                <table class="dash__table dash__table--compact">
+                    <thead><tr><th>Platform</th><th>Posts</th><th>Views</th><th>Likes</th><th>Comments</th><th>Shares</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($ss['metrics'] as $pl => $m): ?>
+                    <tr>
+                        <td><span class="dash__break-label"><i class="<?php echo AnalyticsModel::platform_icon($pl); ?>"></i> <?php echo htmlspecialchars($plat_name($pl), ENT_QUOTES, 'UTF-8'); ?></span></td>
+                        <td><span class="dash__num"><?php echo $fmt_num($m['posts']); ?></span></td>
+                        <td><span class="dash__num"><?php echo $fmt_num($m['views']); ?></span></td>
+                        <td><span class="dash__num"><?php echo $fmt_num($m['likes']); ?></span></td>
+                        <td><span class="dash__num"><?php echo $fmt_num($m['comments']); ?></span></td>
+                        <td><span class="dash__num"><?php echo $fmt_num($m['shares']); ?></span></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
                 </div>
                 <?php endif; ?>
             </div>

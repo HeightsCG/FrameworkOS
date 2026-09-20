@@ -29,6 +29,11 @@ class McpTools {
         $t[] = array('name' => 'content_mix',        'description' => 'Breakdown of content by type/audience.', 'inputSchema' => $none);
         $t[] = array('name' => 'follower_count',     'description' => 'Total followers.', 'inputSchema' => $none);
         $t[] = array('name' => 'subscriber_count',   'description' => 'Total active subscribers.', 'inputSchema' => $none);
+        $t[] = array('name' => 'social_metrics',     'description' => 'Engagement on cross-posted copies (views, likes, comments, shares, saves, reach per platform), synced from the connected social accounts. Pass post_id for one post, or omit for the latest feed items.', 'inputSchema' => array(
+            'type' => 'object', 'properties' => array(
+                'post_id' => array('type' => 'integer', 'description' => 'Studio post id (optional)'),
+                'limit'   => array('type' => 'integer', 'description' => '1-100, default 25 (ignored with post_id)')),
+            'required' => array()));
 
         // ---- Posts ----
         $t[] = array('name' => 'list_posts',  'description' => 'List posts, newest first.', 'inputSchema' => $limit);
@@ -391,6 +396,13 @@ class McpTools {
             case 'content_mix':       return (new AnalyticsModel())->content_mix($cid);
             case 'follower_count':    return array('followers' => (new FollowsModel())->count_followers($cid));
             case 'subscriber_count':  return array('subscribers' => (new CreatorSubscriptionsModel())->count_members($cid));
+            case 'social_metrics': {
+                $m = new SocialPostMetricsModel();
+                if (!empty($a['post_id'])) {
+                    return array('post_id' => (int) $a['post_id'], 'platforms' => $m->for_post($cid, (int) $a['post_id']));
+                }
+                return array('items' => $m->recent_for_user($cid, self::lim($a, 25)));
+            }
 
             // Posts
             case 'list_posts':   return array('posts' => array_slice((array) (new PostsModel())->list_for_creator($cid, array()), 0, self::lim($a, 25)));

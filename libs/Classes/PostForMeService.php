@@ -151,4 +151,29 @@ class PostForMeService {
         list($code, $body) = self::request('GET', '/social-posts/' . urlencode((string) $id));
         return ($code === 200 && is_array($body)) ? $body : null;
     }
+
+    /**
+     * One page of a connected account's feed with per-post engagement metrics
+     * (GET /social-account-feeds/{id}?expand=metrics). Each item carries social_post_id
+     * (our social_posts.post_for_me_post_id when the post went out through us), platform_post_id,
+     * platform_url, caption, posted_at and a platform-shaped `metrics` object.
+     * Returns ['data' => [...], 'cursor' => next|null, 'has_more' => bool] or ['_error' => ...].
+     */
+    public static function get_feed($social_account_id, $cursor = null, $limit = 50): array
+    {
+        $qs = 'expand=metrics&limit=' . max(1, min(100, (int) $limit));
+        if ($cursor !== null && $cursor !== '') { $qs .= '&cursor=' . urlencode((string) $cursor); }
+        list($code, $body) = self::request('GET', '/social-account-feeds/' . urlencode((string) $social_account_id) . '?' . $qs);
+        if ($code === 200 && is_array($body) && isset($body['data']) && is_array($body['data'])) {
+            $meta = is_array($body['meta'] ?? null) ? $body['meta'] : array();
+            $next = (string) ($meta['cursor'] ?? '');
+            return array(
+                'data'     => $body['data'],
+                'cursor'   => $next !== '' ? $next : null,
+                'has_more' => !empty($meta['has_more']) && $next !== '',
+            );
+        }
+        $msg = is_array($body) ? (string) ($body['message'] ?? ($body['error']['message'] ?? '')) : '';
+        return array('_error' => 'HTTP ' . $code . ($msg !== '' ? ': ' . $msg : ''));
+    }
 }

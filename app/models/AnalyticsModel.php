@@ -321,12 +321,24 @@ class AnalyticsModel extends Model {
             }
             $by_post[$pid]['status'] = self::share_bucket($sh['status']);
         }
+        // Engagement on the cross-posted copies (from each platform's feed via Post for Me),
+        // folded per post and kept per platform for the breakdown.
+        $social = array();
+        foreach ((new SocialPostMetricsModel())->for_creator_posts($c) as $m) {
+            $pid = (int) $m['post_id'];
+            if (!isset($social[$pid])) { $social[$pid] = array('views' => 0, 'likes' => 0, 'comments' => 0, 'shares' => 0, 'per_platform' => array()); }
+            foreach (array('views', 'likes', 'comments', 'shares') as $k) { $social[$pid][$k] += (int) $m[$k]; }
+            $social[$pid]['per_platform'][(string) $m['platform']] = array(
+                'views' => (int) $m['views'], 'likes' => (int) $m['likes'], 'comments' => (int) $m['comments'],
+                'shares' => (int) $m['shares'], 'url' => (string) $m['platform_url'], 'fetched_at' => (string) $m['fetched_at']);
+        }
         foreach ($rows as &$r) {
             $pid   = (int) $r['id'];
             $plats = isset($by_post[$pid]) ? array_values($by_post[$pid]['platforms']) : array();
             if (!empty($r['fanvue_post_uuid'])) { $plats[] = 'fanvue'; }
             $r['platforms']    = $plats;
             $r['share_status'] = isset($by_post[$pid]) ? $by_post[$pid]['status'] : (!empty($r['fanvue_post_uuid']) ? 'delivered' : '');
+            $r['social']       = $social[$pid] ?? null;
             $views = (int) $r['views'];
             $r['unlock_rate']  = ($r['audience'] === 'ppv' && $views > 0) ? round((int) $r['unlocks'] / $views * 100, 1) : null;
             $r['engagement']   = $views > 0 ? round(((int) $r['likes'] + (int) $r['comments']) / $views * 100, 1) : null;
@@ -337,8 +349,8 @@ class AnalyticsModel extends Model {
 
     /**
      * Cross-posting within the window: share jobs per platform, delivery buckets, distinct posts
-     * shared (social + Fanvue), and the latest jobs. Post for Me tracks delivery, not engagement,
-     * so this is reach, not performance.
+     * shared (social + Fanvue), and the latest jobs. `metrics` adds lifetime engagement per
+     * platform for everything shared through us, pulled from the platforms' feeds via Post for Me.
      */
     public function share_stats($creator_id, $start_utc, $recent = 6){
         $c = (int) $creator_id;
@@ -377,6 +389,12 @@ class AnalyticsModel extends Model {
             array('c' => $c, 's' => (string) $start_utc));
         foreach ($fv_posts as $r) { $posts_shared[(int) $r['id']] = true; }
         arsort($per_platform);
+        $metrics = array();
+        foreach ((new SocialPostMetricsModel())->totals_by_platform($c) as $m) {
+            $metrics[(string) $m['platform']] = array(
+                'posts' => (int) $m['posts'], 'views' => (int) $m['views'], 'likes' => (int) $m['likes'],
+                'comments' => (int) $m['comments'], 'shares' => (int) $m['shares'], 'fetched_at' => (string) $m['fetched_at']);
+        }
         return array(
             'jobs'         => count($jobs) + $fanvue,
             'targets'      => $targets,
@@ -384,6 +402,7 @@ class AnalyticsModel extends Model {
             'per_platform' => $per_platform,
             'buckets'      => $buckets,
             'recent'       => $list,
+            'metrics'      => $metrics,
         );
     }
 
