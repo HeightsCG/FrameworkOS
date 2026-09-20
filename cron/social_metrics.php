@@ -3,9 +3,12 @@
  * Social metrics sync — walks every connected social account, pulls its recent feed with
  * engagement metrics from Post for Me, and upserts one row per platform post into
  * social_post_metrics. Items that went out through us are tied back to the studio post.
- * Invoke from a scheduler (launchd/cron), e.g. every 6 hours:
+ * Cron (prod), every 6 hours:
  *
- *   0 * / 6 * * *  /opt/homebrew/opt/php@8.2/bin/php /private/var/www/contentos.cvk/framework/cron/social_metrics.php >> /tmp/cls-social-metrics.log 2>&1
+ *   0 * /6 * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/social_metrics.php >> /var/www/creatorlinkstudio.com/www/cron/social_metrics.log 2>&1
+ *
+ * (Remove the space in "* /6" — it's only there to keep this comment block valid PHP.)
+ * Dev runs it from the com.creatorlinkstudio.social-metrics launchd agent.
  *
  * Manual run for one account:  php cron/social_metrics.php spc_xxxxxxxx
  * Counters are lifetime totals, so a few refreshes a day is plenty.

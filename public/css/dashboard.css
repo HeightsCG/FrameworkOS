@@ -177,5 +177,6 @@
 .dash__table--compact td{ padding:.45rem .6rem; }
 .dash__table--compact th:first-child{ text-align:left; padding-left:0; }
 .dash__table--compact td:first-child{ max-width:none; }
-#dashPosts td:first-child{ max-width:300px; }
-#dashPosts .dash__row-title{ display:block; overflow:hidden; text-overflow:ellipsis; }
+#dashPosts td.dash__td--social{ white-space:nowrap; }
+#dashPosts td.dash__td--social .dash__plats{ justify-content:flex-end; }
+#dashPosts td.dash__td--social .dash__num-sub{ margin-top:.2rem; }
