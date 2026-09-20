@@ -35,6 +35,28 @@ class MediaIngestService {
     }
 
     /** Fetch a PUBLIC image URL with SSRF protection; validate it is a real image. ['bytes','ext','mime','width','height']. */
+    /**
+     * True when an image is (near) uniformly black: what fal returns instead of an error when
+     * its content checker fires, and never something a person meant to publish. Samples a grid.
+     */
+    public static function is_blank_image($bytes){
+        if (!function_exists('imagecreatefromstring') || (string) $bytes === '') { return false; }
+        $im = @imagecreatefromstring($bytes);
+        if (!$im) { return false; }
+        $w = imagesx($im); $h = imagesy($im);
+        if ($w < 2 || $h < 2) { imagedestroy($im); return false; }
+        $max = 0;
+        for ($y = 0; $y < 24; $y++) {
+            for ($x = 0; $x < 24; $x++) {
+                $c = imagecolorat($im, (int) floor(($x + 0.5) * $w / 24), (int) floor(($y + 0.5) * $h / 24));
+                $l = max(($c >> 16) & 0xFF, ($c >> 8) & 0xFF, $c & 0xFF);
+                if ($l > $max) { $max = $l; if ($max > 12) { imagedestroy($im); return false; } }
+            }
+        }
+        imagedestroy($im);
+        return true;
+    }
+
     public static function fetch_image($url, $max = self::MAX_IMAGE_BYTES, $timeout = 20){
         $u = self::safe_url($url, 'image URL');
         $url = $u['url'];

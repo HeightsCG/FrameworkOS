@@ -69,6 +69,9 @@ class ImageGenService {
             if (!$class::output_url_allowed($out['url'])) { return array('ok' => false, 'error' => 'The provider returned an output from an unexpected host.'); }
             try {
                 $img = MediaIngestService::fetch_image($out['url'], (int) InfluencerConfig::get('output_max_image_bytes', 31457280), 60);
+                if (!empty($out['nsfw']) || MediaIngestService::is_blank_image($img['bytes'])) {
+                    return array('ok' => false, 'error' => 'The model returned a blank image (its content filter fired). Try a different prompt or a less revealing scene.');
+                }
             } catch (\Throwable $e) {
                 error_log('[imagegen] download: ' . $e->getMessage());
                 return array('ok' => false, 'error' => 'Could not download the generated image. Try again.');

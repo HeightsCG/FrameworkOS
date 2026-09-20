@@ -352,10 +352,34 @@ class InfluencerJobService {
                 'finished_at' => date('Y-m-d H:i:s'), 'error' => null, 'error_code' => null));
             self::after_terminal($m->get_by_id($job['id']));
             return self::out('done', true, null, 'landed ' . count($ids) . ' asset(s)');
+        } catch (BlankOutputException $e) {
+            return self::reroll_or_fail($m->get_by_id($job['id']), $m, $e->getMessage());
         } catch (\Throwable $e) {
             error_log('[influencer] job ' . (int) $job['id'] . ' landing failed: ' . $e->getMessage());
             return self::fail_job($m->get_by_id($job['id']), $m, 'landing', 'landing', 'Could not store the result: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * A blank frame is a filtered render, not a result. Re-run once with a fresh seed (same
+     * prompt, same provider); a second blank fails the job with a reason the creator can act on.
+     */
+    private static function reroll_or_fail($job, InfluencerJobsModel $m, $why){
+        if (!$job) { return self::out('failed', true, null, (string) $why); }
+        $result = InfluencerJobsModel::result($job);
+        $rerolls = (int) ($result['blank_rerolls'] ?? 0);
+        if ($rerolls < 1) {
+            $result['blank_rerolls'] = $rerolls + 1;
+            $result['outputs'] = array();
+            $attempts = InfluencerJobsModel::attempts($job);
+            if (!empty($attempts)) { $k = count($attempts) - 1; $attempts[$k]['outcome'] = 'blank'; $attempts[$k]['error'] = (string) $why; $attempts[$k]['ended_at'] = gmdate('c'); }
+            $n = $m->transition($job['id'], 'landing', array('status' => 'queued', 'seed' => random_int(1, 2147483647),
+                'result_json' => json_encode($result), 'attempts_json' => json_encode($attempts),
+                'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
+                'poll_count' => 0, 'deadline_at' => null, 'error' => null, 'error_code' => null));
+            if ($n === 1) { return self::out('queued', false, 0, 'blank image, re-rolling with a new seed'); }
+        }
+        return self::fail_job($job, $m, 'landing', 'blank', (string) $why . ' Try a different prompt or a less revealing scene.');
     }
 
     /**
@@ -399,6 +423,9 @@ class InfluencerJobService {
                 MediaIngestService::ingest_video_file($cid, $user, $v['path'], $v['ext'], $v['mime'], $v['bytes'], $label, '', $aid, true);
             } else {
                 $img = MediaIngestService::fetch_image($o['url'], (int) InfluencerConfig::get('output_max_image_bytes', 31457280), 60);
+                if (!empty($o['nsfw']) || MediaIngestService::is_blank_image($img['bytes'])) {
+                    throw new BlankOutputException('The model returned a blank image (its content filter fired).');
+                }
                 MediaIngestService::ingest_image($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label, $watermark, $aid);
             }
             $mm->set_tags($cid, $aid, 'influencer:' . (int) $job['influencer_id'] . ',' . $role);

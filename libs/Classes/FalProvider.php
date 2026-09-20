@@ -168,11 +168,12 @@ class FalProvider implements InfluencerProvider {
         if (!$r['ok']) { return self::map_error($r); }
         $j = (array) $r['json'];
         $outputs = array();
-        foreach ((array) ($j['images'] ?? array()) as $img) {
+        foreach (array_values((array) ($j['images'] ?? array())) as $k => $img) {
             if (empty($img['url'])) { continue; }
             $outputs[] = array('kind' => 'image', 'url' => (string) $img['url'], 'content_type' => (string) ($img['content_type'] ?? ''),
                 'width' => (int) ($img['width'] ?? 0), 'height' => (int) ($img['height'] ?? 0), 'file_size' => (int) ($img['file_size'] ?? 0),
-                'seed' => isset($j['seed']) ? (int) $j['seed'] : null);
+                'seed' => isset($j['seed']) ? (int) $j['seed'] : null,
+                'nsfw' => !empty($j['has_nsfw_concepts'][$k]));   // fal hands back a black frame when this is set
         }
         if (!empty($j['image']['url'])) {   // single-image endpoints (clarity-upscaler)
             $outputs[] = array('kind' => 'image', 'url' => (string) $j['image']['url'], 'content_type' => (string) ($j['image']['content_type'] ?? ''),
