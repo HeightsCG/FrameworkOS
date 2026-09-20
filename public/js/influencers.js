@@ -720,6 +720,7 @@ jQuery(function ($) {
             stop_poll = poll_job(job_id, function (j) { busy(status_text(j)); merge(j); }, function (j) {
                 merge(j); $('#inf_gen_go, #inf_res_again').prop('disabled', false);
                 if (j.status !== 'done' || !j.assets.length) { toastr.error(j.error || 'Generation failed'); show_current(); render_strip(); return; }
+                if (j.quality_note) { toastr.warning('Check this one before posting. ' + j.quality_note, '', { timeOut: 9000 }); }
                 select(j, j.assets[0]); render_strip();
             });
         }

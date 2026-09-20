@@ -730,7 +730,7 @@ jQuery(function ($) {
                 ? 'This file is used in ' + n + ' post' + (n > 1 ? 's' : '') + '. Those posts will show the file as missing. This can be undone from support within 30 days.'
                 : 'It will be taken out of your library. This can be undone from support within 30 days.';
             confirmDialog('Remove this file?', msg, 'Remove', true, function () {
-                ApiDataSvc.apiCall('post', 'media_delete', { id: a.id }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success('File removed'); detailOC.hide(); loadLibrary(); } else err(o); });
+                ApiDataSvc.apiCall('post', 'media_delete', { id: a.id }, function (resp) { var o = JSON.parse(resp); if (o.success) { (o.unpublished ? toastr.warning : toastr.success)(o.message || 'File removed', '', o.unpublished ? { timeOut: 9000 } : {}); detailOC.hide(); loadLibrary(); if (o.unpublished && typeof loadPosts === 'function') { loadPosts(); } } else err(o); });
             });
         });
     }

@@ -369,10 +369,10 @@ class ApiMediaController extends BaseApiController {
         $model      = new MediaAssetsModel();
         $a          = $model->get_one($creator_id, $id);
         if (!$a) { $this->jsonError('That file was not found.'); }
-        $affected = count($model->get_posts_using($creator_id, $id));
         $model->soft_delete($creator_id, $id);
         (new CollectionsModel())->remove_asset_everywhere($id);
-        $this->jsonSuccess(['affected_posts' => $affected, 'message' => 'File removed.']);
+        $r = (new PostsModel())->detach_asset($creator_id, $id);
+        $this->jsonSuccess(['affected_posts' => $r['affected'], 'unpublished' => $r['unpublished'], 'message' => 'File removed.' . $this->detach_note($r)]);
     }
 
     /** Bulk actions over selected assets: add to collection, tag, or delete. */
@@ -401,10 +401,21 @@ class ApiMediaController extends BaseApiController {
         }
         if ($action === 'delete') {
             $col = new CollectionsModel();
-            foreach ($owned as $id) { $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id); }
-            $this->jsonSuccess(['message' => count($owned) . ' file(s) removed.']);
+            $tot = array('affected' => 0, 'unpublished' => 0);
+            foreach ($owned as $id) {
+                $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id);
+                $r = (new PostsModel())->detach_asset($creator_id, $id); $tot['affected'] += $r['affected']; $tot['unpublished'] += $r['unpublished'];
+            }
+            $this->jsonSuccess(['message' => count($owned) . ' file(s) removed.' . $this->detach_note($tot), 'unpublished' => $tot['unpublished']]);
         }
         $this->jsonError('Unknown action.');
+    }
+
+    /** "2 posts lost their only media and are back in Drafts" — or nothing when no post changed state. */
+    private function detach_note(array $r): string{
+        $n = (int) ($r['unpublished'] ?? 0);
+        if ($n <= 0) { return ''; }
+        return ' ' . ($n === 1 ? '1 post lost its only media and is back in Drafts.' : $n . ' posts lost their only media and are back in Drafts.');
     }
 
     /* ---------- Content Studio: collections ---------- */

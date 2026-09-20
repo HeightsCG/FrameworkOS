@@ -336,10 +336,14 @@ class InfluencerJobService {
             $ids = array();
             $i = 0;
             $units = 0;
+            // Quality check runs until the re-roll budget is spent; a hand-run job then lands with a note,
+            // an unattended (scheduler) job keeps checking and fails instead of publishing a bad render.
+            $rerolls = (int) (InfluencerJobsModel::result($job)['quality_rerolls'] ?? 0);
+            $qa = ($rerolls < self::QUALITY_REROLLS) || ((string) $job['origin'] === 'scheduler');
             foreach ((array) $res['outputs'] as $o) {
                 if (!in_array($o['kind'] ?? '', array('image', 'video'), true)) { continue; }
                 if (!$class::output_url_allowed($o['url'])) { throw new RuntimeException('Provider returned an output from an unexpected host'); }
-                $aid = self::land_output($job, $m, $user, $infl, $o, $i, $role, $watermark, $label);
+                $aid = self::land_output($job, $m, $user, $infl, $o, $i, $role, $watermark, $label, $qa);
                 if ($aid > 0) { $ids[] = $aid; }
                 $units += ($o['kind'] === 'video') ? (int) (InfluencerJobsModel::params($job)['duration'] ?? 5) : 1;
                 $i++;
@@ -354,6 +358,8 @@ class InfluencerJobService {
             return self::out('done', true, null, 'landed ' . count($ids) . ' asset(s)');
         } catch (BlankOutputException $e) {
             return self::reroll_or_fail($m->get_by_id($job['id']), $m, $e->getMessage());
+        } catch (QualityException $e) {
+            return self::reroll_or_fail($m->get_by_id($job['id']), $m, 'The render had visible anatomy problems: ' . $e->getMessage(), 'quality', self::QUALITY_REROLLS);
         } catch (\Throwable $e) {
             error_log('[influencer] job ' . (int) $job['id'] . ' landing failed: ' . $e->getMessage());
             return self::fail_job($m->get_by_id($job['id']), $m, 'landing', 'landing', 'Could not store the result: ' . $e->getMessage());
@@ -364,29 +370,34 @@ class InfluencerJobService {
      * A blank frame is a filtered render, not a result. Re-run once with a fresh seed (same
      * prompt, same provider); a second blank fails the job with a reason the creator can act on.
      */
-    private static function reroll_or_fail($job, InfluencerJobsModel $m, $why){
+    const QUALITY_REROLLS = 2;
+
+    private static function reroll_or_fail($job, InfluencerJobsModel $m, $why, $kind = 'blank', $max = 1){
         if (!$job) { return self::out('failed', true, null, (string) $why); }
         $result = InfluencerJobsModel::result($job);
-        $rerolls = (int) ($result['blank_rerolls'] ?? 0);
-        if ($rerolls < 1) {
-            $result['blank_rerolls'] = $rerolls + 1;
+        $key = $kind . '_rerolls';
+        $rerolls = (int) ($result[$key] ?? 0);
+        if ($rerolls < $max) {
+            $result[$key] = $rerolls + 1;
+            $result['quality_note'] = ($kind === 'quality') ? (string) $why : ($result['quality_note'] ?? null);
             $result['outputs'] = array();
             $attempts = InfluencerJobsModel::attempts($job);
-            if (!empty($attempts)) { $k = count($attempts) - 1; $attempts[$k]['outcome'] = 'blank'; $attempts[$k]['error'] = (string) $why; $attempts[$k]['ended_at'] = gmdate('c'); }
+            if (!empty($attempts)) { $k = count($attempts) - 1; $attempts[$k]['outcome'] = $kind; $attempts[$k]['error'] = (string) $why; $attempts[$k]['ended_at'] = gmdate('c'); }
             $n = $m->transition($job['id'], 'landing', array('status' => 'queued', 'seed' => random_int(1, 2147483647),
                 'result_json' => json_encode($result), 'attempts_json' => json_encode($attempts),
                 'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
                 'poll_count' => 0, 'deadline_at' => null, 'error' => null, 'error_code' => null));
-            if ($n === 1) { return self::out('queued', false, 0, 'blank image, re-rolling with a new seed'); }
+            if ($n === 1) { return self::out('queued', false, 0, $kind . ' render, re-rolling with a new seed'); }
         }
-        return self::fail_job($job, $m, 'landing', 'blank', (string) $why . ' Try a different prompt or a less revealing scene.');
+        $why = rtrim((string) $why); if ($why !== '' && !preg_match('/[.!?]$/', $why)) { $why .= '.'; }
+        return self::fail_job($job, $m, 'landing', $kind, $why . ($kind === 'blank' ? ' Try a different prompt or a less revealing scene.' : ' Try a simpler pose or a different scene.'));
     }
 
     /**
      * Land one output into the library, idempotently. Index 0 uses the result_asset_id slot;
      * later indexes use the (job, index) attachment key. Returns the asset id (0 when skipped).
      */
-    private static function land_output(array $job, InfluencerJobsModel $m, array $user, $infl, array $o, $index, $role, $watermark, $label){
+    private static function land_output(array $job, InfluencerJobsModel $m, array $user, $infl, array $o, $index, $role, $watermark, $label, $qa = true){
         $cid = (int) $job['creator_id'];
         $mm  = new MediaAssetsModel();
         $im  = new InfluencerImagesModel();
@@ -425,6 +436,10 @@ class InfluencerJobService {
                 $img = MediaIngestService::fetch_image($o['url'], (int) InfluencerConfig::get('output_max_image_bytes', 31457280), 60);
                 if (!empty($o['nsfw']) || MediaIngestService::is_blank_image($img['bytes'])) {
                     throw new BlankOutputException('The model returned a blank image (its content filter fired).');
+                }
+                if ($qa && $type === 'image' && (string) $job['type'] === 'image') {
+                    $q = ImageQualityService::check($img['bytes'], (string) $img['mime']);
+                    if (!$q['ok']) { throw new QualityException($q['issues'] !== '' ? $q['issues'] : 'visible anatomy errors'); }
                 }
                 MediaIngestService::ingest_image($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label, $watermark, $aid);
             }
@@ -688,6 +703,7 @@ class InfluencerJobService {
             'params' => $p, 'group_key' => (string) $job['group_key'], 'group_index' => (int) $job['group_index'],
             'input_asset_id' => (int) $job['input_asset_id'], 'model_id' => (int) $job['model_id'], 'result_model_id' => (int) $job['result_model_id'],
             'error' => (string) $job['error'], 'error_code' => (string) $job['error_code'], 'cost_usd' => (float) $job['cost_usd'],
+            'quality_note' => ((string) $job['status'] === 'done' && (int) ($result['quality_rerolls'] ?? 0) >= self::QUALITY_REROLLS) ? (string) ($result['quality_note'] ?? '') : '',
             'created_at' => (string) $job['created_at'], 'submitted_at' => (string) $job['submitted_at'], 'finished_at' => (string) $job['finished_at'],
             'assets' => $assets,
         );

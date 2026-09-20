@@ -92,6 +92,43 @@ class ClaudeService {
         );
     }
 
+    /**
+     * One image + one question → text. Same envelope as chat(); the image goes inline as base64.
+     * @return array ['ok'=>bool, 'text'=>string, 'stop_reason'=>string, 'error'=>string]
+     */
+    public static function vision($system, $text, $image_bytes, $mime = 'image/jpeg', $max_tokens = 300, $timeout = 40, $effort = 'low'): array {
+        $key = self::api_key();
+        if ($key === '') { return self::fail('Claude API key is not configured'); }
+        if ((string) $image_bytes === '') { return self::fail('No image'); }
+        $mime = in_array($mime, array('image/jpeg', 'image/png', 'image/webp', 'image/gif'), true) ? $mime : 'image/jpeg';
+        $body = array(
+            'model'         => self::model(),
+            'max_tokens'    => max(64, (int) $max_tokens),
+            'messages'      => array(array('role' => 'user', 'content' => array(
+                array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => $mime, 'data' => base64_encode($image_bytes))),
+                array('type' => 'text', 'text' => (string) $text),
+            ))),
+            'output_config' => array('effort' => in_array($effort, array('low', 'medium', 'high'), true) ? $effort : 'low'),
+        );
+        if (trim((string) $system) !== '') { $body['system'] = (string) $system; }
+        $ch = curl_init(self::API);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_POST => true, CURLOPT_TIMEOUT => max(5, (int) $timeout),
+            CURLOPT_HTTPHEADER => array('x-api-key: ' . $key, 'anthropic-version: ' . self::API_VERSION, 'content-type: application/json'),
+            CURLOPT_POSTFIELDS => json_encode($body),
+        ));
+        $raw = curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+        if ($raw === false) { error_log('[claude] vision transport: ' . $err); return self::fail('Claude request failed (network)'); }
+        $d = json_decode($raw, true);
+        if ($code >= 400 || !is_array($d)) {
+            error_log('[claude] vision http ' . $code . ': ' . substr((string) $raw, 0, 300));
+            return self::fail('Claude request failed (HTTP ' . $code . ')');
+        }
+        $out = '';
+        foreach ((array) ($d['content'] ?? array()) as $block) { if (($block['type'] ?? '') === 'text') { $out = (string) $block['text']; break; } }
+        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '');
+    }
+
     /** Drop empties, merge consecutive same-role turns, ensure the list starts and ends with a user turn. */
     private static function normalize(array $messages): array {
         $out = array();

@@ -95,6 +95,39 @@ class PostsModel extends Model {
         return true;
     }
 
+    /**
+     * A media file is being deleted: take it out of every post that uses it. A published or
+     * scheduled post left with no media goes back to drafts (flagged media_missing) so the feed,
+     * profile and scheduler never show an empty frame. Returns ['affected' => n, 'unpublished' => n].
+     */
+    public function detach_asset($creator_id, $asset_id){
+        $creator_id = (int) $creator_id; $asset_id = (int) $asset_id;
+        $rows = parent::select(
+            "SELECT p.id, p.state, pa.is_cover FROM post_assets pa JOIN posts p ON p.id = pa.post_id
+             WHERE pa.asset_id = :a AND p.creator_id = :c", array('a' => $asset_id, 'c' => $creator_id));
+        $affected = 0; $unpublished = 0;
+        foreach ((array) $rows as $r) {
+            $pid = (int) $r['id'];
+            parent::delete_all('post_assets', 'post_id = :p AND asset_id = :a', array('p' => $pid, 'a' => $asset_id));
+            $left = parent::select(
+                "SELECT pa.asset_id FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                 WHERE pa.post_id = :p AND ma.deleted_at IS NULL ORDER BY pa.sort_order ASC", array('p' => $pid));
+            $affected++;
+            if (is_array($left) && count($left) > 0) {
+                if (!empty($r['is_cover'])) {
+                    parent::update('post_assets', array('is_cover' => 1), 'post_id = :p AND asset_id = :a', array('p' => $pid, 'a' => (int) $left[0]['asset_id']));
+                }
+                continue;
+            }
+            $data = array('media_missing' => 1, 'updated_at' => date('Y-m-d H:i:s'));
+            if (in_array((string) $r['state'], array('published', 'scheduled'), true)) {
+                $data['state'] = 'draft'; $data['scheduled_at'] = null; $unpublished++;
+            }
+            parent::update('posts', $data, 'id = :id AND creator_id = :c', array('id' => $pid, 'c' => $creator_id));
+        }
+        return array('affected' => $affected, 'unpublished' => $unpublished);
+    }
+
     /** A post's assets with the media info needed for previews and the list. */
     public function get_assets($post_id){
         return parent::select(
