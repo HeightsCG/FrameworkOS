@@ -104,6 +104,7 @@ class ApiInboxController extends BaseApiController {
             }
             $items[$t] = [
                 'enabled' => $r ? !empty($r['enabled']) : false,
+                'is_default' => $r ? !empty($r['is_default']) : true,
                 'text'    => $r ? (string) $r['text'] : '',
                 'price'   => $r ? (int) round(((int) $r['price_credits']) / 10) : 0,
                 'assets'  => $assets,

@@ -2611,7 +2611,7 @@ $(function () {
                 $row.find('[data-role="text"]').val(it.text || '');
                 inbox_trigger_media[t] = it.assets || [];
                 $row.find('[data-role="price"]').val(it.price > 0 ? it.price : '');
-                $row.find('[data-role="sent"]').text(it.sent > 0 ? ('Sent ' + it.sent + ' time' + (it.sent === 1 ? '' : 's')) : '');
+                $row.find('[data-role="sent"]').text(it.sent > 0 ? ('Sent ' + it.sent + ' time' + (it.sent === 1 ? '' : 's')) : (it.is_default ? 'Default message' : ''));
                 inbox_trigger_state($row, !!it.enabled);
                 inbox_trigger_thumbs($row);
             });

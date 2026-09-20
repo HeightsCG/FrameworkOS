@@ -654,14 +654,13 @@ class McpTools {
                 if (!AutoMessagesModel::is_trigger($trigger)) { throw new InvalidArgumentException('Unknown trigger'); }
                 $model = new AutoMessagesModel();
                 if (array_key_exists('enabled', $a) && !$a['enabled']) {
-                    $model->delete_one($cid, $trigger);
+                    $model->delete_one($cid, $trigger);   // stores a disabled row so the built-in default stays off
                     return array('trigger' => $trigger, 'enabled' => false);
                 }
                 $text = trim((string) ($a['text'] ?? ''));
                 list($asset_ids, $price) = self::message_media($cid, $a);
                 if ($text === '' && empty($asset_ids)) {
                     $cur = $model->get_one($cid, $trigger);
-                    if (!$cur) { throw new InvalidArgumentException('text or asset_ids is required'); }
                     $text = (string) $cur['text']; $asset_ids = (array) $cur['asset_ids']; $price = (int) $cur['price_credits'];
                 }
                 $model->save($cid, $trigger, $text, true, $asset_ids, $price);

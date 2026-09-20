@@ -9,26 +9,50 @@ class AutoMessagesModel extends Model {
 
     const TRIGGERS = array('new_follower', 'new_subscriber', 'first_message', 'new_purchase');
 
+    /** Every account starts with these, switched on. A saved row (even a disabled one) replaces the default. */
+    const DEFAULTS = array(
+        'new_follower'   => 'Thanks for the follow! I post new content here all the time. Message me anytime, I read everything.',
+        'new_subscriber' => 'Welcome in! You now have full access to everything I post. Say hi anytime, I love hearing from you.',
+        'first_message'  => 'Hey! Thanks for reaching out. I read every message and reply as soon as I can.',
+        'new_purchase'   => 'Thank you for the support! Enjoy, and let me know what you think.',
+    );
+
     public static function is_trigger($key){ return in_array((string) $key, self::TRIGGERS, true); }
 
-    /** trigger_key => row for a creator (only saved ones). */
+    private static function default_row($creator_id, $trigger){
+        return array('id' => 0, 'creator_id' => (int) $creator_id, 'trigger_key' => (string) $trigger, 'enabled' => 1,
+            'text' => (string) (self::DEFAULTS[$trigger] ?? ''), 'price_credits' => 0, 'asset_ids' => array(), 'updated_at' => null, 'is_default' => true);
+    }
+
+    /** trigger_key => row for a creator: the saved row, or the built-in default. */
     public function get_for_creator($creator_id){
         $rows = parent::select("SELECT * FROM auto_messages WHERE creator_id = :c", array('c' => (int) $creator_id));
         $out = array();
+        foreach (self::TRIGGERS as $t) { $out[$t] = self::default_row($creator_id, $t); }
         foreach ((array) $rows as $r) {
             $r['asset_ids'] = self::decode_ids($r['asset_ids'] ?? null);
+            $r['is_default'] = false;
             $out[(string) $r['trigger_key']] = $r;
         }
         return $out;
     }
 
+    /** The saved row, or the built-in default (enabled) when the creator never touched this trigger. */
     public function get_one($creator_id, $trigger){
+        if (!self::is_trigger($trigger)) { return null; }
         $rows = parent::select("SELECT * FROM auto_messages WHERE creator_id = :c AND trigger_key = :t",
             array('c' => (int) $creator_id, 't' => (string) $trigger));
-        if (!is_array($rows) || count($rows) !== 1) { return null; }
+        if (!is_array($rows) || count($rows) !== 1) { return self::default_row($creator_id, $trigger); }
         $r = $rows[0];
         $r['asset_ids'] = self::decode_ids($r['asset_ids'] ?? null);
+        $r['is_default'] = false;
         return $r;
+    }
+
+    /** True when a row is stored for this trigger (as opposed to the built-in default). */
+    public function has_saved($creator_id, $trigger){
+        $rows = parent::select("SELECT id FROM auto_messages WHERE creator_id = :c AND trigger_key = :t", array('c' => (int) $creator_id, 't' => (string) $trigger));
+        return is_array($rows) && count($rows) === 1;
     }
 
     /** Upsert one trigger. $asset_ids are trusted (the caller verifies ownership). */
@@ -42,18 +66,19 @@ class AutoMessagesModel extends Model {
             'asset_ids'     => empty($asset_ids) ? null : json_encode($asset_ids),
             'updated_at'    => date('Y-m-d H:i:s'),
         );
-        $existing = $this->get_one($creator_id, $trigger);
-        if ($existing) {
-            return parent::update('auto_messages', $data, 'id = :id', array('id' => (int) $existing['id']));
+        if ($this->has_saved($creator_id, $trigger)) {
+            return parent::update('auto_messages', $data, 'creator_id = :c AND trigger_key = :t', array('c' => (int) $creator_id, 't' => (string) $trigger));
         }
         $data['creator_id']  = (int) $creator_id;
         $data['trigger_key'] = (string) $trigger;
         return parent::insert('auto_messages', $data);
     }
 
+    /** Turn a trigger off. Keeps the text (a stored, disabled row also stops the default from coming back). */
     public function delete_one($creator_id, $trigger){
-        return parent::delete_all('auto_messages', 'creator_id = :c AND trigger_key = :t',
-            array('c' => (int) $creator_id, 't' => (string) $trigger));
+        $cur = $this->get_one($creator_id, $trigger);
+        if (!$cur) { return false; }
+        return $this->save($creator_id, $trigger, (string) $cur['text'], false, (array) $cur['asset_ids'], (int) $cur['price_credits']);
     }
 
     /** Claim a delivery slot. False when this fan already got this trigger (ref). */
