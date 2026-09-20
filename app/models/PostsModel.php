@@ -100,7 +100,7 @@ class PostsModel extends Model {
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
                     ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status,
-                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.deleted_at
+                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id = :p

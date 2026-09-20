@@ -126,6 +126,9 @@
 .inf-drop.is-dragover{ border-color:var(--violet); background:var(--vsoft); }
 .inf-drop.is-full{ opacity:.5; pointer-events:none; }
 .inf-link{ background:none; border:none; padding:0; color:var(--violet); font-weight:600; cursor:pointer; font-size:inherit; }
+.inf-link.is-busy{ color:var(--muted); cursor:progress; }
+.inf-link .spinner-border{ width:.8em; height:.8em; border-width:.15em; vertical-align:-.1em; margin-right:.25rem; }
+.inf-gen__prompt:disabled, #inf_vprompt:disabled{ background:#f7f6fb; color:var(--muted); }
 .inf-link:hover{ color:var(--violet7); text-decoration:underline; }
 .inf-counter{ margin:1rem 0 .8rem; }
 .inf-counter__row{ display:flex; align-items:baseline; gap:.4rem; font-size:.86rem; color:var(--muted); }

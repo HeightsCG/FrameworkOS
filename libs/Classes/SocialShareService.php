@@ -61,25 +61,20 @@ class SocialShareService {
             foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
             if (!$cover && !empty($assets)) { $cover = $assets[0]; }
             if ($cover) {
-                $variant = ($post['audience'] === 'subscribers') ? 'blurred' : (($cover['type'] === 'video') ? 'poster' : 'display');
-                $col = array('blurred' => 'blurred_key', 'poster' => 'poster_key', 'display' => 'display_key');
-                $key = (string) ($cover[$col[$variant]] ?? ($cover['blurred_key'] ?? ''));
-                if ($key !== '') {
-                    $src = S3Service::presigned_get_url($key, 300);
-                    $bytes = ($src !== '') ? @file_get_contents($src) : false;
-                    if ($bytes !== false && $bytes !== '') {
-                        $up = PostForMeService::create_upload_url();
-                        if (is_array($up) && count($up) === 2) {
-                            list($media_url, $upload_url) = $up;
-                            $ch = curl_init($upload_url);
-                            curl_setopt_array($ch, array(
-                                CURLOPT_CUSTOMREQUEST => 'PUT', CURLOPT_POSTFIELDS => $bytes,
-                                CURLOPT_RETURNTRANSFER => true, CURLOPT_HTTPHEADER => array('Content-Type: image/jpeg'),
-                            ));
-                            curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
-                            if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
-                        }
+                $is_video = ((string) $cover['type'] === 'video');
+                if ($post['audience'] === 'subscribers') {
+                    // Teaser only: the blurred still, never the media itself.
+                    $media_urls = self::push_media((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', $media_urls);
+                } elseif ($is_video) {
+                    // The actual clip; if the upload fails, fall back to the poster so the post still goes out.
+                    $before = count($media_urls);
+                    $media_urls = self::push_media((string) ($cover['original_key'] ?? ''), (string) ($cover['mime'] ?: 'video/mp4'), $media_urls);
+                    if (count($media_urls) === $before) {
+                        error_log('[social share] video upload failed for asset ' . (int) $cover['asset_id'] . ', sending the poster instead');
+                        $media_urls = self::push_media((string) ($cover['poster_key'] ?? ''), 'image/jpeg', $media_urls);
                     }
+                } else {
+                    $media_urls = self::push_media((string) ($cover['display_key'] ?? ''), 'image/jpeg', $media_urls);
                 }
             }
 
@@ -149,5 +144,29 @@ class SocialShareService {
             $n += $light ? 1 : 2;
         }
         return $n;
+    }
+
+    /** Upload one S3 object to Post for Me's media store; returns $media_urls with the new media_url appended on success. */
+    private static function push_media($key, $mime, array $media_urls){
+        if ($key === '') { return $media_urls; }
+        $tmp = tempnam(sys_get_temp_dir(), 'share');
+        if ($tmp === false || !S3Service::get_private_to_file($key, $tmp)) { @unlink($tmp); return $media_urls; }
+        $size = (int) filesize($tmp);
+        if ($size <= 0) { @unlink($tmp); return $media_urls; }
+        $up = PostForMeService::create_upload_url();
+        if (!is_array($up) || count($up) !== 2) { @unlink($tmp); return $media_urls; }
+        list($media_url, $upload_url) = $up;
+        $fh = fopen($tmp, 'rb');
+        $ch = curl_init($upload_url);
+        curl_setopt_array($ch, array(
+            CURLOPT_PUT => true, CURLOPT_INFILE => $fh, CURLOPT_INFILESIZE => $size,
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 600,
+            CURLOPT_HTTPHEADER => array('Content-Type: ' . ($mime !== '' ? $mime : 'application/octet-stream')),
+        ));
+        curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
+        fclose($fh); @unlink($tmp);
+        if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
+        else { error_log('[social share] media upload HTTP ' . $ucode . ' ' . $err); }
+        return $media_urls;
     }
 }

@@ -681,9 +681,12 @@ jQuery(function ($) {
         seg_pick('inf_size'); seg_pick('inf_n');
         $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(prompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_prompt_auto').on('click', function () {
-            var $b = $(this).prop('disabled', true);
+            var $b = $(this), html = $b.html();
+            $b.prop('disabled', true).addClass('is-busy').html('<span class="spinner-border spinner-border-sm"></span> Writing…');
+            $('#inf_prompt').prop('disabled', true).attr('placeholder', 'Writing a prompt for her…');
             api('influencer_prompt_auto', { id: inf.id, hint: $('#inf_prompt').val().trim() }, function (o) {
-                $b.prop('disabled', false);
+                $b.prop('disabled', false).removeClass('is-busy').html(html);
+                $('#inf_prompt').prop('disabled', false).attr('placeholder', 'photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera');
                 if (o && o.success) { $('#inf_prompt').val(o.prompt).trigger('focus'); } else { err(o); }
             });
         });
@@ -816,9 +819,12 @@ jQuery(function ($) {
         var vprompts = (C.prompts && C.prompts.video) || [];
         $('#inf_vprompt_chips').on('click', '.inf-chip--text', function () { $('#inf_vprompt').val(vprompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_vprompt_auto').on('click', function () {
-            var $b = $(this).prop('disabled', true);
+            var $b = $(this), html = $b.html();
+            $b.prop('disabled', true).addClass('is-busy').html('<span class="spinner-border spinner-border-sm"></span> Writing…');
+            $('#inf_vprompt').prop('disabled', true).attr('placeholder', 'Writing a prompt for her…');
             api('influencer_prompt_auto', { id: inf.id, kind: 'video', hint: $('#inf_vprompt').val().trim() }, function (o) {
-                $b.prop('disabled', false);
+                $b.prop('disabled', false).removeClass('is-busy').html(html);
+                $('#inf_vprompt').prop('disabled', false).attr('placeholder', 'She turns toward the camera and smiles, hair moving in a light breeze, slow push in');
                 if (o && o.success) { $('#inf_vprompt').val(o.prompt).trigger('focus'); } else { err(o); }
             });
         });
