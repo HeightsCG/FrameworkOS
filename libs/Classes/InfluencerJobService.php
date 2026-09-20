@@ -357,7 +357,8 @@ class InfluencerJobService {
             self::after_terminal($m->get_by_id($job['id']));
             return self::out('done', true, null, 'landed ' . count($ids) . ' asset(s)');
         } catch (BlankOutputException $e) {
-            return self::reroll_or_fail($m->get_by_id($job['id']), $m, $e->getMessage());
+            // fal's flux-lora blanks per IMAGE (its classifier runs whatever we send); another seed usually passes.
+            return self::reroll_or_fail($m->get_by_id($job['id']), $m, $e->getMessage(), 'blank', self::BLANK_REROLLS);
         } catch (QualityException $e) {
             return self::reroll_or_fail($m->get_by_id($job['id']), $m, 'The render had visible anatomy problems: ' . $e->getMessage(), 'quality', self::QUALITY_REROLLS);
         } catch (\Throwable $e) {
@@ -371,6 +372,9 @@ class InfluencerJobService {
      * prompt, same provider); a second blank fails the job with a reason the creator can act on.
      */
     const QUALITY_REROLLS = 2;
+    const BLANK_REROLLS   = 3;
+    /** Appended to the prompt from the second blank re-roll on: steers the render away from what fal's classifier blanks. */
+    const SOFTEN = ', fully clothed, nothing exposed, tasteful editorial photo';
 
     private static function reroll_or_fail($job, InfluencerJobsModel $m, $why, $kind = 'blank', $max = 1){
         if (!$job) { return self::out('failed', true, null, (string) $why); }
@@ -383,11 +387,16 @@ class InfluencerJobService {
             $result['outputs'] = array();
             $attempts = InfluencerJobsModel::attempts($job);
             if (!empty($attempts)) { $k = count($attempts) - 1; $attempts[$k]['outcome'] = $kind; $attempts[$k]['error'] = (string) $why; $attempts[$k]['ended_at'] = gmdate('c'); }
-            $n = $m->transition($job['id'], 'landing', array('status' => 'queued', 'seed' => random_int(1, 2147483647),
+            $data = array('status' => 'queued', 'seed' => random_int(1, 2147483647),
                 'result_json' => json_encode($result), 'attempts_json' => json_encode($attempts),
                 'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
-                'poll_count' => 0, 'deadline_at' => null, 'error' => null, 'error_code' => null));
-            if ($n === 1) { return self::out('queued', false, 0, $kind . ' render, re-rolling with a new seed'); }
+                'poll_count' => 0, 'deadline_at' => null, 'error' => null, 'error_code' => null);
+            // A second blank: the seed alone was not enough, soften the wording as well (kept on the job so it shows in the history).
+            if ($kind === 'blank' && $rerolls >= 1 && strpos((string) $job['prompt'], self::SOFTEN) === false) {
+                $data['prompt'] = mb_substr((string) $job['prompt'], 0, 1900) . self::SOFTEN;
+            }
+            $n = $m->transition($job['id'], 'landing', $data);
+            if ($n === 1) { return self::out('queued', false, 0, $kind . ' render, re-rolling with a new seed' . (isset($data['prompt']) ? ' and softer wording' : '')); }
         }
         $why = rtrim((string) $why); if ($why !== '' && !preg_match('/[.!?]$/', $why)) { $why .= '.'; }
         return self::fail_job($job, $m, 'landing', $kind, $why . ($kind === 'blank' ? ' Try a different prompt or a less revealing scene.' : ' Try a simpler pose or a different scene.'));
