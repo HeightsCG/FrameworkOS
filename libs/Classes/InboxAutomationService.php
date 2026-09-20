@@ -308,19 +308,8 @@ class InboxAutomationService {
         try {
             $messages = new MessagesModel();
             $name = (string) (($messages->identity_map(array((int) $sender_id))[(int) $sender_id]['name'] ?? '') ?: 'Someone');
-            $title = 'New message from ' . $name;
-            $body  = mb_substr((string) $text, 0, 140);
             $link = ((int) $conversation_id > 0) ? '/inbox/thread/' . (int) $conversation_id : '/inbox';
-            (new UserNotificationsModel())->push((int) $recipient_id, 'messages', $title, $body, $link, 'fa-comment-dots');
-            $prefs = (new NotificationPrefsModel())->get_prefs_map((int) $recipient_id);
-            if (empty($prefs['messages']['email'])) { return; }
-            $rows = (new UsersModel())->get_user_by_id((int) $recipient_id);
-            $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            if (!$u || (string) ($u['user_email'] ?? '') === '') { return; }
-            $la = $u['last_active_at'] ?? null;
-            if ($la !== null && strtotime((string) $la . ' UTC') >= time() - 300) { return; }   // online: they see it live
-            (new NotificationsModel())->send_notification_email((string) $u['user_email'],
-                trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')), $title, $body, $link);
+            Notify::send((int) $recipient_id, 'messages', 'New message from ' . $name, mb_substr((string) $text, 0, 140), $link, 'fa-comment-dots', true);
         } catch (\Throwable $e) {
             error_log('[inbox] notify_new_message: ' . $e->getMessage());
         }
@@ -403,12 +392,7 @@ class InboxAutomationService {
 
     private static function notify_creator(array $owner, $title, $body, $link): void {
         try {
-            (new UserNotificationsModel())->push((int) $owner['user_id'], 'messages', $title, $body, $link, 'fa-robot');
-            $prefs = (new NotificationPrefsModel())->get_prefs_map((int) $owner['user_id']);
-            if (!empty($prefs['messages']['email']) && !empty($owner['user_email'])) {
-                (new NotificationsModel())->send_notification_email((string) $owner['user_email'],
-                    trim((string) ($owner['first_name'] ?? '') . ' ' . (string) ($owner['last_name'] ?? '')), $title, $body, $link);
-            }
+            Notify::send((int) $owner['user_id'], 'messages', $title, $body, $link, 'fa-robot');
         } catch (\Throwable $e) {
             error_log('[inbox] notify failed: ' . $e->getMessage());
         }

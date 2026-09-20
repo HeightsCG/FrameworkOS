@@ -672,6 +672,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
         $model->set_state($creator_id, $id, 'published');
+        PostNotifier::published($creator_id, $id);
         $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), null);
         $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
     }

@@ -74,6 +74,7 @@ class AutoPostService {
         // 5) Publish (the generated asset is ready, so validation is satisfied).
         if ($posts->count_missing_assets($post_id) > 0) { return self::fail($post_id, 'Post had missing media; left unpublished.'); }
         $posts->set_state($creator_id, $post_id, 'published');
+        PostNotifier::published($creator_id, $post_id);
         $post = $posts->get_by_id($post_id);
 
         // 6) Cross-post to social (best-effort — never fails the run, but the

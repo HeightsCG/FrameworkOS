@@ -62,3 +62,6 @@ ALTER TABLE scheduler_rules MODIFY message_targets TEXT;
 
 SELECT IF(COUNT(*) = 2, 'OK', 'MISSING') AS inbox_tables
 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('message_unlocks', 'auto_messages');
+
+-- Auto-replenishment now actually runs (AutoReplenishService): one attempt per 10 minutes per user.
+ALTER TABLE user_accounts ADD COLUMN autoreplenish_last_attempt_at DATETIME DEFAULT NULL AFTER autoreplenish_pm_id;

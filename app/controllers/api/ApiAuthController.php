@@ -177,6 +177,7 @@ class ApiAuthController extends BaseApiController {
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
         $this->userModel->change_password($user['user_id'], $enc_p_word);
 
+        $this->notify((int) Session::get('user_id'), 'security', 'Password changed', 'Your password was just changed. If this was not you, reset it now and contact support.', '/account/settings?section=security', 'fa-key', false, true);
         $this->jsonSuccess(['message' => 'Your password has been updated']);
     }
 
@@ -331,6 +332,7 @@ class ApiAuthController extends BaseApiController {
         Session::set('mfa_totp_enabled', 1);
         Session::set('mfa_totp_secret', $pending);
 
+        $this->notify($user_id, 'security', 'Two-factor authentication enabled', 'An authenticator app now protects your sign-in.', '/account/settings?section=security', 'fa-shield-halved', false, true);
         $this->jsonSuccess(['message' => 'Authenticator app enabled', 'backup_codes' => $first ? $mfa->generate_backup_codes($user_id) : []]);
     }
 
@@ -381,6 +383,7 @@ class ApiAuthController extends BaseApiController {
         $mfa->set_email_enabled($user_id, true);
         Session::set('mfa_email_enabled', 1);
 
+        $this->notify($user_id, 'security', 'Two-factor authentication enabled', 'Email codes now protect your sign-in.', '/account/settings?section=security', 'fa-shield-halved', false, true);
         $this->jsonSuccess(['message' => 'Email verification enabled', 'backup_codes' => $first ? $mfa->generate_backup_codes($user_id) : []]);
     }
 
@@ -552,6 +555,7 @@ class ApiAuthController extends BaseApiController {
             $mfa->clear_backup_codes($user_id);
         }
 
+        $this->notify($user_id, 'security', 'Two-factor method turned off', ($method === 'totp' ? 'Your authenticator app' : 'Email codes') . ' no longer protect your sign-in.' . ($still_on ? '' : ' Two-factor authentication is now off.'), '/account/settings?section=security', 'fa-shield-halved', false, true);
         $response['success'] = true;
         $response['message'] = 'Two-factor method disabled';
         return $response;

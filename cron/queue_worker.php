@@ -33,6 +33,7 @@ $handlers = [
     'media_generate' => 'MediaGenerateJob',
     'influencer_job' => 'InfluencerJob',
     'broadcast_send' => 'BroadcastSendJob',
+    'post_notify'    => 'PostNotifyJob',
 ];
 
 $queue     = new DatabaseJobQueue();

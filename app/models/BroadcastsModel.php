@@ -131,9 +131,12 @@ class BroadcastsModel extends Model {
 
     private function deliver($bid, array $ids, $cid, $body, array $asset_ids, $price){
         $messages = new MessagesModel();
+        $name  = Notify::name_of($cid) ?: 'A creator you follow';
+        $prev  = MessagesModel::preview_text($body, count($asset_ids), $price);
         foreach ($ids as $uid) {
             $conv_id = $messages->get_or_create($cid, $uid);   // creator is always creator_id side
             $messages->send($conv_id, $cid, $body, $bid, $asset_ids, $price);
+            Notify::send($uid, 'broadcasts', $name . ' sent a message to fans', mb_substr($prev, 0, 140), '/inbox/thread/' . (int) $conv_id, 'fa-bullhorn', true);
         }
     }
 

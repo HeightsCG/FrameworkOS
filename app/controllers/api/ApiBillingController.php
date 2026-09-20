@@ -195,6 +195,7 @@ class ApiBillingController extends BaseApiController {
 
             $credits = (int) ($intent->metadata['credits'] ?? 0);
             $balance = (new AiCreditsModel())->credit_purchase($user_id, $credits, $intent->id, 'Bought ' . $credits . ' AI credits');
+            $this->notify($user_id, 'credits', 'AI credits added', $credits . ' AI credits for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . (int) $balance . ' AI credits.', '/account/billing', 'fa-wand-magic-sparkles');
             $this->jsonSuccess(['balance' => (int) $balance, 'message' => $credits . ' AI credits added']);
 
         } catch (\Throwable $e) {
@@ -258,6 +259,9 @@ class ApiBillingController extends BaseApiController {
             }
 
             $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
+            $this->notify($user_id, 'subscriptions', $cancel ? 'Plan will cancel' : 'Plan resumed',
+                $cancel ? ('Your Creator Link Studio plan ends ' . ($period_end ? 'on ' . date('M j, Y', (int) $period_end) : 'at the end of the billing period') . '. Resume anytime before then.') : 'Your Creator Link Studio plan will renew as usual.',
+                '/account/billing', $cancel ? 'fa-heart-crack' : 'fa-heart');
 
             $response['success'] = true;
             $response['status']  = $subscription->status;
@@ -383,6 +387,7 @@ class ApiBillingController extends BaseApiController {
             $credits     = (int) ($intent->metadata['credits'] ?? 0);
             $creditsModel = new CreditsModel();
             $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Purchased ' . $credits . ' credits');
+            $this->notify($user_id, 'credits', 'Credits added', Notify::credits($credits) . ' for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.', '/account/settings?section=wallet', 'fa-coins');
 
             $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' credits added']);
 
@@ -486,8 +491,10 @@ class ApiBillingController extends BaseApiController {
         $res  = StripeService::create_transfer($account_id, $cents, 'usd', $idem);
         if (empty($res['ok'])) {
             $credits->apply_delta($creator_id, $balance, 'payout_refund', 'Payout failed — credits returned');
+            $this->notify($creator_id, 'credits', 'Payout failed', 'The transfer of $' . number_format($cents / 100, 2) . ' did not go through and your ' . Notify::credits($balance) . ' are back in your balance. Check your bank connection and try again.', '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
             $this->jsonError('Could not send the payout. Make sure your bank account is connected.');
         }
+        $this->notify($creator_id, 'credits', 'Payout on its way', '$' . number_format($cents / 100, 2) . ' (' . Notify::credits($balance) . ') is being sent to your bank.', '/account/settings?section=wallet&tab=cashout', 'fa-building-columns');
 
         $this->jsonSuccess(['message' => 'Payout of $' . number_format($cents / 100, 2) . ' is on its way to your bank.', 'balance' => 0]);
     }

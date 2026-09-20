@@ -140,12 +140,27 @@ class CreditsModel extends Model {
             $ins->execute();
 
             $this->db->commit();
-            return $new_balance;
         } catch (\Throwable $e) {
             if ($this->db->inTransaction()) { $this->db->rollBack(); }
             error_log('[credits] apply_delta failed: ' . $e->getMessage());
             return false;
         }
+        // A spend that leaves the wallet under the user's threshold tops it up from their saved card.
+        if ($credits < 0 && !in_array((string) $type, array('payout', 'refund_reversal'), true) && class_exists('AutoReplenishService')) {
+            AutoReplenishService::after_debit($user_id, $new_balance);
+        }
+        return $new_balance;
+    }
+
+    /** True when an auto top-up was attempted in the last $minutes (guards against charging twice). */
+    public function recent_autoreplenish_attempt($user_id, $minutes){
+        $rows = parent::select("SELECT autoreplenish_last_attempt_at AS t FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));
+        $t = (is_array($rows) && count($rows)) ? $rows[0]['t'] : null;
+        return $t !== null && strtotime((string) $t . ' UTC') >= time() - (int) $minutes * 60;
+    }
+
+    public function mark_autoreplenish_attempt($user_id){
+        return parent::update('user_accounts', array('autoreplenish_last_attempt_at' => gmdate('Y-m-d H:i:s')), 'user_id = :u', array('u' => (int) $user_id));
     }
 
     public function get_autoreplenishment($user_id){

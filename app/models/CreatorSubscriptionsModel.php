@@ -140,6 +140,14 @@ class CreatorSubscriptionsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /** The row for a Stripe subscription id (with the plan name), or null. */
+    public function get_by_stripe_id($stripe_subscription_id){
+        $rows = parent::select(
+            "SELECT cs.*, p.name AS plan_name FROM creator_subscriptions cs LEFT JOIN creator_plans p ON p.id = cs.plan_id
+             WHERE cs.stripe_subscription_id = :sid LIMIT 1", array('sid' => (string) $stripe_subscription_id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
     /** Update a subscription's lifecycle from a Stripe webhook (by stripe_subscription_id). */
     public function update_by_stripe_id($stripe_subscription_id, $status, $current_period_end = null, $cancel_at_period_end = 0){
         $data = array('status' => $status, 'updated_at' => date('Y-m-d H:i:s'), 'cancel_at_period_end' => $cancel_at_period_end ? 1 : 0);

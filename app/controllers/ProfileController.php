@@ -353,6 +353,9 @@ class ProfileController extends Controller {
         }
 
         (new CreatorSubscriptionsModel())->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        $cname = Notify::name_of((int) $creator['user_id']); $chandle = Notify::handle_of((int) $creator['user_id']);
+        Notify::send((int) $viewer_id, 'subscriptions', 'You\'re subscribed to ' . ($cname !== '' ? $cname : $plan['name']), $plan['name'] . ' · $' . number_format(((int) $plan['price_cents']) / 100, 2) . ' per ' . (string) ($plan['billing_interval'] ?? 'month') . '. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
+        Notify::send((int) $creator['user_id'], 'subscriptions', 'New subscriber', (Notify::name_of((int) $viewer_id) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
         InboxAutomationService::trigger((int) $creator['user_id'], (int) $viewer_id, 'new_subscriber');
         if (!empty($meta['promo_id'])) {
             (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']);   // count the discount-code use

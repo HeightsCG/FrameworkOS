@@ -7,6 +7,13 @@
  */
 class UserNotificationsModel extends Model {
 
+    /** True when a notification with this title reached the user in the last $hours (dedupes repeated warnings). */
+    public function recent_with_title($user_id, $title, $hours){
+        $rows = parent::select("SELECT id FROM notifications WHERE user_id = :u AND title = :t AND created_at >= :since LIMIT 1",
+            array('u' => (int) $user_id, 't' => (string) $title, 'since' => date('Y-m-d H:i:s', time() - (int) $hours * 3600)));
+        return is_array($rows) && count($rows) > 0;
+    }
+
     /** Deliver an in-platform notification (respects the user's per-category in-platform pref). */
     public function push($user_id, $category, $title, $body = '', $link = '', $icon = ''){
         $user_id = (int) $user_id;

@@ -49,18 +49,18 @@ class AccountController extends Controller {
 
         // Notification categories (label, description). Keys/order match NotificationPrefsModel::$categories (PRD 27.2).
         $notification_meta = array(
-            'messages'           => array('Messages',           'Direct messages from creators and users.'),
-            'creator_activity'   => array('Creator activity',   'New content from creators you follow.'),
-            'broadcasts'         => array('Broadcasts',         'Announcements from creators you follow.'),
-            'purchases'          => array('Purchases',          'Purchase confirmations and receipts.'),
-            'subscriptions'      => array('Subscriptions',      'Renewals, changes, and expirations.'),
-            'events'             => array('Events',             'Registrations, reminders, and updates.'),
-            'services'           => array('Services',           'Service purchases and confirmations.'),
-            'credits'            => array('Credits',            'Credit purchases, refunds, and adjustments.'),
-            'auto_replenishment' => array('Auto-replenishment', 'Auto top-up successes and failures.'),
-            'refunds'            => array('Refunds',            'Refund status updates.'),
-            'security'           => array('Security',           'Sign-in and security alerts.'),
-            'system'             => array('System',             'Important platform notices.'),
+            'messages'           => array('Messages',           'Direct messages, including automatic replies and welcome messages.'),
+            'creator_activity'   => array('Creator activity',   'New posts from creators you follow, and new followers on your profile.'),
+            'broadcasts'         => array('Broadcasts',         'Messages a creator sends to all their fans at once.'),
+            'purchases'          => array('Purchases',          'Your unlock receipts, and sales of your posts, bundles and messages.'),
+            'subscriptions'      => array('Subscriptions',      'New, renewed, ending and failed memberships, and your Creator Link Studio plan.'),
+            'events'             => array('Events',             'Registrations and bookings for events.'),
+            'services'           => array('Services',           'Bookings and confirmations for services.'),
+            'credits'            => array('Credits',            'Credit and AI credit purchases, and payouts to your bank.'),
+            'auto_replenishment' => array('Auto-replenishment', 'When your wallet tops itself up, or a top-up fails.'),
+            'refunds'            => array('Refunds',            'Refunds issued to you or to your buyers.'),
+            'security'           => array('Security',           'Password and two-factor changes. Always emailed.'),
+            'system'             => array('System',             'Verification decisions and account notices.'),
             'marketing'          => array('Marketing',          'Product news and promotions.'),
         );
 

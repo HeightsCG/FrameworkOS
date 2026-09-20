@@ -330,7 +330,9 @@ class ApiPostsController extends BaseApiController {
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
         }
         $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
-            'Someone unlocked your post for $' . number_format($charge / 10, 2) . '.', '/dashboard', 'fa-coins');
+            'Someone unlocked your post for ' . Notify::credits($charge) . '.', '/dashboard', 'fa-coins');
+        $this->notify($viewer, 'purchases', 'Post unlocked',
+            Notify::credits($charge) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-unlock');
         InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'ppv' . $post_id);
 
         $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post), 'balance' => $credits->get_balance($viewer)]);
@@ -390,7 +392,9 @@ class ApiPostsController extends BaseApiController {
         $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
         if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); }
         $this->notify($creator_id, 'purchases', 'New bundle sale',
-            'Someone purchased your bundle for $' . number_format($price / 10, 2) . '.', '/dashboard', 'fa-coins');
+            'Someone purchased your bundle for ' . Notify::credits($price) . '.', '/dashboard', 'fa-coins');
+        $this->notify($viewer, 'purchases', 'Bundle purchased',
+            Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-box-open');
         InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'bundle' . (int) ($this->post['bundle_id'] ?? 0));
 
         $n = count($asset_ids);
@@ -415,6 +419,9 @@ class ApiPostsController extends BaseApiController {
         }
 
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
+        $cname = Notify::name_of((int) $plan['user_id']); $chandle = Notify::handle_of((int) $plan['user_id']);
+        $this->notify($user_id, 'subscriptions', 'You joined ' . $plan['name'], ($cname !== '' ? $cname . '\'s ' : '') . 'free membership is active.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
+        $this->notify((int) $plan['user_id'], 'subscriptions', 'New member', (Notify::name_of($user_id) ?: 'Someone') . ' joined ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
         InboxAutomationService::trigger((int) $plan['user_id'], $user_id, 'new_subscriber');
 
         $this->jsonSuccess(['message' => 'You joined ' . $plan['name'], 'plan_id' => (int) $plan['id']]);
@@ -546,6 +553,7 @@ class ApiPostsController extends BaseApiController {
                 exit;
             }
             $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], true);
+            $this->notify($user_id, 'subscriptions', 'Membership ending', 'Your membership to ' . (Notify::name_of((int) $sub['creator_id']) ?: 'this creator') . ' ends at the current billing period. Resume anytime before then.', '/account/settings?section=subscriptions', 'fa-heart-crack');
             $response['state']   = 'canceling';
             $response['message'] = 'Your membership will end at the current billing period';
         }
@@ -588,6 +596,7 @@ class ApiPostsController extends BaseApiController {
                 $this->jsonError('Could not resume. Please try again.');
             }
             $subs->set_cancel_at_period_end($user_id, (int) $sub['id'], false);
+            $this->notify($user_id, 'subscriptions', 'Membership resumed', 'Your membership to ' . (Notify::name_of((int) $sub['creator_id']) ?: 'this creator') . ' will renew as usual.', '/account/settings?section=subscriptions', 'fa-heart');
         }
 
         $this->jsonSuccess(['state' => 'active', 'message' => 'Membership resumed']);

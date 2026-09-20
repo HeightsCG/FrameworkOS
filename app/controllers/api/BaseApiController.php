@@ -82,26 +82,8 @@ class BaseApiController extends Controller {
      * push() self-gates the in-platform pref; email is gated here (fail-closed on an
      * unknown category). Email send is best-effort and never blocks the response path.
      */
-    protected function notify(int $user_id, string $category, string $title, string $body = '', string $link = '', string $icon = '', bool $email_if_offline = false): void{
-        $user_id = (int) $user_id;
-        if ($user_id <= 0 || (string) $title === '') { return; }
-
-        // On-site feed (push re-checks the in-platform pref and no-ops if opted out).
-        (new UserNotificationsModel())->push($user_id, $category, $title, $body, $link, $icon);
-
-        // Email channel — only when the category's email pref is on.
-        $prefs = (new NotificationPrefsModel())->get_prefs_map($user_id);
-        if (empty($prefs[$category]['email'])) { return; }
-        $rows = $this->userModel->get_user_by_id($user_id);
-        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-        if (!$u || (string) $u['user_email'] === '') { return; }
-        // Presence-gated categories (DMs): skip the email if the recipient is online and
-        // will see it in real time — email is a catch-up nudge for people who are away.
-        if ($email_if_offline && $this->is_online($u)) { return; }
-        (new NotificationsModel())->send_notification_email(
-            (string) $u['user_email'],
-            trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')),
-            (string) $title, (string) $body, (string) $link);
+    protected function notify(int $user_id, string $category, string $title, string $body = '', string $link = '', string $icon = '', bool $email_if_offline = false, bool $force_email = false): void{
+        Notify::send($user_id, $category, $title, $body, $link, $icon, $email_if_offline, $force_email);
     }
 
     /** Online = the account was active within the last 5 minutes (last_active_at is UTC). */

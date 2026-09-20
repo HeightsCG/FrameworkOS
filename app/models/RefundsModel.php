@@ -61,7 +61,10 @@ class RefundsModel extends Model {
         if ($kind === 'ppv')          { (new PpvUnlocksModel())->remove($ref_id, $fan_id); }
         elseif ($kind === 'message')  { (new MessageUnlocksModel())->remove($ref_id, $fan_id); }
         else                          { (new ContentBundlesModel())->remove_unlock($ref_id, $fan_id); }
-        // 5) Audit log.
+        // 5) Tell both sides.
+        Notify::send($fan_id, 'refunds', 'Refund issued', Notify::credits($charge) . ' returned to your wallet for a ' . $this->label($kind) . '.', '/account/settings?section=wallet', 'fa-rotate-left');
+        Notify::send($creator_id, 'refunds', 'Refund issued to a buyer', Notify::credits($charge) . ' were refunded for a ' . $this->label($kind) . ($clawback > 0 ? '; ' . Notify::credits($clawback) . ' came out of your balance.' : '.'), '/dashboard', 'fa-rotate-left');
+        // 6) Audit log.
         parent::insert('refunds', array(
             'kind' => $kind, 'ref_id' => $ref_id, 'creator_id' => $creator_id, 'fan_id' => $fan_id,
             'amount_credits' => $charge, 'clawback_credits' => $clawback, 'clawback_ok' => $clawback_ok,
@@ -71,12 +74,12 @@ class RefundsModel extends Model {
         return array('ok' => true, 'amount' => $charge, 'clawback_ok' => (bool) $clawback_ok);
     }
 
-    /** Record a Stripe dispute (chargeback) and suspend the associated account. Idempotent. */
+    /** Record a Stripe dispute (chargeback) and suspend the associated account. Idempotent. Returns the suspended user id, or 0. */
     public function record_chargeback($dispute){
         $did = (string) ($dispute->id ?? '');
-        if ($did === '') { return; }
+        if ($did === '') { return 0; }
         $ex = parent::select("SELECT id FROM chargebacks WHERE stripe_dispute_id = :d", array('d' => $did));
-        if (is_array($ex) && count($ex)) { return; }
+        if (is_array($ex) && count($ex)) { return 0; }
 
         $pi = (string) ($dispute->payment_intent ?? '');
         $user_id = null;
@@ -86,8 +89,7 @@ class RefundsModel extends Model {
         }
         $suspended = 0;
         if ($user_id) {
-            parent::update('user_accounts', array('user_status' => 'Disabled'), 'user_id = :id AND is_admin = 0', array('id' => $user_id));
-            $suspended = 1;
+            $suspended = parent::update('user_accounts', array('user_status' => 'Disabled'), 'user_id = :id AND is_admin = 0', array('id' => $user_id)) ? 1 : 0;
         }
         parent::insert('chargebacks', array(
             'stripe_dispute_id' => $did,
@@ -100,6 +102,7 @@ class RefundsModel extends Model {
             'account_suspended' => $suspended,
             'created_at'        => date('Y-m-d H:i:s'),
         ));
+        return $suspended ? (int) $user_id : 0;
     }
 
     /** Summary for the admin overview. */

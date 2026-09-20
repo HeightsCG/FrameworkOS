@@ -178,7 +178,9 @@ class ApiMessagesController extends BaseApiController {
         if ($net > 0) { $credits->apply_delta($creator_id, $net, 'message_earning', 'Message unlock'); }
         $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];
         $this->notify($creator_id, 'purchases', 'New message unlock',
-            $who['name'] . ' unlocked your message for $' . number_format($price / 10, 2) . '.', '/dashboard', 'fa-coins');
+            $who['name'] . ' unlocked your message for ' . Notify::credits($price) . '.', '/inbox/thread/' . (int) $conv['id'], 'fa-coins');
+        $this->notify($viewer, 'purchases', 'Message unlocked',
+            Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($viewer)) . ' left. It is in your Purchases.', '/purchases', 'fa-unlock');
         InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'msg' . $mid);
 
         $this->jsonSuccess(['message' => $this->shape([$msg], $viewer, $conv)[0], 'balance' => $credits->get_balance($viewer)]);

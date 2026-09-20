@@ -425,6 +425,7 @@ class McpTools {
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
                 $res = $ok($p->set_state($cid, $iid, 'published', null, date('Y-m-d H:i:s')));
+                PostNotifier::published($cid, $iid);
                 return self::with_share($res, $cid, $post, $a, null);
             }
             case 'schedule_post': {
