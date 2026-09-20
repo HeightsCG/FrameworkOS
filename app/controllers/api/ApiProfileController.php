@@ -287,6 +287,7 @@ class ApiProfileController extends BaseApiController {
             $who = (new MessagesModel())->identity_map([$user_id])[$user_id] ?? ['handle' => ''];
             $this->notify($creator_id, 'creator_activity', 'New follower',
                 '@' . $who['handle'] . ' started following you.', '/audience', 'fa-user-plus');
+            InboxAutomationService::trigger($creator_id, $user_id, 'new_follower');
         } else {
             $follows->unfollow($user_id, $creator_id);
         }

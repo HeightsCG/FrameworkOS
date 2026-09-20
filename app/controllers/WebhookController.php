@@ -17,78 +17,20 @@ class WebhookController extends Controller {
     }
 
     /**
-     * Fanvue creator.* webhooks (Developer Area > app > Events). Signed with the
-     * per-app secret (X-Fanvue-Signature: t=<unix>,v0=<hmac>). Fanvue retries anything
-     * that isn't a 2xx within 10 s, so an inbound message is persisted, acknowledged,
-     * and only THEN handed to the inbox automation in the same request.
+     * Fanvue creator.* webhooks. The inbox automation now runs on Creator Link Studio's own
+     * DMs, so every event is verified and acknowledged (2xx) so Fanvue stops retrying.
      */
     public function fanvueAction(){
         $raw = (string) file_get_contents('php://input');
         $sig = (string) ($_SERVER['HTTP_X_FANVUE_SIGNATURE'] ?? '');
-
         $secret = FanvueService::webhook_secret();
-        if ($secret === '') {
-            error_log('[fanvue webhook] fanvue_webhook_secret not configured');
-            http_response_code(503);
-            echo 'not configured';
-            exit;
-        }
-        if (!FanvueService::verify_webhook_signature($raw, $sig, $secret)) {
-            error_log('[fanvue webhook] refused: bad signature');
+        if ($secret !== '' && !FanvueService::verify_webhook_signature($raw, $sig, $secret)) {
             http_response_code(401);
             echo 'unauthorized';
             exit;
         }
-
-        $ev = json_decode($raw, true);
-        if (!is_array($ev) || empty($ev['id']) || empty($ev['type'])) {
-            http_response_code(400);
-            echo 'bad request';
-            exit;
-        }
-        $type = (string) $ev['type'];
-        $data = (array) ($ev['data'] ?? array());
-
-        if ($type === 'creator.message.sent') {
-            // Echo of our own send, or the creator answering by hand → drop waiting drafts.
-            $account = (new FanvueAccountsModel())->get_by_fanvue_uuid((string) ($data['creator']['uuid'] ?? ''));
-            $fan     = (string) ($data['fan']['uuid'] ?? '');
-            $mid     = (string) ($data['uuid'] ?? '');
-            if ($account && $fan !== '') {
-                $replies = new InboxRepliesModel();
-                if ($mid === '' || !$replies->is_our_message((int) $account['user_id'], 'fanvue', $mid)) {
-                    $replies->dismiss_pending_for_peer((int) $account['user_id'], 'fanvue', $fan, 'creator_replied');
-                }
-            }
-            http_response_code(200);
-            echo 'ok';
-            exit;
-        }
-
-        if ($type !== 'creator.message.received') {
-            http_response_code(200);
-            echo 'ignored';
-            exit;
-        }
-
-        $account = (new FanvueAccountsModel())->get_by_fanvue_uuid((string) ($data['creator']['uuid'] ?? ''));
-        if (!$account) {
-            // Not one of our creators (or disconnected): acknowledge so Fanvue stops retrying.
-            http_response_code(200);
-            echo 'ok';
-            exit;
-        }
-
-        $event_id = (new InboxEventsModel())->record('fanvue', (string) $ev['id'], (int) $account['user_id'], $type, $raw);
-        if ($event_id === 0) {
-            http_response_code(200);
-            echo 'ok';   // duplicate delivery
-            exit;
-        }
-
-        InboxAutomationService::respond_early('ok');
-        $out = InboxAutomationService::process_event($event_id);
-        error_log('[fanvue webhook] event ' . (string) $ev['id'] . ' → ' . $out['status'] . ' (' . $out['result'] . ')');
+        http_response_code(200);
+        echo 'ignored';
         exit;
     }
 

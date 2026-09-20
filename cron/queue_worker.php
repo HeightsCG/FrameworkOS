@@ -32,6 +32,7 @@ $handlers = [
     'scheduler_run'  => 'SchedulerRunJob',
     'media_generate' => 'MediaGenerateJob',
     'influencer_job' => 'InfluencerJob',
+    'broadcast_send' => 'BroadcastSendJob',
 ];
 
 $queue     = new DatabaseJobQueue();

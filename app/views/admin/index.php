@@ -210,7 +210,7 @@ $users = $this->users;
                         <span class="adm-uinfo"><span class="adm-uinfo__name">@<?php echo $e($sale['fan_handle']); ?></span></span>
                     </div>
                     <div class="adm-ucell adm-scell--item"><?php echo $e($sale['item'] !== '' ? $sale['item'] : 'Untitled'); ?></div>
-                    <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $sale['kind']; ?>"><?php echo $sale['kind'] === 'bundle' ? 'Bundle' : 'PPV'; ?></span></div>
+                    <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $sale['kind']; ?>"><?php echo $sale['kind'] === 'bundle' ? 'Bundle' : ($sale['kind'] === 'message' ? 'Message' : 'PPV'); ?></span></div>
                     <div class="adm-ucell adm-r adm-scell--amt">$<?php echo number_format(((int) $sale['credits']) / 10, 2); ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($sale['created_at'], true)); ?></div>
                     <div class="adm-ucell adm-ucell--act">

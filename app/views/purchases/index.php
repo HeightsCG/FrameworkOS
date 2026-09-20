@@ -2,14 +2,14 @@
 <div class="pur">
     <header class="pur__head">
         <h1 class="pur__title">Purchases</h1>
-        <p class="pur__sub">Content you&rsquo;ve bought &mdash; pay-per-view unlocks and bundles. One-time purchases, separate from your subscriptions.</p>
+        <p class="pur__sub">Content you&rsquo;ve bought &mdash; pay-per-view unlocks, bundles and messages. One-time purchases, separate from your subscriptions.</p>
     </header>
 
     <?php if (empty($this->purchases)): ?>
     <div class="pur__empty">
         <i class="fa-solid fa-bag-shopping pur__empty-icon"></i>
         <p class="pur__empty-title">No purchases yet</p>
-        <p class="pur__empty-text">Unlock a pay-per-view post or buy a content bundle and it&rsquo;ll show up here.</p>
+        <p class="pur__empty-text">Unlock a pay-per-view post, a bundle or a message and it&rsquo;ll show up here.</p>
     </div>
     <?php else: ?>
     <div class="pur__list">
@@ -17,7 +17,7 @@
         <div class="pur-card">
             <div class="pur-card__head">
                 <div class="pur-card__meta">
-                    <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo $pur['type'] === 'bundle' ? 'Bundle' : 'Pay-per-view'; ?></span>
+                    <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo $pur['type'] === 'bundle' ? 'Bundle' : ($pur['type'] === 'message' ? 'Message' : 'Pay-per-view'); ?></span>
                     <span class="pur-card__title"><?php echo htmlspecialchars((string) $pur['title'], ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <a class="pur-card__creator" href="/@<?php echo htmlspecialchars(rawurlencode((string) $pur['handle']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $pur['creator'], ENT_QUOTES, 'UTF-8'); ?></a>

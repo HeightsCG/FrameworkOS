@@ -1,8 +1,10 @@
 <?php
 /**
- * Internal 1:1 messaging between a user and a creator (PRD §24). Text-only, no PII:
- * participants only ever see platform identity (username, display name, avatar).
- * A conversation is (creator_id, user_id); either party may send once it exists.
+ * Internal 1:1 messaging between a user and a creator (PRD §24). No PII: participants
+ * only ever see platform identity (username, display name, avatar). A conversation is
+ * (creator_id, user_id); either party may send once it exists. Creators may attach
+ * library media (message_assets) and put a credit price on a message; a fan pays once
+ * (message_unlocks) to see the originals.
  */
 class MessagesModel extends Model {
 
@@ -105,7 +107,7 @@ class MessagesModel extends Model {
     /**
      * The messaging gate: two accounts may start a conversation only if they have a
      * relationship in EITHER direction — a follow, a subscription, or a purchase
-     * (PPV / bundle). This lets a creator message any audience member, including buyers.
+     * (PPV / bundle / DM unlock). This lets a creator message any audience member, including buyers.
      */
     public function can_message($viewer_id, $other_id){
         $v = (int) $viewer_id; $o = (int) $other_id;
@@ -122,9 +124,13 @@ class MessagesModel extends Model {
              UNION
              SELECT 1 AS ok FROM bundle_unlocks
                WHERE (fan_id = :a7 AND creator_id = :b7) OR (fan_id = :b8 AND creator_id = :a8)
+             UNION
+             SELECT 1 AS ok FROM message_unlocks
+               WHERE (fan_id = :a9 AND creator_id = :b9) OR (fan_id = :b10 AND creator_id = :a10)
              LIMIT 1",
             array('a1' => $v, 'b1' => $o, 'b2' => $o, 'a2' => $v, 'a3' => $v, 'b3' => $o, 'b4' => $o, 'a4' => $v,
-                  'a5' => $v, 'b5' => $o, 'b6' => $o, 'a6' => $v, 'a7' => $v, 'b7' => $o, 'b8' => $o, 'a8' => $v));
+                  'a5' => $v, 'b5' => $o, 'b6' => $o, 'a6' => $v, 'a7' => $v, 'b7' => $o, 'b8' => $o, 'a8' => $v,
+                  'a9' => $v, 'b9' => $o, 'b10' => $o, 'a10' => $v));
         return is_array($rows) && count($rows) > 0;
     }
 
@@ -150,25 +156,90 @@ class MessagesModel extends Model {
         return $c && ((int) $c['creator_id'] === (int) $account_id || (int) $c['user_id'] === (int) $account_id);
     }
 
-    /** Insert a message, update the conversation preview, and bump the recipient's unread. */
-    public function send($conversation_id, $sender_id, $body, $broadcast_id = null){
+    /**
+     * Insert a message (text and/or media, optionally priced), update the conversation
+     * preview, and bump the recipient's unread. $asset_ids are trusted (the caller checks
+     * ownership and readiness). Returns the message id.
+     */
+    public function send($conversation_id, $sender_id, $body, $broadcast_id = null, array $asset_ids = array(), $price_credits = 0, $trigger_key = null){
         $now = date('Y-m-d H:i:s');
+        $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids))));
+        $price = (int) $price_credits;
+        if (empty($asset_ids)) { $price = 0; }   // a price only makes sense with something to unlock
         $mid = parent::insert('messages', array(
             'conversation_id' => (int) $conversation_id,
             'sender_id'       => (int) $sender_id,
             'broadcast_id'    => ($broadcast_id !== null) ? (int) $broadcast_id : null,
-            'body'            => $body,
+            'body'            => (string) $body,
+            'price_credits'   => $price,
+            'media_count'     => count($asset_ids),
+            'trigger_key'     => ($trigger_key !== null && $trigger_key !== '') ? mb_substr((string) $trigger_key, 0, 32) : null,
             'created_at'      => $now,
         ));
+        foreach ($asset_ids as $i => $aid) {
+            parent::insert('message_assets', array('message_id' => (int) $mid, 'asset_id' => (int) $aid, 'sort_order' => (int) $i));
+        }
         $c = $this->get($conversation_id);
         if ($c) {
             $sender_is_creator = ((int) $c['creator_id'] === (int) $sender_id);
-            $data = array('last_message_at' => $now, 'last_body' => mb_substr($body, 0, 280), 'last_sender_id' => (int) $sender_id);
+            $preview = self::preview_text((string) $body, count($asset_ids), $price);
+            $data = array('last_message_at' => $now, 'last_body' => $preview, 'last_sender_id' => (int) $sender_id);
             if ($sender_is_creator) { $data['user_unread'] = (int) $c['user_unread'] + 1; $data['user_deleted'] = 0; }
             else { $data['creator_unread'] = (int) $c['creator_unread'] + 1; $data['creator_deleted'] = 0; }
             parent::update('conversations', $data, 'id = :id', array('id' => (int) $conversation_id));
         }
         return (int) $mid;
+    }
+
+    /** Inbox preview line: the text, or what was attached when there is none. */
+    public static function preview_text($body, $media_count, $price_credits){
+        $body = trim((string) $body);
+        if ($body !== '') { return mb_substr($body, 0, 280); }
+        $n = (int) $media_count;
+        if ($n <= 0) { return ''; }
+        if ((int) $price_credits > 0) { return 'Locked ' . ($n === 1 ? 'media' : $n . ' items') . ' · ' . (int) $price_credits . ' credits'; }
+        return $n === 1 ? 'Sent media' : 'Sent ' . $n . ' items';
+    }
+
+    /** Number of messages a given sender has in a conversation (first-message trigger). */
+    public function count_from($conversation_id, $sender_id){
+        $rows = parent::select("SELECT COUNT(*) AS n FROM messages WHERE conversation_id = :c AND sender_id = :s",
+            array('c' => (int) $conversation_id, 's' => (int) $sender_id));
+        return (is_array($rows) && count($rows)) ? (int) $rows[0]['n'] : 0;
+    }
+
+    public function get_message($message_id){
+        $rows = parent::select("SELECT * FROM messages WHERE id = :id", array('id' => (int) $message_id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
+    /**
+     * Media rows for a set of messages: message_id => [asset rows in sort order].
+     * No creator filter on purpose (the fan side reads it); callers gate on the unlock.
+     */
+    public function assets_for_messages(array $message_ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $message_ids))));
+        if (empty($ids)) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select(
+            "SELECT ma.message_id, ma.sort_order, a.*
+             FROM message_assets ma JOIN media_assets a ON a.id = ma.asset_id
+             WHERE ma.message_id IN ($in) AND a.deleted_at IS NULL AND a.status = 'ready'
+             ORDER BY ma.message_id ASC, ma.sort_order ASC, a.id ASC");
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['message_id']][] = $r; }
+        return $out;
+    }
+
+    /** How many fans unlocked each priced message (creator's own bubbles): message_id => n. */
+    public function unlock_counts(array $message_ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $message_ids))));
+        if (empty($ids)) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select("SELECT message_id, COUNT(*) AS n FROM message_unlocks WHERE message_id IN ($in) GROUP BY message_id");
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['message_id']] = (int) $r['n']; }
+        return $out;
     }
 
     /** Raw conversations for an account's inbox (either side), newest activity first. */
@@ -186,7 +257,8 @@ class MessagesModel extends Model {
     /** Messages in a conversation, oldest first. */
     public function thread($conversation_id){
         return (array) parent::select(
-            "SELECT id, sender_id, body, created_at FROM messages WHERE conversation_id = :c ORDER BY id ASC",
+            "SELECT id, sender_id, body, price_credits, media_count, trigger_key, created_at
+             FROM messages WHERE conversation_id = :c ORDER BY id ASC",
             array('c' => (int) $conversation_id)
         );
     }
@@ -209,6 +281,34 @@ class MessagesModel extends Model {
             array('a1' => $aid, 'a2' => $aid, 'a3' => $aid, 'a4' => $aid)
         );
         return is_array($rows) && count($rows) ? (int) $rows[0]['n'] : 0;
+    }
+
+    /** Creator-side facts about a fan: relationship, spend, tenure. No PII. */
+    public function peer_summary($creator_id, $fan_id){
+        $c = (int) $creator_id; $f = (int) $fan_id;
+        $follow = parent::select("SELECT created_at FROM follows WHERE follower_id = :f AND creator_id = :c", array('f' => $f, 'c' => $c));
+        $sub = parent::select(
+            "SELECT cs.status, cs.is_free, cs.created_at, p.name AS plan_name
+             FROM creator_subscriptions cs LEFT JOIN creator_plans p ON p.id = cs.plan_id
+             WHERE cs.subscriber_id = :f AND cs.creator_id = :c
+             ORDER BY (cs.status = 'active') DESC, cs.created_at DESC LIMIT 1", array('f' => $f, 'c' => $c));
+        $spend = parent::select(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(price_credits), 0) AS credits FROM (
+                SELECT price_credits FROM ppv_unlocks WHERE fan_id = :f1 AND creator_id = :c1
+                UNION ALL SELECT price_credits FROM bundle_unlocks WHERE fan_id = :f2 AND creator_id = :c2
+                UNION ALL SELECT price_credits FROM message_unlocks WHERE fan_id = :f3 AND creator_id = :c3
+             ) s", array('f1' => $f, 'c1' => $c, 'f2' => $f, 'c2' => $c, 'f3' => $f, 'c3' => $c));
+        $acct = parent::select("SELECT created_at, last_active_at FROM user_accounts WHERE user_id = :f", array('f' => $f));
+        $s = (is_array($sub) && count($sub)) ? $sub[0] : null;
+        return array(
+            'follows'       => is_array($follow) && count($follow) > 0,
+            'followed_at'   => (is_array($follow) && count($follow)) ? (string) $follow[0]['created_at'] : '',
+            'subscription'  => $s ? array('status' => (string) $s['status'], 'plan' => (string) ($s['plan_name'] ?? ''), 'free' => !empty($s['is_free']), 'since' => (string) $s['created_at']) : null,
+            'purchases'     => (is_array($spend) && count($spend)) ? (int) $spend[0]['n'] : 0,
+            'spent_credits' => (is_array($spend) && count($spend)) ? (int) $spend[0]['credits'] : 0,
+            'member_since'  => (is_array($acct) && count($acct)) ? (string) $acct[0]['created_at'] : '',
+            'last_active'   => (is_array($acct) && count($acct)) ? (string) ($acct[0]['last_active_at'] ?? '') : '',
+        );
     }
 
     /** Platform-identity map (NO PII): id => {handle, name, avatar, is_creator}. */

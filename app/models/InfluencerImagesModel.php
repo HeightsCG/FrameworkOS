@@ -70,6 +70,13 @@ class InfluencerImagesModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** The influencer link for one asset (any influencer), or null. */
+    public function get_by_asset($creator_id, $asset_id){
+        $r = parent::select("SELECT ii.*, i.name AS influencer_name FROM influencer_images ii JOIN influencers i ON i.id = ii.influencer_id
+                             WHERE ii.creator_id = :c AND ii.asset_id = :a LIMIT 1", array('c' => (int) $creator_id, 'a' => (int) $asset_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
     public function detach($creator_id, $influencer_id, $asset_id){
         return parent::delete_all('influencer_images', 'creator_id = :c AND influencer_id = :i AND asset_id = :a',
             array('c' => (int) $creator_id, 'i' => (int) $influencer_id, 'a' => (int) $asset_id));

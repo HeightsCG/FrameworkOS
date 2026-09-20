@@ -136,18 +136,12 @@ class BaseApiController extends Controller {
         return $this->require_creator('manage');
     }
 
-    // ---- Fanvue welcome & trigger messages (Fanvue is the source of truth) --------------
-
-    /** Connected Fanvue account with inbox scopes + a live token, or a JSON error + exit. */
-    protected function inbox_fanvue_token(array $user): string{
-        $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
-        if (!$fv) { $this->jsonError('Connect Fanvue in Integrations first.'); }
-        if (!FanvueAccountsModel::has_chat_scope($fv)) {
-            $this->jsonError('Reconnect Fanvue to grant inbox access.', ['need_reconnect' => true]);
-        }
-        $token = FanvueService::access_token_for($fv);
-        if ($token === '') { $this->jsonError('Fanvue session expired. Reconnect in Settings > Integrations.'); }
-        return $token;
+    /** Clamp a dollar price ($3–$500) to credits ($1 = 10 credits). Used for pay-per-view posts and priced messages. */
+    protected function ppv_credits_from_dollars($dollars): int{
+        $d = (int) $dollars;
+        if ($d < 3) { $d = 3; }
+        if ($d > 500) { $d = 500; }
+        return $d * 10;
     }
 
     /** Answer a Plan::check_count() refusal: message + need_plan/need_upgrade so the UI can link to billing. */

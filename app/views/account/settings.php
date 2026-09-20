@@ -664,29 +664,11 @@
                         </div>
                     </div>
                 <?php else: ?>
-                <?php $is = $this->inbox_settings; $fv = $this->fanvue; $fv_on = $fv && ($fv['status'] ?? '') === 'connected'; ?>
+                <?php $is = $this->inbox_settings; ?>
 
                 <?php if (!$this->claude_ok): ?>
                     <p class="inbox-note inbox-note--warn"><i class="fa-solid fa-triangle-exclamation"></i> AI replies are not configured on this server yet.</p>
                 <?php endif; ?>
-
-                <div class="inbox-conn">
-                    <div class="inbox-conn__row">
-                        <i class="fa-solid fa-bolt inbox-conn__icon"></i>
-                        <div class="inbox-conn__text">
-                            <div class="inbox-conn__name">Fanvue inbox</div>
-                            <div class="inbox-conn__meta" id="inboxFanvueMeta">
-                                <?php if (!$fv_on): ?>Not connected. <a href="/account/settings?section=connected">Connect Fanvue</a> in Integrations first.
-                                <?php elseif (!$this->fanvue_chat_ok): ?>Connected as @<?php echo htmlspecialchars((string) $fv['handle'], ENT_QUOTES, 'UTF-8'); ?>, but inbox access hasn't been granted yet.
-                                <?php else: ?>Connected as @<?php echo htmlspecialchars((string) $fv['handle'], ENT_QUOTES, 'UTF-8'); ?> with inbox access.<?php endif; ?>
-                            </div>
-                            <?php if ($fv_on && !empty($fv['last_error'])): ?><div class="inbox-conn__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                        </div>
-                        <?php if ($fv_on && !$this->fanvue_chat_ok): ?>
-                        <button type="button" class="btn btn-primary" id="inboxReconnectFanvue">Reconnect to enable inbox</button>
-                        <?php endif; ?>
-                    </div>
-                </div>
 
                 <div class="inbox-tabs" id="inboxTabs" role="tablist">
                     <button type="button" class="inbox-tabs__tab is-active" data-tab="queue" role="tab">Queue<span class="inbox-tabs__count" id="inboxQueueCount"></span></button>
@@ -711,12 +693,8 @@
                 <div class="cprofile">
                     <div class="inbox-toggles">
                         <label class="inbox-toggle">
-                            <span class="notif__switch"><input type="checkbox" id="inboxFanvue" <?php echo !empty($is['fanvue_enabled']) ? 'checked' : ''; ?> <?php echo $this->fanvue_chat_ok ? '' : 'disabled'; ?>><span class="notif__slider"></span></span>
-                            <span class="inbox-toggle__text"><strong>Reply on Fanvue</strong><small><?php echo $this->fanvue_chat_ok ? 'Answer fan DMs in your Fanvue inbox.' : 'Needs a connected Fanvue account with inbox access.'; ?></small></span>
-                        </label>
-                        <label class="inbox-toggle">
                             <span class="notif__switch"><input type="checkbox" id="inboxCls" <?php echo !empty($is['cls_enabled']) ? 'checked' : ''; ?>><span class="notif__slider"></span></span>
-                            <span class="inbox-toggle__text"><strong>Reply on Creator Link Studio</strong><small>Answer DMs fans send you here.</small></span>
+                            <span class="inbox-toggle__text"><strong>Reply to fan messages</strong><small>Drafts an answer in your voice whenever a fan DMs you.</small></span>
                         </label>
                     </div>
 
@@ -786,10 +764,7 @@
                 <div class="inbox-panel" data-tab="messages" hidden>
                 <div class="inbox-block">
                     <div class="inbox-block__head"><h3 class="inbox-block__title">Welcome &amp; trigger messages</h3></div>
-                    <p class="inbox-block__desc">Automatic Fanvue messages sent on events like a new subscriber or a first DM. Saved directly to your Fanvue account.</p>
-                    <?php if (!$this->fanvue_chat_ok): ?>
-                        <p class="settings__empty">Available once Fanvue is connected with inbox access.</p>
-                    <?php else: ?>
+                    <p class="inbox-block__desc">Sent automatically as a direct message, once per fan. Attach media and set a price to sell from the first hello.</p>
                     <div id="inboxTriggers" class="inbox-triggers">
                         <?php foreach (InboxAutomationService::trigger_meta() as $trig => $tm): ?>
                         <div class="inbox-trigger" data-trigger="<?php echo $trig; ?>">
@@ -800,16 +775,21 @@
                                 </div>
                                 <span class="inbox-trigger__state" data-role="state">Off</span>
                             </div>
-                            <textarea class="form-control inbox-trigger__input" rows="2" maxlength="5000" placeholder="Write the message, or let AI draft one" data-role="text"></textarea>
+                            <textarea class="form-control inbox-trigger__input" rows="2" maxlength="2000" placeholder="Write the message, or let AI draft one" data-role="text"></textarea>
+                            <div class="inbox-trigger__media" data-role="media">
+                                <div class="inbox-trigger__thumbs" data-role="thumbs"></div>
+                                <button type="button" class="inbox-trigger__attach" data-role="attach"><i class="fa-solid fa-image"></i> Attach Media</button>
+                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="500" step="1" placeholder="Free" data-role="price" aria-label="Price in dollars, leave empty for free"></label>
+                            </div>
                             <div class="inbox-trigger__actions">
+                                <span class="inbox-trigger__sent" data-role="sent"></span>
                                 <button type="button" class="btn btn-secondary" data-role="ai" <?php echo $this->claude_ok ? '' : 'disabled'; ?>><i class="fa-solid fa-wand-magic-sparkles"></i> Write with AI</button>
-                                <button type="button" class="btn btn-secondary" data-role="off" hidden>Turn off</button>
+                                <button type="button" class="btn btn-secondary" data-role="off" hidden>Turn Off</button>
                                 <button type="button" class="btn btn-primary" data-role="save">Save</button>
                             </div>
                         </div>
                         <?php endforeach; ?>
                     </div>
-                    <?php endif; ?>
                 </div>
                 </div>
                 <?php endif; ?>
@@ -833,14 +813,13 @@
                             <div class="integ__meta">
                                 <?php if ($fv_on): ?>
                                     <span class="integ__dot is-on"></span><?php echo htmlspecialchars(!empty($fv['handle']) ? '@' . $fv['handle'] : (!empty($fv['display_name']) ? $fv['display_name'] : 'Connected'), ENT_QUOTES, 'UTF-8'); ?>
-                                    <?php if ($this->fanvue_chat_ok): ?><span class="integ__sep">·</span>Posts &amp; inbox<?php else: ?><span class="integ__sep">·</span>Posts only<?php endif; ?>
+                                    <span class="integ__sep">·</span>Cross-posting
                                 <?php elseif (!$this->fanvue_configured): ?>
                                     <span class="integ__dot"></span>Not available yet
                                 <?php else: ?>
                                     <span class="integ__dot"></span>Mirror posts and automate your Fanvue inbox
                                 <?php endif; ?>
                             </div>
-                            <?php if ($fv_on && !$this->fanvue_chat_ok): ?><div class="integ__note">Inbox access not granted. <a href="#" id="fanvueReconnectLink">Reconnect</a> to enable inbox automation.</div><?php endif; ?>
                             <?php if ($fv_on && !empty($fv['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($fv['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
                         </div>
                         <div class="integ__actions">
@@ -2552,8 +2531,6 @@ $(function () {
         });
     }
     $('#fanvueConnect').on('click', function () { fanvue_connect('connected', $(this)); });
-    $('#fanvueReconnectLink').on('click', function (e) { e.preventDefault(); fanvue_connect('connected', null); });
-    $('#inboxReconnectFanvue').on('click', function () { fanvue_connect('inbox', $(this)); });
 
     // ---- Inbox automation -------------------------------------------------------
     var inbox_timer = null;
@@ -2621,18 +2598,22 @@ $(function () {
     var inbox_deep_tab = (params.get('tab') || '').replace(/[^a-z]/g, '');
     if (inbox_deep_tab && $('#inboxTabs [data-tab="' + inbox_deep_tab + '"]').length) { inbox_tab(inbox_deep_tab); }
 
-    var inbox_triggers_loaded = false;
+    var inbox_triggers_loaded = false, inbox_trigger_media = {};
     function load_inbox_triggers() {
         if (!$('#inboxTriggers').length || inbox_triggers_loaded) { return; }
-        ApiDataSvc.apiCall('post', 'fanvue_auto_messages_list', {}, function (data) {
+        ApiDataSvc.apiCall('post', 'auto_messages_list', {}, function (data) {
             var o = JSON.parse(data);
-            if (!o.success) { if (!o.need_reconnect) { toastr.error(o.message); } return; }
+            if (!o.success) { toastr.error(o.message); return; }
             inbox_triggers_loaded = true;
             Object.keys(o.items).forEach(function (t) {
                 var $row = $('#inboxTriggers .inbox-trigger[data-trigger="' + t + '"]');
                 var it = o.items[t];
                 $row.find('[data-role="text"]').val(it.text || '');
+                inbox_trigger_media[t] = it.assets || [];
+                $row.find('[data-role="price"]').val(it.price > 0 ? it.price : '');
+                $row.find('[data-role="sent"]').text(it.sent > 0 ? ('Sent ' + it.sent + ' time' + (it.sent === 1 ? '' : 's')) : '');
                 inbox_trigger_state($row, !!it.enabled);
+                inbox_trigger_thumbs($row);
             });
         });
     }
@@ -2641,16 +2622,70 @@ $(function () {
         $row.find('[data-role="state"]').text(on ? 'On' : 'Off');
         $row.find('[data-role="off"]').prop('hidden', !on);
     }
+    function inbox_trigger_thumbs($row) {
+        var t = $row.data('trigger'), list = inbox_trigger_media[t] || [], $th = $row.find('[data-role="thumbs"]').empty();
+        list.forEach(function (a) {
+            $th.append('<span class="inbox-trigger__thumb" style="background-image:url(\'' + inbox_esc(a.thumb) + '\')">' + (a.type === 'video' ? '<i class="fa-solid fa-play"></i>' : '') + '<button type="button" class="inbox-trigger__rm" data-rm="' + a.id + '" aria-label="Remove"><i class="fa-solid fa-xmark"></i></button></span>');
+        });
+        $row.find('[data-role="pricewrap"]').prop('hidden', !list.length);
+        $row.find('[data-role="attach"]').html('<i class="fa-solid fa-image"></i> ' + (list.length ? 'Change Media' : 'Attach Media'));
+    }
+    $('#inboxTriggers').on('click', '[data-rm]', function () {
+        var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger'), id = parseInt($(this).data('rm'), 10);
+        inbox_trigger_media[t] = (inbox_trigger_media[t] || []).filter(function (a) { return a.id !== id; });
+        inbox_trigger_thumbs($row);
+    });
+    /* Library picker for a trigger: a grid in a dialog, multi-select, up to 10. */
+    $('#inboxTriggers').on('click', '[data-role="attach"]', function () {
+        var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger');
+        var sel = {}; (inbox_trigger_media[t] || []).forEach(function (a) { sel[a.id] = a; });
+        var items = [];
+        Swal.fire({
+            title: 'Attach Media',
+            html: '<input type="text" class="form-control inbox-pick__search" id="inboxPickSearch" placeholder="Search your library" maxlength="60"><div class="inbox-pick" id="inboxPickGrid"><p class="settings__empty">Loading…</p></div>',
+            showCancelButton: true, confirmButtonText: 'Done', cancelButtonText: 'Cancel',
+            customClass: { popup: 'inbox-pick__popup' },
+            didOpen: function () {
+                function render() {
+                    var $g = $('#inboxPickGrid').empty();
+                    if (!items.length) { $g.html('<p class="settings__empty">Nothing in your library matches.</p>'); }
+                    items.forEach(function (a) {
+                        $g.append('<button type="button" class="inbox-pick__item' + (sel[a.id] ? ' is-on' : '') + '" data-id="' + a.id + '" style="background-image:url(\'' + inbox_esc(a.thumb) + '\')" aria-pressed="' + (sel[a.id] ? 'true' : 'false') + '">' + (a.type === 'video' ? '<i class="fa-solid fa-play"></i>' : '') + '<span class="inbox-pick__chk"><i class="fa-solid fa-check"></i></span></button>');
+                    });
+                }
+                function load(q) {
+                    ApiDataSvc.apiCall('post', 'message_media_list', { q: q || '' }, function (data) {
+                        var o = JSON.parse(data); items = o.success ? (o.assets || []) : []; render();
+                    });
+                }
+                load('');
+                var tmr = null;
+                $('#inboxPickSearch').on('input', function () { var v = this.value.trim(); clearTimeout(tmr); tmr = setTimeout(function () { load(v); }, 250); });
+                $('#inboxPickGrid').on('click', '.inbox-pick__item', function () {
+                    var id = parseInt($(this).data('id'), 10), a = null;
+                    items.forEach(function (x) { if (x.id === id) { a = x; } });
+                    if (sel[id]) { delete sel[id]; } else { if (Object.keys(sel).length >= 10) { toastr.error('Up to 10 files per message'); return; } sel[id] = a; }
+                    $(this).toggleClass('is-on', !!sel[id]).attr('aria-pressed', sel[id] ? 'true' : 'false');
+                });
+            }
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            inbox_trigger_media[t] = Object.keys(sel).map(function (k) { return sel[k]; });
+            inbox_trigger_thumbs($row);
+        });
+    });
     $('#inboxTriggers').on('click', '[data-role="save"]', function () {
-        var $row = $(this).closest('.inbox-trigger'); var $btns = $row.find('button').prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'fanvue_auto_message_save', { trigger: $row.data('trigger'), text: $row.find('[data-role="text"]').val() }, function (data) {
+        var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger'); var $btns = $row.find('button').prop('disabled', true);
+        var ids = (inbox_trigger_media[t] || []).map(function (a) { return a.id; });
+        var price = parseInt($row.find('[data-role="price"]').val(), 10); if (isNaN(price) || price < 0) { price = 0; }
+        ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: t, text: $row.find('[data-role="text"]').val(), asset_ids: ids, price: price }, function (data) {
             var o = JSON.parse(data); $btns.prop('disabled', false);
             if (o.success) { toastr.success(o.message); inbox_trigger_state($row, true); } else { toastr.error(o.message); }
         });
     });
     $('#inboxTriggers').on('click', '[data-role="off"]', function () {
         var $row = $(this).closest('.inbox-trigger'); var $btns = $row.find('button').prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'fanvue_auto_message_delete', { trigger: $row.data('trigger') }, function (data) {
+        ApiDataSvc.apiCall('post', 'auto_message_delete', { trigger: $row.data('trigger') }, function (data) {
             var o = JSON.parse(data); $btns.prop('disabled', false);
             if (o.success) { toastr.success(o.message); inbox_trigger_state($row, false); } else { toastr.error(o.message); }
         });
@@ -2658,7 +2693,7 @@ $(function () {
     $('#inboxTriggers').on('click', '[data-role="ai"]', function () {
         var $row = $(this).closest('.inbox-trigger'); var $btn = $(this).prop('disabled', true);
         var $ta = $row.find('[data-role="text"]').attr('placeholder', 'Writing…');
-        ApiDataSvc.apiCall('post', 'fanvue_auto_message_save', { trigger: $row.data('trigger'), ai_generate: 1 }, function (data) {
+        ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: $row.data('trigger'), ai_generate: 1 }, function (data) {
             var o = JSON.parse(data); $btn.prop('disabled', false); $ta.attr('placeholder', 'Write the message, or let AI draft one');
             if (o.success) { $ta.val(o.text).trigger('focus'); } else { toastr.error(o.message); }
         });
@@ -2696,7 +2731,6 @@ $(function () {
 
     function inbox_form() {
         return {
-            fanvue_enabled:  $('#inboxFanvue').is(':checked') ? 1 : 0,
             cls_enabled:     $('#inboxCls').is(':checked') ? 1 : 0,
             mode:            $('input[name="inbox_mode"]:checked').val() || 'approve',
             quiet_start:     $('#inboxQuietStart').val(),
@@ -2717,7 +2751,6 @@ $(function () {
             $btn.prop('disabled', false);
             if (o.success) { toastr.success(o.message); return; }
             toastr.error(o.message);
-            if (o.need_reconnect) { $('#inboxFanvue').prop('checked', false); $('#inboxReconnectFanvue').trigger('focus'); }
             if (o.need_plan) { setTimeout(function () { window.location.href = '/account/billing'; }, 1200); }
         });
     });

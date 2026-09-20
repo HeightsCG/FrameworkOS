@@ -37,19 +37,21 @@ class ApiRoutes {
             'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'save_creator_plan',
             'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
             'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',
-            'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get',
+            'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get', 'post_caption_auto',
             'post_open_draft', 'post_publish', 'post_schedule', 'post_save_draft', 'post_archive', 'post_duplicate',
             'post_delete', 'post_share', 'posts_list', 'posts_calendar', 'posts_bulk',
         ],
         'ApiSocialIntegrationsController' => [
             'connect_account', 'disconnect_account', 'upload_media_url', 'create_post', 'post_status', 'fanvue_connect',
-            'fanvue_disconnect', 'fanvue_auto_messages_list', 'fanvue_auto_message_save', 'fanvue_auto_message_delete',
+            'fanvue_disconnect',
         ],
         'ApiInboxController' => [
             'inbox_settings_save', 'inbox_queue_list', 'inbox_reply_send', 'inbox_reply_dismiss', 'inbox_test_draft',
+            'auto_messages_list', 'auto_message_save', 'auto_message_delete',
         ],
         'ApiMessagesController' => [
             'message_send', 'message_inbox', 'message_thread', 'message_people', 'message_open', 'message_unread_count',
+            'message_unlock', 'message_media_list', 'message_peer_info',
         ],
         'ApiBroadcastController' => [
             'broadcast_info', 'broadcast_send',

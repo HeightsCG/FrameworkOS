@@ -161,64 +161,6 @@ class ApiSocialIntegrationsController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Fanvue disconnected']);
     }
 
-    public function fanvue_auto_messages_listAction(){
-        $user  = $this->inbox_user();
-        $token = $this->inbox_fanvue_token($user);
-        $items = FanvueService::get_automated_messages($token);
-        if ($items === null) {
-            $this->jsonError("Couldn't load your automated messages from Fanvue. Try again or reconnect.");
-        }
-        $out = [];
-        foreach (FanvueService::TRIGGERS as $t) {
-            $out[$t] = isset($items[$t]) ? $items[$t] : ['enabled' => false, 'text' => '', 'price' => 0];
-        }
-        $this->jsonSuccess(['items' => $out]);
-    }
-
-    /** Save (enable) one trigger's text on Fanvue, or with ai_generate=1 just return a Claude draft. */
-    public function fanvue_auto_message_saveAction(){
-        $user    = $this->inbox_user();
-        $trigger = (string) ($this->post['trigger'] ?? '');
-        if (!in_array($trigger, FanvueService::TRIGGERS, true)) {
-            $this->jsonError('Unknown trigger.');
-        }
-        if (!empty($this->post['ai_generate'])) {
-            if (!ClaudeService::configured()) { $this->jsonError('AI is not configured on this server.'); }
-            $ip = $this->get_ip_address();
-            if ($this->loginAttemptsModel->count_recent($ip, 'inbox_test', 1) >= 10) {
-                $this->jsonError('Slow down — try again in a minute.');
-            }
-            $this->loginAttemptsModel->record($ip, (string) $user['user_id'], 'inbox_test');
-            $text = InboxAutomationService::draft_trigger_message($user, $trigger);
-            if ($text === '') { $this->jsonError('Could not draft that message. Try again.'); }
-            $this->jsonSuccess(['text' => $text, 'message' => 'Draft ready']);
-        }
-        $text  = trim(html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if ($text === '') { $this->jsonError('Write the message first.'); }
-        $token = $this->inbox_fanvue_token($user);
-        try {
-            FanvueService::put_automated_message($token, $trigger, $text);
-        } catch (\Throwable $e) {
-            $this->jsonError((string) ($e->getMessage()));
-        }
-        $this->jsonSuccess(['message' => 'Saved to Fanvue']);
-    }
-
-    public function fanvue_auto_message_deleteAction(){
-        $user    = $this->inbox_user();
-        $trigger = (string) ($this->post['trigger'] ?? '');
-        if (!in_array($trigger, FanvueService::TRIGGERS, true)) {
-            $this->jsonError('Unknown trigger.');
-        }
-        $token = $this->inbox_fanvue_token($user);
-        try {
-            FanvueService::delete_automated_message($token, $trigger);
-        } catch (\Throwable $e) {
-            $this->jsonError((string) ($e->getMessage()));
-        }
-        $this->jsonSuccess(['message' => 'Turned off']);
-    }
-
     /** Auth + plan gate for all social endpoints. Returns the user array or exits with a JSON error. */
     /**
      * Auth gate for social posting/integrations. Connections are a SHARED team resource:

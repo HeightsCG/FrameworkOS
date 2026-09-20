@@ -323,7 +323,7 @@
                         <div class="cs-pe__field">
                             <div class="cs-pe__labelrow">
                                 <label class="cs-pe__label" for="csCompCaption">Caption</label>
-                                <span class="cs-pe__count" id="csPeCount"><span id="csCompCount">0</span> / 3000</span>
+                                <span class="cs-pe__labeltools"><button type="button" class="cs-pe__link" id="csPeCaptionAuto"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write a caption</button><span class="cs-pe__count" id="csPeCount"><span id="csCompCount">0</span> / 3000</span></span>
                             </div>
                             <textarea id="csCompCaption" class="form-control cs-pe__caption" rows="6" maxlength="3000" placeholder="Write a caption…" aria-describedby="csPeCount csPeErr_caption"></textarea>
                             <p class="cs-pe__error" id="csPeErr_caption" role="alert" hidden></p>

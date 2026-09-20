@@ -753,6 +753,13 @@
 #csComposer .cs-pe__label{ font-size:14px; font-weight:500; color:var(--t2); line-height:1.3; }
 #csComposer .cs-pe__labelrow{ display:flex; align-items:baseline; justify-content:space-between; gap:12px; }
 #csComposer .cs-pe__count{ font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums; }
+#csComposer .cs-pe__labeltools{ display:flex; align-items:baseline; gap:16px; }
+#csComposer .cs-pe__link{ background:none; border:0; padding:0; font-size:14px; font-weight:600; color:var(--violet7); cursor:pointer; }
+#csComposer .cs-pe__link:hover{ text-decoration:underline; }
+#csComposer .cs-pe__link.is-busy{ color:var(--muted); cursor:progress; text-decoration:none; }
+#csComposer .cs-pe__link .spinner-border{ width:.8em; height:.8em; border-width:.15em; vertical-align:-.1em; margin-right:.25rem; }
+#csComposer .cs-pe__link:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--violet); border-radius:3px; }
+#csComposer .cs-pe__caption:disabled{ background:#f7f6fb; color:var(--muted); }
 #csComposer .cs-pe__count.is-over{ color:var(--danger); }
 #csComposer .cs-pe__hint{ font-size:13px; color:var(--muted); margin:2px 0 0; }
 #csComposer .cs-pe__hint[hidden]{ display:none; }

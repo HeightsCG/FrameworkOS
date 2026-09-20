@@ -15,6 +15,7 @@
 .pur-card__badge{ flex:none; font-size:.66rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:.17rem .45rem; border-radius:4px; }
 .pur-card__badge--ppv{ background:var(--vsoft); color:var(--violet7); }
 .pur-card__badge--bundle{ background:#e7f6ec; color:#1a7f37; }
+.pur-card__badge--message{ background:#fff1e3; color:#b25e0a; }
 .pur-card__title{ font-size:.98rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pur-card__creator{ flex:none; font-size:.85rem; color:var(--muted); text-decoration:none; }
 .pur-card__creator:hover{ color:var(--violet7); text-decoration:underline; }

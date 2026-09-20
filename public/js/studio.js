@@ -1228,6 +1228,18 @@ jQuery(function ($) {
     $('#csCompView').on('click', '.cs-pe__viewopt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-pe__viewopt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); renderPreview(); });
 
     /* ---- field handlers ---- */
+    $('#csPeCaptionAuto').on('click', function () {
+        var $b = $(this), html = $b.html();
+        $b.prop('disabled', true).addClass('is-busy').html('<span class="spinner-border spinner-border-sm"></span> Writing…');
+        $('#csCompCaption').prop('disabled', true).attr('placeholder', 'Writing a caption…');
+        ApiDataSvc.apiCall('post', 'post_caption_auto', { asset_ids: composer.assets.map(function (a) { return a.id; }), audience: composer.audience, hint: composer.caption.trim() }, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            $b.prop('disabled', false).removeClass('is-busy').html(html);
+            $('#csCompCaption').prop('disabled', false).attr('placeholder', 'Write a caption…');
+            if (!o || !o.success) { toastr.error((o && o.message) || 'Could not write a caption right now.'); return; }
+            $('#csCompCaption').val(o.caption).trigger('input').trigger('focus');
+        });
+    });
     $('#csCompCaption').on('input', function () { composer.caption = this.value; peRenderCount(); peClearError('caption'); peClearError('media'); updatePreviewCaption(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     function peSetAudience(aud) {
         if (composer.audience === 'subscribers') composer.lastTier = composer.tier_id;
@@ -1725,12 +1737,13 @@ jQuery(function ($) {
         schedRules.forEach(function (r) { $list.append(schedCard(r)); });
     }
 
+    function schedSegLabel(g) { var l = (CFG.inbox || {}).segment_labels || {}; return l[g] || g; }
     function schedTargetsSummary(r) {
-        var t = r.message_targets || {}, parts = [];
-        (t.fanvue || []).forEach(function (l) { parts.push('Fanvue ' + String(l).replace(/_/g, ' ')); });
-        if (t.cls) { parts.push('CLS ' + (t.cls === 'all' ? 'everyone' : t.cls)); }
-        return parts.join(', ') || 'No audience';
+        var t = r.message_targets || {}, cls = t.cls || [];
+        if (typeof cls === 'string') { cls = cls ? [cls] : []; }
+        return cls.map(schedSegLabel).join(', ') || 'No audience';
     }
+    function schedTargetsChecked() { return $('#csSchedTargets input[data-clsseg]:checked').map(function () { return String($(this).data('clsseg')); }).get(); }
     function schedCard(r) {
         var isMsg = r.kind === 'message';
         var aud = isMsg ? schedTargetsSummary(r) : (r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone');
@@ -1828,8 +1841,7 @@ jQuery(function ($) {
             schedSum('destinations', total ? (n + ' of ' + total + ' account' + (total === 1 ? '' : 's')) : 'No accounts connected');
         } else {
             schedSum('content', $('#csSchedMsgAi').is(':checked') ? 'Written by AI' : 'Written by you');
-            var t = schedTargetsSummary({ message_targets: { fanvue: $('#csSchedTargets input[data-fvlist]:checked').map(function () { return String($(this).data('fvlist')); }).get(), cls: $('#csSchedClsSeg').val() || '' } });
-            schedSum('destinations', t);
+            schedSum('destinations', schedTargetsSummary({ message_targets: { cls: schedTargetsChecked() } }));
         }
         var days = $('#csSchedDays .cs-ae__day.is-on').length;
         var time = $('#csSchedTime').val() || '09:00';
@@ -1885,15 +1897,12 @@ jQuery(function ($) {
 
     function renderSchedTargets(sel) {
         var ib = CFG.inbox || {}, $wrap = $('#csSchedTargets').empty();
-        sel = sel || {}; var fv = new Set((sel.fanvue || []).map(String));
-        if (ib.fanvue_ok) {
-            (ib.fanvue_lists || []).forEach(function (l) {
-                $wrap.append('<label class="cs-social"><input class="form-check-input" type="checkbox" data-fvlist="' + esc(l) + '"' + (fv.has(l) ? ' checked' : '') + '><i class="fa-solid fa-bolt"></i><span class="cs-social__name">Fanvue: ' + esc(l.replace(/_/g, ' ')) + '</span></label>');
-            });
-        }
-        var segs = ib.cls_segments || ['all', 'followers', 'subscribers'];
-        var opts = '<option value="">Not on Creator Link Studio</option>' + segs.map(function (g) { return '<option value="' + esc(g) + '"' + (sel.cls === g ? ' selected' : '') + '>Creator Link Studio: ' + esc(g === 'all' ? 'everyone I can message' : g) + '</option>'; }).join('');
-        $wrap.append('<select class="form-select" id="csSchedClsSeg" aria-label="Creator Link Studio audience">' + opts + '</select>');
+        var cls = (sel && sel.cls) || []; if (typeof cls === 'string') { cls = cls ? [cls] : []; }
+        var on = new Set(cls.map(String));
+        (ib.cls_segments || ['all', 'followers', 'subscribers']).forEach(function (g) {
+            var id = 'csSchedSeg_' + g;
+            $wrap.append('<label class="cs-social" for="' + id + '"><input class="form-check-input" type="checkbox" id="' + id + '" data-clsseg="' + esc(g) + '"' + (on.has(g) ? ' checked' : '') + '><span class="cs-social__name">' + esc(schedSegLabel(g)) + '</span></label>');
+        });
     }
     $('#csSchedTargets').on('change', 'input, select', function () { schedClearError('targets'); updateSchedSummaries(); });
 
@@ -2058,8 +2067,7 @@ jQuery(function ($) {
         if (kind === 'message') {
             if (msgAi && topic === '') { errors.push({ key: 'topic', msg: 'Tell the AI what the message is about.', focus: '#csSchedTopic' }); }
             if (!msgAi && msgText === '') { errors.push({ key: 'message', msg: 'Write the message.', focus: '#csSchedMsgText' }); }
-            var fv = $('#csSchedTargets input[data-fvlist]:checked').length, cls = $('#csSchedClsSeg').val() || '';
-            if (!fv && !cls) { errors.push({ key: 'targets', msg: 'Pick who gets the message.', focus: '#csSchedClsSeg' }); }
+            if (!schedTargetsChecked().length) { errors.push({ key: 'targets', msg: 'Pick who gets the message.', focus: '#csSchedTargets input' }); }
         } else {
             if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source === 'influencer' ? 'Describe the scene for her.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
             if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfluencer' }); }
@@ -2082,7 +2090,7 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         var name = ($('#csSchedName').val() || '').trim(), topic = ($('#csSchedTopic').val() || '').trim();
         var msgAi = $('#csSchedMsgAi').is(':checked'), msgText = ($('#csSchedMsgText').val() || '').trim();
-        var targets = { fanvue: $('#csSchedTargets input[data-fvlist]:checked').map(function () { return String($(this).data('fvlist')); }).get(), cls: $('#csSchedClsSeg').val() || '' };
+        var targets = { cls: schedTargetsChecked() };
         var influencerId = (kind === 'post' && schedForm.image_source === 'influencer') ? (schedForm.influencer_id || '') : '';
         var days = $('#csSchedDays .cs-ae__day.is-on').map(function () { return $(this).data('day'); }).get();
         var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();

@@ -43,7 +43,7 @@ class ApiAdminController extends BaseApiController {
         $ref_id = (int) ($this->post['ref_id'] ?? 0);
         $fan_id = (int) ($this->post['fan_id'] ?? 0);
         $reason = trim(html_entity_decode((string) ($this->post['reason'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if (!in_array($kind, ['ppv', 'bundle'], true) || $ref_id <= 0 || $fan_id <= 0) {
+        if (!in_array($kind, ['ppv', 'bundle', 'message'], true) || $ref_id <= 0 || $fan_id <= 0) {
             $this->jsonError('Invalid request');
         }
         $res = (new RefundsModel())->refund($kind, $ref_id, $fan_id, $me, $reason);

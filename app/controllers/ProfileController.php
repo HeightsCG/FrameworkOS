@@ -353,6 +353,7 @@ class ProfileController extends Controller {
         }
 
         (new CreatorSubscriptionsModel())->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        InboxAutomationService::trigger((int) $creator['user_id'], (int) $viewer_id, 'new_subscriber');
         if (!empty($meta['promo_id'])) {
             (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']);   // count the discount-code use
         }

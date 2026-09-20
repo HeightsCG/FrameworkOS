@@ -44,15 +44,6 @@ class FanvueAccountsModel extends Model {
         return in_array($scope, $granted, true);
     }
 
-    /** Inbox automation needs every scope in FanvueService::INBOX_SCOPES (granted only by a re-consent after 2026-09-08). */
-    public static function has_chat_scope($row): bool {
-        if (!is_array($row)) { return false; }
-        foreach (FanvueService::INBOX_SCOPES as $sc) {
-            if (!self::has_scope($row, $sc)) { return false; }
-        }
-        return true;
-    }
-
     /** The user's Fanvue row only if currently connected, else null. */
     public function get_connected_for_user($user_id){
         $row = $this->get_for_user($user_id);

@@ -1,7 +1,7 @@
 <?php
 /**
  * The signed-in user's Purchases (/purchases) — content they've bought one-time:
- * pay-per-view unlocks and content bundles. Distinct from subscriptions (recurring).
+ * pay-per-view unlocks, content bundles and paid message unlocks. Distinct from subscriptions (recurring).
  * Available to any logged-in user (fans, not just creators).
  */
 class PurchasesController extends Controller {
@@ -54,6 +54,23 @@ class PurchasesController extends Controller {
                 'handle'       => (string) $b['creator_handle'],
                 'price'        => (int) $b['paid_credits'],
                 'purchased_at' => (string) $b['purchased_at'],
+                'media'        => $media,
+            );
+        }
+        $messagesModel = new MessagesModel();
+        foreach ((array) (new MessageUnlocksModel())->get_for_fan($user_id) as $u) {
+            $media = array();
+            foreach ((array) ($messagesModel->assets_for_messages(array((int) $u['message_id']))[(int) $u['message_id']] ?? array()) as $a) {
+                $media[] = $this->media_item($a);
+            }
+            $body = trim((string) $u['body']);
+            $purchases[] = array(
+                'type'         => 'message',
+                'title'        => ($body !== '' ? mb_substr($body, 0, 80) : 'Message from ' . (string) $u['creator_name']),
+                'creator'      => (string) $u['creator_name'],
+                'handle'       => (string) $u['creator_handle'],
+                'price'        => (int) $u['price_credits'],
+                'purchased_at' => (string) $u['purchased_at'],
                 'media'        => $media,
             );
         }

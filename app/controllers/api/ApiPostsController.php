@@ -331,6 +331,7 @@ class ApiPostsController extends BaseApiController {
         }
         $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
             'Someone unlocked your post for $' . number_format($charge / 10, 2) . '.', '/dashboard', 'fa-coins');
+        InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'ppv' . $post_id);
 
         $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post), 'balance' => $credits->get_balance($viewer)]);
     }
@@ -390,6 +391,7 @@ class ApiPostsController extends BaseApiController {
         if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); }
         $this->notify($creator_id, 'purchases', 'New bundle sale',
             'Someone purchased your bundle for $' . number_format($price / 10, 2) . '.', '/dashboard', 'fa-coins');
+        InboxAutomationService::trigger($creator_id, $viewer, 'new_purchase', 'bundle' . (int) ($this->post['bundle_id'] ?? 0));
 
         $n = count($asset_ids);
         $this->jsonSuccess(['unlocked' => $n, 'balance' => $credits->get_balance($viewer), 'message' => 'Purchased — ' . $n . ' item' . ($n === 1 ? '' : 's') . ' added to your Purchases.']);
@@ -413,6 +415,7 @@ class ApiPostsController extends BaseApiController {
         }
 
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
+        InboxAutomationService::trigger((int) $plan['user_id'], $user_id, 'new_subscriber');
 
         $this->jsonSuccess(['message' => 'You joined ' . $plan['name'], 'plan_id' => (int) $plan['id']]);
     }

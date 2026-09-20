@@ -1,13 +1,13 @@
 <?php
 /**
- * Inbox automation orchestrator: turns an inbound fan message (Fanvue webhook now,
- * internal DMs later) into an AI reply in the creator's voice, subject to the
- * creator's guardrails (inbox_settings). Either sends it or parks it in the
- * approval queue (inbox_replies.pending_approval).
+ * Inbox automation for Creator Link Studio DMs: turns an inbound fan message into an
+ * AI reply in the creator's voice, subject to the creator's guardrails (inbox_settings),
+ * and sends the creator's welcome / trigger messages (auto_messages) on platform
+ * events: new follower, new subscriber, first message, new purchase.
  *
- * Never throws to callers. Every outcome lands on inbox_events.result and, where a
- * reply row exists, inbox_replies.status/reason/error. Fanvue-side failures are also
- * written to user_fanvue_accounts.last_error so Settings can show them.
+ * Either sends the reply or parks it in the approval queue (inbox_replies.pending_approval).
+ * Never throws to callers. Every outcome lands on inbox_events.result and, where a reply
+ * row exists, inbox_replies.status/reason/error.
  */
 class InboxAutomationService {
 
@@ -15,7 +15,6 @@ class InboxAutomationService {
     const HISTORY_N      = 20;      // conversation context sent to Claude
     const PAUSE_NOTICE_H = 6;       // "AI paused for @fan" notification at most every 6 h
     const HOLD_TOKEN     = '[[HOLD]]';
-    const MAX_FANVUE     = 5000;
     const MAX_CLS        = 2000;
 
     private static $started = 0;
@@ -23,8 +22,8 @@ class InboxAutomationService {
     // ---- entry points -----------------------------------------------------------------
 
     /**
-     * Send a 200 to the caller NOW and keep executing. Fanvue retries anything that takes
-     * over 10 s, so the reply pipeline must not hold the response open.
+     * Send a 200 to the caller NOW and keep executing, so the reply pipeline (a Claude
+     * call plus a human-like pause) never holds the fan's request open.
      */
     public static function respond_early($body = 'ok', $content_type = 'text/plain'): void {
         ignore_user_abort(true);
@@ -54,11 +53,11 @@ class InboxAutomationService {
             $data = json_decode((string) $ev['payload'], true);
             $data = is_array($data) ? $data : array();
             switch ($ev['provider'] . ':' . $ev['event_type']) {
-                case 'fanvue:creator.message.received':
-                    $out = self::handle_fanvue_received($ev, (array) ($data['data'] ?? array()));
-                    break;
                 case 'cls:message':
                     $out = self::handle_cls_message($ev, (array) ($data['data'] ?? array()));
+                    break;
+                case 'cls:trigger':
+                    $out = self::handle_cls_trigger($ev, (array) ($data['data'] ?? array()));
                     break;
                 default:
                     $out = array('status' => 'skipped', 'result' => 'unhandled:' . $ev['event_type']);
@@ -82,7 +81,7 @@ class InboxAutomationService {
         return $n;
     }
 
-    // ---- internal DMs (Creator Link Studio) ------------------------------------------------
+    // ---- AI replies to fan DMs -----------------------------------------------------------
 
     /**
      * Queue a fan → creator DM for an AI reply. Cheap: one insert, no checks beyond the
@@ -185,111 +184,6 @@ class InboxAutomationService {
         return $sent['ok'] ? array('status' => 'done', 'result' => 'sent') : array('status' => 'failed', 'result' => 'send:' . $sent['error']);
     }
 
-    // ---- Fanvue pipeline ---------------------------------------------------------------
-
-    private static function handle_fanvue_received(array $ev, array $d): array {
-        $creator_id = (int) $ev['creator_id'];
-        $rows  = (new UsersModel())->get_user_by_id($creator_id);
-        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-        if (!$owner) { return array('status' => 'skipped', 'result' => 'no_owner'); }
-
-        $settings = (new InboxSettingsModel())->get_for_creator($creator_id);
-        $fan      = (array) ($d['fan'] ?? array());
-        $fan_uuid = (string) ($fan['uuid'] ?? '');
-        $fan_name = (string) ($fan['display_name'] ?? ($fan['handle'] ?? 'a fan'));
-        $text     = trim((string) ($d['text'] ?? ''));
-
-        // --- guards (cheap → expensive) -------------------------------------------
-        if (empty($settings['fanvue_enabled']))                     { return self::skip('disabled'); }
-        if (!Plan::can_use_creator_features($owner))                 { return self::skip('plan'); }
-        if ($fan_uuid === '')                                       { return self::skip('no_fan'); }
-        if (($d['sender'] ?? '') !== 'fan')                         { return self::skip('not_fan'); }
-        if (!empty($d['is_automated']))                             { return self::skip('automated'); }
-        if (!empty($d['is_muted']))                                 { return self::skip('muted'); }
-        $type = (string) ($d['message_type'] ?? 'SINGLE_RECIPIENT');
-        if ($type !== 'SINGLE_RECIPIENT')                           { return self::skip('type:' . $type); }
-        if ($text === '')                                           { return self::skip('no_text'); }
-
-        $accounts = new FanvueAccountsModel();
-        $account  = $accounts->get_connected_for_user($creator_id);
-        if (!$account || !FanvueAccountsModel::has_chat_scope($account)) {
-            if ($account) { $accounts->set_error($creator_id, 'Reconnect Fanvue to enable inbox replies.'); }
-            return self::skip('scope');
-        }
-
-        $replies = new InboxRepliesModel();
-        $last = $replies->last_sent_at_for_peer($creator_id, 'fanvue', $fan_uuid);
-        if ($last !== null && (time() - strtotime($last)) < self::RATE_CAP_SEC) {
-            return self::log_skip($replies, $creator_id, 'fanvue', $fan_uuid, $fan_name, $ev, $text, 'rate_cap');
-        }
-
-        $token = FanvueService::access_token_for($account);
-        if ($token === '') { return self::skip('token'); }
-
-        // Conversation context (tolerated failure → reply to the inbound alone).
-        $history = FanvueService::get_messages($token, $fan_uuid, self::HISTORY_N);
-        $our_ids = $replies->sent_provider_ids_for_peer($creator_id, 'fanvue', $fan_uuid);
-        $turns   = self::fanvue_history_to_turns($history, (string) $account['fanvue_user_uuid'], $our_ids, (string) ($d['uuid'] ?? ''), $text);
-
-        $streak = self::consecutive_ai_count($turns);
-        if ($streak >= (int) $settings['max_consecutive']) {
-            $since = $replies->last_pause_notice_for_peer($creator_id, 'fanvue', $fan_uuid);
-            $res   = self::log_skip($replies, $creator_id, 'fanvue', $fan_uuid, $fan_name, $ev, $text, 'max_consecutive');
-            if ($since === null || (time() - strtotime($since)) > self::PAUSE_NOTICE_H * 3600) {
-                self::notify_creator($owner, 'AI replies paused for ' . $fan_name,
-                    'They have had ' . $streak . ' automated replies in a row. Jump in to keep the conversation going.',
-                    '/account/settings?section=inbox');
-            }
-            return $res;
-        }
-
-        $force_approve = false;
-        if (InboxSettingsModel::is_quiet($settings, (string) ($owner['content_timezone'] ?? 'UTC'))) {
-            if ($settings['quiet_action'] === 'skip') {
-                return self::log_skip($replies, $creator_id, 'fanvue', $fan_uuid, $fan_name, $ev, $text, 'quiet_hours');
-            }
-            $force_approve = true;
-        }
-        if (!ClaudeService::configured()) { return self::skip('claude_unavailable'); }
-
-        // --- draft ------------------------------------------------------------------
-        $replies->dismiss_pending_for_peer($creator_id, 'fanvue', $fan_uuid, 'superseded');
-        $cb    = (new CreatorBrandModel())->get_for_user($creator_id);
-        $draft = self::draft($settings, $cb, $owner, $turns, $text, $fan_name, 'fanvue');
-
-        if (!$draft['ok']) {
-            $replies->create(array('creator_id' => $creator_id, 'channel' => 'fanvue', 'peer_key' => $fan_uuid,
-                'peer_name' => $fan_name, 'event_id' => (int) $ev['id'], 'inbound_text' => $text,
-                'status' => 'failed', 'reason' => 'claude'));
-            return array('status' => 'failed', 'result' => 'claude:' . $draft['error']);
-        }
-        if ($draft['hold']) {
-            $replies->create(array('creator_id' => $creator_id, 'channel' => 'fanvue', 'peer_key' => $fan_uuid,
-                'peer_name' => $fan_name, 'event_id' => (int) $ev['id'], 'inbound_text' => $text,
-                'status' => 'skipped', 'reason' => 'needs_human'));
-            self::notify_creator($owner, $fan_name . ' needs a personal reply',
-                mb_substr($text, 0, 140), '/account/settings?section=inbox');
-            return array('status' => 'done', 'result' => 'needs_human');
-        }
-
-        $reply_id = $replies->create(array('creator_id' => $creator_id, 'channel' => 'fanvue', 'peer_key' => $fan_uuid,
-            'peer_name' => $fan_name, 'event_id' => (int) $ev['id'], 'inbound_text' => $text,
-            'draft_text' => $draft['text'], 'status' => ($settings['mode'] === 'auto' && !$force_approve) ? 'sending' : 'pending_approval'));
-
-        if ($settings['mode'] !== 'auto' || $force_approve) {
-            self::notify_creator($owner, 'Reply ready for ' . $fan_name,
-                mb_substr($draft['text'], 0, 140), '/account/settings?section=inbox');
-            return array('status' => 'done', 'result' => $force_approve ? 'held:quiet_hours' : 'held');
-        }
-
-        $row  = $replies->get_one($creator_id, $reply_id);
-        $sent = self::send_reply($row, $draft['text'], null, true);
-        return $sent['ok'] ? array('status' => 'done', 'result' => 'sent')
-                           : array('status' => 'failed', 'result' => 'send:' . $sent['error']);
-    }
-
-    // ---- shared pieces --------------------------------------------------------------------
-
     /**
      * Send (or re-send after approval) a reply row. $human_delay adds the typing pause
      * used on the auto path; approvals send right away.
@@ -297,59 +191,138 @@ class InboxAutomationService {
      */
     public static function send_reply(array $row, $text, $decided_by = null, $human_delay = false): array {
         $replies = new InboxRepliesModel();
-        $text = self::clean_outbound($text, ($row['channel'] === 'fanvue') ? self::MAX_FANVUE : self::MAX_CLS);
+        $text = self::clean_outbound($text, self::MAX_CLS);
         if ($text === '') {
             $replies->mark_failed((int) $row['id'], 'Empty reply');
             return array('ok' => false, 'message_id' => '', 'error' => 'Empty reply');
         }
         try {
-            if ($row['channel'] === 'fanvue') {
-                $accounts = new FanvueAccountsModel();
-                $account  = $accounts->get_connected_for_user((int) $row['creator_id']);
-                if (!$account) { throw new RuntimeException('Fanvue is not connected'); }
-                $token = FanvueService::access_token_for($account);
-                if ($token === '') { throw new RuntimeException('Fanvue session expired. Reconnect in Settings > Integrations.'); }
-
-                FanvueService::send_typing($token, (string) $row['peer_key']);
-                if ($human_delay) {
-                    $elapsed = self::$started ? (microtime(true) - self::$started) : 0;
-                    $pause   = (int) min(rand(3, 8), max(0, 25 - (int) $elapsed));
-                    if ($pause > 0) { sleep($pause); }
-                }
-                $msg = FanvueService::send_message($token, (string) $row['peer_key'], $text, 'cls-inbox-' . (int) $row['id']);
-                $mid = (string) ($msg['uuid'] ?? '');
-                $replies->mark_sent((int) $row['id'], $text, $mid, $decided_by);
-                $accounts->set_error((int) $row['creator_id'], '');
-                return array('ok' => true, 'message_id' => $mid, 'error' => '');
+            if ($row['channel'] !== 'cls') { throw new RuntimeException('Unsupported channel'); }
+            $messages = new MessagesModel();
+            $conv = $messages->get((int) $row['peer_key']);
+            if (!$conv || (int) $conv['creator_id'] !== (int) $row['creator_id']) { throw new RuntimeException('Conversation not found'); }
+            if ($human_delay) {
+                $elapsed = self::$started ? (microtime(true) - self::$started) : 0;
+                $pause   = (int) min(rand(4, 12), max(0, 25 - (int) $elapsed));
+                if ($pause > 0) { sleep($pause); }
             }
-            if ($row['channel'] === 'cls') {
-                $messages = new MessagesModel();
-                $conv = $messages->get((int) $row['peer_key']);
-                if (!$conv || (int) $conv['creator_id'] !== (int) $row['creator_id']) { throw new RuntimeException('Conversation not found'); }
-                if ($human_delay) {
-                    $elapsed = self::$started ? (microtime(true) - self::$started) : 0;
-                    $pause   = (int) min(rand(4, 12), max(0, 25 - (int) $elapsed));
-                    if ($pause > 0) { sleep($pause); }
-                }
-                $mid = (int) $messages->send((int) $conv['id'], (int) $row['creator_id'], $text);
-                $replies->mark_sent((int) $row['id'], $text, (string) $mid, $decided_by);
-                // Same notification the manual path sends (email only if the fan is offline).
-                try {
-                    $rows = (new UsersModel())->get_user_by_id((int) $row['creator_id']);
-                    $creator = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-                    $name = $creator ? (string) (($messages->identity_map(array((int) $row['creator_id']))[(int) $row['creator_id']]['name'] ?? '') ?: 'Someone') : 'Someone';
-                    (new UserNotificationsModel())->push((int) $conv['user_id'], 'messages', 'New message from ' . $name, mb_substr($text, 0, 140), '/', 'fa-comment-dots');
-                } catch (\Throwable $e) {}
-                return array('ok' => true, 'message_id' => (string) $mid, 'error' => '');
-            }
-            throw new RuntimeException('Unsupported channel');
+            $mid = (int) $messages->send((int) $conv['id'], (int) $row['creator_id'], $text);
+            $replies->mark_sent((int) $row['id'], $text, (string) $mid, $decided_by);
+            self::notify_new_message((int) $conv['user_id'], (int) $row['creator_id'], $text, (int) $conv['id']);
+            return array('ok' => true, 'message_id' => (string) $mid, 'error' => '');
         } catch (\Throwable $e) {
             error_log('[inbox] send failed for reply ' . (int) $row['id'] . ': ' . $e->getMessage());
             $replies->mark_failed((int) $row['id'], $e->getMessage());
-            if ($row['channel'] === 'fanvue') {
-                try { (new FanvueAccountsModel())->set_error((int) $row['creator_id'], $e->getMessage()); } catch (\Throwable $x) {}
-            }
             return array('ok' => false, 'message_id' => '', 'error' => $e->getMessage());
+        }
+    }
+
+    // ---- welcome / trigger messages -----------------------------------------------------
+
+    /** Trigger meanings shown to the creator and given to Claude when drafting. */
+    public static function trigger_meta(): array {
+        return array(
+            'new_follower'   => array('New follower',   'Sent when someone follows you.'),
+            'new_subscriber' => array('New subscriber', 'Sent the moment someone joins one of your memberships.'),
+            'first_message'  => array('First message',  'Sent the first time a fan messages you.'),
+            'new_purchase'   => array('New purchase',   'Sent after a fan buys a post, a bundle, or unlocks a message.'),
+        );
+    }
+
+    /**
+     * Fire a trigger for (creator, fan). Cheap when the creator has not set that trigger up
+     * (one select). Otherwise records the event and delivers it right away. Never throws.
+     * $ref distinguishes repeatable events (a purchase id); '' means once per fan.
+     */
+    public static function trigger($creator_id, $fan_id, $trigger, $ref = ''): void {
+        try {
+            $creator_id = (int) $creator_id; $fan_id = (int) $fan_id;
+            if ($creator_id <= 0 || $fan_id <= 0 || $creator_id === $fan_id || !AutoMessagesModel::is_trigger($trigger)) { return; }
+            $auto = (new AutoMessagesModel())->get_one($creator_id, $trigger);
+            if (!$auto || empty($auto['enabled'])) { return; }
+            $key = $trigger . ':' . $fan_id . ($ref !== '' ? ':' . $ref : '');
+            $payload = json_encode(array('id' => 'trigger:' . $creator_id . ':' . $key, 'type' => 'trigger',
+                'data' => array('trigger' => (string) $trigger, 'fan_id' => $fan_id, 'ref' => (string) $ref)));
+            $event_id = (new InboxEventsModel())->record('cls', 'trigger:' . $creator_id . ':' . $key, $creator_id, 'trigger', $payload);
+            if ($event_id > 0) { self::process_event($event_id); }
+        } catch (\Throwable $e) {
+            error_log('[inbox] trigger ' . $trigger . ': ' . $e->getMessage());
+        }
+    }
+
+    private static function handle_cls_trigger(array $ev, array $d): array {
+        $creator_id = (int) $ev['creator_id'];
+        $fan_id     = (int) ($d['fan_id'] ?? 0);
+        $trigger    = (string) ($d['trigger'] ?? '');
+        $ref        = (string) ($d['ref'] ?? '');
+        if ($fan_id <= 0 || !AutoMessagesModel::is_trigger($trigger)) { return self::skip('bad_event'); }
+        $rows  = (new UsersModel())->get_user_by_id($creator_id);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$owner)                                             { return self::skip('no_owner'); }
+        if (!Plan::can_use_creator_features($owner))             { return self::skip('plan'); }
+        $autos = new AutoMessagesModel();
+        $auto  = $autos->get_one($creator_id, $trigger);
+        if (!$auto || empty($auto['enabled']))                   { return self::skip('disabled'); }
+        if ((new BlocksModel())->is_blocked($creator_id, $fan_id)) { return self::skip('blocked'); }
+        $messages = new MessagesModel();
+        if (!$messages->can_message($creator_id, $fan_id))       { return self::skip('no_relationship'); }
+        $text = trim((string) $auto['text']);
+        $asset_ids = (array) ($auto['asset_ids'] ?? array());
+        if ($text === '' && empty($asset_ids))                   { return self::skip('empty'); }
+        // Once per fan per trigger (per purchase for new_purchase): the PK on sends is the mutex.
+        $send_key = $trigger . ($ref !== '' ? ':' . $ref : '');
+        if (!$autos->claim_send($creator_id, $fan_id, $send_key)) { return self::skip('already_sent'); }
+        try {
+            if (!empty($asset_ids)) {
+                $ready = (new MediaAssetsModel())->get_owned_ready($creator_id, $asset_ids);
+                $asset_ids = array();
+                foreach ($ready as $a) { $asset_ids[] = (int) $a['id']; }
+            }
+            $conv_id = $messages->get_or_create($creator_id, $fan_id);
+            $mid = $messages->send($conv_id, $creator_id, $text, null, $asset_ids, empty($asset_ids) ? 0 : (int) $auto['price_credits'], $trigger);
+            self::notify_new_message($fan_id, $creator_id, $text !== '' ? $text : MessagesModel::preview_text('', count($asset_ids), (int) $auto['price_credits']), $conv_id);
+            return array('status' => 'done', 'result' => 'sent:' . (int) $mid);
+        } catch (\Throwable $e) {
+            $autos->release_send($creator_id, $fan_id, $send_key);
+            throw $e;
+        }
+    }
+
+    /** One-off welcome/trigger message in the creator's voice ('' on failure). */
+    public static function draft_trigger_message(array $owner, $trigger): string {
+        $meta = self::trigger_meta();
+        if (!isset($meta[$trigger])) { return ''; }
+        $settings = (new InboxSettingsModel())->get_for_creator((int) $owner['user_id']);
+        $cb       = (new CreatorBrandModel())->get_for_user((int) $owner['user_id']);
+        $system   = self::build_system_prompt($cb, $settings, $owner, 'cls', 'the fan', true);
+        $ask = 'Write the automatic message I send on this event: "' . $meta[$trigger][0] . '" (' . $meta[$trigger][1] . '). '
+             . 'It goes to every fan this happens to, so do not use a name and do not reference anything specific they said. '
+             . '1 to 3 short sentences, warm, in my voice. Output only the message.';
+        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 400, 30, 'low');
+        if (!$res['ok'] || stripos($res['text'], self::HOLD_TOKEN) !== false) { return ''; }
+        return self::clean_outbound($res['text'], self::MAX_CLS);
+    }
+
+    /** The same notification the manual send path uses: on-site always, email only if the recipient is offline. */
+    public static function notify_new_message($recipient_id, $sender_id, $text, $conversation_id = 0): void {
+        try {
+            $messages = new MessagesModel();
+            $name = (string) (($messages->identity_map(array((int) $sender_id))[(int) $sender_id]['name'] ?? '') ?: 'Someone');
+            $title = 'New message from ' . $name;
+            $body  = mb_substr((string) $text, 0, 140);
+            $link = ((int) $conversation_id > 0) ? '/inbox/thread/' . (int) $conversation_id : '/inbox';
+            (new UserNotificationsModel())->push((int) $recipient_id, 'messages', $title, $body, $link, 'fa-comment-dots');
+            $prefs = (new NotificationPrefsModel())->get_prefs_map((int) $recipient_id);
+            if (empty($prefs['messages']['email'])) { return; }
+            $rows = (new UsersModel())->get_user_by_id((int) $recipient_id);
+            $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            if (!$u || (string) ($u['user_email'] ?? '') === '') { return; }
+            $la = $u['last_active_at'] ?? null;
+            if ($la !== null && strtotime((string) $la . ' UTC') >= time() - 300) { return; }   // online: they see it live
+            (new NotificationsModel())->send_notification_email((string) $u['user_email'],
+                trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')), $title, $body, $link);
+        } catch (\Throwable $e) {
+            error_log('[inbox] notify_new_message: ' . $e->getMessage());
         }
     }
 
@@ -367,42 +340,14 @@ class InboxAutomationService {
         if ($res['stop_reason'] === 'refusal' || $text === '' || stripos($text, self::HOLD_TOKEN) !== false) {
             return array('ok' => true, 'text' => '', 'hold' => true, 'error' => '');
         }
-        return array('ok' => true, 'text' => self::clean_outbound($text, ($channel === 'fanvue') ? self::MAX_FANVUE : self::MAX_CLS), 'hold' => false, 'error' => '');
-    }
-
-    /** Trigger meanings shown to the creator and given to Claude when drafting. */
-    public static function trigger_meta(): array {
-        return array(
-            'new_subscriber'        => array('New subscriber',        'Sent the moment someone subscribes.'),
-            'new_follower'          => array('New follower',          'Sent when someone follows you for free.'),
-            'first_message_reply'   => array('First message',         'Sent the first time a fan ever messages you.'),
-            'renewed'               => array('Subscription renewed',  'Sent when a subscription renews.'),
-            're_subscribed'         => array('Came back',             'Sent when a lapsed subscriber re-subscribes.'),
-            'subscription_canceled' => array('Cancelled auto-renew',  'Sent when a subscriber turns off renewal.'),
-            'new_purchase'          => array('New purchase',          'Sent after a fan buys something from you.'),
-        );
-    }
-
-    /** One-off welcome/trigger message in the creator's voice ('' on failure). */
-    public static function draft_trigger_message(array $owner, $trigger): string {
-        $meta = self::trigger_meta();
-        if (!isset($meta[$trigger])) { return ''; }
-        $settings = (new InboxSettingsModel())->get_for_creator((int) $owner['user_id']);
-        $cb       = (new CreatorBrandModel())->get_for_user((int) $owner['user_id']);
-        $system   = self::build_system_prompt($cb, $settings, $owner, 'fanvue', 'the fan', true);
-        $ask = 'Write the automatic message Fanvue sends on this event: "' . $meta[$trigger][0] . '" (' . $meta[$trigger][1] . '). '
-             . 'It goes to every fan this happens to, so do not use a name and do not reference anything specific they said. '
-             . '1 to 3 short sentences, warm, in my voice. Output only the message.';
-        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 400, 30, 'low');
-        if (!$res['ok'] || stripos($res['text'], self::HOLD_TOKEN) !== false) { return ''; }
-        return self::clean_outbound($res['text'], self::MAX_FANVUE);
+        return array('ok' => true, 'text' => self::clean_outbound($text, self::MAX_CLS), 'hold' => false, 'error' => '');
     }
 
     public static function build_system_prompt(array $cb, array $settings, array $owner, $channel, $fan_name, $first_contact = false): string {
         $name = trim((string) ($cb['brand_name'] ?? ''));
         if ($name === '') { $name = trim((string) ($owner['first_name'] ?? '')); }
         if ($name === '') { $name = (string) ($owner['u_name'] ?? 'the creator'); }
-        $where = ($channel === 'fanvue') ? 'Fanvue' : 'Creator Link Studio';
+        $where = 'Creator Link Studio';
 
         $p = array();
         $p[] = "You are {$name}, a content creator, replying to a fan named {$fan_name} in your own private DMs on {$where}. You write every message yourself, in first person, as {$name}.";
@@ -444,30 +389,6 @@ class InboxAutomationService {
 
         $p[] = "Rules:\n- " . implode("\n- ", $rules);
         return implode("\n\n", $p);
-    }
-
-    /** Map Fanvue GET /chats/{fan}/messages rows to Claude turns, oldest first, dropping the newest inbound if present. */
-    private static function fanvue_history_to_turns(array $history, $creator_uuid, array $our_ids, $inbound_uuid = '', $inbound_text = ''): array {
-        $rows = array();
-        foreach ($history as $m) {
-            $text = trim((string) ($m['text'] ?? ''));
-            if ($text === '') { continue; }
-            // The triggering message is appended separately by draft(); don't double it.
-            if ($inbound_uuid !== '' && (string) ($m['uuid'] ?? '') === $inbound_uuid) { continue; }
-            $from_creator = ((string) ($m['sender']['uuid'] ?? '') === (string) $creator_uuid);
-            $rows[] = array(
-                'role'    => $from_creator ? 'assistant' : 'user',
-                'content' => $text,
-                'ours'    => $from_creator && in_array((string) ($m['uuid'] ?? ''), $our_ids, true),
-                'at'      => strtotime((string) ($m['sentAt'] ?? '')) ?: 0,
-                'uuid'    => (string) ($m['uuid'] ?? ''),
-            );
-        }
-        usort($rows, function ($a, $b) { return $a['at'] <=> $b['at']; });
-        // Same guard when the list carries the inbound without a matching uuid.
-        if ($inbound_text !== '' && !empty($rows) && $rows[count($rows) - 1]['role'] === 'user'
-            && $rows[count($rows) - 1]['content'] === $inbound_text) { array_pop($rows); }
-        return array_slice($rows, -self::HISTORY_N);
     }
 
     /** Newest → oldest: count creator turns that were ours until a human-written creator turn appears. */

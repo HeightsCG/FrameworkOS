@@ -268,13 +268,20 @@ class McpTools {
                 'name' => array('type' => 'string'))));
 
         // ---- Messaging ----
-        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('to_user_id', 'body'),
-            'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'))));
-        $t[] = array('name' => 'send_broadcast', 'description' => 'Broadcast a message to an audience segment.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('body'),
+        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa). Optionally attach library media (asset_ids, up to 10) and set a price in dollars ($3-$500) the fan pays to unlock it.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('to_user_id'),
+            'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer', 'description' => 'Dollars; 0 or omitted = free'))));
+        $t[] = array('name' => 'send_broadcast', 'description' => 'Send one message to every fan in one or more audience segments (each gets it as a private DM). Optionally attach media and a price.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array(),
             'properties' => array('body' => array('type' => 'string'),
-                'segment' => array('type' => 'string', 'enum' => array('all', 'followers', 'subscribers')))));
+                'segments' => array('type' => 'array', 'items' => array('type' => 'string', 'enum' => BroadcastsModel::segments())),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer'))));
+        $t[] = array('name' => 'list_auto_messages', 'description' => 'Welcome / trigger messages sent automatically on Creator Link Studio events (new_follower, new_subscriber, first_message, new_purchase).', 'inputSchema' => array('type' => 'object', 'properties' => new stdClass()));
+        $t[] = array('name' => 'save_auto_message', 'description' => 'Set (and enable) the automatic message for a trigger. Optional media and price like send_message. enabled=false turns it off.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('trigger'),
+            'properties' => array('trigger' => array('type' => 'string', 'enum' => AutoMessagesModel::TRIGGERS), 'text' => array('type' => 'string'),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer'), 'enabled' => array('type' => 'boolean'))));
 
 
         // ---- AI influencers (create, train once, generate on demand) ----
@@ -612,22 +619,54 @@ class McpTools {
                 $to = (int) ($a['to_user_id'] ?? 0);
                 $body = trim((string) ($a['body'] ?? ''));
                 if ($to <= 0 || $to === $cid) { throw new InvalidArgumentException('Invalid recipient'); }
-                if ($body === '') { throw new InvalidArgumentException('body is required'); }
+                list($asset_ids, $price) = self::message_media($cid, $a);
+                if ($body === '' && empty($asset_ids)) { throw new InvalidArgumentException('body or asset_ids is required'); }
                 $mm = new MessagesModel();
                 $conv = (int) $mm->open_between($cid, $to);
                 if ($conv <= 0) { throw new RuntimeException('You can only message people who follow you, subscribe to you, or whom you follow'); }
-                $mid = $mm->send($conv, $cid, mb_substr($body, 0, 2000));
-                return array('conversation_id' => $conv, 'message_id' => (int) $mid);
+                $mid = $mm->send($conv, $cid, mb_substr($body, 0, 2000), null, $asset_ids, $price);
+                InboxAutomationService::notify_new_message($to, $cid, MessagesModel::preview_text($body, count($asset_ids), $price), $conv);
+                return array('conversation_id' => $conv, 'message_id' => (int) $mid, 'price_credits' => $price);
             }
             case 'send_broadcast': {
                 $body = trim((string) ($a['body'] ?? ''));
-                if ($body === '') { throw new InvalidArgumentException('body is required'); }
-                $seg = in_array($a['segment'] ?? 'all', array('all', 'followers', 'subscribers'), true) ? $a['segment'] : 'all';
-                list($bid, $count) = (new BroadcastsModel())->create_and_send($cid, $seg, mb_substr($body, 0, 2000));
-                if ((int) $count <= 0) { throw new RuntimeException('No one is in that audience segment yet'); }
-                return array('broadcast_id' => (int) $bid, 'recipients' => (int) $count);
+                list($asset_ids, $price) = self::message_media($cid, $a);
+                if ($body === '' && empty($asset_ids)) { throw new InvalidArgumentException('body or asset_ids is required'); }
+                $segs = BroadcastsModel::clean_segments($a['segments'] ?? ($a['segment'] ?? array('all')));
+                if (empty($segs)) { $segs = array('all'); }
+                list($bid, $count, $queued) = (new BroadcastsModel())->create_and_send($cid, $segs, mb_substr($body, 0, 2000), $asset_ids, $price);
+                if ((int) $count <= 0) { throw new RuntimeException('No one is in that audience yet'); }
+                return array('broadcast_id' => (int) $bid, 'recipients' => (int) $count, 'queued' => (bool) $queued);
             }
-
+            case 'list_auto_messages': {
+                $rows = (new AutoMessagesModel())->get_for_creator($cid);
+                $out = array();
+                foreach (InboxAutomationService::trigger_meta() as $k => $meta) {
+                    $r = $rows[$k] ?? null;
+                    $out[] = array('trigger' => $k, 'label' => $meta[0], 'when' => $meta[1], 'enabled' => $r ? !empty($r['enabled']) : false,
+                        'text' => $r ? (string) $r['text'] : '', 'asset_ids' => $r ? (array) $r['asset_ids'] : array(),
+                        'price' => $r ? (int) round(((int) $r['price_credits']) / 10) : 0);
+                }
+                return array('auto_messages' => $out);
+            }
+            case 'save_auto_message': {
+                $trigger = (string) ($a['trigger'] ?? '');
+                if (!AutoMessagesModel::is_trigger($trigger)) { throw new InvalidArgumentException('Unknown trigger'); }
+                $model = new AutoMessagesModel();
+                if (array_key_exists('enabled', $a) && !$a['enabled']) {
+                    $model->delete_one($cid, $trigger);
+                    return array('trigger' => $trigger, 'enabled' => false);
+                }
+                $text = trim((string) ($a['text'] ?? ''));
+                list($asset_ids, $price) = self::message_media($cid, $a);
+                if ($text === '' && empty($asset_ids)) {
+                    $cur = $model->get_one($cid, $trigger);
+                    if (!$cur) { throw new InvalidArgumentException('text or asset_ids is required'); }
+                    $text = (string) $cur['text']; $asset_ids = (array) $cur['asset_ids']; $price = (int) $cur['price_credits'];
+                }
+                $model->save($cid, $trigger, $text, true, $asset_ids, $price);
+                return array('trigger' => $trigger, 'enabled' => true);
+            }
 
             // AI influencers
             case 'list_influencers': {
@@ -796,6 +835,19 @@ class McpTools {
 
 
     /** The creator's influencer from influencer_id (or id), or an error. */
+    /** Owned, ready asset ids + credit price from a tool call's asset_ids / price (dollars). */
+    private static function message_media($cid, array $a): array {
+        $ids = array_slice(array_map('intval', (array) ($a['asset_ids'] ?? array())), 0, 10);
+        $asset_ids = array();
+        if (!empty($ids)) {
+            foreach ((new MediaAssetsModel())->get_owned_ready($cid, $ids) as $row) { $asset_ids[] = (int) $row['id']; }
+            if (empty($asset_ids)) { throw new InvalidArgumentException('asset_ids must be ready media in your library'); }
+        }
+        $price = 0;
+        if (!empty($asset_ids) && (int) ($a['price'] ?? 0) > 0) { $price = max(3, min(500, (int) $a['price'])) * 10; }
+        return array($asset_ids, $price);
+    }
+
     private static function influencer($cid, array $a){
         $id = (int) ($a['influencer_id'] ?? ($a['id'] ?? 0));
         return self::need((new InfluencersModel())->get_one($cid, $id), 'Influencer not found');

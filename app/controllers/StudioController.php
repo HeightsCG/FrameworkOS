@@ -58,13 +58,11 @@ class StudioController extends Controller {
                 'can_post' => Plan::can_social_post($user),
             );
 
-            // Inbox automation (scheduled messages); Fanvue lists only when chat scope was granted.
-            $fv_inbox = (new FanvueAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
+            // Scheduled messages go to Creator Link Studio audience segments.
             $this->view->inbox = array(
                 'can'          => true,
-                'fanvue_ok'    => $fv_inbox ? FanvueAccountsModel::has_chat_scope($fv_inbox) : false,
-                'fanvue_lists' => SchedulerRulesModel::FANVUE_LISTS,
                 'cls_segments' => SchedulerRulesModel::CLS_SEGMENTS,
+                'segment_labels' => BroadcastsModel::segment_labels(),
             );
 
             $this->view->can_ai = true;

@@ -446,15 +446,9 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($name === '')  { $this->jsonError('Give your automation a name.'); }
         if ($kind === 'message') {
             $t = SchedulerRulesModel::targets(['message_targets' => json_encode((array) $targets)]);
-            if (empty($t['fanvue']) && $t['cls'] === '') { $this->jsonError('Pick who receives the message.'); }
+            if (empty($t['cls'])) { $this->jsonError('Pick who receives the message.'); }
             if ($msg_ai && $topic === '')   { $this->jsonError('Tell the AI what the message is about (the topic).'); }
             if (!$msg_ai && $msg_text === '') { $this->jsonError('Write the message, or let AI write it from a topic.'); }
-            if (!empty($t['fanvue'])) {
-                $fv = (new FanvueAccountsModel())->get_connected_for_user($creator_id);
-                if (!$fv || !FanvueAccountsModel::has_chat_scope($fv)) {
-                    $this->jsonError('Connect Fanvue with inbox access (Settings > Inbox Automation) to message Fanvue fans.');
-                }
-            }
         } elseif ($topic === '') { $this->jsonError('Describe what to post (the topic).'); }
 
         $image_source  = (($this->post['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand';
@@ -545,6 +539,51 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     /** Create or update a draft (also powers autosave). */
+    /**
+     * Write a caption for the post being composed. The subject comes from what the post shows:
+     * the influencer scene prompt behind each generated asset, asset descriptions and tags, or
+     * the creator's own words in the box. Returns text only; nothing is saved.
+     */
+    public function post_caption_autoAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        if (!ClaudeService::configured()) { $this->jsonError('Caption writing is not available right now.'); }
+        $ids  = array_map('intval', (array) ($this->post['asset_ids'] ?? []));
+        $hint = mb_substr(trim(html_entity_decode((string) ($this->post['hint'] ?? ''), ENT_QUOTES, 'UTF-8')), 0, 500);
+        $aud  = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
+
+        $parts = array(); $who = ''; $kinds = array();
+        $media = new MediaAssetsModel(); $links = new InfluencerImagesModel(); $jobs = new InfluencerJobsModel();
+        foreach (array_slice($ids, 0, 4) as $aid) {
+            $a = $media->get_one($creator_id, $aid);
+            if (!$a) { continue; }
+            $kinds[(string) $a['type']] = true;
+            $link = $links->get_by_asset($creator_id, $aid);
+            if ($link) {
+                $who = (string) $link['influencer_name'];
+                $job = !empty($link['job_id']) ? $jobs->get_by_id((int) $link['job_id']) : null;
+                $p   = $job ? InfluencerJobsModel::params($job) : array();
+                $scene = trim((string) ($p['scene'] ?? ($p['user_prompt'] ?? '')));
+                if ($scene === '' && $job) { $scene = trim(preg_replace('/\binfl_\d+_\w+\b/', '', (string) $job['prompt'])); }
+                if ($scene !== '') { $parts[] = $scene; }
+            }
+            if (trim((string) ($a['description'] ?? '')) !== '') { $parts[] = trim((string) $a['description']); }
+            elseif (trim((string) ($a['tags'] ?? '')) !== '' && strpos((string) $a['tags'], 'influencer:') !== 0) { $parts[] = str_replace(',', ', ', (string) $a['tags']); }
+        }
+        $parts = array_values(array_unique(array_filter($parts)));
+        $topic = $hint !== '' ? $hint : implode('; ', array_slice($parts, 0, 3));
+        if ($topic === '') { $topic = !empty($kinds['video']) ? 'a new video for my followers' : 'a new photo for my followers'; }
+        // Her posts read as her own words, not a caption about her.
+        if ($who !== '') { $topic .= '. Write it in the first person as ' . $who . ' talking to her followers, never about her in the third person'; }
+        if ($hint !== '' && !empty($parts)) { $topic .= ' (the post shows: ' . implode('; ', array_slice($parts, 0, 2)) . ')'; }
+
+        $cb = (new CreatorBrandModel())->get_for_user($creator_id);
+        $style = ($aud === 'subscribers' || $aud === 'ppv') ? 'tease' : '';
+        $caption = BrandService::caption_for($topic, (array) $cb, $style);
+        if ($caption === '') { $this->jsonError('Could not write a caption right now.'); }
+        $this->jsonSuccess(['caption' => mb_substr($caption, 0, 3000)]);
+    }
+
     public function post_saveAction(){
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
@@ -902,14 +941,6 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     private function post_audience($v): string{ return in_array($v, ['subscribers', 'ppv'], true) ? $v : 'free'; }
-
-    /** Clamp a dollar PPV price ($3–$500) to credits ($1 = 10 credits). 0 if invalid. */
-    private function ppv_credits_from_dollars($dollars): int{
-        $d = (int) $dollars;
-        if ($d < 3) { $d = 3; }
-        if ($d > 500) { $d = 500; }
-        return $d * 10;
-    }
 
     /** Convert a stored UTC datetime to a creator-local 'YYYY-MM-DDTHH:MM' for pickers. */
     private function from_utc(?string $utc, string $tz): string{

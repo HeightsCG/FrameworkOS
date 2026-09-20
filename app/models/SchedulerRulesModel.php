@@ -13,16 +13,16 @@ class SchedulerRulesModel extends Model {
         'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
-    const FANVUE_LISTS = array('subscribers', 'auto_renewing', 'non_renewing', 'followers', 'free_trial_subscribers', 'expired_subscribers', 'spent_more_than_50');
-    const CLS_SEGMENTS = array('all', 'followers', 'subscribers');
+    const CLS_SEGMENTS = array('all', 'followers', 'subscribers', 'expired', 'buyers');
 
-    /** Decode message_targets → ['fanvue' => [lists], 'cls' => segment|''] */
+    /** Decode message_targets → ['cls' => [segments]] (older rows stored a single segment string). */
     public static function targets(array $rule){
         $t = json_decode((string) ($rule['message_targets'] ?? ''), true);
         $t = is_array($t) ? $t : array();
-        $fv = array_values(array_intersect(array_map('strval', (array) ($t['fanvue'] ?? array())), self::FANVUE_LISTS));
-        $cls = in_array($t['cls'] ?? '', self::CLS_SEGMENTS, true) ? (string) $t['cls'] : '';
-        return array('fanvue' => $fv, 'cls' => $cls);
+        $cls = $t['cls'] ?? array();
+        if (is_string($cls)) { $cls = ($cls === '') ? array() : array($cls); }
+        $cls = array_values(array_intersect(self::CLS_SEGMENTS, array_map('strval', (array) $cls)));
+        return array('cls' => $cls);
     }
 
     /** Insert a new rule, returns its id. */

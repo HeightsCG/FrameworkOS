@@ -17,6 +17,11 @@ jQuery(function ($) {
     }
 
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    /* Hand a generated asset to the messenger: the creator picks who gets it (media attached, price optional). */
+    function send_in_message(a) {
+        if (!a || !window.CLSMessenger) { toastr.error('Messages are not available on this page'); return; }
+        window.CLSMessenger.compose({ assets: [{ id: a.id, type: a.type || 'image', thumb: a.thumb_url || a.poster_url || a.display_url || '', name: a.name || '' }], price: 0 });
+    }
     function err(o, fallback) {
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {   // plan / credit refusals link to Billing
             toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
@@ -787,6 +792,7 @@ jQuery(function ($) {
                 });
             });
         });
+        $('#inf_res_message').on('click', function () { if (!current) { return; } send_in_message(current.asset); });
         $('#inf_res_post').on('click', function () {
             if (!current) { return; }
             try { sessionStorage.setItem('cs_open_asset', String(current.asset.id)); } catch (e) {}
@@ -928,6 +934,7 @@ jQuery(function ($) {
             });
         });
         $('#inf_vres_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.asset.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
+        $('#inf_vres_message').on('click', function () { if (!current) { return; } send_in_message($.extend({ type: 'video' }, current.asset)); });
         $('#inf_vres_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.asset.id)); } catch (e) {} window.location = '/studio'; });
         $('#inf_vres_delete').on('click', function () {
             if (!current) { return; }
@@ -992,6 +999,7 @@ jQuery(function ($) {
         $(document).on('keydown', function (e) { if (e.key === 'Escape') { close_lightbox(); } });
         $('#inf_lightbox_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
         $('#inf_lightbox_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.id)); } catch (e) {} window.location = '/studio'; });
+        $('#inf_lightbox_message').on('click', function () { if (!current) { return; } send_in_message(current); });
         $('#inf_lightbox_delete').on('click', function () {
             if (!current) { return; }
             var gone = current.id;

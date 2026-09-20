@@ -96,6 +96,7 @@
 .adm-scell--amt{ font-weight:700; color:#1c1830; }
 .adm-tag--ppv{ background:#efeaff; color:#5a45c9; }
 .adm-tag--bundle{ background:#e7f6ee; color:#1f8a54; }
+.adm-tag--message{ background:#fff1e3; color:#b25e0a; }
 .adm-tag--flag{ background:#fdecec; color:#c23b3b; }
 
 /* Reports table */

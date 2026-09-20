@@ -46,7 +46,7 @@ class InboxSettingsModel extends Model {
     /** Validate + clamp then upsert. Returns the cleaned array. */
     public function save($creator_id, array $f){
         $clean = array(
-            'fanvue_enabled'  => !empty($f['fanvue_enabled']) ? 1 : 0,
+            'fanvue_enabled'  => 0,
             'cls_enabled'     => !empty($f['cls_enabled']) ? 1 : 0,
             'mode'            => (($f['mode'] ?? '') === 'auto') ? 'auto' : 'approve',
             'quiet_start'     => self::hhmm($f['quiet_start'] ?? null),

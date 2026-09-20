@@ -153,8 +153,6 @@ class AccountController extends Controller {
         $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';
         $this->view->creator_terms       = $this->creator_terms(Main::site_name());
         $this->view->fanvue              = $can_post ? (new FanvueAccountsModel())->get_for_user($owner['user_id']) : null;
-        $fv_row = $this->view->fanvue;
-        $this->view->fanvue_chat_ok      = $fv_row && ($fv_row['status'] ?? '') === 'connected' && FanvueAccountsModel::has_chat_scope($fv_row);
         $this->view->can_inbox           = $can_manage;   // inbox automation is included on every plan
         $this->view->inbox_settings      = $can_manage ? (new InboxSettingsModel())->get_for_creator($owner['user_id']) : InboxSettingsModel::defaults();
         $this->view->inbox_pending       = ($can_manage && $this->view->can_inbox) ? (new InboxRepliesModel())->count_pending($owner['user_id']) : 0;

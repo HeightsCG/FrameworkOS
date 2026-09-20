@@ -26,6 +26,21 @@ class MediaAssetsModel extends Model {
         ));
     }
 
+    /** Ready, owned assets by id (order preserved) — for attaching to messages. */
+    public function get_owned_ready($creator_id, array $ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (empty($ids)) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select(
+            "SELECT * FROM media_assets WHERE id IN ($in) AND creator_id = :c AND deleted_at IS NULL AND status = 'ready'",
+            array('c' => (int) $creator_id));
+        $by = array();
+        foreach ((array) $rows as $r) { $by[(int) $r['id']] = $r; }
+        $out = array();
+        foreach ($ids as $id) { if (isset($by[$id])) { $out[] = $by[$id]; } }
+        return $out;
+    }
+
     public function get_one($creator_id, $id){
         $rows = parent::select(
             "SELECT * FROM media_assets WHERE id = :id AND creator_id = :c AND deleted_at IS NULL",

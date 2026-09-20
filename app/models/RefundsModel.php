@@ -8,10 +8,14 @@
  */
 class RefundsModel extends Model {
 
-    private function label($kind){ return $kind === 'bundle' ? 'content bundle' : 'pay-per-view post'; }
+    private function label($kind){
+        if ($kind === 'bundle')  { return 'content bundle'; }
+        if ($kind === 'message') { return 'message unlock'; }
+        return 'pay-per-view post';
+    }
 
     /**
-     * Refund a PPV or bundle purchase. Returns ['ok'=>bool, 'message'=>?, 'amount'=>credits, 'clawback_ok'=>bool].
+     * Refund a PPV, bundle or DM-unlock purchase. Returns ['ok'=>bool, 'message'=>?, 'amount'=>credits, 'clawback_ok'=>bool].
      * Idempotent via the unlock row: once revoked, a second refund finds nothing.
      */
     public function refund($kind, $ref_id, $fan_id, $admin_id, $reason = ''){
@@ -22,6 +26,9 @@ class RefundsModel extends Model {
         } elseif ($kind === 'bundle') {
             $rows = parent::select("SELECT price_credits, creator_id FROM bundle_unlocks WHERE bundle_id = :b AND fan_id = :f",
                 array('b' => $ref_id, 'f' => $fan_id));
+        } elseif ($kind === 'message') {
+            $rows = parent::select("SELECT price_credits, creator_id FROM message_unlocks WHERE message_id = :m AND fan_id = :f",
+                array('m' => $ref_id, 'f' => $fan_id));
         } else {
             return array('ok' => false, 'message' => 'Invalid purchase type');
         }
@@ -51,8 +58,9 @@ class RefundsModel extends Model {
         // 3) Reverse the post's recorded earnings so revenue reporting stays correct.
         if ($kind === 'ppv' && $net > 0) { (new PostsModel())->add_earnings($ref_id, -$net * 10); }
         // 4) Revoke access.
-        if ($kind === 'ppv') { (new PpvUnlocksModel())->remove($ref_id, $fan_id); }
-        else                 { (new ContentBundlesModel())->remove_unlock($ref_id, $fan_id); }
+        if ($kind === 'ppv')          { (new PpvUnlocksModel())->remove($ref_id, $fan_id); }
+        elseif ($kind === 'message')  { (new MessageUnlocksModel())->remove($ref_id, $fan_id); }
+        else                          { (new ContentBundlesModel())->remove_unlock($ref_id, $fan_id); }
         // 5) Audit log.
         parent::insert('refunds', array(
             'kind' => $kind, 'ref_id' => $ref_id, 'creator_id' => $creator_id, 'fan_id' => $fan_id,

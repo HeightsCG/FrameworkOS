@@ -79,6 +79,9 @@ class AdminModel extends Model {
                 UNION ALL
                 SELECT 'bundle' AS kind, bu.bundle_id AS ref_id, bu.fan_id, bu.creator_id, bu.price_credits, bu.created_at, b.name COLLATE utf8mb4_unicode_ci AS item
                 FROM bundle_unlocks bu JOIN content_bundles b ON b.id = bu.bundle_id
+                UNION ALL
+                SELECT 'message' AS kind, mu.message_id AS ref_id, mu.fan_id, mu.creator_id, mu.price_credits, mu.created_at, m.body COLLATE utf8mb4_unicode_ci AS item
+                FROM message_unlocks mu JOIN messages m ON m.id = mu.message_id
              ) s ORDER BY s.created_at DESC LIMIT $limit");
         if (empty($rows)) { return array(); }
         $ids = array();

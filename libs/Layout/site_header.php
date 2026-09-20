@@ -38,6 +38,7 @@
         <nav class="app-nav">
             <span class="app-nav__label">Menu</span>
             <a href="/" class="app-nav-item<?php echo ($this->controller === 'index' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="/inbox" class="app-nav-item<?php echo ($this->controller === 'inbox' ? ' app-nav-item-active' : ''); ?>"><i class="fa-regular fa-comment-dots"></i> Inbox <span class="app-nav__badge" id="appInboxBadge" hidden></span></a>
             <?php if (Permissions::can_act_as_creator()): ?>
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
