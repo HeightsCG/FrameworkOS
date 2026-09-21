@@ -346,8 +346,8 @@
                         </div>
 
                         <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompTier" hidden>
-                            <label class="cs-pe__label" for="csCompTierSel">Tier</label>
-                            <select id="csCompTierSel" class="form-select"><option value="">All subscribers</option></select>
+                            <span class="cs-pe__label" id="csCompTiersLabel">Tier</span>
+                            <div class="cs-pe__choices cs-pe__choices--tiers" id="csCompTiers" role="radiogroup" aria-labelledby="csCompTiersLabel"></div>
                         </div>
 
                         <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompPpv" hidden>

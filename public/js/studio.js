@@ -821,7 +821,24 @@ jQuery(function ($) {
     var TZ = (CFG.creator && CFG.creator.timezone) ? CFG.creator.timezone : 'UTC';
     $('#csCompTz').text(TZ);
     // subscription tiers for audience targeting
-    (CFG.plans || []).forEach(function (p) { $('#csCompTierSel').append($('<option>').val(String(p.id)).text(p.name + ' · $' + (p.price_cents / 100).toFixed(2) + '/mo')); });
+    /* ---- tier picker: same radio cards as Audience. '' = every subscriber; a tier = that tier and higher. ---- */
+    var TIER_NAMES = {};
+    (function () {
+        var $g = $('#csCompTiers');
+        function card(val, label, sub) {
+            return '<button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-tier="' + esc(val) + '"><span class="cs-pe__choicemark" aria-hidden="true"></span>' +
+                '<span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">' + esc(label) + '</span><span class="cs-pe__choicesub">' + esc(sub) + '</span></span></button>';
+        }
+        $g.append(card('', 'All subscribers', 'Every active subscriber, on any tier.'));
+        (CFG.plans || []).forEach(function (p) {
+            TIER_NAMES[String(p.id)] = p.name;
+            $g.append(card(String(p.id), p.name, '$' + (p.price_cents / 100).toFixed(2) + '/mo and higher tiers.'));
+        });
+    })();
+    function peRenderTiers() {
+        var cur = String(composer.tier_id || '');
+        $('#csCompTiers .cs-pe__choice').each(function () { $(this).attr('aria-checked', String($(this).data('tier')) === cur ? 'true' : 'false'); });
+    }
 
     $('#csNewPostBtn').on('click', function () { openComposer(null); });
 
@@ -853,7 +870,7 @@ jQuery(function ($) {
         var n = composer.assets.length;
         peSum('content', (n ? (n + ' media') : 'No media') + ' · ' + (composer.caption.trim() ? 'Caption added' : 'No caption'));
         var aud = 'Everyone';
-        if (composer.audience === 'subscribers') { var t = composer.tier_id ? $('#csCompTierSel option[value="' + composer.tier_id + '"]').text().split(' · ')[0] : ''; aud = 'Subscribers' + (t ? ' · ' + t : ' · All'); }
+        if (composer.audience === 'subscribers') { var t = composer.tier_id ? (TIER_NAMES[String(composer.tier_id)] || '') : ''; aud = 'Subscribers' + (t ? ' · ' + t : ' · All'); }
         else if (composer.audience === 'ppv') { aud = 'Pay-per-view · $' + (parseInt(composer.ppv_price, 10) || 0); }
         peSum('audience', aud);
         peUpdateDestCount();
@@ -1035,7 +1052,7 @@ jQuery(function ($) {
         peRenderCount();
         $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === composer.audience ? 'true' : 'false'); });
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
-        $('#csCompTierSel').val(composer.tier_id || '');
+        peRenderTiers();
         $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
         $('#csCompPpvPrice').val(composer.ppv_price || 5);
         renderPpvCredits();
@@ -1262,7 +1279,7 @@ jQuery(function ($) {
         composer.tier_id = (aud === 'subscribers') ? (composer.lastTier || '') : '';
         if (aud === 'ppv') composer.ppv_price = composer.lastPpv || 5;
         $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === aud ? 'true' : 'false'); });
-        $('#csCompTier').prop('hidden', aud !== 'subscribers'); $('#csCompTierSel').val(composer.tier_id || '');
+        $('#csCompTier').prop('hidden', aud !== 'subscribers'); peRenderTiers();
         $('#csCompPpv').prop('hidden', aud !== 'ppv'); $('#csCompPpvPrice').val(composer.ppv_price || 5); renderPpvCredits();
         if (aud !== 'ppv') peClearError('price');
         renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
@@ -1273,7 +1290,7 @@ jQuery(function ($) {
         e.preventDefault(); var items = $(this).parent().find('.cs-pe__choice'), i = items.index(this);
         items.eq((i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length).trigger('focus').trigger('click');
     });
-    $('#csCompTierSel').on('change', function () { composer.tier_id = this.value; composer.lastTier = this.value; peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
+    $('#csCompTiers').on('click', '.cs-pe__choice', function () { composer.tier_id = String($(this).data('tier') || ''); composer.lastTier = composer.tier_id; peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     function renderPpvCredits() { $('#csCompPpvCredits').text('= ' + (Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0)) * 10) + ' credits'); }
     $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; composer.lastPpv = this.value; renderPpvCredits(); peClearError('price'); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     $('#csCompPpvPrice').on('blur', function () { var d = Math.max(3, Math.min(500, parseInt(this.value, 10) || 3)); composer.ppv_price = d; composer.lastPpv = d; this.value = d; renderPpvCredits(); renderPreview(); peUpdateSummaries(); scheduleSave(); });
