@@ -56,6 +56,39 @@ class SeoArticlesModel extends Model {
 
     public function newest_published($limit = 3){ return $this->published($limit, 0); }
 
+    /** WHERE fragment + params for a blog search: every word must appear in title, excerpt, topic keywords or body. */
+    private function search_where($q, array &$params){
+        $words = array_slice(array_values(array_filter(preg_split('/\s+/', mb_strtolower(trim((string) $q))), function ($w) { return mb_strlen($w) >= 2; })), 0, 6);
+        $clauses = array();
+        foreach ($words as $i => $w) {
+            $like = '%' . str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), $w) . '%';
+            $n = $i + 1;
+            $clauses[] = "(title LIKE :t$n OR excerpt LIKE :x$n OR target_keyword LIKE :k$n OR secondary_keywords LIKE :s$n OR body_md LIKE :b$n)";
+            $params["t$n"] = $like; $params["x$n"] = $like; $params["k$n"] = $like; $params["s$n"] = $like; $params["b$n"] = $like;
+        }
+        return empty($clauses) ? '' : ' AND ' . implode(' AND ', $clauses);
+    }
+
+    /** Published articles matching $q, title matches first, then newest. */
+    public function search($q, $limit = 24, $offset = 0){
+        $limit = max(1, min(50, (int) $limit)); $offset = max(0, (int) $offset);
+        $params = array(); $where = $this->search_where($q, $params);
+        if ($where === '') { return array(); }
+        $first = '%' . str_replace(array('\\', '%', '_'), array('\\\\', '\\%', '\\_'), mb_strtolower(trim((string) $q))) . '%';
+        $params['tq'] = $first;
+        return (array) parent::select(
+            "SELECT id, slug, title, meta_description, excerpt, target_keyword, secondary_keywords, reading_minutes, cover_image_url, published_at, updated_at, views
+             FROM seo_articles WHERE status = 'published'$where
+             ORDER BY (title LIKE :tq) DESC, published_at DESC, id DESC LIMIT $offset, $limit", $params);
+    }
+
+    public function count_search($q){
+        $params = array(); $where = $this->search_where($q, $params);
+        if ($where === '') { return 0; }
+        $rows = parent::select("SELECT COUNT(*) AS c FROM seo_articles WHERE status = 'published'$where", $params);
+        return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;
+    }
+
     public function by_status(array $statuses){
         $in = array(); $params = array(); $i = 0;
         foreach ($statuses as $s) { $i++; $in[] = ':s' . $i; $params['s' . $i] = (string) $s; }

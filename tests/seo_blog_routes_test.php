@@ -23,4 +23,7 @@ list($c) = fetch($base . '/blog/' . strtoupper($slug));           check('upperca
 list($c, $h, $b) = fetch($base . '/blog/feed.xml');
 check('feed 200 xml', $c === 200 && stripos($h, 'Content-Type: application/rss+xml') !== false && strpos($b, '<rss') !== false && strpos($b, '<item>') !== false);
 list($c, $h, $b) = fetch($base . '/blog?page=999');               check('page past the last is 404', $c === 404);
+list($c, $h, $b) = fetch($base . '/blog?q=subscription');     check('search finds the pricing post', $c === 200 && strpos($b, 'href="/blog/how-to-price-a-subscription-tier"') !== false && strpos($b, 'noindex') !== false);
+list($c, $h, $b) = fetch($base . '/blog?q=zzznotaword');      check('search with no match says so', $c === 200 && strpos($b, 'No posts match') !== false && strpos($b, 'class="gd-row"') === false);
+list($c, $h, $b) = fetch($base . '/blog?q=' . rawurlencode('<b>x</b>')); check('search term is escaped', strpos($b, '<b>x</b>') === false && strpos($b, '&lt;b&gt;x&lt;/b&gt;') !== false);
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n"; exit($fail === 0 ? 0 : 1);

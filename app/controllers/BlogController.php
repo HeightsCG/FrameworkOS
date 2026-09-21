@@ -55,16 +55,23 @@ class BlogController extends Controller {
 
     public function indexAction(){
         $page  = max(1, (int) ($_GET['page'] ?? 1));
+        $q     = trim(preg_replace('/\s+/', ' ', mb_substr((string) ($_GET['q'] ?? ''), 0, 80)));
         $total = 0; $rows = array();
         try {
             $articles = new SeoArticlesModel();
-            $total = $articles->count_published();
-            $rows  = $articles->published(self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+            if ($q !== '') {
+                $total = $articles->count_search($q);
+                $rows  = $articles->search($q, self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+            } else {
+                $total = $articles->count_published();
+                $rows  = $articles->published(self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+            }
         } catch (\Throwable $e) { error_log('[seo] blog index: ' . $e->getMessage()); $total = 0; $rows = array(); }
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
-        if ($page > 1 && $page > $pages) { Errors::page_not_found(); return; }
-        $path  = '/blog' . ($page > 1 ? '?page=' . $page : '');
-        $title = self::NAME . ($page > 1 ? ', page ' . $page : '');
+        if ($q === '' && $page > 1 && $page > $pages) { Errors::page_not_found(); return; }
+        // Search results are for people, not search engines: noindex, canonical stays /blog.
+        $path  = ($q !== '') ? '/blog' : ('/blog' . ($page > 1 ? '?page=' . $page : ''));
+        $title = ($q !== '') ? ('Search: ' . $q . ' · ' . self::NAME) : (self::NAME . ($page > 1 ? ', page ' . $page : ''));
         $desc  = 'Practical guides on monetizing content: memberships, pay-per-view, bundles, services, events, link in bio and payouts.';
         $items = array(); $pos = 1;
         foreach ($rows as $a) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/blog/' . $a['slug'], 'name' => $a['title']); }
@@ -76,8 +83,8 @@ class BlogController extends Controller {
         );
         $guides = array();
         foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
-        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($page > 1 && empty($rows)), 'no_guides' => true),
-            array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides));
+        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true),
+            array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides, 'q' => $q));
     }
 
     public function viewAction($slug){
