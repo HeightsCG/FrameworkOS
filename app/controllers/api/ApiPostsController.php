@@ -612,14 +612,16 @@ class ApiPostsController extends BaseApiController {
         if ($owner_counts && $viewer_id === $creator_id) { return true; }
         if (($post['audience'] ?? 'free') === 'free') { return true; }
         if ($viewer_id <= 0) { return false; }
-        $subs    = new CreatorSubscriptionsModel();
-        $tier_id = (int) ($post['tier_id'] ?? 0);
-        if ($tier_id > 0) {
-            $max  = $subs->max_active_tier_price($viewer_id, $creator_id);
+        $subs     = new CreatorSubscriptionsModel();
+        $plan_ids = (array) $subs->active_plan_ids($viewer_id, $creator_id);
+        $tiers    = (new PostsModel())->tiers_for_posts(array((int) $post['id']))[(int) $post['id']] ?? array();
+        $prices   = array();
+        $tier_id  = (int) ($post['tier_id'] ?? 0);
+        if (empty($tiers) && $tier_id > 0) {
             $plan = (new CreatorPlansModel())->get_public($tier_id);
-            return ($max !== null && $max >= (int) ($plan['price_cents'] ?? 0));
+            $prices[$tier_id] = (int) ($plan['price_cents'] ?? 0);
         }
-        return !empty($subs->active_plan_ids($viewer_id, $creator_id));
+        return PostsModel::tier_entitled($post, $tiers, $plan_ids, $subs->max_active_tier_price($viewer_id, $creator_id), $prices);
     }
 
     private function time_ago(string $dt): string{

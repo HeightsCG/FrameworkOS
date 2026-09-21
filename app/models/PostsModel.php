@@ -60,8 +60,49 @@ class PostsModel extends Model {
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
         if (array_key_exists('on_cls', $fields))           { $data['on_cls'] = !empty($fields['on_cls']) ? 1 : 0; }
-        return parent::update('posts', $data, 'id = :id AND creator_id = :c',
+        $res = parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+        // Multi-tier targeting lives in post_tiers. Passing tier_ids replaces the set; a
+        // non-subscriber audience clears it. (tier_id stays for legacy single-tier rows.)
+        if (array_key_exists('tier_ids', $fields)) {
+            $this->set_tiers((int) $id, (array) $fields['tier_ids']);
+        } elseif (array_key_exists('audience', $fields) && $data['audience'] !== 'subscribers') {
+            $this->set_tiers((int) $id, array());
+        }
+        return $res;
+    }
+
+    /** Replace the tiers a subscribers-only post is limited to. Empty = every active subscriber. */
+    public function set_tiers($post_id, array $plan_ids){
+        $post_id = (int) $post_id;
+        parent::delete_all('post_tiers', 'post_id = :p', array('p' => $post_id));
+        foreach (array_unique(array_filter(array_map('intval', $plan_ids))) as $pid) {
+            parent::insert('post_tiers', array('post_id' => $post_id, 'plan_id' => $pid));
+        }
+    }
+
+    /** post_id => [plan_id, ...] for the given posts (posts with no rows are omitted). */
+    public function tiers_for_posts(array $post_ids){
+        $ids = array_filter(array_map('intval', $post_ids));
+        if (!$ids) { return array(); }
+        $in = implode(',', $ids);
+        $out = array();
+        foreach ((array) parent::select("SELECT post_id, plan_id FROM post_tiers WHERE post_id IN ($in)") as $r) {
+            $out[(int) $r['post_id']][] = (int) $r['plan_id'];
+        }
+        return $out;
+    }
+
+    /**
+     * Is a viewer with these active plan ids (and this max active price) entitled to a
+     * subscribers-only post? Tier rows win (any match); a legacy tier_id with no rows keeps
+     * the old "this tier and higher" rule; nothing set = any active subscriber.
+     */
+    public static function tier_entitled(array $post, array $post_tiers, array $viewer_plan_ids, $viewer_max_price, array $plan_prices){
+        if (!empty($post_tiers)) { return count(array_intersect($post_tiers, array_map('intval', $viewer_plan_ids))) > 0; }
+        $tier_id = (int) ($post['tier_id'] ?? 0);
+        if ($tier_id > 0) { return $viewer_max_price !== null && (int) $viewer_max_price >= (int) ($plan_prices[$tier_id] ?? 0); }
+        return !empty($viewer_plan_ids);
     }
 
     /**
@@ -311,6 +352,7 @@ class PostsModel extends Model {
             'caption' => (string) $src['caption'], 'audience' => $src['audience'],
             'tier_id' => $src['tier_id'], 'comments_enabled' => $src['comments_enabled'],
             'ppv_price_credits' => (int) ($src['ppv_price_credits'] ?? 0),
+            'tier_ids' => $this->tiers_for_posts(array($id))[(int) $id] ?? array(),
         ));
         $assets = $this->get_assets($id);
         $ids = array(); $cover = 0;
@@ -335,6 +377,7 @@ class PostsModel extends Model {
         $owned = $this->get_one($creator_id, $id);
         if (!$owned) { return 0; }
         parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $id));
+        parent::delete_all('post_tiers',  'post_id = :p', array('p' => (int) $id));
         return parent::delete('posts', 'id = :id AND creator_id = :c', 1,
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }

@@ -26,12 +26,10 @@ class StudioController extends Controller {
             // full workspace, but the view blurs it behind a plan-lock overlay.
             $this->view->needs_plan = !Plan::can_use_creator_features($user);
 
-            // Active paid subscription tiers, for the composer's audience targeting.
+            // Every active membership tier (free ones too), for the composer's tier checkboxes.
             $plans = array();
             foreach ((new CreatorPlansModel())->get_active_for_user((int) ($user['user_id'] ?? 0)) as $p) {
-                if ((int) ($p['price_cents'] ?? 0) > 0) {
-                    $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
-                }
+                $plans[] = array('id' => (int) $p['id'], 'name' => (string) $p['name'], 'price_cents' => (int) $p['price_cents']);
             }
             $this->view->plans    = $plans;
 

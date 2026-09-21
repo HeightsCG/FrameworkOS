@@ -243,6 +243,7 @@ class ProfileController extends Controller {
         // Always compute the gate (even for the creator) so 'blocked' content is hidden
         // from EVERYONE, including the creator's own public profile.
         $moderation_map = !empty($post_ids) ? $posts_model->moderation_map($post_ids) : array();
+        $tier_map       = !empty($post_ids) ? $posts_model->tiers_for_posts($post_ids) : array();
 
         $content_cards = array();
         foreach ($published as $p) {
@@ -256,13 +257,8 @@ class ProfileController extends Controller {
             } elseif ($audience === 'ppv') {
                 // PPV is locked for everyone (incl. subscribers) until purchased.
                 $entitled = isset($unlocked_map[(int) $p['id']]);
-            } else { // subscribers-only
-                $tier_id = (int) ($p['tier_id'] ?? 0);
-                if ($tier_id > 0) {
-                    $entitled = ($max_tier_price !== null && $max_tier_price >= (int) ($plan_prices[$tier_id] ?? 0));
-                } else {
-                    $entitled = !empty($subscribed_plan_ids);
-                }
+            } else { // subscribers-only: any of the post's tiers (or any active plan when none set)
+                $entitled = PostsModel::tier_entitled($p, $tier_map[(int) $p['id']] ?? array(), (array) $subscribed_plan_ids, $max_tier_price, $plan_prices);
             }
 
             $assets = $posts_model->get_assets((int) $p['id']);

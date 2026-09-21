@@ -830,8 +830,10 @@
 #csComposer .cs-pe__choice[aria-checked="true"] .cs-pe__choicelabel{ color:var(--violet7); }
 #csComposer .cs-pe__choicesub{ font-size:13px; color:var(--muted); }
 #csComposer .cs-pe__choice:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--violet); }
-#csComposer .cs-pe__choices--tiers{ margin-bottom:0; }
-#csComposer .cs-pe__choices--tiers .cs-pe__choice{ min-height:52px; padding:10px 16px; }
+#csComposer .cs-pe__tierlist{ max-height:none; }
+#csComposer .cs-pe__tierlist .cs-pe__dest{ min-height:44px; }
+#csComposer .cs-pe__dest--all{ background:rgba(20,18,40,.02); font-weight:600; }
+#csComposer .cs-pe__dest--all.is-on{ background:rgba(91,75,224,.05); }
 #csComposer .cs-pe__sub-field{ padding-left:0; }
 #csComposer .cs-pe__price{ display:flex; align-items:center; gap:10px; }
 #csComposer .cs-pe__cur{ font-size:16px; font-weight:600; color:var(--t2); }

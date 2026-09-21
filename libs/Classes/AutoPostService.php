@@ -66,7 +66,8 @@ class AutoPostService {
         $posts->update_fields($creator_id, $post_id, array(
             'caption'          => $caption,
             'audience'         => $audience,
-            'tier_id'          => ($audience === 'subscribers' && (int) ($rule['tier_id'] ?? 0) > 0) ? (int) $rule['tier_id'] : 0,
+            'tier_id'          => 0,
+            'tier_ids'         => ($audience === 'subscribers' && (int) ($rule['tier_id'] ?? 0) > 0) ? array((int) $rule['tier_id']) : array(),
             'comments_enabled' => !empty($rule['comments_enabled']) ? 1 : 0,
         ));
         $posts->set_assets($creator_id, $post_id, array($asset_id), $asset_id);

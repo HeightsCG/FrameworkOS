@@ -594,7 +594,8 @@ class ApiCreatorStudioController extends BaseApiController {
         $id         = (int) ($this->post['id'] ?? 0);
         $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
         $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
-        $tier_id    = ($audience === 'subscribers') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+        $tier_id    = 0;   // legacy single tier; multi-tier targeting is tier_ids → post_tiers
+        $tier_ids   = ($audience === 'subscribers') ? array_values(array_filter(array_map('intval', (array) ($this->post['tier_ids'] ?? [])))) : [];
         $ppv_credits = ($audience === 'ppv') ? $this->ppv_credits_from_dollars($this->post['ppv_price'] ?? 0) : 0;
         $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
         $on_cls     = (((string) ($this->post['on_cls'] ?? '1')) === '0') ? 0 : 1;   // publish on Creator Link Studio itself
@@ -607,7 +608,7 @@ class ApiCreatorStudioController extends BaseApiController {
         // isn't worth saving yet (avoids junk drafts from just toggling options).
         if ($id === 0 && trim($caption) === '' && empty($asset_ids)) {
             $this->jsonSuccess(['id' => 0, 'post' => [
-                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'state' => 'draft',
+                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => null, 'tier_ids' => $tier_ids, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'state' => 'draft',
                 'scheduled_local' => '', 'timezone' => (string) ($user['content_timezone'] ?? 'UTC'),
                 'assets' => [], 'cover_display_url' => '', 'cover_blurred_url' => '',
                 'validation' => ['ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.'],
@@ -615,7 +616,7 @@ class ApiCreatorStudioController extends BaseApiController {
         }
 
         $model  = new PostsModel();
-        $fields = ['caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'ppv_price_credits' => $ppv_credits];
+        $fields = ['caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'tier_ids' => $tier_ids, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'ppv_price_credits' => $ppv_credits];
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
@@ -1004,6 +1005,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'caption'           => (string) $post['caption'],
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
+            'tier_ids'          => $model->tiers_for_posts([(int) $post['id']])[(int) $post['id']] ?? [],
             'moderation'        => (string) ((new PostsModel())->studio_moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,

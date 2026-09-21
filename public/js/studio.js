@@ -747,7 +747,7 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', audience: 'free', tier_ids: [], ppv_price: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
     function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
@@ -821,24 +821,51 @@ jQuery(function ($) {
     var TZ = (CFG.creator && CFG.creator.timezone) ? CFG.creator.timezone : 'UTC';
     $('#csCompTz').text(TZ);
     // subscription tiers for audience targeting
-    /* ---- tier picker: same radio cards as Audience. '' = every subscriber; a tier = that tier and higher. ---- */
+    /* ---- tier picker: checkboxes, any number of tiers; a select-all row on top. Empty selection is invalid for subscribers-only. ---- */
     var TIER_NAMES = {};
+    function allTierIds() { return (CFG.plans || []).map(function (p) { return String(p.id); }); }
     (function () {
         var $g = $('#csCompTiers');
-        function card(val, label, sub) {
-            return '<button type="button" class="cs-pe__choice" role="radio" aria-checked="false" data-tier="' + esc(val) + '"><span class="cs-pe__choicemark" aria-hidden="true"></span>' +
-                '<span class="cs-pe__choicetext"><span class="cs-pe__choicelabel">' + esc(label) + '</span><span class="cs-pe__choicesub">' + esc(sub) + '</span></span></button>';
-        }
-        $g.append(card('', 'All subscribers', 'Every active subscriber, on any tier.'));
-        (CFG.plans || []).forEach(function (p) {
+        var plans = CFG.plans || [];
+        if (!plans.length) { $g.append('<p class="cs-pe__empty">No membership tiers yet. Add one in <a href="/account/settings?section=plans">Settings</a>.</p>'); return; }
+        $g.append('<label class="cs-pe__dest cs-pe__dest--all" for="csPeTierAll"><input class="form-check-input" type="checkbox" id="csPeTierAll" data-tier-all="1"><span class="cs-pe__destname">All tiers</span><span class="cs-pe__destplat" id="csPeTierCount"></span></label>');
+        plans.forEach(function (p) {
             TIER_NAMES[String(p.id)] = p.name;
-            $g.append(card(String(p.id), p.name, '$' + (p.price_cents / 100).toFixed(2) + '/mo and higher tiers.'));
+            var id = 'csPeTier_' + p.id, price = p.price_cents > 0 ? ('$' + (p.price_cents / 100).toFixed(2) + '/mo') : 'Free';
+            $g.append('<label class="cs-pe__dest" for="' + id + '"><input class="form-check-input" type="checkbox" id="' + id + '" data-tier="' + esc(String(p.id)) + '">' +
+                '<span class="cs-pe__destname">' + esc(p.name) + '</span><span class="cs-pe__destplat">' + esc(price) + '</span></label>');
         });
     })();
     function peRenderTiers() {
-        var cur = String(composer.tier_id || '');
-        $('#csCompTiers .cs-pe__choice').each(function () { $(this).attr('aria-checked', String($(this).data('tier')) === cur ? 'true' : 'false'); });
+        var sel = composer.tier_ids || [], total = allTierIds().length;
+        $('#csCompTiers input[data-tier]').each(function () {
+            var on = sel.indexOf(String($(this).data('tier'))) >= 0;
+            $(this).prop('checked', on).closest('.cs-pe__dest').toggleClass('is-on', on);
+        });
+        var all = total > 0 && sel.length === total;
+        $('#csPeTierAll').prop('checked', all).prop('indeterminate', !all && sel.length > 0).closest('.cs-pe__dest').toggleClass('is-on', all);
+        $('#csPeTierCount').text(total ? (sel.length + ' of ' + total + ' selected') : '');
+        if (sel.length) peClearError('tier');
     }
+    function tierSummary() {
+        var sel = composer.tier_ids || [], total = allTierIds().length;
+        if (!total) return 'All';
+        if (sel.length === total) return 'All tiers';
+        if (sel.length === 0) return 'No tiers';
+        if (sel.length === 1) return TIER_NAMES[sel[0]] || '1 tier';
+        return sel.length + ' tiers';
+    }
+    $('#csCompTiers').on('change', 'input[data-tier]', function () {
+        var id = String($(this).data('tier')), i = composer.tier_ids.indexOf(id);
+        if (this.checked && i < 0) composer.tier_ids.push(id); else if (!this.checked && i >= 0) composer.tier_ids.splice(i, 1);
+        composer.lastTiers = composer.tier_ids.slice();
+        peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
+    });
+    $('#csCompTiers').on('change', '#csPeTierAll', function () {
+        composer.tier_ids = this.checked ? allTierIds() : [];
+        composer.lastTiers = composer.tier_ids.slice();
+        peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
+    });
 
     $('#csNewPostBtn').on('click', function () { openComposer(null); });
 
@@ -870,7 +897,7 @@ jQuery(function ($) {
         var n = composer.assets.length;
         peSum('content', (n ? (n + ' media') : 'No media') + ' · ' + (composer.caption.trim() ? 'Caption added' : 'No caption'));
         var aud = 'Everyone';
-        if (composer.audience === 'subscribers') { var t = composer.tier_id ? (TIER_NAMES[String(composer.tier_id)] || '') : ''; aud = 'Subscribers' + (t ? ' · ' + t : ' · All'); }
+        if (composer.audience === 'subscribers') { aud = 'Subscribers · ' + tierSummary(); }
         else if (composer.audience === 'ppv') { aud = 'Pay-per-view · $' + (parseInt(composer.ppv_price, 10) || 0); }
         peSum('audience', aud);
         peUpdateDestCount();
@@ -901,7 +928,7 @@ jQuery(function ($) {
     });
 
     /* ---- validation: every section, inline message + nav flag ---- */
-    var PE_ERR_SECTION = { media: 'content', caption: 'content', price: 'audience', share: 'distribution', schedule: 'publish' };
+    var PE_ERR_SECTION = { media: 'content', caption: 'content', price: 'audience', tier: 'audience', share: 'distribution', schedule: 'publish' };
     function peSetError(key, msg, $field) {
         $('#csPeErr_' + key).text(msg).prop('hidden', false);
         if ($field) $field.addClass('is-invalid');
@@ -925,6 +952,7 @@ jQuery(function ($) {
         var errors = [];
         if (composer.caption.length > 3000) errors.push({ key: 'caption', msg: 'Captions can be up to 3,000 characters.', $f: $('#csCompCaption'), focus: '#csCompCaption' });
         if (kind !== 'draft' && !composer.caption.trim() && !composer.assets.length) errors.push({ key: 'media', msg: 'Add a photo, video, or caption before publishing.', focus: '#csCompCaption' });
+        if (composer.audience === 'subscribers' && allTierIds().length && !composer.tier_ids.length) errors.push({ key: 'tier', msg: 'Pick at least one tier.', focus: '#csPeTierAll' });
         var priceBad = false;
         if (composer.audience === 'ppv') {
             var p = parseInt(composer.ppv_price, 10);
@@ -980,7 +1008,7 @@ jQuery(function ($) {
     function resetScheduleUI() { $('#csPeDate, #csPeTime, #csCompSchedAt').val(''); }
     function newComposer() {
         clearTimeout(composer.saveTimer);
-        composer = { id: null, caption: '', audience: 'free', tier_id: '', lastTier: '', ppv_price: 5, lastPpv: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        composer = { id: null, caption: '', audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 5, lastPpv: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         composer.share = new Set();
         composer.state = 'draft';
         resetScheduleUI();
@@ -992,7 +1020,7 @@ jQuery(function ($) {
     function setComposer(p) {
         clearTimeout(composer.saveTimer);
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
-        composer.tier_id = p.tier_id ? String(p.tier_id) : ''; composer.lastTier = composer.tier_id;
+        composer.tier_ids = (p.tier_ids && p.tier_ids.length) ? p.tier_ids.map(String) : (p.tier_id ? [String(p.tier_id)] : allTierIds()); composer.lastTiers = composer.tier_ids.slice();
         composer.moderation = p.moderation || 'ok';
         composer.ppv_price = p.ppv_price_dollars || 5; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
@@ -1019,7 +1047,7 @@ jQuery(function ($) {
 
     // What the post looked like when the editor opened (or after an explicit save): "Discard changes" reverts to this.
     function peStateFields() {
-        return { caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? String(composer.ppv_price || '') : ''),
+        return { caption: composer.caption, audience: composer.audience, tier_ids: (composer.audience === 'subscribers' ? composer.tier_ids.slice().sort() : []), ppv_price: (composer.audience === 'ppv' ? String(composer.ppv_price || '') : ''),
                  asset_ids: composer.assets.map(function (a) { return a.id; }), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
     }
     function peSnapshot() { composer.snapshot = { id: composer.id, fields: peStateFields() }; }
@@ -1163,7 +1191,7 @@ jQuery(function ($) {
     function scheduleSave() { clearTimeout(composer.saveTimer); if (composer.caption.trim() || composer.assets.length || composer.id) setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
         clearTimeout(composer.saveTimer);
-        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
+        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_ids: (composer.audience === 'subscribers' ? composer.tier_ids.slice() : []), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
         var sentIds = data.asset_ids.join(',');
         ApiDataSvc.apiCall('post', 'post_save', data, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) {
@@ -1273,10 +1301,10 @@ jQuery(function ($) {
     });
     $('#csCompCaption').on('input', function () { composer.caption = this.value; peRenderCount(); peClearError('caption'); peClearError('media'); updatePreviewCaption(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     function peSetAudience(aud) {
-        if (composer.audience === 'subscribers') composer.lastTier = composer.tier_id;
+        if (composer.audience === 'subscribers') composer.lastTiers = composer.tier_ids.slice();
         if (composer.audience === 'ppv') composer.lastPpv = composer.ppv_price;
         composer.audience = aud;
-        composer.tier_id = (aud === 'subscribers') ? (composer.lastTier || '') : '';
+        composer.tier_ids = (aud === 'subscribers') ? ((composer.lastTiers && composer.lastTiers.length) ? composer.lastTiers.slice() : allTierIds()) : [];
         if (aud === 'ppv') composer.ppv_price = composer.lastPpv || 5;
         $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === aud ? 'true' : 'false'); });
         $('#csCompTier').prop('hidden', aud !== 'subscribers'); peRenderTiers();
@@ -1290,7 +1318,6 @@ jQuery(function ($) {
         e.preventDefault(); var items = $(this).parent().find('.cs-pe__choice'), i = items.index(this);
         items.eq((i + (e.key === 'ArrowDown' ? 1 : items.length - 1)) % items.length).trigger('focus').trigger('click');
     });
-    $('#csCompTiers').on('click', '.cs-pe__choice', function () { composer.tier_id = String($(this).data('tier') || ''); composer.lastTier = composer.tier_id; peRenderTiers(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     function renderPpvCredits() { $('#csCompPpvCredits').text('= ' + (Math.max(3, Math.min(500, parseInt(composer.ppv_price, 10) || 0)) * 10) + ' credits'); }
     $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; composer.lastPpv = this.value; renderPpvCredits(); peClearError('price'); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     $('#csCompPpvPrice').on('blur', function () { var d = Math.max(3, Math.min(500, parseInt(this.value, 10) || 3)); composer.ppv_price = d; composer.lastPpv = d; this.value = d; renderPpvCredits(); renderPreview(); peUpdateSummaries(); scheduleSave(); });
@@ -1409,7 +1436,7 @@ jQuery(function ($) {
                 } else if (composer.id && snap && snap.id) {
                     // Put the post back the way it was when the editor opened.
                     var f = snap.fields;
-                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_id: f.tier_id, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled, on_cls: f.on_cls }, function () { afterComposer(); });
+                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_ids: f.tier_ids, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled, on_cls: f.on_cls }, function () { afterComposer(); });
                 }
                 composerModal.hide();
             }

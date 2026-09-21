@@ -346,8 +346,9 @@
                         </div>
 
                         <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompTier" hidden>
-                            <span class="cs-pe__label" id="csCompTiersLabel">Tier</span>
-                            <div class="cs-pe__choices cs-pe__choices--tiers" id="csCompTiers" role="radiogroup" aria-labelledby="csCompTiersLabel"></div>
+                            <span class="cs-pe__label" id="csCompTiersLabel">Tiers</span>
+                            <div class="cs-pe__destlist cs-pe__tierlist" id="csCompTiers" role="group" aria-labelledby="csCompTiersLabel"></div>
+                            <p class="cs-pe__error" id="csPeErr_tier" role="alert" hidden></p>
                         </div>
 
                         <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompPpv" hidden>

@@ -188,7 +188,7 @@ class McpTools {
                 'cadence' => array('type' => 'string', 'enum' => array('daily', 'weekly')),
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
-                'tier_id' => array('type' => 'integer'), 'comments_enabled' => array('type' => 'boolean'),
+                'tier_id' => array('type' => 'integer'), 'tier_ids' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Membership tier ids a subscribers-only post is limited to (any match). Empty = all subscribers.'), 'comments_enabled' => array('type' => 'boolean'),
                 'use_brand' => array('type' => 'boolean'), 'active' => array('type' => 'boolean'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); the topic is then the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
@@ -419,7 +419,8 @@ class McpTools {
                 return array('post_id' => $pid, 'state' => 'draft');
             }
             case 'update_post': {
-                $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'comments_enabled')));
+                $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'tier_ids', 'comments_enabled')));
+                if (isset($f['tier_id']) && !isset($f['tier_ids'])) { $f['tier_ids'] = array((int) $f['tier_id']); $f['tier_id'] = 0; }
                 return $ok((new PostsModel())->update_fields($cid, $iid, $f));
             }
             case 'list_share_targets': {
