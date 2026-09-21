@@ -24,7 +24,7 @@ class ApiPostsController extends BaseApiController {
 
         $posts_model = new PostsModel();
         // Pull one extra row to learn whether another page exists.
-        $rows     = (array) (new FeedModel())->recent($limit + 1, $offset);
+        $rows     = (array) (new FeedModel())->recent($limit + 1, $offset, $viewer);
         $has_more = count($rows) > $limit;
         if ($has_more) { $rows = array_slice($rows, 0, $limit); }
 
@@ -103,7 +103,7 @@ class ApiPostsController extends BaseApiController {
      */
     public function feed_newAction(){
         $since = (int) ($this->post['since_id'] ?? 0);
-        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since)]);
+        $this->jsonSuccess(['count' => (new FeedModel())->count_since($since, 50, (int) Session::get('user_id'))]);
     }
 
     /**
@@ -119,6 +119,7 @@ class ApiPostsController extends BaseApiController {
             $this->jsonError('Post not found');
         }
         if (empty($post['on_cls'])) { $this->jsonError('Post not found'); }   // socials-only post
+        if ($viewer > 0 && (new BlocksModel())->either_blocked($viewer, (int) $post['creator_id'])) { $this->jsonError('Post not found'); }
         $id = (int) $post['id'];
 
         // Same moderation gate the feed applies, re-checked so a post can't be
@@ -284,6 +285,7 @@ class ApiPostsController extends BaseApiController {
         if ($creator_id === $viewer) {
             $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post)]);
         }
+        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That post is not available.'); }
         if ($price <= 0) { $this->jsonError('This post is not for sale.'); }
 
         // Optional discount code — applied to the credits charged; the creator's
@@ -363,6 +365,7 @@ class ApiPostsController extends BaseApiController {
         if ($creator_id === $viewer) {
             $this->jsonSuccess(['already' => true, 'message' => 'This is your own bundle.']);
         }
+        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That bundle is not available.'); }
         if ($price <= 0) { $this->jsonError('This bundle is not for sale.'); }
 
         $credits = new CreditsModel();
@@ -447,6 +450,7 @@ class ApiPostsController extends BaseApiController {
         }
 
         $creator_id = (int) $plan['user_id'];
+        if ((new BlocksModel())->either_blocked($user_id, $creator_id)) { $this->jsonError('That plan is no longer available'); }
         $subsModel = new CreatorSubscriptionsModel();
         if ($subsModel->is_subscribed_to_plan($user_id, (int) $plan['id'])) {
             $this->jsonError('You are already a member of this plan');
@@ -610,6 +614,7 @@ class ApiPostsController extends BaseApiController {
         if (!$post || ($post['state'] ?? '') !== 'published') { return false; }
         $creator_id = (int) $post['creator_id'];
         if ($owner_counts && $viewer_id === $creator_id) { return true; }
+        if ($viewer_id > 0 && $viewer_id !== $creator_id && (new BlocksModel())->either_blocked($viewer_id, $creator_id)) { return false; }
         if (($post['audience'] ?? 'free') === 'free') { return true; }
         if ($viewer_id <= 0) { return false; }
         $subs     = new CreatorSubscriptionsModel();

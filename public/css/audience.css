@@ -65,6 +65,7 @@
 .aud-btn--msg:hover{ border-color:var(--violet,#5b4be0); color:var(--violet7,#4636c4); }
 .aud-btn--icon{ padding:.45rem .55rem; color:#8a8797; }
 .aud-btn--icon .fa-chevron-down{ transition:transform .15s; }
+.aud-btn--block:hover{ border-color:#d9436a; color:#d9436a; }
 .aud-row.is-open .aud-btn--icon .fa-chevron-down{ transform:rotate(180deg); }
 
 /* Detail (tags + note) */

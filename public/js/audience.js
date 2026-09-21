@@ -109,4 +109,10 @@
             else if (window.toastr) { toastr.error((o && o.message) || 'Could not add tag'); }
         });
     });
+
+    // A blocked member leaves the list right away (site.js fires this after block_user succeeds).
+    $(document).on('cls:blocked', function (e, id) {
+        var row = document.querySelector('.aud-row[data-fan="' + id + '"]');
+        if (row) { row.parentNode.removeChild(row); applyFilter(); }
+    });
 })();

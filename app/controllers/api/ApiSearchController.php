@@ -14,7 +14,7 @@ class ApiSearchController extends BaseApiController {
             $show_adult = !empty($u['adult_content_enabled']);
         }
         $model = new SearchModel();
-        $this->jsonSuccess(['creators' => $model->creators($q), 'posts' => $model->posts($q, $show_adult)]);
+        $this->jsonSuccess(['creators' => $model->creators($q, 6, $viewer), 'posts' => $model->posts($q, $show_adult, 6, $viewer)]);
     }
 
     /* ---------- Audience / CRM (PRD §26) ---------- */

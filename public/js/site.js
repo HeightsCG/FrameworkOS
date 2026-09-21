@@ -275,6 +275,36 @@ $(document).ready(function() {
         });
     });
 
+    // Block — any [data-block-user="<id>"] element (profile, inbox thread, audience row).
+    // Confirms, posts block_user, then fires 'cls:blocked' so the page can drop the account from view.
+    $(document).on('click', '[data-block-user]', function (e) {
+        e.preventDefault();
+        var $el = $(this);
+        var id = parseInt($el.attr('data-block-user'), 10) || 0;
+        var name = $el.attr('data-block-name') || 'this account';
+        var redirect = $el.attr('data-block-redirect') || '';
+        if (!id || !window.Swal) { return; }
+        Swal.fire({
+            title: 'Block ' + name + '?',
+            text: 'They won\'t be able to see your page or posts, follow, subscribe, buy from you, or message you, and you won\'t see them. You can unblock from Settings.',
+            width: 460,
+            showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Block', cancelButtonText: 'Cancel',
+            confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779'
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            ApiDataSvc.apiCall('post', 'block_user', { user_id: id }, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (err) {}
+                if (o && o.success) {
+                    if (window.toastr) { toastr.success('Blocked ' + name); }
+                    $(document).trigger('cls:blocked', [id]);
+                    if (redirect) { window.location = redirect; }
+                } else if (o && o.need_login) { window.location = '/'; }
+                else if (window.toastr) { toastr.error((o && o.message) || 'Could not block this account'); }
+            });
+        });
+    });
+
     // Global loading bar — shows on every AJAX request so users see activity.
     var $loadbar = $('<div id="app-loadbar"></div>').appendTo('body');
     $(document).ajaxStart(function () {

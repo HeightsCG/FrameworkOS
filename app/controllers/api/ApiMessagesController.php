@@ -44,6 +44,8 @@ class ApiMessagesController extends BaseApiController {
         }
         $conv = $model->get($conv_id);
         if (!$conv) { $this->jsonError('Conversation not found'); }
+        $other_id = ((int) $conv['creator_id'] === $me) ? (int) $conv['user_id'] : (int) $conv['creator_id'];
+        if ((new BlocksModel())->either_blocked($me, $other_id)) { $this->jsonError('You can\'t message this account.'); }
         if (!empty($asset_ids) && (int) $conv['creator_id'] !== $me) { $this->jsonError('Only creators can attach media.'); }
 
         $this->loginAttemptsModel->record($ip, (string) $me, 'message');
@@ -110,6 +112,8 @@ class ApiMessagesController extends BaseApiController {
         $model   = new MessagesModel();
         $c = $model->get($conv_id);
         if (!$c || !$model->is_participant($conv_id, $me)) { $this->jsonError('Conversation not found'); }
+        $other_id = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id'];
+        if ((new BlocksModel())->either_blocked($me, $other_id)) { $this->jsonError('Conversation not found'); }
         $this->respond_thread($model, $c, $me);
     }
 

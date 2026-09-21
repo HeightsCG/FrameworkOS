@@ -54,6 +54,7 @@ class ApiServicesController extends BaseApiController {
         if (!$sv) { $this->jsonError('Service not found'); }
         $creator_id = (int) $sv['creator_id'];
         if ($creator_id === $me) { $this->jsonError('This is your own service.'); }
+        if ((new BlocksModel())->either_blocked($me, $creator_id)) { $this->jsonError('Service not found'); }
 
         // Already purchased — just hand back the booking details.
         if ($model->has_purchased($id, $me)) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }

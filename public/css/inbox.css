@@ -3,6 +3,7 @@
 .ibx{ height:calc(100vh - var(--topbar-h) - 2.2rem - 1.6rem); min-height:520px; display:grid; grid-template-columns:320px minmax(0,1fr); background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); box-shadow:var(--sh-xs); overflow:hidden; }
 .ibx.has-ctx{ grid-template-columns:320px minmax(0,1fr) 272px; }
 .ibx__ico{ flex:none; width:34px; height:34px; border:0; border-radius:var(--r-sm); background:transparent; color:var(--muted); font-size:.95rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; transition:background .12s,color .12s; }
+.ibx__block:hover{ color:#d9436a; background:rgba(217,67,106,.08); }
 .ibx__ico:hover{ background:#f2f1f7; color:var(--text); }
 .ibx__ico:focus-visible{ outline:none; box-shadow:var(--ring); }
 .ibx__ico[hidden]{ display:none; }

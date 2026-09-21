@@ -76,6 +76,10 @@ class ProfileController extends Controller {
         $viewer_id       = (int) Session::get('user_id');
         $is_self         = ($viewer_id === (int) $user['user_id']);
         $viewer_logged_in = ($viewer_id > 0);
+        if ($viewer_logged_in && !$is_self && (new BlocksModel())->either_blocked($viewer_id, (int) $user['user_id'])) {
+            Errors::page_not_found();
+            return;
+        }
         $is_following    = $viewer_logged_in ? $follows->is_following($viewer_id, $user['user_id']) : false;
 
         // Log a profile view (PRD §7.5) — the creator's own visits don't count. viewer_key

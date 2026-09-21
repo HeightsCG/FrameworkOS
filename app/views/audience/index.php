@@ -97,6 +97,7 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                     </div>
                     <div class="aud-cell aud-cell--actions">
                         <button type="button" class="aud-btn aud-btn--msg" data-msg="<?php echo (int) $f['id']; ?>"><i class="fa-solid fa-comment-dots"></i> Message</button>
+                        <button type="button" class="aud-btn aud-btn--icon aud-btn--block" data-block-user="<?php echo (int) $f['id']; ?>" data-block-name="<?php echo $e($f['handle'] !== '' ? '@' . $f['handle'] : $f['name']); ?>" aria-label="Block" title="Block"><i class="fa-solid fa-ban"></i></button>
                         <button type="button" class="aud-btn aud-btn--icon" data-expand aria-label="Details"><i class="fa-solid fa-chevron-down"></i></button>
                     </div>
                 </div>

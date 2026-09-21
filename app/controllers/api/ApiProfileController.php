@@ -144,13 +144,15 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Not authorized');
         }
 
+        // Accepts either a user_id (Block buttons on profile / inbox / audience) or a typed username (Settings).
+        $target_id = (int) ($this->post['user_id'] ?? 0);
         $u_name = trim((string) ($this->post['u_name'] ?? ''));
         $u_name = ltrim($u_name, '@');
-        if ($u_name === '') {
+        if ($target_id <= 0 && $u_name === '') {
             $this->jsonError('A username is required');
         }
 
-        $target = $this->userModel->get_user_by_username($u_name);
+        $target = $target_id > 0 ? $this->userModel->get_user_by_id($target_id) : $this->userModel->get_user_by_username($u_name);
         if (!is_array($target) || count($target) !== 1) {
             $this->jsonError('No account found with that username');
         }
@@ -160,8 +162,13 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('You cannot block yourself');
         }
 
+        $me = (int) Session::get('user_id');
         $blocksModel = new BlocksModel();
-        $blocksModel->add_block((int) Session::get('user_id'), (int) $target['user_id']);
+        $blocksModel->add_block($me, (int) $target['user_id']);
+        // A block ends the relationship both ways; paid memberships are left to run out (no automatic refund).
+        $follows = new FollowsModel();
+        $follows->unfollow($me, (int) $target['user_id']);
+        $follows->unfollow((int) $target['user_id'], $me);
 
         $name = trim(($target['first_name'] ?? '') . ' ' . ($target['last_name'] ?? ''));
 
@@ -283,6 +290,10 @@ class ApiProfileController extends BaseApiController {
 
         $follows = new FollowsModel();
         if ($following) {
+            if ((new BlocksModel())->either_blocked($user_id, $creator_id)) {
+                $response['message'] = 'You cannot follow this account';
+                return $response;
+            }
             $follows->follow($user_id, $creator_id);
             $who = (new MessagesModel())->identity_map([$user_id])[$user_id] ?? ['handle' => ''];
             $this->notify($creator_id, 'creator_activity', 'New follower',

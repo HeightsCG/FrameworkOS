@@ -11,9 +11,13 @@ class FeedModel extends Model {
      * Cover renditions are selected inline (cover = is_cover, else first by sort).
      * The clear renditions are only ever *signed* for entitled viewers upstream.
      */
-    public function recent($limit = 30, $offset = 0){
+    public function recent($limit = 30, $offset = 0, $viewer_id = 0){
         $limit  = max(1, min(60, (int) $limit));
         $offset = max(0, (int) $offset);
+        $viewer_id = (int) $viewer_id;
+        // Blocks hide a creator's posts from the blocked viewer, and the viewer's own blocks hide creators they blocked.
+        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
+        $params    = $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array();
         // Cover = the post's is_cover asset, else its first ready asset by sort order.
         // Pulled as correlated scalar subqueries (the ON-clause form trips a MySQL
         // "unknown column" error on the joined alias).
@@ -32,10 +36,10 @@ class FeedModel extends Model {
                 FROM posts p
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
-                WHERE p.state = 'published' AND p.on_cls = 1
+                WHERE p.state = 'published' AND p.on_cls = 1$block_sql
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
-        return parent::select($sql, array());
+        return parent::select($sql, $params);
     }
 
     /**
@@ -44,16 +48,20 @@ class FeedModel extends Model {
      * cheap monotonic proxy for "published since you last loaded the top". Capped
      * so the count query stays bounded (the UI only needs "9+").
      */
-    public function count_since($since_id, $cap = 50){
+    public function count_since($since_id, $cap = 50, $viewer_id = 0){
         $since_id = (int) $since_id;
         if ($since_id <= 0) { return 0; }
         $cap = max(1, min(200, (int) $cap));
+        $viewer_id = (int) $viewer_id;
+        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
+        $params    = array('since' => $since_id);
+        if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; }
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p
-                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since
+                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since$block_sql
                     LIMIT $cap
                 ) t";
-        $rows = parent::select($sql, array('since' => $since_id));
+        $rows = parent::select($sql, $params);
         return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;
     }
 }

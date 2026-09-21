@@ -155,7 +155,14 @@
         $('#ibxPeerSub').text((p2.handle ? '@' + p2.handle + ' · ' : '') + (p2.is_creator ? 'Creator' : 'Member'));
         var $prof = $('#ibxPeerProfile');
         if (p2.is_creator && p2.handle) { $prof.attr('href', '/@' + encodeURIComponent(p2.handle)).prop('hidden', false); } else { $prof.prop('hidden', true); }
+        var pid = parseInt(p2.id, 10) || 0;
+        $('#ibxPeerBlock').attr('data-block-user', pid).attr('data-block-name', p2.handle ? '@' + p2.handle : (p2.name || 'this account')).prop('hidden', !pid);
     }
+    // After a block (button in this header, or anywhere else on the page) the thread and its row disappear.
+    $(document).on('cls:blocked', function (e, id) {
+        if (activePeer && (parseInt(activePeer.id, 10) || 0) === id) { showList(); }
+        loadConvs();
+    });
     function showPane() { $blank.prop('hidden', true); $pane.prop('hidden', false); $root.addClass('is-thread'); }
     function showList() { active = 0; $root.removeClass('is-thread'); $pane.prop('hidden', true); $blank.prop('hidden', false); closeCtx(); renderConvs(); history.replaceState(null, '', '/inbox'); }
     function applyThread(o, fromUser) {

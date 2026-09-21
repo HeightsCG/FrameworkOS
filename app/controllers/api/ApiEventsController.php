@@ -65,6 +65,7 @@ class ApiEventsController extends BaseApiController {
         if (!$ev) { $this->jsonError('Event not found'); }
         $creator_id = (int) $ev['creator_id'];
         if ($creator_id === $me) { $this->jsonError('This is your own event.'); }
+        if ((new BlocksModel())->either_blocked($me, $creator_id)) { $this->jsonError('Event not found'); }
 
         if ($model->is_registered($id, $me)) { $this->jsonSuccess(['already' => true, 'access' => $this->event_access($ev)]); }
         if ((int) $ev['capacity'] > 0 && $model->attendee_count($id) >= (int) $ev['capacity']) {

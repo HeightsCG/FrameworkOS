@@ -119,6 +119,8 @@
 .pf-btn--subscribe { background: linear-gradient(180deg, #34343a 0%, #1d1d1f 55%, #161618 100%); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 6px 16px -8px rgba(20,16,40,.55); }
 .pf-btn--subscribe:hover { transform: translateY(-1px); }
 .pf-btn--subscribe i { color: #ffd15c; }
+.pf-btn--quiet { width: 42px; padding: 0; background: #fff; color: #8a8797; border-color: var(--pf-line); }
+.pf-btn--quiet:hover { color: #d9436a; border-color: #d9436a; }
 
 /* ---- two-column grid ---- */
 .pf-grid { margin-top: 20px; }

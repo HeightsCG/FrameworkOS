@@ -47,7 +47,7 @@ class MessagesModel extends Model {
     public function connections($viewer_id, $q = '', $limit = 50){
         $vid = (int) $viewer_id;
         $limit = max(1, min(100, (int) $limit));
-        $params = array('me1' => $vid, 'me2' => $vid, 'me3' => $vid, 'me4' => $vid, 'me5' => $vid);
+        $params = array('me1' => $vid, 'me2' => $vid, 'me3' => $vid, 'me4' => $vid, 'me5' => $vid, 'bv1' => $vid, 'bv2' => $vid);
         $where_q = '';
         $q = trim((string) $q);
         if ($q !== '') {
@@ -67,7 +67,8 @@ class MessagesModel extends Model {
                    UNION SELECT follower_id   FROM follows               WHERE creator_id    = :me3
                    UNION SELECT creator_id    FROM creator_subscriptions WHERE subscriber_id = :me4
                    UNION SELECT subscriber_id FROM creator_subscriptions WHERE creator_id    = :me5
-               )$where_q
+               )
+               AND " . BlocksModel::exclude_sql('u.user_id', 'bv1', 'bv2') . "$where_q
              ORDER BY name ASC
              LIMIT $limit",
             $params
@@ -112,6 +113,7 @@ class MessagesModel extends Model {
     public function can_message($viewer_id, $other_id){
         $v = (int) $viewer_id; $o = (int) $other_id;
         if ($v <= 0 || $o <= 0 || $v === $o) { return false; }
+        if ((new BlocksModel())->either_blocked($v, $o)) { return false; }
         $rows = parent::select(
             "SELECT 1 AS ok FROM follows
                WHERE (follower_id = :a1 AND creator_id = :b1) OR (follower_id = :b2 AND creator_id = :a2)
@@ -246,11 +248,14 @@ class MessagesModel extends Model {
     public function inbox_rows($account_id){
         $aid = (int) $account_id;
         return (array) parent::select(
-            "SELECT * FROM conversations
-             WHERE ((creator_id = :a1 AND creator_deleted = 0) OR (user_id = :a2 AND user_deleted = 0))
-               AND last_message_at IS NOT NULL
-             ORDER BY last_message_at DESC",
-            array('a1' => $aid, 'a2' => $aid)
+            "SELECT c.* FROM conversations c
+             WHERE ((c.creator_id = :a1 AND c.creator_deleted = 0) OR (c.user_id = :a2 AND c.user_deleted = 0))
+               AND c.last_message_at IS NOT NULL
+               AND NOT EXISTS (SELECT 1 FROM user_blocks ub
+                    WHERE (ub.user_id = :bv1 AND ub.blocked_user_id IN (c.creator_id, c.user_id))
+                       OR (ub.blocked_user_id = :bv2 AND ub.user_id IN (c.creator_id, c.user_id)))
+             ORDER BY c.last_message_at DESC",
+            array('a1' => $aid, 'a2' => $aid, 'bv1' => $aid, 'bv2' => $aid)
         );
     }
 

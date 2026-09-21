@@ -387,6 +387,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <script>
     (function () {
         var CREATOR_ID = <?php echo (int) $user['user_id']; ?>;
+        var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
         var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
@@ -401,7 +402,10 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                        '<i class="fa-solid ' + (following ? 'fa-check' : 'fa-plus') + '"></i> ' +
                        '<span data-follow-label>' + followLabel + '</span>' +
                    '</button>' +
-                   '<button class="pf-btn pf-btn--subscribe" data-subscribe><i class="fa-solid fa-star"></i> Subscribe</button>';
+                   '<button class="pf-btn pf-btn--subscribe" data-subscribe><i class="fa-solid fa-star"></i> Subscribe</button>' +
+                   (LOGGED_IN && !IS_SELF
+                       ? '<button type="button" class="pf-btn pf-btn--quiet" data-block-user="' + CREATOR_ID + '" data-block-name="@' + HANDLE + '" data-block-redirect="/" title="Block @' + HANDLE + '" aria-label="Block @' + HANDLE + '"><i class="fa-solid fa-ban"></i></button>'
+                       : '');
         }
 
         function renderActions() {

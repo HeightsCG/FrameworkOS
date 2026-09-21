@@ -14,8 +14,10 @@ class SearchModel extends Model {
     }
 
     /** Creators matching handle or display name, handle-prefix matches first. */
-    public function creators($q, $limit = 6){
+    public function creators($q, $limit = 6, $viewer_id = 0){
         $limit = max(1, min(10, (int) $limit));
+        $viewer_id = (int) $viewer_id;
+        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('u.user_id', 'bv1', 'bv2') : '';
         $rid = 0;
         $rr = parent::select("SELECT id FROM user_roles WHERE role_name = 'Creator'");
         if (is_array($rr) && count($rr)) { $rid = (int) $rr[0]['id']; }
@@ -30,9 +32,11 @@ class SearchModel extends Model {
              LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
              WHERE u.deleted = 0 AND u.role_id = :r
                AND (u.u_name LIKE :q1 OR cp.display_name LIKE :q2 OR TRIM(CONCAT(u.first_name, ' ', u.last_name)) LIKE :q3)
+             $block_sql
              ORDER BY (u.u_name LIKE :pref) DESC, u.u_name ASC
              LIMIT $limit",
-            array('r' => $rid, 'q1' => $like, 'q2' => $like, 'q3' => $like, 'pref' => $pref)
+            array_merge(array('r' => $rid, 'q1' => $like, 'q2' => $like, 'q3' => $like, 'pref' => $pref),
+                        $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array())
         );
         $out = array();
         foreach ((array) $rows as $r) {
@@ -49,9 +53,11 @@ class SearchModel extends Model {
     }
 
     /** Published posts matching caption, moderation-gated (adult only if $show_adult). */
-    public function posts($q, $show_adult = false, $limit = 6){
+    public function posts($q, $show_adult = false, $limit = 6, $viewer_id = 0){
         $limit = max(1, min(10, (int) $limit));
         $like  = $this->like($q);
+        $viewer_id = (int) $viewer_id;
+        $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
         // Over-fetch so the moderation filter still leaves up to $limit results.
         $rows = parent::select(
             "SELECT p.id, p.caption, p.audience, u.u_name AS creator_handle,
@@ -59,10 +65,10 @@ class SearchModel extends Model {
              FROM posts p
              JOIN user_accounts u ON u.user_id = p.creator_id
              LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
-             WHERE p.state = 'published' AND p.on_cls = 1 AND u.deleted = 0 AND p.caption LIKE :q
+             WHERE p.state = 'published' AND p.on_cls = 1 AND u.deleted = 0 AND p.caption LIKE :q$block_sql
              ORDER BY p.published_at DESC, p.id DESC
              LIMIT 30",
-            array('q' => $like)
+            array_merge(array('q' => $like), $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array())
         );
         if (empty($rows)) { return array(); }
 

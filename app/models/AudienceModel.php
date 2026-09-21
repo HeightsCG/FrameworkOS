@@ -90,8 +90,10 @@ class AudienceModel extends Model {
             if (isset($fans[(int) $r['fan_id']])) { $fans[(int) $r['fan_id']]['note'] = (string) $r['note']; }
         }
 
+        $blocked = (new BlocksModel())->related_ids($creator_id);
         $out = array();
         foreach ($fans as $id => $row) {
+            if (isset($blocked[(int) $id])) { continue; }
             $idn = $identity[$id] ?? array('handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false);
             $row['handle']     = $idn['handle'];
             $row['name']       = $idn['name'];
