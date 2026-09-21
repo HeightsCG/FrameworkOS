@@ -6,7 +6,7 @@
  */
 class SetupService {
 
-    const TTL = 300;   // seconds between re-checks of incomplete steps on ordinary page loads
+    const TTL = 300;   // seconds between Stripe payouts re-checks on ordinary page loads (DB checks are instant)
 
     /** Ordered step definitions. 'cta' is the Title Case button label. */
     public static function steps(): array {
@@ -33,14 +33,22 @@ class SetupService {
         if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
         if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
 
-        $stale = $force || !$row || empty($row['checked_at']) || (strtotime((string) $row['checked_at']) < time() - self::TTL);
-        if ($stale && (!$row || empty($row['completed_at']))) {
+        // Cheap DB checks run on every load so a step ticks the moment it's done. Only the
+        // Stripe payouts call is throttled (TTL), except when forced or returning from Stripe.
+        if (!$row || empty($row['completed_at'])) {
             $now = date('Y-m-d H:i:s');
+            $stripe_ok = $force || !$row || empty($row['checked_at'])
+                || (strtotime((string) $row['checked_at']) < time() - self::TTL)
+                || isset($_GET['payout_return']) || isset($_GET['payout_refresh']);
+            $changed = false;
             foreach (self::steps() as $key => $meta) {
                 if (isset($done[$key])) { continue; }
-                if (self::check($model, $key, $creator_id)) { $done[$key] = $now; }
+                if ($key === 'payouts' && !$stripe_ok) { continue; }
+                if (self::check($model, $key, $creator_id)) { $done[$key] = $now; $changed = true; }
             }
-            $model->upsert_steps($creator_id, $done, $now);
+            if ($changed || $stripe_ok || !$row) {
+                $model->upsert_steps($creator_id, $done, $stripe_ok ? $now : (string) ($row['checked_at'] ?? $now));
+            }
             if (self::all_required_done($done + $skipped)) { $model->mark_completed($creator_id); }
             $row = $model->get($creator_id);
         }

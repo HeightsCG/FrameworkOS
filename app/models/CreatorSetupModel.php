@@ -64,7 +64,7 @@ class CreatorSetupModel extends Model {
     }
 
     public function has_brand($user_id){
-        $r = parent::select("SELECT 1 FROM creator_brand WHERE user_id = :u AND COALESCE(brand_name,'') <> '' LIMIT 1", array('u' => (int) $user_id));
+        $r = parent::select("SELECT 1 FROM creator_brand WHERE user_id = :u AND (COALESCE(brand_name,'') <> '' OR COALESCE(voice,'') <> '' OR COALESCE(tagline,'') <> '' OR COALESCE(description,'') <> '') LIMIT 1", array('u' => (int) $user_id));
         return !empty($r);
     }
 

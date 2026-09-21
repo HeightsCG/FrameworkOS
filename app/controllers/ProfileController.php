@@ -101,13 +101,15 @@ class ProfileController extends Controller {
             $sub_notice = $this->record_checkout_success((string) $_GET['session_id'], $user, $viewer_id) ? 'success' : '';
         }
 
-        $subscribed_plan_ids = ($viewer_logged_in && !$is_self)
+        // Content gating treats the creator like any other visitor (same rule as Discover): the
+        // Studio is where they see their own work in full. Only management affordances use $is_self.
+        $subscribed_plan_ids = $viewer_logged_in
             ? (new CreatorSubscriptionsModel())->active_plan_ids($viewer_id, $user['user_id'])
             : array();
 
         // Content bundles this creator sells (active + non-empty), with the viewer's ownership.
         $bundlesModel    = new ContentBundlesModel();
-        $bundle_unlocked = ($viewer_logged_in && !$is_self)
+        $bundle_unlocked = $viewer_logged_in
             ? $bundlesModel->unlocked_map_for_creator($viewer_id, $user['user_id'])
             : array();
         $bundle_cards = array();
@@ -119,7 +121,7 @@ class ProfileController extends Controller {
                 'price_credits' => (int) $b['price_credits'],
                 'price_dollars' => (int) round(((int) $b['price_credits']) / 10),
                 'item_count'    => (int) $b['item_count'],
-                'owned'         => $is_self || isset($bundle_unlocked[(int) $b['id']]),
+                'owned'         => isset($bundle_unlocked[(int) $b['id']]),
             );
         }
 
@@ -213,7 +215,7 @@ class ProfileController extends Controller {
         // never signed for them, so it never reaches the browser.
         $posts_model    = new PostsModel();
         $published      = $posts_model->get_published_for_creator($user['user_id']);
-        $max_tier_price = ($viewer_logged_in && !$is_self)
+        $max_tier_price = $viewer_logged_in
             ? (new CreatorSubscriptionsModel())->max_active_tier_price($viewer_id, $user['user_id'])
             : null;
         $plan_prices = array();
@@ -233,9 +235,10 @@ class ProfileController extends Controller {
         // Moderation gate: content must be scanned before it's available to viewers.
         //  - 'pending' (an image not yet cleared) → hidden from everyone but the creator.
         //  - 'flagged' (adult) → hidden from viewers with "show adult content" off.
-        // The creator always sees their own posts. Logged-out viewers default to adult OFF.
-        $show_adult = $is_self;
-        if (!$show_adult && $viewer_logged_in) {
+        // No owner exemption: the creator sees exactly what a visitor with their settings sees.
+        // Logged-out viewers default to adult OFF.
+        $show_adult = false;
+        if ($viewer_logged_in) {
             $viewer_rows = $this->userModel->get_user_by_id($viewer_id);
             $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
             $show_adult  = !empty($viewer_row['adult_content_enabled']);
@@ -249,10 +252,10 @@ class ProfileController extends Controller {
         foreach ($published as $p) {
             $mod = $moderation_map[(int) $p['id']] ?? '';
             if ($mod === 'blocked') { continue; }                       // quarantined — never shown to anyone
-            if ($mod === 'pending' && !$is_self) { continue; }          // not yet scanned — not available
+            if ($mod === 'pending') { continue; }                       // not yet scanned — not available to anyone
             if ($mod === 'adult' && !$show_adult) { continue; }         // approved adult — viewer opted out
             $audience = $p['audience'];
-            if ($is_self || $audience === 'free') {
+            if ($audience === 'free') {
                 $entitled = true;
             } elseif ($audience === 'ppv') {
                 // PPV is locked for everyone (incl. subscribers) until purchased.
