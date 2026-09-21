@@ -1,0 +1,33 @@
+/* /setup — creator onboarding checklist */
+.setup{ max-width:820px; margin:0 auto; }
+.setup__head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:20px; flex-wrap:wrap; }
+.setup__title{ font-size:1.6rem; font-weight:700; letter-spacing:-.02em; }
+.setup__sub{ margin:.35rem 0 0; color:var(--muted); font-size:.95rem; }
+.setup__progress{ display:flex; align-items:center; gap:12px; min-width:220px; }
+.setup__pct{ font-size:.86rem; font-weight:600; color:var(--t2); min-width:38px; text-align:right; }
+.setup__track{ flex:1; height:6px; border-radius:999px; background:var(--line); overflow:hidden; }
+.setup__fill{ display:block; height:100%; background:var(--violet); border-radius:999px; transition:width .3s ease; }
+
+.setup__list{ list-style:none; margin:0; padding:0; border:1px solid var(--line); border-radius:var(--r); background:#fff; overflow:hidden; }
+.setup__list--optional{ margin-bottom:0; }
+.setup__step{ display:flex; align-items:center; gap:16px; padding:16px 20px; border-top:1px solid var(--line2); }
+.setup__step:first-child{ border-top:0; }
+.setup__step.is-next{ background:var(--vsoft); }
+.setup__mark{ flex:none; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:600; color:var(--t2); background:#f1f0f7; }
+.setup__step.is-next .setup__mark{ background:var(--violet); color:#fff; }
+.setup__step.is-done .setup__mark{ background:#e6f6ec; color:#1f7a3f; }
+.setup__mark--opt{ font-size:.75rem; }
+.setup__body{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
+.setup__name{ font-size:.98rem; font-weight:600; color:var(--text); }
+.setup__step.is-done .setup__name{ color:var(--t2); }
+.setup__text{ font-size:.86rem; color:var(--muted); }
+.setup__cta{ flex:none; white-space:nowrap; }
+.setup__h2{ font-size:.8rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); margin:28px 0 10px; }
+.setup__foot{ margin:20px 0 0; text-align:center; }
+.setup__hide{ background:none; border:0; padding:6px 10px; color:var(--muted); font-size:.86rem; cursor:pointer; border-radius:var(--r-sm); }
+.setup__hide:hover{ color:var(--text); background:var(--line2); }
+
+@media (max-width:820px){
+    .setup__step{ flex-wrap:wrap; }
+    .setup__cta{ width:100%; margin-left:44px; }
+}

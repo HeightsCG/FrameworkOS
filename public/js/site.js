@@ -150,6 +150,28 @@ $(document).ready(function() {
         setInterval(count, 30000);
     })();
 
+    // Creator setup checklist: hide the card (and /setup's "Hide this checklist") after a confirm.
+    $(document).on('click', '[data-setup-dismiss]', function (e) {
+        e.preventDefault();
+        if (typeof Swal === 'undefined') { return; }
+        Swal.fire({
+            title: 'Hide the setup checklist?',
+            text: 'You can still open it any time at /setup. It won\u2019t come back on its own.',
+            width: 440, showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Hide Checklist', cancelButtonText: 'Keep',
+            confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779'
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            ApiDataSvc.apiCall('post', 'setup_dismiss', {}, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (err) {}
+                if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not hide the checklist.'); } return; }
+                $('#setupCard').slideUp(160, function () { $(this).remove(); });
+                $('.setup__foot').remove();
+                if (window.toastr) { toastr.success('Checklist hidden. Find it any time at /setup.'); }
+            });
+        });
+    });
+
     // Report (trust & safety, PRD §35–37) — any [data-report-type][data-report-id] element
     // opens a reason picker and files a report.
     $(document).on('click', '[data-report-type]', function (e) {

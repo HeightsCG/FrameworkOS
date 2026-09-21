@@ -104,3 +104,26 @@
         </header>
 
         <div class="app-content">
+<?php
+// Creator onboarding card: every page, until all required steps are done or the creator hides it.
+$setup_card = (strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/setup') === 0) ? null : SetupService::card();
+if ($setup_card && !empty($setup_card['next'])):
+    $sc_next = $setup_card['next'];
+    $sc_pct  = $setup_card['required_total'] > 0 ? (int) round($setup_card['required_done'] / $setup_card['required_total'] * 100) : 0;
+?>
+            <section class="setup-card" id="setupCard" aria-label="Studio setup progress">
+                <div class="setup-card__main">
+                    <div class="setup-card__head">
+                        <h2 class="setup-card__title">Set up your studio</h2>
+                        <span class="setup-card__count"><?php echo (int) $setup_card['required_done']; ?> of <?php echo (int) $setup_card['required_total']; ?> steps done</span>
+                    </div>
+                    <span class="setup-card__track"><span class="setup-card__fill" style="width:<?php echo $sc_pct; ?>%"></span></span>
+                    <p class="setup-card__next">Next: <?php echo htmlspecialchars($sc_next['title'], ENT_QUOTES, 'UTF-8'); ?>. <?php echo htmlspecialchars($sc_next['text'], ENT_QUOTES, 'UTF-8'); ?></p>
+                </div>
+                <div class="setup-card__actions">
+                    <a class="btn btn-primary" href="<?php echo htmlspecialchars($sc_next['url'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sc_next['cta'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <a class="btn btn-secondary" href="/setup">View All Steps</a>
+                </div>
+                <button type="button" class="setup-card__close" data-setup-dismiss aria-label="Hide the setup checklist" title="Hide the setup checklist"><i class="fa-solid fa-xmark"></i></button>
+            </section>
+<?php endif; ?>

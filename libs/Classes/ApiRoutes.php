@@ -45,6 +45,9 @@ class ApiRoutes {
             'connect_account', 'disconnect_account', 'upload_media_url', 'create_post', 'post_status', 'fanvue_connect',
             'fanvue_disconnect',
         ],
+        'ApiSetupController' => [
+            'setup_progress', 'setup_dismiss',
+        ],
         'ApiInboxController' => [
             'inbox_settings_save', 'inbox_queue_list', 'inbox_reply_send', 'inbox_reply_dismiss', 'inbox_test_draft',
             'auto_messages_list', 'auto_message_save', 'auto_message_delete',
