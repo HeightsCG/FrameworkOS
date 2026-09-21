@@ -266,12 +266,49 @@
         });
         html += '<div class="adm-frow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><span class="adm-ucell adm-r"><b>' + tot.sales + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.gross) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.refunded) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.creator) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.platform) + '</b></span></div>';
         body.innerHTML = html;
-        /* highlight the selected months in the small charts */
         var keys = cur.map(function (m) { return m.k; });
         document.querySelectorAll('.fz-mini__svg .sel').forEach(function (r) { r.setAttribute('opacity', keys.indexOf(r.getAttribute('data-k')) >= 0 ? '1' : '0'); });
+        /* highlight the selected months in the small charts */
+        var keys = cur.map(function (m) { return m.k; });
     }
+    /* Revenue by month: one series (platform revenue), bars with the total on top and month-over-month change under each month */
+    var last12 = months.slice(-12), ns = 'http://www.w3.org/2000/svg';
+    function draw_rev() {
+        var svg = document.querySelector('.fz-rev__svg'), tip = document.querySelector('#fzRev .fz-tip');
+        if (!svg) { return; }
+        function el(t, a, txt) { var n = document.createElementNS(ns, t); for (var k in a) { n.setAttribute(k, a[k]); } if (txt !== undefined) { n.textContent = txt; } return n; }
+        function short(c) { var d = c / 100; if (Math.abs(d) >= 1000) { return '$' + (d / 1000).toFixed(Math.abs(d) >= 10000 ? 0 : 1) + 'k'; } return '$' + (d % 1 === 0 ? d : d.toFixed(2)); }
+        var W = svg.clientWidth || 900, H = 300, L = 56, R = 12, T = 28, B = 48;
+        svg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+        while (svg.firstChild) { svg.removeChild(svg.firstChild); }
+        var vals = last12.map(function (m) { return m.revenue || 0; });
+        var top = Math.max.apply(null, vals.concat([0])), p10 = Math.pow(10, Math.floor(Math.log10(Math.max(top, 100)))), n0 = top / p10;
+        var max = top <= 0 ? 10000 : (n0 <= 1 ? 1 : n0 <= 2 ? 2 : n0 <= 5 ? 5 : 10) * p10;
+        var pw = W - L - R, ph = H - T - B, slot = pw / last12.length, bw = Math.min(56, slot * 0.56);
+        var y = function (v) { return T + ph - (Math.max(0, v) / max) * ph; };
+        for (var g = 0; g <= 4; g++) { var gv = max * g / 4; svg.appendChild(el('line', { 'class': 'grid', x1: L, x2: W - R, y1: y(gv), y2: y(gv) })); svg.appendChild(el('text', { 'class': 'axis', x: L - 8, y: y(gv) + 4, 'text-anchor': 'end' }, short(gv))); }
+        last12.forEach(function (m, i) {
+            var v = vals[i], cx = L + slot * i + slot / 2, prev = i > 0 ? vals[i - 1] : (months.length > 12 ? months[months.length - 13].revenue || 0 : 0);
+            var cur = (i === last12.length - 1);
+            svg.appendChild(el('rect', { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(v > 0 ? 2 : 0, T + ph - y(v)), rx: 4, fill: cur ? '#5b4be0' : '#b9b1f6' }));
+            if (v > 0) { svg.appendChild(el('text', { 'class': 'fz-rev__val', x: cx, y: y(v) - 8, 'text-anchor': 'middle' }, short(v))); }
+            svg.appendChild(el('text', { 'class': 'axis', x: cx, y: H - 26, 'text-anchor': 'middle' }, m.label));
+            var chg = '', cls = 'fz-rev__chg';
+            if (prev > 0) { var pct = Math.round((v - prev) / prev * 100); chg = (pct > 0 ? '+' : '') + pct + '%'; cls += pct > 0 ? ' is-up' : (pct < 0 ? ' is-down' : ''); }
+            else if (v > 0) { chg = 'New'; cls += ' is-up'; }
+            if (chg) { svg.appendChild(el('text', { 'class': cls, x: cx, y: H - 8, 'text-anchor': 'middle' }, chg)); }
+            var hit = el('rect', { 'class': 'hit', x: L + slot * i, y: T - 20, width: slot, height: ph + 20 });
+            hit.addEventListener('mouseenter', function () {
+                tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>Our fee on sales <em>' + money(m.fee || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
+                tip.style.left = Math.min(88, Math.max(12, cx / W * 100)) + '%'; tip.hidden = false;
+            });
+            hit.addEventListener('mouseleave', function () { tip.hidden = true; });
+            svg.appendChild(hit);
+        });
+        document.getElementById('fzRevTotal').textContent = money(vals.reduce(function (a, b) { return a + b; }, 0));
+    }
+    draw_rev();
     /* small multiples: last 12 months, each chart scaled to its own max */
-    var ns = 'http://www.w3.org/2000/svg', last12 = months.slice(-12);
     document.querySelectorAll('.fz-mini').forEach(function (box) {
         var m = box.getAttribute('data-m'), col = box.getAttribute('data-c'), svg = box.querySelector('svg');
         var vals = last12.map(function (x) { return x[m] || 0; });
@@ -286,6 +323,9 @@
         box.querySelector('[data-a]').textContent = last12[0].label + ' ' + last12[0].k.slice(0, 4);
         box.querySelector('[data-z]').textContent = 'Best ' + money(Math.max.apply(null, vals));
     });
+    var rt2; window.addEventListener('resize', function () { clearTimeout(rt2); rt2 = setTimeout(draw_rev, 150); });
+    document.querySelectorAll('.adm-tab[data-panel="financials"]').forEach(function (t) { t.addEventListener('click', function () { setTimeout(draw_rev, 0); }); });
+
     document.querySelectorAll('.fz-period button').forEach(function (b) {
         b.addEventListener('click', function () {
             document.querySelectorAll('.fz-period button').forEach(function (x) { var o = x === b; x.classList.toggle('is-on', o); x.setAttribute('aria-selected', o ? 'true' : 'false'); });

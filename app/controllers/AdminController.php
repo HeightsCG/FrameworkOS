@@ -49,6 +49,12 @@ class AdminController extends Controller {
         $plan_prices = array();
         foreach (PagesController::pricing_rows() as $pr) { if ($pr['amount'] !== null) { $plan_prices[$pr['tier']['key']] = (int) $pr['amount']; } }
         $this->view->fin          = $model->financials($plan_prices);
+        $live = self::plan_subscriptions($model);
+        if ($live !== null) {   // Stripe is the source of truth for what creators actually pay
+            $this->view->fin['plan_mrr']   = $live['mrr'];
+            $this->view->fin['plan_count'] = $live['count'];
+            $this->view->fin['plans']      = $live['plans'];
+        }
         $plan_inv = self::plan_invoice_buckets($model);
         $this->view->series       = $model->money_series($plan_inv['month']);
         $this->view->plan_all     = $plan_inv['all'];
@@ -103,6 +109,51 @@ class AdminController extends Controller {
                 $out['day'][$d]   = ($out['day'][$d] ?? 0) + (int) $inv['amount'];
                 $out['all'] += (int) $inv['amount'];
             }
+        }
+        @file_put_contents($cache, json_encode($out), LOCK_EX);
+        return $out;
+    }
+
+    /**
+     * Active creator-plan subscriptions straight from Stripe: monthly recurring total (cents), subscription count,
+     * and a count per tier (matched by product name, like PlanTiers). Returns null if Stripe can't be reached,
+     * so the page falls back to the local plan_tier data. Cached for 10 minutes.
+     */
+    private static function plan_subscriptions(AdminModel $model): ?array {
+        $cache = sys_get_temp_dir() . '/cls_admin_plan_subs.json';
+        if (is_file($cache) && filemtime($cache) > time() - 600) {
+            $c = json_decode((string) file_get_contents($cache), true);
+            if (is_array($c)) { return $c; }
+        }
+        $out = array('mrr' => 0, 'count' => 0, 'plans' => array()); $names = array();
+        try {
+            $stripe = StripeService::client();
+            foreach ($model->plan_customers() as $cu) {
+                $subs = $stripe->subscriptions->all(array('customer' => (string) $cu['stripe_customer_id'], 'status' => 'all', 'limit' => 100));
+                foreach ($subs->data as $sub) {
+                    if (!in_array($sub->status, array('active', 'trialing', 'past_due'), true)) { continue; }
+                    foreach ($sub->items->data as $it) {
+                        $price = $it->price; $qty = (int) ($it->quantity ?: 1);
+                        $amt = (int) $price->unit_amount * $qty;
+                        $iv = $price->recurring ? (string) $price->recurring->interval : 'month';
+                        $n  = $price->recurring ? max(1, (int) $price->recurring->interval_count) : 1;
+                        $monthly = $iv === 'year' ? $amt / (12 * $n) : ($iv === 'week' ? $amt * 52 / 12 / $n : ($iv === 'day' ? $amt * 365 / 12 / $n : $amt / $n));
+                        $pid  = is_object($price->product) ? (string) $price->product->id : (string) $price->product;
+                        if (!isset($names[$pid])) { try { $names[$pid] = (string) $stripe->products->retrieve($pid)->name; } catch (\Throwable $e) { $names[$pid] = ''; } }
+                        $name = $names[$pid];
+                        $tier = PlanTiers::match($name);
+                        if ($tier === '') { continue; }   // not a creator plan
+                        $out['mrr'] += (int) round($monthly);
+                        $out['count']++;
+                        if (!isset($out['plans'][$tier])) { $out['plans'][$tier] = array('n' => 0, 'mrr' => 0); }
+                        $out['plans'][$tier]['n']++;
+                        $out['plans'][$tier]['mrr'] += (int) round($monthly);
+                    }
+                }
+            }
+        } catch (\Throwable $e) {
+            error_log('[admin] plan subscriptions: ' . $e->getMessage());
+            return null;
         }
         @file_put_contents($cache, json_encode($out), LOCK_EX);
         return $out;

@@ -81,7 +81,14 @@ $last12 = array_slice($this->series, -12);
             </article>
         </div>
 
-        <div class="adm-sec__head"><h2 class="adm-sec__title">Last 12 Months</h2></div>
+        <section class="fz-rev" id="fzRev">
+            <header class="fz-rev__head">
+                <div><h2 class="adm-sec__title">Revenue by Month</h2><p class="fz-rev__sub">Plan payments plus our fee on sales, last 12 months</p></div>
+                <div class="fz-rev__total"><span>12-month total</span><b id="fzRevTotal">—</b></div>
+            </header>
+            <div class="fz-rev__plot"><svg class="fz-rev__svg" role="img" aria-label="Platform revenue by month"></svg><div class="fz-tip" hidden></div></div>
+        </section>
+
         <div class="fz-minis" id="fzMinis">
             <?php foreach (array('revenue' => array('Platform revenue', '#16a36a'), 'plans' => array('Plan payments', '#5b4be0'), 'fee' => array('Our fee on sales', '#0f8a5f'),
                                  'cash_in' => array('Money in from credits', '#2f7ae5'), 'refunds' => array('Refunds', '#d9463b'), 'payouts' => array('Paid out to creators', '#e08a12')) as $mk => $md): ?>
