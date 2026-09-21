@@ -20,6 +20,13 @@
     </ul>
     <div class="adm-editor">
         <form class="adm-editor__form" id="admArticleForm">
+            <div class="adm-cover">
+                <span class="adm-cover__label">Cover</span>
+                <div class="adm-cover__row">
+                    <?php if (trim((string) $a['cover_image_url']) !== ''): ?><img class="adm-cover__img" id="admCoverImg" src="<?php echo $e($a['cover_image_url']); ?>" alt=""><?php else: ?><span class="adm-cover__none" id="admCoverImg">No cover yet</span><?php endif; ?>
+                    <button type="button" class="adm-btn" data-ed="cover">New Cover</button>
+                </div>
+            </div>
             <label>Title<input type="text" name="title" maxlength="70" value="<?php echo $e($a['title']); ?>"></label>
             <label>Slug<input type="text" name="slug" maxlength="120" value="<?php echo $e($a['slug']); ?>"<?php if ($a['status'] === 'published'): ?> readonly<?php endif; ?>></label>
             <label>Meta description<input type="text" name="meta_description" maxlength="155" value="<?php echo $e($a['meta_description']); ?>"></label>

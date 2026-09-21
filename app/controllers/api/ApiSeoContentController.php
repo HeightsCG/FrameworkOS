@@ -99,6 +99,17 @@ class ApiSeoContentController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Rewritten — review the new draft']);
     }
 
+    /** Generate a new cover image for an article (replaces the old one). One fal render, ~30-90 s. */
+    public function seo_article_coverAction(){
+        $this->guard();
+        set_time_limit(240);
+        $m = new SeoArticlesModel(); $a = $m->get((int) ($this->post['id'] ?? 0));
+        if (!$a) { $this->jsonError('Article not found'); }
+        $url = SeoDrafter::make_cover($a);
+        if ($url === '') { $this->jsonError('Could not make a cover right now. Try again.'); }
+        $this->jsonSuccess(['url' => $url, 'message' => 'New cover ready']);
+    }
+
     public function seo_article_discardAction(){
         $this->guard();
         $m = new SeoArticlesModel(); $id = (int) ($this->post['id'] ?? 0); $a = $m->get($id);

@@ -15,7 +15,7 @@ list($c, $h, $b) = fetch($base . '/blog/' . $slug);
 check('article 200', $c === 200);
 check('article has Article + FAQPage + BreadcrumbList JSON-LD', strpos($b, '"Article"') !== false && strpos($b, '"BreadcrumbList"') !== false);
 check('article has published_time', strpos($b, 'article:published_time') !== false);
-check('article has one CTA', substr_count($b, 'class="pub-cta"') === 1);
+check('article has one CTA', substr_count($b, 'class="gd-band"') === 1);
 check('article Cache-Control private', stripos($h, 'Cache-Control: private') !== false);
 list($c) = fetch($base . '/blog/no-such-article-xyz');           check('unknown slug 404', $c === 404);
 list($c) = fetch($base . '/blog/' . $slug . '/extra');            check('trailing segment 404', $c === 404);

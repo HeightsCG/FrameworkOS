@@ -111,6 +111,19 @@
                 ApiDataSvc.apiCall('post', 'seo_article_rewrite', { id: id, note: note }, function (r) { var p = parse(r); if (p && p.success) { window.location.reload(); } else { btn.disabled = false; btn.textContent = 'Request Rewrite'; bad(p && p.message); } });
             }); return;
         }
+        if (action === 'cover') {
+            btn.disabled = true; btn.textContent = 'Making Cover…';
+            ApiDataSvc.apiCall('post', 'seo_article_cover', { id: id }, function (r) {
+                var p = parse(r); btn.disabled = false; btn.textContent = 'New Cover';
+                if (!p || !p.success) { return bad(p && p.message); }
+                var cur = document.getElementById('admCoverImg');
+                var img = document.createElement('img'); img.className = 'adm-cover__img'; img.id = 'admCoverImg'; img.alt = ''; img.src = p.url;
+                cur.parentNode.replaceChild(img, cur);
+                preview.src = '/blog/' + ed.getAttribute('data-slug') + '?preview=1&t=' + Date.now();
+                ok(p.message);
+            });
+            return;
+        }
         if (action === 'discard') {
             confirmAction({ title: 'Discard this article?', text: 'It is archived and the keyword goes back into the queue.', confirmButtonText: 'Discard', confirmButtonColor: '#e5484d' }).then(function (yes) {
                 if (!yes) { return; }

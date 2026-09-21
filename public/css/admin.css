@@ -173,3 +173,9 @@ a.adm-crow__sub:hover{ color:var(--violet7,#4636c4); }
     .adm-table--keywords .adm-table__head, .adm-table--keywords .adm-krow{ grid-template-columns:1fr; }
     .adm-table--content .adm-table__head, .adm-table--keywords .adm-table__head{ display:none; }
 }
+
+.adm-cover{ margin:0 0 14px; }
+.adm-cover__label{ display:block; font-size:.82rem; font-weight:600; color:#4b4757; margin:0 0 6px; }
+.adm-cover__row{ display:flex; align-items:center; gap:12px; }
+.adm-cover__img{ width:200px; aspect-ratio:4/3; object-fit:cover; border-radius:8px; border:1px solid #e2e0ea; background:#f4f3f8; }
+.adm-cover__none{ display:inline-flex; align-items:center; justify-content:center; width:200px; aspect-ratio:4/3; border-radius:8px; border:1px dashed #d8d5e3; color:#8a8797; font-size:.82rem; }

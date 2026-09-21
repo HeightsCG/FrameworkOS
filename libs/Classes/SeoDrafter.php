@@ -91,6 +91,56 @@ class SeoDrafter {
         return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked example with round, clearly hypothetical numbers (\"say you want \$1,000 a month from 50 members\") is fine when framed as an example; never present invented numbers as real data or averages. Never mention being an AI. Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. No external links. Output ONLY a JSON object with keys: title (<=70 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (<=155 chars), excerpt (one or two sentences), body_md (Markdown, 1200-1800 words, at least four \"## \" sections, some \"### \" subsections, one relative link per section from the allowed list, no H1, no raw HTML), faq (array of 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
+    /** Visual motif per topic for the cover prompt (abstract objects only — no people, no text). */
+    private static function cover_motif(string $topic): string {
+        $m = array(
+            'Pricing' => 'stacked translucent glass tiers rising like steps, a small price tag shape',
+            'Memberships' => 'three nested translucent rings of increasing size, like tiers of a club',
+            'Pay-per-view' => 'a frosted glass panel partly lifted to reveal a glowing card behind it',
+            'Link in bio' => 'a single glowing link chain shape connecting floating rounded tiles',
+            'Payouts' => 'smooth coins flowing along a curved glass channel toward a small vault door',
+            'Bundles' => 'several rounded tiles neatly grouped inside one translucent box',
+            'Services' => 'a calendar tile and a speech bubble tile floating side by side',
+            'Events' => 'a ticket shape and a spotlight beam on a soft stage floor',
+            'Social' => 'many small rounded tiles radiating outward from one central tile',
+            'AI' => 'a softly glowing sphere made of fine mesh lines',
+            'Platforms' => 'two translucent platforms at different heights with a bridge between them',
+            'Getting paid' => 'a glowing coin resting on a stack of rounded glass tiles',
+        );
+        return $m[$topic] ?? 'rounded translucent glass tiles floating in soft light';
+    }
+
+    /**
+     * Generate and store a cover image for an article (fal via ImageGenService, S3 under creator/ so it is public).
+     * Returns the public URL, or '' on any failure (never blocks drafting). Saves it on the row when $save.
+     */
+    public static function make_cover(array $article, bool $save = true): string {
+        try {
+            if (!class_exists('ImageGenService') || !S3Service::configured()) { return ''; }
+            $topic = BlogController::topic($article);
+            $prompt = 'Minimal editorial 3D illustration for a creator-economy blog article about "' . $topic . '": ' . self::cover_motif($topic)
+                . '. Soft studio lighting, lavender and deep violet palette (#8273f8, #5b4be0, #4636c4) on a pale lilac background, gentle gradients, glossy glass and matte clay materials, generous empty space, centered composition. No people, no faces, no hands, no text, no letters, no numbers, no logos.';
+            $img = ImageGenService::generate($prompt, 'landscape');
+            if (empty($img['ok'])) { error_log('[seo] cover for article ' . ($article['id'] ?? '?') . ': ' . ($img['error'] ?? 'failed')); return ''; }
+            $ext = in_array((string) $img['ext'], array('jpg', 'jpeg', 'png', 'webp'), true) ? (string) $img['ext'] : 'jpg';
+            $tmp = tempnam(sys_get_temp_dir(), 'clscover');
+            file_put_contents($tmp, $img['bytes']);
+            $key = 'creator/blog/' . preg_replace('/[^a-z0-9-]/', '', (string) ($article['slug'] ?? 'article')) . '-' . bin2hex(random_bytes(6)) . '.' . $ext;
+            $url = S3Service::upload_file($key, $tmp, (string) ($img['mime'] ?: 'image/jpeg'));
+            @unlink($tmp);
+            if ($url === '') { return ''; }
+            if ($save && !empty($article['id'])) {
+                $old = (string) ($article['cover_image_url'] ?? '');
+                (new SeoArticlesModel())->update_fields((int) $article['id'], array('cover_image_url' => $url));
+                if ($old !== '' && strpos($old, '/creator/blog/') !== false) { S3Service::delete_by_url($old); }
+            }
+            return $url;
+        } catch (\Throwable $e) {
+            error_log('[seo] make_cover: ' . $e->getMessage());
+            return '';
+        }
+    }
+
     /**
      * Draft for one keyword row. $note = Admin's rewrite instruction (appended to the request);
      * $existing_article_id = replace that article's content instead of creating a new row.
@@ -136,6 +186,9 @@ class SeoDrafter {
         if ($existing_article_id > 0) { $articles->update_fields($existing_article_id, $fields); $aid = $existing_article_id; }
         else { $aid = $articles->create($fields); }
         $keywords->set_status($kid, ($existing && $existing['status'] === 'published') ? 'published' : 'drafted', $aid, null);
+        // Cover image: only when the article has none yet (a rewrite keeps its cover). Never blocks the draft.
+        $saved = $articles->get($aid);
+        if ($saved && trim((string) ($saved['cover_image_url'] ?? '')) === '') { self::make_cover($saved); }
         try {
             Notify::many((new UsersModel())->admin_ids(), 'system', 'New article ready for review', '"' . $fields['title'] . '" was drafted for "' . $keyword . '".', '/admin/article/' . $aid, 'fa-newspaper');
         } catch (\Throwable $e) { error_log('[seo] notify admins: ' . $e->getMessage()); }

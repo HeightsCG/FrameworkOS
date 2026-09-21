@@ -6,13 +6,36 @@
 class BlogController extends Controller {
     public $protected = 0;
     public static $embedded = false;
-    const PER_PAGE = 12;
+    const PER_PAGE = 24;
     /** What the /blog section is called everywhere (nav, page title, breadcrumbs, feed, llms.txt, product-page block). */
     const NAME = 'Blog';
 
     public function __construct(){
         parent::__construct();
         if (!self::$embedded) { header('Cache-Control: private, max-age=300'); }
+    }
+
+    /** Short topic label for covers and the article header, from the target keyword and title. */
+    public static function topic(array $a): string {
+        $k = strtolower((string) ($a['target_keyword'] ?? '') . ' ' . (string) ($a['title'] ?? ''));
+        $map = array('pay-per-view' => 'Pay-per-view', 'ppv' => 'Pay-per-view', 'link in bio' => 'Link in bio', 'payout' => 'Payouts', 'bundle' => 'Bundles',
+                     'service' => 'Services', 'event' => 'Events', 'price' => 'Pricing', 'pricing' => 'Pricing', 'tier' => 'Memberships', 'membership' => 'Memberships',
+                     'subscription' => 'Memberships', 'cross-post' => 'Social', 'social' => 'Social', 'ai ' => 'AI', 'onlyfans' => 'Platforms', 'fanvue' => 'Platforms', 'monetiz' => 'Getting paid');
+        foreach ($map as $needle => $label) { if (strpos($k, $needle) !== false) { return $label; } }
+        return 'Guide';
+    }
+
+    /** Give every <h2> in rendered article HTML an id and return [html, toc]. Headings come from Markdown::render (already escaped). */
+    private static function anchor_headings(string $html): array {
+        $toc = array(); $used = array();
+        $html = preg_replace_callback('/<h2>(.*?)<\/h2>/s', function ($m) use (&$toc, &$used) {
+            $text = trim(html_entity_decode(strip_tags($m[1]), ENT_QUOTES, 'UTF-8'));
+            $id = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower($text)), '-'); if ($id === '') { $id = 'section'; }
+            $base = $id; $n = 2; while (isset($used[$id])) { $id = $base . '-' . $n++; } $used[$id] = true;
+            $toc[] = array('id' => $id, 'text' => $text);
+            return '<h2 id="' . $id . '">' . $m[1] . '</h2>';
+        }, $html);
+        return array($html, $toc);
     }
 
     public function dispatch(array $url){
@@ -77,9 +100,10 @@ class BlogController extends Controller {
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => self::NAME, 'url' => '/blog'), array('name' => $a['title'], 'url' => $path))),
         );
         if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }
+        $anch = self::anchor_headings((string) $a['body_html']);
         $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
                 'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true),
-            array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview));
+            array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview, 'body' => $anch[0], 'toc' => $anch[1], 'topic' => self::topic($a)));
     }
 
     public function feedAction(){

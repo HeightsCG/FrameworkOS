@@ -77,7 +77,7 @@ class ApiRoutes {
         ],
         'ApiSeoContentController' => [
             'seo_keyword_add', 'seo_keyword_update', 'seo_draft_now', 'seo_article_save', 'seo_article_publish',
-            'seo_article_unpublish', 'seo_article_rewrite', 'seo_article_discard',
+            'seo_article_unpublish', 'seo_article_rewrite', 'seo_article_discard', 'seo_article_cover',
         ],
         'ApiEventsController' => [
             'event_save', 'event_delete', 'event_register', 'event_cancel',
