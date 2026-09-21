@@ -17,6 +17,7 @@
             <p class="cs-head__sub">Upload once, use everywhere. Everything for your content lives here.</p>
         </div>
         <div class="cs-head__actions">
+            <button type="button" class="btn btn-secondary cs-privacy" id="csPrivacy" aria-pressed="false" title="Blur every thumbnail and preview in the Studio. Hover to peek."><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> <span>Privacy</span></button>
             <div class="dropdown cs-create">
                 <button type="button" class="btn btn-primary dropdown-toggle" id="csCreateBtn" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fa-solid fa-plus"></i> Action

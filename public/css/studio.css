@@ -931,3 +931,25 @@ body.modal-open .cs-tray{ bottom:112px; }   /* clear the editor footer so Save /
     #csComposer .cs-pe__actions{ width:100%; }
     #csComposer .cs-pe__actions .cs-pe__btn{ flex:1 1 0; padding:0 12px; }
 }
+
+/* ---- Privacy mode: blur every thumbnail / preview so nobody can read the screen over your shoulder. Hover a tile to peek. ---- */
+.cs-privacy[aria-pressed="true"]{ background:var(--violet); border-color:var(--violet); color:#fff; }
+.cs-privacy[aria-pressed="true"]:hover{ background:var(--violet7); border-color:var(--violet7); color:#fff; }
+body.cs-private .cs-tile__img,
+body.cs-private .cs-post__cover img,
+body.cs-private .cs-pe__item img,
+body.cs-private .cs-pe__item video,
+body.cs-private .cs-pv__slide img,
+body.cs-private .cs-pv__slide video,
+body.cs-private img.cs-up__thumb{
+    filter:blur(22px) saturate(.6); transform:scale(1.15); transition:filter .18s ease .35s, transform .18s ease .35s;
+}
+body.cs-private .cs-tile:hover .cs-tile__img,
+body.cs-private .cs-post__cover:hover img,
+body.cs-private .cs-pe__item:hover img,
+body.cs-private .cs-pe__item:hover video,
+body.cs-private .cs-pv__media:hover .cs-pv__slide img,
+body.cs-private .cs-pv__media:hover .cs-pv__slide video{
+    filter:none; transform:none; transition-delay:.5s;
+}
+

@@ -19,6 +19,23 @@ jQuery(function ($) {
 
     function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
 
+    /* ---- Privacy mode: one switch blurs every thumbnail/preview in the Studio (remembered per browser). ---- */
+    (function () {
+        var KEY = 'cs_privacy', $btn = $('#csPrivacy');
+        function apply(on) {
+            document.body.classList.toggle('cs-private', !!on);
+            $btn.attr('aria-pressed', on ? 'true' : 'false').find('i').attr('class', on ? 'fa-solid fa-eye' : 'fa-solid fa-eye-slash');
+            $btn.find('span').text(on ? 'Privacy On' : 'Privacy');
+        }
+        var saved = false; try { saved = localStorage.getItem(KEY) === '1'; } catch (e) {}
+        apply(saved);
+        $btn.on('click', function () {
+            var on = $btn.attr('aria-pressed') !== 'true';
+            apply(on);
+            try { localStorage.setItem(KEY, on ? '1' : '0'); } catch (e) {}
+        });
+    })();
+
     // Never trust the stored UTC default — detect the creator's real timezone and persist it
     // so scheduling, the calendar and automations all use the right zone.
     var USER_TZ = (function () { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })();
