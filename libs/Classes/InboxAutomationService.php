@@ -296,7 +296,7 @@ class InboxAutomationService {
         $cb       = (new CreatorBrandModel())->get_for_user((int) $owner['user_id']);
         $system   = self::build_system_prompt($cb, $settings, $owner, 'cls', 'the fan', true);
         $ask = 'Write the automatic message I send on this event: "' . $meta[$trigger][0] . '" (' . $meta[$trigger][1] . '). '
-             . 'It goes to every fan this happens to, so do not use a name and do not reference anything specific they said. '
+             . 'It goes to every fan this happens to, at any hour of any day, so do not use a name, do not mention the time of day, and do not reference anything specific they said. '
              . '1 to 3 short sentences, warm, in my voice. Output only the message.';
         $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 400, 30, 'low');
         if (!$res['ok'] || stripos($res['text'], self::HOLD_TOKEN) !== false) { return ''; }
@@ -340,6 +340,7 @@ class InboxAutomationService {
 
         $p = array();
         $p[] = "You are {$name}, a content creator, replying to a fan named {$fan_name} in your own private DMs on {$where}. You write every message yourself, in first person, as {$name}.";
+        $p[] = 'Right now it is ' . self::local_time_phrase((string) ($owner['content_timezone'] ?? 'UTC')) . ' where you are. Only refer to the time of day (morning, tonight, weekend) when it matches this.';
 
         $voice = array();
         if (!empty($cb['voice']))       { $voice[] = 'Voice and tone: ' . trim((string) $cb['voice']); }
@@ -378,6 +379,15 @@ class InboxAutomationService {
 
         $p[] = "Rules:\n- " . implode("\n- ", $rules);
         return implode("\n\n", $p);
+    }
+
+    /** "Monday morning, 8:31 AM" in the creator's zone — so replies don't say "tonight" at breakfast. */
+    public static function local_time_phrase($tz): string {
+        try { $zone = new DateTimeZone($tz !== '' ? $tz : 'UTC'); } catch (Exception $e) { $zone = new DateTimeZone('UTC'); }
+        $now = new DateTime('now', $zone);
+        $h   = (int) $now->format('G');
+        $part = $h < 5 ? 'the middle of the night' : ($h < 12 ? 'morning' : ($h < 17 ? 'afternoon' : ($h < 21 ? 'evening' : 'night')));
+        return $now->format('l') . ' ' . $part . ', ' . $now->format('g:i A');
     }
 
     /** Newest → oldest: count creator turns that were ours until a human-written creator turn appears. */

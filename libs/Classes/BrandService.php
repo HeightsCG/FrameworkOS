@@ -53,10 +53,14 @@ class BrandService {
 
         // Shared client: it returns the first TEXT block, so a leading thinking block on
         // current models no longer yields an empty caption.
+        self::$last_error = '';
         $res = ClaudeService::chat('', array(array('role' => 'user', 'content' => $prompt)), 400, 45, 'low');
-        if (!$res['ok']) { error_log('[caption] ' . $res['error']); return ''; }
+        if (!$res['ok']) { self::$last_error = (string) $res['error']; error_log('[caption] ' . $res['error']); return ''; }
         return trim($res['text'], " \n\"'“”");
     }
+
+    /** Why the last caption_for() returned '' ('' when it succeeded). */
+    public static $last_error = '';
 
     /** Generate brand details from a public URL. Returns ['ok'=>bool, 'data'|'error']. */
     public static function generate_from_url($url){

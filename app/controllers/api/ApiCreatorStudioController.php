@@ -580,7 +580,11 @@ class ApiCreatorStudioController extends BaseApiController {
         $cb = (new CreatorBrandModel())->get_for_user($creator_id);
         $style = ($aud === 'subscribers' || $aud === 'ppv') ? 'tease' : '';
         $caption = BrandService::caption_for($topic, (array) $cb, $style);
-        if ($caption === '') { $this->jsonError('Could not write a caption right now.'); }
+        if ($caption === '') {
+            $why = (string) BrandService::$last_error;
+            $busy = stripos($why, 'Overloaded') !== false || strpos($why, 'HTTP 529') !== false || strpos($why, 'HTTP 429') !== false;
+            $this->jsonError($busy ? 'The AI is busy right now. Try again in a few seconds.' : 'Could not write a caption right now.');
+        }
         $this->jsonSuccess(['caption' => mb_substr($caption, 0, 3000)]);
     }
 
