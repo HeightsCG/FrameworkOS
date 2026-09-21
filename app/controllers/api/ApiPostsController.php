@@ -34,16 +34,17 @@ class ApiPostsController extends BaseApiController {
         $liked_map      = ($logged && !empty($post_ids)) ? (new PostLikesModel())->liked_map($viewer, $post_ids) : [];
 
         $cards = [];
+        // Discover is the shared surface: the creator is treated exactly like any other
+        // viewer here (no owner exemptions). The Studio is where they see their own work.
         foreach ($rows as $p) {
-            $id       = (int) $p['id'];
-            $is_owner = $logged && (int) $p['creator_id'] === $viewer;
-            $mod      = $moderation_map[$id] ?? '';
+            $id  = (int) $p['id'];
+            $mod = $moderation_map[$id] ?? '';
             if ($mod === 'blocked') { continue; }
-            if ($mod === 'pending' && !$is_owner) { continue; }
-            if ($mod === 'adult' && !$show_adult && !$is_owner) { continue; }
+            if ($mod === 'pending') { continue; }
+            if ($mod === 'adult' && !$show_adult) { continue; }
 
             $audience = (string) $p['audience'];
-            if ($is_owner || $audience === 'free') {
+            if ($audience === 'free') {
                 $entitled = true;
             } elseif ($audience === 'ppv') {
                 $entitled = isset($unlocked_map[$id]);
@@ -117,26 +118,26 @@ class ApiPostsController extends BaseApiController {
         if (!$post || ($post['state'] ?? '') !== 'published') {
             $this->jsonError('Post not found');
         }
-        $id       = (int) $post['id'];
-        $is_owner = $viewer > 0 && (int) $post['creator_id'] === $viewer;
+        if (empty($post['on_cls'])) { $this->jsonError('Post not found'); }   // socials-only post
+        $id = (int) $post['id'];
 
         // Same moderation gate the feed applies, re-checked so a post can't be
-        // reached by guessing its id.
+        // reached by guessing its id. Like the feed, the creator gets no owner exemption.
         $mod = (new PostsModel())->moderation_map([$id])[$id] ?? '';
-        $show_adult = $is_owner;
-        if (!$show_adult && $viewer > 0) {
+        $show_adult = false;
+        if ($viewer > 0) {
             $rows = (new UsersModel())->get_user_by_id($viewer);
             $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
             $show_adult = !empty($row['adult_content_enabled']);
         }
-        if ($mod === 'blocked' || ($mod === 'pending' && !$is_owner) || ($mod === 'adult' && !$show_adult && !$is_owner)) {
+        if ($mod === 'blocked' || $mod === 'pending' || ($mod === 'adult' && !$show_adult)) {
             $this->jsonError('Post not available');
         }
 
         $audience = (string) $post['audience'];
         $unlocked = ($viewer > 0) ? isset((new PpvUnlocksModel())->unlocked_map($viewer, [$id])[$id]) : false;
-        // post_engagement_ok covers owner / free / active-subscriber; PPV needs an unlock.
-        $entitled = $this->post_engagement_ok($post, $viewer);
+        // Free / active-subscriber; PPV needs an unlock. Ownership does not count on Discover.
+        $entitled = $this->post_engagement_ok($post, $viewer, false);
         if (!$entitled && $audience === 'ppv' && $unlocked) { $entitled = true; }
         $liked = ($viewer > 0) ? isset((new PostLikesModel())->liked_map($viewer, [$id])[$id]) : false;
 
@@ -605,10 +606,10 @@ class ApiPostsController extends BaseApiController {
     // ---------- Public post engagement (likes / comments / views) ----------
 
     /** Whether this viewer is allowed to see — and thus engage with — the post. */
-    private function post_engagement_ok(array $post, int $viewer_id): bool{
+    private function post_engagement_ok(array $post, int $viewer_id, bool $owner_counts = true): bool{
         if (!$post || ($post['state'] ?? '') !== 'published') { return false; }
         $creator_id = (int) $post['creator_id'];
-        if ($viewer_id === $creator_id) { return true; }
+        if ($owner_counts && $viewer_id === $creator_id) { return true; }
         if (($post['audience'] ?? 'free') === 'free') { return true; }
         if ($viewer_id <= 0) { return false; }
         $subs    = new CreatorSubscriptionsModel();

@@ -32,7 +32,7 @@ class FeedModel extends Model {
                 FROM posts p
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
-                WHERE p.state = 'published'
+                WHERE p.state = 'published' AND p.on_cls = 1
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
         return parent::select($sql, array());
@@ -50,7 +50,7 @@ class FeedModel extends Model {
         $cap = max(1, min(200, (int) $cap));
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p
-                    WHERE p.state = 'published' AND p.id > :since
+                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, array('since' => $since_id));

@@ -59,7 +59,7 @@ class SearchModel extends Model {
              FROM posts p
              JOIN user_accounts u ON u.user_id = p.creator_id
              LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
-             WHERE p.state = 'published' AND u.deleted = 0 AND p.caption LIKE :q
+             WHERE p.state = 'published' AND p.on_cls = 1 AND u.deleted = 0 AND p.caption LIKE :q
              ORDER BY p.published_at DESC, p.id DESC
              LIMIT 30",
             array('q' => $like)

@@ -59,6 +59,7 @@ class PostsModel extends Model {
         }
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
+        if (array_key_exists('on_cls', $fields))           { $data['on_cls'] = !empty($fields['on_cls']) ? 1 : 0; }
         return parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
@@ -192,7 +193,7 @@ class PostsModel extends Model {
 
     public function get_published_for_creator($creator_id){
         return parent::select(
-            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published'
+            "SELECT * FROM posts WHERE creator_id = :c AND state = 'published' AND on_cls = 1
              ORDER BY published_at DESC, id DESC",
             array('c' => (int) $creator_id)
         );

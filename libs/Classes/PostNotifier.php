@@ -13,6 +13,9 @@ class PostNotifier {
         try {
             $creator_id = (int) $creator_id; $post_id = (int) $post_id;
             if ($creator_id <= 0 || $post_id <= 0) { return; }
+            // Socials-only posts (on_cls = 0) never appear on the platform, so followers aren't told.
+            $post = (new PostsModel())->get_by_id($post_id);
+            if ($post && empty($post['on_cls'])) { return; }
             $ids = self::audience_ids($creator_id);
             if (empty($ids)) { return; }
             if (count($ids) > self::INLINE_MAX && class_exists('DatabaseJobQueue')) {

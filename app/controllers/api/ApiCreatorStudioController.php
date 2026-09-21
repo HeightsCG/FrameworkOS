@@ -597,6 +597,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $tier_id    = ($audience === 'subscribers') ? (int) ($this->post['tier_id'] ?? 0) : 0;
         $ppv_credits = ($audience === 'ppv') ? $this->ppv_credits_from_dollars($this->post['ppv_price'] ?? 0) : 0;
         $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
+        $on_cls     = (((string) ($this->post['on_cls'] ?? '1')) === '0') ? 0 : 1;   // publish on Creator Link Studio itself
         $asset_ids  = $this->post['asset_ids'] ?? [];
         if (!is_array($asset_ids)) { $asset_ids = []; }
         $asset_ids  = array_values(array_map('intval', $asset_ids));
@@ -606,7 +607,7 @@ class ApiCreatorStudioController extends BaseApiController {
         // isn't worth saving yet (avoids junk drafts from just toggling options).
         if ($id === 0 && trim($caption) === '' && empty($asset_ids)) {
             $this->jsonSuccess(['id' => 0, 'post' => [
-                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'comments_enabled' => $comments, 'state' => 'draft',
+                'id' => 0, 'caption' => '', 'audience' => $audience, 'tier_id' => $tier_id ?: null, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'state' => 'draft',
                 'scheduled_local' => '', 'timezone' => (string) ($user['content_timezone'] ?? 'UTC'),
                 'assets' => [], 'cover_display_url' => '', 'cover_blurred_url' => '',
                 'validation' => ['ok' => false, 'reason' => 'Add a photo, video, or caption before publishing.'],
@@ -614,7 +615,7 @@ class ApiCreatorStudioController extends BaseApiController {
         }
 
         $model  = new PostsModel();
-        $fields = ['caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments, 'ppv_price_credits' => $ppv_credits];
+        $fields = ['caption' => $caption, 'audience' => $audience, 'tier_id' => $tier_id, 'comments_enabled' => $comments, 'on_cls' => $on_cls, 'ppv_price_credits' => $ppv_credits];
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
@@ -675,9 +676,11 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        $shares = $this->share_accounts_from_request();
+        if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
         $model->set_state($creator_id, $id, 'published');
-        PostNotifier::published($creator_id, $id);
-        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), null);
+        if (!empty($post['on_cls'])) { PostNotifier::published($creator_id, $id); }   // socials-only posts don't notify followers
+        $this->share_post_to_social($user, $post, $shares, null);
         $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
     }
 
@@ -694,10 +697,12 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$utc || strtotime($utc) <= time()) {
             $this->jsonError('Pick a date and time in the future.');
         }
+        $shares = $this->share_accounts_from_request();
+        if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
         $model->set_state($creator_id, $id, 'scheduled', $utc);
         // $utc is already 'Y-m-d H:i:s' in UTC — build the ISO directly (strtotime would
         // misread it in the server's America/New_York default zone and send a wrong time).
-        $this->share_post_to_social($user, $post, $this->share_accounts_from_request(), str_replace(' ', 'T', $utc) . 'Z');
+        $this->share_post_to_social($user, $post, $shares, str_replace(' ', 'T', $utc) . 'Z');
         $this->jsonSuccess(['message' => 'Scheduled', 'state' => 'scheduled']);
     }
 
@@ -1003,6 +1008,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
+            'on_cls'            => (int) ($post['on_cls'] ?? 1),
             'state'             => $post['state'],
             'scheduled_local'   => $this->from_utc($post['scheduled_at'] ?? '', $tz),
             'timezone'          => $tz,

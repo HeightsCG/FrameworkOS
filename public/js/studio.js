@@ -747,7 +747,7 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', audience: 'free', tier_id: '', ppv_price: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
     function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
@@ -761,6 +761,12 @@ jQuery(function ($) {
         var $empty = $('#csPeDestEmpty').prop('hidden', true).empty();
         $('#csPeDestNone').prop('hidden', true);
         $('#csPeDestSearch').val('');
+        // Creator Link Studio itself is a destination too: off = socials-only post (never on your profile or the Home feed).
+        $wrap.append('<label class="cs-pe__dest' + (composer.on_cls ? ' is-on' : '') + '" for="csPeDestCls" data-search="creator link studio profile feed">' +
+            '<input class="form-check-input" type="checkbox" id="csPeDestCls" data-cls="1"' + (composer.on_cls ? ' checked' : '') + '>' +
+            '<i class="fa-solid fa-house cs-pe__desticon" aria-hidden="true"></i>' +
+            '<span class="cs-pe__destname">Creator Link Studio</span>' +
+            '<span class="cs-pe__destplat">Your profile and the Home feed</span></label>');
         if (!accounts.length) {
             $('#csPeDestTools').prop('hidden', true);
             $empty.prop('hidden', false).html('No connected accounts yet. Connect one in <a href="/account/settings?section=connected">Settings</a> and it will appear here.');
@@ -789,8 +795,15 @@ jQuery(function ($) {
     function peUpdateDestCount() {
         var n = composer.share.size, total = $('#csCompSocial input[data-acct]').length;
         $('#csPeDestCount').text(total ? (n + ' of ' + total + ' selected') : '');
-        peSum('distribution', n === 0 ? 'No social accounts' : (n + ' social account' + (n === 1 ? '' : 's')));
+        var social = n === 0 ? '' : n + ' social account' + (n === 1 ? '' : 's');
+        peSum('distribution', composer.on_cls ? ('Creator Link Studio' + (social ? ' + ' + social : '')) : (social || 'Nowhere yet'));
+        $('#csPeErr_share').prop('hidden', !!(composer.on_cls || n)).text(composer.on_cls || n ? '' : 'Pick at least one place to publish.');
     }
+    $('#csCompSocial').on('change', '#csPeDestCls', function () {
+        composer.on_cls = this.checked ? 1 : 0;
+        $(this).closest('.cs-pe__dest').toggleClass('is-on', this.checked);
+        peUpdateDestCount(); peMarkDirty(); scheduleSave();
+    });
     $('#csCompSocial').on('change', 'input[data-acct]', function () {
         var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id);
         $(this).closest('.cs-pe__dest').toggleClass('is-on', this.checked);
@@ -950,7 +963,7 @@ jQuery(function ($) {
     function resetScheduleUI() { $('#csPeDate, #csPeTime, #csCompSchedAt').val(''); }
     function newComposer() {
         clearTimeout(composer.saveTimer);
-        composer = { id: null, caption: '', audience: 'free', tier_id: '', lastTier: '', ppv_price: 5, lastPpv: 5, comments_enabled: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        composer = { id: null, caption: '', audience: 'free', tier_id: '', lastTier: '', ppv_price: 5, lastPpv: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         composer.share = new Set();
         composer.state = 'draft';
         resetScheduleUI();
@@ -966,6 +979,7 @@ jQuery(function ($) {
         composer.moderation = p.moderation || 'ok';
         composer.ppv_price = p.ppv_price_dollars || 5; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
+        composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
         composer.state = p.state || 'draft';
         composer.assets = p.assets || []; composer.coverDisplay = p.cover_display_url || ''; composer.coverBlurred = p.cover_blurred_url || '';
@@ -989,7 +1003,7 @@ jQuery(function ($) {
     // What the post looked like when the editor opened (or after an explicit save): "Discard changes" reverts to this.
     function peStateFields() {
         return { caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? String(composer.ppv_price || '') : ''),
-                 asset_ids: composer.assets.map(function (a) { return a.id; }), comments_enabled: (composer.comments_enabled ? '1' : '0') };
+                 asset_ids: composer.assets.map(function (a) { return a.id; }), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
     }
     function peSnapshot() { composer.snapshot = { id: composer.id, fields: peStateFields() }; }
     function peChangedSinceOpen() { return !composer.snapshot || JSON.stringify(peStateFields()) !== JSON.stringify(composer.snapshot.fields); }
@@ -1132,7 +1146,7 @@ jQuery(function ($) {
     function scheduleSave() { clearTimeout(composer.saveTimer); if (composer.caption.trim() || composer.assets.length || composer.id) setSaveStatus('Saving…'); composer.saveTimer = setTimeout(function () { saveNow(); }, 800); }
     function saveNow(cb) {
         clearTimeout(composer.saveTimer);
-        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0') };
+        var data = { id: composer.id || 0, caption: composer.caption, audience: composer.audience, tier_id: (composer.audience === 'subscribers' ? (composer.tier_id || '') : ''), ppv_price: (composer.audience === 'ppv' ? (composer.ppv_price || '') : ''), asset_ids: composer.assets.map(function (a) { return a.id; }), cover_id: coverId(), comments_enabled: (composer.comments_enabled ? '1' : '0'), on_cls: (composer.on_cls ? '1' : '0') };
         var sentIds = data.asset_ids.join(',');
         ApiDataSvc.apiCall('post', 'post_save', data, function (resp) { var o = JSON.parse(resp);
                 if (o && o.success) {
@@ -1378,7 +1392,7 @@ jQuery(function ($) {
                 } else if (composer.id && snap && snap.id) {
                     // Put the post back the way it was when the editor opened.
                     var f = snap.fields;
-                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_id: f.tier_id, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled }, function () { afterComposer(); });
+                    ApiDataSvc.apiCall('post', 'post_save', { id: composer.id, caption: f.caption, audience: f.audience, tier_id: f.tier_id, ppv_price: f.ppv_price, asset_ids: f.asset_ids, cover_id: f.asset_ids[0] || 0, comments_enabled: f.comments_enabled, on_cls: f.on_cls }, function () { afterComposer(); });
                 }
                 composerModal.hide();
             }

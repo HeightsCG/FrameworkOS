@@ -364,7 +364,7 @@
 
                     <section class="cs-pe__section" data-section="distribution" aria-labelledby="csPeH_distribution" hidden>
                         <h3 class="cs-pe__h" id="csPeH_distribution" tabindex="-1">Distribution</h3>
-                        <p class="cs-pe__sub">Choose where else this post should be published.</p>
+                        <p class="cs-pe__sub">Choose where this post should be published.</p>
 
                         <div class="cs-pe__desttools" id="csPeDestTools">
                             <label class="visually-hidden" for="csPeDestSearch">Filter accounts</label>
