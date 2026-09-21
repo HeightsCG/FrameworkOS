@@ -167,17 +167,46 @@ class PostsModel extends Model {
      *                  "show adult content" off.
      * Posts with all images approved are omitted (fully visible).
      */
+    /**
+     * Creator-facing version of moderation_map() for the Studio: 'blocked' | 'pending'
+     * (unscanned/error, hidden from fans until scanned) | 'adult' (shown to opted-in fans) | 'ok'.
+     */
+    public function studio_moderation_map(array $post_ids){
+        $ids = array_filter(array_map('intval', $post_ids));
+        if (!$ids) { return array(); }
+        $in = implode(',', $ids);
+        $rows = parent::select(
+            "SELECT pa.post_id,
+                    SUM(ma.moderation_status = 'blocked') AS blocked_n,
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged')) AS unscanned_n,
+                    SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
+             FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
+             GROUP BY pa.post_id"
+        );
+        $out = array();
+        foreach ((array) $rows as $r) {
+            $pid = (int) $r['post_id'];
+            if ((int) $r['blocked_n'] > 0)        { $out[$pid] = 'blocked'; }
+            elseif ((int) $r['unscanned_n'] > 0)  { $out[$pid] = 'pending'; }
+            elseif ((int) $r['adult_n'] > 0)      { $out[$pid] = 'adult'; }
+            else                                  { $out[$pid] = 'ok'; }
+        }
+        return $out;
+    }
+
     public function moderation_map(array $post_ids){
         $ids = array_filter(array_map('intval', $post_ids));
         if (!$ids) { return array(); }
         $in = implode(',', $ids);
-        // Four states. Adult content is HELD ('pending') until an admin approves it (PRD §34);
-        // once approved it becomes 'adult' (shown only to opted-in viewers). Non-adult approved = ''.
+        // Adult content is NOT held for human approval (Daniel, 2026-09-21): a 'flagged' image
+        // is simply adult and shows to opted-in viewers right away. Only 'blocked' (suspected
+        // minors) is a hard stop; 'pending'/'error' (unscanned) hide the post until scanned.
         $rows = parent::select(
             "SELECT pa.post_id,
                     SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked')) AS held_n,
-                    SUM(ma.moderation_status = 'approved' AND ma.is_adult = 1) AS adult_n
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged')) AS held_n,
+                    SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
              GROUP BY pa.post_id"
@@ -185,7 +214,7 @@ class PostsModel extends Model {
         $out = array();
         foreach ((array) $rows as $r) {
             if ((int) $r['blocked_n'] > 0)   { $out[(int) $r['post_id']] = 'blocked'; }
-            elseif ((int) $r['held_n'] > 0)  { $out[(int) $r['post_id']] = 'pending'; }   // unscanned or flagged-awaiting-review
+            elseif ((int) $r['held_n'] > 0)  { $out[(int) $r['post_id']] = 'pending'; }   // unscanned / scan error
             elseif ((int) $r['adult_n'] > 0) { $out[(int) $r['post_id']] = 'adult'; }
         }
         return $out;

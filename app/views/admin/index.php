@@ -62,13 +62,13 @@ $users = $this->users;
     <section class="adm-sec adm-panel is-active" data-panel="moderation">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Moderation queue</h2>
-            <span class="adm-sec__meta"><?php echo count($queue); ?> awaiting review</span>
+            <span class="adm-sec__meta"><?php echo count($queue); ?> flagged or unscanned · adult content is already live to opted-in fans</span>
         </div>
         <?php if (empty($queue)): ?>
             <div class="adm-empty">
                 <span class="adm-empty__ic"><i class="fa-solid fa-circle-check"></i></span>
                 <p class="adm-empty__t">Nothing to review</p>
-                <p class="adm-empty__x">Flagged and unscanned content will appear here for approval.</p>
+                <p class="adm-empty__x">Flagged and unscanned content is listed here for oversight. Nothing waits on you.</p>
             </div>
         <?php else: ?>
             <div class="adm-mod" id="admMod">

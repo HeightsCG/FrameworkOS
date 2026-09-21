@@ -1004,7 +1004,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'caption'           => (string) $post['caption'],
             'audience'          => $post['audience'],
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
-            'moderation'        => (string) ((new PostsModel())->moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
+            'moderation'        => (string) ((new PostsModel())->studio_moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
@@ -1111,7 +1111,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'earnings_cents' => (int) $p['earnings_cents'],
             'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) round($p['ppv_price_credits'] / 10) : null,
             'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
-            'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'flagged'|'pending'|'ok'
+            'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'blocked'|'pending'|'adult'|'ok'
             'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']) + (!empty($p['fanvue_post_uuid']) ? 1 : 0),
         ];
     }

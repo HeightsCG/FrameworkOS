@@ -1014,7 +1014,7 @@ jQuery(function ($) {
         if (composer.moderation === 'blocked') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--blocked').prop('hidden', false)
                 .html('<i class="fa-solid fa-ban"></i> This post contains media that was <strong>blocked</strong> by our content check and can\'t be published. Remove it to continue.');
-        } else if (composer.moderation === 'flagged') {
+        } else if (composer.moderation === 'flagged' || composer.moderation === 'adult') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--adult').prop('hidden', false)
                 .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.');
         } else if (composer.moderation === 'pending') {
@@ -1490,7 +1490,8 @@ jQuery(function ($) {
             : (p.audience === 'ppv'
                 ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-dollar-sign"></i> PPV · $' + (p.ppv_price_dollars || 0) + '</span>'
                 : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
-        var adult = (p.moderation === 'flagged') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>'
+        var adult = (p.moderation === 'flagged' || p.moderation === 'adult') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>'
+            : (p.moderation === 'pending') ? '<span class="cs-post__adult" title="Checking content — hidden from fans until the check finishes"><i class="fa-solid fa-shield-halved"></i> Checking</span>'
             : (p.moderation === 'blocked') ? '<span class="cs-post__blocked" title="Blocked by content check — cannot be published"><i class="fa-solid fa-ban"></i> Blocked</span>' : '';
         var when = p.when ? '<span class="cs-post__when">' + esc(p.when_label) + ' ' + esc(p.when) + '</span>' : '';
         var missing = p.media_missing ? '<span class="cs-post__warn"><i class="fa-solid fa-triangle-exclamation"></i> Media removed</span>' : '';
