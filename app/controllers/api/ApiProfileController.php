@@ -50,6 +50,38 @@ class ApiProfileController extends BaseApiController {
     }
 
     /** Change the signed-in user's username, enforcing the PRD 6.4 rules. */
+    /** Upload the signed-in person's own profile photo (fans, creators and team members alike). Stored on their creator_profiles row. */
+    public function upload_my_avatarAction(){
+        $user_id = (int) Session::get('user_id');
+        if ($user_id <= 0) { $this->jsonError('Not authorized'); }
+        $file = $_FILES['image'] ?? null;
+        if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
+            $this->jsonError('No image was uploaded');
+        }
+        if ((int) $file['size'] > 5 * 1024 * 1024) { $this->jsonError('Image must be 5MB or smaller'); }
+        // Trust the actual bytes, not the client-supplied name/type.
+        $info = @getimagesize($file['tmp_name']);
+        $ext_map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+        if ($info === false || !isset($ext_map[$info['mime']])) { $this->jsonError('Unsupported image type (use JPG, PNG, WebP, or GIF)'); }
+        if (!S3Service::configured()) { $this->jsonError('Image uploads are not available right now'); }
+        $key = 'creator/u' . $user_id . '_avatar_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$info['mime']];
+        $url = S3Service::upload_file($key, $file['tmp_name'], $info['mime']);
+        if ($url === '') { $this->jsonError('Could not save the image'); }
+        (new CreatorProfileModel())->set_image($user_id, 'avatar_url', $url);
+        $this->jsonSuccess(['url' => $url, 'message' => 'Profile photo updated']);
+    }
+
+    /** Remove the signed-in person's own profile photo. */
+    public function remove_my_avatarAction(){
+        $user_id = (int) Session::get('user_id');
+        if ($user_id <= 0) { $this->jsonError('Not authorized'); }
+        $model = new CreatorProfileModel();
+        $old = (string) ($model->get_for_user($user_id)['avatar_url'] ?? '');
+        $model->set_image($user_id, 'avatar_url', '');
+        if ($old !== '') { S3Service::delete_by_url($old); }
+        $this->jsonSuccess(['message' => 'Profile photo removed']);
+    }
+
     public function change_usernameAction(){
 
         if (empty(Session::get('user_id'))) {

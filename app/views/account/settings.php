@@ -36,6 +36,18 @@
         <div class="settings__content">
 
             <section class="settings__section is-active" data-section="account">
+                <?php $my_av = (string) ($this->my_avatar ?? ''); ?>
+                <div class="myav">
+                    <label class="uname__label">Profile Photo</label>
+                    <div class="myav__row">
+                        <div class="cprofile__avatar myav__img" id="my_avatar_preview" style="<?php echo $my_av !== '' ? 'background-image:url(\'' . htmlspecialchars($my_av, ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
+                            <?php if ($my_av === ''): ?><i class="fa-solid fa-user"></i><?php endif; ?>
+                        </div>
+                        <button type="button" class="btn btn-secondary" id="my_avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload Photo</button>
+                        <button type="button" class="btn btn-secondary" id="my_avatar_remove" <?php echo $my_av === '' ? 'hidden' : ''; ?>>Remove</button>
+                    </div>
+                    <input type="file" id="my_avatar_file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+                </div>
                 <?php $next_change = $this->username_next_change; ?>
                 <div class="uname">
                     <label class="uname__label" for="account_username">Username</label>
@@ -1924,6 +1936,7 @@ $(function () {
     // Required output sizes per image kind.
     var CROP_SPEC = {
         avatar: { ratio: 1,   width: 512,  height: 512, label: 'Square, 512×512' },
+        my_avatar: { ratio: 1, width: 512, height: 512, label: 'Square, 512×512' },
         cover:  { ratio: 3,   width: 1500, height: 500, label: 'Wide banner, 1500×500' }
     };
     var cropper = null, cropKind = null, cropTarget = null;
@@ -1952,9 +1965,37 @@ $(function () {
         var spec = CROP_SPEC[cropKind];
         cropper.getCroppedCanvas({ width: spec.width, height: spec.height, imageSmoothingQuality: 'high' })
             .toBlob(function (blob) {
-                uploadCreatorImage(cropKind, blob, cropKind + '.jpg', cropTarget);
+                if (cropKind === 'my_avatar') { uploadMyAvatar(blob); } else { uploadCreatorImage(cropKind, blob, cropKind + '.jpg', cropTarget); }
                 $('#crop_modal').modal('hide');
             }, 'image/jpeg', 0.9);
+    });
+
+    /* Account > Profile Photo: every user's own photo (uses the same cropper) */
+    function setMyAvatar(url) {
+        $('#my_avatar_preview, #avatar_preview').each(function () {
+            var $p = $(this);
+            if (url) { $p.css('background-image', "url('" + url + "')").find('i, svg').remove(); }   // the icon kit swaps <i> for <svg>
+            else { $p.css('background-image', ''); if (!$p.find('i, svg').length) { $p.append('<i class="fa-solid fa-user"></i>'); } }
+        });
+        $('#my_avatar_remove, #avatar_remove').prop('hidden', !url);
+    }
+    function uploadMyAvatar(blob) {
+        var fd = new FormData();
+        fd.append('image', blob, 'avatar.jpg');
+        $.ajax({
+            url: ApiDataSvc.baseUrl + 'upload_my_avatar', type: 'POST', data: fd, processData: false, contentType: false,
+            success: function (data) { var o = JSON.parse(data); if (o.success) { toastr.success(o.message); setMyAvatar(o.url); } else { toastr.error(o.message); } },
+            error: function () { toastr.error('Upload failed'); }
+        });
+    }
+    $('#my_avatar_upload_btn').on('click', function () { $('#my_avatar_file').trigger('click'); });
+    $('#my_avatar_file').on('change', function () { if (this.files[0]) { openCropper('my_avatar', this.files[0], $('#my_avatar_preview')); this.value = ''; } });
+    $('#my_avatar_remove').on('click', function () {
+        ApiDataSvc.apiCall('post', 'remove_my_avatar', {}, function (data) {
+            var o = JSON.parse(data);
+            if (!o.success) { toastr.error(o.message); return; }
+            toastr.success(o.message); setMyAvatar('');
+        });
     });
 
     $('#cover_upload_btn').on('click', function () { $('#cover_file').trigger('click'); });

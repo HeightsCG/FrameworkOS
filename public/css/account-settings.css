@@ -552,3 +552,8 @@
 .inbox-pick__item.is-on .inbox-pick__chk{background:var(--violet); color:#fff;}
 .inbox-pick .settings__empty{grid-column:1/-1;}
 @media (max-width:640px){ .inbox-pick{grid-template-columns:repeat(3,1fr);} }
+
+/* Account > Profile Photo (every user) */
+.myav{ margin-bottom:1.6rem; padding-bottom:1.6rem; border-bottom:1px solid #efedf5; }
+.myav__row{ display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; margin-top:.5rem; }
+.myav__img{ width:72px; height:72px; }

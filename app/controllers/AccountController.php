@@ -117,6 +117,8 @@ class AccountController extends Controller {
         $this->view->can_manage          = $can_manage;
         $this->view->is_owner_creator    = $is_owner_creator;
         $this->view->creator_profile     = $can_content ? (new CreatorProfileModel())->get_for_user($owner['user_id']) : array();
+        $me_profile = (new CreatorProfileModel())->get_for_user((int) Session::get('user_id'));
+        $this->view->my_avatar          = (string) ($me_profile['avatar_url'] ?? '');
         $this->view->creator_links       = $can_content ? (new CreatorLinksModel())->get_for_user($owner['user_id']) : array();
         $this->view->creator_plans       = $can_manage  ? (new CreatorPlansModel())->get_for_user($owner['user_id']) : array();
         $this->view->promo_codes         = $can_manage  ? (new CreatorPromoCodesModel())->get_for_user($owner['user_id']) : array();

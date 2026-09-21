@@ -14,7 +14,7 @@ class ApiRoutes {
         ],
         'ApiProfileController' => [
             'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'block_user', 'unblock_user',
-            'become_creator', 'leave_creator', 'delete_my_account', 'follow_creator', 'unfollow_creator',
+            'become_creator', 'leave_creator', 'delete_my_account', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [
             'create_subscription', 'abandon_subscription', 'sync_subscription', 'cancel_subscription', 'resume_subscription', 'cancel_now_subscription',
