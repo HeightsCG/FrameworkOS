@@ -5,7 +5,7 @@
 --   mysql -h127.0.0.1 -ucasivo -p'...' contentos --protocol=TCP < sql/2026-09-21_seo_content_engine.sql
 -- Then add the cron line (first run seeds the 15 starter keywords and drafts one article):
 --   0 9 * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_draft.php >> /var/www/creatorlinkstudio.com/www/cron/seo_draft.log 2>&1
--- Already applied on dev.
+-- Already applied on dev and prod (2026-09-21).
 CREATE TABLE IF NOT EXISTS seo_keywords (
   id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
   keyword     VARCHAR(160) NOT NULL,
