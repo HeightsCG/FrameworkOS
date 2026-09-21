@@ -28,11 +28,11 @@ $n = 0;
 
     <ol class="setup__list">
         <?php foreach ($required as $s): $n++; $is_next = ($s['key'] === $next_key); ?>
-        <li class="setup__step<?php echo $s['done'] ? ' is-done' : ($is_next ? ' is-next' : ''); ?>">
+        <li class="setup__step<?php echo $s['done'] ? ' is-done' : (!empty($s['skipped']) ? ' is-skipped' : ($is_next ? ' is-next' : '')); ?>">
             <span class="setup__mark" aria-hidden="true"><?php echo $s['done'] ? '<i class="fa-solid fa-check"></i>' : (int) $n; ?></span>
             <span class="setup__body">
                 <span class="setup__name"><?php echo $e($s['title']); ?></span>
-                <span class="setup__text"><?php echo $s['done'] ? 'Done' . ($fmt($s['done_at']) !== '' ? ' · ' . $e($fmt($s['done_at'])) : '') : $e($s['text']); ?></span>
+                <span class="setup__text"><?php echo $s['done'] ? 'Done' . ($fmt($s['done_at']) !== '' ? ' · ' . $e($fmt($s['done_at'])) : '') : (!empty($s['skipped']) ? 'Skipped · ' . $e($s['text']) : $e($s['text'])); ?></span>
             </span>
             <?php if (!$s['done']): ?>
             <a class="btn <?php echo $is_next ? 'btn-primary' : 'btn-secondary'; ?> setup__cta" href="<?php echo $e($s['url']); ?>"><?php echo $e($s['cta']); ?></a>

@@ -46,7 +46,7 @@ class ApiRoutes {
             'fanvue_disconnect',
         ],
         'ApiSetupController' => [
-            'setup_progress', 'setup_dismiss',
+            'setup_progress', 'setup_dismiss', 'setup_skip_step',
         ],
         'ApiInboxController' => [
             'inbox_settings_save', 'inbox_queue_list', 'inbox_reply_send', 'inbox_reply_dismiss', 'inbox_test_draft',

@@ -16,6 +16,8 @@
 .setup__mark{ flex:none; width:28px; height:28px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:600; color:var(--t2); background:#f1f0f7; }
 .setup__step.is-next .setup__mark{ background:var(--violet); color:#fff; }
 .setup__step.is-done .setup__mark{ background:#e6f6ec; color:#1f7a3f; }
+.setup__step.is-skipped .setup__mark{ background:#f1f0f7; color:var(--muted2); }
+.setup__step.is-skipped .setup__name{ color:var(--t2); }
 .setup__mark--opt{ font-size:.75rem; }
 .setup__body{ display:flex; flex-direction:column; gap:2px; min-width:0; flex:1; }
 .setup__name{ font-size:.98rem; font-weight:600; color:var(--text); }

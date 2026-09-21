@@ -29,8 +29,9 @@ class SetupService {
         $creator_id = (int) $creator_id;
         $model = new CreatorSetupModel();
         $row   = $model->get($creator_id);
-        $done  = array();
-        if ($row && !empty($row['steps_json'])) { $done = (array) json_decode((string) $row['steps_json'], true); }
+        $done  = array(); $skipped = array();
+        if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
+        if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
 
         $stale = $force || !$row || empty($row['checked_at']) || (strtotime((string) $row['checked_at']) < time() - self::TTL);
         if ($stale && (!$row || empty($row['completed_at']))) {
@@ -40,23 +41,25 @@ class SetupService {
                 if (self::check($model, $key, $creator_id)) { $done[$key] = $now; }
             }
             $model->upsert_steps($creator_id, $done, $now);
-            if (self::all_required_done($done)) { $model->mark_completed($creator_id); }
+            if (self::all_required_done($done + $skipped)) { $model->mark_completed($creator_id); }
             $row = $model->get($creator_id);
         }
 
+        // A skipped step is hidden from the widget and counts as settled for completion.
         $steps = array(); $req_total = 0; $req_done = 0; $next = null;
         foreach (self::steps() as $key => $meta) {
-            $is_done = isset($done[$key]);
-            $s = $meta + array('key' => $key, 'done' => $is_done, 'done_at' => $is_done ? (string) $done[$key] : '');
+            $is_done = isset($done[$key]); $is_skipped = !$is_done && isset($skipped[$key]);
+            $s = $meta + array('key' => $key, 'done' => $is_done, 'skipped' => $is_skipped, 'done_at' => $is_done ? (string) $done[$key] : '');
             if (!$meta['optional']) {
                 $req_total++;
-                if ($is_done) { $req_done++; } elseif ($next === null) { $next = $s; }
+                if ($is_done || $is_skipped) { $req_done++; } elseif ($next === null) { $next = $s; }
             }
             $steps[] = $s;
         }
-        if ($next === null) {   // every required step done: point at the optional one if it's open
-            foreach ($steps as $s) { if (!$s['done']) { $next = $s; break; } }
+        if ($next === null) {   // every required step settled: point at the optional one if it's open
+            foreach ($steps as $s) { if (!$s['done'] && !$s['skipped']) { $next = $s; break; } }
         }
+        if ($req_done >= $req_total && $row && empty($row['completed_at'])) { $model->mark_completed($creator_id); }
         return array(
             'steps'          => $steps,
             'required_done'  => $req_done,

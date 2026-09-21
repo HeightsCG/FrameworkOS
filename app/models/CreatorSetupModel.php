@@ -36,6 +36,19 @@ class CreatorSetupModel extends Model {
         );
     }
 
+    /** Hide one step for good (counts as satisfied for completion). */
+    public function skip_step($user_id, $key){
+        $now = date('Y-m-d H:i:s');
+        $row = $this->get($user_id);
+        $skipped = ($row && !empty($row['skipped_json'])) ? (array) json_decode((string) $row['skipped_json'], true) : array();
+        $skipped[(string) $key] = $now;
+        return parent::sql(
+            "INSERT INTO creator_setup (user_id, skipped_json, created_at, updated_at) VALUES (:u, :sk, :c, :up)
+             ON DUPLICATE KEY UPDATE skipped_json = VALUES(skipped_json), updated_at = VALUES(updated_at)",
+            array(':u' => (int) $user_id, ':sk' => json_encode($skipped), ':c' => $now, ':up' => $now)
+        );
+    }
+
     public function mark_completed($user_id){
         $now = date('Y-m-d H:i:s');
         return parent::update('creator_setup',

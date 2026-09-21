@@ -150,7 +150,37 @@ $(document).ready(function() {
         setInterval(count, 30000);
     })();
 
-    // Creator setup checklist: hide the card (and /setup's "Hide this checklist") after a confirm.
+    // Creator setup widget: open/collapse (remembered per browser) and per-step skip.
+    (function () {
+        var $w = $('#setupWidget'); if (!$w.length) { return; }
+        var KEY = 'cls_setup_open', open = false;
+        try { open = localStorage.getItem(KEY) === '1'; } catch (e) {}
+        function set(on) {
+            open = !!on;
+            $w.attr('data-open', open ? '1' : '0');
+            $('#setupWidgetPanel').prop('hidden', !open);
+            $w.find('[data-setup-toggle][aria-expanded]').attr('aria-expanded', open ? 'true' : 'false');
+            try { localStorage.setItem(KEY, open ? '1' : '0'); } catch (e) {}
+        }
+        set(open);
+        $w.on('click', '[data-setup-toggle]', function () { set(!open); });
+        $w.on('click', '[data-setup-skip]', function () {
+            var key = $(this).attr('data-setup-skip'), $li = $(this).closest('.setup-widget__step');
+            ApiDataSvc.apiCall('post', 'setup_skip_step', { key: key }, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (err) {}
+                if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not skip that step.'); } return; }
+                $li.slideUp(140, function () { $(this).remove(); });
+                var d = o.required_done, t = o.required_total;
+                $w.find('.setup-widget__count').text(d + ' of ' + t + ' steps done');
+                $w.find('.setup-widget__ring span').text(d + '/' + t);
+                var pct = t > 0 ? Math.round(d / t * 100) : 0;
+                $w.find('.setup-widget__ring').css('--pct', pct); $w.find('.setup-widget__fill').css('width', pct + '%');
+                if (o.complete) { setTimeout(function () { $w.fadeOut(200, function () { $(this).remove(); }); }, 400); }
+            });
+        });
+    })();
+
+    // Creator setup checklist: hide the widget (and /setup's "Hide this checklist") after a confirm.
     $(document).on('click', '[data-setup-dismiss]', function (e) {
         e.preventDefault();
         if (typeof Swal === 'undefined') { return; }
@@ -165,7 +195,7 @@ $(document).ready(function() {
             ApiDataSvc.apiCall('post', 'setup_dismiss', {}, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not hide the checklist.'); } return; }
-                $('#setupCard').slideUp(160, function () { $(this).remove(); });
+                $('#setupWidget').fadeOut(160, function () { $(this).remove(); });
                 $('.setup__foot').remove();
                 if (window.toastr) { toastr.success('Checklist hidden. Find it any time at /setup.'); }
             });

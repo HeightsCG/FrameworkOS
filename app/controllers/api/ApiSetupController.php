@@ -7,6 +7,15 @@ class ApiSetupController extends BaseApiController {
         $this->jsonSuccess(SetupService::progress((int) $user['user_id'], true));
     }
 
+    /** Hide one step. The /setup page still lists it so it can be done later. */
+    public function setup_skip_stepAction(){
+        $user = $this->require_creator('content');
+        $key  = (string) ($this->post['key'] ?? '');
+        if (!array_key_exists($key, SetupService::steps())) { $this->jsonError('Unknown step'); }
+        (new CreatorSetupModel())->skip_step((int) $user['user_id'], $key);
+        $this->jsonSuccess(SetupService::progress((int) $user['user_id']));
+    }
+
     /** Hides the layout card for good (the /setup page stays reachable). Owner-scoped, like every creator setting. */
     public function setup_dismissAction(){
         $user = $this->require_creator('content');

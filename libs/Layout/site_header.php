@@ -105,25 +105,45 @@
 
         <div class="app-content">
 <?php
-// Creator onboarding card: every page, until all required steps are done or the creator hides it.
-$setup_card = (strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/setup') === 0) ? null : SetupService::card();
-if ($setup_card && !empty($setup_card['next'])):
-    $sc_next = $setup_card['next'];
-    $sc_pct  = $setup_card['required_total'] > 0 ? (int) round($setup_card['required_done'] / $setup_card['required_total'] * 100) : 0;
+// Creator onboarding widget: floats bottom-right on every page (not on /setup) until every
+// required step is done or skipped, or the creator hides it. Collapsed/open is remembered client-side.
+$setup = (strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/setup') === 0) ? null : SetupService::card();
+if ($setup && !empty($setup['next'])):
+    $sw_e   = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+    $sw_pct = $setup['required_total'] > 0 ? (int) round($setup['required_done'] / $setup['required_total'] * 100) : 0;
 ?>
-            <section class="setup-card" id="setupCard" aria-label="Studio setup progress">
-                <div class="setup-card__main">
-                    <div class="setup-card__head">
-                        <h2 class="setup-card__title">Set up your studio</h2>
-                        <span class="setup-card__count"><?php echo (int) $setup_card['required_done']; ?> of <?php echo (int) $setup_card['required_total']; ?> steps done</span>
+            <aside class="setup-widget" id="setupWidget" data-open="0" aria-label="Studio setup progress">
+                <button type="button" class="setup-widget__pill" data-setup-toggle aria-expanded="false" aria-controls="setupWidgetPanel">
+                    <span class="setup-widget__ring" style="--pct:<?php echo $sw_pct; ?>"><span><?php echo (int) $setup['required_done']; ?>/<?php echo (int) $setup['required_total']; ?></span></span>
+                    <span class="setup-widget__pilltext">Set up your studio</span>
+                    <i class="fa-solid fa-chevron-up setup-widget__chev" aria-hidden="true"></i>
+                </button>
+                <div class="setup-widget__panel" id="setupWidgetPanel" hidden>
+                    <div class="setup-widget__head">
+                        <div>
+                            <h2 class="setup-widget__title">Set up your studio</h2>
+                            <span class="setup-widget__count"><?php echo (int) $setup['required_done']; ?> of <?php echo (int) $setup['required_total']; ?> steps done</span>
+                        </div>
+                        <div class="setup-widget__headbtns">
+                            <button type="button" class="setup-widget__iconbtn" data-setup-toggle aria-label="Collapse"><i class="fa-solid fa-minus"></i></button>
+                            <button type="button" class="setup-widget__iconbtn" data-setup-dismiss aria-label="Hide the setup checklist" title="Hide the setup checklist"><i class="fa-solid fa-xmark"></i></button>
+                        </div>
                     </div>
-                    <span class="setup-card__track"><span class="setup-card__fill" style="width:<?php echo $sc_pct; ?>%"></span></span>
-                    <p class="setup-card__next">Next: <?php echo htmlspecialchars($sc_next['title'], ENT_QUOTES, 'UTF-8'); ?>. <?php echo htmlspecialchars($sc_next['text'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    <span class="setup-widget__track"><span class="setup-widget__fill" style="width:<?php echo $sw_pct; ?>%"></span></span>
+                    <ol class="setup-widget__list">
+                        <?php foreach ($setup['steps'] as $st): if (!empty($st['skipped'])) { continue; } ?>
+                        <li class="setup-widget__step<?php echo $st['done'] ? ' is-done' : ''; ?><?php echo !empty($st['optional']) ? ' is-optional' : ''; ?>" data-step="<?php echo $sw_e($st['key']); ?>">
+                            <span class="setup-widget__mark" aria-hidden="true"><?php echo $st['done'] ? '<i class="fa-solid fa-check"></i>' : ''; ?></span>
+                            <?php if ($st['done']): ?>
+                            <span class="setup-widget__name"><?php echo $sw_e($st['title']); ?></span>
+                            <?php else: ?>
+                            <a class="setup-widget__name setup-widget__link" href="<?php echo $sw_e($st['url']); ?>"><?php echo $sw_e($st['title']); ?><?php echo !empty($st['optional']) ? ' <small>Optional</small>' : ''; ?></a>
+                            <button type="button" class="setup-widget__skip" data-setup-skip="<?php echo $sw_e($st['key']); ?>" aria-label="Skip this step" title="Skip this step"><i class="fa-solid fa-xmark"></i></button>
+                            <?php endif; ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ol>
+                    <a class="setup-widget__all" href="/setup">View All Steps</a>
                 </div>
-                <div class="setup-card__actions">
-                    <a class="btn btn-primary" href="<?php echo htmlspecialchars($sc_next['url'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($sc_next['cta'], ENT_QUOTES, 'UTF-8'); ?></a>
-                    <a class="btn btn-secondary" href="/setup">View All Steps</a>
-                </div>
-                <button type="button" class="setup-card__close" data-setup-dismiss aria-label="Hide the setup checklist" title="Hide the setup checklist"><i class="fa-solid fa-xmark"></i></button>
-            </section>
+            </aside>
 <?php endif; ?>
