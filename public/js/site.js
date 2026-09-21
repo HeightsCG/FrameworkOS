@@ -175,7 +175,13 @@ $(document).ready(function() {
                 $w.find('.setup-widget__ring span').text(d + '/' + t);
                 var pct = t > 0 ? Math.round(d / t * 100) : 0;
                 $w.find('.setup-widget__ring').css('--pct', pct); $w.find('.setup-widget__fill').css('width', pct + '%');
-                if (o.complete) { setTimeout(function () { $w.fadeOut(200, function () { $(this).remove(); }); }, 400); }
+                if (o.complete) {   // flip to the "all set" state; the creator closes it with Done
+                    $w.find('.setup-widget__title, .setup-widget__pilltext').text('You\u2019re all set');
+                    $w.find('.setup-widget__count').text('All ' + t + ' steps done');
+                    if (!$w.find('.setup-widget__done').length) {
+                        $w.find('.setup-widget__foot').append('<button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-no-confirm="1">Done</button>');
+                    }
+                }
             });
         });
     })();
@@ -183,15 +189,7 @@ $(document).ready(function() {
     // Creator setup checklist: hide the widget (and /setup's "Hide this checklist") after a confirm.
     $(document).on('click', '[data-setup-dismiss]', function (e) {
         e.preventDefault();
-        if (typeof Swal === 'undefined') { return; }
-        Swal.fire({
-            title: 'Hide the setup checklist?',
-            text: 'You can still open it any time at /setup. It won\u2019t come back on its own.',
-            width: 440, showCancelButton: true, reverseButtons: true,
-            confirmButtonText: 'Hide Checklist', cancelButtonText: 'Keep',
-            confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779'
-        }).then(function (r) {
-            if (!r.isConfirmed) { return; }
+        function hide() {
             ApiDataSvc.apiCall('post', 'setup_dismiss', {}, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not hide the checklist.'); } return; }
@@ -199,7 +197,16 @@ $(document).ready(function() {
                 $('.setup__foot').remove();
                 if (window.toastr) { toastr.success('Checklist hidden. Find it any time at /setup.'); }
             });
-        });
+        }
+        if ($(this).is('[data-no-confirm]')) { hide(); return; }   // "Done" on a completed checklist
+        if (typeof Swal === 'undefined') { return; }
+        Swal.fire({
+            title: 'Hide the setup checklist?',
+            text: 'You can still open it any time at /setup. It won\u2019t come back on its own.',
+            width: 440, showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Hide Checklist', cancelButtonText: 'Keep',
+            confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779'
+        }).then(function (r) { if (r.isConfirmed) { hide(); } });
     });
 
     // Report (trust & safety, PRD §35–37) — any [data-report-type][data-report-id] element

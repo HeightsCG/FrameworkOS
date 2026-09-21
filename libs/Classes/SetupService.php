@@ -109,12 +109,12 @@ class SetupService {
         return Plan::can_use_creator_features(array('subscription_status' => (string) Session::get('subscription_status')));
     }
 
-    /** Progress for the layout card, or null when the card should not render. */
+    /** Progress for the layout widget, or null when it should not render (not eligible, or hidden by the creator). */
     public static function card(): ?array {
         try {
             if (!self::eligible()) { return null; }
             $p = self::progress(Permissions::creator_id());
-            if ($p['complete'] || $p['dismissed']) { return null; }
+            if ($p['dismissed']) { return null; }   // a completed checklist stays as an "all set" state until closed
             return $p;
         } catch (\Throwable $e) {
             error_log('[setup] card: ' . $e->getMessage());

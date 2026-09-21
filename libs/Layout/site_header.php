@@ -108,21 +108,22 @@
 // Creator onboarding widget: floats bottom-right on every page (not on /setup) until every
 // required step is done or skipped, or the creator hides it. Collapsed/open is remembered client-side.
 $setup = (strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/setup') === 0) ? null : SetupService::card();
-if ($setup && !empty($setup['next'])):
-    $sw_e   = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
-    $sw_pct = $setup['required_total'] > 0 ? (int) round($setup['required_done'] / $setup['required_total'] * 100) : 0;
+if ($setup):
+    $sw_e    = function ($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); };
+    $sw_pct  = $setup['required_total'] > 0 ? (int) round($setup['required_done'] / $setup['required_total'] * 100) : 0;
+    $sw_done = !empty($setup['complete']);
 ?>
             <aside class="setup-widget" id="setupWidget" data-open="0" aria-label="Studio setup progress">
                 <button type="button" class="setup-widget__pill" data-setup-toggle aria-expanded="false" aria-controls="setupWidgetPanel">
                     <span class="setup-widget__ring" style="--pct:<?php echo $sw_pct; ?>"><span><?php echo (int) $setup['required_done']; ?>/<?php echo (int) $setup['required_total']; ?></span></span>
-                    <span class="setup-widget__pilltext">Set up your studio</span>
+                    <span class="setup-widget__pilltext"><?php echo $sw_done ? 'You\'re all set' : 'Set up your studio'; ?></span>
                     <i class="fa-solid fa-chevron-up setup-widget__chev" aria-hidden="true"></i>
                 </button>
                 <div class="setup-widget__panel" id="setupWidgetPanel" hidden>
                     <div class="setup-widget__head">
                         <div>
-                            <h2 class="setup-widget__title">Set up your studio</h2>
-                            <span class="setup-widget__count"><?php echo (int) $setup['required_done']; ?> of <?php echo (int) $setup['required_total']; ?> steps done</span>
+                            <h2 class="setup-widget__title"><?php echo $sw_done ? 'You\'re all set' : 'Set up your studio'; ?></h2>
+                            <span class="setup-widget__count"><?php echo $sw_done ? 'All ' . (int) $setup['required_total'] . ' steps done' : (int) $setup['required_done'] . ' of ' . (int) $setup['required_total'] . ' steps done'; ?></span>
                         </div>
                         <div class="setup-widget__headbtns">
                             <button type="button" class="setup-widget__iconbtn" data-setup-toggle aria-label="Collapse"><i class="fa-solid fa-minus"></i></button>
@@ -143,7 +144,10 @@ if ($setup && !empty($setup['next'])):
                         </li>
                         <?php endforeach; ?>
                     </ol>
-                    <a class="setup-widget__all" href="/setup">View All Steps</a>
+                    <div class="setup-widget__foot">
+                        <a class="setup-widget__all" href="/setup">View All Steps</a>
+                        <?php if ($sw_done): ?><button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-no-confirm="1">Done</button><?php endif; ?>
+                    </div>
                 </div>
             </aside>
 <?php endif; ?>
