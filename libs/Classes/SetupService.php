@@ -17,7 +17,7 @@ class SetupService {
             'payouts'    => array('title' => 'Set up payouts',                   'text' => 'Connect Stripe to receive your earnings.',                                   'cta' => 'Set Up Payouts',            'url' => '/account/settings?section=wallet&tab=cashout',   'optional' => false),
             'socials'    => array('title' => 'Connect a social account',         'text' => 'Connect a social account to cross-post from the studio.',                    'cta' => 'Connect a Social Account',  'url' => '/account/settings?section=connected',            'optional' => false),
             'first_post' => array('title' => 'Publish your first post',          'text' => 'It goes on your profile and the Home feed, and can cross-post to your socials.',                                       'cta' => 'Publish Your First Post',   'url' => '/studio',                                        'optional' => false),
-            'inbox'      => array('title' => 'Turn on AI replies',               'text' => 'Let AI draft replies to fan DMs. Add a welcome message while you are there.',  'cta' => 'Turn On AI Replies',        'url' => '/account/settings?section=inbox',                'optional' => true),
+            'inbox'      => array('title' => 'Turn on AI replies',               'text' => 'Let AI draft replies to fan DMs. Add a welcome message while you are there.',  'cta' => 'Turn On AI Replies',        'url' => '/account/settings?section=inbox',                'optional' => false),
         );
     }
 
@@ -33,9 +33,10 @@ class SetupService {
         if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
         if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
 
-        // Cheap DB checks run on every load so a step ticks the moment it's done. Only the
-        // Stripe payouts call is throttled (TTL), except when forced or returning from Stripe.
-        if (!$row || empty($row['completed_at'])) {
+        // Cheap DB checks run on every load so a step ticks the moment it's done — including after
+        // the checklist was once marked complete (steps can be added later). Only the Stripe payouts
+        // call is throttled (TTL), except when forced or returning from Stripe.
+        if (count($done) < count(self::steps())) {
             $now = date('Y-m-d H:i:s');
             $stripe_ok = $force || !$row || empty($row['checked_at'])
                 || (strtotime((string) $row['checked_at']) < time() - self::TTL)
