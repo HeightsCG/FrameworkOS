@@ -135,10 +135,8 @@ if ($setup):
                         <?php foreach ($setup['steps'] as $st): if (!empty($st['skipped'])) { continue; } ?>
                         <li class="setup-widget__step<?php echo $st['done'] ? ' is-done' : ''; ?><?php echo !empty($st['optional']) ? ' is-optional' : ''; ?>" data-step="<?php echo $sw_e($st['key']); ?>">
                             <span class="setup-widget__mark" aria-hidden="true"><?php echo $st['done'] ? '<i class="fa-solid fa-check"></i>' : ''; ?></span>
-                            <?php if ($st['done']): ?>
-                            <span class="setup-widget__name"><?php echo $sw_e($st['title']); ?></span>
-                            <?php else: ?>
-                            <a class="setup-widget__name setup-widget__link" href="<?php echo $sw_e($st['url']); ?>"><?php echo $sw_e($st['title']); ?><?php echo !empty($st['optional']) ? ' <small>Optional</small>' : ''; ?></a>
+                            <a class="setup-widget__name setup-widget__link" href="<?php echo $sw_e($st['url']); ?>" title="<?php echo $st['done'] ? 'Done. Open this page again' : $sw_e($st['text']); ?>"><?php echo $sw_e($st['title']); ?><?php echo !empty($st['optional']) ? ' <small>Optional</small>' : ''; ?></a>
+                            <?php if (!$st['done']): ?>
                             <button type="button" class="setup-widget__skip" data-setup-skip="<?php echo $sw_e($st['key']); ?>" aria-label="Skip this step" title="Skip this step"><i class="fa-solid fa-xmark"></i></button>
                             <?php endif; ?>
                         </li>
@@ -146,7 +144,7 @@ if ($setup):
                     </ol>
                     <div class="setup-widget__foot">
                         <a class="setup-widget__all" href="/setup">View All Steps</a>
-                        <?php if ($sw_done): ?><button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-no-confirm="1">Done</button><?php endif; ?>
+                        <?php if ($sw_done): ?><button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-setup-complete="1">Done</button><?php endif; ?>
                     </div>
                 </div>
             </aside>

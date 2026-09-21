@@ -60,6 +60,6 @@ $n = 0;
     <?php endif; ?>
 
     <?php if (!$p['dismissed']): ?>
-    <p class="setup__foot"><?php if ($p['complete']): ?><button type="button" class="btn btn-primary" data-setup-dismiss data-no-confirm="1">Done</button><?php else: ?><button type="button" class="setup__hide" data-setup-dismiss>Hide this checklist</button><?php endif; ?></p>
+    <p class="setup__foot"><?php if ($p['complete']): ?><button type="button" class="btn btn-primary" data-setup-dismiss data-setup-complete="1">Done</button><?php else: ?><button type="button" class="setup__hide" data-setup-dismiss>Hide this checklist</button><?php endif; ?></p>
     <?php endif; ?>
 </div>

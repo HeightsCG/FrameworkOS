@@ -163,25 +163,50 @@ $(document).ready(function() {
             try { localStorage.setItem(KEY, open ? '1' : '0'); } catch (e) {}
         }
         set(open);
+        document.body.classList.add('has-setup-widget');
         $w.on('click', '[data-setup-toggle]', function () { set(!open); });
+        // Clicking anywhere else collapses the panel so it never sits over what you're working on.
+        $(document).on('mousedown', function (e) {
+            if (open && !$(e.target).closest('#setupWidget, .swal2-container').length) { set(false); }
+        });
+        // After a save that can complete a step, re-read progress and tick the widget in place.
+        var REFRESH_ON = /\/api\/(inbox_settings_save|save_creator_profile|upload_creator_image|save_brand_identity|save_creator_plan|toggle_creator_plan|connect_account|start_payout_onboarding|post_publish|post_schedule|auto_message_save)\b/;
+        function applyProgress(o) {
+            var d = o.required_done, t = o.required_total, pct = t > 0 ? Math.round(d / t * 100) : 0;
+            (o.steps || []).forEach(function (s) {
+                var $li = $w.find('.setup-widget__step[data-step="' + s.key + '"]');
+                if (!$li.length) { return; }
+                if (s.done && !$li.hasClass('is-done')) {
+                    $li.addClass('is-done').find('.setup-widget__mark').html('<i class="fa-solid fa-check"></i>');
+                    $li.find('.setup-widget__skip').remove();
+                }
+            });
+            $w.find('.setup-widget__ring span').text(d + '/' + t);
+            $w.find('.setup-widget__ring').css('--pct', pct); $w.find('.setup-widget__fill').css('width', pct + '%');
+            if (o.complete) {
+                $w.find('.setup-widget__title, .setup-widget__pilltext').text('You\u2019re all set');
+                $w.find('.setup-widget__count').text('All ' + t + ' steps done');
+                if (!$w.find('.setup-widget__done').length) {
+                    $w.find('.setup-widget__foot').append('<button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-setup-complete="1">Done</button>');
+                }
+            } else {
+                $w.find('.setup-widget__count').text(d + ' of ' + t + ' steps done');
+            }
+        }
+        $(document).on('ajaxSuccess', function (e, xhr, settings) {
+            if (!settings || !settings.url || !REFRESH_ON.test(settings.url)) { return; }
+            ApiDataSvc.apiCall('post', 'setup_progress', {}, function (resp) {
+                var o = null; try { o = JSON.parse(resp); } catch (err) {}
+                if (o && o.success) { applyProgress(o); }
+            });
+        });
         $w.on('click', '[data-setup-skip]', function () {
             var key = $(this).attr('data-setup-skip'), $li = $(this).closest('.setup-widget__step');
             ApiDataSvc.apiCall('post', 'setup_skip_step', { key: key }, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not skip that step.'); } return; }
                 $li.slideUp(140, function () { $(this).remove(); });
-                var d = o.required_done, t = o.required_total;
-                $w.find('.setup-widget__count').text(d + ' of ' + t + ' steps done');
-                $w.find('.setup-widget__ring span').text(d + '/' + t);
-                var pct = t > 0 ? Math.round(d / t * 100) : 0;
-                $w.find('.setup-widget__ring').css('--pct', pct); $w.find('.setup-widget__fill').css('width', pct + '%');
-                if (o.complete) {   // flip to the "all set" state; the creator closes it with Done
-                    $w.find('.setup-widget__title, .setup-widget__pilltext').text('You\u2019re all set');
-                    $w.find('.setup-widget__count').text('All ' + t + ' steps done');
-                    if (!$w.find('.setup-widget__done').length) {
-                        $w.find('.setup-widget__foot').append('<button type="button" class="btn btn-primary btn-sm setup-widget__done" data-setup-dismiss data-no-confirm="1">Done</button>');
-                    }
-                }
+                applyProgress(o);
             });
         });
     })();
@@ -193,18 +218,19 @@ $(document).ready(function() {
             ApiDataSvc.apiCall('post', 'setup_dismiss', {}, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not hide the checklist.'); } return; }
-                $('#setupWidget').fadeOut(160, function () { $(this).remove(); });
+                $('#setupWidget').fadeOut(160, function () { $(this).remove(); document.body.classList.remove('has-setup-widget'); });
                 $('.setup__foot').remove();
                 if (window.toastr) { toastr.success('Checklist hidden. Find it any time at /setup.'); }
             });
         }
-        if ($(this).is('[data-no-confirm]')) { hide(); return; }   // "Done" on a completed checklist
         if (typeof Swal === 'undefined') { return; }
+        var complete = $(this).is('[data-setup-complete]');   // "Done" on a finished checklist vs hiding an unfinished one
         Swal.fire({
-            title: 'Hide the setup checklist?',
-            text: 'You can still open it any time at /setup. It won\u2019t come back on its own.',
+            title: complete ? 'All set?' : 'Hide the setup checklist?',
+            text: complete ? 'The checklist closes for good. Every step stays reachable at /setup and in Settings.'
+                           : 'You can still open it any time at /setup. It won\u2019t come back on its own.',
             width: 440, showCancelButton: true, reverseButtons: true,
-            confirmButtonText: 'Hide Checklist', cancelButtonText: 'Keep',
+            confirmButtonText: complete ? 'I\u2019m Finished' : 'Hide Checklist', cancelButtonText: complete ? 'Not Yet' : 'Keep',
             confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779'
         }).then(function (r) { if (r.isConfirmed) { hide(); } });
     });

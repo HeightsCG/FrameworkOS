@@ -97,11 +97,9 @@ class CreatorSetupModel extends Model {
         return !empty($r);
     }
 
-    /** AI replies on for CLS DMs and at least one automatic message written. */
+    /** AI replies switched on for Creator Link Studio DMs (a welcome message is suggested, not required). */
     public function has_inbox_ready($user_id){
         $s = parent::select("SELECT 1 FROM inbox_settings WHERE creator_id = :u AND cls_enabled = 1 LIMIT 1", array('u' => (int) $user_id));
-        if (empty($s)) { return false; }
-        $m = parent::select("SELECT 1 FROM auto_messages WHERE creator_id = :u LIMIT 1", array('u' => (int) $user_id));
-        return !empty($m);
+        return !empty($s);
     }
 }

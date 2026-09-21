@@ -17,7 +17,7 @@ class SetupService {
             'payouts'    => array('title' => 'Set up payouts',                   'text' => 'Connect Stripe to receive your earnings.',                                   'cta' => 'Set Up Payouts',            'url' => '/account/settings?section=wallet&tab=cashout',   'optional' => false),
             'socials'    => array('title' => 'Connect a social account',         'text' => 'Connect a social account to cross-post from the studio.',                    'cta' => 'Connect a Social Account',  'url' => '/account/settings?section=connected',            'optional' => false),
             'first_post' => array('title' => 'Publish your first post',          'text' => 'It goes on your profile and the Home feed, and can cross-post to your socials.',                                       'cta' => 'Publish Your First Post',   'url' => '/studio',                                        'optional' => false),
-            'inbox'      => array('title' => 'Turn on AI replies and a welcome message', 'text' => 'Let AI draft replies and send a welcome message to new fans.',       'cta' => 'Set Up AI Replies',         'url' => '/account/settings?section=inbox',                'optional' => true),
+            'inbox'      => array('title' => 'Turn on AI replies',               'text' => 'Let AI draft replies to fan DMs. Add a welcome message while you are there.',  'cta' => 'Turn On AI Replies',        'url' => '/account/settings?section=inbox',                'optional' => true),
         );
     }
 
