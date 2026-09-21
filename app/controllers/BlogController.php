@@ -83,7 +83,7 @@ class BlogController extends Controller {
         );
         $guides = array();
         foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
-        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true, 'no_band' => true),
+        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true, 'no_band' => true, 'sections' => true),
             array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides, 'q' => $q));
     }
 

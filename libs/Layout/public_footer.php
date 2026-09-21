@@ -24,7 +24,7 @@ $site = Main::site_name();
                 </div>
                 <div class="sf__col">
                     <h2 class="sf__h">Account</h2>
-                    <a href="/?auth=login">Sign in</a><a href="/?auth=register">Create an account</a>
+                    <a href="/?auth=login" data-auth="login">Sign in</a><a href="/?auth=register" data-auth="register">Create an account</a>
                 </div>
             </nav>
         </div>

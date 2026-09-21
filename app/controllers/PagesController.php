@@ -65,6 +65,7 @@ class PagesController extends Controller {
             );
         }
         unset($meta['path']);
+        $meta['sections'] = true;   // full-width section system (libs/Classes/Sections.php)
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
 

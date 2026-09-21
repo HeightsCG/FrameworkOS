@@ -7,7 +7,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
     <?php $cover = trim((string) ($a['cover_image_url'] ?? '')); ?>
     <header class="gd-hero gd-posthead<?php echo $cover !== '' ? ' gd-posthead--cover' : ''; ?>">
         <div class="gd-posthead__text">
-        <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/blog"><?php echo $e(BlogController::NAME); ?></a><span aria-hidden="true">/</span><span><?php echo $e($topic); ?></span></nav>
+        <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><a href="/blog"><?php echo $e(BlogController::NAME); ?></a><span aria-hidden="true">/</span><span class="gd-crumbs__here" aria-current="page"><?php echo $e($a['title']); ?></span></nav>
         <h1 class="gd-posthead__title"><?php echo $e($a['title']); ?></h1>
         <?php if (trim((string) $a['excerpt']) !== ''): ?><p class="gd-hero__lead"><?php echo $e($a['excerpt']); ?></p><?php endif; ?>
         <p class="gd-posthead__meta"><span><?php echo $e(SeoMeta::site()); ?> team</span><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>

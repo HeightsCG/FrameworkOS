@@ -108,7 +108,7 @@ $(document).ready(function() {
 
         var dpr = Math.min(window.devicePixelRatio || 1, 2);
         var particles = [];
-        var bands = ['rgb(130,115,248)', 'rgb(91,75,224)', 'rgb(70,54,196)'];
+        var bands = ['rgb(70,70,78)', 'rgb(17,17,20)', 'rgb(0,0,0)'];
         var mouse_x = -9999, mouse_y = -9999;
         var cw = 0, ch = 0, dot = 3;
         var in_view = false, raf = null;
@@ -272,6 +272,115 @@ $(document).ready(function() {
             for (var i = 0; i < mags.length; i++) { mags[i].style.transform = ''; }
         }, { passive: true });
     })();
+
+    /* ---------- Tab hero (every page): big words are tabs that drive one live panel ---------- */
+
+    document.querySelectorAll('.hx').forEach(function(hx) {
+        var tabs = [].slice.call(hx.querySelectorAll('.hx__w'));
+        var panes = [].slice.call(hx.querySelectorAll('.hx__pane'));
+        if (!tabs.length) { return; }
+        var current = Math.max(0, tabs.findIndex(function(t) { return t.classList.contains('is-on'); }));
+
+        function show_tab(i, by_user) {
+            current = i;
+            tabs.forEach(function(t, k) {
+                var on = k === i;
+                t.classList.toggle('is-on', on);
+                t.setAttribute('aria-selected', on ? 'true' : 'false');
+                t.setAttribute('tabindex', on ? '0' : '-1');
+                var bar = t.querySelector('.hx__bar i');
+                bar.style.animation = 'none';
+                void bar.offsetWidth;
+                bar.style.animation = '';
+            });
+            panes.forEach(function(p, k) { p.hidden = k !== i; });
+            panes[i].querySelectorAll('.hx__tl').forEach(function(tl) { if (tl._set) { tl._set(tl._stage); } });
+            if (by_user) { hx.classList.add('is-paused'); }
+        }
+
+        tabs.forEach(function(t, i) {
+            t.addEventListener('click', function() { show_tab(i, true); });
+            t.addEventListener('keydown', function(e) {
+                var fwd = e.key === 'ArrowDown' || e.key === 'ArrowRight', back = e.key === 'ArrowUp' || e.key === 'ArrowLeft';
+                if (!fwd && !back) { return; }
+                e.preventDefault();
+                var next = (i + (fwd ? 1 : tabs.length - 1)) % tabs.length;
+                show_tab(next, true);
+                tabs[next].focus();
+            });
+            t.querySelector('.hx__bar i').addEventListener('animationend', function() {
+                if (t.classList.contains('is-on') && !hx.classList.contains('is-paused')) { show_tab((current + 1) % tabs.length, false); }
+            });
+        });
+        var mod = hx.querySelector('.hx__mod');
+        if (mod) { mod.addEventListener('mouseenter', function() { hx.classList.add('is-paused'); }); }
+
+        /* Tracked links count clicks */
+        var total_el = hx.querySelector('[data-hx-total]');
+        var total = total_el ? parseInt(total_el.getAttribute('data-hx-total'), 10) : 0;
+        hx.querySelectorAll('.hx__lk').forEach(function(row) {
+            row.addEventListener('click', function() {
+                var n = parseInt(row.getAttribute('data-n'), 10) + 1;
+                row.setAttribute('data-n', n);
+                row.querySelector('b').textContent = n.toLocaleString();
+                if (total_el) { total++; total_el.textContent = '+' + total.toLocaleString() + ' clicks'; }
+                row.classList.add('is-bump');
+                setTimeout(function() { row.classList.remove('is-bump'); }, 600);
+            });
+        });
+
+        /* Timelines: click a step to move the marker */
+        hx.querySelectorAll('.hx__tl').forEach(function(tl) {
+            var nodes = [].slice.call(tl.querySelectorAll('.hx__nd'));
+            var fill = tl.querySelector('.hx__fill');
+            tl._stage = parseInt(tl.getAttribute('data-stage') || '1', 10);
+            tl._set = function(i) {
+                tl._stage = i;
+                nodes.forEach(function(n, k) { n.classList.toggle('is-done', k < i); n.classList.toggle('is-cur', k === i); });
+                var top = nodes[0].offsetTop + 24;
+                fill.style.top = top + 'px';
+                fill.style.height = (nodes[i].offsetTop + 24 - top) + 'px';
+            };
+            nodes.forEach(function(n, i) { n.addEventListener('click', function() { tl._set(i); }); });
+            tl._set(tl._stage);
+        });
+
+        /* Option groups: one selected at a time */
+        hx.querySelectorAll('.hx__acc[role=radiogroup]').forEach(function(group) {
+            var opts = [].slice.call(group.querySelectorAll('.hx__opt'));
+            opts.forEach(function(o) {
+                o.addEventListener('click', function() {
+                    opts.forEach(function(x) { x.classList.remove('is-on'); x.setAttribute('aria-checked', 'false'); });
+                    o.classList.add('is-on');
+                    o.setAttribute('aria-checked', 'true');
+                });
+            });
+        });
+
+        /* Switches */
+        hx.querySelectorAll('.hx__sw').forEach(function(sw) {
+            sw.addEventListener('click', function() {
+                var on = !sw.classList.contains('is-on');
+                sw.classList.toggle('is-on', on);
+                sw.setAttribute('aria-checked', on ? 'true' : 'false');
+            });
+        });
+
+        /* Chips with a live count */
+        hx.querySelectorAll('.hx__chips').forEach(function(box) {
+            var count = box.parentNode.querySelector('[data-hx-count]');
+            var chips = [].slice.call(box.querySelectorAll('.hx__chip'));
+            chips.forEach(function(c) {
+                c.addEventListener('click', function() {
+                    var on = !c.classList.contains('is-on');
+                    c.classList.toggle('is-on', on);
+                    c.setAttribute('aria-pressed', on ? 'true' : 'false');
+                    var n = chips.filter(function(x) { return x.classList.contains('is-on'); }).length;
+                    if (count) { count.textContent = n + ' ' + count.getAttribute('data-noun'); }
+                });
+            });
+        });
+    });
 
     /* ---------- One-time reveal on scroll ---------- */
 

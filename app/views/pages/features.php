@@ -1,49 +1,66 @@
-<?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-$icon = function ($paths) { return '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' . $paths . '</svg>'; };
-$features = array(
-    array('id' => 'page', 'icon' => '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/>', 'title' => 'Your public page', 'text' => 'One page at your handle that sells everything you make.',
-          'points' => array('Posts, tiers, services, events and links in one place', 'Your brand colors', 'Locked posts show blurred until a fan joins or unlocks')),
-    array('id' => 'memberships', 'icon' => '<path d="m12 2 10 5-10 5L2 7z"/><path d="m2 17 10 5 10-5"/><path d="m2 12 10 5 10-5"/>', 'title' => 'Memberships and tiers', 'text' => 'As many tiers as you want, each priced your way.',
-          'points' => array('Own price, billing interval, trial and perks per tier', 'Target a post at one tier or several', 'Discount codes and free trials built in')),
-    array('id' => 'ppv', 'icon' => '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>', 'title' => 'Pay-per-view, bundles, services, events', 'text' => 'Sell single pieces alongside your memberships.',
-          'points' => array('Price any post, bundle library media', 'Take bookings and sell event seats', 'Fans pay from a credit wallet in one tap')),
-    array('id' => 'studio', 'icon' => '<path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>', 'title' => 'The studio', 'text' => 'Upload once, publish everywhere.',
-          'points' => array('AI captions in your brand voice', 'Posts to your page and 9 social networks at once', 'Scheduling, automations and one analytics view')),
-    array('id' => 'inbox', 'icon' => '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>', 'title' => 'Inbox with AI replies', 'text' => 'Every fan message in one place, answered in your voice.',
-          'points' => array('AI drafts replies for your approval, or sends them', 'Automatic welcome messages for new fans', 'Attach media and a price to any message')),
-    array('id' => 'payouts', 'icon' => '<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>', 'title' => 'Payouts and ownership', 'text' => 'Your money and your audience stay yours.',
-          'points' => array('Stripe Connect payouts to your bank', 'Export your subscribers, content and brand any time', 'A flat fee that falls as your plan grows')),
+<?php
+/** Features page: hero with jump links, then one group per job a creator does (Sections::group). Every item is a shipped feature. */
+$site = Main::site_name();
+$groups = array(
+    array('id' => 'page', 'jump' => 'Your page', 'jump_icon' => 'layers', 'title' => 'Your public page', 'lead' => 'One page at your handle that sells everything you make, in your brand colors.', 'image' => SiteImages::url('features_page'), 'items' => array(
+        array('layers', 'Posts for everyone or for paying fans', 'Free posts are open to all. Subscriber and pay-per-view posts show blurred until a fan joins or unlocks.'),
+        array('link', 'Tracked links', 'Add links to your page and see every click.'),
+        array('palette', 'Your brand', 'Your colors, bio and links carry across your page.'),
+        array('search', 'Found in the feed and search', 'Fans discover you in the home feed and in search across creators and content.'),
+        array('bell', 'Free follows', 'Fans follow for free and hear about every new post.'),
+        array('badge', 'Verified badge', 'Verified creators show a badge on their page.'),
+    )),
+    array('id' => 'earn', 'jump' => 'Ways to get paid', 'jump_icon' => 'wallet', 'title' => 'Ways to get paid', 'lead' => 'Memberships for your regulars, single sales for everyone else.', 'items' => array(
+        array('users', 'Membership tiers', 'As many tiers as you want, each with its own price, billing interval, trial, perks and promo codes.'),
+        array('lock', 'Pay-per-view posts', 'Put a price on any post. Fans unlock it in one tap from their credit wallet.'),
+        array('package', 'Bundles', 'Group media from your library into a set. Buyers find it in their purchases.'),
+        array('calendar', 'Services', 'Take bookings. Access details are shared after purchase.'),
+        array('ticket', 'Events', 'Sell seats to live sessions. Details are shared after purchase.'),
+        array('message', 'Paid messages', 'Attach media and a price to any message. It stays blurred until the fan pays.'),
+    )),
+    array('id' => 'publish', 'jump' => 'Publishing', 'jump_icon' => 'send', 'title' => 'Publish everywhere at once', 'lead' => 'Upload once and post to your page and your social accounts at the same time.', 'image' => SiteImages::url('features_studio'), 'items' => array(
+        array('send', 'Nine social networks and Fanvue', 'X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads and Bluesky, plus Fanvue cross-posting.'),
+        array('sparkles', 'AI captions in your voice', 'Captions written in your brand voice, trimmed for each network.'),
+        array('image', 'AI images', 'Generate on-brand images from a short prompt.'),
+        array('clock', 'Drafts and scheduling', 'Keep a draft, schedule it, or publish now.'),
+        array('repeat', 'Automations', 'Automations write and publish posts on the schedule you set.'),
+        array('bot', 'AI influencers', 'Create AI personas and generate their photos and videos.'),
+    )),
+    array('id' => 'fans', 'jump' => 'Inbox and audience', 'jump_icon' => 'inbox', 'title' => 'Inbox and audience', 'lead' => 'Every fan conversation and every fan record in one place.', 'items' => array(
+        array('inbox', 'Inbox', 'Every fan message in one place.'),
+        array('sparkles', 'AI replies', 'AI drafts replies in your voice for your approval, or sends them.'),
+        array('message', 'Welcome messages', 'Automatic messages for new fans, with media and a price if you want.'),
+        array('megaphone', 'Broadcasts', 'Message one or more audience segments at once, now or on a schedule.'),
+        array('list', 'Audience list', 'Followers, subscribers and buyers in one list, with tags and notes.'),
+        array('ban', 'Blocking and reports', 'Block anyone from your page and your inbox, and report abuse.'),
+    )),
+    array('id' => 'insights', 'jump' => 'Analytics', 'jump_icon' => 'chart', 'title' => 'Analytics', 'lead' => 'See what earns, what spreads and who buys.', 'items' => array(
+        array('chart', 'Dashboard', 'Revenue, content, audience and customer views in one dashboard.'),
+        array('eye', 'Post performance', 'Views, shares and conversion for every post.'),
+        array('send', 'Social metrics', 'Engagement from your social posts, pulled into the same view.'),
+        array('link', 'Link clicks', 'Clicks on every link on your page.'),
+    )),
+    array('id' => 'payouts', 'jump' => 'Payouts and team', 'jump_icon' => 'bank', 'title' => 'Payouts, team and tools', 'lead' => 'Your money and your audience stay yours.', 'image' => SiteImages::url('features_payouts'), 'items' => array(
+        array('bank', 'Payouts to your bank', 'Earnings collect as credits. Cash out to your own bank account through Stripe Connect.'),
+        array('wallet', 'Fan credit wallet', 'Fans top up once and pay in one tap, with optional automatic top-ups.'),
+        array('user-plus', 'Team seats', 'Invite collaborators to work on your account.'),
+        array('plug', 'Claude connector', 'Run your account from Claude: posts, messages, analytics and more.'),
+        array('download', 'Export everything', 'Export your subscribers, content and brand any time.'),
+        array('shield', 'A fee that falls as you grow', 'A flat platform fee that drops on higher plans.'),
+    )),
 );
-?>
-<header class="gd-hero">
-    <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Features</span></nav>
-    <h1 class="gd-hero__title">Everything a creator sells, from one page.</h1>
-    <p class="gd-hero__lead"><?php echo $e(Main::site_name()); ?> is an online creator platform: one public page with memberships, pay-per-view posts, bundles, events, services and tracked links, a studio that publishes to your socials, and payouts through Stripe. You keep your audience and your content.</p>
-    <div class="gd-hero__acts"><a class="ld-btn ld-btn--primary" href="/?auth=register">Create Your Account</a><a class="gd-read" href="/pricing">See Pricing</a></div>
-</header>
+$jump = '<nav class="sx-jump" aria-label="Feature sections">';
+foreach ($groups as $g) { $jump .= '<a href="#' . Sections::e($g['id']) . '">' . Sections::icon($g['jump_icon'], 20) . '<span>' . Sections::e($g['jump']) . '</span></a>'; }
+$jump .= '</nav>';
+echo Sections::panel_hero(array(
+    'title' => 'Everything a creator sells, from one page.',
+    'lead' => $site . ' gives you one public page for memberships, pay-per-view, bundles, services and events, a studio that publishes to your socials, and payouts to your bank.',
+    'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
+    'after_html' => $jump,
+));
 
-<section class="ft-grid" aria-label="Features">
-<?php foreach ($features as $f): ?>
-    <article class="ft-card" id="<?php echo $e($f['id']); ?>">
-        <span class="ft-card__icon"><?php echo $icon($f['icon']); ?></span>
-        <h2 class="ft-card__title"><?php echo $e($f['title']); ?></h2>
-        <p class="ft-card__text"><?php echo $e($f['text']); ?></p>
-        <ul class="ft-checks"><?php foreach ($f['points'] as $pt): ?><li><?php echo $e($pt); ?></li><?php endforeach; ?></ul>
-    </article>
-<?php endforeach; ?>
-</section>
+$n = 0;
+foreach ($groups as $g) { echo Sections::group($g, ($n++ % 2 === 1) ? 'alt' : 'white'); }
 
-<section class="ft-included" aria-labelledby="ft_inc_h">
-    <h2 class="gd-h2" id="ft_inc_h">Included on every plan</h2>
-    <ul class="ft-checks ft-checks--cols"><?php foreach (PlanTiers::INCLUDED as $i): ?><li><?php echo $i; ?></li><?php endforeach; ?></ul>
-</section>
-
-<div class="gd-prose">
-<section class="faq" aria-labelledby="gd_faq_h">
-    <h2 class="faq__title" id="gd_faq_h">Frequently asked questions</h2>
-    <div class="faq__list">
-        <?php foreach ($faq as $qa): ?><details class="faq__item"><summary class="faq__q"><?php echo $e($qa['q']); ?><svg class="faq__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="faq__a"><?php echo $e($qa['a']); ?></div></details><?php endforeach; ?>
-    </div>
-</section>
-</div>
-<?php $cta_title = 'Create your page in a few minutes.'; ?>
+echo Sections::faq($faq);
+$cta_title = 'Create your page in a few minutes.';
