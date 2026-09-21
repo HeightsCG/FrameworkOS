@@ -3,7 +3,7 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title">Three plans. The fee falls as you grow.</h1>
-    <p class="sx-hero__lead">Monthly, cancel anytime. Every plan includes the whole platform and unlimited fans, tiers and social connections. Only the rows in the cards differ.</p>
+    <p class="sx-hero__lead">Monthly, cancel anytime. Every plan includes the whole platform and unlimited fans, tiers and social connections. Only the rows in the cards differ. Fans join free; plans are for creators.</p>
 <?php
 ?>
 <div class="sx-plans">

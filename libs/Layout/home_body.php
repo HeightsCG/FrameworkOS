@@ -51,5 +51,36 @@ echo Sections::cards(array(
 ), 3);
 echo Sections::close();
 
+/* Latest posts: newest free, fully moderated, non-adult image posts. Hidden when there are none. */
+$latest = array();
+try { $latest = (new FeedModel())->public_latest(6); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
+$latest_cards = '';
+foreach ($latest as $lp) {
+    $thumb = !empty($lp['cover_thumb_key']) ? S3Service::presigned_get_url((string) $lp['cover_thumb_key'], 3600) : '';
+    if ($thumb === '') { continue; }
+    $who = trim((string) ($lp['display_name'] ?? '')) !== '' ? $lp['display_name'] : '@' . $lp['u_name'];
+    $cap = trim(html_entity_decode(strip_tags((string) $lp['caption']), ENT_QUOTES, 'UTF-8'));
+    if (mb_strlen($cap) > 80) { $cap = rtrim(mb_substr($cap, 0, 78)) . '…'; }
+    $latest_cards .= '<a class="lp" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '"><span class="lp__img"><img src="' . Sections::e($thumb) . '" alt="" loading="lazy" width="400" height="400"></span>'
+        . '<span class="lp__who">' . Sections::e($who) . '</span>' . ($cap !== '' ? '<span class="lp__cap">' . Sections::e($cap) . '</span>' : '') . '</a>';
+}
+if ($latest_cards !== '') {
+    echo Sections::open('white', 'Latest posts', 'Fresh from creators on ' . $site . '.');
+    echo '<div class="lp-grid">' . $latest_cards . '</div>';
+    echo Sections::close();
+}
+
+echo Sections::open('alt', 'Free for fans', 'Fans sign up free to follow creators, join memberships and unlock posts. Plans are only for creators.');
+echo Sections::cards(array(
+    array('icon' => 'bell', 'title' => 'Follow for free', 'text' => 'Follow any creator and hear about every new post.'),
+    array('icon' => 'users', 'title' => 'Join a membership', 'text' => 'Subscribe to a tier and see everything it includes.'),
+    array('icon' => 'lock', 'title' => 'Unlock single posts', 'text' => 'Pay for one post in one tap from your credit wallet.'),
+    array('icon' => 'ticket', 'title' => 'Bundles, services and events', 'text' => 'Buy a bundle, book a service, or grab a seat at a live session.'),
+    array('icon' => 'package', 'title' => 'Everything in one place', 'text' => 'Everything you buy is saved in your purchases.'),
+    array('icon' => 'message', 'title' => 'Message creators', 'text' => 'Talk to the creators you follow from your inbox.'),
+), 3);
+echo '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="/?auth=register" data-auth="register">Join Free</a></div>';
+echo Sections::close();
+
 echo Sections::faq($home_faq, 'white');
 echo Sections::cta('Create your page today.', 'Memberships, pay-per-view, bundles, services and events, with payouts to your bank.');

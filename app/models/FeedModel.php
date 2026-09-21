@@ -64,4 +64,31 @@ class FeedModel extends Model {
         $rows = parent::select($sql, $params);
         return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;
     }
+
+    /**
+     * Latest posts for the public marketing pages (logged-out visitors). Strictly safe:
+     * free audience, published to the site, creator active, and EVERY asset is an image
+     * the moderator approved as not adult (videos are not scanned, so posts with video are
+     * left out). Returns the cover thumbnail key; the caller signs it.
+     */
+    public function public_latest($limit = 6){
+        $limit = max(1, min(12, (int) $limit));
+        $sql = "SELECT p.id, p.caption, p.published_at, ua.u_name, cp.display_name,
+                       (SELECT ma.thumb_key FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                         WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
+                         ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1) AS cover_thumb_key
+                FROM posts p
+                JOIN user_accounts ua ON ua.user_id = p.creator_id
+                LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
+                WHERE p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free'
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled')
+                  AND EXISTS (SELECT 1 FROM post_assets pa WHERE pa.post_id = p.id)
+                  AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                                   WHERE pa.post_id = p.id AND ma.deleted_at IS NULL
+                                     AND (ma.type <> 'image' OR ma.status <> 'ready' OR ma.moderation_status <> 'approved' OR ma.is_adult = 1))
+                ORDER BY p.published_at DESC, p.id DESC
+                LIMIT $limit";
+        $rows = parent::select($sql);
+        return is_array($rows) ? $rows : array();
+    }
 }

@@ -59,7 +59,7 @@
 
             <div id="register_form" style="display:none;">
                 <h2 class="cos-form-title">Create Account</h2>
-                <p class="cos-help">Set up your <?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> account.</p>
+                <p class="cos-help">Free for fans. Creators pick a plan after signing up.</p>
                 <div class="row g-3">
                     <div class="col-md-6">
                         <div class="form-floating">

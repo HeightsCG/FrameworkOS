@@ -657,3 +657,17 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
     .hx__after { padding-bottom: 56px; }
     .sx--pricing { padding: 56px 0; }
 }
+
+/* Home: latest posts strip (static, six cards) */
+.lp-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+.lp { display: flex; flex-direction: column; gap: 6px; min-width: 0; color: inherit; text-decoration: none; }
+.lp__img { display: block; aspect-ratio: 1 / 1; overflow: hidden; border-radius: 8px; background: var(--sx-grey); border: 1px solid var(--sx-line); }
+.lp__img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .4s var(--sx-ease); }
+.lp:hover .lp__img img { transform: scale(1.04); }
+.lp__who { margin-top: 4px; font-size: .875rem; font-weight: 600; color: var(--sx-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lp__cap { font-size: .8125rem; line-height: 1.45; color: var(--sx-muted); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.lp:hover .lp__who { color: var(--sx-acc); }
+.lp:focus-visible { outline: none; box-shadow: var(--sx-ring); border-radius: 8px; }
+@media (max-width: 1000px) { .lp-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .lp-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (prefers-reduced-motion: reduce) { .lp__img img { transition: none; } .lp:hover .lp__img img { transform: none; } }
