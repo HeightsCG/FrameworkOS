@@ -19,7 +19,7 @@ $e = function ($s) { return Sections::e($s); };
     </article>
 <?php endforeach; ?>
 </div>
-<p class="sx-note">Stripe card-processing fees are separate from the platform take rate.</p>
+<p class="sx-note">Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
 

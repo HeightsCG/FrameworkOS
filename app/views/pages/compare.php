@@ -39,6 +39,6 @@ echo Sections::cards(array(
 echo Sections::close();
 
 echo Sections::open('alt', 'Moving over');
-echo '<p class="sx-p">Keep your ' . $e($c['name']) . ' page live while you set up. Publish to both from the studio, put your new page in every bio, and let fans move at their own pace. Memberships and pay-per-view work from day one; payouts start as soon as Stripe finishes verifying you.</p>';
+echo '<p class="sx-p">Keep your ' . $e($c['name']) . ' page live while you set up. Publish to both from the studio, put your new page in every bio, and let fans move at their own pace. Memberships and pay-per-view work from day one; payouts start as soon as your payout account is verified.</p>';
 echo Sections::close();
 $cta_title = 'Try it alongside ' . $c['name'] . '.';

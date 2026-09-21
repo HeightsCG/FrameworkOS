@@ -75,7 +75,7 @@ class PagesController extends Controller {
             array('q' => 'Do I need my own website?', 'a' => 'No. Your public page lives at our domain under your handle and includes your posts, tiers, services, events and links.'),
             array('q' => 'Can I keep posting to my social accounts?', 'a' => 'Yes. The studio publishes each post to your page and to any connected social accounts at the same time, and pulls their engagement back into analytics.'),
             array('q' => 'Who owns my content and subscriber list?', 'a' => 'You do. Media, posts and your audience list can be exported at any time.'),
-            array('q' => 'How do I get paid?', 'a' => 'Payouts go through Stripe Connect to your bank account. Fans pay with a credit wallet for unlocks and by card for memberships.'),
+            array('q' => 'How do I get paid?', 'a' => 'Payouts go straight to your bank account. Fans pay with a credit wallet for unlocks and by card for memberships.'),
             array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
         );
         $jsonld = array(
@@ -116,7 +116,7 @@ class PagesController extends Controller {
             array('q' => 'Is there a free plan?', 'a' => 'No. Every plan includes the whole platform and unlimited fans; the plans differ in take rate, seats, AI credits, automations and storage.'),
             array('q' => 'What is the platform take rate?', 'a' => 'A flat percentage of what fans pay you, set by your plan and shown on this page. It falls as you move up.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Changes prorate.'),
-            array('q' => 'Are there payment processing fees on top?', 'a' => 'Stripe processing fees apply to card payments as with any platform; they are separate from the take rate.'),
+            array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
         );
         $offers = array();
         foreach ($rows as $r) {
@@ -138,7 +138,7 @@ class PagesController extends Controller {
         foreach ($tiers as $t) { $fees[] = (int) $t['limits']['fee_percent']; }
         return array(
             'fee'       => min($fees) . '% to ' . max($fees) . '% by plan (falls as you grow)',
-            'payout'    => 'Stripe Connect to your bank account',
+            'payout'    => 'Direct to your bank account',
             'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
             'socials'   => 'Publishes to 9 social networks from one studio',
             'ai'        => 'AI captions, AI inbox replies, AI influencers',

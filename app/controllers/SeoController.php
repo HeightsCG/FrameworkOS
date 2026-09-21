@@ -100,7 +100,7 @@ class SeoController extends Controller {
         $l = array();
         $l[] = '# ' . $site;
         $l[] = '';
-        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and Stripe payouts. Plans are monthly; the platform take rate falls as the plan grows.';
+        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and payouts to your bank. Plans are monthly; the platform take rate falls as the plan grows.';
         $l[] = '';
         $l[] = '## Product';
         foreach (self::public_pages() as $p) { $l[] = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description']; }

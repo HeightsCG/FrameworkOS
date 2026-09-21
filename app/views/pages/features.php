@@ -41,7 +41,7 @@ $groups = array(
         array('link', 'Link clicks', 'Clicks on every link on your page.'),
     )),
     array('id' => 'payouts', 'jump' => 'Payouts and team', 'jump_icon' => 'bank', 'title' => 'Payouts, team and tools', 'lead' => 'Your money and your audience stay yours.', 'image' => SiteImages::url('features_payouts'), 'items' => array(
-        array('bank', 'Payouts to your bank', 'Earnings collect as credits. Cash out to your own bank account through Stripe Connect.'),
+        array('bank', 'Payouts to your bank', 'Earnings collect as credits. Cash out to your own bank account.'),
         array('wallet', 'Fan credit wallet', 'Fans top up once and pay in one tap, with optional automatic top-ups.'),
         array('user-plus', 'Team seats', 'Invite collaborators to work on your account.'),
         array('plug', 'Claude connector', 'Run your account from Claude: posts, messages, analytics and more.'),
