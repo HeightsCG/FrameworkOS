@@ -18,12 +18,13 @@ class SeoController extends Controller {
         header('Content-Type: text/plain; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
 
-        $private = array('/account', '/admin', '/api', '/audience', '/dashboard', '/events', '/go', '/mcp', '/purchases', '/services', '/studio');
+        $private = array('/account', '/admin', '/api', '/audience', '/dashboard', '/events', '/go', '/inbox', '/influencers', '/mcp', '/purchases', '/services', '/setup', '/studio');
 
         $lines   = array();
         $lines[] = 'User-agent: *';
         $lines[] = 'Allow: /';
         $lines[] = 'Allow: /llms.txt';
+        $lines[] = 'Allow: /llms-full.txt';
         foreach ($private as $path) {
             $lines[] = 'Disallow: ' . $path;
         }
@@ -39,6 +40,11 @@ class SeoController extends Controller {
 
         $urls   = array();
         $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0');
+
+        foreach (self::public_pages() as $p) {
+            $urls[] = array('loc' => $base . $p['path'], 'changefreq' => $p['changefreq'], 'priority' => $p['priority'],
+                            'lastmod' => gmdate('Y-m-d', filemtime(Main::app_path() . '/app/controllers/PagesController.php')));
+        }
 
         foreach ((new UsersModel())->list_public_creators() as $row) {
             $lastmod = !empty($row['last_modified']) ? gmdate('Y-m-d', strtotime((string) $row['last_modified'] . ' UTC')) : '';
@@ -63,6 +69,109 @@ class SeoController extends Controller {
             echo "  </url>\n";
         }
         echo '</urlset>', "\n";
+    }
+
+    /** The hand-written public pages. Sitemap, llms.txt and the content engine read this list. */
+    public static function public_pages(): array {
+        $pages = array(
+            array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
+            array('path' => '/pricing',  'title' => 'Pricing',  'description' => 'Three monthly plans; the take rate falls as you grow.',                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
+        );
+        foreach (PagesController::COMPETITORS as $slug => $c) {
+            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => 'A ' . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8');
+        }
+        $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8');
+        $pages[] = array('path' => '/monetize-your-content',               'title' => 'How to monetize your content',        'description' => 'Memberships, pay-per-view, bundles, services and events, and how to price each.',           'changefreq' => 'monthly', 'priority' => '0.8');
+        return $pages;
+    }
+
+    /** Short machine-readable index for LLM crawlers (llmstxt.org). */
+    public function llmsAction(){
+        $base = Main::get_base_domain(); $site = Main::site_name();
+        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: private, max-age=3600');
+        $l = array();
+        $l[] = '# ' . $site;
+        $l[] = '';
+        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and Stripe payouts. Plans are monthly; the platform take rate falls as the plan grows.';
+        $l[] = '';
+        $l[] = '## Product';
+        foreach (self::public_pages() as $p) { $l[] = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description']; }
+        $l[] = '';
+        $l[] = '## Creators';
+        $l[] = '- Public creator pages live at ' . $base . '/@handle (listed in ' . $base . '/sitemap.xml).';
+        $l[] = '';
+        $l[] = '## Full text';
+        $l[] = '- [llms-full.txt](' . $base . '/llms-full.txt): every public page as plain text.';
+        echo implode("\n", $l), "\n";
+    }
+
+    /** Every public page's text, concatenated, for LLM ingestion. Rendered pages are fetched internally and stripped to text. */
+    public function llmsFullAction(){
+        $base = Main::get_base_domain(); $site = Main::site_name();
+        $out = array('# ' . $site . ' — full text', '', 'Source: ' . $base . '/llms.txt', '');
+        foreach (self::public_pages() as $p) {
+            $html = self::render_public_html($p['path']);
+            if ($html === '') { continue; }
+            $text = self::html_to_text($html);
+            if ($text === '') { continue; }
+            $out[] = '## ' . $p['title'];
+            $out[] = 'URL: ' . $base . $p['path'];
+            $out[] = '';
+            $out[] = $text;
+            $out[] = '';
+        }
+        $text = implode("\n", $out);
+        if (strlen($text) > 2 * 1024 * 1024) { $text = mb_strcut($text, 0, 2 * 1024 * 1024, 'UTF-8'); }
+        // Set after the render loop, immediately before output: a rendered page's own
+        // constructor/action may have sent headers of its own (see render_public_html), so
+        // ours must be the last ones sent to win.
+        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: private, max-age=3600');
+        echo $text, "\n";
+    }
+
+    /** Render one public page through PagesController into a string (output-buffered). */
+    private static function render_public_html($path): string {
+        $seg = array_values(array_filter(explode('/', trim((string) $path, '/'))));
+        $method = PagesController::ROUTES[$seg[0]] ?? '';
+        if ($method === '') { return ''; }
+        $saved = $_GET;
+        $_GET['url'] = implode('/', $seg);   // Main::get_url() reads this
+        PagesController::$embedded = true;
+        $code = http_response_code();
+        $html = '';
+        ob_start();
+        try {
+            (new PagesController())->{$method . 'Action'}();
+            $html = (string) ob_get_clean();
+            if (http_response_code() === 404) { $html = ''; }
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            error_log('[seo] llms-full render ' . $path . ': ' . $e->getMessage());
+            $html = '';
+        } finally {
+            PagesController::$embedded = false;
+            $_GET = $saved;
+            if (http_response_code() !== $code) { http_response_code($code); }
+        }
+        return $html;
+    }
+
+    /** <main> contents → plain text with headings as Markdown. Not a public page (no <main>) → ''. */
+    private static function html_to_text($html): string {
+        if (!preg_match('/<main[^>]*>(.*)<\/main>/is', $html, $m)) { return ''; }
+        $html = $m[1];
+        $html = preg_replace('/<(script|style)[^>]*>.*?<\/\1>/is', '', $html);
+        $html = preg_replace('/<h1[^>]*>(.*?)<\/h1>/is', "\n## $1\n", $html);
+        $html = preg_replace('/<h2[^>]*>(.*?)<\/h2>/is', "\n### $1\n", $html);
+        $html = preg_replace('/<h3[^>]*>(.*?)<\/h3>/is', "\n#### $1\n", $html);
+        $html = preg_replace('/<li[^>]*>/i', "\n- ", $html);
+        $html = preg_replace('/<\/dt>/i', ": ", $html);
+        $html = preg_replace('/<\/dd>/i', "\n", $html);
+        $html = preg_replace('/<\/(p|li|tr|div)>/i', "\n", $html);
+        $html = preg_replace('/<\/t[dh]>/i', " | ", $html);
+        $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $text = preg_replace('/[ \t]+/', ' ', $text);
+        return trim(preg_replace('/\n{3,}/', "\n\n", $text));
     }
 
 }

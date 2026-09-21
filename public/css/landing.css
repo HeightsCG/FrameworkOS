@@ -4,6 +4,12 @@
    Prefix: ld-  |  BEM kebab  |  bright identity only
    ========================================================================== */
 
+/* Self-hosted Inter (Latin subset). Google's css2 endpoint served the same
+   gstatic URL for weights 400/500/600/700/800 — it is a single variable-font
+   file (fvar wght axis 100-900), not five static instances — so one
+   @font-face with a weight range covers all five declared weights. */
+@font-face{ font-family:'Inter'; font-style:normal; font-weight:400 800; font-display:swap; src:url('/fonts/inter-latin-var.woff2') format('woff2-variations'), url('/fonts/inter-latin-var.woff2') format('woff2'); unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+2000-206F,U+2074,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD; }
+
 :root {
     --ld-violet: #5b4be0;
     --ld-violet7: #4636c4;
@@ -562,7 +568,7 @@ body.ld {
 /* Footer */
 .ld-foot { border-top: 1px solid var(--ld-line); }
 .ld-foot__inner { display: flex; align-items: center; gap: 1rem; padding: 1.8rem 0; flex-wrap: wrap; }
-.ld-foot__note { margin-left: auto; font-size: .85rem; color: var(--ld-muted); }
+.ld-foot__note { margin-left: auto; font-size: .85rem; color: #5b5b60; }
 
 /* --------------------------------------------------------------------------
    Reveal-on-scroll (one-time)
@@ -625,6 +631,7 @@ body.ld {
 .cos-link:focus-visible { outline: none; box-shadow: var(--ld-ring); }
 .cos-link.accent { color: var(--ld-violet); }
 .cos-link.accent:hover { color: var(--ld-violet7); }
+button.cos-link{ background:none; border:0; padding:0; font-family:inherit; font-size:inherit; line-height:inherit; cursor:pointer; text-align:inherit; margin:0; }
 .ld-auth .form-control {
     border-radius: 10px; border: 1px solid rgba(20, 18, 40, .16); background: #fff;
     font-family: inherit; transition: border-color .15s, box-shadow .15s;

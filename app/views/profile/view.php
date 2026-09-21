@@ -60,7 +60,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
             'mainEntity' => $seo_person,
             'isPartOf'   => array('@type' => 'WebSite', 'name' => $site_name, 'url' => $seo_base . '/'),
         );
-        if (!empty($user['creator_since'])) { $seo_ld['dateCreated'] = gmdate('Y-m-d', strtotime((string) $user['creator_since'] . ' UTC')); }
+        // Google wants a full ISO 8601 datetime with offset; skip the field when the value can't be parsed.
+        $created_ts = !empty($user['creator_since']) ? strtotime((string) $user['creator_since'] . ' UTC') : false;
+        if ($created_ts !== false) { $seo_ld['dateCreated'] = gmdate('c', $created_ts); }
     ?>
     <link rel="canonical" href="<?php echo htmlspecialchars($seo_url, ENT_QUOTES, 'UTF-8'); ?>">
     <meta name="description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">

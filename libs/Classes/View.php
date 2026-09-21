@@ -65,6 +65,17 @@ class View {
         }
     }
 
+    /** Render a public, indexable page with the landing-page chrome. $meta feeds SeoMeta::head(). */
+    public function public_page(string $view_file, array $meta, array $vars = array()): void
+    {
+        $file = Main::lib_path() . '/Layout/public_page.php';
+        if (!file_exists($file) || !file_exists($view_file)) { Errors::page_not_found(); return; }
+        $public_view_file = $view_file;
+        $public_meta      = $meta;
+        extract($vars, EXTR_SKIP);
+        require $file;
+    }
+
     public function render($p = false): void
     {
         $file = $this->layout_file();

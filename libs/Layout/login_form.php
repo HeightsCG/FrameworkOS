@@ -4,8 +4,6 @@
 <?php include __DIR__ . '/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta http-equiv="Cache-Control" content="no-store, max-age=0">
-    <meta http-equiv="Pragma" content="no-cache">
     <?php echo CSRF::meta(); ?>
     <?php
         $seo_site  = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
@@ -85,16 +83,16 @@
         ];
     ?>
     <script type="application/ld+json"><?php echo json_encode($seo_ld, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css">
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/landing.css'); ?>">
-    <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.js"></script>
-    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path().'/public/js/api.data.js'); ?>"></script>
+    <!-- Bootstrap + toastr are only needed by the auth dialog: load them without blocking first paint. -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" media="print" onload="this.media='all'">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.css"></noscript>
+    <script defer src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.js"></script>
+    <script defer src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path().'/public/js/api.data.js'); ?>"></script>
     <script>
+    document.addEventListener('DOMContentLoaded', function () {
     $(document).ready(function() {
 
         $('#login_form').show();
@@ -343,6 +341,7 @@
             }
         });
 
+    });
     });
     </script>
 </head>
@@ -698,11 +697,11 @@
                 <button type="button" id="do_login" class="cos-submit">Sign In</button>
                 <div id="resend_verify_wrap" style="display:none; margin-top:.9rem; text-align:center;">
                     <span class="cos-help" style="margin:0;">Didn&rsquo;t get the email? </span>
-                    <a id="do_resend_verify" class="cos-link accent" tabindex="0">Resend Verification</a>
+                    <button type="button" id="do_resend_verify" class="cos-link accent">Resend Verification</button>
                 </div>
                 <div class="cos-links">
-                    <a id="forgot_password" class="cos-link" tabindex="0">Forgot Password?</a>
-                    <a id="register" class="cos-link accent" tabindex="0">Create Account</a>
+                    <button type="button" id="forgot_password" class="cos-link">Forgot Password?</button>
+                    <button type="button" id="register" class="cos-link accent">Create Account</button>
                 </div>
             </div>
 
@@ -716,10 +715,10 @@
                 <input type="hidden" id="mfa_method" value="">
                 <button type="button" id="do_mfa_verify" class="cos-submit">Verify</button>
                 <div class="cos-links" style="flex-wrap:wrap; gap:.75rem;">
-                    <a id="mfa_use_email" class="cos-link" style="display:none;" tabindex="0">Email me a code</a>
-                    <a id="mfa_resend_email" class="cos-link" style="display:none;" tabindex="0">Resend code</a>
-                    <a id="mfa_use_totp" class="cos-link" style="display:none;" tabindex="0">Use authenticator app</a>
-                    <a id="mfa_use_backup" class="cos-link" tabindex="0">Use a backup code</a>
+                    <button type="button" id="mfa_use_email" class="cos-link" style="display:none;">Email me a code</button>
+                    <button type="button" id="mfa_resend_email" class="cos-link" style="display:none;">Resend code</button>
+                    <button type="button" id="mfa_use_totp" class="cos-link" style="display:none;">Use authenticator app</button>
+                    <button type="button" id="mfa_use_backup" class="cos-link">Use a backup code</button>
                 </div>
             </div>
 
@@ -732,7 +731,7 @@
                 </div>
                 <button type="button" id="do_forgot" class="cos-submit">Send Reset Link</button>
                 <div class="cos-links">
-                    <a class="cos-link show_login" tabindex="0">Back to Sign In</a>
+                    <button type="button" class="cos-link show_login">Back to Sign In</button>
                 </div>
             </div>
 
@@ -775,7 +774,7 @@
                     </div>
                     <div class="col-md-12">
                         <div class="cos-links">
-                            <a class="cos-link show_login" tabindex="0">Back to Sign In</a>
+                            <button type="button" class="cos-link show_login">Back to Sign In</button>
                         </div>
                     </div>
                 </div>
@@ -784,6 +783,6 @@
         </div>
     </div>
 
-    <script src="/js/landing.js?v=<?php echo @filemtime(Main::app_path().'/public/js/landing.js'); ?>"></script>
+    <script defer src="/js/landing.js?v=<?php echo @filemtime(Main::app_path().'/public/js/landing.js'); ?>"></script>
 </body>
 </html>

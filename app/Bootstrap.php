@@ -37,9 +37,16 @@ class Bootstrap
         }
 
         // Crawler endpoints: generated so absolute URLs match the served host.
-        if (isset($url[0]) && ($url[0] === 'robots.txt' || $url[0] === 'sitemap.xml')) {
-            $seo = new SeoController();
-            $url[0] === 'robots.txt' ? $seo->robotsAction() : $seo->sitemapAction();
+        $crawl = array('robots.txt' => 'robotsAction', 'sitemap.xml' => 'sitemapAction', 'llms.txt' => 'llmsAction', 'llms-full.txt' => 'llmsFullAction');
+        if (isset($url[0]) && isset($crawl[$url[0]])) {
+            (new SeoController())->{$crawl[$url[0]]}();
+            return;
+        }
+
+        // Public product pages (URLs don't fit /controller/action): see PagesController::ROUTES.
+        if (isset($url[0]) && isset(PagesController::ROUTES[$url[0]])) {
+            $method = PagesController::ROUTES[$url[0]] . 'Action';
+            (new PagesController())->$method();
             return;
         }
 

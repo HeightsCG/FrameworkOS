@@ -46,6 +46,14 @@ $(document).ready(function() {
         close_auth();
     });
 
+    /* Arriving from a public page ("Sign In" / "Create Your Account" links to
+       /?auth=login or /?auth=register): open the matching dialog on load. */
+    var auth_param = new URLSearchParams(location.search).get('auth');
+    if (auth_param === 'login' || auth_param === 'register') {
+        var auth_trigger = document.querySelector('[data-auth="' + auth_param + '"]');
+        if (auth_trigger) { auth_trigger.click(); }
+    }
+
     $(document).on('keydown', function(e) {
         if (!auth_overlay || auth_overlay.hidden) { return; }
 
