@@ -126,9 +126,11 @@
             lock = '<div class="feed-card__lock"><span class="feed-card__lock-icon"><i class="fa-solid fa-lock"></i></span>' +
                 '<span class="feed-card__lock-tag">' + tag + '</span></div>';
         }
+        var initial = esc(String(c.author || '?').replace(/^@/, '').charAt(0).toUpperCase());
+        // If the avatar file can't load (deleted or missing on S3), swap in the initial instead of a broken image.
         var avatar = c.avatar
-            ? '<img class="feed-card__avatar" src="' + esc(c.avatar) + '" alt="">'
-            : '<span class="feed-card__avatar">' + esc(String(c.author || '?').replace(/^@/, '').charAt(0).toUpperCase()) + '</span>';
+            ? '<img class="feed-card__avatar" src="' + esc(c.avatar) + '" alt="" data-initial="' + initial + '" onerror="var s=document.createElement(\'span\');s.className=\'feed-card__avatar\';s.textContent=this.getAttribute(\'data-initial\');this.replaceWith(s);">'
+            : '<span class="feed-card__avatar">' + initial + '</span>';
         var cap = (c.caption && c.caption.trim() !== '')
             ? '<p class="feed-card__caption">' + esc(c.caption) + '</p>'
             : '<p class="feed-card__caption feed-card__caption--empty">Untitled</p>';

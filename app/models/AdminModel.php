@@ -53,6 +53,134 @@ class AdminModel extends Model {
         );
     }
 
+    /**
+     * Platform financials from the source ledgers (not per-post totals, which go stale when posts are deleted).
+     * Credits are $0.10 each (10 cents); AI credits are $1 each. $plan_prices: tier key => monthly price in cents.
+     * Returns cents throughout.
+     */
+    public function financials(array $plan_prices){
+        $kinds = array(
+            'ppv'     => array('Pay-per-view', 'ppv_unlock',       'ppv_earning'),
+            'bundle'  => array('Bundles',      'bundle_unlock',    'bundle_earning'),
+            'message' => array('Paid messages','message_unlock',   'message_earning'),
+            'service' => array('Services',     'service_purchase', 'service_earning'),
+            'event'   => array('Events',       'event_ticket',     'event_earning'),
+        );
+        $ledger = array();
+        foreach ((array) parent::select("SELECT type, COUNT(*) AS n, COALESCE(SUM(credits),0) AS cr FROM credit_transactions GROUP BY type") as $r) {
+            $ledger[$r['type']] = array('n' => (int) $r['n'], 'cr' => (int) $r['cr']);
+        }
+        $refunds = array();
+        foreach ((array) parent::select("SELECT kind, COUNT(*) AS n, COALESCE(SUM(amount_credits),0) AS amt, COALESCE(SUM(clawback_credits),0) AS claw FROM refunds GROUP BY kind") as $r) {
+            $refunds[$r['kind']] = array('n' => (int) $r['n'], 'amt' => (int) $r['amt'], 'claw' => (int) $r['claw']);
+        }
+        $rows = array(); $t = array('sales' => 0, 'gross' => 0, 'refunded' => 0, 'creator' => 0, 'platform' => 0);
+        foreach ($kinds as $k => $d) {
+            $sales    = $ledger[$d[1]]['n'] ?? 0;
+            $gross    = abs($ledger[$d[1]]['cr'] ?? 0) * 10;
+            $refunded = ($refunds[$k]['amt'] ?? 0) * 10;
+            $creator  = (($ledger[$d[2]]['cr'] ?? 0) - ($refunds[$k]['claw'] ?? 0)) * 10;
+            $net      = $gross - $refunded;
+            $row = array('label' => $d[0], 'sales' => $sales, 'gross' => $gross, 'refunded' => $refunded, 'net' => $net, 'creator' => max(0, $creator), 'platform' => max(0, $net - max(0, $creator)));
+            $rows[$k] = $row;
+            $t['sales'] += $sales; $t['gross'] += $gross; $t['refunded'] += $refunded; $t['creator'] += $row['creator']; $t['platform'] += $row['platform'];
+        }
+        $t['net'] = $t['gross'] - $t['refunded'];
+
+        // Creator plans (the platform's own subscription revenue), priced from the live Stripe plans.
+        $plans = array(); $plan_mrr = 0; $plan_n = 0;
+        foreach ((array) parent::select("SELECT plan_tier, COUNT(*) AS n FROM user_accounts WHERE deleted = 0 AND plan_tier IS NOT NULL AND plan_tier <> '' AND subscription_status IN ('active','trialing') GROUP BY plan_tier") as $r) {
+            $price = (int) ($plan_prices[$r['plan_tier']] ?? 0);
+            $plans[$r['plan_tier']] = array('n' => (int) $r['n'], 'mrr' => $price * (int) $r['n']);
+            $plan_mrr += $price * (int) $r['n']; $plan_n += (int) $r['n'];
+        }
+
+        $ai_n  = (int) $this->scalar("SELECT COUNT(*) AS n FROM ai_credit_transactions WHERE type = 'purchase'");
+        $ai_cents = (int) $this->scalar("SELECT COALESCE(SUM(credits),0)*100 AS n FROM ai_credit_transactions WHERE type = 'purchase'");
+        $held  = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0");
+        $held_creators = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0 AND role_id = :r", array('r' => $this->creator_role_id()));
+        $cb    = parent::select("SELECT COUNT(*) AS n, COALESCE(SUM(amount_cents),0) AS amt FROM chargebacks");
+
+        return array(
+            'sales'          => $rows,
+            'sales_total'    => $t,
+            'credits_sold'   => max(0, $ledger['purchase']['cr'] ?? 0) * 10,
+            'credit_orders'  => $ledger['purchase']['n'] ?? 0,
+            'ai_sold'        => $ai_cents,
+            'ai_orders'      => $ai_n,
+            'payouts'        => abs($ledger['payout']['cr'] ?? 0) * 10,
+            'payout_count'   => $ledger['payout']['n'] ?? 0,
+            'credits_held'   => $held,
+            'held_creators'  => $held_creators,
+            'held_fans'      => max(0, $held - $held_creators),
+            'plan_mrr'       => $plan_mrr,
+            'plan_count'     => $plan_n,
+            'plans'          => $plans,
+            'refund_count'   => array_sum(array_column($refunds, 'n')),
+            'refund_cents'   => $t['refunded'],
+            'chargeback_n'   => (int) ($cb[0]['n'] ?? 0),
+            'chargeback_cents' => (int) ($cb[0]['amt'] ?? 0),
+        );
+    }
+
+    /**
+     * Money per calendar month for the last 24 months, from the ledgers (cents). Each month has platform totals
+     * (plans, fee, revenue, credits, ai, cash_in, refunds, payouts, sales) and a per-type sales breakdown
+     * (gross, refunded, creator, platform, sales). A refund lands in the month it happened. $plan_buckets:
+     * 'Y-m' => paid creator-plan invoice cents (from Stripe).
+     */
+    public function money_series(array $plan_buckets = array()){
+        $types = array(
+            'ppv'     => array('ppv_unlock', 'ppv_earning'),
+            'bundle'  => array('bundle_unlock', 'bundle_earning'),
+            'message' => array('message_unlock', 'message_earning'),
+            'service' => array('service_purchase', 'service_earning'),
+            'event'   => array('event_ticket', 'event_earning'),
+        );
+        $since = gmdate('Y-m-01 00:00:00', strtotime('first day of -23 months'));
+        $keys = array();
+        for ($i = 23; $i >= 0; $i--) {
+            $k = gmdate('Y-m', strtotime("first day of -$i months"));
+            $t = array(); foreach ($types as $tk => $td) { $t[$tk] = array('sales' => 0, 'gross' => 0, 'refunded' => 0, 'creator' => 0); }
+            $keys[$k] = array('plans' => (int) ($plan_buckets[$k] ?? 0), 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0, 'types' => $t);
+        }
+        $rows = parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, type, COUNT(*) AS n, SUM(credits) AS cr FROM credit_transactions WHERE created_at >= :s GROUP BY b, type", array('s' => $since));
+        foreach ((array) $rows as $r) {
+            if (!isset($keys[$r['b']])) { continue; }
+            $cr = (int) $r['cr']; $n = (int) $r['n']; $m = &$keys[$r['b']];
+            if ($r['type'] === 'purchase') { $m['credits'] += $cr * 10; }
+            elseif ($r['type'] === 'payout') { $m['payouts'] += -$cr * 10; }
+            foreach ($types as $tk => $td) {
+                if ($r['type'] === $td[0]) { $m['types'][$tk]['sales'] += $n; $m['types'][$tk]['gross'] += -$cr * 10; }
+                if ($r['type'] === $td[1]) { $m['types'][$tk]['creator'] += $cr * 10; }
+            }
+            unset($m);
+        }
+        foreach ((array) parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, kind, SUM(amount_credits) AS amt, SUM(clawback_credits) AS claw FROM refunds WHERE created_at >= :s GROUP BY b, kind", array('s' => $since)) as $r) {
+            if (!isset($keys[$r['b']]) || !isset($keys[$r['b']]['types'][$r['kind']])) { continue; }
+            $keys[$r['b']]['types'][$r['kind']]['refunded'] += (int) $r['amt'] * 10;
+            $keys[$r['b']]['types'][$r['kind']]['creator']  -= (int) $r['claw'] * 10;
+            $keys[$r['b']]['refunds'] += (int) $r['amt'] * 10;
+        }
+        foreach ((array) parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, SUM(credits) AS c FROM ai_credit_transactions WHERE type = 'purchase' AND created_at >= :s GROUP BY b", array('s' => $since)) as $r) {
+            if (isset($keys[$r['b']])) { $keys[$r['b']]['ai'] += (int) $r['c'] * 100; }
+        }
+        $out = array();
+        foreach ($keys as $k => $v) {
+            $fee = 0; $sales = 0;
+            foreach ($v['types'] as $tk => $t) { $v['types'][$tk]['platform'] = $t['gross'] - $t['refunded'] - $t['creator']; $fee += $v['types'][$tk]['platform']; $sales += $t['sales']; }
+            $out[] = array('k' => $k, 'label' => gmdate('M', strtotime($k . '-01')), 'plans' => $v['plans'], 'fee' => $fee, 'revenue' => $v['plans'] + $fee,
+                           'credits' => $v['credits'], 'ai' => $v['ai'], 'cash_in' => $v['credits'] + $v['ai'], 'refunds' => $v['refunds'], 'payouts' => $v['payouts'],
+                           'sales' => $sales, 'types' => $v['types']);
+        }
+        return $out;
+    }
+
+    /** Creators with a Stripe customer id (for pulling their paid plan invoices). */
+    public function plan_customers(){
+        return (array) parent::select("SELECT user_id, stripe_customer_id FROM user_accounts WHERE deleted = 0 AND stripe_customer_id IS NOT NULL AND stripe_customer_id <> ''");
+    }
+
     /** Images awaiting a decision (flagged first, then unscanned), with creator + AI signal. */
     public function moderation_queue($limit = 40){
         $limit = max(1, min(100, (int) $limit));

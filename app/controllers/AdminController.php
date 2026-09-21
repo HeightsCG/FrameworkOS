@@ -46,6 +46,12 @@ class AdminController extends Controller {
         $this->view->verifications = $verifs->pending_for_admin(40);
         $this->view->verif_pending = $verifs->pending_count();
         $this->view->stats        = $model->overview();
+        $plan_prices = array();
+        foreach (PagesController::pricing_rows() as $pr) { if ($pr['amount'] !== null) { $plan_prices[$pr['tier']['key']] = (int) $pr['amount']; } }
+        $this->view->fin          = $model->financials($plan_prices);
+        $plan_inv = self::plan_invoice_buckets($model);
+        $this->view->series       = $model->money_series($plan_inv['month']);
+        $this->view->plan_all     = $plan_inv['all'];
         $this->view->queue        = $queue;
         $this->view->sales        = $model->recent_sales(25);
         $this->view->refunds      = $refunds->totals();
@@ -76,5 +82,29 @@ class AdminController extends Controller {
         $this->view->faq      = (array) json_decode((string) ($a['faq'] ?? '[]'), true);
         $this->view->errors   = SeoDrafter::validate(array('title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'body_md' => $a['body_md'], 'faq' => $this->view->faq), (int) $a['id']);
         $this->view->render();
+    }
+
+    /**
+     * Paid creator-plan invoices from Stripe, bucketed by month and day (cents), plus the all-time total.
+     * Cached for 10 minutes so the admin page does not call Stripe for every creator on every load.
+     */
+    private static function plan_invoice_buckets(AdminModel $model): array {
+        $cache = sys_get_temp_dir() . '/cls_admin_plan_invoices.json';
+        if (is_file($cache) && filemtime($cache) > time() - 600) {
+            $c = json_decode((string) file_get_contents($cache), true);
+            if (is_array($c)) { return $c; }
+        }
+        $out = array('month' => array(), 'day' => array(), 'all' => 0);
+        foreach ($model->plan_customers() as $cu) {
+            foreach (StripeService::get_invoices((string) $cu['stripe_customer_id'], 100) as $inv) {
+                if ($inv['status'] !== 'paid' || (int) $inv['amount'] <= 0) { continue; }
+                $m = gmdate('Y-m', (int) $inv['created']); $d = gmdate('Y-m-d', (int) $inv['created']);
+                $out['month'][$m] = ($out['month'][$m] ?? 0) + (int) $inv['amount'];
+                $out['day'][$d]   = ($out['day'][$d] ?? 0) + (int) $inv['amount'];
+                $out['all'] += (int) $inv['amount'];
+            }
+        }
+        @file_put_contents($cache, json_encode($out), LOCK_EX);
+        return $out;
     }
 }

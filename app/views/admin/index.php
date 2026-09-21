@@ -20,39 +20,17 @@ $users = $this->users;
 <div class="adm">
     <header class="adm__head">
         <h1 class="adm__title">Admin</h1>
-        <p class="adm__sub">Platform overview, content moderation, and user management.</p>
     </header>
 
-    <div class="adm-kpis">
-        <div class="adm-kpi">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Users</span><span class="adm-kpi__ic"><i class="fa-solid fa-users"></i></span></div>
-            <div class="adm-kpi__val"><?php echo number_format((int) $s['users']); ?></div>
-            <div class="adm-kpi__sub"><?php echo number_format((int) $s['creators']); ?> creators</div>
-        </div>
-        <div class="adm-kpi">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Total revenue</span><span class="adm-kpi__ic"><i class="fa-solid fa-sack-dollar"></i></span></div>
-            <div class="adm-kpi__val">$<?php echo number_format(((int) $s['gross_cents']) / 100, 2); ?></div>
-            <div class="adm-kpi__sub">pay-per-view + bundles</div>
-        </div>
-        <div class="adm-kpi">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Platform revenue</span><span class="adm-kpi__ic"><i class="fa-solid fa-coins"></i></span></div>
-            <div class="adm-kpi__val">$<?php echo number_format(((int) $s['platform_cents']) / 100, 2); ?></div>
-            <div class="adm-kpi__sub">our cut, after creator payouts</div>
-        </div>
-        <div class="adm-kpi">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Subscriptions</span><span class="adm-kpi__ic"><i class="fa-solid fa-heart"></i></span></div>
-            <div class="adm-kpi__val"><?php echo number_format((int) $s['active_subs']); ?></div>
-            <div class="adm-kpi__sub">$<?php echo number_format(((int) $s['mrr_cents']) / 100, 2); ?>/mo<?php if ((int) $s['sub_fee_cents'] > 0): ?> &middot; $<?php echo number_format(((int) $s['sub_fee_cents']) / 100, 2); ?>/mo our fee<?php endif; ?></div>
-        </div>
-        <div class="adm-kpi<?php echo $review > 0 ? ' adm-kpi--alert' : ''; ?>">
-            <div class="adm-kpi__top"><span class="adm-kpi__label">Needs review</span><span class="adm-kpi__ic"><i class="fa-solid fa-shield-halved"></i></span></div>
-            <div class="adm-kpi__val"><?php echo number_format($review); ?></div>
-            <div class="adm-kpi__sub"><?php echo number_format((int) $s['mod_flagged']); ?> flagged &middot; <?php echo number_format((int) $s['mod_pending']); ?> unscanned</div>
-        </div>
-    </div>
-
+<?php
+$f = $this->fin; $usd = function ($c) { return '$' . number_format(((int) $c) / 100, 2); };
+$recurring = (int) $f['plan_mrr'];
+$ft = $f['sales_total'];
+$tier_bits = array(); foreach (PlanTiers::all() as $pt) { $n = (int) ($f['plans'][$pt['key']]['n'] ?? 0); if ($n > 0) { $tier_bits[] = $n . ' ' . $pt['name']; } }
+?>
     <div class="adm-tabs" id="admTabs">
-        <button type="button" class="adm-tab is-active" data-panel="moderation"><i class="fa-solid fa-shield-halved"></i> Moderation<?php if ($review > 0): ?> <b class="adm-tab__badge"><?php echo (int) $review; ?></b><?php endif; ?></button>
+        <button type="button" class="adm-tab is-active" data-panel="financials"><i class="fa-solid fa-chart-line"></i> Financials</button>
+        <button type="button" class="adm-tab" data-panel="moderation"><i class="fa-solid fa-shield-halved"></i> Moderation<?php if ($review > 0): ?> <b class="adm-tab__badge"><?php echo (int) $review; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="reports"><i class="fa-solid fa-flag"></i> Reports<?php if ((int) $this->reports_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->reports_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="verification"><i class="fa-solid fa-user-check"></i> Verification<?php if ((int) $this->verif_pending > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->verif_pending; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="sales"><i class="fa-solid fa-receipt"></i> Sales</button>
@@ -60,16 +38,89 @@ $users = $this->users;
         <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
     </div>
 
-    <section class="adm-sec adm-panel is-active" data-panel="moderation">
+    <section class="adm-sec adm-panel is-active" data-panel="financials">
+<?php
+$usd = function ($c) { return ($c < 0 ? '−$' : '$') . number_format(abs((int) $c) / 100, 2); };
+$tiers_all = PlanTiers::all();
+$last12 = array_slice($this->series, -12);
+?>
+        <div class="fz-top">
+            <div class="fz-period" role="tablist" aria-label="Period">
+                <button type="button" class="is-on" role="tab" aria-selected="true" data-p="1">This Month</button>
+                <button type="button" role="tab" aria-selected="false" data-p="last">Last Month</button>
+                <button type="button" role="tab" aria-selected="false" data-p="3">Last 3 Months</button>
+                <button type="button" role="tab" aria-selected="false" data-p="12">Last 12 Months</button>
+            </div>
+            <span class="fz-period__range" id="fzRange"></span>
+        </div>
+
+        <div class="fz" id="fzCards" data-series="<?php echo $e(json_encode($this->series)); ?>">
+            <article class="fz-card fz-card--violet">
+                <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-arrows-rotate"></i></span><span class="fz-card__label">Monthly Recurring Revenue</span></header>
+                <div class="fz-card__val"><?php echo $usd($f['plan_mrr']); ?><small>right now</small></div>
+                <div class="fz-split" aria-hidden="true"><?php foreach ($tiers_all as $i => $pt): $n = (int) ($f['plans'][$pt['key']]['n'] ?? 0); if ($n <= 0) { continue; } ?><span class="fz-split__seg fz-split__seg--<?php echo $i; ?>" style="flex:<?php echo $n; ?>"></span><?php endforeach; ?><?php if ((int) $f['plan_count'] === 0): ?><span class="fz-split__seg fz-split__seg--none" style="flex:1"></span><?php endif; ?></div>
+                <ul class="fz-legend"><?php foreach ($tiers_all as $i => $pt): ?><li><i class="fz-split__seg--<?php echo $i; ?>"></i><?php echo $e($pt['name']); ?> <b><?php echo (int) ($f['plans'][$pt['key']]['n'] ?? 0); ?></b></li><?php endforeach; ?></ul>
+            </article>
+            <article class="fz-card fz-card--green" data-m="revenue">
+                <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-sack-dollar"></i></span><span class="fz-card__label">Platform Revenue</span></header>
+                <div class="fz-card__val" data-v>—</div>
+                <span class="fz-delta" data-d></span>
+                <dl class="fz-foot"><div><dt>Plan payments</dt><dd data-f="plans">—</dd></div><div><dt>Our fee on sales</dt><dd data-f="fee">—</dd></div></dl>
+            </article>
+            <article class="fz-card fz-card--blue" data-m="cash_in">
+                <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-arrow-down"></i></span><span class="fz-card__label">Money In From Credits</span></header>
+                <div class="fz-card__val" data-v>—</div>
+                <span class="fz-delta" data-d></span>
+                <dl class="fz-foot"><div><dt>Credits bought</dt><dd data-f="credits">—</dd></div><div><dt>AI credits bought</dt><dd data-f="ai">—</dd></div></dl>
+            </article>
+            <article class="fz-card fz-card--amber" data-m="payouts">
+                <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-building-columns"></i></span><span class="fz-card__label">Paid Out to Creators</span></header>
+                <div class="fz-card__val" data-v>—</div>
+                <span class="fz-delta" data-d></span>
+                <dl class="fz-foot"><div><dt>Refunds</dt><dd data-f="refunds">—</dd></div><div><dt>Owed now</dt><dd><?php echo $usd($f['held_creators']); ?></dd></div></dl>
+            </article>
+        </div>
+
+        <div class="adm-sec__head"><h2 class="adm-sec__title">Last 12 Months</h2></div>
+        <div class="fz-minis" id="fzMinis">
+            <?php foreach (array('revenue' => array('Platform revenue', '#16a36a'), 'plans' => array('Plan payments', '#5b4be0'), 'fee' => array('Our fee on sales', '#0f8a5f'),
+                                 'cash_in' => array('Money in from credits', '#2f7ae5'), 'refunds' => array('Refunds', '#d9463b'), 'payouts' => array('Paid out to creators', '#e08a12')) as $mk => $md): ?>
+            <article class="fz-mini" data-m="<?php echo $mk; ?>" data-c="<?php echo $md[1]; ?>">
+                <header><span><?php echo $e($md[0]); ?></span><b data-t>—</b></header>
+                <svg class="fz-mini__svg" viewBox="0 0 300 90" preserveAspectRatio="none" aria-hidden="true"></svg>
+                <footer><span data-a></span><span data-z></span></footer>
+            </article>
+            <?php endforeach; ?>
+        </div>
+
+        <div class="adm-sec__head" style="margin-top:1.6rem;"><h2 class="adm-sec__title">Sales by Type</h2></div>
+        <div class="adm-table adm-table--fin">
+            <div class="adm-table__head"><span>Type</span><span class="adm-r">Sales</span><span class="adm-r">Gross</span><span class="adm-r">Refunded</span><span class="adm-r">To creators</span><span class="adm-r">Our fee</span></div>
+            <div class="adm-table__body" id="fzTypes"></div>
+        </div>
+
+        <div class="adm-sec__head" style="margin-top:1.6rem;"><h2 class="adm-sec__title">Monthly Breakdown</h2></div>
+        <div class="adm-table adm-table--months">
+            <div class="adm-table__head"><span>Month</span><span class="adm-r">Plan payments</span><span class="adm-r">Our fee on sales</span><span class="adm-r">Platform revenue</span><span class="adm-r">Credits bought</span><span class="adm-r">AI credits bought</span><span class="adm-r">Refunds</span><span class="adm-r">Paid out</span></div>
+            <div class="adm-table__body">
+                <?php $mt = array('plans' => 0, 'fee' => 0, 'revenue' => 0, 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0);
+                foreach (array_reverse($last12) as $m): foreach ($mt as $mk => $mv) { $mt[$mk] += (int) $m[$mk]; } ?>
+                <div class="adm-mrow"><span class="adm-ucell"><?php echo $e(gmdate('F Y', strtotime($m['k'] . '-01'))); ?></span><?php foreach (array_keys($mt) as $col): ?><span class="adm-ucell adm-r<?php echo $col === 'revenue' ? ' adm-mrow__rev' : ''; ?><?php echo (int) $m[$col] === 0 ? ' adm-ucell--muted' : ''; ?>"><?php echo $usd($m[$col]); ?></span><?php endforeach; ?></div>
+                <?php endforeach; ?>
+                <div class="adm-mrow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><?php foreach ($mt as $col => $v): ?><span class="adm-ucell adm-r"><b><?php echo $usd($v); ?></b></span><?php endforeach; ?></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="adm-sec adm-panel" data-panel="moderation">
         <div class="adm-sec__head">
-            <h2 class="adm-sec__title">Moderation queue</h2>
-            <span class="adm-sec__meta"><?php echo count($queue); ?> flagged or unscanned · adult content is already live to opted-in fans</span>
+            <h2 class="adm-sec__title">Moderation Queue</h2>
         </div>
         <?php if (empty($queue)): ?>
             <div class="adm-empty">
                 <span class="adm-empty__ic"><i class="fa-solid fa-circle-check"></i></span>
-                <p class="adm-empty__t">Nothing to review</p>
-                <p class="adm-empty__x">Flagged and unscanned content is listed here for oversight. Nothing waits on you.</p>
+                <p class="adm-empty__t">Nothing to Review</p>
+                
             </div>
         <?php else: ?>
             <div class="adm-mod" id="admMod">
@@ -100,13 +151,12 @@ $users = $this->users;
     <section class="adm-sec adm-panel" data-panel="reports">
         <div class="adm-sec__head">
             <h2 class="adm-sec__title">Reports</h2>
-            <span class="adm-sec__meta"><?php echo (int) $this->reports_open; ?> open</span>
         </div>
         <?php if (empty($this->reports_queue)): ?>
             <div class="adm-empty">
                 <span class="adm-empty__ic"><i class="fa-solid fa-flag"></i></span>
-                <p class="adm-empty__t">No open reports</p>
-                <p class="adm-empty__x">User reports of content or creators will appear here for review.</p>
+                <p class="adm-empty__t">No Open Reports</p>
+                
             </div>
         <?php else: ?>
         <div class="adm-table adm-table--reports">
@@ -147,14 +197,13 @@ $users = $this->users;
 
     <section class="adm-sec adm-panel" data-panel="verification">
         <div class="adm-sec__head">
-            <h2 class="adm-sec__title">Verification requests</h2>
-            <span class="adm-sec__meta"><?php echo (int) $this->verif_pending; ?> pending</span>
+            <h2 class="adm-sec__title">Verification Requests</h2>
         </div>
         <?php if (empty($this->verifications)): ?>
             <div class="adm-empty">
                 <span class="adm-empty__ic"><i class="fa-solid fa-user-check"></i></span>
-                <p class="adm-empty__t">No pending requests</p>
-                <p class="adm-empty__x">Creators requesting verification will appear here for review.</p>
+                <p class="adm-empty__t">No Pending Requests</p>
+                
             </div>
         <?php else: ?>
         <div class="adm-table adm-table--verif">
@@ -185,18 +234,13 @@ $users = $this->users;
 
     <section class="adm-sec adm-panel" data-panel="sales">
         <div class="adm-sec__head">
-            <h2 class="adm-sec__title">Recent sales</h2>
-            <span class="adm-sec__meta">
-                <?php $rf = $this->refunds; if ((int) $rf['refund_count'] > 0): ?>
-                    $<?php echo number_format(((int) $rf['refund_credits']) / 10, 2); ?> refunded &middot; <?php echo (int) $rf['refund_count']; ?> refund<?php echo (int) $rf['refund_count'] === 1 ? '' : 's'; ?>
-                <?php else: ?>No refunds yet<?php endif; ?>
-            </span>
+            <h2 class="adm-sec__title">Recent Sales</h2>
         </div>
         <?php if (empty($this->sales)): ?>
             <div class="adm-empty">
                 <span class="adm-empty__ic" style="background:#f2f0f9;color:#8b83c4;"><i class="fa-solid fa-receipt"></i></span>
-                <p class="adm-empty__t">No sales yet</p>
-                <p class="adm-empty__x">Pay-per-view and bundle purchases will appear here, refundable in one click.</p>
+                <p class="adm-empty__t">No Sales Yet</p>
+                
             </div>
         <?php else: ?>
         <div class="adm-table adm-table--sales">

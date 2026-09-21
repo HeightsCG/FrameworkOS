@@ -51,22 +51,34 @@ echo Sections::cards(array(
 ), 3);
 echo Sections::close();
 
-/* Latest posts: newest free, fully moderated, non-adult image posts. Hidden when there are none. */
+/* Latest posts: newest free, fully moderated, non-adult image posts, as a mosaic (newest large). Hidden when there are none. */
 $latest = array();
-try { $latest = (new FeedModel())->public_latest(6); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
-$latest_cards = '';
-foreach ($latest as $lp) {
+try { $latest = (new FeedModel())->public_latest(5); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
+$ago = function ($utc) {
+    $d = max(0, time() - strtotime($utc . ' UTC'));
+    if ($d < 3600) { return max(1, (int) floor($d / 60)) . 'm ago'; }
+    if ($d < 86400) { return (int) floor($d / 3600) . 'h ago'; }
+    return (int) floor($d / 86400) . 'd ago';
+};
+$tiles = '';
+foreach ($latest as $i => $lp) {
     $thumb = !empty($lp['cover_thumb_key']) ? S3Service::presigned_get_url((string) $lp['cover_thumb_key'], 3600) : '';
     if ($thumb === '') { continue; }
-    $who = trim((string) ($lp['display_name'] ?? '')) !== '' ? $lp['display_name'] : '@' . $lp['u_name'];
+    $who = '@' . $lp['u_name'];   // public pages show the handle only, never the display name
+    $ini = strtoupper(mb_substr(preg_replace('/[^\p{L}\p{N}]/u', '', $who), 0, 2));
     $cap = trim(html_entity_decode(strip_tags((string) $lp['caption']), ENT_QUOTES, 'UTF-8'));
-    if (mb_strlen($cap) > 80) { $cap = rtrim(mb_substr($cap, 0, 78)) . '…'; }
-    $latest_cards .= '<a class="lp" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '"><span class="lp__img"><img src="' . Sections::e($thumb) . '" alt="" loading="lazy" width="400" height="400"></span>'
-        . '<span class="lp__who">' . Sections::e($who) . '</span>' . ($cap !== '' ? '<span class="lp__cap">' . Sections::e($cap) . '</span>' : '') . '</a>';
+    if (mb_strlen($cap) > 110) { $cap = rtrim(mb_substr($cap, 0, 108)) . '…'; }
+    $big = ($tiles === '');
+    $tiles .= '<a class="lm__tile' . ($big ? ' lm__tile--big' : '') . '" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '">'
+        . '<img src="' . Sections::e($thumb) . '" alt="" loading="lazy" width="800" height="800">'
+        . ($big ? '<span class="lm__new"><i aria-hidden="true"></i>New</span>' : '')
+        . '<span class="lm__meta"><span class="lm__av" aria-hidden="true">' . Sections::e($ini) . '</span><span class="lm__id"><b>' . Sections::e($who) . '</b><small>' . Sections::e($ago($lp['published_at'])) . '</small></span></span>'
+        . ($big && $cap !== '' ? '<span class="lm__cap">' . Sections::e($cap) . '</span>' : '')
+        . '</a>';
 }
-if ($latest_cards !== '') {
-    echo Sections::open('white', 'Latest posts', 'Fresh from creators on ' . $site . '.');
-    echo '<div class="lp-grid">' . $latest_cards . '</div>';
+if ($tiles !== '') {
+    echo Sections::open('white', 'Latest posts', 'Fresh from creators on ' . $site . '. Tap a post to visit their page.');
+    echo '<p class="lm__live"><i aria-hidden="true"></i>Live from the community</p><div class="lm">' . $tiles . '</div>';
     echo Sections::close();
 }
 

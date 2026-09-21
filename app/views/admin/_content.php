@@ -1,11 +1,16 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
 <section class="adm-sec adm-panel" data-panel="content">
+    <div class="adm-subtabs" role="tablist" aria-label="Content">
+        <button type="button" class="adm-subtab is-active" role="tab" aria-selected="true" data-sub="review">Review Queue <b><?php echo count($this->seo_review); ?></b></button>
+        <button type="button" class="adm-subtab" role="tab" aria-selected="false" data-sub="keywords">Keyword Queue <b><?php echo count($this->seo_keywords); ?></b></button>
+        <button type="button" class="adm-subtab" role="tab" aria-selected="false" data-sub="published">Published <b><?php echo count($this->seo_published); ?></b></button>
+    </div>
+    <div class="adm-subpanel" data-sub="review">
     <div class="adm-sec__head">
-        <h2 class="adm-sec__title">Review queue</h2>
-        <span class="adm-sec__meta"><?php echo count($this->seo_review); ?> waiting</span>
+        <h2 class="adm-sec__title">Review Queue</h2>
     </div>
     <?php if (empty($this->seo_review)): ?>
-        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-newspaper"></i></span><p class="adm-empty__t">Nothing to review</p><p class="adm-empty__x">The daily draft lands here. Use Draft Now on a keyword to make one right away.</p></div>
+        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-newspaper"></i></span><p class="adm-empty__t">Nothing to Review</p></div>
     <?php else: ?>
     <div class="adm-table adm-table--content">
         <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Drafted</span><span></span></div>
@@ -22,8 +27,10 @@
     </div>
     <?php endif; ?>
 
-    <div class="adm-sec__head adm-sec__head--gap">
-        <h2 class="adm-sec__title">Keyword queue</h2>
+    </div>
+    <div class="adm-subpanel" data-sub="keywords" hidden>
+    <div class="adm-sec__head">
+        <h2 class="adm-sec__title">Keyword Queue</h2>
         <form class="adm-kwadd" id="admKwAdd">
             <input type="text" name="keyword" placeholder="Keyword" maxlength="160" required>
             <input type="number" name="volume" placeholder="Volume" min="0">
@@ -52,9 +59,10 @@
         </div>
     </div>
 
-    <div class="adm-sec__head adm-sec__head--gap">
+    </div>
+    <div class="adm-subpanel" data-sub="published" hidden>
+    <div class="adm-sec__head">
         <h2 class="adm-sec__title">Published</h2>
-        <span class="adm-sec__meta"><?php echo count($this->seo_published); ?> live · <?php echo (int) $this->seo_archived; ?> archived</span>
     </div>
     <div class="adm-table adm-table--content">
         <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Views</span><span></span></div>
@@ -69,5 +77,6 @@
             <?php endforeach; ?>
             <?php if (empty($this->seo_published)): ?><p class="adm__none">Nothing published yet.</p><?php endif; ?>
         </div>
+    </div>
     </div>
 </section>

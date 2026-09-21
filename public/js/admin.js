@@ -42,15 +42,18 @@
                 }
                 card.parentNode.removeChild(card);
                 if (window.toastr) { toastr.success(action === 'approve' ? 'Approved' : 'Content blocked'); }
-                // Update counts
-                var meta = document.querySelector('.adm-sec__meta');
+                // Update counts: the Moderation tab badge and the "Needs review" card (both count the queue)
                 var remaining = mod.querySelectorAll('.adm-card').length;
-                if (meta) { meta.textContent = remaining + ' awaiting review'; }
-                var kpi = document.querySelector('.adm-kpi--alert .adm-kpi__val') || document.querySelectorAll('.adm-kpi__val')[3];
-                if (kpi) { var n = Math.max(0, (parseInt(kpi.textContent.replace(/[^0-9]/g, ''), 10) || 0) - 1); kpi.textContent = n; }
+                var tabBadge = document.querySelector('.adm-tab[data-panel="moderation"] .adm-tab__badge');
+                if (tabBadge) { if (remaining > 0) { tabBadge.textContent = remaining; } else { tabBadge.parentNode.removeChild(tabBadge); } }
+                var kpiBox = document.getElementById('admKpiReview');
+                if (kpiBox) {
+                    kpiBox.querySelector('.adm-kpi__val').textContent = remaining;
+                    if (!remaining) { kpiBox.classList.remove('adm-kpi--alert'); }
+                }
                 if (!remaining) {
                     var wrap = document.getElementById('admMod');
-                    wrap.outerHTML = '<div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-circle-check"></i></span><p class="adm-empty__t">Nothing to review</p><p class="adm-empty__x">Flagged and unscanned content will appear here for approval.</p></div>';
+                    wrap.outerHTML = '<div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-circle-check"></i></span><p class="adm-empty__t">Nothing to Review</p></div>';
                 }
             });
         });
@@ -217,4 +220,77 @@
             });
         });
     }
+})();
+
+/* ---- Financials: period switch drives the cards and the sales-by-type table; one small chart per money flow, each on its own scale ---- */
+(function () {
+    var cards = document.getElementById('fzCards');
+    if (!cards) { return; }
+    var months = [];
+    try { months = JSON.parse(cards.getAttribute('data-series') || '[]'); } catch (e) { return; }
+    if (!months.length) { return; }
+    var TYPES = [['ppv', 'Pay-per-view'], ['bundle', 'Bundles'], ['message', 'Paid messages'], ['service', 'Services'], ['event', 'Events']];
+    var MN = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+    function money(c) { return (c < 0 ? '−$' : '$') + (Math.abs(c) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    function mname(k) { return MN[parseInt(k.slice(5, 7), 10) - 1] + ' ' + k.slice(0, 4); }
+    /* period -> [slice of months, previous slice of equal length] */
+    function window_for(p) {
+        var n = months.length;
+        if (p === 'last') { return [months.slice(n - 2, n - 1), months.slice(n - 3, n - 2)]; }
+        var len = parseInt(p, 10);
+        return [months.slice(n - len), months.slice(Math.max(0, n - 2 * len), n - len)];
+    }
+    function sum(list, key) { return list.reduce(function (a, m) { return a + (m[key] || 0); }, 0); }
+    function delta(now, before) {
+        if (before === 0) { return now === 0 ? ['flat', 'No change vs previous period'] : ['up', 'New vs previous period']; }
+        var pct = Math.round((now - before) / Math.abs(before) * 100);
+        return [pct > 0 ? 'up' : (pct < 0 ? 'down' : 'flat'), (pct > 0 ? '+' : '') + pct + '% vs previous period'];
+    }
+    function render(p) {
+        var w = window_for(p), cur = w[0], prev = w[1];
+        var label = cur.length === 1 ? mname(cur[0].k) : mname(cur[0].k) + ' to ' + mname(cur[cur.length - 1].k);
+        document.getElementById('fzRange').textContent = label;
+        cards.querySelectorAll('.fz-card[data-m]').forEach(function (c) {
+            var m = c.getAttribute('data-m'), now = sum(cur, m), before = sum(prev, m), d = delta(now, before);
+            c.querySelector('[data-v]').textContent = money(now);
+            var dEl = c.querySelector('[data-d]'); dEl.className = 'fz-delta fz-delta--' + (m === 'payouts' || m === 'refunds' ? 'flat' : d[0]); dEl.textContent = d[1];
+            c.querySelectorAll('[data-f]').forEach(function (f) { f.textContent = money(sum(cur, f.getAttribute('data-f'))); });
+        });
+        /* sales by type */
+        var body = document.getElementById('fzTypes'), html = '', tot = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
+        TYPES.forEach(function (t) {
+            var r = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
+            cur.forEach(function (m) { var x = (m.types || {})[t[0]] || {}; for (var k in r) { r[k] += x[k] || 0; } });
+            for (var k in tot) { tot[k] += r[k]; }
+            html += '<div class="adm-frow"><span class="adm-ucell">' + t[1] + '</span><span class="adm-ucell adm-r">' + r.sales + '</span><span class="adm-ucell adm-r">' + money(r.gross) + '</span><span class="adm-ucell adm-r adm-ucell--muted">' + money(r.refunded) + '</span><span class="adm-ucell adm-r">' + money(r.creator) + '</span><span class="adm-ucell adm-r"><b>' + money(r.platform) + '</b></span></div>';
+        });
+        html += '<div class="adm-frow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><span class="adm-ucell adm-r"><b>' + tot.sales + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.gross) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.refunded) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.creator) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.platform) + '</b></span></div>';
+        body.innerHTML = html;
+        /* highlight the selected months in the small charts */
+        var keys = cur.map(function (m) { return m.k; });
+        document.querySelectorAll('.fz-mini__svg .sel').forEach(function (r) { r.setAttribute('opacity', keys.indexOf(r.getAttribute('data-k')) >= 0 ? '1' : '0'); });
+    }
+    /* small multiples: last 12 months, each chart scaled to its own max */
+    var ns = 'http://www.w3.org/2000/svg', last12 = months.slice(-12);
+    document.querySelectorAll('.fz-mini').forEach(function (box) {
+        var m = box.getAttribute('data-m'), col = box.getAttribute('data-c'), svg = box.querySelector('svg');
+        var vals = last12.map(function (x) { return x[m] || 0; });
+        var max = Math.max.apply(null, vals.map(Math.abs).concat([1])), W = 300, H = 90, pad = 6, step = W / vals.length;
+        function el(t, a) { var n = document.createElementNS(ns, t); for (var k in a) { n.setAttribute(k, a[k]); } return n; }
+        last12.forEach(function (x, i) { svg.appendChild(el('rect', { 'class': 'sel', 'data-k': x.k, x: i * step, y: 0, width: step, height: H, fill: col, 'fill-opacity': '.08', opacity: '0' })); });
+        var pts = vals.map(function (v, i) { return [i * step + step / 2, H - pad - (Math.max(0, v) / max) * (H - 2 * pad)]; });
+        var line = 'M' + pts.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' L');
+        svg.appendChild(el('path', { d: line + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + H + ' L' + pts[0][0].toFixed(1) + ' ' + H + ' Z', fill: col, 'fill-opacity': '.14' }));
+        svg.appendChild(el('path', { d: line, fill: 'none', stroke: col, 'stroke-width': '2', 'vector-effect': 'non-scaling-stroke', 'stroke-linejoin': 'round' }));
+        box.querySelector('[data-t]').textContent = money(vals.reduce(function (a, b) { return a + b; }, 0));
+        box.querySelector('[data-a]').textContent = last12[0].label + ' ' + last12[0].k.slice(0, 4);
+        box.querySelector('[data-z]').textContent = 'Best ' + money(Math.max.apply(null, vals));
+    });
+    document.querySelectorAll('.fz-period button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('.fz-period button').forEach(function (x) { var o = x === b; x.classList.toggle('is-on', o); x.setAttribute('aria-selected', o ? 'true' : 'false'); });
+            render(b.getAttribute('data-p'));
+        });
+    });
+    render('1');
 })();

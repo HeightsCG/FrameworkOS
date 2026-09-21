@@ -132,3 +132,19 @@
         }
     });
 })();
+
+/* Content sub-tabs (Review Queue / Keyword Queue / Published) */
+(function () {
+    var bar = document.querySelector('.adm-subtabs');
+    if (!bar) { return; }
+    var tabs = [].slice.call(bar.querySelectorAll('.adm-subtab'));
+    var panels = [].slice.call(document.querySelectorAll('.adm-subpanel'));
+    function show(key) {
+        tabs.forEach(function (t) { var on = t.getAttribute('data-sub') === key; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+        panels.forEach(function (p) { p.hidden = p.getAttribute('data-sub') !== key; });
+        try { sessionStorage.setItem('adm_content_sub', key); } catch (e) {}
+    }
+    tabs.forEach(function (t) { t.addEventListener('click', function () { show(t.getAttribute('data-sub')); }); });
+    var saved = ''; try { saved = sessionStorage.getItem('adm_content_sub') || ''; } catch (e) {}
+    if (saved && bar.querySelector('[data-sub="' + saved + '"]')) { show(saved); }
+})();
