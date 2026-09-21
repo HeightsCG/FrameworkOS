@@ -422,6 +422,7 @@ class ApiPostsController extends BaseApiController {
             $this->jsonError('This is a paid plan');
         }
 
+        if ((new BlocksModel())->either_blocked($user_id, (int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
         $cname = Notify::name_of((int) $plan['user_id']); $chandle = Notify::handle_of((int) $plan['user_id']);
         $this->notify($user_id, 'subscriptions', 'You joined ' . $plan['name'], ($cname !== '' ? $cname . '\'s ' : '') . 'free membership is active.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');

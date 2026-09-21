@@ -165,14 +165,42 @@ class ApiProfileController extends BaseApiController {
         $me = (int) Session::get('user_id');
         $blocksModel = new BlocksModel();
         $blocksModel->add_block($me, (int) $target['user_id']);
-        // A block ends the relationship both ways; paid memberships are left to run out (no automatic refund).
+        // A block ends the relationship both ways: follows go, and any membership between the two is canceled now.
         $follows = new FollowsModel();
         $follows->unfollow($me, (int) $target['user_id']);
         $follows->unfollow((int) $target['user_id'], $me);
+        $this->end_memberships_between($me, (int) $target['user_id']);
 
         $name = trim(($target['first_name'] ?? '') . ' ' . ($target['last_name'] ?? ''));
 
         $this->jsonSuccess(['message' => 'Account blocked', 'blocked_user_id' => (int) $target['user_id'], 'u_name' => $target['u_name'], 'name' => $name]);
+    }
+
+    /**
+     * Cancel every active membership between two accounts, whichever of them is the creator.
+     * Paid ones are canceled in Stripe immediately (no proration refund — refunds stay an Admin decision);
+     * the row is closed even if Stripe fails so access ends at once. The subscriber is told their membership ended.
+     */
+    private function end_memberships_between(int $a, int $b): void{
+        $subs = new CreatorSubscriptionsModel();
+        foreach (array(array($a, $b), array($b, $a)) as $pair) {
+            list($fan, $creator) = $pair;
+            $rows = $subs->active_between($fan, $creator);
+            if (empty($rows)) { continue; }
+            $creator_row = $this->userModel->get_user_by_id($creator);
+            $connect     = (is_array($creator_row) && count($creator_row) === 1) ? (string) ($creator_row[0]['stripe_connect_account_id'] ?? '') : '';
+            foreach ($rows as $sub) {
+                if (empty($sub['is_free']) && !empty($sub['stripe_subscription_id']) && $connect !== '') {
+                    if (!StripeService::cancel_subscription_now($connect, (string) $sub['stripe_subscription_id'])) {
+                        error_log('[block] Stripe cancel failed for creator_subscriptions #' . $sub['id'] . ' (' . $sub['stripe_subscription_id'] . ') — row closed locally, check Stripe');
+                    }
+                }
+                $subs->cancel($fan, (int) $sub['id']);
+            }
+            $this->notify($fan, 'subscriptions', 'Membership ended',
+                'Your membership to ' . (Notify::name_of($creator) ?: 'this creator') . ' has ended and will not renew.',
+                '/account/settings?section=subscriptions', 'fa-heart-crack');
+        }
     }
 
     public function unblock_userAction(){

@@ -50,6 +50,15 @@ class CreatorSubscriptionsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /** Active membership rows (free or paid) a fan holds with one creator — closed out when either blocks the other. */
+    public function active_between($subscriber_id, $creator_id){
+        return (array) parent::select(
+            "SELECT * FROM creator_subscriptions
+             WHERE subscriber_id = :s AND creator_id = :c AND status = 'active'",
+            array('s' => (int) $subscriber_id, 'c' => (int) $creator_id)
+        );
+    }
+
     /** Plan ids this fan has an active membership to for a given creator. */
     public function active_plan_ids($subscriber_id, $creator_id){
         $rows = parent::select(

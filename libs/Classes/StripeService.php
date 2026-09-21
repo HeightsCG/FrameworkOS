@@ -525,6 +525,20 @@ class StripeService {
         }
     }
 
+    /** Cancel a connected-account subscription immediately (no proration refund). Used when a block ends a membership. */
+    public static function cancel_subscription_now($account_id, $subscription_id): bool
+    {
+        try {
+            self::client()->subscriptions->cancel($subscription_id, array(), array('stripe_account' => $account_id));
+            return true;
+        } catch (\Throwable $e) {
+            // Already canceled in Stripe is fine — the DB row gets closed either way.
+            if (stripos($e->getMessage(), 'canceled subscription') !== false || stripos($e->getMessage(), 'No such subscription') !== false) { return true; }
+            error_log('[stripe] cancel_subscription_now: ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /** Retrieve a completed Checkout session (with its subscription) from the connected account. */
     public static function retrieve_checkout_session($account_id, $session_id): array
     {
