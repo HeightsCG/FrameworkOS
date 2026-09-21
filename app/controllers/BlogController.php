@@ -1,0 +1,104 @@
+<?php
+/**
+ * Public blog for the SEO content engine: /blog (paged index), /blog/<slug>, /blog/feed.xml.
+ * Dispatched from Bootstrap (URLs don't fit /controller/action). Rendered with View::public_page().
+ */
+class BlogController extends Controller {
+    public $protected = 0;
+    public static $embedded = false;
+    const PER_PAGE = 12;
+
+    public function __construct(){
+        parent::__construct();
+        if (!self::$embedded) { header('Cache-Control: private, max-age=300'); }
+    }
+
+    public function dispatch(array $url){
+        $seg = (string) ($url[1] ?? '');
+        if (count($url) > 2) { Errors::page_not_found(); return; }
+        if ($seg === '') { $this->indexAction(); return; }
+        if ($seg === 'feed.xml') { $this->feedAction(); return; }
+        if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $seg)) { Errors::page_not_found(); return; }
+        $this->viewAction($seg);
+    }
+
+    private function page($view, array $meta, array $vars = array()){
+        $meta['url'] = SeoMeta::base() . $meta['path'];
+        unset($meta['path']);
+        $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
+    }
+
+    public function indexAction(){
+        $page  = max(1, (int) ($_GET['page'] ?? 1));
+        $total = 0; $rows = array();
+        try {
+            $articles = new SeoArticlesModel();
+            $total = $articles->count_published();
+            $rows  = $articles->published(self::PER_PAGE, ($page - 1) * self::PER_PAGE);
+        } catch (\Throwable $e) { error_log('[seo] blog index: ' . $e->getMessage()); $total = 0; $rows = array(); }
+        $pages = max(1, (int) ceil($total / self::PER_PAGE));
+        if ($page > 1 && $page > $pages) { Errors::page_not_found(); return; }
+        $path  = '/blog' . ($page > 1 ? '?page=' . $page : '');
+        $title = 'Guides for creators' . ($page > 1 ? ' · page ' . $page : '');
+        $desc  = 'Practical guides on monetizing content: memberships, pay-per-view, bundles, services, events, link in bio and payouts.';
+        $items = array(); $pos = 1;
+        foreach ($rows as $a) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/blog/' . $a['slug'], 'name' => $a['title']); }
+        $jsonld = array(
+            SeoMeta::org(),
+            array('@type' => 'CollectionPage', 'name' => $title, 'url' => SeoMeta::base() . $path, 'description' => $desc, 'isPartOf' => array('@type' => 'WebSite', 'name' => SeoMeta::site(), 'url' => SeoMeta::base() . '/'),
+                  'mainEntity' => array('@type' => 'ItemList', 'itemListElement' => $items)),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Guides', 'url' => '/blog'))),
+        );
+        $guides = array();
+        foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
+        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($page > 1 && empty($rows)), 'no_guides' => true),
+            array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides));
+    }
+
+    public function viewAction($slug){
+        $articles = new SeoArticlesModel();
+        $preview  = isset($_GET['preview']) && Permissions::is_admin();
+        try { $a = $articles->get_by_slug($slug, !$preview); } catch (\Throwable $e) { error_log('[seo] blog article: ' . $e->getMessage()); $a = null; }
+        if (!$a || (!$preview && $a['status'] !== 'published')) { Errors::page_not_found(); return; }
+        if (!$preview && !self::$embedded) {
+            try { $articles->record_view((int) $a['id'], self::viewer_key()); } catch (\Throwable $e) { error_log('[seo] record_view: ' . $e->getMessage()); }   // counting a view never breaks the page
+        }
+        $faq = array();
+        foreach ((array) json_decode((string) ($a['faq'] ?? '[]'), true) as $f) {
+            if (is_array($f) && trim((string) ($f['q'] ?? '')) !== '' && trim((string) ($f['a'] ?? '')) !== '') { $faq[] = array('q' => (string) $f['q'], 'a' => (string) $f['a']); }
+        }
+        $path = '/blog/' . $a['slug'];
+        $published = !empty($a['published_at']) ? gmdate('c', strtotime($a['published_at'] . ' UTC')) : gmdate('c', strtotime($a['created_at'] . ' UTC'));
+        $modified  = !empty($a['updated_at'])   ? gmdate('c', strtotime($a['updated_at'] . ' UTC'))   : $published;
+        $jsonld = array(
+            SeoMeta::article(array('headline' => $a['title'], 'description' => $a['meta_description'], 'url' => SeoMeta::base() . $path, 'published' => $published, 'modified' => $modified, 'image' => $a['cover_image_url'] ?: null)),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Guides', 'url' => '/blog'), array('name' => $a['title'], 'url' => $path))),
+        );
+        if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }
+        $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
+                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true),
+            array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview));
+    }
+
+    public function feedAction(){
+        $base = SeoMeta::base(); $site = SeoMeta::site();
+        $rows = (new SeoArticlesModel())->published(20, 0);
+        header('Content-Type: application/rss+xml; charset=utf-8');
+        $x = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES | ENT_XML1, 'UTF-8'); };
+        echo '<?xml version="1.0" encoding="UTF-8"?>', "\n", '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>', "\n";
+        echo '<title>', $x($site . ' guides'), '</title><link>', $x($base . '/blog'), '</link><description>', $x('Guides for creators from ' . $site), '</description>';
+        echo '<atom:link href="', $x($base . '/blog/feed.xml'), '" rel="self" type="application/rss+xml"/>', "\n";
+        foreach ($rows as $a) {
+            echo '<item><title>', $x($a['title']), '</title><link>', $x($base . '/blog/' . $a['slug']), '</link><guid isPermaLink="true">', $x($base . '/blog/' . $a['slug']), '</guid>';
+            echo '<pubDate>', gmdate('D, d M Y H:i:s', strtotime($a['published_at'] . ' UTC')), ' GMT</pubDate><description>', $x($a['excerpt'] ?: $a['meta_description']), '</description></item>', "\n";
+        }
+        echo '</channel></rss>', "\n";
+    }
+
+    /** Bots don't count; humans are deduped per day by ip+ua hash (no cookie). */
+    private static function viewer_key(): string {
+        $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+        if ($ua === '' || preg_match('/bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless|curl|wget|python|GPTBot|ClaudeBot|Bytespider/i', $ua)) { return 'bot'; }
+        return substr(hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|' . $ua . '|' . gmdate('Y-m-d')), 0, 40);
+    }
+}

@@ -1,0 +1,73 @@
+<?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
+<section class="adm-sec adm-panel" data-panel="content">
+    <div class="adm-sec__head">
+        <h2 class="adm-sec__title">Review queue</h2>
+        <span class="adm-sec__meta"><?php echo count($this->seo_review); ?> waiting</span>
+    </div>
+    <?php if (empty($this->seo_review)): ?>
+        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-newspaper"></i></span><p class="adm-empty__t">Nothing to review</p><p class="adm-empty__x">The daily draft lands here. Use Draft Now on a keyword to make one right away.</p></div>
+    <?php else: ?>
+    <div class="adm-table adm-table--content">
+        <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Drafted</span><span></span></div>
+        <div class="adm-table__body">
+            <?php foreach ($this->seo_review as $a): ?>
+            <div class="adm-crow" data-article="<?php echo (int) $a['id']; ?>">
+                <div class="adm-ucell"><a class="adm-crow__title" href="/admin/article/<?php echo (int) $a['id']; ?>"><?php echo $e($a['title']); ?></a><span class="adm-crow__sub">/blog/<?php echo $e($a['slug']); ?> · <?php echo (int) $a['reading_minutes']; ?> min</span></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $e($a['target_keyword']); ?></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $e(date('M j, H:i', strtotime($a['updated_at'] . ' UTC'))); ?></div>
+                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Review</a></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <div class="adm-sec__head adm-sec__head--gap">
+        <h2 class="adm-sec__title">Keyword queue</h2>
+        <form class="adm-kwadd" id="admKwAdd">
+            <input type="text" name="keyword" placeholder="Keyword" maxlength="160" required>
+            <input type="number" name="volume" placeholder="Volume" min="0">
+            <select name="difficulty"><option value="easy">Easy</option><option value="doable" selected>Doable</option><option value="hard">Hard</option></select>
+            <input type="number" name="priority" placeholder="Priority" value="100" min="1">
+            <button type="submit" class="adm-btn adm-btn--ok">Add Keyword</button>
+        </form>
+    </div>
+    <div class="adm-table adm-table--keywords">
+        <div class="adm-table__head"><span>Keyword</span><span>Volume</span><span>Difficulty</span><span>Priority</span><span>Status</span><span></span></div>
+        <div class="adm-table__body" id="admKeywords">
+            <?php foreach ($this->seo_keywords as $k): ?>
+            <div class="adm-krow" data-keyword="<?php echo (int) $k['id']; ?>" data-status="<?php echo $e($k['status']); ?>">
+                <div class="adm-ucell"><?php echo $e($k['keyword']); ?><?php if ($k['article_slug']): ?><a class="adm-crow__sub" href="/admin/article/<?php echo (int) $k['article_id']; ?>"><?php echo $e($k['article_title']); ?></a><?php endif; ?><?php if ($k['last_error']): ?><span class="adm-crow__err" title="<?php echo $e($k['last_error']); ?>">Last draft failed</span><?php endif; ?></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $k['volume'] === null ? '—' : number_format((int) $k['volume']); ?></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $e(ucfirst($k['difficulty'])); ?></div>
+                <div class="adm-ucell"><input class="adm-kprio" type="number" value="<?php echo (int) $k['priority']; ?>" min="1" aria-label="Priority"></div>
+                <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $e($k['status']); ?>"><?php echo $e(ucfirst($k['status'])); ?></span></div>
+                <div class="adm-ucell adm-ucell--act">
+                    <?php if ($k['status'] === 'queued'): ?><button type="button" class="adm-btn" data-kw-action="draft">Draft Now</button><button type="button" class="adm-btn" data-kw-action="skip">Skip</button>
+                    <?php elseif ($k['status'] === 'skipped'): ?><button type="button" class="adm-btn" data-kw-action="requeue">Requeue</button>
+                    <?php elseif ($k['status'] === 'drafting'): ?><span class="adm-crow__sub">Drafting…</span><button type="button" class="adm-btn" data-kw-action="requeue">Requeue</button><?php endif; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+
+    <div class="adm-sec__head adm-sec__head--gap">
+        <h2 class="adm-sec__title">Published</h2>
+        <span class="adm-sec__meta"><?php echo count($this->seo_published); ?> live · <?php echo (int) $this->seo_archived; ?> archived</span>
+    </div>
+    <div class="adm-table adm-table--content">
+        <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Views</span><span></span></div>
+        <div class="adm-table__body">
+            <?php foreach ($this->seo_published as $a): ?>
+            <div class="adm-crow" data-article="<?php echo (int) $a['id']; ?>">
+                <div class="adm-ucell"><a class="adm-crow__title" href="/blog/<?php echo $e($a['slug']); ?>" target="_blank" rel="noopener"><?php echo $e($a['title']); ?></a><span class="adm-crow__sub"><?php echo $e(date('M j, Y', strtotime($a['published_at'] . ' UTC'))); ?></span></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $e($a['target_keyword']); ?></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo number_format((int) $a['views']); ?></div>
+                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Edit</a><button type="button" class="adm-btn" data-art-action="unpublish">Unpublish</button></div>
+            </div>
+            <?php endforeach; ?>
+            <?php if (empty($this->seo_published)): ?><p class="adm__none">Nothing published yet.</p><?php endif; ?>
+        </div>
+    </div>
+</section>

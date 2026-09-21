@@ -64,6 +64,7 @@ class PagesController extends Controller {
                 )),
             );
         }
+        try { $meta['guides'] = (new SeoArticlesModel())->newest_published(3); } catch (\Throwable $e) { $meta['guides'] = array(); }
         unset($meta['path']);
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }

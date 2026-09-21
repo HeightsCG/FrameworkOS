@@ -372,4 +372,12 @@ class UsersModel extends Model {
         );
     }
 
+    /** Every active admin's user id (in-platform notifications for review queues). */
+    public function admin_ids(){
+        $rows = parent::select("SELECT user_id FROM user_accounts WHERE is_admin = 1 AND deleted = 0");
+        $out = array();
+        foreach ((array) $rows as $r) { $out[] = (int) $r['user_id']; }
+        return $out;
+    }
+
 }

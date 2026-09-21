@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
 <?php echo SeoMeta::head($public_meta); ?>
+    <link rel="alternate" type="application/rss+xml" title="<?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> guides" href="/blog/feed.xml">
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/landing.css'); ?>">
     <link rel="stylesheet" href="/css/public.css?v=<?php echo @filemtime(Main::app_path().'/public/css/public.css'); ?>">
@@ -23,11 +24,11 @@
             <nav class="ld-nav__links" aria-label="Site">
                 <a href="/features">Features</a>
                 <a href="/pricing">Pricing</a>
-                <a href="/monetize-your-content">Guides</a>
+                <a href="/blog">Guides</a>
             </nav>
             <div class="ld-nav__actions">
                 <a class="ld-btn ld-btn--quiet" href="/?auth=login">Sign In</a>
-                <a class="ld-btn ld-btn--primary" href="/?auth=register">Create Your Account</a>
+                <a class="ld-btn ld-btn--primary" href="/?auth=register">Create <span class="ld-hide-sm">Your </span>Account</a>
             </div>
         </div>
     </header>
@@ -35,6 +36,16 @@
     <main class="pub-main" id="pub_main">
         <div class="ld-wrap pub-wrap<?php echo !empty($public_meta['wide']) ? ' pub-wrap--wide' : ''; ?>">
 <?php require $public_view_file; ?>
+<?php if (empty($public_meta['no_guides']) && !empty($public_meta['guides'])): ?>
+            <aside class="pub-guides" aria-labelledby="pub_guides_h">
+                <p class="pub-guides__h" id="pub_guides_h">From the guides</p>
+                <div class="pub-cards pub-cards--3">
+                    <?php foreach ($public_meta['guides'] as $g): ?>
+                    <a class="pub-card" href="/blog/<?php echo htmlspecialchars($g['slug'], ENT_QUOTES, 'UTF-8'); ?>"><span class="pub-card__title"><?php echo htmlspecialchars($g['title'], ENT_QUOTES, 'UTF-8'); ?></span><span class="pub-card__x"><?php echo htmlspecialchars($g['excerpt'] ?: $g['meta_description'], ENT_QUOTES, 'UTF-8'); ?></span></a>
+                    <?php endforeach; ?>
+                </div>
+            </aside>
+<?php endif; ?>
         </div>
     </main>
 

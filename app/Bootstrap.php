@@ -50,6 +50,12 @@ class Bootstrap
             return;
         }
 
+        // Public blog (SEO content engine): /blog, /blog/<slug>, /blog/feed.xml.
+        if (isset($url[0]) && $url[0] === 'blog') {
+            (new BlogController())->dispatch($url);
+            return;
+        }
+
         // Outbound link click-through: /go/<id> records the click then redirects.
         if (isset($url[0]) && $url[0] === 'go') {
             header('X-Robots-Tag: noindex');

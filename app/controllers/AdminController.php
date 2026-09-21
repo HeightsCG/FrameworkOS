@@ -53,6 +53,28 @@ class AdminController extends Controller {
         $this->view->users        = $model->users('', '', 60);
         $this->view->me           = $me;
         $this->view->timezone     = (string) ($user['content_timezone'] ?? 'UTC');
+
+        $this->view->seo_keywords = array(); $this->view->seo_review = array(); $this->view->seo_published = array(); $this->view->seo_archived = 0;
+        try {   // /admin must still load if the SEO tables aren't there yet
+            $art = new SeoArticlesModel();
+            $this->view->seo_keywords  = (new SeoKeywordsModel())->all();
+            $this->view->seo_review    = $art->by_status(array('review', 'draft'));
+            $this->view->seo_published = $art->by_status(array('published'));
+            $this->view->seo_archived  = count($art->by_status(array('archived')));
+        } catch (\Throwable $e) { error_log('[seo] admin content tab: ' . $e->getMessage()); }
+
+        $this->view->render();
+    }
+
+    /** /admin/article/<id> — full-page editor for one article (Content tab → Edit). */
+    public function articleAction(){
+        if (!Permissions::is_admin()) { header('Location: /'); exit; }
+        $url = Main::get_url();
+        $a = (new SeoArticlesModel())->get((int) ($url[2] ?? 0));
+        if (!$a) { Errors::page_not_found(); return; }
+        $this->view->article  = $a;
+        $this->view->faq      = (array) json_decode((string) ($a['faq'] ?? '[]'), true);
+        $this->view->errors   = SeoDrafter::validate(array('title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'body_md' => $a['body_md'], 'faq' => $this->view->faq), (int) $a['id']);
         $this->view->render();
     }
 }

@@ -86,7 +86,9 @@ class SeoMeta {
         $desc  = trim((string) ($m['description'] ?? ''));
         $url   = (string) ($m['url'] ?? '');
         $req   = (string) ($m['type'] ?? 'website');
-        $type  = in_array($req, array('website', 'article', 'product'), true) ? $req : 'website';
+        $type  = in_array($req, array('website', 'article', 'product', 'profile'), true) ? $req : 'website';
+        $og_title = trim((string) ($m['og_title'] ?? '')); if ($og_title === '') { $og_title = $full; }
+        $card  = in_array((string) ($m['twitter_card'] ?? ''), array('summary', 'summary_large_image'), true) ? (string) $m['twitter_card'] : 'summary_large_image';
         $image = (string) ($m['image'] ?? (self::base() . '/images/og-image.png'));
 
         $out   = array();
@@ -96,17 +98,18 @@ class SeoMeta {
         $out[] = '<meta name="robots" content="' . (!empty($m['noindex']) ? 'noindex, follow' : 'index, follow, max-image-preview:large') . '">';
         $out[] = '<meta property="og:type" content="' . $type . '">';
         $out[] = '<meta property="og:site_name" content="' . $e($site) . '">';
-        $out[] = '<meta property="og:title" content="' . $e($full) . '">';
+        $out[] = '<meta property="og:title" content="' . $e($og_title) . '">';
         $out[] = '<meta property="og:description" content="' . $e($desc) . '">';
         $out[] = '<meta property="og:url" content="' . $e($url) . '">';
         $out[] = '<meta property="og:image" content="' . $e($image) . '">';
         $out[] = '<meta property="og:locale" content="en_US">';
         if (!empty($m['published'])) { $out[] = '<meta property="article:published_time" content="' . $e($m['published']) . '">'; }
         if (!empty($m['modified']))  { $out[] = '<meta property="article:modified_time" content="' . $e($m['modified']) . '">'; }
-        $out[] = '<meta name="twitter:card" content="summary_large_image">';
-        $out[] = '<meta name="twitter:title" content="' . $e($full) . '">';
+        $out[] = '<meta name="twitter:card" content="' . $card . '">';
+        $out[] = '<meta name="twitter:title" content="' . $e($og_title) . '">';
         $out[] = '<meta name="twitter:description" content="' . $e($desc) . '">';
         $out[] = '<meta name="twitter:image" content="' . $e($image) . '">';
+        foreach ((array) ($m['extra'] ?? array()) as $tag) { if (is_string($tag) && strpos($tag, '<') === 0) { $out[] = $tag; } }   // caller-escaped raw tags (e.g. profile:username)
 
         if (!empty($m['jsonld'])) {
             $j = $m['jsonld'];

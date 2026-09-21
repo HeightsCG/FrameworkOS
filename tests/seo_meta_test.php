@@ -30,4 +30,8 @@ check('internal links map', SeoMeta::internal_links()['pricing'] === '/pricing' 
 
 $art = SeoMeta::article(array('headline' => 'H', 'description' => 'D', 'url' => 'https://x/a', 'published' => '2026-09-21T00:00:00+00:00'));
 check('article schema', $art['@type'] === 'Article' && $art['datePublished'] === '2026-09-21T00:00:00+00:00' && $art['publisher']['@type'] === 'Organization');
+$html = SeoMeta::head(array('title' => 'Dana (@dana) · ' . SeoMeta::site(), 'og_title' => 'Dana', 'description' => 'bio', 'url' => SeoMeta::base() . '/@dana', 'type' => 'profile', 'twitter_card' => 'summary', 'extra' => array('<meta property="profile:username" content="dana">'), 'jsonld' => array('@type' => 'ProfilePage', 'url' => SeoMeta::base() . '/@dana')));
+check('profile og:type',        strpos($html, '<meta property="og:type" content="profile">') !== false);
+check('og_title override',      strpos($html, '<meta property="og:title" content="Dana">') !== false && strpos($html, '<title>Dana (@dana) · ') !== false);
+check('twitter card + extra',   strpos($html, 'name="twitter:card" content="summary"') !== false && strpos($html, 'profile:username') !== false);
 exit($fail ? 1 : 0);

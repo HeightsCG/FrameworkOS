@@ -25,7 +25,6 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
     <?php echo CSRF::meta(); ?>
-    <title><?php echo htmlspecialchars($page_title, ENT_QUOTES, 'UTF-8'); ?></title>
     <?php
         $seo_base   = Main::get_base_domain();
         $seo_url    = $seo_base . '/@' . rawurlencode($handle);
@@ -64,20 +63,12 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         $created_ts = !empty($user['creator_since']) ? strtotime((string) $user['creator_since'] . ' UTC') : false;
         if ($created_ts !== false) { $seo_ld['dateCreated'] = gmdate('c', $created_ts); }
     ?>
-    <link rel="canonical" href="<?php echo htmlspecialchars($seo_url, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:type" content="profile">
-    <meta property="og:site_name" content="<?php echo htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:url" content="<?php echo htmlspecialchars($seo_url, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:title" content="<?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="og:image" content="<?php echo htmlspecialchars($seo_image, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta property="profile:username" content="<?php echo htmlspecialchars($handle, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="twitter:card" content="<?php echo $has_avatar ? 'summary' : 'summary_large_image'; ?>">
-    <meta name="twitter:title" content="<?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="twitter:description" content="<?php echo htmlspecialchars($seo_desc, ENT_QUOTES, 'UTF-8'); ?>">
-    <meta name="twitter:image" content="<?php echo htmlspecialchars($seo_image, ENT_QUOTES, 'UTF-8'); ?>">
-    <script type="application/ld+json"><?php echo json_encode($seo_ld, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
+    <?php echo SeoMeta::head(array(
+        'title' => $page_title, 'og_title' => $display_name, 'description' => $seo_desc, 'url' => $seo_url, 'type' => 'profile', 'image' => $seo_image,
+        'twitter_card' => $has_avatar ? 'summary' : 'summary_large_image',
+        'extra' => array('<meta property="profile:username" content="' . htmlspecialchars($handle, ENT_QUOTES, 'UTF-8') . '">'),
+        'jsonld' => $seo_ld,
+    )); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">

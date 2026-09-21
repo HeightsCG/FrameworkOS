@@ -56,6 +56,14 @@ class SeoController extends Controller {
             );
         }
 
+        try {
+            $articles = new SeoArticlesModel();
+            $urls[] = array('loc' => $base . '/blog', 'changefreq' => 'daily', 'priority' => '0.8');
+            foreach ($articles->published(500, 0) as $a) {
+                $urls[] = array('loc' => $base . '/blog/' . $a['slug'], 'lastmod' => gmdate('Y-m-d', strtotime(($a['updated_at'] ?: $a['published_at']) . ' UTC')), 'changefreq' => 'monthly', 'priority' => '0.7');
+            }
+        } catch (\Throwable $e) { error_log('[seo] sitemap articles: ' . $e->getMessage()); }
+
         echo '<?xml version="1.0" encoding="UTF-8"?>', "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', "\n";
         foreach ($urls as $u) {
@@ -78,7 +86,7 @@ class SeoController extends Controller {
             array('path' => '/pricing',  'title' => 'Pricing',  'description' => 'Three monthly plans; the take rate falls as you grow.',                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
         foreach (PagesController::COMPETITORS as $slug => $c) {
-            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => 'A ' . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8');
+            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8');
         }
         $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8');
         $pages[] = array('path' => '/monetize-your-content',               'title' => 'How to monetize your content',        'description' => 'Memberships, pay-per-view, bundles, services and events, and how to price each.',           'changefreq' => 'monthly', 'priority' => '0.8');
@@ -96,6 +104,14 @@ class SeoController extends Controller {
         $l[] = '';
         $l[] = '## Product';
         foreach (self::public_pages() as $p) { $l[] = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description']; }
+        try {
+            $recent = (new SeoArticlesModel())->published(20, 0);
+            if (!empty($recent)) {
+                $l[] = ''; $l[] = '## Guides';
+                foreach ($recent as $a) { $l[] = '- [' . $a['title'] . '](' . $base . '/blog/' . $a['slug'] . '): ' . ($a['meta_description'] ?: (string) $a['excerpt']); }
+                $l[] = '- [All guides](' . $base . '/blog) · [RSS](' . $base . '/blog/feed.xml)';
+            }
+        } catch (\Throwable $e) {}
         $l[] = '';
         $l[] = '## Creators';
         $l[] = '- Public creator pages live at ' . $base . '/@handle (listed in ' . $base . '/sitemap.xml).';
@@ -120,6 +136,13 @@ class SeoController extends Controller {
             $out[] = $text;
             $out[] = '';
         }
+        try {
+            foreach ((new SeoArticlesModel())->published_bodies(200) as $a) {
+                $text = self::html_to_text('<main>' . $a['body_html'] . '</main>');   // the '## title' + URL lines above are the heading
+                if ($text === '') { continue; }
+                $out[] = '## ' . $a['title']; $out[] = 'URL: ' . $base . '/blog/' . $a['slug']; $out[] = ''; $out[] = $text; $out[] = '';
+            }
+        } catch (\Throwable $e) { error_log('[seo] llms-full articles: ' . $e->getMessage()); }
         $text = implode("\n", $out);
         if (strlen($text) > 2 * 1024 * 1024) { $text = mb_strcut($text, 0, 2 * 1024 * 1024, 'UTF-8'); }
         // Set after the render loop, immediately before output: a rendered page's own
@@ -161,6 +184,7 @@ class SeoController extends Controller {
         if (!preg_match('/<main[^>]*>(.*)<\/main>/is', $html, $m)) { return ''; }
         $html = $m[1];
         $html = preg_replace('/<(script|style)[^>]*>.*?<\/\1>/is', '', $html);
+        $html = preg_replace('/<aside\b[^>]*>.*?<\/aside>/is', '', $html);   // cross-links (guides block) are listed once in llms.txt, not repeated per page
         $html = preg_replace('/<h1[^>]*>(.*?)<\/h1>/is', "\n## $1\n", $html);
         $html = preg_replace('/<h2[^>]*>(.*?)<\/h2>/is', "\n### $1\n", $html);
         $html = preg_replace('/<h3[^>]*>(.*?)<\/h3>/is', "\n#### $1\n", $html);

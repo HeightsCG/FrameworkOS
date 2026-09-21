@@ -57,6 +57,7 @@ $users = $this->users;
         <button type="button" class="adm-tab" data-panel="verification"><i class="fa-solid fa-user-check"></i> Verification<?php if ((int) $this->verif_pending > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->verif_pending; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="sales"><i class="fa-solid fa-receipt"></i> Sales</button>
         <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
+        <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
     </div>
 
     <section class="adm-sec adm-panel is-active" data-panel="moderation">
@@ -297,6 +298,9 @@ $users = $this->users;
             </div>
         </div>
     </section>
+
+    <?php include __DIR__ . '/_content.php'; ?>
 </div>
 
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>
+<script src="/js/admin-content.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-content.js'); ?>"></script>
