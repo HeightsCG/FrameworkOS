@@ -23,6 +23,10 @@ $site = Main::site_name();
                     <a href="/monetize-your-content">Monetize your content</a><a href="/blog/feed.xml">RSS feed</a>
                 </div>
                 <div class="sf__col">
+                    <h2 class="sf__h">Legal</h2>
+                    <a href="/terms">Terms of Service</a><a href="/privacy">Privacy Policy</a>
+                </div>
+                <div class="sf__col">
                     <h2 class="sf__h">Account</h2>
                     <a href="/?auth=login" data-auth="login">Sign in</a><a href="/?auth=register" data-auth="register">Create an account</a>
                 </div>

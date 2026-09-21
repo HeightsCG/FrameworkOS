@@ -19,7 +19,12 @@ class PagesController extends Controller {
         'compare'                              => 'compare',
         'best-creator-monetization-platforms' => 'bestPlatforms',
         'monetize-your-content'               => 'monetize',
+        'terms'                               => 'terms',
+        'privacy'                             => 'privacy',
     );
+
+    /** Where legal and privacy requests go (shown on /terms and /privacy). */
+    const LEGAL_CONTACT = 'support@creatorlinkstudio.com';
 
     /** Competitor facts used by /compare/* and the best-of page. Every row has a source + checked date.
      *  Fact-checked 2026-09-21 against the source URLs below; see task-7-report.md for the exact
@@ -107,6 +112,14 @@ class PagesController extends Controller {
         }
         usort($rows, function ($a, $b) { return $a['tier']['rank'] <=> $b['tier']['rank']; });
         return $rows;
+    }
+
+    public function termsAction(){
+        $this->page('legal-terms', array('path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+    }
+
+    public function privacyAction(){
+        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function pricingAction(){

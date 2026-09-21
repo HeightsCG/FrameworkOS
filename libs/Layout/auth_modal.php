@@ -93,6 +93,7 @@
                     </div>
                     <div class="col-md-12">
                         <button type="button" id="do_register" class="cos-submit">Create Account</button>
+                        <p class="cos-legal">By creating an account you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>
                     </div>
                     <div class="col-md-12">
                         <div class="cos-links">
