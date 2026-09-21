@@ -64,7 +64,6 @@ class PagesController extends Controller {
                 )),
             );
         }
-        try { $meta['guides'] = (new SeoArticlesModel())->newest_published(3); } catch (\Throwable $e) { $meta['guides'] = array(); }
         unset($meta['path']);
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
@@ -83,7 +82,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
-        $this->page('features', array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld), array('faq' => $faq));
+        $this->page('features', array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     public static function pricing_rows(): array {
@@ -130,7 +129,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Pricing', 'url' => '/pricing'))),
         );
-        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => 'Three monthly plans. Every plan includes the whole platform; the take rate falls as you grow.', 'type' => 'product', 'jsonld' => $jsonld, 'wide' => true), array('rows' => $rows, 'faq' => $faq));
+        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => 'Three monthly plans. Every plan includes the whole platform; the take rate falls as you grow.', 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
     }
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
     public static function our_facts(): array {

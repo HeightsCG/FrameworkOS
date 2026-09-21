@@ -34,29 +34,35 @@
     </header>
 
     <main class="pub-main" id="pub_main">
-        <div class="ld-wrap pub-wrap<?php echo !empty($public_meta['wide']) ? ' pub-wrap--wide' : ''; ?>">
+        <div class="ld-wrap pub-wrap">
 <?php require $public_view_file; ?>
-<?php if (empty($public_meta['no_guides']) && !empty($public_meta['guides'])): ?>
-            <aside class="pub-guides" aria-labelledby="pub_guides_h">
-                <p class="pub-guides__h" id="pub_guides_h">From the <?php echo htmlspecialchars(strtolower(BlogController::NAME), ENT_QUOTES, 'UTF-8'); ?></p>
-                <div class="pub-cards pub-cards--3">
-                    <?php foreach ($public_meta['guides'] as $g): ?>
-                    <a class="pub-card" href="/blog/<?php echo htmlspecialchars($g['slug'], ENT_QUOTES, 'UTF-8'); ?>"><span class="pub-card__title"><?php echo htmlspecialchars($g['title'], ENT_QUOTES, 'UTF-8'); ?></span><span class="pub-card__x"><?php echo htmlspecialchars($g['excerpt'] ?: $g['meta_description'], ENT_QUOTES, 'UTF-8'); ?></span></a>
-                    <?php endforeach; ?>
-                </div>
-            </aside>
+<?php if (empty($public_meta['no_guides']) && !empty($public_meta['guides'])): $gx = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
+            <section class="gd-more" aria-labelledby="gd_more_h">
+                <h2 class="gd-h2" id="gd_more_h">From the <?php echo $gx(strtolower(BlogController::NAME)); ?></h2>
+                <ol class="gd-list">
+                <?php foreach ($public_meta['guides'] as $g): $gi = trim((string) ($g['cover_image_url'] ?? '')); ?>
+                    <li class="gd-row<?php echo $gi === '' ? ' gd-row--noimg' : ''; ?>">
+                        <?php if ($gi !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $gx($g['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $gx($gi); ?>" alt="" loading="lazy" width="160" height="120"></a><?php endif; ?>
+                        <div class="gd-row__body">
+                            <p class="gd-row__topic"><?php echo $gx(BlogController::topic($g)); ?></p>
+                            <h3 class="gd-row__title"><a href="/blog/<?php echo $gx($g['slug']); ?>"><?php echo $gx($g['title']); ?></a></h3>
+                            <p class="gd-row__x"><?php echo $gx($g['excerpt'] ?: $g['meta_description']); ?></p>
+                        </div>
+                    </li>
+                <?php endforeach; ?>
+                </ol>
+            </section>
+<?php endif; ?>
+<?php if (empty($public_meta['no_band'])): ?>
+            <section class="gd-band">
+                <h2 class="gd-band__title"><?php echo htmlspecialchars(isset($cta_title) ? (string) $cta_title : 'Put it into practice on one page.', ENT_QUOTES, 'UTF-8'); ?></h2>
+                <p class="gd-band__x">Memberships, pay-per-view, services and events, with payouts to your bank.</p>
+                <a class="ld-btn ld-btn--onviolet" href="/?auth=register">Create Your Account</a>
+            </section>
 <?php endif; ?>
         </div>
     </main>
 
-    <footer class="ld-foot">
-        <div class="ld-wrap ld-foot__inner">
-            <span class="ld-brand"><span class="ld-brand__mark" aria-hidden="true"></span><span class="ld-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span></span>
-            <nav class="pub-foot__links" aria-label="Footer">
-                <a href="/features">Features</a><a href="/pricing">Pricing</a><?php foreach (PagesController::COMPETITORS as $slug => $c): ?><a href="/compare/<?php echo htmlspecialchars($slug, ENT_QUOTES, 'UTF-8'); ?>">vs <?php echo htmlspecialchars($c['name'], ENT_QUOTES, 'UTF-8'); ?></a><?php endforeach; ?><a href="/best-creator-monetization-platforms">Best platforms</a><a href="/llms.txt">llms.txt</a>
-            </nav>
-            <span class="ld-foot__note">&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
-        </div>
-    </footer>
+<?php include __DIR__ . '/public_footer.php'; ?>
 </body>
 </html>

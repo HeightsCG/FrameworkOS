@@ -13,9 +13,6 @@ $starter = null; foreach ($guides as $g) { if ($g['path'] === '/monetize-your-co
             <input class="gd-search__input" type="search" id="gd_q" name="q" value="<?php echo $e($q); ?>" placeholder="Pricing, payouts, pay-per-view" maxlength="80" autocomplete="off">
             <button class="gd-read" type="submit">Search</button>
         </form>
-        <nav class="gd-topics" aria-label="Product guides">
-            <?php foreach ($guides as $g): ?><a class="gd-topic" href="<?php echo $e($g['path']); ?>"><?php echo $e($g['title']); ?></a><?php endforeach; ?>
-        </nav>
     </section>
 
 <?php if ($q !== ''): ?>
@@ -51,10 +48,4 @@ $starter = null; foreach ($guides as $g) { if ($g['path'] === '/monetize-your-co
         <?php if ($page < $pages): ?><a class="gd-read" href="<?php echo $e($qs($page + 1)); ?>"><?php echo $q !== '' ? 'More Results' : 'Older Posts'; ?></a><?php endif; ?>
     </nav>
 <?php endif; ?>
-
-    <section class="gd-band">
-        <h2 class="gd-band__title">Put it into practice on one page.</h2>
-        <p class="gd-band__x">Memberships, pay-per-view, services and events, with payouts to your bank.</p>
-        <a class="ld-btn ld-btn--onviolet" href="/?auth=register">Create Your Account</a>
-    </section>
 </div>

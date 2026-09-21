@@ -1,9 +1,12 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $us = PagesController::our_facts(); $site = Main::site_name();
 $rows = array('fee' => 'Platform fee', 'payout' => 'Payouts', 'content' => 'What you can sell', 'socials' => 'Social publishing', 'ai' => 'AI tools', 'ownership' => 'Your audience');
 $has_reported = false; foreach ($rows as $k => $label) { if (!empty($c[$k]['reported'])) { $has_reported = true; break; } } ?>
-<p class="pub-eyebrow"><?php echo $e($c['name']); ?> alternative</p>
-<h1 class="pub-h1"><?php echo $e($site); ?> vs <?php echo $e($c['name']); ?></h1>
-<p class="pub-lead"><?php echo $e($c['summary']); ?> <?php echo $e($site); ?> is built for creators who want one page for everything they sell and a studio that publishes everywhere. Here is how the two compare, with sources.</p>
+<header class="gd-hero">
+    <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span><?php echo $e($c['name']); ?> alternative</span></nav>
+    <h1 class="gd-hero__title"><?php echo $e($site); ?> vs <?php echo $e($c['name']); ?></h1>
+    <p class="gd-hero__lead"><?php echo $e($c['summary']); ?> <?php echo $e($site); ?> is built for creators who want one page for everything they sell and a studio that publishes everywhere. Here is how the two compare, with sources.</p>
+</header>
+<div class="gd-prose">
 
 <table class="pub-table pub-table--compare">
     <thead><tr><th></th><th><?php echo $e($site); ?></th><th><?php echo $e($c['name']); ?></th></tr></thead>
@@ -29,4 +32,5 @@ $has_reported = false; foreach ($rows as $k => $label) { if (!empty($c[$k]['repo
 <h2 class="pub-h2">Moving over</h2>
 <p class="pub-p">Keep your <?php echo $e($c['name']); ?> page live while you set up. Publish to both from the studio, put your new page in every bio, and let fans move at their own pace. Memberships and pay-per-view work from day one; payouts start as soon as Stripe finishes verifying you.</p>
 
-<div class="pub-cta"><span class="pub-cta__text">Try it alongside <?php echo $e($c['name']); ?>.</span><a class="ld-btn ld-btn--primary" href="/?auth=register">Create Your Account</a></div>
+</div>
+<?php $cta_title = 'Try it alongside ' . $c['name'] . '.'; ?>

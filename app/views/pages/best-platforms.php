@@ -1,7 +1,10 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $us = PagesController::our_facts(); $site = Main::site_name(); ?>
-<p class="pub-eyebrow">Guide</p>
-<h1 class="pub-h1">Best creator monetization platforms in <?php echo date('Y'); ?></h1>
-<p class="pub-lead">There is no single best platform; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build <?php echo $e($site); ?>, and we say so where it matters.</p>
+<header class="gd-hero">
+    <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Guide</span></nav>
+    <h1 class="gd-hero__title">Best creator monetization platforms in <?php echo date('Y'); ?></h1>
+    <p class="gd-hero__lead">There is no single best platform; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build <?php echo $e($site); ?>, and we say so where it matters.</p>
+</header>
+<div class="gd-prose">
 
 <h2 class="pub-h2">How to judge a platform</h2>
 <ul class="pub-list">
@@ -31,4 +34,5 @@
     <li>Everything you sell on one page, published to all your socials, fee that falls as you grow: <?php echo $e($site); ?>.</li>
 </ul>
 
-<div class="pub-cta"><span class="pub-cta__text">See it with your own page.</span><a class="ld-btn ld-btn--primary" href="/?auth=register">Create Your Account</a></div>
+</div>
+<?php $cta_title = 'See it with your own page.'; ?>

@@ -83,7 +83,7 @@ class BlogController extends Controller {
         );
         $guides = array();
         foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
-        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true),
+        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true, 'no_band' => true),
             array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides, 'q' => $q));
     }
 
@@ -109,7 +109,7 @@ class BlogController extends Controller {
         if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }
         $anch = self::anchor_headings((string) $a['body_html']);
         $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
-                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true),
+                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),
             array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview, 'body' => $anch[0], 'toc' => $anch[1], 'topic' => self::topic($a)));
     }
 

@@ -673,15 +673,7 @@
 
     </main>
 
-    <footer class="ld-foot">
-        <div class="ld-wrap ld-foot__inner">
-            <span class="ld-brand">
-                <span class="ld-brand__mark" aria-hidden="true"></span>
-                <span class="ld-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
-            </span>
-            <span class="ld-foot__note">&copy; <?php echo date('Y'); ?> <?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
-        </div>
-    </footer>
+<?php include __DIR__ . '/public_footer.php'; ?>
 
     <div class="ld-auth" id="ld_auth" role="dialog" aria-modal="true" aria-label="Sign in or create account" hidden>
         <div class="ld-auth__veil"></div>

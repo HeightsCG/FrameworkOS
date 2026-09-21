@@ -1,7 +1,10 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $site = Main::site_name(); ?>
-<p class="pub-eyebrow">Guide</p>
-<h1 class="pub-h1">How to monetize your content</h1>
-<p class="pub-lead">Five ways creators get paid, what each one is good for, and how to price it. Everything here works on <?php echo $e($site); ?>, and most of it works anywhere.</p>
+<header class="gd-hero">
+    <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><span>Guide</span></nav>
+    <h1 class="gd-hero__title">How to monetize your content</h1>
+    <p class="gd-hero__lead">Five ways creators get paid, what each one is good for, and how to price it. Everything here works on <?php echo $e($site); ?>, and most of it works anywhere.</p>
+</header>
+<div class="gd-prose">
 
 <h2 class="pub-h2" id="memberships">1. Memberships</h2>
 <p class="pub-p">A monthly price for ongoing access. Start with two tiers, not five: an entry tier priced where a fan says yes without thinking, and a higher tier for the people who want more of you. Put most posts on the entry tier and save a few for the top. Raise prices for new members only.</p>
@@ -20,7 +23,12 @@
 <h2 class="pub-h2">Getting fans to the page</h2>
 <p class="pub-p">Publish everywhere and point back to one place. A studio that posts to your socials and your page at once, with the paid version behind the lock, does the promotion for you every time you publish. See how <a href="/features">the studio</a> handles it.</p>
 
-<h2 class="pub-h2">Questions</h2>
-<ul class="pub-faq"><?php foreach ($faq as $qa): ?><li><h3><?php echo $e($qa['q']); ?></h3><p><?php echo $e($qa['a']); ?></p></li><?php endforeach; ?></ul>
+<section class="faq" aria-labelledby="gd_faq_h">
+    <h2 class="faq__title" id="gd_faq_h">Frequently asked questions</h2>
+    <div class="faq__list">
+        <?php foreach ($faq as $qa): ?><details class="faq__item"><summary class="faq__q"><?php echo $e($qa['q']); ?><svg class="faq__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="faq__a"><?php echo $e($qa['a']); ?></div></details><?php endforeach; ?>
+    </div>
+</section>
 
-<div class="pub-cta"><span class="pub-cta__text">Set up your tiers in an afternoon.</span><a class="ld-btn ld-btn--primary" href="/?auth=register">Create Your Account</a></div>
+</div>
+<?php $cta_title = 'Set up your tiers in an afternoon.'; ?>

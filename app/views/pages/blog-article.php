@@ -19,10 +19,12 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <article class="gd-post__main">
             <div class="pub-body gd-body"><?php echo $body; ?></div>
             <?php if (!empty($faq)): ?>
-            <section class="gd-faq" aria-labelledby="gd_faq_h">
-                <h2 id="gd_faq_h">Questions</h2>
-                <?php foreach ($faq as $f): ?><details class="gd-faq__item"><summary><?php echo $e($f['q']); ?></summary><p><?php echo $e($f['a']); ?></p></details><?php endforeach; ?>
-            </section>
+            <section class="faq" aria-labelledby="gd_faq_h">
+    <h2 class="faq__title" id="gd_faq_h">Frequently asked questions</h2>
+    <div class="faq__list">
+        <?php foreach ($faq as $f): ?><details class="faq__item"><summary class="faq__q"><?php echo $e($f['q']); ?><svg class="faq__icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="faq__a"><?php echo $e($f['a']); ?></div></details><?php endforeach; ?>
+    </div>
+</section>
             <?php endif; ?>
         </article>
         <?php if (count($toc) > 1): ?>
@@ -49,10 +51,4 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <?php endforeach; ?>
     </ol>
 <?php endif; ?>
-
-    <section class="gd-band">
-        <h2 class="gd-band__title">Put it into practice on one page.</h2>
-        <p class="gd-band__x">Memberships, pay-per-view, services and events, with payouts to your bank.</p>
-        <a class="ld-btn ld-btn--onviolet" href="/?auth=register">Create Your Account</a>
-    </section>
 </div>
