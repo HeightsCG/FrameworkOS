@@ -16,7 +16,7 @@ check('llms.txt 200 text/plain', $c === 200 && strpos($t, 'text/plain') !== fals
 check('llms.txt lists pricing', strpos($b, "$base/pricing") !== false);
 check('llms.txt cache-control 3600', stripos(head("$base/llms.txt"), 'Cache-Control: private, max-age=3600') !== false);
 $llms = $b;
-check('llms.txt has Guides section',      strpos($llms, '## Guides') !== false && strpos($llms, '/blog/') !== false);
+check('llms.txt has blog section',        preg_match('/^## .+\n- \[[^\]]+\]\([^)]*\/blog\/[a-z0-9-]+\)/m', $llms) === 1 && strpos($llms, '/blog/feed.xml') !== false);
 list($c, $b, $t) = get("$base/llms-full.txt");
 check('llms-full 200 text/plain', $c === 200 && strpos($t, 'text/plain') !== false);
 check('llms-full has features heading', strpos($b, '# Features') !== false || strpos($b, '## Features') !== false);

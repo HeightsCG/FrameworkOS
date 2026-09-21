@@ -360,7 +360,7 @@
             <nav class="ld-nav__links" aria-label="Site">
                 <a href="/features">Features</a>
                 <a href="/pricing">Pricing</a>
-                <a href="/blog">Guides</a>
+                <a href="/blog"><?php echo htmlspecialchars(BlogController::NAME, ENT_QUOTES, 'UTF-8'); ?></a>
             </nav>
             <div class="ld-nav__actions">
                 <button type="button" class="ld-btn ld-btn--quiet" data-auth="login">Sign In</button>

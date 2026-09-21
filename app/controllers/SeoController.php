@@ -107,9 +107,9 @@ class SeoController extends Controller {
         try {
             $recent = (new SeoArticlesModel())->published(20, 0);
             if (!empty($recent)) {
-                $l[] = ''; $l[] = '## Guides';
+                $l[] = ''; $l[] = '## ' . BlogController::NAME;
                 foreach ($recent as $a) { $l[] = '- [' . $a['title'] . '](' . $base . '/blog/' . $a['slug'] . '): ' . ($a['meta_description'] ?: (string) $a['excerpt']); }
-                $l[] = '- [All guides](' . $base . '/blog) · [RSS](' . $base . '/blog/feed.xml)';
+                $l[] = '- [All posts](' . $base . '/blog) · [RSS](' . $base . '/blog/feed.xml)';
             }
         } catch (\Throwable $e) {}
         $l[] = '';

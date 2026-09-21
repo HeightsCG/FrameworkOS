@@ -7,6 +7,8 @@ class BlogController extends Controller {
     public $protected = 0;
     public static $embedded = false;
     const PER_PAGE = 12;
+    /** What the /blog section is called everywhere (nav, page title, breadcrumbs, feed, llms.txt, product-page block). */
+    const NAME = 'Blog';
 
     public function __construct(){
         parent::__construct();
@@ -39,7 +41,7 @@ class BlogController extends Controller {
         $pages = max(1, (int) ceil($total / self::PER_PAGE));
         if ($page > 1 && $page > $pages) { Errors::page_not_found(); return; }
         $path  = '/blog' . ($page > 1 ? '?page=' . $page : '');
-        $title = 'Guides for creators' . ($page > 1 ? ' · page ' . $page : '');
+        $title = self::NAME . ($page > 1 ? ', page ' . $page : '');
         $desc  = 'Practical guides on monetizing content: memberships, pay-per-view, bundles, services, events, link in bio and payouts.';
         $items = array(); $pos = 1;
         foreach ($rows as $a) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/blog/' . $a['slug'], 'name' => $a['title']); }
@@ -47,7 +49,7 @@ class BlogController extends Controller {
             SeoMeta::org(),
             array('@type' => 'CollectionPage', 'name' => $title, 'url' => SeoMeta::base() . $path, 'description' => $desc, 'isPartOf' => array('@type' => 'WebSite', 'name' => SeoMeta::site(), 'url' => SeoMeta::base() . '/'),
                   'mainEntity' => array('@type' => 'ItemList', 'itemListElement' => $items)),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Guides', 'url' => '/blog'))),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => self::NAME, 'url' => '/blog'))),
         );
         $guides = array();
         foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
@@ -72,7 +74,7 @@ class BlogController extends Controller {
         $modified  = !empty($a['updated_at'])   ? gmdate('c', strtotime($a['updated_at'] . ' UTC'))   : $published;
         $jsonld = array(
             SeoMeta::article(array('headline' => $a['title'], 'description' => $a['meta_description'], 'url' => SeoMeta::base() . $path, 'published' => $published, 'modified' => $modified, 'image' => $a['cover_image_url'] ?: null)),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Guides', 'url' => '/blog'), array('name' => $a['title'], 'url' => $path))),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => self::NAME, 'url' => '/blog'), array('name' => $a['title'], 'url' => $path))),
         );
         if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }
         $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
@@ -86,7 +88,7 @@ class BlogController extends Controller {
         header('Content-Type: application/rss+xml; charset=utf-8');
         $x = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES | ENT_XML1, 'UTF-8'); };
         echo '<?xml version="1.0" encoding="UTF-8"?>', "\n", '<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel>', "\n";
-        echo '<title>', $x($site . ' guides'), '</title><link>', $x($base . '/blog'), '</link><description>', $x('Guides for creators from ' . $site), '</description>';
+        echo '<title>', $x($site . ' ' . strtolower(self::NAME)), '</title><link>', $x($base . '/blog'), '</link><description>', $x(self::NAME . ' from ' . $site . ': pricing and selling for creators'), '</description>';
         echo '<atom:link href="', $x($base . '/blog/feed.xml'), '" rel="self" type="application/rss+xml"/>', "\n";
         foreach ($rows as $a) {
             echo '<item><title>', $x($a['title']), '</title><link>', $x($base . '/blog/' . $a['slug']), '</link><guid isPermaLink="true">', $x($base . '/blog/' . $a['slug']), '</guid>';

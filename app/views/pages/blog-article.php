@@ -1,7 +1,7 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
 <?php if (!empty($preview) && ($a['status'] ?? '') !== 'published'): ?><p class="pub-note pub-note--preview">Preview — this article is not published.</p><?php endif; ?>
 <article class="pub-post">
-    <p class="pub-eyebrow"><a href="/blog">Guides</a></p>
+    <p class="pub-eyebrow"><a href="/blog"><?php echo $e(BlogController::NAME); ?></a></p>
     <h1 class="pub-h1"><?php echo $e($a['title']); ?></h1>
     <p class="pub-post__meta"><?php echo $e(SeoMeta::site()); ?> team · <?php echo $e(date('M j, Y', strtotime(($a['published_at'] ?: $a['created_at']) . ' UTC'))); ?> · <?php echo (int) $a['reading_minutes']; ?> min read</p>
     <?php if (trim((string) $a['excerpt']) !== ''): ?><p class="pub-lead"><?php echo $e($a['excerpt']); ?></p><?php endif; ?>

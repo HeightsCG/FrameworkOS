@@ -24,7 +24,7 @@
             <nav class="ld-nav__links" aria-label="Site">
                 <a href="/features">Features</a>
                 <a href="/pricing">Pricing</a>
-                <a href="/blog">Guides</a>
+                <a href="/blog"><?php echo htmlspecialchars(BlogController::NAME, ENT_QUOTES, 'UTF-8'); ?></a>
             </nav>
             <div class="ld-nav__actions">
                 <a class="ld-btn ld-btn--quiet" href="/?auth=login">Sign In</a>
@@ -38,7 +38,7 @@
 <?php require $public_view_file; ?>
 <?php if (empty($public_meta['no_guides']) && !empty($public_meta['guides'])): ?>
             <aside class="pub-guides" aria-labelledby="pub_guides_h">
-                <p class="pub-guides__h" id="pub_guides_h">From the guides</p>
+                <p class="pub-guides__h" id="pub_guides_h">From the <?php echo htmlspecialchars(strtolower(BlogController::NAME), ENT_QUOTES, 'UTF-8'); ?></p>
                 <div class="pub-cards pub-cards--3">
                     <?php foreach ($public_meta['guides'] as $g): ?>
                     <a class="pub-card" href="/blog/<?php echo htmlspecialchars($g['slug'], ENT_QUOTES, 'UTF-8'); ?>"><span class="pub-card__title"><?php echo htmlspecialchars($g['title'], ENT_QUOTES, 'UTF-8'); ?></span><span class="pub-card__x"><?php echo htmlspecialchars($g['excerpt'] ?: $g['meta_description'], ENT_QUOTES, 'UTF-8'); ?></span></a>
