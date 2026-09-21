@@ -119,6 +119,10 @@ body.ld {
 }
 .ld-brand__name { font-weight: 600; font-size: 1.05rem; letter-spacing: -.02em; white-space: nowrap; }
 .ld-nav__actions { display: flex; align-items: center; gap: .4rem; margin-left: auto; }
+.ld-nav__links { display: flex; align-items: center; gap: 1.4rem; margin-left: auto; margin-right: 1.4rem; }
+.ld-nav__links a { font-size: .95rem; font-weight: 500; color: var(--ld-muted); text-decoration: none; border-radius: 4px; }
+.ld-nav__links a:hover { color: var(--ld-ink); }
+.ld-nav__links a:focus-visible { outline: none; box-shadow: var(--ld-ring); }
 
 /* --------------------------------------------------------------------------
    Hero — full-viewport kinetic type
@@ -680,6 +684,7 @@ body.ld-auth-open { overflow: hidden; }
     .ld-brand__name { font-size: .92rem; }
     .ld-nav .ld-wrap { padding: 0 14px; }
     .ld-nav__inner { gap: .5rem; }
+    .ld-nav__links { display: none; }
     .ld-nav__actions { gap: .1rem; }
     .ld-nav__actions .ld-btn--quiet { padding: .6rem .45rem; font-size: .82rem; }
     .ld-nav__actions .ld-btn--primary { padding: .62rem .7rem; font-size: .82rem; }

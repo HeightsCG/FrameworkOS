@@ -8,6 +8,7 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
 <?php echo SeoMeta::head($public_meta); ?>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/landing.css'); ?>">
     <link rel="stylesheet" href="/css/public.css?v=<?php echo @filemtime(Main::app_path().'/public/css/public.css'); ?>">
 </head>
@@ -19,7 +20,7 @@
                 <span class="ld-brand__mark" aria-hidden="true"></span>
                 <span class="ld-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
             </a>
-            <nav class="pub-nav" aria-label="Site">
+            <nav class="ld-nav__links" aria-label="Site">
                 <a href="/features">Features</a>
                 <a href="/pricing">Pricing</a>
                 <a href="/monetize-your-content">Guides</a>

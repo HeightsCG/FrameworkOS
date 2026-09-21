@@ -83,6 +83,7 @@
         ];
     ?>
     <script type="application/ld+json"><?php echo json_encode($seo_ld, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/landing.css'); ?>">
     <!-- Bootstrap + toastr are only needed by the auth dialog: load them without blocking first paint. -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" media="print" onload="this.media='all'">
@@ -356,6 +357,11 @@
                 <span class="ld-brand__mark" aria-hidden="true"></span>
                 <span class="ld-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
             </a>
+            <nav class="ld-nav__links" aria-label="Site">
+                <a href="/features">Features</a>
+                <a href="/pricing">Pricing</a>
+                <a href="/monetize-your-content">Guides</a>
+            </nav>
             <div class="ld-nav__actions">
                 <button type="button" class="ld-btn ld-btn--quiet" data-auth="login">Sign In</button>
                 <button type="button" class="ld-btn ld-btn--primary" data-auth="register">Create <span class="ld-hide-sm">Your </span>Account</button>
@@ -383,7 +389,7 @@
                 </h1>
                 <p class="ld-kx__tag">Keep It All Connected.</p>
                 <div class="ld-kx__foot">
-                    <p class="ld-kx__value">Build your presence, publish your work, grow paying members, and manage your revenue from one connected studio.</p>
+                    <p class="ld-kx__value"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?> is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.</p>
                 </div>
             </div>
         </section>
