@@ -45,6 +45,9 @@ class ApiRoutes {
             'connect_account', 'disconnect_account', 'upload_media_url', 'create_post', 'post_status', 'fanvue_connect',
             'fanvue_disconnect',
         ],
+        'ApiSupportController' => [
+            'support_create', 'support_reply', 'support_close',
+        ],
         'ApiSetupController' => [
             'setup_progress', 'setup_dismiss', 'setup_skip_step',
         ],

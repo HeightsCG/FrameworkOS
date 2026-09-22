@@ -21,6 +21,23 @@
             tabs.querySelectorAll('.adm-tab').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
             document.querySelectorAll('.adm-panel').forEach(function (p) { p.classList.toggle('is-active', p.getAttribute('data-panel') === panel); });
         });
+        /* ?tab=<panel> opens that tab (e.g. back from a support request) */
+        var want = (new URLSearchParams(location.search).get('tab') || '').replace(/[^a-z]/g, '');
+        var wantBtn = want ? tabs.querySelector('.adm-tab[data-panel="' + want + '"]') : null;
+        if (wantBtn) { wantBtn.click(); }
+    }
+
+    /* ---- Support queue sub-tabs ---- */
+    var supPanel = document.querySelector('.adm-panel[data-panel="support"]');
+    if (supPanel) {
+        supPanel.querySelectorAll('[data-sup]').forEach(function (b) {
+            b.addEventListener('click', function () {
+                var f = b.getAttribute('data-sup'), shown = 0;
+                supPanel.querySelectorAll('[data-sup]').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+                supPanel.querySelectorAll('.adm-suprow').forEach(function (r) { var on = f === 'all' || r.getAttribute('data-status') === f; r.hidden = !on; if (on) { shown++; } });
+                document.getElementById('admSupportNone').hidden = shown > 0;
+            });
+        });
     }
 
     /* ---- Moderation queue ---- */

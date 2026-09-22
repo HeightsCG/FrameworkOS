@@ -65,6 +65,9 @@ class AdminController extends Controller {
         $this->view->users        = $model->users('', '', 60);
         $this->view->me           = $me;
         $this->view->timezone     = (string) ($user['content_timezone'] ?? 'UTC');
+        $this->view->support      = array(); $this->view->support_open = 0;
+        try { $sm = new SupportModel(); $this->view->support = $sm->for_staff('', 300); $this->view->support_open = $sm->count_open(); }
+        catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }   // /admin still loads if the support tables are missing
 
         $this->view->seo_keywords = array(); $this->view->seo_review = array(); $this->view->seo_published = array(); $this->view->seo_archived = 0;
         try {   // /admin must still load if the SEO tables aren't there yet

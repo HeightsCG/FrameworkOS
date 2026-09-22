@@ -97,6 +97,7 @@
                     <a href="/account/users" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-users"></i> Users</a>
                     <?php endif; ?>
                     <a href="/account/settings" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-gear"></i> Settings</a>
+                    <a href="/support" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-life-ring"></i> Support</a>
                     <span class="app-account-menu__sep"></span>
                     <a href="#" class="app-account-menu__item app-account-menu__item--danger app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
                 </div>
