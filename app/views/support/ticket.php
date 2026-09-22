@@ -1,8 +1,8 @@
 <link rel="stylesheet" href="/css/support.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/support.css'); ?>">
 <?php if ($this->staff_view): ?><link rel="stylesheet" href="/css/admin.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/admin.css'); ?>"><?php endif; ?>
 <?php
-/* Support request as a case file: the problem (description + replies + response) and, for staff, a Diagnosis
-   panel of account checks for this topic with the fix beside each one. Fix buttons: public/js/admin-user.js. */
+/* Support request as one issue workspace (sw-*): title, description, activity and response on the left; request
+   properties on the right, plus Diagnosis / Quick Fixes / Account / Requests for staff. Fix buttons: public/js/admin-user.js. */
 $e   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $fmt = $this->fmt; $t = $this->ticket; $staff = $this->staff_view;
 $status_label = $staff ? array('open' => 'Waiting on us', 'answered' => 'Replied', 'closed' => 'Closed') : array('open' => 'Waiting on support', 'answered' => 'Support replied', 'closed' => 'Closed');
@@ -16,55 +16,76 @@ $name_of = function ($m) use ($staff) {
 $first = $this->messages[0] ?? null;
 $replies = array_slice($this->messages, 1);
 ?>
-<div class="sc<?php echo $staff ? ' sc--staff' : ''; ?> sup--thread" data-ticket="<?php echo (int) $t['id']; ?>">
-    <a class="sup__back" href="<?php echo $staff ? '/admin?tab=support' : '/support'; ?>"><i class="fa-solid fa-arrow-left"></i> <?php echo $staff ? 'Support Queue' : 'All Requests'; ?></a>
+<?php
+$last_at = !empty($this->messages) ? end($this->messages)['created_at'] : $t['created_at'];
+$topic = $this->categories[$t['category']] ?? 'Something else';
+$u = ($staff && $this->requester) ? $this->requester : null;
+?>
+<div class="sw<?php echo $u ? ' sw--staff' : ''; ?> sup--thread" data-ticket="<?php echo (int) $t['id']; ?>">
+    <header class="sw-bar">
+        <nav class="sw-crumb" aria-label="Breadcrumb">
+            <a href="<?php echo $staff ? '/admin?tab=support' : '/support'; ?>"><i class="fa-solid fa-arrow-left"></i><?php echo $staff ? 'Support Queue' : 'All Requests'; ?></a>
+            <i class="fa-solid fa-chevron-right sw-crumb__sep" aria-hidden="true"></i>
+            <span>Request <?php echo (int) $t['id']; ?></span>
+        </nav>
+        <div class="sw-bar__acts">
+            <button type="button" class="sw-btn" data-close="<?php echo $closed ? '0' : '1'; ?>"><i class="fa-solid <?php echo $closed ? 'fa-rotate-left' : 'fa-check'; ?>"></i><?php echo $closed ? 'Reopen' : 'Close Request'; ?></button>
+        </div>
+    </header>
 
-    <div class="sc__grid">
-        <article class="sc-case">
-            <header class="sc-case__head">
-                <div class="sc-case__titles">
-                    <h1 class="sc-case__title"><?php echo $e($t['subject']); ?></h1>
-                    <div class="sc-case__meta">
-                        <span class="sc-case__who"><span class="sc-av"><?php echo $e($ini($req_name)); ?></span><?php if ($staff): ?><a href="/admin/user/<?php echo (int) $t['user_id']; ?>"><?php echo $e($req_name); ?></a><?php else: ?><?php echo $e($req_name); ?><?php endif; ?></span>
-                        <span class="sc-chip"><?php echo $e($this->categories[$t['category']] ?? 'Something else'); ?></span>
-                        <span>Request <?php echo (int) $t['id']; ?>, opened <?php echo $e($fmt($t['created_at'])); ?></span>
-                    </div>
-                </div>
-                <div class="sc-case__state">
-                    <span class="sup-status sup-status--<?php echo $e($t['status']); ?>"><span class="sup-status__dot"></span><?php echo $e($status_label[$t['status']] ?? $t['status']); ?></span>
-                    <button type="button" class="sup-btn" data-close="<?php echo $closed ? '0' : '1'; ?>"><?php echo $closed ? 'Reopen' : 'Close Request'; ?></button>
-                </div>
-            </header>
+    <div class="sw-body">
+        <main class="sw-main">
+            <h1 class="sw-title"><?php echo $e($t['subject']); ?></h1>
+            <?php if ($first): ?><div class="sw-desc"><?php echo nl2br($e($first['body'])); ?></div><?php endif; ?>
 
-            <div class="sc-case__body" id="supConv">
-                <?php if ($first): ?><div class="sc-desc"><?php echo nl2br($e($first['body'])); ?></div><?php endif; ?>
-
-                <?php if (!empty($replies) || $closed): ?>
-                <ol class="sc-trail">
+            <section class="sw-activity" id="supConv" aria-labelledby="swActH">
+                <h2 class="sw-h2" id="swActH">Activity</h2>
+                <ol class="sw-feed">
+                    <li class="sw-ev">
+                        <span class="sw-ev__mk" aria-hidden="true"><i class="fa-solid fa-circle-dot"></i></span>
+                        <p class="sw-ev__line"><b><?php echo $e($req_name); ?></b> opened this request <time><?php echo $e($fmt($t['created_at'])); ?></time></p>
+                    </li>
                     <?php foreach ($replies as $m): ?>
-                    <li class="sc-step<?php echo $m['is_staff'] ? ' sc-step--staff' : ''; ?>">
-                        <p class="sc-step__who"><b><?php echo $e($name_of($m)); ?></b> <?php echo $m['is_staff'] && $staff ? 'replied as Support' : 'replied'; ?> <time><?php echo $e($fmt($m['created_at'])); ?></time></p>
-                        <div class="sc-step__text"><?php echo nl2br($e($m['body'])); ?></div>
+                    <li class="sw-ev sw-ev--reply<?php echo $m['is_staff'] ? ' sw-ev--staff' : ''; ?>">
+                        <span class="sw-ev__mk" aria-hidden="true"><i class="fa-solid <?php echo $m['is_staff'] ? 'fa-headset' : 'fa-reply'; ?>"></i></span>
+                        <p class="sw-ev__line"><b><?php echo $e($name_of($m)); ?></b> <?php echo $m['is_staff'] && $staff ? 'replied as Support' : 'replied'; ?> <time><?php echo $e($fmt($m['created_at'])); ?></time></p>
+                        <div class="sw-ev__text"><?php echo nl2br($e($m['body'])); ?></div>
                     </li>
                     <?php endforeach; ?>
-                    <?php if ($closed): ?><li class="sc-step sc-step--closed"><p class="sc-step__who">Request closed <time><?php echo $e($fmt($t['closed_at'])); ?></time></p></li><?php endif; ?>
+                    <?php if ($closed): ?>
+                    <li class="sw-ev sw-ev--closed">
+                        <span class="sw-ev__mk" aria-hidden="true"><i class="fa-solid fa-check"></i></span>
+                        <p class="sw-ev__line">Request closed <time><?php echo $e($fmt($t['closed_at'])); ?></time></p>
+                    </li>
+                    <?php endif; ?>
                 </ol>
-                <?php endif; ?>
-            </div>
+            </section>
 
-            <form class="sc-reply" id="supReply" novalidate>
+            <form class="sw-compose" id="supReply" novalidate>
                 <label class="sr-only" for="sup_reply">Your response</label>
-                <textarea class="form-control" id="sup_reply" rows="3" maxlength="5000" placeholder="<?php echo $staff ? 'Write a response to ' . $e($req_name) : 'Add more detail or reply to support'; ?>"></textarea>
-                <div class="sc-reply__acts">
-                    <?php if ($staff && !$closed): ?><button type="button" class="sup-btn" id="supReplyClose">Send and Close</button><?php endif; ?>
-                    <button type="submit" class="sup-btn sup-btn--primary" id="supReplySend">Send Reply</button>
+                <textarea id="sup_reply" rows="4" maxlength="5000" placeholder="<?php echo $staff ? 'Write a response to ' . $e($req_name) : 'Add more detail or reply to support'; ?>"></textarea>
+                <div class="sw-compose__bar">
+                    <?php if ($staff && !$closed): ?><button type="button" class="sw-btn" id="supReplyClose">Send and Close</button><?php endif; ?>
+                    <button type="submit" class="sw-btn sw-btn--primary" id="supReplySend">Send Reply</button>
                 </div>
             </form>
-        </article>
+        </main>
 
-        <?php if ($staff && $this->requester): $u = $this->requester; $tier = PlanTiers::TIERS[(string) ($u['plan_tier'] ?? '')]['name'] ?? ''; ?>
-        <aside class="sup-side" data-admin-user="<?php echo (int) $u['user_id']; ?>">
-            <div class="sup-stabs" role="tablist" aria-label="Requester">
+        <aside class="sw-side"<?php echo $u ? ' data-admin-user="' . (int) $u['user_id'] . '"' : ''; ?>>
+            <dl class="sw-props">
+                <div><dt>Status</dt><dd><span class="sup-status sup-status--<?php echo $e($t['status']); ?>"><span class="sup-status__dot"></span><?php echo $e($status_label[$t['status']] ?? $t['status']); ?></span></dd></div>
+                <div><dt>Topic</dt><dd><?php echo $e($topic); ?></dd></div>
+                <div><dt>Requester</dt><dd class="sw-props__who">
+                    <?php if ($u): ?><span class="sw-av" style="<?php echo !empty($u['avatar_url']) ? 'background-image:url(\'' . $e($u['avatar_url']) . '\')' : ''; ?>"><?php echo empty($u['avatar_url']) ? $e($ini($req_name)) : ''; ?></span><a href="/admin/user/<?php echo (int) $u['user_id']; ?>"><?php echo $e($req_name); ?></a>
+                    <?php else: ?><span class="sw-av"><?php echo $e($ini($req_name)); ?></span><span><?php echo $e($req_name); ?></span><?php endif; ?>
+                </dd></div>
+                <div><dt>Opened</dt><dd><?php echo $e($fmt($t['created_at'])); ?></dd></div>
+                <div><dt>Last update</dt><dd><?php echo $e($fmt($closed && !empty($t['closed_at']) ? $t['closed_at'] : $last_at)); ?></dd></div>
+                <div><dt>Replies</dt><dd><?php echo count($replies); ?></dd></div>
+            </dl>
+
+            <?php if ($u): $tier = PlanTiers::TIERS[(string) ($u['plan_tier'] ?? '')]['name'] ?? ''; ?>
+            <div class="sw-tabs" role="tablist" aria-label="Requester">
                 <button type="button" class="sup-stab is-on" role="tab" aria-selected="true" data-stab="diagnosis">Diagnosis</button>
                 <button type="button" class="sup-stab" role="tab" aria-selected="false" data-stab="fixes">Quick Fixes</button>
                 <button type="button" class="sup-stab" role="tab" aria-selected="false" data-stab="details">Account</button>
@@ -77,12 +98,11 @@ $replies = array_slice($this->messages, 1);
                     <li class="sc-check sc-check--<?php echo $e($state); ?>">
                         <?php if ($state !== 'info'): ?><span class="sc-check__ic" aria-hidden="true"><i class="fa-solid <?php echo $state === 'ok' ? 'fa-check' : 'fa-exclamation'; ?>"></i></span><?php endif; ?>
                         <span class="sc-check__txt"><b><?php echo $e($label); ?></b><span><?php echo $e($value); ?></span></span>
-                        <?php if (!empty($fix['act'])): ?><button type="button" class="adm-btn sc-check__fix" data-act="<?php echo $e($fix['act']); ?>"<?php echo isset($fix['status']) ? ' data-status="' . $e($fix['status']) . '"' : ''; ?><?php echo isset($fix['cancel']) ? ' data-cancel="' . $e($fix['cancel']) . '"' : ''; ?>><?php echo $e($fix['label']); ?></button>
-                        <?php elseif (!empty($fix['href'])): ?><a class="adm-btn sc-check__fix" href="<?php echo $e($fix['href']); ?>"><?php echo $e($fix['label']); ?></a><?php endif; ?>
+                        <?php if (!empty($fix['act'])): ?><button type="button" class="sw-btn sw-btn--sm sc-check__fix" data-act="<?php echo $e($fix['act']); ?>"<?php echo isset($fix['status']) ? ' data-status="' . $e($fix['status']) . '"' : ''; ?><?php echo isset($fix['cancel']) ? ' data-cancel="' . $e($fix['cancel']) . '"' : ''; ?>><?php echo $e($fix['label']); ?></button>
+                        <?php elseif (!empty($fix['href'])): ?><a class="sw-btn sw-btn--sm sc-check__fix" href="<?php echo $e($fix['href']); ?>"><?php echo $e($fix['label']); ?></a><?php endif; ?>
                     </li>
                     <?php endforeach; ?>
                 </ul>
-                <a class="sc-profile" href="/admin/user/<?php echo (int) $u['user_id']; ?>">Open full profile</a>
             </div>
 
             <div class="sup-spanel" data-stab="fixes" hidden>
@@ -99,19 +119,14 @@ $replies = array_slice($this->messages, 1);
             </div>
 
             <div class="sup-spanel" data-stab="details" hidden>
-                <div class="sup-who">
-                    <span class="sup-who__av" style="<?php echo !empty($u['avatar_url']) ? 'background-image:url(\'' . $e($u['avatar_url']) . '\')' : ''; ?>"><?php echo empty($u['avatar_url']) ? $e($ini($req_name)) : ''; ?></span>
-                    <div class="sup-who__txt">
-                        <a class="sup-who__name" href="/admin/user/<?php echo (int) $u['user_id']; ?>"><?php echo $e($req_name); ?></a>
-                        <span class="sup-who__sub">@<?php echo $e($u['u_name']); ?>, <?php echo $e($u['user_email']); ?></span>
-                    </div>
-                </div>
-                <dl class="sup-facts">
+                <dl class="sw-props sw-props--flush">
+                    <div><dt>Username</dt><dd>@<?php echo $e($u['u_name']); ?></dd></div>
+                    <div><dt>Email</dt><dd class="sw-props__long"><?php echo $e($u['user_email']); ?></dd></div>
                     <div><dt>Role</dt><dd><?php echo $e($u['role_name'] ?: 'User'); ?><?php echo $tier !== '' ? ', ' . $e($tier) . ' plan' : ''; ?></dd></div>
                     <div><dt>Credits</dt><dd><?php echo number_format((int) $u['credit_balance']); ?></dd></div>
                     <?php if (strtolower((string) $u['role_name']) === 'creator'): ?><div><dt>AI credits</dt><dd><?php echo number_format((int) $u['ai_credit_balance']); ?></dd></div><?php endif; ?>
                     <div><dt>Purchases</dt><dd><?php echo count($this->purchases); ?></dd></div>
-                    <div><dt>Active memberships</dt><dd><?php echo count($this->memberships); ?></dd></div>
+                    <div><dt>Memberships</dt><dd><?php echo count($this->memberships); ?></dd></div>
                     <div><dt>Last active</dt><dd><?php echo $e($fmt($u['last_active_at'])); ?></dd></div>
                     <div><dt>Joined</dt><dd><?php echo $e($fmt($u['created_at'])); ?></dd></div>
                     <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>
@@ -126,8 +141,8 @@ $replies = array_slice($this->messages, 1);
                     <?php endforeach; ?>
                 </ul>
             </div>
+            <?php endif; ?>
         </aside>
-        <?php endif; ?>
     </div>
 </div>
 <?php if ($staff && $this->requester): $u = $this->requester; include Main::app_path() . '/app/views/admin/_adjust_modal.php'; ?>
