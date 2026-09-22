@@ -27,6 +27,12 @@
         if (wantBtn) { wantBtn.click(); }
     }
 
+    /* ---- Support queue rows open the request; the user's name opens their admin page ---- */
+    document.querySelectorAll('.adm-suprow[data-href]').forEach(function (r) {
+        r.addEventListener('click', function (e) { if (e.target.closest('a')) { return; } window.location.href = r.getAttribute('data-href'); });
+        r.addEventListener('keydown', function (e) { if (e.key === 'Enter') { window.location.href = r.getAttribute('data-href'); } });
+    });
+
     /* ---- Support queue sub-tabs ---- */
     var supPanel = document.querySelector('.adm-panel[data-panel="support"]');
     if (supPanel) {

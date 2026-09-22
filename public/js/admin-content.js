@@ -135,10 +135,11 @@
 
 /* Content sub-tabs (Review Queue / Keyword Queue / Published) */
 (function () {
-    var bar = document.querySelector('.adm-subtabs');
+    var root = document.querySelector('.adm-panel[data-panel="content"]');   // scoped: other tabs (Support) have sub-tabs too
+    var bar = root ? root.querySelector('.adm-subtabs') : null;
     if (!bar) { return; }
-    var tabs = [].slice.call(bar.querySelectorAll('.adm-subtab'));
-    var panels = [].slice.call(document.querySelectorAll('.adm-subpanel'));
+    var tabs = [].slice.call(bar.querySelectorAll('.adm-subtab[data-sub]'));
+    var panels = [].slice.call(root.querySelectorAll('.adm-subpanel'));
     function show(key) {
         tabs.forEach(function (t) { var on = t.getAttribute('data-sub') === key; t.classList.toggle('is-active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
         panels.forEach(function (p) { p.hidden = p.getAttribute('data-sub') !== key; });

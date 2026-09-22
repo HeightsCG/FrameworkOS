@@ -181,6 +181,67 @@ class AdminModel extends Model {
         return (array) parent::select("SELECT user_id, stripe_customer_id FROM user_accounts WHERE deleted = 0 AND stripe_customer_id IS NOT NULL AND stripe_customer_id <> ''");
     }
 
+    /** Everything the admin user page shows about one account (any status, including deleted). */
+    public function user_detail($user_id){
+        $rows = parent::select(
+            "SELECT u.*, r.role_name, cp.avatar_url, cp.display_name,
+                    (SELECT COUNT(*) FROM mfa_backup_codes b WHERE b.user_id = u.user_id AND b.used_at IS NULL) AS backup_codes_left,
+                    (SELECT COUNT(*) FROM follows f WHERE f.follower_id = u.user_id) AS following_n,
+                    (SELECT COUNT(*) FROM follows f WHERE f.creator_id = u.user_id) AS followers_n
+             FROM user_accounts u
+             LEFT JOIN user_roles r ON r.id = u.role_id
+             LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
+             WHERE u.user_id = :u", array('u' => (int) $user_id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
+    /** One-time purchases a fan made (refundable kinds), newest first, with the creator's handle. */
+    public function purchases_for($fan_id, $limit = 100){
+        $limit = max(1, min(300, (int) $limit));
+        return (array) parent::select(
+            "SELECT s.*, u.u_name AS creator_handle FROM (
+                SELECT 'ppv' AS kind, pu.post_id AS ref_id, pu.creator_id, pu.price_credits, pu.created_at, p.caption COLLATE utf8mb4_unicode_ci AS item
+                FROM ppv_unlocks pu LEFT JOIN posts p ON p.id = pu.post_id WHERE pu.fan_id = :f1
+                UNION ALL
+                SELECT 'bundle', bu.bundle_id, bu.creator_id, bu.price_credits, bu.created_at, b.name COLLATE utf8mb4_unicode_ci
+                FROM bundle_unlocks bu LEFT JOIN content_bundles b ON b.id = bu.bundle_id WHERE bu.fan_id = :f2
+                UNION ALL
+                SELECT 'message', mu.message_id, mu.creator_id, mu.price_credits, mu.created_at, m.body COLLATE utf8mb4_unicode_ci
+                FROM message_unlocks mu LEFT JOIN messages m ON m.id = mu.message_id WHERE mu.fan_id = :f3
+             ) s LEFT JOIN user_accounts u ON u.user_id = s.creator_id
+             ORDER BY s.created_at DESC LIMIT $limit",
+            array('f1' => (int) $fan_id, 'f2' => (int) $fan_id, 'f3' => (int) $fan_id));
+    }
+
+    /** Refunds already issued to a fan. */
+    public function refunds_for($fan_id){
+        return (array) parent::select("SELECT kind, ref_id, amount_credits, reason, created_at FROM refunds WHERE fan_id = :f ORDER BY created_at DESC", array('f' => (int) $fan_id));
+    }
+
+    /** Recent sign-in, reset and MFA attempts for an account (matched on username and email). */
+    public function sign_in_history($u_name, $email, $limit = 20){
+        $limit = max(1, min(100, (int) $limit));
+        return (array) parent::select(
+            "SELECT ip_address, identifier, action, created_at FROM login_attempts
+             WHERE action IN ('login','forgot','mfa') AND (identifier = :a OR identifier = :b)
+             ORDER BY created_at DESC LIMIT $limit", array('a' => (string) $u_name, 'b' => (string) $email));
+    }
+
+    /** One fan membership by id, with the creator's payout account (to cancel it). */
+    public function membership($id){
+        $rows = parent::select(
+            "SELECT cs.*, u.stripe_connect_account_id AS creator_connect FROM creator_subscriptions cs
+             JOIN user_accounts u ON u.user_id = cs.creator_id WHERE cs.id = :id", array('id' => (int) $id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
+    /** Clear two-step sign-in completely: authenticator app, email codes and backup codes. */
+    public function reset_mfa($user_id){
+        parent::update('user_accounts', array('mfa_totp_enabled' => 0, 'mfa_totp_secret' => null, 'mfa_email_enabled' => 0, 'updated_at' => date('Y-m-d H:i:s')),
+            'user_id = :u', array('u' => (int) $user_id));
+        parent::delete_all('mfa_backup_codes', 'user_id = :u', array('u' => (int) $user_id));
+    }
+
     /** Images awaiting a decision (flagged first, then unscanned), with creator + AI signal. */
     public function moderation_queue($limit = 40){
         $limit = max(1, min(100, (int) $limit));

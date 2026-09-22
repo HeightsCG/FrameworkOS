@@ -3,17 +3,25 @@ $(document).ready(function () {
 
     function parse(r) { try { return typeof r === 'string' ? JSON.parse(r) : r; } catch (e) { return null; } }
 
-    /* ---- New request ---- */
-    $('#supNew').on('submit', function (e) {
-        e.preventDefault();
+    /* ---- New request (modal, same pattern as Services) ---- */
+    var modalEl = document.getElementById('supportModal');
+    var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
+    $('#supCreate').on('click', function () {
+        $('#sup_category').val(''); $('#sup_subject').val(''); $('#sup_body').val('');
+        $('#supportModal .is-invalid').removeClass('is-invalid');
+        $('#supSend').prop('disabled', false).text('Send Request');
+        if (modal) { modal.show(); }
+    });
+    if (modalEl) { modalEl.addEventListener('shown.bs.modal', function () { $('#sup_category').trigger('focus'); }); }
+    $('#supportModal').on('input change', '.is-invalid', function () { $(this).removeClass('is-invalid'); });
+    $('#supSend').on('click', function () {
         var category = $('#sup_category').val() || '';
         var subject = ($('#sup_subject').val() || '').trim();
         var body = ($('#sup_body').val() || '').trim();
-        $('#supNew .is-invalid').removeClass('is-invalid');
         if (category === '') { $('#sup_category').addClass('is-invalid').focus(); toastr.error('Choose a topic'); return; }
         if (subject === '') { $('#sup_subject').addClass('is-invalid').focus(); toastr.error('Add a subject'); return; }
         if (body.length < 10) { $('#sup_body').addClass('is-invalid').focus(); toastr.error('Describe the problem in a few words'); return; }
-        var $btn = $('#supSend').prop('disabled', true).text('Sending…');
+        var $btn = $(this).prop('disabled', true).text('Sending…');
         ApiDataSvc.apiCall('post', 'support_create', { category: category, subject: subject, body: body }, function (r) {
             var o = parse(r);
             if (!o || !o.success) { $btn.prop('disabled', false).text('Send Request'); toastr.error((o && o.message) || 'Could not send your request'); return; }
@@ -21,7 +29,6 @@ $(document).ready(function () {
             window.location.href = '/support/ticket/' + o.ticket_id;
         });
     });
-    $('#supNew').on('input change', '.is-invalid', function () { $(this).removeClass('is-invalid'); });
 
     /* ---- Conversation ---- */
     var $thread = $('.sup--thread');

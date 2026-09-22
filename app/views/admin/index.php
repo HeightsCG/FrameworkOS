@@ -260,7 +260,7 @@ $last12 = array_slice($this->series, -12);
                 <div class="adm-srow" data-kind="<?php echo $e($sale['kind']); ?>" data-ref="<?php echo (int) $sale['ref_id']; ?>" data-fan="<?php echo (int) $sale['fan_id']; ?>">
                     <div class="adm-ucell adm-ucell--user">
                         <span class="adm-uav"><?php echo $e($ini($sale['fan_name'])); ?></span>
-                        <span class="adm-uinfo"><span class="adm-uinfo__name">@<?php echo $e($sale['fan_handle']); ?></span></span>
+                        <span class="adm-uinfo"><a class="adm-uinfo__name adm-user-link" href="/admin/user/<?php echo (int) $sale['fan_id']; ?>">@<?php echo $e($sale['fan_handle']); ?></a></span>
                     </div>
                     <div class="adm-ucell adm-scell--item"><?php echo $e($sale['item'] !== '' ? $sale['item'] : 'Untitled'); ?></div>
                     <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $sale['kind']; ?>"><?php echo $sale['kind'] === 'bundle' ? 'Bundle' : ($sale['kind'] === 'message' ? 'Message' : 'PPV'); ?></span></div>
@@ -325,7 +325,7 @@ $last12 = array_slice($this->series, -12);
                     <div class="adm-ucell adm-ucell--user">
                         <span class="adm-uav"><?php echo $e($ini($name)); ?></span>
                         <span class="adm-uinfo">
-                            <span class="adm-uinfo__name"><?php echo $e($name); ?><?php if ($isAdm): ?> <span class="adm-tag adm-tag--admin">Admin</span><?php endif; ?></span>
+                            <a class="adm-uinfo__name adm-user-link" href="/admin/user/<?php echo (int) $u['user_id']; ?>"><?php echo $e($name); ?></a><?php if ($isAdm): ?> <span class="adm-tag adm-tag--admin">Admin</span><?php endif; ?>
                             <span class="adm-uinfo__meta">@<?php echo $e($u['u_name']); ?> &middot; <?php echo $e($u['user_email']); ?></span>
                         </span>
                     </div>

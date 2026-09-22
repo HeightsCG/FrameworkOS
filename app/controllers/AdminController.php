@@ -93,6 +93,30 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
+    /** /admin/user/<id>: one account, with the tools to fix a user's problem (see ApiAdminController admin_* actions). */
+    public function userAction(){
+        if (!Permissions::is_admin()) { header('Location: /'); exit; }
+        $url = Main::get_url();
+        $model = new AdminModel();
+        $u = $model->user_detail((int) ($url[2] ?? 0));
+        if (!$u) { Errors::page_not_found(); return; }
+        $uid = (int) $u['user_id'];
+        $me_rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
+        $tz = (is_array($me_rows) && count($me_rows) === 1) ? (string) ($me_rows[0]['content_timezone'] ?? 'UTC') : 'UTC';
+        $this->view->u            = $u;
+        $this->view->timezone     = $tz;
+        $this->view->purchases    = $model->purchases_for($uid);
+        $this->view->refunds      = $model->refunds_for($uid);
+        $this->view->memberships  = (array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid);
+        $this->view->credit_tx    = (array) (new CreditsModel())->get_transactions($uid, 50);
+        $this->view->ai_tx        = (array) (new AiCreditsModel())->get_transactions($uid, 50);
+        $this->view->sign_ins     = $model->sign_in_history((string) $u['u_name'], (string) $u['user_email']);
+        $this->view->tickets      = array();
+        try { $this->view->tickets = (new SupportModel())->for_user($uid); } catch (\Throwable $e) { error_log('[admin] user tickets: ' . $e->getMessage()); }
+        $this->view->is_me        = $uid === (int) Session::get('user_id');
+        $this->view->render();
+    }
+
     /**
      * Paid creator-plan invoices from Stripe, bucketed by month and day (cents), plus the all-time total.
      * Cached for 10 minutes so the admin page does not call Stripe for every creator on every load.
