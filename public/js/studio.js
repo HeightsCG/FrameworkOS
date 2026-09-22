@@ -2145,7 +2145,7 @@ jQuery(function ($) {
             if (!msgAi && msgText === '') { errors.push({ key: 'message', msg: 'Write the message.', focus: '#csSchedMsgText' }); }
             if (!schedTargetsChecked().length) { errors.push({ key: 'targets', msg: 'Pick who gets the message.', focus: '#csSchedTargets input' }); }
         } else {
-            if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source === 'influencer' ? 'Describe the scene for her.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
+            if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source === 'influencer' ? 'Describe the scene.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
             if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfluencer' }); }
         }
         if (schedForm.cadence === 'weekly' && !$('#csSchedDays .cs-ae__day.is-on').length) { errors.push({ key: 'days', msg: 'Pick at least one day of the week.', focus: '#csSchedDays .cs-ae__day' }); }

@@ -11,7 +11,7 @@
 
     <?php if (!$infl): ?>
     <section class="inf-chooser" id="inf_chooser">
-        <p class="inf-chooser__lead">How should she be created? You can switch later, before training.</p>
+        <p class="inf-chooser__lead">How should this influencer be created? You can switch later, before training.</p>
         <div class="inf-chooser__grid">
             <button type="button" class="inf-path" data-path="photos">
                 <span class="inf-path__ic"><i class="fa-solid fa-images"></i></span>

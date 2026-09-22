@@ -11,7 +11,7 @@ class InfluencersModel extends Model {
     public function __construct(){ parent::__construct(); }
 
     /** Returns the new id, or 0 when the name is already used by this creator. */
-    public function create($creator_id, $name, $path = null, $is_public = 0){
+    public function create($creator_id, $name, $path = null, $is_public = 0, $gender = 'woman'){
         $now  = date('Y-m-d H:i:s');
         $name = mb_substr(trim((string) $name), 0, 120);
         try {
@@ -19,6 +19,7 @@ class InfluencersModel extends Model {
                 'creator_id'  => (int) $creator_id,
                 'name'        => $name,
                 'name_lc'     => mb_strtolower($name),
+                'gender'      => ($gender === 'man') ? 'man' : 'woman',
                 'status'      => 'draft',
                 'path'        => in_array($path, array('photos', 'reference'), true) ? $path : null,
                 'is_public'   => $is_public ? 1 : 0,
@@ -72,7 +73,7 @@ class InfluencersModel extends Model {
 
     /** Whitelisted field update (wizard inputs, defaults). Returns rows affected, or false on a name collision. */
     public function update_fields($creator_id, $id, array $f){
-        $allowed = array('name', 'path', 'input_method', 'is_public', 'source_description', 'reference_model_key',
+        $allowed = array('name', 'gender', 'path', 'input_method', 'is_public', 'source_description', 'reference_model_key',
             'steer_text', 'prompt_defaults', 'negative_prompt', 'face_asset_id', 'reference_asset_id',
             'training_set_group', 'wizard_step', 'share_accounts', 'status', 'last_error');
         $data = array();

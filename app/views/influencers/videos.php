@@ -1,5 +1,5 @@
 <?php require __DIR__ . '/_top.php'; ?>
-<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; ?>
+<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; $gp = InfluencerService::prompts_for((string) ($infl['gender'] ?? 'woman')); ?>
 
 
     <div class="inf-gen" id="inf_gen" data-still="<?php echo (int) ($this->still_asset_id ?? 0); ?>">
@@ -13,16 +13,16 @@
                 </select>
             </label>
             <div class="inf-field">
-                <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading her images…</span></div>
+                <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading images…</span></div>
             </div>
             <div class="inf-field">
                 <div class="inf-field__row"><label class="visually-hidden" for="inf_vprompt">Prompt</label><button type="button" class="inf-link" id="inf_vprompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
-                <textarea class="form-control" id="inf_vprompt" maxlength="2000" placeholder="She turns toward the camera and smiles, hair moving in a light breeze, slow push in"></textarea>
+                <textarea class="form-control" id="inf_vprompt" maxlength="2000" placeholder="<?php echo $e($gp['video'][0]); ?>"></textarea>
             </div>
             <div class="inf-field">
                 <div class="inf-label">Prebuilt</div>
                 <div class="inf-chips" id="inf_vprompt_chips">
-                    <?php foreach ((array) ($cfg['prompts']['video'] ?? array()) as $i => $t): ?>
+                    <?php foreach ($gp['video'] as $i => $t): ?>
                     <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e(mb_strlen($t) > 60 ? mb_substr($t, 0, 60) . '…' : $t); ?></button>
                     <?php endforeach; ?>
                 </div>

@@ -68,7 +68,7 @@ class InfluencersController extends Controller {
             $this->view->influencer = InfluencerService::influencer_json((int) $user['user_id'], $infl);
         }
         $this->view->retrain = ((string) (Main::get_url()[3] ?? '') === 'retrain');   // /influencers/create/<id>/retrain
-        $this->view->name_suggestions = InfluencerService::name_suggestions((int) $user['user_id']);
+        $this->view->name_suggestions = array('woman' => InfluencerService::name_suggestions((int) $user['user_id'], 4, 'woman'), 'man' => InfluencerService::name_suggestions((int) $user['user_id'], 4, 'man'));
         $this->view->render();
     }
 

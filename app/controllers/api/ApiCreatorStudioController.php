@@ -573,8 +573,8 @@ class ApiCreatorStudioController extends BaseApiController {
         $parts = array_values(array_unique(array_filter($parts)));
         $topic = $hint !== '' ? $hint : implode('; ', array_slice($parts, 0, 3));
         if ($topic === '') { $topic = !empty($kinds['video']) ? 'a new video for my followers' : 'a new photo for my followers'; }
-        // Her posts read as her own words, not a caption about her.
-        if ($who !== '') { $topic .= '. Write it in the first person as ' . $who . ' talking to her followers, never about her in the third person'; }
+        // An influencer's posts read as their own words, not a caption about them.
+        if ($who !== '') { $topic .= '. Write it in the first person as ' . $who . ' talking to their followers, never describing ' . $who . ' in the third person'; }
         if ($hint !== '' && !empty($parts)) { $topic .= ' (the post shows: ' . implode('; ', array_slice($parts, 0, 2)) . ')'; }
 
         $cb = (new CreatorBrandModel())->get_for_user($creator_id);

@@ -3,7 +3,7 @@
 
     <header class="inf-head">
         <div>
-            <p class="inf-head__sub">Everything generated for her lives in your media library, attached to her.</p>
+            <p class="inf-head__sub">Everything generated for this influencer lives in your media library.</p>
         </div>
         <div class="inf-head__actions">
             <label class="inf-who" for="inf_who">
@@ -29,11 +29,11 @@
         <a class="inf-link" href="/studio#library-influencer-<?php echo (int) $infl['id']; ?>">Open in Content Studio</a>
     </div>
 
-    <div class="inf-state-loading" id="inf_gal_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading her gallery…</div>
+    <div class="inf-state-loading" id="inf_gal_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading gallery…</div>
     <div class="inf-empty" id="inf_gal_empty" hidden>
         <span class="inf-empty__ic"><i class="fa-regular fa-images"></i></span>
         <h2 class="inf-empty__title">Nothing Here Yet</h2>
-        <p class="inf-empty__text">Generate an image or a video of her and it lands here.</p>
+        <p class="inf-empty__text">Generate an image or a video and it lands here.</p>
         <a href="/influencers/images/<?php echo (int) $infl['id']; ?>" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a>
     </div>
     <div class="inf-gal" id="inf_gal" hidden></div>

@@ -619,10 +619,13 @@ class InfluencerJobService {
 
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $level = 'safe';
-        $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, $level) : $topic;
+        $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, $level, InfluencerService::noun($infl)) : $topic;
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
         $scene    = trim((string) $scene);
+        // The model only draws the trained person when the prompt names them: lead with "photo of a woman/man" unless it already does.
+        $noun = InfluencerService::noun($infl);
+        if ($scene !== '' && !preg_match('/\\b(wo)?m[ae]n\\b/i', $defaults . ' ' . $scene)) { $scene = 'photo of a ' . $noun . ', ' . $scene; }
         // The trigger word goes first unless the defaults or the scene already carry it.
         $parts = array((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger : '', $defaults, $scene);
         $prompt = trim(implode(' ', array_filter($parts, 'strlen')));

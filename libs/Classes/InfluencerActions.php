@@ -20,22 +20,24 @@ class InfluencerActions {
 
     /* ---- create / settings ---- */
 
-    public static function create($cid, $name, $path){
+    public static function create($cid, $name, $path, $gender = ''){
         $name = mb_substr(trim((string) $name), 0, 120);
         $path = ($path === 'reference') ? 'reference' : 'photos';
-        if ($name === '') { return self::fail('Give her a name.'); }
+        $gender = InfluencerService::gender($gender);
+        if ($name === '') { return self::fail('Give your influencer a name.'); }
+        if ($gender === '') { return self::fail('Choose Woman or Man.'); }
         $m = new InfluencersModel();
         $cap = Plan::check_count(InfluencerJobService::user($cid), 'influencers', $m->count_for_creator($cid));
         if (empty($cap['ok'])) { return self::fail($cap['message'], array_intersect_key($cap, array_flip(array('need_plan', 'need_upgrade', 'limit', 'used')))); }
         if ($m->name_taken($cid, $name)) { return self::fail('You already have an influencer called ' . $name . '.'); }
-        $id = $m->create($cid, $name, $path, 0);
+        $id = $m->create($cid, $name, $path, 0, $gender);
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $m->update_fields($cid, $id, array('wizard_step' => ($path === 'photos') ? 'photos' : 'input'));
         return self::okr(array('influencer' => self::json($cid, $id)));
     }
 
     /**
-     * Persist wizard inputs / settings. $in may hold: name, path, input_method, is_public,
+     * Persist wizard inputs / settings. $in may hold: name, gender, path, input_method, is_public,
      * source_description, reference_model_key, steer_text, prompt_defaults, negative_prompt,
      * share_accounts (array or comma list), step.
      */
@@ -44,7 +46,7 @@ class InfluencerActions {
         $f = array();
         if (array_key_exists('name', $in)) {
             $name = mb_substr(trim((string) $in['name']), 0, 120);
-            if ($name === '') { return self::fail('Give her a name.'); }
+            if ($name === '') { return self::fail('Give your influencer a name.'); }
             if ($m->name_taken($cid, $name, (int) $infl['id'])) { return self::fail('You already have an influencer called ' . $name . '.'); }
             $f['name'] = $name;
         }
@@ -54,6 +56,7 @@ class InfluencerActions {
             }
             $f['path'] = $in['path'];
         }
+        if (isset($in['gender']) && isset(InfluencerService::GENDERS[$in['gender']])) { $f['gender'] = $in['gender']; }
         if (isset($in['input_method']) && in_array($in['input_method'], array('text', 'face_photo'), true)) { $f['input_method'] = $in['input_method']; }
         if (array_key_exists('is_public', $in)) { $f['is_public'] = ((string) $in['is_public'] === '1' || $in['is_public'] === true) ? 1 : 0; }
         if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, 2000); }
@@ -87,7 +90,7 @@ class InfluencerActions {
             if (in_array((string) $j['status'], array('queued', 'submitting', 'running'), true)) { InfluencerJobService::cancel_job($cid, (int) $j['id']); }
         }
         (new InfluencersModel())->soft_delete($cid, $infl['id']);
-        return self::okr(array('message' => $infl['name'] . ' was removed. Her media stays in your library.'));
+        return self::okr(array('message' => $infl['name'] . ' was removed. Their media stays in your library.'));
     }
 
     /* ---- photos ---- */
@@ -96,7 +99,7 @@ class InfluencerActions {
     public static function attach_photo($cid, array $user, array $infl, $bytes, $ext, $mime, $role = 'upload'){
         $role = ($role === 'face') ? 'face' : 'upload';
         if (!S3Service::configured()) { return self::fail('Uploads are unavailable right now. Please try again shortly.'); }
-        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress. Wait for it to finish before changing her photos.'); }
+        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress. Wait for it to finish before changing the photos.'); }
         if (strlen((string) $bytes) > MediaLimits::MAX_IMAGE_BYTES) { return self::fail('That image is too large. Images can be up to 15 MB.'); }
         $gb = Plan::limit($user, 'storage_gb');
         if ($gb !== null && (int) $gb > 0 && ((int) (new MediaAssetsModel())->total_bytes($cid) + strlen((string) $bytes)) > (int) $gb * 1073741824) {
@@ -129,11 +132,11 @@ class InfluencerActions {
 
     /** Detach an uploaded image (training-set slots are excluded, keeping job history). */
     public static function remove_image($cid, array $infl, $aid){
-        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress. Wait for it to finish before changing her photos.'); }
+        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress. Wait for it to finish before changing the photos.'); }
         $aid  = (int) $aid;
         $im   = new InfluencerImagesModel();
         $link = $im->get_link($cid, $infl['id'], $aid);
-        if (!$link) { return self::fail('That image is not attached to her.'); }
+        if (!$link) { return self::fail('That image is not attached to this influencer.'); }
         if ((string) $link['role'] === 'training') { $im->set_excluded($cid, $infl['id'], $aid, 1); }
         else { $im->detach($cid, $infl['id'], $aid); }
         $f = array();
@@ -190,7 +193,7 @@ class InfluencerActions {
         $m->update_fields($cid, $infl['id'], $f);
         $infl = $m->get_one($cid, $infl['id']);
         $desc = trim((string) $infl['source_description']);
-        if ($desc === '') { return self::fail('Describe her face first.'); }
+        if ($desc === '') { return self::fail('Describe the face first.'); }
         $model = InfluencerConfig::resolve_model('reference', (string) $infl['reference_model_key']);
         if (!$model) { return self::fail('No reference model is configured.'); }
         $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
@@ -205,7 +208,7 @@ class InfluencerActions {
     public static function reference_pick($cid, array $infl, $aid){
         $aid  = (int) $aid;
         $link = (new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid);
-        if (!$link || !in_array((string) $link['role'], array('reference', 'face'), true)) { return self::fail('Pick one of her reference images.'); }
+        if (!$link || !in_array((string) $link['role'], array('reference', 'face'), true)) { return self::fail('Pick one of the reference images.'); }
         $a = (new MediaAssetsModel())->get_one($cid, $aid);
         if (!$a || (string) $a['status'] !== 'ready') { return self::fail('That image is not ready yet.'); }
         $m = new InfluencersModel();
@@ -275,7 +278,7 @@ class InfluencerActions {
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
         $jobs = new InfluencerJobsModel();
         $job  = $jobs->get_one($cid, (int) $job_id);
-        if (!$job || (int) $job['influencer_id'] !== (int) $infl['id'] || (string) $job['group_key'] !== (string) $infl['training_set_group']) { return self::fail('That slot is not part of her current set.'); }
+        if (!$job || (int) $job['influencer_id'] !== (int) $infl['id'] || (string) $job['group_key'] !== (string) $infl['training_set_group']) { return self::fail('That slot is not part of the current training set.'); }
         if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
             $r = InfluencerJobService::retry($cid, (int) $job['id']);
             return empty($r['ok']) ? self::fail((string) $r['error']) : self::okr(array('job_id' => (int) $job['id']));
@@ -300,9 +303,9 @@ class InfluencerActions {
      */
     public static function generate_image($cid, array $infl, array $in, $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
-        if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { return self::fail('She has no trained model yet.'); }
+        if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { return self::fail($infl['name'] . ' has no trained model yet.'); }
         $model = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']);
-        if (!$model || (string) $model['status'] !== 'ready') { return self::fail('Her active model is not ready.'); }
+        if (!$model || (string) $model['status'] !== 'ready') { return self::fail($infl['name'] . '\'s active model is not ready.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
         if ($user_prompt === '') { return self::fail('Write a prompt first.'); }
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
@@ -341,8 +344,8 @@ class InfluencerActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $aid = (int) ($in['asset_id'] ?? 0);
         $a   = (new MediaAssetsModel())->get_one($cid, $aid);
-        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { return self::fail('Pick a ready image of her first.'); }
-        if (!(new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid)) { return self::fail('That image is not one of hers.'); }
+        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { return self::fail('Pick a ready image first.'); }
+        if (!(new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid)) { return self::fail('That image does not belong to this influencer.'); }
         $mk = InfluencerConfig::resolve_model('video', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No video model is configured.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 2000);
@@ -372,7 +375,7 @@ class InfluencerActions {
         $a   = (new MediaAssetsModel())->get_one($cid, $aid);
         if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { return self::fail('Pick a ready image first.'); }
         $link = (new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid);
-        if (!$link) { return self::fail('That image is not one of hers.'); }
+        if (!$link) { return self::fail('That image does not belong to this influencer.'); }
         $mk = InfluencerConfig::resolve_model('enhance', (string) $model_key);
         if (!$mk) { return self::fail('No enhance model is configured.'); }
         $src_prompt = '';   // the prompt that produced the source rides along; nothing else is added
@@ -389,22 +392,25 @@ class InfluencerActions {
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id))));
     }
 
-    /** Claude writes a scene prompt (image) or a motion prompt (video) for her; returned as text, nothing is rendered. */
+    /** Claude writes a scene prompt (image) or a motion prompt (video) for the influencer; returned as text, nothing is rendered. */
     public static function prompt_auto($cid, array $infl, $hint = '', $kind = 'image'){
         $trigger = '';
         if (!empty($infl['active_model_id'])) { $mdl = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']); $trigger = $mdl ? (string) $mdl['trigger_word'] : ''; }
         if (!ClaudeService::configured()) { return self::fail('Prompt writing is not available right now.'); }
         $hint = mb_substr(trim((string) $hint), 0, 500);
+        $noun = InfluencerService::noun($infl);
+        list($pr, $po, $ps) = InfluencerService::pronouns($infl);
         if ($kind === 'video') {
-            $system = 'You write one motion prompt for an image-to-video model. The starting image already shows a specific woman and the scene; '
-                . 'describe ONLY what happens over 5 to 10 seconds: her movement and expression, then one simple camera move (slow push in, gentle dolly, handheld, static). '
+            $system = 'You write one motion prompt for an image-to-video model. The starting image already shows a specific ' . $noun . ' and the scene; '
+                . 'describe ONLY what happens over 5 to 10 seconds: ' . $ps . ' movement and expression, then one simple camera move (slow push in, gentle dolly, handheld, static). '
+                . 'Refer to ' . $po . ' as "the ' . $noun . '" or "' . $pr . '". '
                 . 'Output ONLY the prompt text, one line, 15 to 35 words, present tense, no quotes, no preamble, no scene description, no outfit. '
                 . 'Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
             $ask = 'Write a motion prompt for a short clip of ' . $infl['name'] . '.' . ($hint !== '' ? ' Idea: ' . $hint : ' Pick a natural, subtle movement.');
         } else {
-            $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific woman. '
+            $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific ' . $noun . '. '
                 . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
-                . 'Always name the subject ("photo of a woman ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
+                . 'Always name the subject ("photo of a ' . $noun . ' ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
             $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
         }
         $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 200, 30, 'low');
@@ -419,7 +425,7 @@ class InfluencerActions {
         $aid  = (int) $aid;
         $im   = new InfluencerImagesModel();
         $link = $im->get_link($cid, $infl['id'], $aid);
-        if (!$link) { return self::fail('That file is not one of hers.'); }
+        if (!$link) { return self::fail('That file does not belong to this influencer.'); }
         $mm = new MediaAssetsModel();
         $a  = $mm->get_one($cid, $aid);
         if ($a) {

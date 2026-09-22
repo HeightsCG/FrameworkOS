@@ -52,7 +52,7 @@ class ApiInfluencersController extends BaseApiController {
 
     public function influencer_createAction(){
         $user = $this->ai_user();
-        $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos')));
+        $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? '')));
     }
 
     /** Persist wizard inputs + the step the user is on (any subset of the settable fields). */
@@ -62,7 +62,7 @@ class ApiInfluencersController extends BaseApiController {
         $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
         $in = array();
         foreach (['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'] as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
-        foreach (['path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         if (isset($this->post['share_accounts'])) {
             $sa = $this->post['share_accounts'];
             $in['share_accounts'] = is_string($sa) ? html_entity_decode($sa, ENT_QUOTES, 'UTF-8') : (array) $sa;

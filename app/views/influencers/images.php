@@ -1,5 +1,5 @@
 <?php require __DIR__ . '/_top.php'; ?>
-<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; ?>
+<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; $gp = InfluencerService::prompts_for((string) ($infl['gender'] ?? 'woman')); ?>
 
 
     <div class="inf-gen" id="inf_gen">
@@ -14,12 +14,12 @@
             </label>
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
-                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, looking at the camera"></textarea>
+                <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($gp['image'][0]); ?>"></textarea>
             </div>
             <div class="inf-field">
                 <div class="inf-label">Prebuilt</div>
                 <div class="inf-chips" id="inf_prompt_chips">
-                    <?php foreach ((array) ($cfg['prompts']['image'] ?? array()) as $i => $t): ?>
+                    <?php foreach ($gp['image'] as $i => $t): ?>
                     <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e(mb_strlen($t) > 60 ? mb_substr($t, 0, 60) . '…' : $t); ?></button>
                     <?php endforeach; ?>
                 </div>

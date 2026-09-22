@@ -13,37 +13,75 @@ class InfluencerService {
         'reference' => array('name', 'input', 'reference', 'set', 'review', 'training', 'done'),
     );
 
-    const NAMES = array('Ava', 'Mia', 'Luna', 'Sofia', 'Isla', 'Aria', 'Chloe', 'Zoe', 'Nova', 'Lila', 'Maya', 'Elena',
-        'Camila', 'Stella', 'Ivy', 'Jade', 'Nina', 'Vera', 'Cleo', 'Rosa', 'Sasha', 'Talia', 'Bianca', 'Dahlia', 'Freya',
-        'Gia', 'Harper', 'Juno', 'Kira', 'Leila', 'Margot', 'Noor', 'Opal', 'Paloma', 'Remi', 'Sienna', 'Thea', 'Uma', 'Willa', 'Yara');
+    /** Gender options (value => label). Required when creating an influencer; drives the subject word and pronouns in every prompt. */
+    const GENDERS = array('woman' => 'Woman', 'man' => 'Man');
 
-    /** Drop-in face descriptions for the reference step (text input). */
+    /** Name ideas per gender. */
+    const NAMES = array(
+        'woman'     => array('Ava', 'Mia', 'Luna', 'Sofia', 'Isla', 'Aria', 'Chloe', 'Zoe', 'Nova', 'Lila', 'Maya', 'Elena',
+            'Camila', 'Stella', 'Ivy', 'Jade', 'Nina', 'Vera', 'Cleo', 'Rosa', 'Talia', 'Bianca', 'Dahlia', 'Freya', 'Leila', 'Margot'),
+        'man'       => array('Leo', 'Mateo', 'Kai', 'Theo', 'Luca', 'Milo', 'Ezra', 'Julian', 'Marco', 'Adrian', 'Dante', 'Rafael',
+            'Nico', 'Elias', 'Jonah', 'Felix', 'Omar', 'Hugo', 'Silas', 'Tomas', 'Andre', 'Caleb', 'Idris', 'Mason'),
+    );
+
+    /** Drop-in face descriptions for the reference step (text input), per gender. */
     const FACE_PROMPTS = array(
-        'Portrait photo of a woman in her mid 20s, long dark wavy hair, warm brown eyes, soft freckles, natural makeup, neutral background, soft daylight, looking at the camera',
-        'Portrait photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, minimal makeup, clean studio background, even lighting',
-        'Portrait photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, gold hoop earrings, neutral background, golden hour light',
-        'Portrait photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, natural look, plain background, soft window light',
+        'woman' => array(
+            'Portrait photo of a woman in her mid 20s, long dark wavy hair, warm brown eyes, soft freckles, natural makeup, neutral background, soft daylight, looking at the camera',
+            'Portrait photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, minimal makeup, clean studio background, even lighting',
+            'Portrait photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, gold hoop earrings, neutral background, golden hour light',
+            'Portrait photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, natural look, plain background, soft window light',
+        ),
+        'man' => array(
+            'Portrait photo of a man in his late 20s, short dark hair with a fade, brown eyes, trimmed beard, neutral background, soft daylight, looking at the camera',
+            'Portrait photo of a man in his early 30s, sandy blond hair swept back, blue eyes, light stubble, easy smile, clean studio background, even lighting',
+            'Portrait photo of a man in his mid 20s, black curly hair, dark brown eyes, strong jawline, clean shaven, neutral background, golden hour light',
+            'Portrait photo of a man in his early 30s, auburn hair, green eyes, freckles, short beard, plain background, soft window light',
+        ),
     );
 
-    /** Drop-in scene prompts for Generate Images (the trigger word is added at render time). */
-    /** Drop-in motion prompts for Generate Videos (image-to-video: the still supplies the look). */
-    const VIDEO_PROMPTS = array(
-        'she turns toward the camera and smiles, hair moving in a light breeze, slow push in',
-        'she laughs and tucks her hair behind her ear, handheld feel, soft natural light',
-        'she looks over her shoulder at the camera, then back out to the view, gentle dolly left',
-        'she takes a slow sip of her drink and glances up, steady camera, shallow depth of field',
-        'she walks slowly toward the camera, fabric and hair moving, sun flare passing through',
-        'she stretches and settles back with a relaxed smile, camera drifts in slowly, warm light',
-    );
-
+    /** Drop-in scene prompts for Generate Images; {subject} becomes "a woman" or "a man" (the trigger word is added at render time). */
     const IMAGE_PROMPTS = array(
-        'photo of a woman at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, looking at the camera, film grain',
-        'mirror selfie of a woman in a bright bedroom, oversized knit sweater, morning light, phone in hand',
-        'photo of a woman walking on a beach boardwalk at sunset, sundress, wind in her hair, shot on 35mm',
-        'photo of a woman sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background, smiling',
-        'gym mirror photo of a woman in an athletic set, water bottle, bright overhead light, confident pose',
-        'night out portrait of a woman, string lights behind, subtle smile, shallow depth of field',
+        'photo of {subject} at a rooftop cafe at golden hour, iced coffee in hand, city skyline behind, looking at the camera, film grain',
+        'mirror selfie of {subject} in a bright bedroom, oversized knit sweater, morning light, phone in hand',
+        'photo of {subject} walking on a beach boardwalk at sunset, linen shirt, wind in the hair, shot on 35mm',
+        'photo of {subject} sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background, smiling',
+        'gym mirror photo of {subject} in athletic wear, water bottle, bright overhead light, confident pose',
+        'night out portrait of {subject}, string lights behind, subtle smile, shallow depth of field',
     );
+
+    /** Drop-in motion prompts for Generate Videos (image-to-video: the still supplies the look); {Subject} becomes "The woman" or "The man". */
+    const VIDEO_PROMPTS = array(
+        '{Subject} turns toward the camera and smiles, hair moving in a light breeze, slow push in',
+        '{Subject} laughs and glances away, then back at the lens, handheld feel, soft natural light',
+        '{Subject} looks over one shoulder at the camera, then back out to the view, gentle dolly left',
+        '{Subject} takes a slow sip of a drink and glances up, steady camera, shallow depth of field',
+        '{Subject} walks slowly toward the camera, clothes and hair moving, sun flare passing through',
+        '{Subject} stretches and settles back with a relaxed smile, camera drifts in slowly, warm light',
+    );
+
+    /** Validate a gender input: 'woman' | 'man', or '' when it is neither (the caller rejects it). */
+    public static function gender($in): string {
+        $g = is_array($in) ? (string) ($in['gender'] ?? '') : (string) $in;
+        return isset(self::GENDERS[$g]) ? $g : '';
+    }
+
+    /** The subject word image models need for this influencer: "woman" or "man". */
+    public static function noun(array $infl): string {
+        return ((string) ($infl['gender'] ?? '') === 'man') ? 'man' : 'woman';
+    }
+
+    /** Pronouns for AI-written prompts: [subject, object, possessive], she/her/her or he/him/his. */
+    public static function pronouns(array $infl): array {
+        return self::noun($infl) === 'man' ? array('he', 'him', 'his') : array('she', 'her', 'her');
+    }
+
+    /** Suggestion lists for one gender, with the subject word filled in. */
+    public static function prompts_for($gender): array {
+        $n = ($gender === 'man') ? 'man' : 'woman';
+        $fill = function ($list) use ($n) { return array_map(function ($p) use ($n) { return str_replace(array('{subject}', '{Subject}'), array('a ' . $n, 'The ' . $n), $p); }, $list); };
+        return array('face' => self::FACE_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
+    }
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. */
     const TRAINING_VARIATIONS = array(
@@ -55,7 +93,7 @@ class InfluencerService {
         'same person, looking over shoulder at the camera, golden hour, outdoor background',
         'same person, close-up of the face, serious expression, dramatic side lighting, dark background',
         'same person, upper body, arms crossed, confident look, overcast daylight, city street background',
-        'same person, hair up in a bun, minimal makeup, morning light, bedroom background',
+        'same person, relaxed at-home look, soft expression, morning light, bedroom background',
         'same person, wearing sunglasses pushed up on the head, big smile, beach background, midday sun',
     );
 
@@ -119,9 +157,9 @@ class InfluencerService {
 
     /* ---- names ---- */
 
-    public static function name_suggestions($creator_id, $n = 4){
+    public static function name_suggestions($creator_id, $n = 4, $gender = 'woman'){
         $m = new InfluencersModel();
-        $pool = self::NAMES; shuffle($pool);
+        $pool = self::NAMES[$gender === 'man' ? 'man' : 'woman']; shuffle($pool);
         $out = array();
         foreach ($pool as $name) {
             if (!$m->name_taken($creator_id, $name)) { $out[] = $name; }
@@ -150,21 +188,28 @@ class InfluencerService {
      * form the character tool wants: place, activity, props, outfit. The server picks
      * which listed option to use so consecutive runs differ. Falls back to the topic.
      */
-    public static function scene_from_topic($topic, $size = 'square', $level = 'safe'): string {
+    public static function scene_from_topic($topic, $size = 'square', $level = 'safe', $gender = 'woman'): string {
         $topic = trim((string) $topic);
         if ($topic === '' || !ClaudeService::configured()) { return $topic; }
         $orient = ($size === 'portrait') ? 'vertical phone photo' : (($size === 'landscape') ? 'wide photo' : 'square photo');
         $pick   = random_int(1, 6);
         $spicy  = ($level === 'spicy');
+        $man    = ($gender === 'man');
+        list($pr, $po) = $man ? array('he', 'him') : array('she', 'her');
         $system = "You write scene briefs for a studio that renders a trained AI influencer into photos for a creator's "
-                . ($spicy ? "subscribers-only feed, where the point of every image is to be a seductive tease that makes people want the rest of the set. " : "feed, where the goal of every image is to make people stop scrolling and want to see more of her. ")
+                . ($spicy ? "subscribers-only feed, where the point of every image is to be a seductive tease that makes people want the rest of the set. " : "feed, where the goal of every image is to make people stop scrolling and want to see more of {$po}. ")
                 . "Given the creator's description of what their automated posts should look like, output ONE brief for ONE image. "
-                . "Describe the setting, what she is doing, props, and outfit, in 15 to 40 words. "
+                . "The influencer is a " . ($man ? 'man' : 'woman') . ". Describe the setting, what {$pr} is doing, props, and outfit, in 15 to 40 words. "
                 . "When the description lists several places, activities or outfits, use option number {$pick} from each list, counting from 1 and wrapping around if the list is shorter. "
                 . ($spicy
-                    ? "Make it sultry and intimate, boudoir-campaign level: lingerie, a bralette and shorts, a bikini, an oversized shirt slipping off a shoulder, or a towel after a shower are all fine; poses that are sensual and confident (arched back on the bed, kneeling on sheets, leaning over the camera, biting a lip, looking back over a bare shoulder), soft bedroom or golden-hour light, skin and curves shown off. Stay just inside the line: no nudity, no exposed nipples or genitals, no sexual acts, no bodily fluids, nobody but her. "
-                    : "Make it alluring the way a swimwear or fashion campaign is: a confident, flirtatious pose (leaning toward the camera, glancing back over a shoulder, a hand in her hair, hip cocked, lounging with one knee up), direct eye contact or a knowing half-smile, and framing that flatters her figure and shows off the outfit. Golden or midday sunlight is welcome. "
-                    . "Keep it within what a mainstream social platform allows: swimwear and fitted clothing are fine, but nothing sheer, no nudity, no explicit or sexual language, no fetish framing. Prefer 'bikini', 'swimsuit', 'sundress' as plain words; do not invent lingerie. ")
+                    ? ($man
+                        ? "Make it sultry and intimate, boudoir-campaign level: shirtless, an open shirt, swim shorts, fitted boxer briefs, or a towel after a shower are all fine; poses that are confident and sensual (lying back on the bed, leaning over the camera, looking back over a bare shoulder, a knowing half-smile), soft bedroom or golden-hour light, physique shown off. Stay just inside the line: no nudity, no exposed genitals, no sexual acts, no bodily fluids, nobody but him. "
+                        : "Make it sultry and intimate, boudoir-campaign level: lingerie, a bralette and shorts, a bikini, an oversized shirt slipping off a shoulder, or a towel after a shower are all fine; poses that are sensual and confident (arched back on the bed, kneeling on sheets, leaning over the camera, biting a lip, looking back over a bare shoulder), soft bedroom or golden-hour light, skin and curves shown off. Stay just inside the line: no nudity, no exposed nipples or genitals, no sexual acts, no bodily fluids, nobody but her. ")
+                    : ($man
+                        ? "Make it magnetic the way a menswear or swimwear campaign is: a confident, easy pose (leaning toward the camera, glancing back over a shoulder, a hand through his hair, relaxed lean against a wall), direct eye contact or a knowing half-smile, and framing that flatters his build and shows off the outfit. Golden or midday sunlight is welcome. "
+                            . "Keep it within what a mainstream social platform allows: swim shorts, open shirts and fitted clothing are fine, but no nudity, no explicit or sexual language, no fetish framing. "
+                        : "Make it alluring the way a swimwear or fashion campaign is: a confident, flirtatious pose (leaning toward the camera, glancing back over a shoulder, a hand in her hair, hip cocked, lounging with one knee up), direct eye contact or a knowing half-smile, and framing that flatters her figure and shows off the outfit. Golden or midday sunlight is welcome. "
+                            . "Keep it within what a mainstream social platform allows: swimwear and fitted clothing are fine, but nothing sheer, no nudity, no explicit or sexual language, no fetish framing. Prefer 'bikini', 'swimsuit', 'sundress' as plain words; do not invent lingerie. "))
                 . "No character name, no camera or lighting jargon beyond the light itself, no caption or hashtag instructions, no text overlays. "
                 . "The image will be a {$orient}; compose for that but never mention the format in the brief. "
                 . "Output only the brief: no quotes, no preamble, no label.";
@@ -189,6 +234,7 @@ class InfluencerService {
         $out = array(
             'id'                  => (int) $infl['id'],
             'name'                => (string) $infl['name'],
+            'gender'              => self::gender($infl),
             'status'              => (string) $infl['status'],
             'path'                => (string) ($infl['path'] ?? ''),
             'input_method'        => (string) ($infl['input_method'] ?? ''),
@@ -253,7 +299,8 @@ class InfluencerService {
             'training_cost_usd' => InfluencerConfig::price(InfluencerConfig::default_model_key('training'), (int) InfluencerConfig::get('training_steps', 1000)),
             'ai_prices' => PlanTiers::AI_PRICES,   // what each run costs the account in AI credits
             'ai_credits' => 0,                     // the owner's balance; set per request by the page controller
-            'prompts' => array('face' => self::FACE_PROMPTS, 'image' => self::IMAGE_PROMPTS, 'video' => self::VIDEO_PROMPTS),
+            'prompts' => array('woman' => self::prompts_for('woman'), 'man' => self::prompts_for('man')),   // picked by the influencer's gender
+            'genders' => self::GENDERS,
             'steps'   => self::STEPS,
         );
     }
