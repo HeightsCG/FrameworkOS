@@ -4,6 +4,8 @@
  * ProfileController::viewAction(): $user, $profile, $links, $display_name,
  * $handle, $public_domain, $is_self, $viewer_logged_in, $is_following,
  * $follower_count, $member_since.
+ * Signed-in viewers get the page inside the app shell (sidebar + top bar, via View::site_header/footer)
+ * so they can keep navigating; logged-out visitors get the standalone public page with full SEO head.
  */
 $has_cover  = trim((string) ($profile['cover_url'] ?? ''))  !== '';
 $has_avatar = trim((string) ($profile['avatar_url'] ?? '')) !== '';
@@ -14,7 +16,15 @@ $page_title = $display_name . ' (@' . $handle . ') · ' . $site_name;
 $initial    = strtoupper(mb_substr($display_name, 0, 1));
 $followers  = number_format((int) $follower_count);
 $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
+$in_app     = !empty($viewer_logged_in);
 ?>
+<?php if ($in_app): $this->view->site_header(); ?>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+    <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
+<div class="pf pf--app">
+<?php else: ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -78,6 +88,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
     <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
 </head>
 <body class="pf">
+<?php endif; ?>
 
     <!-- Signature: identity + primary action dock in on scroll -->
     <div class="pf-dock" id="pf_dock" aria-hidden="true">
@@ -615,7 +626,8 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         // Sticky dock reveals once the hero name scrolls out of view.
         var hero = document.querySelector('.pf-name');
         var dock = document.getElementById('pf_dock');
-        function onScroll() { dock.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < 8); }
+        var dockTop = parseFloat(getComputedStyle(dock).top) || 0;   // below the app top bar when signed in
+        function onScroll() { dock.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < dockTop + 8); }
         window.addEventListener('scroll', onScroll, { passive: true });
 
         // Click any unlocked post image to view it larger.
@@ -894,5 +906,9 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
         }
     })();
     </script>
+<?php if ($in_app): ?>
+</div>
+<?php $this->view->site_footer(); else: ?>
 </body>
 </html>
+<?php endif; ?>
