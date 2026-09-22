@@ -44,6 +44,15 @@ class SupportController extends Controller {
         $this->view->fmt        = $this->local_fmt();
         $this->view->staff_view = $staff && (int) $t['user_id'] !== $me;   // answering someone else's request
         $this->view->me         = $me;
+        $this->view->requester  = null;
+        if ($this->view->staff_view) {   // staff answering: show who this is and the tools to fix it, beside the conversation
+            $am = new AdminModel();
+            $uid = (int) $t['user_id'];
+            $this->view->requester  = $am->user_detail($uid);
+            $this->view->purchases  = $am->purchases_for($uid, 50);
+            $this->view->memberships = array_values(array_filter((array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid), function ($m) { return $m['status'] === 'active'; }));
+            $this->view->others     = array_values(array_filter($model->for_user($uid), function ($x) use ($id) { return (int) $x['id'] !== $id; }));
+        }
         $this->view->render();
     }
 }

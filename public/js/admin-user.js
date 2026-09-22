@@ -1,8 +1,8 @@
 /* Admin > user page: support tools (password reset, two-step, credits, refunds, memberships, plan, status). */
 (function () {
-    var root = document.getElementById('admUser');
+    var root = document.querySelector('[data-admin-user]');   // the admin user page, or the requester panel on a support request
     if (!root) { return; }
-    var user_id = root.getAttribute('data-user');
+    var user_id = root.getAttribute('data-admin-user');
 
     function parse(r) { try { return typeof r === 'string' ? JSON.parse(r) : r; } catch (e) { return null; } }
     function confirmAction(opts) {
@@ -25,7 +25,7 @@
 
     /* Tabs (same behaviour as /admin) */
     var tabs = document.getElementById('admTabs');
-    tabs.addEventListener('click', function (e) {
+    if (tabs) tabs.addEventListener('click', function (e) {
         var b = e.target.closest('.adm-tab'); if (!b) { return; }
         var p = b.getAttribute('data-panel');
         tabs.querySelectorAll('.adm-tab').forEach(function (t) { t.classList.toggle('is-active', t === b); });
@@ -33,22 +33,23 @@
         try { history.replaceState(null, '', '?tab=' + p); } catch (err) {}
     });
     var want = (new URLSearchParams(location.search).get('tab') || '').replace(/[^a-z]/g, '');
-    var wb = want ? tabs.querySelector('.adm-tab[data-panel="' + want + '"]') : null;
+    var wb = (want && tabs) ? tabs.querySelector('.adm-tab[data-panel="' + want + '"]') : null;
     if (wb) { wb.click(); }
 
     /* Adjust balance (modal) */
     var modalEl = document.getElementById('admAdjustModal');
     var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
-    document.getElementById('adjSave').addEventListener('click', function () {
+    if (modalEl) document.getElementById('adjSave').addEventListener('click', function () {
         var amount = parseInt(document.getElementById('adj_amount').value, 10);
         var reason = (document.getElementById('adj_reason').value || '').trim();
         if (!amount) { document.getElementById('adj_amount').classList.add('is-invalid'); toastr.error('Enter an amount, for example 100 or -100'); return; }
         if (reason === '') { document.getElementById('adj_reason').classList.add('is-invalid'); toastr.error('Add a reason'); return; }
         call('admin_adjust_credits', { user_id: user_id, wallet: document.getElementById('adj_wallet').value, amount: amount, reason: reason }, this);
     });
-    modalEl.addEventListener('input', function (e) { e.target.classList.remove('is-invalid'); });
+    if (modalEl) modalEl.addEventListener('input', function (e) { e.target.classList.remove('is-invalid'); });
 
-    root.addEventListener('click', function (e) {
+    document.addEventListener('click', function (e) {
+        if (!e.target.closest('[data-admin-user], #admAdjustModal')) { return; }
         var b = e.target.closest('[data-act]'); if (!b) { return; }
         var act = b.getAttribute('data-act');
         if (act === 'adjust') {

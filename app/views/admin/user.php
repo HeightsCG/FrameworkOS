@@ -20,7 +20,7 @@ $refunded = array(); foreach ($this->refunds as $rf) { $refunded[$rf['kind'] . '
 $sup_status = array('open' => 'Waiting on us', 'answered' => 'Replied', 'closed' => 'Closed');
 $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span>' : '<span class="adm-pill">Off</span>'; };
 ?>
-<div class="adm" id="admUser" data-user="<?php echo (int) $u['user_id']; ?>">
+<div class="adm" id="admUser" data-admin-user="<?php echo (int) $u['user_id']; ?>">
     <a class="adm-back" href="/admin?tab=users"><i class="fa-solid fa-arrow-left"></i> Users</a>
 
     <header class="adm-uhead">
@@ -40,11 +40,27 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
         </div>
         <div class="adm-uhead__acts">
             <button type="button" class="adm-btn" data-act="password"><i class="fa-solid fa-key"></i> Send Password Reset</button>
+            <button type="button" class="adm-btn" data-act="mfa_reset"><i class="fa-solid fa-shield-halved"></i> Reset Two-Step</button>
             <?php if (!$this->is_me && !$deleted): ?>
             <button type="button" class="adm-btn <?php echo $disabled ? 'adm-btn--ok' : 'adm-btn--danger'; ?>" data-act="status" data-status="<?php echo $disabled ? 'Active' : 'Disabled'; ?>"><?php echo $disabled ? 'Reactivate' : 'Suspend'; ?></button>
             <?php endif; ?>
+            <button type="button" class="adm-btn adm-btn--primary" data-act="adjust"><i class="fa-solid fa-plus-minus"></i> Adjust Balance</button>
         </div>
     </header>
+
+<?php
+$spent = 0; foreach ($this->purchases as $pp) { $spent += (int) $pp['price_credits']; }
+$active_mem = count(array_filter($this->memberships, function ($m) { return $m['status'] === 'active'; }));
+$open_req = count(array_filter($this->tickets, function ($t) { return $t['status'] !== 'closed'; }));
+?>
+    <div class="adm-ustrip">
+        <div class="adm-ustrip__cell"><span>Credits</span><b><?php echo $money($u['credit_balance']); ?></b><small><?php echo number_format((int) $u['credit_balance']); ?> credits</small></div>
+        <div class="adm-ustrip__cell"><span>AI credits</span><b><?php echo number_format((int) $u['ai_credit_balance']); ?></b><small>&nbsp;</small></div>
+        <div class="adm-ustrip__cell"><span>Purchases</span><b><?php echo count($this->purchases); ?></b><small><?php echo $money($spent); ?> spent</small></div>
+        <div class="adm-ustrip__cell"><span>Memberships</span><b><?php echo $active_mem; ?></b><small><?php echo count($this->memberships); ?> total</small></div>
+        <div class="adm-ustrip__cell"><span>Support</span><b><?php echo $open_req; ?> open</b><small><?php echo count($this->tickets); ?> total</small></div>
+        <div class="adm-ustrip__cell"><span>Plan</span><b><?php echo $e($tier !== '' ? $tier : 'None'); ?></b><small><?php echo $tier !== '' ? $e(ucfirst((string) $u['subscription_status'])) : 'Fan account'; ?></small></div>
+    </div>
 
     <div class="adm-tabs" id="admTabs">
         <button type="button" class="adm-tab is-active" data-panel="overview"><i class="fa-solid fa-user"></i> Overview</button>
@@ -57,45 +73,62 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
 
     <!-- Overview -->
     <section class="adm-sec adm-panel is-active" data-panel="overview">
-        <div class="adm-kv-grid">
-            <div class="adm-kv-card">
-                <h2 class="adm-kv-card__h">Account</h2>
-                <dl class="adm-kv">
-                    <div><dt>Joined</dt><dd><?php echo $e($fmt($u['created_at'])); ?></dd></div>
-                    <div><dt>Last active</dt><dd><?php echo $e($fmt($u['last_active_at'])); ?></dd></div>
-                    <div><dt>Email</dt><dd><?php echo $e($u['user_email']); ?></dd></div>
-                    <div><dt>Phone</dt><dd><?php echo $e($u['user_phone'] ?: '—'); ?></dd></div>
-                    <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>
-                    <div><dt>Adult content</dt><dd><?php echo $yes(!empty($u['adult_content_enabled'])); ?></dd></div>
-                    <div><dt>Following</dt><dd><?php echo (int) $u['following_n']; ?></dd></div>
-                    <?php if ($is_creator): ?><div><dt>Followers</dt><dd><?php echo (int) $u['followers_n']; ?></dd></div>
-                    <div><dt>Public page</dt><dd><a href="/@<?php echo $e(rawurlencode((string) $u['u_name'])); ?>" target="_blank" rel="noopener">/@<?php echo $e($u['u_name']); ?></a></dd></div><?php endif; ?>
-                </dl>
-            </div>
-            <div class="adm-kv-card">
-                <h2 class="adm-kv-card__h">Balances</h2>
-                <dl class="adm-kv">
-                    <div><dt>Credits</dt><dd><?php echo number_format((int) $u['credit_balance']); ?> <span class="adm-kv__sub">(<?php echo $money($u['credit_balance']); ?>)</span></dd></div>
-                    <div><dt>AI credits</dt><dd><?php echo number_format((int) $u['ai_credit_balance']); ?></dd></div>
-                    <div><dt>Automatic top-up</dt><dd><?php echo $yes(!empty($u['autoreplenish_enabled'])); ?></dd></div>
-                </dl>
-                <button type="button" class="adm-btn" data-act="adjust"><i class="fa-solid fa-plus-minus"></i> Adjust Balance</button>
-            </div>
-            <div class="adm-kv-card">
-                <h2 class="adm-kv-card__h">Creator Plan</h2>
-                <?php if ((string) ($u['stripe_subscription_id'] ?? '') === ''): ?>
-                <p class="adm-kv__none">No plan</p>
-                <?php else: ?>
-                <dl class="adm-kv">
-                    <div><dt>Plan</dt><dd><?php echo $e($tier !== '' ? $tier : 'Unknown'); ?></dd></div>
-                    <div><dt>Status</dt><dd><?php echo $e(ucfirst((string) $u['subscription_status'])); ?><?php if (!empty($u['subscription_cancel_at_period_end'])): ?> <span class="adm-pill adm-pill--warn">Cancels at period end</span><?php endif; ?></dd></div>
-                    <div><dt>Current period ends</dt><dd><?php echo $e($fmt($u['subscription_current_period_end'], false)); ?></dd></div>
-                </dl>
-                <?php if (!empty($u['subscription_cancel_at_period_end'])): ?>
-                <button type="button" class="adm-btn adm-btn--ok" data-act="plan" data-cancel="0">Resume Plan</button>
-                <?php else: ?>
-                <button type="button" class="adm-btn adm-btn--danger" data-act="plan" data-cancel="1">Cancel at Period End</button>
+        <div class="adm-ov">
+            <div class="adm-ov__main">
+                <div class="adm-box">
+                    <h2 class="adm-box__h">Details</h2>
+                    <dl class="adm-facts">
+                        <div><dt>Joined</dt><dd><?php echo $e($fmt($u['created_at'])); ?></dd></div>
+                        <div><dt>Last active</dt><dd><?php echo $e($fmt($u['last_active_at'])); ?></dd></div>
+                        <div><dt>Email</dt><dd><?php echo $e($u['user_email']); ?> <?php echo !empty($u['email_verified']) ? '<span class="adm-pill adm-pill--ok">Verified</span>' : '<span class="adm-pill adm-pill--warn">Not verified</span>'; ?></dd></div>
+                        <div><dt>Phone</dt><dd><?php echo $e($u['user_phone'] ?: '—'); ?></dd></div>
+                        <div><dt>Two-step sign-in</dt><dd><?php $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'; } if (!empty($u['mfa_email_enabled'])) { $m2[] = 'Email codes'; } echo $e($m2 ? implode(', ', $m2) : 'Off'); ?></dd></div>
+                        <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>
+                        <div><dt>Adult content</dt><dd><?php echo !empty($u['adult_content_enabled']) ? 'Shown' : 'Hidden'; ?></dd></div>
+                        <div><dt>Automatic top-up</dt><dd><?php echo !empty($u['autoreplenish_enabled']) ? 'On' : 'Off'; ?></dd></div>
+                        <div><dt>Following</dt><dd><?php echo number_format((int) $u['following_n']); ?></dd></div>
+                        <div><dt>Followers</dt><dd><?php echo number_format((int) $u['followers_n']); ?></dd></div>
+                        <?php if ($is_creator): ?><div><dt>Public page</dt><dd><a href="/@<?php echo $e(rawurlencode((string) $u['u_name'])); ?>" target="_blank" rel="noopener">/@<?php echo $e($u['u_name']); ?></a></dd></div><?php endif; ?>
+                        <div><dt>Business</dt><dd><?php echo $e($u['business_name'] ?: '—'); ?></dd></div>
+                        <div><dt>Website</dt><dd><?php echo (string) $u['website_url'] !== '' ? '<a href="' . $e($u['website_url']) . '" target="_blank" rel="noopener nofollow">' . $e(preg_replace('#^https?://#', '', (string) $u['website_url'])) . '</a>' : '—'; ?></dd></div>
+                        <?php if ($is_creator): ?><div><dt>Creator since</dt><dd><?php echo $e($fmt($u['creator_since'], false)); ?></dd></div><?php endif; ?>
+                    </dl>
+                </div>
+                <?php if ((string) ($u['stripe_subscription_id'] ?? '') !== ''): ?>
+                <div class="adm-box">
+                    <div class="adm-box__row">
+                        <h2 class="adm-box__h">Creator Plan</h2>
+                        <?php if (!empty($u['subscription_cancel_at_period_end'])): ?>
+                        <button type="button" class="adm-btn adm-btn--ok" data-act="plan" data-cancel="0">Resume Plan</button>
+                        <?php else: ?>
+                        <button type="button" class="adm-btn adm-btn--danger" data-act="plan" data-cancel="1">Cancel at Period End</button>
+                        <?php endif; ?>
+                    </div>
+                    <dl class="adm-facts">
+                        <div><dt>Plan</dt><dd><?php echo $e($tier !== '' ? $tier : 'Unknown'); ?></dd></div>
+                        <div><dt>Status</dt><dd><?php echo $e(ucfirst((string) $u['subscription_status'])); ?><?php if (!empty($u['subscription_cancel_at_period_end'])): ?> <span class="adm-pill adm-pill--warn">Cancels at period end</span><?php endif; ?></dd></div>
+                        <div><dt>Period ends</dt><dd><?php echo $e($fmt($u['subscription_current_period_end'], false)); ?></dd></div>
+                    </dl>
+                </div>
                 <?php endif; ?>
+            </div>
+            <div class="adm-box adm-ov__feed">
+                <h2 class="adm-box__h">Recent Activity</h2>
+                <?php if (empty($this->activity)): ?>
+                <p class="adm-kv__none">No activity yet.</p>
+                <?php else: ?>
+                <ol class="adm-feed">
+                    <?php foreach ($this->activity as $ev): ?>
+                    <li class="adm-feed__item">
+                        <span class="adm-feed__ic adm-feed__ic--<?php echo $e($ev['tone']); ?>"><i class="fa-solid <?php echo $e($ev['icon']); ?>"></i></span>
+                        <div class="adm-feed__body">
+                            <div class="adm-feed__top"><b><?php if (!empty($ev['link'])): ?><a href="<?php echo $e($ev['link']); ?>"><?php echo $e($ev['title']); ?></a><?php else: echo $e($ev['title']); endif; ?></b><?php if ($ev['detail'] !== ''): ?><span class="adm-feed__detail adm-feed__detail--<?php echo $e($ev['tone']); ?>"><?php echo $e($ev['detail']); ?></span><?php endif; ?></div>
+                            <?php if ($ev['sub'] !== '' && $ev['sub'] !== $ev['title']): ?><div class="adm-feed__sub"><?php echo $e($ev['sub']); ?></div><?php endif; ?>
+                            <time class="adm-feed__at"><?php echo $e($fmt($ev['at'])); ?></time>
+                        </div>
+                    </li>
+                    <?php endforeach; ?>
+                </ol>
                 <?php endif; ?>
             </div>
         </div>
@@ -241,25 +274,5 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
     </section>
 </div>
 
-<div class="modal fade" id="admAdjustModal" tabindex="-1" aria-hidden="true" aria-labelledby="admAdjustTitle">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="admAdjustTitle">Adjust Balance</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="adm-field"><label for="adj_wallet">Balance</label>
-                    <select class="form-control" id="adj_wallet"><option value="credits">Credits (current <?php echo number_format((int) $u['credit_balance']); ?>)</option><option value="ai">AI credits (current <?php echo number_format((int) $u['ai_credit_balance']); ?>)</option></select>
-                </div>
-                <div class="adm-field"><label for="adj_amount">Amount</label><input type="number" class="form-control" id="adj_amount" step="1" placeholder="100 or -100"></div>
-                <div class="adm-field"><label for="adj_reason">Reason</label><input type="text" class="form-control" id="adj_reason" maxlength="200" placeholder="Goodwill credit for failed unlock"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="adm-btn" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="adm-btn adm-btn--primary" id="adjSave">Save Adjustment</button>
-            </div>
-        </div>
-    </div>
-</div>
+<?php include __DIR__ . '/_adjust_modal.php'; ?>
 <script src="/js/admin-user.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-user.js'); ?>"></script>

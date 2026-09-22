@@ -114,7 +114,33 @@ class AdminController extends Controller {
         $this->view->tickets      = array();
         try { $this->view->tickets = (new SupportModel())->for_user($uid); } catch (\Throwable $e) { error_log('[admin] user tickets: ' . $e->getMessage()); }
         $this->view->is_me        = $uid === (int) Session::get('user_id');
+        $this->view->activity     = self::activity_feed($this->view->credit_tx, $this->view->purchases, $this->view->sign_ins, $this->view->tickets, $this->view->refunds);
         $this->view->render();
+    }
+
+    /** Newest-first mix of a user's credit movements, purchases, refunds, sign-ins and support requests (for the Overview timeline). */
+    public static function activity_feed(array $tx, array $purchases, array $sign_ins, array $tickets, array $refunds = array(), int $limit = 14): array {
+        $out = array();
+        $labels = array('purchase' => 'Bought credits', 'payout' => 'Cashed out', 'admin_adjust' => 'Balance adjusted by support', 'refund' => 'Refund received', 'refund_reversal' => 'Refund reversed',
+                        'ppv_unlock' => 'Unlocked a post', 'bundle_unlock' => 'Bought a bundle', 'message_unlock' => 'Unlocked a message', 'service_purchase' => 'Bought a service', 'event_ticket' => 'Bought an event ticket',
+                        'ppv_earning' => 'Earned from a post', 'bundle_earning' => 'Earned from a bundle', 'message_earning' => 'Earned from a message', 'service_earning' => 'Earned from a service', 'event_earning' => 'Earned from an event');
+        foreach ($tx as $t) {
+            $c = (int) $t['credits'];
+            $out[] = array('at' => $t['created_at'], 'icon' => $c >= 0 ? 'fa-arrow-down' : 'fa-arrow-up', 'tone' => $c >= 0 ? 'pos' : 'neg',
+                'title' => $labels[$t['type']] ?? ucwords(str_replace('_', ' ', (string) $t['type'])), 'detail' => ($c > 0 ? '+' : '') . number_format($c) . ' credits', 'sub' => (string) $t['description']);
+        }
+        foreach ($sign_ins as $si) {
+            $map = array('login' => 'Sign-in attempt', 'forgot' => 'Requested a password reset', 'mfa' => 'Entered a two-step code');
+            $out[] = array('at' => $si['created_at'], 'icon' => 'fa-right-to-bracket', 'tone' => 'muted', 'title' => $map[$si['action']] ?? $si['action'], 'detail' => (string) $si['ip_address'], 'sub' => '');
+        }
+        foreach ($tickets as $tk) {
+            $out[] = array('at' => $tk['created_at'], 'icon' => 'fa-life-ring', 'tone' => 'violet', 'title' => 'Opened a support request', 'detail' => '', 'sub' => (string) $tk['subject'], 'link' => '/support/ticket/' . (int) $tk['id']);
+        }
+        foreach ($refunds as $rf) {
+            $out[] = array('at' => $rf['created_at'], 'icon' => 'fa-rotate-left', 'tone' => 'warn', 'title' => 'Refund issued by support', 'detail' => '$' . number_format(((int) $rf['amount_credits']) / 10, 2), 'sub' => (string) $rf['reason']);
+        }
+        usort($out, function ($a, $b) { return strcmp((string) $b['at'], (string) $a['at']); });
+        return array_slice($out, 0, $limit);
     }
 
     /**
