@@ -65,6 +65,9 @@ class SeoDrafter {
         return $err;
     }
 
+    /** The product facts block, shared with SupportAssist. */
+    public static function product_context(): string { return self::context(); }
+
     /** Facts Claude may use; nothing else is allowed to appear as a number or a claim. */
     private static function context(): string {
         $site = Main::site_name(); $base = SeoMeta::base();

@@ -58,6 +58,48 @@ $(document).ready(function () {
         $('#supReplyClose').on('click', function () { confirm_close().then(function (ok) { if (ok) { send_reply(true); } }); });
         $('#sup_reply').on('input', function () { $(this).removeClass('is-invalid'); });
 
+        /* ---- AI Assist (staff): draft reply options or rework the typed reply; never sends ---- */
+        var $ai = $('#swAi'), $ai_out = $('#swAiOut'), ai_busy = false, ai_last = null;
+        function ai_open(open) {
+            $ai.prop('hidden', !open); $('#swAiToggle').attr('aria-expanded', open ? 'true' : 'false');
+            if (open) { ai_sync(); $('#swAiNote').trigger('focus'); }
+        }
+        function ai_sync() { $('.sw-chip[data-ai]').prop('disabled', ai_busy || ($('#sup_reply').val() || '').trim() === ''); $('#swAiDraft').prop('disabled', ai_busy); }
+        function ai_esc(s) { return $('<div>').text(s).html(); }
+        $('#swAiToggle').on('click', function () { ai_open($ai.prop('hidden')); });
+        $('#swAiClose').on('click', function () { ai_open(false); $('#swAiToggle').trigger('focus'); });
+        function grow() { var el = document.getElementById('sup_reply'); if (!el) { return; } el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 110), 420) + 'px'; }
+        $('#sup_reply').on('input', function () { ai_sync(); grow(); });
+        $('#swAiNote').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); ai_run('draft'); } });
+        $ai.on('click', '[data-ai]', function () { ai_run($(this).attr('data-ai')); });
+        $ai_out.on('click', '[data-ai-retry]', function () { if (ai_last) { ai_run(ai_last); } });
+        $ai_out.on('click', '[data-ai-use]', function () {
+            var text = $(this).closest('.sw-opt').find('.sw-opt__text').text();
+            $('#sup_reply').val(text).removeClass('is-invalid').trigger('input').trigger('focus');
+            $ai_out.empty(); toastr.success('Added to your reply. Edit it before sending.');
+        });
+        function ai_run(mode) {
+            if (ai_busy) { return; }
+            ai_last = mode; ai_busy = true; ai_sync();
+            if (mode === 'draft') { $('#swAiDraft').text('Drafting…'); }
+            var n = mode === 'draft' ? 3 : 1, sk = '';
+            for (var i = 0; i < n; i++) { sk += '<div class="sw-skel" aria-hidden="true"><span></span><span></span><span></span></div>'; }
+            $ai_out.html(sk + '<span class="sr-only">Writing…</span>');
+            ApiDataSvc.apiCall('post', 'support_assist', { ticket_id: ticket_id, mode: mode, note: ($('#swAiNote').val() || '').trim(), current: ($('#sup_reply').val() || '').trim() }, function (r) {
+                var o = parse(r);
+                ai_busy = false; $('#swAiDraft').text('Draft Options'); ai_sync();
+                if (!o || !o.success || !o.options || !o.options.length) {
+                    $ai_out.html('<div class="sw-ai__msg"><i class="fa-solid fa-triangle-exclamation"></i><span>' + ai_esc((o && o.message) || 'AI Assist could not write a reply. Try again.') + '</span><button type="button" class="sw-btn sw-btn--sm" data-ai-retry>Try Again</button></div>');
+                    return;
+                }
+                var h = '';
+                $.each(o.options, function (i, opt) {
+                    h += '<div class="sw-opt"><span class="sw-opt__label">' + ai_esc(opt.label || ('Option ' + (i + 1))) + '</span><div class="sw-opt__text">' + ai_esc(opt.text) + '</div><button type="button" class="sw-btn sw-btn--sm" data-ai-use>Use This</button></div>';
+                });
+                $ai_out.html(h);
+            });
+        }
+
         function confirm_close() {
             if (!window.Swal) { return Promise.resolve(window.confirm('Close this request?')); }
             return Swal.fire({ title: 'Close this request?', text: 'It moves to Closed. Anyone can reopen it by replying or with Reopen.', icon: 'question',

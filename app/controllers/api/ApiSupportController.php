@@ -8,7 +8,7 @@
 class ApiSupportController extends BaseApiController {
 
     use AuditTrail;
-    protected $audit_skip = array('support_create');
+    protected $audit_skip = array('support_create', 'support_assist');   // assist only drafts text; nothing changes
 
     /** Only audit staff acting on someone else's request (a staff member's own request is not a staff action). */
     protected function audit_applies(string $action): bool {
@@ -82,5 +82,25 @@ class ApiSupportController extends BaseApiController {
         $close = (string) ($this->post['closed'] ?? '1') === '1';
         $model->set_closed((int) $t['id'], $close);
         $this->jsonSuccess(['message' => $close ? 'Request closed' : 'Request reopened']);
+    }
+
+    /** AI Assist (staff answering someone else's request): three reply options, or a rework of the typed reply. */
+    public function support_assistAction(){
+        $me = $this->me();
+        if (!Permissions::is_admin()) { $this->jsonError('Not authorized'); }
+        $model = new SupportModel();
+        $t = $this->ticket_for($me, $model);
+        if ((int) $t['user_id'] === $me) { $this->jsonError('AI Assist is for answering other people\'s requests'); }
+        $am = new AdminModel(); $uid = (int) $t['user_id'];
+        $u = $am->user_detail($uid);
+        if (!$u) { $this->jsonError('Request not found'); }
+        $purchases = $am->purchases_for($uid, 50);
+        $memberships = array_values(array_filter((array) (new CreatorSubscriptionsModel())->get_for_subscriber($uid), function ($m) { return $m['status'] === 'active'; }));
+        $fmt = function ($utc) { return (string) $utc === '' ? '' : gmdate('M j, Y', strtotime($utc . ' UTC')); };
+        $checks = SupportDiagnosis::checks((string) $t['category'], $u, $am, $purchases, $memberships, $fmt);
+        $ctx = SupportAssist::context($t, $model->messages((int) $t['id']), $u, $checks);
+        $r = SupportAssist::run((string) ($this->post['mode'] ?? 'draft'), $ctx, $this->text('note', 500), $this->text('current', 5000));
+        if (!$r['ok']) { $this->jsonError($r['error']); }
+        $this->jsonSuccess(['options' => $r['options']]);
     }
 }

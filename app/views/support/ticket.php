@@ -62,9 +62,28 @@ $u = ($staff && $this->requester) ? $this->requester : null;
             </section>
 
             <form class="sw-compose" id="supReply" novalidate>
+                <?php if ($u): ?>
+                <div class="sw-ai" id="swAi" hidden>
+                    <div class="sw-ai__head">
+                        <span class="sw-ai__title"><i class="fa-solid fa-wand-magic-sparkles"></i>AI Assist</span>
+                        <button type="button" class="sw-ai__x" id="swAiClose" aria-label="Close AI Assist"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+                    <div class="sw-ai__ask">
+                        <label class="sr-only" for="swAiNote">Key point to include</label>
+                        <input type="text" id="swAiNote" maxlength="500" placeholder="Key point (optional)" autocomplete="off">
+                        <button type="button" class="sw-btn sw-btn--sm" id="swAiDraft" data-ai="draft">Draft Options</button>
+                    </div>
+                    <div class="sw-ai__rework">
+                        <span>Rework your reply</span>
+                        <?php foreach (array('shorter' => 'Shorter', 'friendly' => 'Friendlier', 'detail' => 'More Detail', 'grammar' => 'Fix Grammar') as $k => $l): ?><button type="button" class="sw-chip" data-ai="<?php echo $k; ?>" disabled><?php echo $l; ?></button><?php endforeach; ?>
+                    </div>
+                    <div class="sw-ai__out" id="swAiOut" aria-live="polite"></div>
+                </div>
+                <?php endif; ?>
                 <label class="sr-only" for="sup_reply">Your response</label>
                 <textarea id="sup_reply" rows="4" maxlength="5000" placeholder="<?php echo $staff ? 'Write a response to ' . $e($req_name) : 'Add more detail or reply to support'; ?>"></textarea>
                 <div class="sw-compose__bar">
+                    <?php if ($u): ?><button type="button" class="sw-btn sw-btn--ghost sw-compose__ai" id="swAiToggle" aria-expanded="false" aria-controls="swAi"><i class="fa-solid fa-wand-magic-sparkles"></i>AI Assist</button><?php endif; ?>
                     <?php if ($staff && !$closed): ?><button type="button" class="sw-btn" id="supReplyClose">Send and Close</button><?php endif; ?>
                     <button type="submit" class="sw-btn sw-btn--primary" id="supReplySend">Send Reply</button>
                 </div>

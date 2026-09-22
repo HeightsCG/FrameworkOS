@@ -6,6 +6,16 @@
  */
 class SupportModel extends Model {
 
+    /** Self-serve answers: shown under Quick Answers on /support and given to AI Assist as how-to facts. */
+    const QUICK_ANSWERS = array(
+        array('How do I change my username, email or password?', 'Go to Settings from the menu at the top right. Account holds your username, profile photo and details; Security holds your password and two-step sign-in.', '/account/settings'),
+        array('How do I buy credits or turn on automatic top-ups?', 'Open Settings, then Wallet. You can buy credits there and set a balance at which more credits are bought automatically.', '/account/settings?section=wallet'),
+        array('How do I cancel a membership?', 'Open Settings, then My Subscriptions, and cancel the membership. You keep access until the end of the period you paid for.', '/account/settings?section=subscriptions'),
+        array('Where is something I bought?', 'Everything you unlock or buy is kept on your Purchases page.', '/purchases'),
+        array('How do I stop someone contacting me?', 'Block them from their profile or from your inbox. Blocked users can\'t see your content or message you. You can review blocks in Settings, then Blocked Users.', '/account/settings?section=blocked'),
+        array('How do creators get paid?', 'Earnings collect in the creator\'s balance and can be cashed out to their bank account once payout setup is complete, from Settings, then Wallet.', '/account/settings?section=wallet'),
+    );
+
     /** Topics shown in the new-request form (key => label). */
     const CATEGORIES = array(
         'account'  => 'Account and sign in',
