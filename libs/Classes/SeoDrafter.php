@@ -1,7 +1,7 @@
 <?php
 /**
- * Drafts one blog article for a keyword with Claude, validates it against hard rules, and saves it for
- * Admin review (spec §5). Never publishes. One Claude call per draft, one retry on validation failure.
+ * Drafts one blog article for a keyword with Claude, validates it against hard rules, and publishes it
+ * as soon as it passes (no admin review since 2026-09-22). One Claude call per draft, one retry on validation failure.
  */
 class SeoDrafter {
     const PROMPT_VERSION = 'v1';
@@ -36,6 +36,27 @@ class SeoDrafter {
         $d = json_decode($t, true);
         if (!is_array($d)) { $s = strpos($t, '{'); $e = strrpos($t, '}'); if ($s !== false && $e !== false && $e > $s) { $d = json_decode(substr($t, $s, $e - $s + 1), true); } }
         return is_array($d) ? $d : null;
+    }
+
+    /**
+     * Mechanical fixes applied before validate(), so a small slip doesn't stop the day's article from publishing:
+     * an over-long meta description is cut at a word boundary, and links to paths outside the allow-list become plain text.
+     */
+    public static function fit(array $a): array {
+        $meta = trim(preg_replace('/\s+/', ' ', (string) ($a['meta_description'] ?? '')));
+        if (mb_strlen($meta) > 155) {
+            $cut = mb_substr($meta, 0, 154); $sp = mb_strrpos($cut, ' ');
+            $meta = rtrim($sp !== false && $sp > 100 ? mb_substr($cut, 0, $sp) : $cut, " ,;:-") . '.';
+            if (mb_strlen($meta) > 155) { $meta = mb_substr($meta, 0, 155); }
+        }
+        $a['meta_description'] = $meta;
+        $allowed = self::allowed_paths();
+        $a['body_md'] = preg_replace_callback('/\[([^\]]*)\]\(([^)\s]+)\)/', function ($m) use ($allowed) {
+            $l = $m[2]; $path = preg_replace('/[#?].*$/', '', $l);
+            $ok = strpos($l, '/') === 0 && strpos($l, '//') !== 0 && in_array($path, $allowed, true);
+            return $ok ? $m[0] : $m[1];
+        }, (string) ($a['body_md'] ?? ''));
+        return $a;
     }
 
     /** Hard rules. Returns error strings; empty array = valid. */
@@ -168,6 +189,7 @@ class SeoDrafter {
             if ($data === null) { $errors = array('reply was not valid JSON'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
             if ($existing_article_id === 0) { $base = $data['slug']; $i = 2; while ((new SeoArticlesModel())->slug_exists($data['slug'])) { $data['slug'] = $base . '-' . $i++; } }
+            $data = self::fit($data);
             $errors = self::validate($data, $existing_article_id);
             if (empty($errors)) { break; }
         }
@@ -188,12 +210,14 @@ class SeoDrafter {
         if ($existing && $existing['status'] === 'published') { unset($fields['status']); }   // never takes a live article offline
         if ($existing_article_id > 0) { $articles->update_fields($existing_article_id, $fields); $aid = $existing_article_id; }
         else { $aid = $articles->create($fields); }
-        $keywords->set_status($kid, ($existing && $existing['status'] === 'published') ? 'published' : 'drafted', $aid, null);
         // Cover image: only when the article has none yet (a rewrite keeps its cover). Never blocks the draft.
         $saved = $articles->get($aid);
         if ($saved && trim((string) ($saved['cover_image_url'] ?? '')) === '') { self::make_cover($saved); }
+        // Passed every hard check above, so it goes live now (cover first): no review step (Daniel, 2026-09-22).
+        $articles->set_status($aid, 'published');
+        $keywords->set_status($kid, 'published', $aid, null);
         try {
-            Notify::many((new UsersModel())->admin_ids(), 'system', 'New article ready for review', '"' . $fields['title'] . '" was drafted for "' . $keyword . '".', '/admin/article/' . $aid, 'fa-newspaper');
+            Notify::many((new UsersModel())->admin_ids(), 'system', 'New article published', '"' . $fields['title'] . '" is live on the blog, written for "' . $keyword . '".', '/admin/article/' . $aid, 'fa-newspaper');
         } catch (\Throwable $e) { error_log('[seo] notify admins: ' . $e->getMessage()); }
         return array('ok' => true, 'article_id' => $aid, 'error' => '');
     }

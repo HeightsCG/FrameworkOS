@@ -47,7 +47,7 @@
     document.querySelectorAll('[data-art-action="unpublish"]').forEach(function (b) {
         b.addEventListener('click', function () {
             var id = parseInt(b.closest('.adm-crow').getAttribute('data-article'), 10);
-            confirmAction({ title: 'Unpublish this article?', text: 'It goes back to the review queue and drops out of the sitemap.', confirmButtonText: 'Unpublish' }).then(function (yes) {
+            confirmAction({ title: 'Unpublish this article?', text: 'It moves to Unpublished and drops out of the blog and sitemap.', confirmButtonText: 'Unpublish' }).then(function (yes) {
                 if (!yes) { return; }
                 ApiDataSvc.apiCall('post', 'seo_article_unpublish', { id: id }, function (r) { var o = parse(r); if (o && o.success) { window.location.reload(); } else { bad(o && o.message); } });
             });
@@ -98,7 +98,7 @@
         if (action === 'publish') {
             save(function (o) {
                 if (o.errors && o.errors.length) { return bad('Fix the issues listed before publishing'); }
-                ApiDataSvc.apiCall('post', 'seo_article_publish', { id: id }, function (r) { var p = parse(r); if (p && p.success) { ok('Published'); window.location = p.url; } else { showIssues(p && p.errors); bad(p && p.message); } });
+                ApiDataSvc.apiCall('post', 'seo_article_publish', { id: id }, function (r) { var p = parse(r); if (p && p.success) { ok('Published'); setTimeout(function () { window.location.reload(); }, 600); } else { showIssues(p && p.errors); bad(p && p.message); } });
             }); return;
         }
         if (action === 'unpublish') {
@@ -133,7 +133,7 @@
     });
 })();
 
-/* Content sub-tabs (Review Queue / Keyword Queue / Published) */
+/* Content sub-tabs (Published / Keyword Queue / Unpublished) */
 (function () {
     var root = document.querySelector('.adm-panel[data-panel="content"]');   // scoped: other tabs (Support) have sub-tabs too
     var bar = root ? root.querySelector('.adm-subtabs') : null;

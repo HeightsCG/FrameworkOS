@@ -1,26 +1,26 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
 <section class="adm-sec adm-panel" data-panel="content">
     <div class="adm-subtabs" role="tablist" aria-label="Content">
-        <button type="button" class="adm-subtab is-active" role="tab" aria-selected="true" data-sub="review">Review Queue <b><?php echo count($this->seo_review); ?></b></button>
+        <button type="button" class="adm-subtab is-active" role="tab" aria-selected="true" data-sub="published">Published <b><?php echo count($this->seo_published); ?></b></button>
         <button type="button" class="adm-subtab" role="tab" aria-selected="false" data-sub="keywords">Keyword Queue <b><?php echo count($this->seo_keywords); ?></b></button>
-        <button type="button" class="adm-subtab" role="tab" aria-selected="false" data-sub="published">Published <b><?php echo count($this->seo_published); ?></b></button>
+        <button type="button" class="adm-subtab" role="tab" aria-selected="false" data-sub="review">Unpublished <b><?php echo count($this->seo_review); ?></b></button>
     </div>
-    <div class="adm-subpanel" data-sub="review">
+    <div class="adm-subpanel" data-sub="review" hidden>
     <div class="adm-sec__head">
-        <h2 class="adm-sec__title">Review Queue</h2>
+        <h2 class="adm-sec__title">Unpublished</h2>
     </div>
     <?php if (empty($this->seo_review)): ?>
-        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-newspaper"></i></span><p class="adm-empty__t">Nothing to Review</p></div>
+        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-newspaper"></i></span><p class="adm-empty__t">No Unpublished Articles</p></div>
     <?php else: ?>
     <div class="adm-table adm-table--content">
-        <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Drafted</span><span></span></div>
+        <div class="adm-table__head"><span>Article</span><span>Keyword</span><span>Updated</span><span></span></div>
         <div class="adm-table__body">
             <?php foreach ($this->seo_review as $a): ?>
             <div class="adm-crow" data-article="<?php echo (int) $a['id']; ?>">
                 <div class="adm-ucell"><a class="adm-crow__title" href="/admin/article/<?php echo (int) $a['id']; ?>"><?php echo $e($a['title']); ?></a><span class="adm-crow__sub">/blog/<?php echo $e($a['slug']); ?> · <?php echo (int) $a['reading_minutes']; ?> min</span></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e($a['target_keyword']); ?></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e(date('M j, H:i', strtotime($a['updated_at'] . ' UTC'))); ?></div>
-                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Review</a></div>
+                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Edit</a></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -60,7 +60,7 @@
     </div>
 
     </div>
-    <div class="adm-subpanel" data-sub="published" hidden>
+    <div class="adm-subpanel" data-sub="published">
     <div class="adm-sec__head">
         <h2 class="adm-sec__title">Published</h2>
     </div>
