@@ -225,7 +225,9 @@
         if (m.body) { h += '<span class="ibx-bubble__body">' + esc(m.body).replace(/\n/g, '<br>') + '</span>'; }
         if (m.mine && m.price_credits > 0) { h += '<span class="ibx-bubble__sale">' + cr(m.price_credits) + ' · ' + (m.unlocks === 1 ? 'Unlocked by 1 fan' : 'Unlocked by ' + (m.unlocks || 0) + ' fans') + '</span>'; }
         else if (!m.mine && m.unlocked) { h += '<span class="ibx-bubble__sale">Unlocked · ' + cr(m.price_credits) + '</span>'; }
-        h += '<span class="ibx-bubble__time">' + fclock(m.created_at) + '</span></div>';
+        h += '<span class="ibx-bubble__time">' + fclock(m.created_at) + '</span>';
+        if (m.mine && !(m.price_credits > 0 && m.unlocks > 0)) { h += '<button type="button" class="ibx-bubble__del" data-del="' + m.id + '" aria-label="Delete message" title="Delete"><i class="fa-regular fa-trash-can"></i></button>'; }
+        h += '</div>';
         var $b = $(h); $b.data('msg', m); return $b;
     }
     function renderMsgs(list) {
@@ -238,6 +240,43 @@
     function addMsg(m) { $scroll.find('.ibx__hint').remove(); if (!$scroll.find('.ibx__day').length) { $scroll.append('<span class="ibx__day">' + esc(fday(m.created_at)) + '</span>'); } $scroll.append(bubble(m)); $scroll.scrollTop($scroll[0].scrollHeight); }
     function replaceBubble(m) { var $old = $scroll.find('.ibx-bubble[data-mid="' + m.id + '"]'); if ($old.length) { $old.replaceWith(bubble(m)); } }
     $('#ibxBack').on('click', showList);
+
+    /* ---- delete: a message you sent (for both people), or a whole conversation (for you) ---- */
+    function confirmDelete(opts) {
+        if (typeof Swal === 'undefined') { return Promise.resolve(window.confirm(opts.title)); }
+        return Swal.fire({ title: opts.title, text: opts.text, showCancelButton: true, reverseButtons: true, focusCancel: true, confirmButtonText: opts.button, cancelButtonText: 'Cancel', customClass: { popup: 'ibx-swal ibx-swal--danger' } })
+            .then(function (r) { return r.isConfirmed; });
+    }
+    $scroll.on('click', '[data-del]', function () {
+        var $b = $(this), mid = parseInt($b.attr('data-del'), 10), $bub = $b.closest('.ibx-bubble');
+        confirmDelete({ title: 'Delete this message?', text: 'It is removed for you and ' + (activePeer && activePeer.name ? activePeer.name : 'the other person') + '. This can\'t be undone.', button: 'Delete' }).then(function (yes) {
+            if (!yes) { return; }
+            $b.prop('disabled', true);
+            api('message_delete', { message_id: mid }, function (o) {
+                if (!o || !o.success) { $b.prop('disabled', false); toastErr((o && o.message) || 'Could not delete the message'); return; }
+                $bub.remove();
+                // drop a day label left with nothing under it
+                $scroll.find('.ibx__day').each(function () { var $n = $(this).next(); if (!$n.length || $n.hasClass('ibx__day')) { $(this).remove(); } });
+                if (!$scroll.find('.ibx-bubble').length) { $scroll.html('<div class="ibx__hint">No messages yet. Say hello.</div>'); }
+                lastSig = ''; loadConvs();
+                if (window.toastr) { toastr.success('Message deleted'); }
+            });
+        });
+    });
+    $('#ibxConvDelete').on('click', function () {
+        if (!active) { return; }
+        var id = active, who = activePeer && activePeer.name ? activePeer.name : 'this person';
+        confirmDelete({ title: 'Delete this conversation?', text: 'It is removed from your inbox and cleared for you. ' + who + ' keeps their copy.', button: 'Delete Conversation' }).then(function (yes) {
+            if (!yes) { return; }
+            api('conversation_delete', { conversation_id: id }, function (o) {
+                if (!o || !o.success) { toastErr((o && o.message) || 'Could not delete the conversation'); return; }
+                convs = convs.filter(function (c) { return c.id !== id; });
+                showList(); loadConvs();
+                if (window.CLSMessenger && window.CLSMessenger.badge) { window.CLSMessenger.badge(); }
+                if (window.toastr) { toastr.success('Conversation deleted'); }
+            });
+        });
+    });
 
     /* lightbox */
     $scroll.on('click', '[data-view]', function () {

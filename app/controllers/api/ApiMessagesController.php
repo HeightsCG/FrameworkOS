@@ -138,6 +138,32 @@ class ApiMessagesController extends BaseApiController {
         $this->respond_thread($model, $model->get($conv_id), $me);
     }
 
+    /** Delete a message you sent, for both people. A paid message someone already unlocked stays: they paid for it. */
+    public function message_deleteAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
+        $model = new MessagesModel();
+        $m = $model->get_message((int) ($this->post['message_id'] ?? 0));
+        if (!$m || !$model->is_participant((int) $m['conversation_id'], $me)) { $this->jsonError('Message not found'); }
+        if ((int) $m['sender_id'] !== $me) { $this->jsonError('You can only delete messages you sent'); }
+        if ((int) $m['price_credits'] > 0 && (($model->unlock_counts([(int) $m['id']])[(int) $m['id']] ?? 0) > 0)) {
+            $this->jsonError('A fan has already unlocked this message, so it can\'t be deleted.');
+        }
+        $model->delete_message((int) $m['id']);
+        $this->jsonSuccess(['message' => 'Message deleted']);
+    }
+
+    /** Delete a conversation from your own inbox. The other person keeps theirs. */
+    public function conversation_deleteAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
+        $model = new MessagesModel();
+        $conv_id = (int) ($this->post['conversation_id'] ?? 0);
+        if (!$model->get($conv_id) || !$model->is_participant($conv_id, $me)) { $this->jsonError('Conversation not found'); }
+        $model->delete_for($conv_id, $me);
+        $this->jsonSuccess(['message' => 'Conversation deleted']);
+    }
+
     /** Total unread messages — drives the launcher badge. */
     public function message_unread_countAction(){
         $me = (int) Session::get('user_id');
@@ -232,7 +258,7 @@ class ApiMessagesController extends BaseApiController {
         $other   = ((int) $c['creator_id'] === $me) ? (int) $c['user_id'] : (int) $c['creator_id'];
         $id      = $model->identity_map([$other])[$other] ?? ['handle' => '', 'name' => 'Unknown', 'avatar' => '', 'is_creator' => false];
         $id['id'] = $other;
-        $msgs    = $this->shape($model->thread($conv_id), $me, $c);
+        $msgs    = $this->shape($model->thread($conv_id, MessagesModel::cleared_id($c, $me)), $me, $c);
         $model->mark_read($conv_id, $me);
         $this->jsonSuccess(['conversation_id' => $conv_id, 'other' => $id, 'messages' => $msgs,
             'viewer_credits' => (new CreditsModel())->get_balance($me), 'i_am_creator' => ((int) $c['creator_id'] === $me)]);

@@ -201,3 +201,15 @@
     .ibx__ctx{ width:min(300px, 90vw); }
     .ibx__pickgrid{ grid-template-columns:repeat(3,1fr); }
 }
+
+/* Delete: your own message (trash beside the bubble on hover/focus) and the conversation (header) */
+.ibx__del:hover{ color:#d9436a; background:rgba(217,67,106,.08); }
+.ibx-bubble--mine{ position:relative; }
+.ibx-bubble__del{ position:absolute; top:50%; right:calc(100% + 6px); transform:translateY(-50%); width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border:0; border-radius:var(--r-sm); background:transparent; color:var(--muted); font-size:.8rem; cursor:pointer; opacity:0; transition:opacity .12s, background-color .12s, color .12s; }
+.ibx-bubble--mine:hover .ibx-bubble__del, .ibx-bubble__del:focus-visible{ opacity:1; }
+.ibx-bubble__del:hover{ color:#d9436a; background:rgba(217,67,106,.08); }
+.ibx-bubble__del:focus-visible{ outline:2px solid var(--violet); outline-offset:1px; }
+.ibx-bubble__del:disabled{ opacity:.4; cursor:default; }
+@media (hover: none){ .ibx-bubble__del{ opacity:.55; } }
+.ibx-swal--danger .swal2-confirm{ background:#d9436a !important; }
+.ibx-swal--danger .swal2-confirm:hover{ background:#c23158 !important; }

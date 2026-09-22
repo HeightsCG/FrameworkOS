@@ -56,7 +56,7 @@ class ApiRoutes {
             'auto_messages_list', 'auto_message_save', 'auto_message_delete',
         ],
         'ApiMessagesController' => [
-            'message_send', 'message_inbox', 'message_thread', 'message_people', 'message_open', 'message_unread_count',
+            'message_send', 'message_inbox', 'message_thread', 'message_people', 'message_open', 'message_unread_count', 'message_delete', 'conversation_delete',
             'message_unlock', 'message_media_list', 'message_peer_info',
         ],
         'ApiBroadcastController' => [

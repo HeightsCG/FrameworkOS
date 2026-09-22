@@ -36,6 +36,7 @@
                     <span class="ibx__peersub" id="ibxPeerSub"></span>
                 </div>
                 <a class="ibx__ico" id="ibxPeerProfile" href="#" target="_blank" rel="noopener" aria-label="View Profile" title="View Profile" hidden><i class="fa-solid fa-arrow-up-right-from-square"></i></a>
+                <button type="button" class="ibx__ico ibx__del" id="ibxConvDelete" aria-label="Delete Conversation" title="Delete Conversation"><i class="fa-regular fa-trash-can"></i></button>
                 <button type="button" class="ibx__ico ibx__block" id="ibxPeerBlock" data-block-user="0" aria-label="Block" title="Block" hidden><i class="fa-solid fa-ban"></i></button>
                 <?php if ($this->is_creator): ?>
                 <button type="button" class="ibx__ico ibx__ctxtoggle" id="ibxCtxToggle" aria-label="About This Fan" title="About This Fan" hidden><i class="fa-solid fa-circle-info"></i></button>

@@ -211,7 +211,7 @@ class MessagesModel extends Model {
     }
 
     public function get_message($message_id){
-        $rows = parent::select("SELECT * FROM messages WHERE id = :id", array('id' => (int) $message_id));
+        $rows = parent::select("SELECT * FROM messages WHERE id = :id AND deleted_at IS NULL", array('id' => (int) $message_id));
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
@@ -259,13 +259,51 @@ class MessagesModel extends Model {
         );
     }
 
-    /** Messages in a conversation, oldest first. */
-    public function thread($conversation_id){
+    /** Messages in a conversation, oldest first; deleted ones never, and only newer than $after_id (what the viewer cleared). */
+    public function thread($conversation_id, $after_id = 0){
         return (array) parent::select(
             "SELECT id, sender_id, body, price_credits, media_count, trigger_key, created_at
-             FROM messages WHERE conversation_id = :c ORDER BY id ASC",
-            array('c' => (int) $conversation_id)
+             FROM messages WHERE conversation_id = :c AND id > :a AND deleted_at IS NULL ORDER BY id ASC",
+            array('c' => (int) $conversation_id, 'a' => (int) $after_id)
         );
+    }
+
+    /** The highest message id this account deleted in the conversation (0 = nothing cleared). */
+    public static function cleared_id(array $c, $account_id){
+        return (int) (((int) $c['creator_id'] === (int) $account_id) ? ($c['creator_cleared_id'] ?? 0) : ($c['user_cleared_id'] ?? 0));
+    }
+
+    /** Delete a conversation for one side only: it leaves their inbox and its history is cleared for them. A new message brings it back. */
+    public function delete_for($conversation_id, $account_id){
+        $c = $this->get($conversation_id);
+        if (!$c) { return false; }
+        $max = parent::select("SELECT COALESCE(MAX(id), 0) AS m FROM messages WHERE conversation_id = :c", array('c' => (int) $conversation_id));
+        $side = ((int) $c['creator_id'] === (int) $account_id) ? 'creator' : 'user';
+        return parent::update('conversations', array($side . '_deleted' => 1, $side . '_cleared_id' => (int) ($max[0]['m'] ?? 0), $side . '_unread' => 0),
+            'id = :id', array('id' => (int) $conversation_id));
+    }
+
+    /** Delete a sent message for both sides, then point the inbox preview at the newest message left. */
+    public function delete_message($message_id){
+        $m = $this->get_message($message_id);
+        if (!$m) { return false; }
+        $conv_id = (int) $m['conversation_id'];
+        parent::update('messages', array('deleted_at' => date('Y-m-d H:i:s')), 'id = :id', array('id' => (int) $message_id));
+        $c = $this->get($conv_id);
+        if (!$c) { return true; }
+        $last = parent::select("SELECT id, sender_id, body, media_count, price_credits, created_at FROM messages
+            WHERE conversation_id = :c AND deleted_at IS NULL ORDER BY id DESC LIMIT 1", array('c' => $conv_id));
+        $last = (is_array($last) && count($last)) ? $last[0] : null;
+        $data = $last
+            ? array('last_message_at' => $last['created_at'], 'last_body' => self::preview_text((string) $last['body'], (int) $last['media_count'], (int) $last['price_credits']), 'last_sender_id' => (int) $last['sender_id'])
+            : array('last_body' => '', 'last_sender_id' => null);
+        // It was the newest message and the other side hadn't read it yet: take it off their unread count.
+        if (!$last || (int) $last['id'] < (int) $message_id) {
+            $col = ((int) $c['creator_id'] === (int) $m['sender_id']) ? 'user_unread' : 'creator_unread';
+            if ((int) $c[$col] > 0) { $data[$col] = (int) $c[$col] - 1; }
+        }
+        parent::update('conversations', $data, 'id = :id', array('id' => $conv_id));
+        return true;
     }
 
     /** Clear the viewer's unread count for a conversation. */
