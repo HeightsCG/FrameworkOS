@@ -124,7 +124,7 @@ jQuery(function ($) {
             $('#inf_empty').prop('hidden', true); $('#inf_new_btn').prop('hidden', false);
             $cards.empty().prop('hidden', false);
             list.forEach(function (inf, i) { $cards.append(card(inf, first ? i : 0)); });
-            $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New influencer</span></a>');
+            $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New Influencer</span></a>');
             first = false;
         }
         function target_for(inf) {
@@ -141,7 +141,7 @@ jQuery(function ($) {
                 '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                 (ready ? '<li><a class="dropdown-item" href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a></li>' +
-                         '<li><a class="dropdown-item" href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard"></i> Generate video</a></li>' +
+                         '<li><a class="dropdown-item" href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard"></i> Generate Video</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/gallery/' + inf.id + '"><i class="fa-solid fa-images"></i> Gallery</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-sliders"></i> Settings</a></li>' +
                          (inf.pending_model_id > 0 ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '/retrain" data-act="retrain"><i class="fa-solid fa-rotate"></i> Retrain</a></li>')
@@ -270,7 +270,7 @@ jQuery(function ($) {
                     '<h2 class="inf-progress__t">Training failed</h2>' +
                     '<p class="inf-progress__x">Nothing was lost. Fix the issue below or try again.</p>' +
                     (inf.last_error ? '<div class="inf-progress__err">' + esc(inf.last_error) + '</div>' : '') +
-                    '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back</a><button type="button" class="btn btn-primary" id="inf_retry_train"><i class="fa-solid fa-rotate"></i> Try again</button></div>' +
+                    '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back</a><button type="button" class="btn btn-primary" id="inf_retry_train"><i class="fa-solid fa-rotate"></i> Try Again</button></div>' +
                     '</div>';
             } else {
                 html = '<div class="inf-progress">' +
@@ -300,7 +300,7 @@ jQuery(function ($) {
                 '<div class="inf-field inf-field--full"><div class="inf-label">Share to</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
                 '</div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
-                '<div class="inf-autos"><div class="inf-field__row"><div class="inf-label">Her automations</div><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></div>' +
+                '<div class="inf-autos"><div class="inf-field__row"><div class="inf-label">Her automations</div><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New Automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></div>' +
                 '</div>';
             $('#inf_panel').append(html);
             $('#inf_set_save').on('click', function () {
@@ -872,7 +872,7 @@ jQuery(function ($) {
                 });
                 $g.append($t);
             });
-            // Only a still handed over from "Make video" is preselected; otherwise she picks one.
+            // Only a still handed over from "Make Video" is preselected; otherwise she picks one.
             if (still && !$g.find('.is-on').length) { still = 0; }
             $('#inf_vgo').prop('disabled', !still);
            

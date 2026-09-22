@@ -7,7 +7,7 @@
 .dash{ max-width:1080px; margin:0 auto; padding-bottom:2rem; }
 
 .dash__head{ margin-bottom:1.4rem; }
-.dash__title{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; margin:0; color:var(--text); }
+.dash__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0; color:var(--text); }
 .dash__sub{ color:var(--muted); font-size:.95rem; margin:.3rem 0 0; }
 
 /* --- toolbar + date-range selector --- */
@@ -15,7 +15,7 @@
 .dash__toolbar-label{ font-size:.92rem; font-weight:600; color:var(--text); }
 .dash__toolbar-hint{ font-weight:400; color:var(--muted); font-size:.82rem; }
 .dash__range{ display:inline-flex; background:#f1f0f5; border:1px solid var(--dash-border); border-radius:var(--r-sm); padding:2px; gap:2px; }
-.dash__range-btn{ font-size:.82rem; font-weight:600; color:var(--muted); text-decoration:none; padding:.34rem .8rem; border-radius:6px; transition:background .12s,color .12s; }
+.dash__range-btn{ font-size:.82rem; font-weight:600; color:var(--muted); text-decoration:none; padding:.34rem .8rem; border-radius:2px; transition:background .12s,color .12s; }
 .dash__range-btn:hover{ color:var(--text); }
 .dash__range-btn.is-active{ background:#fff; color:var(--violet7); box-shadow:0 1px 2px rgba(15,17,26,.06); }
 

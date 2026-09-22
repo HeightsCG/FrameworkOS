@@ -16,13 +16,13 @@
         <i class="fa-solid fa-triangle-exclamation feed__state-icon"></i>
         <h2 class="feed__state-title">We couldn't load the feed</h2>
         <p class="feed__state-text">Something went wrong. Give it another try.</p>
-        <button type="button" class="btn btn-primary feed__state-btn" id="feed_retry">Try again</button>
+        <button type="button" class="btn btn-primary feed__state-btn" id="feed_retry">Try Again</button>
     </div>
 
     <!-- empty -->
     <div class="feed__state" id="feed_empty" hidden>
         <i class="fa-solid fa-compass feed__state-icon"></i>
-        <h2 class="feed__state-title">Nothing published yet</h2>
+        <h2 class="feed__state-title">Nothing Published Yet</h2>
         <p class="feed__state-text">When creators publish content, it shows up here. Check back soon &mdash; or start creating your own.</p>
     </div>
 

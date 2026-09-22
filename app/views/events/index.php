@@ -22,13 +22,13 @@ $tiers  = $this->tiers;
             <h1 class="ev__title">Events</h1>
             <p class="ev__sub">Host events off-platform (link or venue) — the platform handles listing, registration, and paid tickets. Times are in <?php echo $e($tz); ?>.</p>
         </div>
-        <button type="button" class="ev-btn ev-btn--primary" id="evCreate"><i class="fa-solid fa-plus"></i> Create event</button>
+        <button type="button" class="ev-btn ev-btn--primary" id="evCreate"><i class="fa-solid fa-plus"></i> Create Event</button>
     </header>
 
     <?php if (empty($events)): ?>
     <div class="ev-empty">
         <span class="ev-empty__ic"><i class="fa-regular fa-calendar"></i></span>
-        <h2 class="ev-empty__t">No events yet</h2>
+        <h2 class="ev-empty__t">No Events Yet</h2>
         <p class="ev-empty__x">Create your first event — a workshop, livestream, meetup, or webinar — and share it on your profile.</p>
     </div>
     <?php else: ?>
@@ -109,7 +109,7 @@ $tiers  = $this->tiers;
             </div>
             <div class="modal-footer">
                 <button type="button" class="ev-btn" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="ev-btn ev-btn--primary" id="ev_save">Save event</button>
+                <button type="button" class="ev-btn ev-btn--primary" id="ev_save">Save Event</button>
             </div>
         </div>
     </div>

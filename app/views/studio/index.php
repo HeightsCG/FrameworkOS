@@ -5,7 +5,7 @@
         <i class="fa-solid fa-photo-film cs-gate__icon"></i>
         <h1 class="cs-gate__title">The Content Studio is for creators</h1>
         <p class="cs-gate__text">Turn on your creator account to upload media, publish posts, and schedule your content.</p>
-        <a href="/account/settings" class="btn btn-primary">Go to settings</a>
+        <a href="/account/settings" class="btn btn-primary">Go to Settings</a>
     </div>
 <?php else: ?>
 
@@ -72,7 +72,7 @@
                     <option value="gif">GIFs</option>
                 </select>
                 <select id="csFilterCollection" class="form-select cs-filter" aria-label="Filter by collection">
-                    <option value="">All collections</option>
+                    <option value="">All Collections</option>
                 </select>
                 <?php if (!empty($this->influencers['all'])): ?>
                 <select id="csFilterInfluencer" class="form-select cs-filter" aria-label="Filter by influencer">
@@ -100,7 +100,7 @@
                 <div class="cs-error" id="csLibError" hidden>
                     <i class="fa-solid fa-circle-exclamation"></i>
                     <p>We couldn't load your library.</p>
-                    <button type="button" class="btn btn-outline-secondary" id="csLibRetry">Try again</button>
+                    <button type="button" class="btn btn-outline-secondary" id="csLibRetry">Try Again</button>
                 </div>
 
                 <div class="cs-empty" id="csLibEmpty" hidden>
@@ -132,13 +132,13 @@
             <div class="cs-error" id="csPostsError" hidden>
                 <i class="fa-solid fa-circle-exclamation"></i>
                 <p>We couldn't load your posts.</p>
-                <button type="button" class="btn btn-outline-secondary" id="csPostsRetry">Try again</button>
+                <button type="button" class="btn btn-outline-secondary" id="csPostsRetry">Try Again</button>
             </div>
             <div class="cs-empty" id="csPostsEmpty" hidden>
                 <i class="fa-solid fa-rectangle-list cs-empty__icon"></i>
-                <h2 class="cs-empty__title">No posts yet</h2>
+                <h2 class="cs-empty__title">No Posts Yet</h2>
                 <p class="cs-empty__text">Create your first post — publish it now, schedule it, or save a draft.</p>
-                <button type="button" class="btn btn-primary" id="csPostsEmptyNew"><i class="fa-solid fa-plus"></i> New post</button>
+                <button type="button" class="btn btn-primary" id="csPostsEmptyNew"><i class="fa-solid fa-plus"></i> New Post</button>
             </div>
             <div class="cs-posts" id="csPostsList" hidden></div>
         </div>
@@ -170,14 +170,14 @@
                 <div class="cs-collections" id="csCollections"></div>
                 <div class="cs-empty" id="csColEmpty" hidden>
                     <i class="fa-solid fa-folder-open cs-empty__icon"></i>
-                    <h2 class="cs-empty__title">No collections yet</h2>
+                    <h2 class="cs-empty__title">No Collections Yet</h2>
                     <p class="cs-empty__text">Group related files so they're easy to find when you post. Use “Create collection” up top to make your first one.</p>
                 </div>
             </div>
             <!-- one collection's contents (shown after clicking a collection) -->
             <div id="csColDetail" hidden>
                 <div class="cs-coldetail__head">
-                    <button type="button" class="btn btn-link cs-coldetail__back" id="csColBack"><i class="fa-solid fa-arrow-left"></i> All collections</button>
+                    <button type="button" class="btn btn-link cs-coldetail__back" id="csColBack"><i class="fa-solid fa-arrow-left"></i> All Collections</button>
                     <div class="cs-coldetail__title">
                         <h2 class="cs-coldetail__name" id="csColName"></h2>
                         <span class="cs-coldetail__count" id="csColCountLbl"></span>
@@ -202,13 +202,13 @@
             <div class="cs-error" id="csSchedError" hidden>
                 <i class="fa-solid fa-circle-exclamation"></i>
                 <p>We couldn't load your automations.</p>
-                <button type="button" class="btn btn-outline-secondary" id="csSchedRetry">Try again</button>
+                <button type="button" class="btn btn-outline-secondary" id="csSchedRetry">Try Again</button>
             </div>
             <div class="cs-empty" id="csSchedEmpty" hidden>
                 <i class="fa-solid fa-robot cs-empty__icon"></i>
-                <h2 class="cs-empty__title">No automations yet</h2>
+                <h2 class="cs-empty__title">No Automations Yet</h2>
                 <p class="cs-empty__text">Set one up and the Studio will generate on-brand content and publish it on your schedule, even while you're away.</p>
-                <button type="button" class="btn btn-primary" id="csSchedEmptyNew"><i class="fa-solid fa-plus"></i> New automation</button>
+                <button type="button" class="btn btn-primary" id="csSchedEmptyNew"><i class="fa-solid fa-plus"></i> New Automation</button>
             </div>
             <div class="cs-sched" id="csSchedList" hidden></div>
         </div>
@@ -276,9 +276,9 @@
         <div class="modal-content cs-pe__surface">
             <header class="cs-pe__header">
                 <div class="cs-pe__heading">
-                    <span class="cs-pe__eyebrow" id="csPeEyebrow">New post</span>
+                    <span class="cs-pe__eyebrow" id="csPeEyebrow">New Post</span>
                     <div class="cs-pe__titlerow">
-                        <h2 class="cs-pe__title" id="csCompTitle">Create post</h2>
+                        <h2 class="cs-pe__title" id="csCompTitle">Create Post</h2>
                         <span class="cs-pe__status" id="csPeStatus"><span class="cs-pe__statusdot" aria-hidden="true"></span><span id="csPeStatusText">Draft</span></span>
                     </div>
                 </div>
@@ -428,7 +428,7 @@
             <footer class="cs-pe__footer">
                 <span class="cs-pe__savestate" id="csCompSave" aria-live="polite"></span>
                 <div class="cs-pe__actions">
-                    <button type="button" class="btn cs-pe__btn cs-pe__btn--ghost" id="csPeSecondary">Save draft</button>
+                    <button type="button" class="btn cs-pe__btn cs-pe__btn--ghost" id="csPeSecondary">Save Draft</button>
                     <button type="button" class="btn btn-primary cs-pe__btn" id="csPePrimary">Continue</button>
                 </div>
             </footer>
@@ -453,7 +453,7 @@
             <div class="modal-footer">
                 <span class="me-auto text-body-secondary"><strong id="csPickerCount">0</strong> selected</span>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="csPickerAdd">Add to post</button>
+                <button type="button" class="btn btn-primary" id="csPickerAdd">Add to Post</button>
             </div>
         </div>
     </div>
@@ -498,7 +498,7 @@
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
-                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a post</button>
+                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
             </div>
         </div>
     </div>
@@ -512,7 +512,7 @@
                 <div class="cs-ae__heading">
                     <span class="cs-ae__eyebrow" id="csSchedEyebrow">Automation</span>
                     <div class="cs-ae__titlerow">
-                        <h2 class="cs-ae__title" id="csSchedModalTitle">New automation</h2>
+                        <h2 class="cs-ae__title" id="csSchedModalTitle">New Automation</h2>
                         <span class="cs-ae__status" id="csSchedStatus" hidden><span class="cs-ae__statusdot" aria-hidden="true"></span><span id="csSchedStatusText">Active</span></span>
                     </div>
                 </div>
@@ -707,7 +707,7 @@
                 <button type="button" class="cs-ae__delete" id="csSchedDelete" hidden>Delete automation</button>
                 <div class="cs-ae__actions">
                     <button type="button" class="btn cs-ae__btn cs-ae__btn--ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary cs-ae__btn" id="csSchedSave">Save changes</button>
+                    <button type="button" class="btn btn-primary cs-ae__btn" id="csSchedSave">Save Changes</button>
                 </div>
             </footer>
         </div>

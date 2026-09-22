@@ -13,13 +13,13 @@ $services = $this->services;
             <h1 class="sv__title">Services</h1>
             <p class="sv__sub">Sell consulting, coaching, sessions, or custom work. The platform handles the listing and payment — you provide an external scheduling link (Calendly, Acuity…) and delivery details, revealed to buyers after purchase.</p>
         </div>
-        <button type="button" class="sv-btn sv-btn--primary" id="svCreate"><i class="fa-solid fa-plus"></i> Create service</button>
+        <button type="button" class="sv-btn sv-btn--primary" id="svCreate"><i class="fa-solid fa-plus"></i> Create Service</button>
     </header>
 
     <?php if (empty($services)): ?>
     <div class="sv-empty">
         <span class="sv-empty__ic"><i class="fa-regular fa-handshake"></i></span>
-        <h2 class="sv-empty__t">No services yet</h2>
+        <h2 class="sv-empty__t">No Services Yet</h2>
         <p class="sv-empty__x">Create your first service — a consult, coaching session, design package, or review — and sell it from your profile.</p>
     </div>
     <?php else: ?>
@@ -98,7 +98,7 @@ $services = $this->services;
             </div>
             <div class="modal-footer">
                 <button type="button" class="sv-btn" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="sv-btn sv-btn--primary" id="sv_save">Save service</button>
+                <button type="button" class="sv-btn sv-btn--primary" id="sv_save">Save Service</button>
             </div>
         </div>
     </div>

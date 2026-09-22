@@ -8,7 +8,7 @@
     <?php if (empty($this->purchases)): ?>
     <div class="pur__empty">
         <i class="fa-solid fa-bag-shopping pur__empty-icon"></i>
-        <p class="pur__empty-title">No purchases yet</p>
+        <p class="pur__empty-title">No Purchases Yet</p>
         <p class="pur__empty-text">Unlock a pay-per-view post, a bundle or a message and it&rsquo;ll show up here.</p>
     </div>
     <?php else: ?>

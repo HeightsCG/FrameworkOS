@@ -29,7 +29,7 @@ $owner_name = $owner_name !== '' ? $owner_name : ('@' . ($owner['u_name'] ?? '')
             <div class="team__seats-meter"><div class="team__seats-fill" style="width:<?php echo $unlimited ? 12 : min(100, round($used / max(1, $limit) * 100)); ?>%"></div></div>
             <span class="team__seats-label"><b><?php echo $used; ?></b><?php echo $unlimited ? ' seats used · unlimited' : (' of ' . $limit . ' seat' . ($limit === 1 ? '' : 's') . ' used'); ?></span>
         </div>
-        <button type="button" class="team-btn team-btn--primary" id="teamInviteBtn"<?php echo $full ? ' disabled title="All seats in use — upgrade your plan for more."' : ''; ?>><i class="fa-solid fa-user-plus"></i> Invite member</button>
+        <button type="button" class="team-btn team-btn--primary" id="teamInviteBtn"<?php echo $full ? ' disabled title="All seats in use — upgrade your plan for more."' : ''; ?>><i class="fa-solid fa-user-plus"></i> Invite Member</button>
     </div>
 
     <?php if ($full): ?>

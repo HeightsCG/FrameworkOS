@@ -255,3 +255,6 @@ body.has-setup-widget .app-content{ padding-bottom:104px; }
     .setup-widget__chev{ display:none; }
 }
 
+
+/* Consistency (2026-09-22): Bootstrap's default 6px corners never show in the app. Controls are 2px, boxes use --r-sm. */
+.app-shell .form-control, .app-shell .form-select, .app-shell .input-group-text, .app-shell .btn{ border-radius:2px; }

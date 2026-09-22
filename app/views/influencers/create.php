@@ -4,7 +4,7 @@
     <header class="inf-head">
         <div>
             <a href="/influencers" class="inf-back"><i class="fa-solid fa-arrow-left"></i> Your Influencers</a>
-            <h1 class="inf-head__title" id="inf_wiz_title"><?php echo $infl ? $e($infl['name']) : 'New influencer'; ?></h1>
+            <h1 class="inf-head__title" id="inf_wiz_title"><?php echo $infl ? $e($infl['name']) : 'New Influencer'; ?></h1>
         </div>
         <div class="inf-head__actions" id="inf_wiz_actions"></div>
     </header>

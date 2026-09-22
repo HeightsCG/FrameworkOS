@@ -26,7 +26,7 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
 <?php if (empty($audience)): ?>
     <div class="aud__empty">
         <span class="aud__empty-icon"><i class="fa-solid fa-users"></i></span>
-        <h2 class="aud__empty-title">No audience yet</h2>
+        <h2 class="aud__empty-title">No Audience Yet</h2>
         <p class="aud__empty-text">When people follow you, subscribe, or buy your content, they'll show up here — ready to tag, note, and message.</p>
     </div>
 <?php else: ?>
@@ -114,7 +114,7 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                     <div class="aud-field">
                         <label class="aud-field__label">Private note</label>
                         <textarea class="aud-note" placeholder="Only you can see this — e.g. VIP, met at meetup, prefers Orlando tips" maxlength="2000"><?php echo $e($f['note']); ?></textarea>
-                        <button type="button" class="aud-btn aud-btn--save" data-note-save>Save note</button>
+                        <button type="button" class="aud-btn aud-btn--save" data-note-save>Save Note</button>
                     </div>
                 </div>
             </div>

@@ -75,7 +75,7 @@
                 </div>
 
                 <div class="acct-card">
-                    <h3 class="acct-card__title">Profile details</h3>
+                    <h3 class="acct-card__title">Profile Details</h3>
                     <div class="acct-grid">
                         <div class="form-floating">
                             <input type="text" class="form-control" id="first_name" value="<?php echo htmlspecialchars((string) $this->user['first_name'], ENT_QUOTES, 'UTF-8'); ?>">
@@ -109,7 +109,7 @@
 
                 <div class="acct-danger">
                     <div class="acct-danger__info">
-                        <span class="acct-danger__title">Delete account</span>
+                        <span class="acct-danger__title">Delete Account</span>
                         <span class="acct-danger__desc">This is irreversible and permanently deletes your account and all associated data.</span>
                     </div>
                     <button type="button" class="btn btn-danger" id="delete_account">Delete Account</button>
@@ -216,28 +216,28 @@
                         <?php else: ?>
                             <span class="cprofile__verify-ic"><i class="fa-solid fa-shield-halved"></i></span>
                             <div class="cprofile__verify-txt"><strong>Get verified</strong><span>Add a verified badge so fans know it's really you.</span></div>
-                            <button type="button" class="btn btn-primary" id="verify_request_btn">Request verification</button>
+                            <button type="button" class="btn btn-primary" id="verify_request_btn">Request Verification</button>
                         <?php endif; ?>
                     </div>
                     <?php endif; ?>
 
                     <div class="cprofile__field">
-                        <label>Cover image</label>
+                        <label>Cover Image</label>
                         <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
                             <div class="cprofile__cover-actions">
-                                <button type="button" class="btn btn-secondary" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload cover</button>
+                                <button type="button" class="btn btn-secondary" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload Cover</button>
                                 <button type="button" class="btn btn-secondary" id="cover_remove" <?php echo empty($cp['cover_url']) ? 'hidden' : ''; ?>>Remove</button>
                             </div>
                         </div>
                     </div>
 
                     <div class="cprofile__field">
-                        <label>Profile photo</label>
+                        <label>Profile Photo</label>
                         <div class="cprofile__avatar-row">
                             <div class="cprofile__avatar" id="avatar_preview" style="<?php echo !empty($cp['avatar_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
                                 <?php if (empty($cp['avatar_url'])): ?><i class="fa-solid fa-user"></i><?php endif; ?>
                             </div>
-                            <button type="button" class="btn btn-secondary" id="avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload photo</button>
+                            <button type="button" class="btn btn-secondary" id="avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload Photo</button>
                             <button type="button" class="btn btn-secondary" id="avatar_remove" <?php echo empty($cp['avatar_url']) ? 'hidden' : ''; ?>>Remove</button>
                         </div>
                     </div>
@@ -269,7 +269,7 @@
 
                     <div class="cprofile__subhead">
                         <h3 class="cprofile__subtitle">Links</h3>
-                        <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add link</button>
+                        <button type="button" class="btn btn-secondary" id="link_add_btn"><i class="fa-solid fa-plus"></i> Add Link</button>
                     </div>
                     <div class="links-list" id="links_list">
                         <?php foreach ($this->creator_links as $lnk): ?>
@@ -316,7 +316,7 @@
                     <div class="brand-result" id="brand_result" <?php echo (empty($cb['brand_name']) && empty($cb['tagline'])) ? 'hidden' : ''; ?>>
                         <div class="cprofile__grid">
                             <div class="cprofile__field">
-                                <label for="brand_name">Brand name</label>
+                                <label for="brand_name">Brand Name</label>
                                 <input type="text" class="form-control" id="brand_name" maxlength="190" value="<?php echo htmlspecialchars((string) ($cb['brand_name'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                             </div>
                             <div class="cprofile__field">
@@ -398,8 +398,8 @@
 
                 <?php if (!empty($this->can_promo)): ?>
                 <div class="links-head" style="margin-top:2rem;">
-                    <h3 class="links-head__title">Discount codes</h3>
-                    <button type="button" class="btn btn-secondary" id="promo_add_btn"><i class="fa-solid fa-plus"></i> Add code</button>
+                    <h3 class="links-head__title">Discount Codes</h3>
+                    <button type="button" class="btn btn-secondary" id="promo_add_btn"><i class="fa-solid fa-plus"></i> Add Code</button>
                 </div>
                 <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Percent-off codes fans apply at checkout. Toggle to enable; set a redemption cap or expiry.</p>
                 <div class="links-card">
@@ -428,7 +428,7 @@
                 <?php if (!empty($this->can_bundles)): ?>
                 <div class="links-head" style="margin-top:2rem;">
                     <h3 class="links-head__title">Content bundles</h3>
-                    <button type="button" class="btn btn-secondary" id="bundle_add_btn"><i class="fa-solid fa-plus"></i> Add bundle</button>
+                    <button type="button" class="btn btn-secondary" id="bundle_add_btn"><i class="fa-solid fa-plus"></i> Add Bundle</button>
                 </div>
                 <p class="acct-card__desc" style="margin:-.4rem 0 1.1rem;">Sell a group of your Library content (photos &amp; videos) together at one price. Buyers get every item in their Purchases.</p>
                 <div class="links-card">
@@ -483,7 +483,7 @@
                         <div class="sub-row__actions" data-actions>
                             <?php if (!$s_active): ?>
                                 <?php if ($s_free): ?><button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>
-                                <?php else: ?><a class="btn btn-secondary" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Subscribe again</a><?php endif; ?>
+                                <?php else: ?><a class="btn btn-secondary" href="/@<?php echo htmlspecialchars(rawurlencode($s_handle), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Subscribe Again</a><?php endif; ?>
                             <?php elseif ($s_cancel): ?>
                                 <button type="button" class="btn btn-secondary sub-reactivate">Resume</button>
                             <?php else: ?>
@@ -566,7 +566,7 @@
                             </div>
                         </div>
                         <div class="payout-actions">
-                            <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash out</button>
+                            <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash Out</button>
                             <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo $min_credits; ?> credits ($<?php echo number_format($min_credits / 10, 2); ?>) to cash out.</span><?php endif; ?>
                         </div>
                         <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
@@ -685,18 +685,18 @@
                 <div class="inbox-tabs" id="inboxTabs" role="tablist">
                     <button type="button" class="inbox-tabs__tab is-active" data-tab="queue" role="tab">Queue<span class="inbox-tabs__count" id="inboxQueueCount"></span></button>
                     <button type="button" class="inbox-tabs__tab" data-tab="settings" role="tab">Settings</button>
-                    <button type="button" class="inbox-tabs__tab" data-tab="messages" role="tab">Welcome messages</button>
+                    <button type="button" class="inbox-tabs__tab" data-tab="messages" role="tab">Welcome Messages</button>
                 </div>
 
                 <div class="inbox-panel" data-tab="queue">
                 <div class="inbox-block">
                     <div class="inbox-block__head">
-                        <h3 class="inbox-block__title">Waiting for your approval</h3>
+                        <h3 class="inbox-block__title">Waiting for Your Approval</h3>
                     </div>
                     <div id="inboxQueue" class="inbox-queue"><p class="settings__empty">Loading&hellip;</p></div>
                 </div>
                 <div class="inbox-block">
-                    <div class="inbox-block__head"><h3 class="inbox-block__title">Recent activity</h3></div>
+                    <div class="inbox-block__head"><h3 class="inbox-block__title">Recent Activity</h3></div>
                     <div id="inboxLog" class="inbox-log"></div>
                 </div>
                 </div>
@@ -711,7 +711,7 @@
                     </div>
 
                     <div class="cprofile__field">
-                        <label>How replies go out</label>
+                        <label>How Replies Go Out</label>
                         <div class="inbox-radios">
                             <label class="inbox-radio"><input type="radio" name="inbox_mode" value="approve" <?php echo ($is['mode'] !== 'auto') ? 'checked' : ''; ?>><span><strong>Approve first</strong><small>Each draft waits here until you send, edit, or dismiss it.</small></span></label>
                             <label class="inbox-radio"><input type="radio" name="inbox_mode" value="auto" <?php echo ($is['mode'] === 'auto') ? 'checked' : ''; ?>><span><strong>Send automatically</strong><small>Replies go straight to the fan after a short, natural pause.</small></span></label>
@@ -720,7 +720,7 @@
 
                     <div class="inbox-grid">
                         <div class="cprofile__field">
-                            <label for="inboxQuietStart">Quiet hours</label>
+                            <label for="inboxQuietStart">Quiet Hours</label>
                             <div class="inbox-quiet">
                                 <input type="time" class="form-control" id="inboxQuietStart" value="<?php echo htmlspecialchars((string) ($is['quiet_start'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>">
                                 <span class="inbox-quiet__to">to</span>
@@ -729,26 +729,26 @@
                             <span class="cprofile__hint">In your content timezone. Leave both empty for none.</span>
                         </div>
                         <div class="cprofile__field">
-                            <label for="inboxQuietAction">During quiet hours</label>
+                            <label for="inboxQuietAction">During Quiet Hours</label>
                             <select class="form-select" id="inboxQuietAction">
                                 <option value="hold" <?php echo ($is['quiet_action'] !== 'skip') ? 'selected' : ''; ?>>Hold drafts for approval</option>
                                 <option value="skip" <?php echo ($is['quiet_action'] === 'skip') ? 'selected' : ''; ?>>Don't reply at all</option>
                             </select>
                         </div>
                         <div class="cprofile__field">
-                            <label for="inboxMaxConsecutive">Max replies in a row</label>
+                            <label for="inboxMaxConsecutive">Max Replies in a Row</label>
                             <input type="number" class="form-control" id="inboxMaxConsecutive" min="1" max="10" value="<?php echo (int) $is['max_consecutive']; ?>">
                             <span class="cprofile__hint">After this many automated replies without you, the AI pauses for that fan.</span>
                         </div>
                     </div>
 
                     <div class="cprofile__field">
-                        <label for="inboxPersona">How you talk to fans</label>
+                        <label for="inboxPersona">How You Talk to Fans</label>
                         <textarea class="form-control" id="inboxPersona" rows="4" maxlength="2000" placeholder="Short and playful. Use their name. Never use emojis. Sign off with x."><?php echo htmlspecialchars((string) $is['persona'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                         <span class="cprofile__hint">Your Brand Identity voice is used automatically. Add anything specific to DMs here.</span>
                     </div>
                     <div class="cprofile__field">
-                        <label for="inboxAvoid">Topics to avoid</label>
+                        <label for="inboxAvoid">Topics to Avoid</label>
                         <textarea class="form-control" id="inboxAvoid" rows="2" maxlength="2000" placeholder="Politics, my family, where I live"><?php echo htmlspecialchars((string) $is['avoid_topics'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                         <span class="cprofile__hint">Messages about these are held for you instead of answered.</span>
                     </div>
@@ -759,10 +759,10 @@
                     </div>
 
                     <div class="cprofile__field">
-                        <label for="inboxTestText">Try it</label>
+                        <label for="inboxTestText">Try It</label>
                         <div class="inbox-test">
                             <input type="text" class="form-control" id="inboxTestText" maxlength="500" placeholder="hey, loved your last post. what are you up to this weekend?">
-                            <button type="button" class="btn btn-secondary" id="inboxTest" <?php echo $this->claude_ok ? '' : 'disabled'; ?>>Draft a reply</button>
+                            <button type="button" class="btn btn-secondary" id="inboxTest" <?php echo $this->claude_ok ? '' : 'disabled'; ?>>Draft a Reply</button>
                         </div>
                         <div class="inbox-test__out" id="inboxTestOut" hidden></div>
                     </div>
@@ -866,7 +866,7 @@
                     </div>
                 </div>
 
-                <h3 class="integ__group">Social accounts</h3>
+                <h3 class="integ__group">Social Accounts</h3>
                 <?php if (!$this->can_social_post): ?>
                     <div class="settings__upgrade">
                         <i class="fa-solid fa-lock settings__upgrade-icon"></i>
@@ -874,7 +874,7 @@
                             <div class="settings__upgrade-title">Social posting is a premium feature</div>
                             <p class="settings__upgrade-text">Upgrade to a plan that includes social posting to connect your accounts and publish to Instagram, TikTok, LinkedIn and more.</p>
                         </div>
-                        <a href="/account/billing" class="btn btn-primary">View plans</a>
+                        <a href="/account/billing" class="btn btn-primary">View Plans</a>
                     </div>
                 <?php else: ?>
                 <div class="integ">
@@ -914,7 +914,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="link_modal_title">Add link</h5>
+                <h5 class="modal-title" id="link_modal_title">Add Link</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -930,7 +930,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="link_save">Save link</button>
+                <button type="button" class="btn btn-primary" id="link_save">Save Link</button>
             </div>
         </div>
     </div>
@@ -946,7 +946,7 @@
             <div class="modal-body">
                 <input type="hidden" id="plan_id" value="0">
                 <div class="link-field">
-                    <label for="plan_name">Plan name</label>
+                    <label for="plan_name">Plan Name</label>
                     <input type="text" class="form-control" id="plan_name" maxlength="120" placeholder="Supporter">
                 </div>
                 <label class="plan-free-toggle">
@@ -975,7 +975,7 @@
                 </label>
                 <div class="plan-field-row" id="plan_trial_row" hidden>
                     <div class="link-field">
-                        <label for="plan_trial_value">Trial length</label>
+                        <label for="plan_trial_value">Trial Length</label>
                         <input type="number" class="form-control" id="plan_trial_value" min="1" max="365" step="1" value="7">
                     </div>
                     <div class="link-field">
@@ -989,7 +989,7 @@
                 </div>
                 <?php endif; ?>
                 <div class="link-field">
-                    <label for="plan_description">Short description <span class="plan-optional">(optional)</span></label>
+                    <label for="plan_description">Short Description <span class="plan-optional">(optional)</span></label>
                     <input type="text" class="form-control" id="plan_description" maxlength="255" placeholder="Behind-the-scenes access and more">
                 </div>
                 <div class="link-field">
@@ -999,7 +999,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="plan_save">Save plan</button>
+                <button type="button" class="btn btn-primary" id="plan_save">Save Plan</button>
             </div>
         </div>
     </div>
@@ -1009,7 +1009,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="promo_modal_title">Add code</h5>
+                <h5 class="modal-title" id="promo_modal_title">Add Code</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -1024,7 +1024,7 @@
                         <input type="number" class="form-control" id="promo_percent" min="1" max="100" placeholder="20">
                     </div>
                     <div class="link-field">
-                        <label for="promo_applies">Applies to</label>
+                        <label for="promo_applies">Applies To</label>
                         <select class="form-control" id="promo_applies">
                             <option value="all">Subscriptions &amp; PPV</option>
                             <option value="subscription">Subscriptions</option>
@@ -1034,7 +1034,7 @@
                 </div>
                 <div class="plan-field-row">
                     <div class="link-field">
-                        <label for="promo_max">Max redemptions </label>
+                        <label for="promo_max">Max Redemptions </label>
                         <input type="number" class="form-control" id="promo_max" min="1" placeholder="Unlimited">
                         <span class="plan-optional">(blank = unlimited)</span>
                     </div>
@@ -1046,7 +1046,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="promo_save">Save code</button>
+                <button type="button" class="btn btn-primary" id="promo_save">Save Code</button>
             </div>
         </div>
     </div>
@@ -1056,7 +1056,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="bundle_modal_title">Add bundle</h5>
+                <h5 class="modal-title" id="bundle_modal_title">Add Bundle</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -1078,7 +1078,7 @@
                     <textarea class="form-control" id="bundle_description" maxlength="500" rows="2" placeholder="What's inside this bundle"></textarea>
                 </div>
                 <div class="link-field">
-                    <label>Content in this bundle</label>
+                    <label>Content in This Bundle</label>
                     <?php if (empty($this->bundle_media)): ?>
                     <p class="settings__empty" style="margin:0;">Your Library is empty. Add photos or videos in the Content Studio first, then group them here.</p>
                     <?php else: ?>
@@ -1099,7 +1099,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="bundle_save">Save bundle</button>
+                <button type="button" class="btn btn-primary" id="bundle_save">Save Bundle</button>
             </div>
         </div>
     </div>
@@ -1155,7 +1155,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-danger" id="leave_creator_confirm">Delete and stop being a creator</button>
+                <button type="button" class="btn btn-danger" id="leave_creator_confirm">Delete and Stop Being a Creator</button>
             </div>
         </div>
     </div>
@@ -1181,7 +1181,7 @@
 
                 <div class="wallet__ar-body<?php echo $ar_on ? '' : ' is-hidden'; ?>" id="ar_fields">
                     <div class="wallet__ar-field">
-                        <label for="ar_threshold">When my credits drop below</label>
+                        <label for="ar_threshold">When My Credits Drop Below</label>
                         <div class="wallet__ar-input">
                             <input type="number" min="1" step="1" class="form-control" id="ar_threshold" value="<?php echo (int) $ar['threshold'] > 0 ? (int) $ar['threshold'] : 100; ?>">
                             <span class="wallet__ar-unit">Credits</span>
@@ -1366,7 +1366,7 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-link" id="email_resend_btn">Resend code</button>
+                <button type="button" class="btn btn-link" id="email_resend_btn">Resend Code</button>
                 <button type="button" class="btn btn-primary" id="email_confirm_btn">Verify &amp; enable</button>
             </div>
         </div>
@@ -1407,7 +1407,7 @@
                 <div class="mfa-codes" id="backup_codes_list"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="backup_copy_btn">Copy codes</button>
+                <button type="button" class="btn btn-secondary" id="backup_copy_btn">Copy Codes</button>
                 <button type="button" class="btn btn-primary" data-bs-dismiss="modal">I've saved them</button>
             </div>
         </div>
@@ -1531,12 +1531,12 @@ $(function () {
     $('#verify_request_btn').on('click', function () {
         if (!window.Swal) { return; }
         Swal.fire({
-            title: 'Request verification',
+            title: 'Request Verification',
             width: 460,
             html: '<div class="rpt-swal">'
-                + '<label for="vfName">Legal name</label>'
+                + '<label for="vfName">Legal Name</label>'
                 + '<input id="vfName" type="text" placeholder="Your full legal name" maxlength="190">'
-                + '<label for="vfNote">Anything that helps us verify you <span style="font-weight:400;text-transform:none;color:#9a97a8;">(optional)</span></label>'
+                + '<label for="vfNote">Anything That Helps Us Verify You <span style="font-weight:400;text-transform:none;color:#9a97a8;">(optional)</span></label>'
                 + '<textarea id="vfNote" rows="3" maxlength="2000" placeholder="Links, socials, or context."></textarea>'
                 + '</div>',
             focusConfirm: false, showCancelButton: true, reverseButtons: true,
@@ -2150,7 +2150,7 @@ $(function () {
         $('#link_id').val('0');
         $('#link_title').val('');
         $('#link_url').val('');
-        $('#link_modal_title').text('Add link');
+        $('#link_modal_title').text('Add Link');
         $('#link_modal').modal('show');
     });
 
@@ -2253,7 +2253,7 @@ $(function () {
         $('#promo_id').val(0);
         $('#promo_code').val(''); $('#promo_percent').val(''); $('#promo_applies').val('all');
         $('#promo_max').val(''); $('#promo_expires').val('');
-        $('#promo_modal_title').text('Add code');
+        $('#promo_modal_title').text('Add Code');
         $('#promo_modal').modal('show');
     });
     $('#promos_list').on('click', '.promo-edit', function () {
@@ -2339,7 +2339,7 @@ $(function () {
         $('#bundle_id').val(0);
         $('#bundle_name').val(''); $('#bundle_price').val(''); $('#bundle_description').val('');
         bundleSetAssets([]); bundleUpdateHints();
-        $('#bundle_modal_title').text('Add bundle');
+        $('#bundle_modal_title').text('Add Bundle');
         $('#bundle_modal').modal('show');
     });
     $('#bundles_list').on('click', '.bundle-edit', function () {
@@ -2482,7 +2482,7 @@ $(function () {
             status = 'Canceled';
             action = isFree
                 ? '<button type="button" class="btn btn-secondary sub-reactivate">Rejoin</button>'
-                : '<a class="btn btn-secondary" href="/@' + handle + '" target="_blank" rel="noopener">Subscribe again</a>';
+                : '<a class="btn btn-secondary" href="/@' + handle + '" target="_blank" rel="noopener">Subscribe Again</a>';
         } else if (state === 'canceling') {
             status = period ? 'Ends ' + period : 'Ending';
             action = '<button type="button" class="btn btn-secondary sub-reactivate">Resume</button>';
@@ -2549,7 +2549,7 @@ $(function () {
             html: '<div class="rpt-swal">'
                 + '<label for="bsHandle">Handle</label>'
                 + '<input id="bsHandle" type="text" placeholder="yourname.bsky.social" maxlength="253" autocapitalize="none" autocorrect="off" spellcheck="false">'
-                + '<label for="bsAppPw">App password</label>'
+                + '<label for="bsAppPw">App Password</label>'
                 + '<input id="bsAppPw" type="password" placeholder="xxxx-xxxx-xxxx-xxxx" maxlength="64" autocomplete="off">'
                 + '<p style="margin:.5rem 0 0;font-size:.78rem;color:#9a97a8;">Create one in Bluesky under Settings &rarr; Privacy and security &rarr; App passwords. It is not your account password.</p>'
                 + '</div>',

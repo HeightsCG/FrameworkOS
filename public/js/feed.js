@@ -244,7 +244,7 @@
             h += '</div>';
         } else if (p.audience === 'ppv') {
             h += locked_block(p, 'Pay-per-view post',
-                (LOGGED_IN ? ('Unlock — ' + p.ppv_price_credits + ' credits · $' + p.ppv_price_dollars) : 'Log in to unlock'), 'ppv');
+                (LOGGED_IN ? ('Unlock — ' + p.ppv_price_credits + ' credits · $' + p.ppv_price_dollars) : 'Log in to Unlock'), 'ppv');
             if (p.caption) { h += '<div class="feed-plb__body"><p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
         } else {
             h += locked_block(p, 'Subscribers-only post',
@@ -284,7 +284,7 @@
         var wrap = document.getElementById('feed_lb_ppv_action');
         if (!wrap) { return; }
         if (!LOGGED_IN) {
-            wrap.innerHTML = '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Log in to unlock</button>';
+            wrap.innerHTML = '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Log in to Unlock</button>';
             document.getElementById('feed_lb_ppv').onclick = function () { window.location = '/'; };
             return;
         }
@@ -299,7 +299,7 @@
             var need = price - VIEWER_CREDITS;
             wrap.innerHTML = bal +
                 '<div class="feed-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
-                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add credits</button>';
+                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add Credits</button>';
             document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings'; };
         }
     }

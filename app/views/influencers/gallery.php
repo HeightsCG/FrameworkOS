@@ -32,7 +32,7 @@
     <div class="inf-state-loading" id="inf_gal_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading her gallery…</div>
     <div class="inf-empty" id="inf_gal_empty" hidden>
         <span class="inf-empty__ic"><i class="fa-regular fa-images"></i></span>
-        <h2 class="inf-empty__title">Nothing here yet</h2>
+        <h2 class="inf-empty__title">Nothing Here Yet</h2>
         <p class="inf-empty__text">Generate an image or a video of her and it lands here.</p>
         <a href="/influencers/images/<?php echo (int) $infl['id']; ?>" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a>
     </div>
@@ -46,7 +46,7 @@
         <div class="inf-lightbox__bar">
             <span class="inf-lightbox__meta" id="inf_lightbox_meta"></span>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_download"><i class="fa-solid fa-download"></i> Download</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_post"><i class="fa-solid fa-feather-pointed"></i> Use in a post</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_message"><i class="fa-solid fa-comment-dots"></i> Send in a Message</button>
             <button type="button" class="btn btn-secondary btn-sm inf-btn--danger" id="inf_lightbox_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
         </div>

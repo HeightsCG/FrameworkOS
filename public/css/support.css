@@ -5,17 +5,17 @@
 .sup__title{ margin:0; font-size:1.7rem; font-weight:700; letter-spacing:-.01em; color:#1c1830; }
 .sup__h2{ margin:2rem 0 .8rem; font-size:1.05rem; font-weight:700; color:#1c1830; }
 
-.sup-btn{ display:inline-flex; align-items:center; gap:.45rem; border:1px solid #e2e0ea; border-radius:9px; background:#fff; color:#4b4757; font-size:.86rem; font-weight:600; cursor:pointer; padding:.5rem .9rem; transition:border-color .12s,background .12s,color .12s; }
+.sup-btn{ display:inline-flex; align-items:center; gap:.45rem; border:1px solid #e2e0ea; border-radius:2px; background:#fff; color:#4b4757; font-size:.86rem; font-weight:600; cursor:pointer; padding:.5rem .9rem; transition:border-color .12s,background .12s,color .12s; }
 .sup-btn:hover{ border-color:#c9c5da; color:#1c1830; }
 .sup-btn:disabled{ opacity:.5; cursor:default; }
 .sup-btn--primary{ background:var(--violet,#5b4be0); border-color:var(--violet,#5b4be0); color:#fff; }
 .sup-btn--primary:hover{ background:var(--violet7,#4636c4); border-color:var(--violet7,#4636c4); color:#fff; }
 
-.sup-empty{ text-align:center; padding:4rem 1.5rem; background:#fff; border:1px solid #e7e5f0; border-radius:14px; }
+.sup-empty{ text-align:center; padding:4rem 1.5rem; background:#fff; border:1px solid #e7e5f0; border-radius:var(--r-sm); }
 .sup-empty__ic{ display:inline-flex; width:56px; height:56px; align-items:center; justify-content:center; border-radius:50%; background:#f2f0f9; color:#8b83c4; font-size:1.35rem; }
 .sup-empty__t{ margin:1.1rem 0 0; font-size:1.15rem; font-weight:700; color:#1c1830; }
 
-.sup-table{ --sup-cols:minmax(200px,1.6fr) minmax(140px,1fr) 170px 150px; background:#fff; border:1px solid #e7e5f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); }
+.sup-table{ --sup-cols:minmax(200px,1.6fr) minmax(140px,1fr) 170px 150px; background:#fff; border:1px solid #e7e5f0; border-radius:var(--r-sm); overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); }
 .sup-table__head{ display:grid; grid-template-columns:var(--sup-cols); gap:1rem; padding:.6rem 1.1rem; background:#faf9fc; border-bottom:1px solid #f0eef6; }
 .sup-table__head span{ font-size:.66rem; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:#a6a3b3; }
 .sup-table__body{ max-height:calc(100vh - 320px); overflow-y:auto; }
@@ -32,7 +32,7 @@
 .sup-status--answered{ color:#1f8a54; } .sup-status--answered .sup-status__dot{ background:#1f8a54; }
 .sup-status--closed{ color:#8a8797; } .sup-status--closed .sup-status__dot{ background:#c9c5da; }
 
-.sup-faq{ background:#fff; border:1px solid #e7e5f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); }
+.sup-faq{ background:#fff; border:1px solid #e7e5f0; border-radius:var(--r-sm); overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); }
 .sup-faq__item{ border-bottom:1px solid #f2f1f7; }
 .sup-faq__item:last-child{ border-bottom:0; }
 .sup-faq__item summary{ list-style:none; display:flex; justify-content:space-between; align-items:center; gap:1rem; padding:.85rem 1.1rem; font-size:.9rem; font-weight:600; color:#1c1830; cursor:pointer; }
@@ -47,7 +47,7 @@
 /* Modal form (same as Services) */
 .sup-field{ display:flex; flex-direction:column; gap:.35rem; margin-bottom:.9rem; }
 .sup-field label{ font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:#8a8797; }
-#supportModal .form-control{ border-radius:8px; border:1px solid #e2e0ea; font-size:.9rem; }
+#supportModal .form-control{ border-radius:2px; border:1px solid #e2e0ea; font-size:.9rem; }
 
 .sr-only{ position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 
@@ -71,7 +71,7 @@
 .sup-stab:hover{ color:#1c1830; }
 .sup-stab.is-on{ color:var(--violet7,#4636c4); }
 .sup-stab.is-on::after{ content:""; position:absolute; left:.5rem; right:.5rem; bottom:-1px; height:2px; border-radius:2px; background:var(--violet,#5b4be0); }
-.sup-stab:focus-visible{ outline:2px solid var(--violet,#5b4be0); outline-offset:-2px; border-radius:6px; }
+.sup-stab:focus-visible{ outline:2px solid var(--violet,#5b4be0); outline-offset:-2px; border-radius:2px; }
 .sup-others{ list-style:none; margin:0; padding:0; }
 .sup-others a{ display:flex; justify-content:space-between; align-items:center; gap:.8rem; padding:.7rem 0; border-top:1px solid #f2f1f7; font-size:.88rem; font-weight:600; color:#1c1830; text-decoration:none; }
 .sup-others li:first-child a{ border-top:0; }

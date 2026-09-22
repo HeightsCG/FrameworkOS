@@ -26,7 +26,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         <i class="fa-solid fa-chart-line dash__gate-icon"></i>
         <h2 class="dash__gate-title">Your creator dashboard lives here</h2>
         <p class="dash__gate-text">Turn on your creator account to publish content, earn from subscriptions and pay-per-view, and track how it's performing.</p>
-        <a href="/account/settings?section=creator" class="btn btn-primary">Become a creator</a>
+        <a href="/account/settings?section=creator" class="btn btn-primary">Become a Creator</a>
     </div>
 <?php else:
     $s   = $this->stats;
@@ -123,7 +123,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
     <section class="dash__tab-panel is-active" data-panel="revenue">
         <div class="dash__panel">
             <div class="dash__panel-head">
-                <div><h2 class="dash__panel-title">Revenue by offering</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?> · net of platform fees</span></div>
+                <div><h2 class="dash__panel-title">Revenue by Offering</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?> · net of platform fees</span></div>
                 <div class="dash__chart-total"><strong><?php echo $fmt_money($rev['total_cents']); ?></strong> total</div>
             </div>
             <?php if ((int) $rev['total_cents'] === 0): ?>
@@ -150,7 +150,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         </div>
 
         <div class="dash__panel">
-            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent sales</h2><span class="dash__panel-sub">all offerings</span></div><a class="dash__export" href="/dashboard/export"><i class="fa-solid fa-download"></i> Export CSV</a></div>
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent Sales</h2><span class="dash__panel-sub">all offerings</span></div><a class="dash__export" href="/dashboard/export"><i class="fa-solid fa-download"></i> Export CSV</a></div>
             <?php if (empty($this->recent_sales)): ?>
                 <div class="dash__empty">No sales yet.</div>
             <?php else: ?>
@@ -192,7 +192,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
     ?>
     <section class="dash__tab-panel" data-panel="content">
         <div class="dash__panel">
-            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Content performance</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div></div>
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Content Performance</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div></div>
             <div class="dash__stats">
                 <?php foreach ($content_stats as $st): ?>
                 <div class="dash__stat">
@@ -206,7 +206,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
         <div class="dash__panel">
             <div class="dash__panel-head">
-                <div><h2 class="dash__panel-title">All posts</h2><span class="dash__panel-sub"><?php echo $fmt_num(count($pt)); ?> published or scheduled · views are <?php echo htmlspecialchars(strtolower($range_label), ENT_QUOTES, 'UTF-8'); ?>, the rest all-time · Social is the cross-posted copies</span></div>
+                <div><h2 class="dash__panel-title">All Posts</h2><span class="dash__panel-sub"><?php echo $fmt_num(count($pt)); ?> published or scheduled · views are <?php echo htmlspecialchars(strtolower($range_label), ENT_QUOTES, 'UTF-8'); ?>, the rest all-time · Social is the cross-posted copies</span></div>
             </div>
             <?php if (empty($pt)): ?>
             <div class="dash__empty">No published posts yet. Publish from the Content Studio and every post shows up here with its views, engagement, unlocks, revenue, and where it was shared.</div>
@@ -287,7 +287,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                 </div>
                 <?php endif; ?>
                 <?php if (!empty($ss['metrics'])): ?>
-                <div class="dash__panel-head dash__panel-head--inner"><div><h3 class="dash__panel-title dash__panel-title--sm">Engagement on shared copies</h3><span class="dash__panel-sub">all-time · synced from each platform</span></div></div>
+                <div class="dash__panel-head dash__panel-head--inner"><div><h3 class="dash__panel-title dash__panel-title--sm">Engagement on Shared Copies</h3><span class="dash__panel-sub">all-time · synced from each platform</span></div></div>
                 <div class="dash__table-wrap">
                 <table class="dash__table dash__table--compact">
                     <thead><tr><th>Platform</th><th>Posts</th><th>Views</th><th>Likes</th><th>Comments</th><th>Shares</th></tr></thead>
@@ -308,7 +308,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                 <?php endif; ?>
             </div>
             <div class="dash__panel">
-                <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent shares</h2><span class="dash__panel-sub">social accounts</span></div></div>
+                <div class="dash__panel-head"><div><h2 class="dash__panel-title">Recent Shares</h2><span class="dash__panel-sub">social accounts</span></div></div>
                 <?php if (empty($ss['recent'])): ?>
                 <div class="dash__empty">No shares yet.</div>
                 <?php else: ?>
@@ -340,7 +340,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
             </div>
             <div class="dash__panel dash__chart">
                 <div class="dash__panel-head">
-                    <div><h2 class="dash__panel-title">Follower growth</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, "UTF-8"); ?></span></div>
+                    <div><h2 class="dash__panel-title">Follower Growth</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, "UTF-8"); ?></span></div>
                     <div class="dash__chart-total"><strong><?php echo ((int) $cur['followers'] > 0 ? '+' : '') . $fmt_num($cur['followers']); ?></strong> new</div>
                 </div>
                 <?php $render_bars($follower_series, false); ?>
@@ -375,7 +375,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
         <?php $lc = $this->link_clicks; ?>
         <div class="dash__panel">
-            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Link clicks</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div><div class="dash__chart-total"><strong><?php echo $fmt_num($lc['total']); ?></strong> clicks</div></div>
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Link Clicks</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div><div class="dash__chart-total"><strong><?php echo $fmt_num($lc['total']); ?></strong> clicks</div></div>
             <?php if (empty($lc['top'])): ?>
                 <div class="dash__empty">No link clicks in this period. Clicks on the links on your profile are tracked here.</div>
             <?php else: ?>
@@ -449,7 +449,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         </div>
 
         <div class="dash__panel">
-            <div class="dash__panel-head"><h2 class="dash__panel-title">Top content</h2><span class="dash__panel-sub">by revenue</span></div>
+            <div class="dash__panel-head"><h2 class="dash__panel-title">Top Content</h2><span class="dash__panel-sub">by revenue</span></div>
             <?php if (empty($this->top_posts)): ?>
                 <div class="dash__empty">No published posts yet.</div>
             <?php else: ?>
@@ -474,7 +474,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         $mix_has = false; foreach ($cm as $mrow) { if ((int) $mrow['posts'] > 0) { $mix_has = true; break; } }
         ?>
         <div class="dash__panel">
-            <div class="dash__panel-head"><h2 class="dash__panel-title">Content mix</h2><span class="dash__panel-sub">by audience type</span></div>
+            <div class="dash__panel-head"><h2 class="dash__panel-title">Content Mix</h2><span class="dash__panel-sub">by audience type</span></div>
             <?php if (!$mix_has): ?>
             <div class="dash__empty">No published content yet.</div>
             <?php else: ?>

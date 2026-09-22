@@ -927,10 +927,10 @@ jQuery(function ($) {
     function peUpdateFooter() {
         var s = composer.section || 'content', pub = composer.state === 'published';
         var $sec = $('#csPeSecondary'), $pri = $('#csPePrimary');
-        if (s === 'content') { $sec.prop('hidden', pub).text('Save draft'); } else { $sec.prop('hidden', false).text('Back'); }
+        if (s === 'content') { $sec.prop('hidden', pub).text('Save Draft'); } else { $sec.prop('hidden', false).text('Back'); }
         if (s !== 'publish') { $pri.text('Continue'); }
-        else if (pub) { $pri.text('Save changes'); }
-        else { $pri.text(composer.mode === 'schedule' ? 'Schedule post' : (composer.mode === 'draft' ? 'Save draft' : 'Publish now')); }
+        else if (pub) { $pri.text('Save Changes'); }
+        else { $pri.text(composer.mode === 'schedule' ? 'Schedule post' : (composer.mode === 'draft' ? 'Save Draft' : 'Publish now')); }
     }
     $('#csPeSecondary').on('click', function () {
         var i = PE_SECTIONS.indexOf(composer.section || 'content');
@@ -1089,8 +1089,8 @@ jQuery(function ($) {
 
     function renderComposer() {
         var pub = composer.state === 'published', sch = composer.state === 'scheduled';
-        $('#csPeEyebrow').text(pub || sch || composer.id ? 'Edit post' : 'New post');
-        $('#csCompTitle').text(pub ? 'Edit post' : 'Create post');
+        $('#csPeEyebrow').text(pub || sch || composer.id ? 'Edit post' : 'New Post');
+        $('#csCompTitle').text(pub ? 'Edit post' : 'Create Post');
         $('#csPeStatusText').text(pub ? 'Published' : (sch ? 'Scheduled' : 'Draft'));
         $('#csPeStatus').toggleClass('is-published', pub).toggleClass('is-scheduled', sch);
         $('#csCompCaption').val(composer.caption);
@@ -1444,7 +1444,7 @@ jQuery(function ($) {
             title: 'Discard changes?',
             bodyHtml: '<p class="text-body-secondary mb-0">You have changes since you opened this post. Discard them, or save the post as a draft.</p>',
             okText: 'Discard', danger: true,
-            extra: { text: 'Save draft', onClick: function () { composerModal.show(); runAction('draft'); } },
+            extra: { text: 'Save Draft', onClick: function () { composerModal.show(); runAction('draft'); } },
             onOk: function () {
                 clearTimeout(composer.saveTimer); composer.dirty = false;
                 if (composer.id && snap && !snap.id) {
@@ -1465,7 +1465,7 @@ jQuery(function ($) {
     $('#csComposer').on('keydown', function (e) { if (e.key === 'Escape' && !$('#csPicker').hasClass('show') && !$('#csModal').hasClass('show')) { e.preventDefault(); peRequestClose(); } });
     function afterComposer() { loadLibrary(); loadPosts(); loadCalendar(); }
 
-    // Hand-off from the Influencers pages ("Use in a post"): open a fresh composer with that asset attached.
+    // Hand-off from the Influencers pages ("Use in a Post"): open a fresh composer with that asset attached.
     (function () {
         var handoff = '';
         try { handoff = sessionStorage.getItem('cs_open_asset') || ''; sessionStorage.removeItem('cs_open_asset'); } catch (e) {}
@@ -1528,7 +1528,7 @@ jQuery(function ($) {
                 $e.find('.cs-empty__text').text('Try a different search or status.');
                 $('#csPostsEmptyNew').prop('hidden', true);
             } else {
-                $e.find('.cs-empty__title').text('No posts yet');
+                $e.find('.cs-empty__title').text('No Posts Yet');
                 $e.find('.cs-empty__text').text('Create your first post — publish it now, schedule it, or save a draft.');
                 $('#csPostsEmptyNew').prop('hidden', false);
             }
@@ -1927,7 +1927,7 @@ jQuery(function ($) {
     function schedInfluencerName(id) { var inf = ((CFG.influencers && CFG.influencers.ready) || []).filter(function (i) { return String(i.id) === String(id); })[0]; return inf ? inf.name : ''; }
     function updateSchedTitle() {
         var name = ($('#csSchedName').val() || '').trim(), kind = $('#csSchedKind').val() || 'post';
-        $('#csSchedModalTitle').text(name !== '' ? name : (kind === 'message' ? 'New scheduled message' : 'New automation'));
+        $('#csSchedModalTitle').text(name !== '' ? name : (kind === 'message' ? 'New scheduled message' : 'New Automation'));
     }
     $('#csSchedName').on('input', function () { updateSchedTitle(); schedClearError('name'); });
 
@@ -2064,7 +2064,7 @@ jQuery(function ($) {
         $('#csSchedStatus').prop('hidden', !rule).toggleClass('is-active', !!(rule && rule.active));
         $('#csSchedStatusText').text(rule && rule.active ? 'Active' : 'Paused');
         $('#csSchedDelete').prop('hidden', !rule).text(kind === 'message' ? 'Delete message' : 'Delete automation');
-        $('#csSchedSave').prop('disabled', false).text(rule ? 'Save changes' : (kind === 'message' ? 'Create message' : 'Create automation'));
+        $('#csSchedSave').prop('disabled', false).text(rule ? 'Save Changes' : (kind === 'message' ? 'Create message' : 'Create automation'));
         updateSchedSummaries();
         showSchedSection('content', false);
         schedModal.show();
@@ -2171,7 +2171,7 @@ jQuery(function ($) {
         var days = $('#csSchedDays .cs-ae__day.is-on').map(function () { return $(this).data('day'); }).get();
         var social = $('#csSchedSocial input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
         var isNew = !(parseInt($('#csSchedId').val(), 10) > 0);
-        var label = isNew ? (kind === 'message' ? 'Create message' : 'Create automation') : 'Save changes';
+        var label = isNew ? (kind === 'message' ? 'Create message' : 'Create automation') : 'Save Changes';
         var $btn = $(this);
         schedSaving = true;
         $btn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm"></span> Saving…');

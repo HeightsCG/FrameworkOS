@@ -1,7 +1,7 @@
 /* /setup — creator onboarding checklist */
 .setup{ max-width:820px; margin:0 auto; }
 .setup__head{ display:flex; align-items:flex-end; justify-content:space-between; gap:24px; margin-bottom:20px; flex-wrap:wrap; }
-.setup__title{ font-size:1.6rem; font-weight:700; letter-spacing:-.02em; }
+.setup__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em;  }
 .setup__sub{ margin:.35rem 0 0; color:var(--muted); font-size:.95rem; }
 .setup__progress{ display:flex; align-items:center; gap:12px; min-width:220px; }
 .setup__pct{ font-size:.86rem; font-weight:600; color:var(--t2); min-width:38px; text-align:right; }

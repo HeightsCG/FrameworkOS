@@ -5,7 +5,7 @@
 .billing{max-width:980px; margin:0 auto;}
 
 .billing__head{margin-bottom:1.6rem;}
-.billing__title{font-size:1.5rem; font-weight:600; letter-spacing:-.03em; margin:0;}
+.billing__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0; }
 .billing__sub{color:var(--muted); font-size:.96rem; line-height:1.5; margin:.35rem 0 0;}
 
 /* current-plan summary */
@@ -13,7 +13,7 @@
 .billing__current-name{font-size:.98rem; font-weight:600; color:var(--text);}
 .billing__current-meta{font-size:.85rem; color:var(--muted); margin-top:.15rem;}
 .billing__current-actions{display:flex; align-items:center; gap:.8rem; flex-shrink:0;}
-.billing__status{font-size:.72rem; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:.28rem .6rem; border-radius:2px;}
+.billing__status{font-size:.76rem; font-weight:700; padding:.28rem .6rem; border-radius:var(--r-pill); text-transform:capitalize;}
 .billing__status--active{color:var(--success); background:var(--success-bg);}
 .billing__status--canceling{color:var(--warning); background:var(--warning-bg);}
 .billing__status--due{color:var(--danger); background:var(--danger-bg);}
@@ -50,7 +50,7 @@
 .plan--current:hover{transform:none;}
 .plan--featured{border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset, 0 22px 48px -28px rgba(40,32,90,.4);}
 
-.plan__badge{position:absolute; top:1.1rem; right:1.1rem; font-size:.64rem; font-weight:700; letter-spacing:.09em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.22rem .5rem; border-radius:2px;}
+.plan__badge{position:absolute; top:1.1rem; right:1.1rem; font-size:.72rem; font-weight:700; color:var(--violet7); background:var(--vsoft); padding:.22rem .5rem; border-radius:2px;}
 .plan__badge--pop{color:#fff; background:var(--violet);}
 .plan__name{font-size:1.02rem; font-weight:600; letter-spacing:-.01em; color:var(--text);}
 .plan__tagline{color:var(--muted); font-size:.85rem; line-height:1.45; margin:.3rem 0 0;}
@@ -98,7 +98,7 @@
 .cardrow__icon{color:var(--muted2); font-size:1rem;}
 .cardrow__brand{font-weight:600; color:var(--text); font-size:.92rem;}
 .cardrow__num{color:var(--t2); font-size:.9rem; letter-spacing:.06em;}
-.cardrow__default{font-size:.64rem; font-weight:700; letter-spacing:.07em; text-transform:uppercase; color:var(--violet7); background:var(--vsoft); padding:.2rem .5rem; border-radius:2px;}
+.cardrow__default{font-size:.72rem; font-weight:700; color:var(--violet7); background:var(--vsoft); padding:.2rem .5rem; border-radius:2px;}
 .cardrow__exp{font-size:.85rem; color:var(--muted); white-space:nowrap;}
 
 /* billing history */

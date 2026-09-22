@@ -206,7 +206,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                             <?php if ($is_subscribed): ?>
                             <div class="pf-plan__cta pf-plan__member"><i class="fa-solid fa-circle-check"></i> <?php echo $is_free ? 'Joined' : 'Member'; ?></div>
                             <?php elseif ($is_free): ?>
-                            <button class="pf-btn pf-btn--follow pf-plan__cta" data-join-free="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-plus"></i> Join for free</button>
+                            <button class="pf-btn pf-btn--follow pf-plan__cta" data-join-free="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-plus"></i> Join for Free</button>
                             <?php else: ?>
                             <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-subscribe-plan="<?php echo (int) $plan['id']; ?>"><i class="fa-solid fa-star"></i> <?php echo $has_trial ? ('Start ' . $trial_label . ' free trial') : 'Subscribe'; ?></button>
                             <?php endif; ?>
@@ -231,11 +231,11 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                             <?php if (!empty($bd['owned'])): ?>
                             <div class="pf-plan__cta pf-plan__member"><i class="fa-solid fa-circle-check"></i> Owned</div>
                             <?php elseif (!$viewer_logged_in): ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to unlock</button>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to Unlock</button>
                             <?php elseif ($viewer_credit_balance >= (int) $bd['price_credits']): ?>
                             <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock &mdash; <?php echo (int) $bd['price_credits']; ?> credits &middot; $<?php echo (int) $bd['price_dollars']; ?></button>
                             <?php else: ?>
-                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings"><i class="fa-solid fa-plus"></i> Add credits to unlock</a>
+                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings"><i class="fa-solid fa-plus"></i> Add Credits to Unlock</a>
                             <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
@@ -690,7 +690,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                 var wrap = document.getElementById('pfLbPpvAction');
                 if (!wrap) { return; }
                 if (!LOGGED_IN) {
-                    wrap.innerHTML = '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Log in to unlock</button>';
+                    wrap.innerHTML = '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Log in to Unlock</button>';
                     document.getElementById('pfLbPpv').onclick = function () { window.location = '/'; };
                     return;
                 }
@@ -705,7 +705,7 @@ $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
                     var need = price - VIEWER_CREDITS;
                     wrap.innerHTML = bal +
                         '<div class="pf-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add credits</button>';
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add Credits</button>';
                     document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings'; };
                 }
             }

@@ -5,7 +5,7 @@
             <p class="inf-head__sub">Create her once, train her once, then generate images and videos any time.</p>
         </div>
         <div class="inf-head__actions">
-            <a href="/influencers/create" class="btn btn-primary" id="inf_new_btn" hidden><i class="fa-solid fa-plus"></i> New influencer</a>
+            <a href="/influencers/create" class="btn btn-primary" id="inf_new_btn" hidden><i class="fa-solid fa-plus"></i> New Influencer</a>
         </div>
     </header>
 
@@ -22,13 +22,13 @@
     <div class="inf-state-error" id="inf_error" hidden>
         <i class="fa-solid fa-circle-exclamation"></i>
         <p>We couldn't load your influencers.</p>
-        <button type="button" class="btn btn-outline-secondary" id="inf_retry">Try again</button>
+        <button type="button" class="btn btn-outline-secondary" id="inf_retry">Try Again</button>
     </div>
     <div class="inf-empty" id="inf_empty" hidden>
         <span class="inf-empty__ic"><i class="fa-solid fa-user-astronaut"></i></span>
-        <h2 class="inf-empty__title">Create your first influencer</h2>
+        <h2 class="inf-empty__title">Create Your First Influencer</h2>
         <p class="inf-empty__text">Train her from your photos or start from a description. Once trained she generates on demand, no retraining needed.</p>
-        <a href="/influencers/create" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New influencer</a>
+        <a href="/influencers/create" class="btn btn-primary"><i class="fa-solid fa-plus"></i> New Influencer</a>
     </div>
     <div class="inf-cards" id="inf_cards" hidden></div>
 

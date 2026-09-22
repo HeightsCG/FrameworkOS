@@ -233,9 +233,9 @@ class AccountController extends Controller {
                 try {
                     $sub = StripeService::client()->subscriptions->retrieve((string) $u['stripe_subscription_id']);
                     if (in_array((string) $sub->status, array('canceled', 'incomplete_expired'), true)) {
-                        $this->billingModel->clear_subscription((int) $u['user_id']);
+                        (new BillingModel())->clear_subscription((int) $u['user_id']);
                     } else {
-                        $this->billingModel->save_subscription((int) $u['user_id'], $sub->id, $sub->items->data[0]->price->id ?? $u['stripe_price_id'],
+                        (new BillingModel())->save_subscription((int) $u['user_id'], $sub->id, $sub->items->data[0]->price->id ?? $u['stripe_price_id'],
                             $sub->status, $sub->items->data[0]->current_period_end ?? null, $sub->cancel_at_period_end ? 1 : 0);
                     }
                     $u = $this->userModel->get_user_by_id(Session::get('user_id'))[0];

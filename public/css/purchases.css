@@ -1,6 +1,6 @@
 .pur{ max-width:1080px; margin:0 auto; padding-bottom:2rem; }
 .pur__head{ margin-bottom:1.4rem; }
-.pur__title{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; margin:0; color:var(--text); }
+.pur__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0; color:var(--text); }
 .pur__sub{ color:var(--muted); font-size:.95rem; margin:.3rem 0 0; max-width:640px; }
 
 .pur__empty{ background:#fff; border:1px solid var(--line); border-radius:var(--r-sm); padding:3rem 1rem; text-align:center; box-shadow:var(--sh-xs); }

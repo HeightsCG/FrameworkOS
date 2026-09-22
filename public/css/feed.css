@@ -8,7 +8,7 @@
 .feed{ max-width:1080px; margin:0 auto; padding-bottom:2rem; }
 
 .feed__head{ margin-bottom:1.4rem; }
-.feed__title{ font-size:1.55rem; font-weight:700; letter-spacing:-.02em; margin:0; color:var(--text); }
+.feed__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0; color:var(--text); }
 .feed__sub{ color:var(--muted); font-size:.95rem; margin:.3rem 0 0; }
 
 /* --- grid --- */
@@ -107,7 +107,7 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
     display:inline-flex; align-items:center; justify-content:center; font-size:.82rem; font-weight:700; }
 .feed-plb__author{ font-size:.9rem; font-weight:600; color:var(--text); text-decoration:none; }
 .feed-plb__author:hover{ color:var(--violet7); text-decoration:underline; }
-.feed-plb__report{ margin-left:auto; width:30px; height:30px; border:0; border-radius:8px; background:transparent; color:var(--muted2); font-size:.85rem; cursor:pointer; transition:background .12s,color .12s; }
+.feed-plb__report{ margin-left:auto; width:30px; height:30px; border:0; border-radius:var(--r-sm); background:transparent; color:var(--muted2); font-size:.85rem; cursor:pointer; transition:background .12s,color .12s; }
 .feed-plb__report:hover{ background:rgba(207,59,59,.08); color:var(--danger); }
 .feed-plb__media{ background:#111; }
 .feed-plb__media img, .feed-plb__media video{ width:100%; display:block; background:#111; max-height:76vh; object-fit:contain; }
@@ -126,7 +126,7 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
 .feed-plb__body p{ margin:0; font-size:.95rem; line-height:1.5; color:#1d1d1f; white-space:pre-wrap; word-break:break-word; }
 .feed-plb__date{ display:block; margin-top:.55rem; font-size:.78rem; color:var(--muted2); }
 .feed-plb__locked{ position:relative; aspect-ratio:4/5; background-color:#0d0b18; background-size:cover; background-position:center; display:flex; align-items:center; justify-content:center; }
-.feed-plb__lockmeta{ display:flex; flex-direction:column; align-items:center; gap:.7rem; color:#fff; background:rgba(10,8,20,.42); padding:2rem 2.4rem; border-radius:12px; text-align:center; }
+.feed-plb__lockmeta{ display:flex; flex-direction:column; align-items:center; gap:.7rem; color:#fff; background:rgba(10,8,20,.42); padding:2rem 2.4rem; border-radius:var(--r-sm); text-align:center; }
 .feed-plb__lockmeta i{ font-size:1.9rem; }
 .feed-plb__ppv{ display:flex; flex-direction:column; align-items:center; gap:.55rem; }
 .feed-plb__bal{ font-size:.82rem; color:rgba(255,255,255,.72); }

@@ -6,7 +6,7 @@
 
 /* ---- header ---- */
 .cs-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:var(--sp-3); margin-bottom:var(--sp-4); flex-wrap:wrap; }
-.cs-head__title{ font-size:1.6rem; font-weight:700; letter-spacing:-.02em; margin:0; }
+.cs-head__title{ font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0; }
 .cs-head__sub{ color:var(--muted); font-size:.9rem; margin:.3rem 0 0; }
 .cs-head__actions{ display:flex; gap:.6rem; flex-shrink:0; }
 .cs-head__actions .btn{ display:inline-flex; align-items:center; gap:.45rem; }
@@ -120,7 +120,7 @@
 .cs-dv__posts li{ font-size:.84rem; color:var(--t2); padding:.35rem 0; border-bottom:1px solid var(--line2); }
 .cs-dv__posts em{ color:var(--muted); font-style:normal; text-transform:capitalize; }
 .cs-dv__cols{ display:flex; flex-wrap:wrap; gap:.4rem; margin-bottom:1rem; }
-.cs-chip{ display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; padding:.28rem .6rem; border-radius:var(--r-pill); border:1px solid var(--line); background:var(--surface); color:var(--t2); cursor:pointer; }
+.cs-chip{ display:inline-flex; align-items:center; gap:.3rem; font-size:.78rem; padding:.28rem .6rem; border-radius:2px; border:1px solid var(--line); background:var(--surface); color:var(--t2); cursor:pointer; }
 .cs-chip.is-on{ background:var(--vsoft); border-color:var(--violet); color:var(--violet7); }
 #csDetail .form-check-input:checked{ background-color:var(--violet); border-color:var(--violet); }
 
@@ -544,18 +544,18 @@
 .cs-prop__val{ min-width:0; display:flex; align-items:center; gap:.6rem; flex-wrap:wrap; }
 .cs-prop--tall{ align-items:start; }
 .cs-prop--tall .cs-prop__key{ padding-top:.55rem; }
-.cs-props .form-control, .cs-props .form-select{ font-size:.875rem; height:34px; padding:.35rem .6rem; border-radius:6px; box-shadow:none; }
+.cs-props .form-control, .cs-props .form-select{ font-size:.875rem; height:34px; padding:.35rem .6rem; border-radius:2px; box-shadow:none; }
 .cs-props textarea.form-control{ height:auto; min-height:92px; width:100%; line-height:1.45; }
 .cs-props .form-select{ width:auto; min-width:200px; }
-.cs-prop .cs-seg--compact{ width:auto; flex:0 0 auto; height:32px; align-items:stretch; padding:2px; gap:2px; border:0; border-radius:7px; background:#eeeef3; box-shadow:none; }
-.cs-prop .cs-seg--compact .cs-seg__opt{ flex:0 0 auto; padding:.2rem .7rem; font-size:.8rem; font-weight:500; color:#5f6474; border-radius:5px; background:transparent; box-shadow:none; }
+.cs-prop .cs-seg--compact{ width:auto; flex:0 0 auto; height:32px; align-items:stretch; padding:2px; gap:2px; border:0; border-radius:2px; background:#eeeef3; box-shadow:none; }
+.cs-prop .cs-seg--compact .cs-seg__opt{ flex:0 0 auto; padding:.2rem .7rem; font-size:.8rem; font-weight:500; color:#5f6474; border-radius:2px; background:transparent; box-shadow:none; }
 .cs-prop .cs-seg--compact .cs-seg__opt:hover{ color:var(--text); background:transparent; }
 .cs-prop .cs-seg--compact .cs-seg__opt.is-on{ background:#fff; color:var(--text); box-shadow:0 1px 2px rgba(15,17,26,.10), 0 0 0 1px rgba(15,17,26,.05); }
 .cs-prop .form-switch{ min-height:0; padding:0; margin:0; display:flex; align-items:center; }
 .cs-prop .form-switch .form-check-input{ margin:0; width:2.1em; height:1.2em; cursor:pointer; }
 .cs-prop .cs-sf__row{ gap:.6rem; }
 .cs-prop .cs-sched__days{ gap:.2rem; }
-.cs-prop .cs-sched__day{ width:32px; height:32px; font-size:.74rem; border-radius:6px; }
+.cs-prop .cs-sched__day{ width:32px; height:32px; font-size:.74rem; border-radius:var(--r-sm); }
 .cs-prop .cs-sched__time .form-control{ height:32px; max-width:118px; }
 .cs-prop .cs-sched__tz{ font-size:.78rem; }
 @media (max-width:640px){
@@ -566,7 +566,7 @@
 
 /* ---- Automation editor (#csSchedulerModal) — one surface, fixed header/footer, left section nav, one section at a time. Scoped; no globals touched. ---- */
 #csSchedulerModal .cs-ae{ max-width:min(1160px, calc(100vw - 48px)); width:auto; margin:24px auto; min-height:0; }
-#csSchedulerModal .cs-ae__surface{ height:min(760px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:6px; background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; }
+#csSchedulerModal .cs-ae__surface{ height:min(760px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:var(--r-sm); background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; }
 #csSchedulerModal .cs-ae__header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:24px 32px 20px; border-bottom:1px solid var(--line); flex:none; }
 #csSchedulerModal .cs-ae__eyebrow{ display:block; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
 #csSchedulerModal .cs-ae__titlerow{ display:flex; align-items:center; gap:16px; min-width:0; flex-wrap:wrap; }
@@ -604,7 +604,7 @@
 #csSchedulerModal .cs-ae__row > .cs-ae__field[hidden] + .cs-ae__field::before, #csSchedulerModal .cs-ae__row.is-single > .cs-ae__field::before{ display:none; }
 #csSchedulerModal .cs-ae__row.is-single{ grid-template-columns:1fr; }
 #csSchedulerModal .cs-ae__label{ font-size:14px; font-weight:500; color:var(--t2); line-height:1.3; }
-#csSchedulerModal .form-control, #csSchedulerModal .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:5px; box-shadow:none; background-color:#fff; }
+#csSchedulerModal .form-control, #csSchedulerModal .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:2px; box-shadow:none; background-color:#fff; }
 #csSchedulerModal textarea.form-control{ height:auto; min-height:120px; padding:12px 14px; line-height:1.5; resize:vertical; }
 #csSchedulerModal .form-control:focus, #csSchedulerModal .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); outline:none; }
 #csSchedulerModal .form-control.is-invalid, #csSchedulerModal .form-select.is-invalid{ border-color:var(--danger); background-image:none; }
@@ -612,7 +612,7 @@
 #csSchedulerModal .cs-ae__error[hidden]{ display:none; }
 
 /* compact segmented controls */
-#csSchedulerModal .cs-ae__seg{ display:flex; gap:0; padding:0; border:1px solid rgba(20,18,40,.14); border-radius:5px; background:#fff; overflow:hidden; }
+#csSchedulerModal .cs-ae__seg{ display:flex; gap:0; padding:0; border:1px solid rgba(20,18,40,.14); border-radius:2px; background:#fff; overflow:hidden; }
 #csSchedulerModal .cs-ae__seg .cs-seg__opt{ flex:1 1 0; min-width:0; width:0; justify-content:center; text-align:center; height:44px; padding:0 10px; gap:8px; font-size:14px; font-weight:500; color:var(--t2); border:0; border-left:1px solid rgba(20,18,40,.1); border-radius:0; background:#fff; box-shadow:none; transition:background .12s, color .12s; }
 #csSchedulerModal .cs-ae__seg .cs-seg__opt:first-child{ border-left:0; }
 #csSchedulerModal .cs-ae__seg .cs-seg__opt span{ white-space:nowrap; display:inline; }
@@ -639,7 +639,7 @@
 #csSchedulerModal .cs-ae__desttools{ display:flex; align-items:center; gap:16px; margin-bottom:12px; }
 #csSchedulerModal .cs-ae__destsearch{ max-width:320px; }
 #csSchedulerModal .cs-ae__destcount{ font-size:13px; color:var(--muted); white-space:nowrap; }
-#csSchedulerModal .cs-ae__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:5px; max-height:380px; overflow:auto; }
+#csSchedulerModal .cs-ae__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:var(--r-sm); max-height:380px; overflow:auto; }
 #csSchedulerModal .cs-ae__destlist:empty{ display:none; }
 #csSchedulerModal .cs-ae__dest{ display:flex; align-items:center; gap:14px; padding:0 16px; min-height:48px; border-top:1px solid var(--line2); cursor:pointer; margin:0; }
 #csSchedulerModal .cs-ae__dest:first-child{ border-top:0; }
@@ -655,12 +655,12 @@
 #csSchedulerModal .cs-ae__empty{ font-size:14px; color:var(--muted); margin:8px 0 0; }
 #csSchedulerModal .cs-ae__empty a{ color:var(--violet7); text-decoration:underline; }
 #csSchedulerModal .cs-ae__targets{ display:flex; flex-direction:column; gap:8px; }
-#csSchedulerModal .cs-ae__targets .cs-social{ height:40px; padding:0 14px; gap:10px; border-radius:5px; font-size:14px; box-shadow:none; }
+#csSchedulerModal .cs-ae__targets .cs-social{ height:40px; padding:0 14px; gap:10px; border-radius:var(--r-sm); font-size:14px; box-shadow:none; }
 #csSchedulerModal .cs-ae__targets .form-select{ margin-top:4px; }
 
 /* schedule */
 #csSchedulerModal .cs-ae__days{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:8px; }
-#csSchedulerModal .cs-ae__day{ height:44px; padding:0; font-size:14px; font-weight:500; color:var(--t2); border:1px solid rgba(20,18,40,.14); border-radius:5px; background:#fff; cursor:pointer; }
+#csSchedulerModal .cs-ae__day{ height:44px; padding:0; font-size:14px; font-weight:500; color:var(--t2); border:1px solid rgba(20,18,40,.14); border-radius:var(--r-sm); background:#fff; cursor:pointer; }
 #csSchedulerModal .cs-ae__day:hover{ color:var(--text); background:rgba(20,18,40,.03); }
 #csSchedulerModal .cs-ae__day.is-on{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); font-weight:700; }
 #csSchedulerModal .cs-ae__day.is-on::before{ content:"\2713"; font-size:11px; margin-right:5px; }
@@ -671,7 +671,7 @@
 #csSchedulerModal .cs-ae__delete:hover{ color:var(--danger); text-decoration:underline; }
 #csSchedulerModal .cs-ae__delete[hidden]{ display:none; }
 #csSchedulerModal .cs-ae__actions{ display:flex; align-items:center; gap:12px; margin-left:auto; }
-#csSchedulerModal .cs-ae__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:5px; }
+#csSchedulerModal .cs-ae__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:2px; }
 #csSchedulerModal .cs-ae__btn--ghost{ background:#fff; border:1px solid rgba(20,18,40,.14); color:var(--text); }
 #csSchedulerModal .cs-ae__btn--ghost:hover{ background:rgba(20,18,40,.04); }
 
@@ -714,7 +714,7 @@
 #csModal.modal, #csPicker.modal{ z-index:1700; }   /* confirm dialogs + the media library picker open above the editors (1600) */
 .modal-backdrop ~ .modal-backdrop{ z-index:1650; }   /* the second modal's backdrop dims the editor underneath, not the page behind it */
 #csComposer .cs-pe{ max-width:min(1320px, calc(100vw - 48px)); width:auto; margin:24px auto; min-height:0; }
-#csComposer .cs-pe__surface{ height:min(820px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:6px; background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; position:relative; }
+#csComposer .cs-pe__surface{ height:min(820px, calc(100vh - 48px)); display:flex; flex-direction:column; border:0; border-radius:var(--r-sm); background:#fff; box-shadow:0 24px 64px -24px rgba(20,18,40,.35), 0 0 0 1px rgba(20,18,40,.06); overflow:hidden; position:relative; }
 #csComposer .cs-pe__header{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:24px 32px 20px; border-bottom:1px solid var(--line); flex:none; }
 #csComposer .cs-pe__eyebrow{ display:block; font-size:11px; font-weight:600; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
 #csComposer .cs-pe__titlerow{ display:flex; align-items:center; gap:16px; min-width:0; flex-wrap:wrap; }
@@ -724,7 +724,7 @@
 #csComposer .cs-pe__status.is-published .cs-pe__statusdot{ background:var(--success); }
 #csComposer .cs-pe__status.is-scheduled .cs-pe__statusdot{ background:var(--violet); }
 #csComposer .cs-pe__headtools{ display:flex; align-items:center; gap:12px; flex:none; }
-#csComposer .cs-pe__pvtoggle{ display:none; height:36px; padding:0 14px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.14); border-radius:5px; cursor:pointer; }
+#csComposer .cs-pe__pvtoggle{ display:none; height:36px; padding:0 14px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.14); border-radius:2px; cursor:pointer; }
 #csComposer .cs-pe__pvtoggle[aria-pressed="true"]{ background:var(--vsoft); color:var(--violet7); border-color:var(--violet); }
 #csComposer .cs-pe__close{ width:32px; height:32px; padding:0; margin:0; flex:none; border-radius:4px; background-size:14px; opacity:.6; }
 #csComposer .cs-pe__close:hover{ background-color:rgba(20,18,40,.06); opacity:1; }
@@ -767,7 +767,7 @@
 #csComposer .cs-pe__live:empty{ display:none; }
 #csComposer .cs-pe__error{ font-size:13px; color:var(--danger); margin:0; }
 #csComposer .cs-pe__error[hidden]{ display:none; }
-#csComposer .form-control, #csComposer .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:5px; box-shadow:none; background-color:#fff; }
+#csComposer .form-control, #csComposer .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(20,18,40,.14); border-radius:2px; box-shadow:none; background-color:#fff; }
 #csComposer textarea.form-control{ height:auto; min-height:150px; padding:12px 14px; line-height:1.5; resize:vertical; }
 #csComposer .form-control:focus, #csComposer .form-select:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); outline:none; }
 #csComposer .form-control.is-invalid, #csComposer .form-select.is-invalid{ border-color:var(--danger); background-image:none; }
@@ -776,16 +776,16 @@
 @media (prefers-reduced-motion: reduce){ #csComposer .cs-pe__reveal{ animation:none; } }
 
 /* media */
-#csComposer .cs-pe__drop{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:36px 20px; text-align:center; border:1px dashed rgba(20,18,40,.22); border-radius:5px; background:#fafafb; transition:border-color .12s, background .12s; }
+#csComposer .cs-pe__drop{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; padding:36px 20px; text-align:center; border:1px dashed rgba(20,18,40,.22); border-radius:var(--r-sm); background:#fafafb; transition:border-color .12s, background .12s; }
 #csComposer .cs-pe__drop.is-dragover{ border-color:var(--violet); background:var(--vsoft); }
 #csComposer .cs-pe__dropicon{ font-size:26px; color:var(--text); margin-bottom:6px; }
 #csComposer .cs-pe__droptitle{ font-size:16px; font-weight:600; color:var(--text); }
 #csComposer .cs-pe__dropsub{ font-size:14px; color:var(--muted); }
 #csComposer .cs-pe__dropactions{ display:flex; gap:12px; margin-top:14px; }
-#csComposer .cs-pe__mbtn{ height:44px; padding:0 20px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.18); border-radius:5px; cursor:pointer; }
+#csComposer .cs-pe__mbtn{ height:44px; padding:0 20px; font-size:14px; font-weight:500; color:var(--text); background:#fff; border:1px solid rgba(20,18,40,.18); border-radius:2px; cursor:pointer; }
 #csComposer .cs-pe__mbtn:hover{ background:rgba(20,18,40,.03); }
 #csComposer .cs-pe__mbtn:disabled{ color:var(--muted2); cursor:not-allowed; }
-#csComposer .cs-pe__grid{ display:flex; flex-wrap:wrap; gap:10px; padding:14px; border:1px solid rgba(20,18,40,.12); border-radius:5px; background:#fff; }
+#csComposer .cs-pe__grid{ display:flex; flex-wrap:wrap; gap:10px; padding:14px; border:1px solid rgba(20,18,40,.12); border-radius:var(--r-sm); background:#fff; }
 #csComposer .cs-pe__grid.is-dragover{ border-color:var(--violet); border-style:dashed; background:var(--vsoft); }
 #csComposer .cs-pe__item{ position:relative; width:112px; height:112px; border-radius:4px; overflow:hidden; background:#eceaf6; border:1px solid var(--line); cursor:grab; }
 #csComposer .cs-pe__item img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -817,7 +817,7 @@
 #csComposer .cs-pe__switch .form-check-input:focus{ border-color:var(--violet); box-shadow:0 0 0 2px rgba(91,75,224,.2); }
 
 /* choice rows (audience, publish mode) */
-#csComposer .cs-pe__choices{ display:flex; flex-direction:column; border:1px solid rgba(20,18,40,.12); border-radius:5px; overflow:hidden; margin-bottom:20px; }
+#csComposer .cs-pe__choices{ display:flex; flex-direction:column; border:1px solid rgba(20,18,40,.12); border-radius:var(--r-sm); overflow:hidden; margin-bottom:20px; }
 #csComposer .cs-pe__choice{ display:flex; align-items:center; gap:14px; width:100%; min-height:60px; padding:12px 16px; text-align:left; background:#fff; border:0; border-top:1px solid var(--line2); cursor:pointer; }
 #csComposer .cs-pe__choice:first-child{ border-top:0; }
 #csComposer .cs-pe__choice:hover{ background:rgba(20,18,40,.025); }
@@ -849,7 +849,7 @@
 #csComposer .cs-pe__desttools[hidden]{ display:none; }
 #csComposer .cs-pe__destsearch{ max-width:320px; }
 #csComposer .cs-pe__destcount{ font-size:13px; color:var(--muted); white-space:nowrap; }
-#csComposer .cs-pe__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:5px; max-height:420px; overflow:auto; }
+#csComposer .cs-pe__destlist{ border:1px solid rgba(20,18,40,.12); border-radius:var(--r-sm); max-height:420px; overflow:auto; }
 #csComposer .cs-pe__destlist:empty{ display:none; }
 #csComposer .cs-pe__dest{ display:flex; align-items:center; gap:14px; padding:0 16px; min-height:48px; border-top:1px solid var(--line2); cursor:pointer; margin:0; }
 #csComposer .cs-pe__dest:first-child{ border-top:0; }
@@ -873,13 +873,13 @@
 #csComposer .cs-pe__preview{ flex:0 0 340px; display:flex; flex-direction:column; border-left:1px solid var(--line); background:#faf9f7; padding:24px; overflow:auto; }
 #csComposer .cs-pe__pvhead{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
 #csComposer .cs-pe__pvtitle{ font-size:18px; font-weight:700; letter-spacing:-.01em; color:var(--text); }
-#csComposer .cs-pe__viewseg{ display:flex; border:1px solid rgba(20,18,40,.14); border-radius:5px; overflow:hidden; background:#fff; }
+#csComposer .cs-pe__viewseg{ display:flex; border:1px solid rgba(20,18,40,.14); border-radius:2px; overflow:hidden; background:#fff; }
 #csComposer .cs-pe__viewopt{ height:32px; padding:0 12px; font-size:13px; font-weight:500; color:var(--t2); background:#fff; border:0; border-left:1px solid rgba(20,18,40,.1); cursor:pointer; }
 #csComposer .cs-pe__viewopt:first-child{ border-left:0; }
 #csComposer .cs-pe__viewopt.is-on{ background:var(--vsoft); color:var(--violet7); font-weight:600; box-shadow:inset 0 0 0 1px var(--violet); }
 #csComposer .cs-pe__viewopt:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--violet); }
 #csComposer .cs-preview-wrap{ width:100%; }
-#csComposer .cs-preview-card{ max-width:none; width:100%; border-radius:5px; box-shadow:0 1px 2px rgba(20,18,40,.06); border-color:rgba(20,18,40,.1); }
+#csComposer .cs-preview-card{ max-width:none; width:100%; border-radius:var(--r-sm); box-shadow:0 1px 2px rgba(20,18,40,.06); border-color:rgba(20,18,40,.1); }
 
 /* footer */
 #csComposer .cs-pe__footer{ display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 32px; border-top:1px solid var(--line); flex:none; }
@@ -887,7 +887,7 @@
 #csComposer .cs-pe__savestate.is-unsaved{ color:var(--t2); }
 #csComposer .cs-pe__savestate.is-failed{ color:var(--danger); }
 #csComposer .cs-pe__actions{ display:flex; align-items:center; gap:12px; margin-left:auto; }
-#csComposer .cs-pe__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:5px; }
+#csComposer .cs-pe__btn{ height:44px; padding:0 22px; margin:0; font-size:15px; font-weight:600; border-radius:2px; }
 #csComposer .cs-pe__btn--ghost{ background:#fff; border:1px solid rgba(20,18,40,.14); color:var(--text); }
 #csComposer .cs-pe__btn--ghost:hover{ background:rgba(20,18,40,.04); }
 #csComposer .cs-pe__btn--ghost[hidden]{ display:none; }

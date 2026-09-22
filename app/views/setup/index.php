@@ -42,7 +42,7 @@ $n = 0;
     </ol>
 
     <?php if (!empty($optional)): ?>
-    <h2 class="setup__h2">Nice to have</h2>
+    <h2 class="setup__h2">Nice to Have</h2>
     <ol class="setup__list setup__list--optional">
         <?php foreach ($optional as $s): $is_next = ($s['key'] === $next_key); ?>
         <li class="setup__step<?php echo $s['done'] ? ' is-done' : ($is_next ? ' is-next' : ''); ?>">
