@@ -192,12 +192,15 @@ class StripeService {
         }
     }
 
-    /** Stripe's message from the last failed create_connect_account() ('' on success). */
+    /** Stripe's message from the last failed create_connect_account() / account_onboarding_link() ('' on success). */
     public static $last_error = '';
+    /** True when the last failure was Stripe not finding the account (e.g. a test-mode id used with live keys). */
+    public static $last_missing = false;
 
     /** Hosted onboarding link for a connected account. Returns URL or ''. */
     public static function account_onboarding_link($account_id, $refresh_url, $return_url): string
     {
+        self::$last_error = ''; self::$last_missing = false;
         try {
             $link = self::client()->accountLinks->create(array(
                 'account'     => $account_id,
@@ -208,6 +211,10 @@ class StripeService {
             return $link->url;
         } catch (\Throwable $e) {
             error_log('[stripe] account_onboarding_link: ' . $e->getMessage());
+            self::$last_error = $e->getMessage();
+            $code = method_exists($e, 'getStripeCode') ? (string) $e->getStripeCode() : '';
+            self::$last_missing = ($code === 'resource_missing' || $code === 'account_invalid'
+                || stripos($e->getMessage(), 'No such account') !== false || stripos($e->getMessage(), 'does not have access to account') !== false);
             return '';
         }
     }

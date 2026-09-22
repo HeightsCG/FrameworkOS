@@ -440,14 +440,25 @@ class ApiBillingController extends BaseApiController {
             $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);
         }
 
-        $base = $this->site_base_url();
-        $url  = StripeService::account_onboarding_link(
-            $account_id,
-            $base . '/account/settings?section=wallet&tab=cashout&payout_refresh=1',
-            $base . '/account/settings?section=wallet&tab=cashout&payout_return=1'
-        );
+        $base    = $this->site_base_url();
+        $refresh = $base . '/account/settings?section=wallet&tab=cashout&payout_refresh=1';
+        $return  = $base . '/account/settings?section=wallet&tab=cashout&payout_return=1';
+        $url = StripeService::account_onboarding_link($account_id, $refresh, $return);
+        // The saved account doesn't exist for these keys (typically a test-mode id carried over to live):
+        // drop it, create a fresh connected account, and try once more.
+        if ($url === '' && StripeService::$last_missing) {
+            error_log('[stripe] payout onboarding: account ' . $account_id . ' not found for user ' . (int) $user['user_id'] . '; creating a new one');
+            $account_id = StripeService::create_connect_account($user);
+            if ($account_id === '') {
+                $why = trim((string) StripeService::$last_error);
+                $this->jsonError('Payouts are not available yet.' . ($why !== '' ? ' Stripe said: ' . $why : ' Please try again later.'));
+            }
+            $this->billingModel->set_connect_account_id((int) $user['user_id'], $account_id);
+            $url = StripeService::account_onboarding_link($account_id, $refresh, $return);
+        }
         if ($url === '') {
-            $this->jsonError('Could not start payout setup. Please try again.');
+            $why = trim((string) StripeService::$last_error);
+            $this->jsonError('Could not start payout setup.' . ($why !== '' ? ' Stripe said: ' . $why : ' Please try again.'));
         }
 
         $this->jsonSuccess(['url' => $url]);
