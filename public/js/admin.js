@@ -27,6 +27,16 @@
         if (wantBtn) { wantBtn.click(); }
     }
 
+    /* ---- Audit log search ---- */
+    var auSearch = document.getElementById('admAuditSearch');
+    if (auSearch) {
+        auSearch.addEventListener('input', function () {
+            var q = auSearch.value.trim().toLowerCase(), shown = 0;
+            document.querySelectorAll('#admAudit .adm-aurow').forEach(function (r) { var on = q === '' || r.getAttribute('data-search').indexOf(q) !== -1; r.hidden = !on; if (on) { shown++; } });
+            document.getElementById('admAuditNone').hidden = shown > 0;
+        });
+    }
+
     /* ---- Support queue rows open the request; the user's name opens their admin page ---- */
     document.querySelectorAll('.adm-suprow[data-href]').forEach(function (r) {
         r.addEventListener('click', function (e) { if (e.target.closest('a')) { return; } window.location.href = r.getAttribute('data-href'); });

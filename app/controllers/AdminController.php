@@ -65,6 +65,8 @@ class AdminController extends Controller {
         $this->view->users        = $model->users('', '', 60);
         $this->view->me           = $me;
         $this->view->timezone     = (string) ($user['content_timezone'] ?? 'UTC');
+        $this->view->audit        = array();
+        try { $this->view->audit = (new AuditModel())->recent(300); } catch (\Throwable $e) { error_log('[admin] audit: ' . $e->getMessage()); }
         $this->view->support      = array(); $this->view->support_open = 0;
         try { $sm = new SupportModel(); $this->view->support = $sm->for_staff('', 300); $this->view->support_open = $sm->count_open(); }
         catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }   // /admin still loads if the support tables are missing
@@ -114,6 +116,8 @@ class AdminController extends Controller {
         $this->view->tickets      = array();
         try { $this->view->tickets = (new SupportModel())->for_user($uid); } catch (\Throwable $e) { error_log('[admin] user tickets: ' . $e->getMessage()); }
         $this->view->is_me        = $uid === (int) Session::get('user_id');
+        $this->view->audit        = array();
+        try { $this->view->audit = (new AuditModel())->recent(200, $uid); } catch (\Throwable $e) { error_log('[admin] user audit: ' . $e->getMessage()); }
         $this->view->activity     = self::activity_feed($this->view->credit_tx, $this->view->purchases, $this->view->sign_ins, $this->view->tickets, $this->view->refunds);
         $this->view->render();
     }
@@ -137,7 +141,7 @@ class AdminController extends Controller {
             $out[] = array('at' => $tk['created_at'], 'icon' => 'fa-life-ring', 'tone' => 'violet', 'title' => 'Opened a support request', 'detail' => '', 'sub' => (string) $tk['subject'], 'link' => '/support/ticket/' . (int) $tk['id']);
         }
         foreach ($refunds as $rf) {
-            $out[] = array('at' => $rf['created_at'], 'icon' => 'fa-rotate-left', 'tone' => 'warn', 'title' => 'Refund issued by support', 'detail' => '$' . number_format(((int) $rf['amount_credits']) / 10, 2), 'sub' => (string) $rf['reason']);
+            $out[] = array('at' => $rf['created_at'], 'icon' => 'fa-rotate-left', 'tone' => 'warn', 'title' => 'Refund issued by support', 'detail' => number_format((int) $rf['amount_credits']) . ' credits', 'sub' => (string) $rf['reason']);
         }
         usort($out, function ($a, $b) { return strcmp((string) $b['at'], (string) $a['at']); });
         return array_slice($out, 0, $limit);

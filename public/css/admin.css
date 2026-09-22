@@ -412,3 +412,13 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--viole
 .adm-feed__at{ display:block; font-size:.74rem; color:#a6a3b3; margin-top:.1rem; }
 @media (max-width:1100px){ .adm-ustrip{ grid-template-columns:repeat(3, minmax(0, 1fr)); } .adm-ustrip__cell:nth-child(4){ border-left:0; } .adm-ov{ grid-template-columns:1fr; } .adm-ov__feed{ max-height:none; } }
 @media (max-width:640px){ .adm-facts{ grid-template-columns:1fr; } .adm-facts > div:nth-child(2){ border-top:1px solid #f2f1f7; } }
+
+/* ==== Audit log ==== */
+.adm-table--audit .adm-table__head, .adm-aurow{ display:grid; grid-template-columns:170px 150px minmax(200px,1.2fr) 170px minmax(0,1.6fr) 110px; gap:1rem; align-items:start; }
+.adm-table--audit-user .adm-table__head, .adm-table--audit-user .adm-aurow{ grid-template-columns:170px 150px minmax(200px,1.2fr) minmax(0,1.8fr) 110px; }
+.adm-aurow{ padding:.7rem 1.1rem; border-top:1px solid #efedf5; font-size:.84rem; }
+.adm-aurow[hidden]{ display:none; }
+.adm-aurow__act{ display:block; font-weight:600; color:#1c1830; }
+.adm-aurow__res{ display:block; font-size:.78rem; color:#8a8797; }
+.adm-aurow__det{ overflow-wrap:anywhere; }
+.adm-ausearch{ max-width:320px; height:36px; border-radius:8px; border:1px solid #e2e0ea; font-size:.86rem; }

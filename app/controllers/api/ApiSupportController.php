@@ -7,6 +7,15 @@
  */
 class ApiSupportController extends BaseApiController {
 
+    use AuditTrail;
+    protected $audit_skip = array('support_create');
+
+    /** Only audit staff acting on someone else's request (a staff member's own request is not a staff action). */
+    protected function audit_applies(string $action): bool {
+        $t = (new SupportModel())->get((int) ($this->post['ticket_id'] ?? 0));
+        return $t && (int) $t['user_id'] !== (int) Session::get('user_id');
+    }
+
     /** POST text arrives html-encoded by clean_post_data(); store it decoded (views escape on output). */
     private function text($key, $max){
         $v = trim(html_entity_decode((string) ($this->post[$key] ?? ''), ENT_QUOTES | ENT_HTML5, 'UTF-8'));

@@ -8,7 +8,7 @@ $fmt = function ($utc, $time = true) use ($tz) {
     try { $d = new DateTime((string) $utc, new DateTimeZone('UTC')); $d->setTimezone(new DateTimeZone($tz)); return $d->format($time ? 'M j, Y g:i A' : 'M j, Y'); }
     catch (\Throwable $ex) { return '—'; }
 };
-$money = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
+$money = function ($credits) { $n = (int) $credits; return number_format($n) . ' ' . (abs($n) === 1 ? 'credit' : 'credits'); };   // credits are shown as credits, never dollars
 $u = $this->u;
 $name = trim((string) $u['first_name'] . ' ' . (string) $u['last_name']);
 $disabled = ((string) $u['user_status'] === 'Disabled');
@@ -54,7 +54,7 @@ $active_mem = count(array_filter($this->memberships, function ($m) { return $m['
 $open_req = count(array_filter($this->tickets, function ($t) { return $t['status'] !== 'closed'; }));
 ?>
     <div class="adm-ustrip">
-        <div class="adm-ustrip__cell"><span>Credits</span><b><?php echo $money($u['credit_balance']); ?></b><small><?php echo number_format((int) $u['credit_balance']); ?> credits</small></div>
+        <div class="adm-ustrip__cell"><span>Credits</span><b><?php echo number_format((int) $u['credit_balance']); ?></b><small>credits</small></div>
         <div class="adm-ustrip__cell"><span>AI credits</span><b><?php echo number_format((int) $u['ai_credit_balance']); ?></b><small>&nbsp;</small></div>
         <div class="adm-ustrip__cell"><span>Purchases</span><b><?php echo count($this->purchases); ?></b><small><?php echo $money($spent); ?> spent</small></div>
         <div class="adm-ustrip__cell"><span>Memberships</span><b><?php echo $active_mem; ?></b><small><?php echo count($this->memberships); ?> total</small></div>
@@ -69,6 +69,7 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
         <button type="button" class="adm-tab" data-panel="memberships"><i class="fa-solid fa-heart"></i> Memberships <b class="adm-tab__count"><?php echo count($this->memberships); ?></b></button>
         <button type="button" class="adm-tab" data-panel="security"><i class="fa-solid fa-shield-halved"></i> Sign-in &amp; Security</button>
         <button type="button" class="adm-tab" data-panel="support"><i class="fa-solid fa-life-ring"></i> Support <b class="adm-tab__count"><?php echo count($this->tickets); ?></b></button>
+        <button type="button" class="adm-tab" data-panel="audit"><i class="fa-solid fa-clipboard-list"></i> Audit <b class="adm-tab__count"><?php echo count($this->audit); ?></b></button>
     </div>
 
     <!-- Overview -->
@@ -269,6 +270,15 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                 </a>
                 <?php endforeach; ?>
                 <?php if (empty($this->tickets)): ?><p class="adm__none">No support requests.</p><?php endif; ?>
+            </div>
+        </div>
+    </section>
+    <section class="adm-sec adm-panel" data-panel="audit" id="admUserAudit">
+        <div class="adm-table adm-table--audit adm-table--audit-user">
+            <div class="adm-table__head"><span>When</span><span>Staff</span><span>Action</span><span>Details</span><span>IP address</span></div>
+            <div class="adm-table__body">
+                <?php $audit_rows = $this->audit; $audit_show_target = false; $fmt2 = $fmt; include __DIR__ . '/_audit_rows.php'; ?>
+                <?php if (empty($this->audit)): ?><p class="adm__none">No staff actions on this account yet.</p><?php endif; ?>
             </div>
         </div>
     </section>

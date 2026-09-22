@@ -37,6 +37,7 @@ $tier_bits = array(); foreach (PlanTiers::all() as $pt) { $n = (int) ($f['plans'
         <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
         <button type="button" class="adm-tab" data-panel="support"><i class="fa-solid fa-life-ring"></i> Support<?php if ((int) $this->support_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->support_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
+        <button type="button" class="adm-tab" data-panel="audit"><i class="fa-solid fa-clipboard-list"></i> Audit Log</button>
     </div>
 
     <section class="adm-sec adm-panel is-active" data-panel="financials">
@@ -353,6 +354,7 @@ $last12 = array_slice($this->series, -12);
 
     <?php include __DIR__ . '/_support.php'; ?>
     <?php include __DIR__ . '/_content.php'; ?>
+    <?php include __DIR__ . '/_audit.php'; ?>
 </div>
 
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>

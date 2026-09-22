@@ -235,6 +235,11 @@ class AdminModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** Social accounts a user has connected (active ones). */
+    public function social_accounts($user_id){
+        return (array) parent::select("SELECT platform, username, status FROM user_social_accounts WHERE user_id = :u AND (disconnected_at IS NULL) ORDER BY platform", array('u' => (int) $user_id));
+    }
+
     /** Clear two-step sign-in completely: authenticator app, email codes and backup codes. */
     public function reset_mfa($user_id){
         parent::update('user_accounts', array('mfa_totp_enabled' => 0, 'mfa_totp_secret' => null, 'mfa_email_enabled' => 0, 'updated_at' => date('Y-m-d H:i:s')),

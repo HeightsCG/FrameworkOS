@@ -1,6 +1,8 @@
 <?php
 /** Admin endpoints for the SEO content engine (keyword queue + article review). Routed by ApiRoutes; extends BaseApiController. */
 class ApiSeoContentController extends BaseApiController {
+
+    use AuditTrail;
     private function guard(){ if (!Permissions::is_admin()) { $this->jsonError('Admins only'); } }
 
     public function seo_keyword_addAction(){

@@ -2,6 +2,10 @@
 /** Admin moderation, refunds, user status, reports and creator verification. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiAdminController extends BaseApiController {
 
+    use AuditTrail;
+    /** User-facing actions in this controller: not staff actions, so not audited. */
+    protected $audit_skip = array('report_submit', 'verification_request');
+
     /** Suspend or reactivate a user account. */
     public function admin_set_user_statusAction(){
         $this->admin_guard();
