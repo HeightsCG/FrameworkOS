@@ -61,10 +61,16 @@ class BillingChargesModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
-    /** Has this account already paid a charge with this promo code? (one use per account) */
-    public function promo_used($user_id, $code){
-        $r = parent::select("SELECT id FROM billing_charges WHERE user_id = :u AND status = 'succeeded' AND effects LIKE :c LIMIT 1",
-            array('u' => (int) $user_id, 'c' => '%"promo_code":"' . str_replace(array('%', '_'), array('\\%', '\\_'), strtoupper((string) $code)) . '"%'));
+    /** Paid plan charges that redeemed this promo code (a subscribe or upgrade; renewals only continue it). */
+    public function promo_redemptions($code){
+        $r = parent::select("SELECT COUNT(*) AS n FROM billing_charges WHERE status = 'succeeded' AND kind IN ('subscribe', 'upgrade') AND effects LIKE :c",
+            array('c' => '%"promo_code":"' . str_replace(array('%', '_'), array('\\%', '\\_'), strtoupper((string) $code)) . '"%'));
+        return (is_array($r) && count($r)) ? (int) $r[0]['n'] : 0;
+    }
+
+    /** Has this account ever paid anything through app billing? (Stripe's "first-time customers only") */
+    public function has_paid_before($user_id){
+        $r = parent::select("SELECT id FROM billing_charges WHERE user_id = :u AND status = 'succeeded' AND amount_cents > 0 LIMIT 1", array('u' => (int) $user_id));
         return is_array($r) && count($r) === 1;
     }
 

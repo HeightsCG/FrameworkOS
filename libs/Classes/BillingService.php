@@ -120,12 +120,21 @@ class BillingService {
         return 0;
     }
 
-    /** Check a promo code against Stripe and this account's history. ['ok', 'promo' => [...fields for billing_accounts], 'label'] or ['ok' => false, 'message']. */
-    public static function resolve_promo($user_id, $code): array
+    /** Check a promo code against Stripe (active, valid). ['ok', 'promo' => [...fields for billing_accounts], 'label'] or ['ok' => false, 'message']. */
+    public static function resolve_promo($user_id, $code, $charge_cents = 0): array
     {
         $r = StripeService::resolve_promo_code((string) $code);
-        if (empty($r) || (empty($r['percent_off']) && empty($r['amount_off']))) { return array('ok' => false, 'message' => 'That promo code is not valid.'); }
-        if ((new BillingChargesModel())->promo_used((int) $user_id, $r['code'])) { return array('ok' => false, 'message' => 'You have already used that promo code.'); }
+        if (empty($r) || (empty($r['percent_off']) && empty($r['amount_off'])) || empty($r['coupon_valid'])) { return array('ok' => false, 'message' => 'That promo code is not valid.'); }
+        // The rules set on the code and its coupon in Stripe. Stripe only counts its own redemptions,
+        // so charges the app made with the code are added before comparing with the limits.
+        $now = time();
+        if (($r['expires_at'] && $r['expires_at'] <= $now) || ($r['coupon_redeem_by'] && $r['coupon_redeem_by'] <= $now)) { return array('ok' => false, 'message' => 'That promo code has expired.'); }
+        $ours = (new BillingChargesModel())->promo_redemptions($r['code']);
+        if (($r['max_redemptions'] && $r['times_redeemed'] + $ours >= $r['max_redemptions'])
+            || ($r['coupon_max_redemptions'] && $r['coupon_times_redeemed'] + $ours >= $r['coupon_max_redemptions'])) { return array('ok' => false, 'message' => 'That promo code has been used up.'); }
+        if ($r['customer'] !== '' && $r['customer'] !== (string) (self::user($user_id)['stripe_customer_id'] ?? '')) { return array('ok' => false, 'message' => 'That promo code is not valid for your account.'); }
+        if (!empty($r['first_time_only']) && (new BillingChargesModel())->has_paid_before($user_id)) { return array('ok' => false, 'message' => 'That promo code is only for your first purchase.'); }
+        if ($r['minimum_amount'] && (int) $charge_cents < $r['minimum_amount']) { return array('ok' => false, 'message' => 'That promo code needs an order of at least ' . self::money($r['minimum_amount']) . '.'); }
         return array('ok' => true, 'label' => (string) $r['label'], 'promo' => array('promo_code' => $r['code'], 'promo_percent' => $r['percent_off'],
             'promo_amount_cents' => $r['amount_off'], 'promo_periods_left' => $r['periods']));
     }
@@ -428,7 +437,7 @@ class BillingService {
     {
         $q = self::quote_plan_base($user_id, $plan);
         if (empty($q['ok']) || trim((string) $code) === '' || !in_array($q['mode'], array('subscribe', 'upgrade'), true)) { return $q; }
-        $pr = self::resolve_promo($user_id, $code);
+        $pr = self::resolve_promo($user_id, $code, (int) $q['lines'][0][1]);
         if (empty($pr['ok'])) { return array('ok' => false, 'message' => $pr['message']); }
         $off = self::promo_off((int) $q['lines'][0][1], $pr['promo']);   // the new plan's charge is always the first line
         $q['lines'][] = array('Promo ' . $pr['promo']['promo_code'] . ' (' . $pr['label'] . ')', -$off);
