@@ -134,6 +134,8 @@
 #disc_promo{margin-top:.8rem;}
 .disc__row--total{font-weight:700; color:var(--text); border-bottom:0; padding-top:.6rem;}
 .disc__terms{margin:.6rem 0 0; font-size:.84rem; line-height:1.55; color:var(--muted);}
+.disc__change{background:none; border:0; padding:0; margin-left:.4rem; font-size:.85rem; font-weight:500; color:var(--violet7); text-decoration:underline; text-underline-offset:2px; cursor:pointer;}
+.disc__change:focus-visible{outline:2px solid var(--violet); outline-offset:2px;}
 .disc__card{margin:.6rem 0 0; font-size:.88rem; font-weight:500; color:var(--text);}
 #disc_card_form{margin-top:.9rem;}
 

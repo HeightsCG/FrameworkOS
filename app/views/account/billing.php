@@ -122,7 +122,7 @@ $(function () {
                 : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
             card_elements = null;
             if (q.has_card || q.mode === 'downgrade') {
-                $('#disc_card').text(q.mode === 'downgrade' ? '' : 'Charged to ' + q.card).show();
+                $('#disc_card').html(q.mode === 'downgrade' ? '' : 'Charged to ' + esc(q.card) + ' <button type="button" class="disc__change" id="disc_change">Change</button>').show();
                 $('#disc_card_form').hide().html('');
             } else {
                 $('#disc_card').hide();
@@ -133,8 +133,21 @@ $(function () {
             $('#confirm_modal').modal('show');
         });
     }
+    /* Pay with a different card: the card form opens right here and the new card is saved before paying. */
+    $('#confirm_modal').on('click', '#disc_change', function () {
+        $('#disc_card').hide();
+        $('#disc_card_form').show();
+        $('#confirm_go').prop('disabled', true);
+        mount_card('#disc_card_form', function () { $('#confirm_go').prop('disabled', false); });
+    });
     $('#confirm_go').on('click', function () {
         var $b = $(this); if (!pending) { return; }
+        // A code typed but not applied: apply it and show the new total first, never charge full price by surprise.
+        var typed = String($('#disc_promo_code').val() || '').trim();
+        if (!$('#disc_promo').prop('hidden') && typed !== '' && typed.toUpperCase() !== String(pending.body.promo_code || '').toUpperCase()) {
+            $('#disc_promo_apply').trigger('click');
+            return;
+        }
         $b.prop('disabled', true);
         var run = function () { ApiDataSvc.apiCall('post', pending.endpoint, pending.body, function (data) { handle(parse(data), $b); }); };
         if (card_elements) { save_card(run, $b); } else { run(); }
