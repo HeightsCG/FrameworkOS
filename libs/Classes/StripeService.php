@@ -408,9 +408,17 @@ class StripeService {
                 if (is_string($coupon)) {
                     $coupon = $client->coupons->retrieve($coupon);
                 }
+                $rs = $pc->restrictions ?? null;
                 return array(
                     'discount' => array('promotion_code' => (string) $pc->id),
                     'label'    => self::coupon_label($coupon),
+                    // The promotion code's own rules, as set in Stripe.
+                    'expires_at'      => !empty($pc->expires_at) ? (int) $pc->expires_at : null,
+                    'max_redemptions' => !empty($pc->max_redemptions) ? (int) $pc->max_redemptions : null,
+                    'times_redeemed'  => (int) ($pc->times_redeemed ?? 0),
+                    'first_time_only' => !empty($rs->first_time_transaction),
+                    'minimum_amount'  => !empty($rs->minimum_amount) ? (int) $rs->minimum_amount : null,
+                    'customer'        => is_object($pc->customer ?? null) ? (string) $pc->customer->id : (string) ($pc->customer ?? ''),
                 ) + self::coupon_terms($coupon, (string) $pc->code);
             }
             $coupon = $client->coupons->retrieve($code);
@@ -418,6 +426,7 @@ class StripeService {
                 return array(
                     'discount' => array('coupon' => (string) $coupon->id),
                     'label'    => self::coupon_label($coupon),
+                    'expires_at' => null, 'max_redemptions' => null, 'times_redeemed' => 0, 'first_time_only' => false, 'minimum_amount' => null, 'customer' => '',
                 ) + self::coupon_terms($coupon, (string) $coupon->id);
             }
         } catch (\Throwable $e) {
@@ -431,6 +440,11 @@ class StripeService {
     {
         $dur = (string) ($coupon->duration ?? 'once');
         return array(
+            // The coupon's own rules, as set in Stripe.
+            'coupon_valid'           => !isset($coupon->valid) || !empty($coupon->valid),
+            'coupon_redeem_by'       => !empty($coupon->redeem_by) ? (int) $coupon->redeem_by : null,
+            'coupon_max_redemptions' => !empty($coupon->max_redemptions) ? (int) $coupon->max_redemptions : null,
+            'coupon_times_redeemed'  => (int) ($coupon->times_redeemed ?? 0),
             'code'          => strtoupper((string) $code),
             'percent_off'   => !empty($coupon->percent_off) ? (float) $coupon->percent_off : null,
             'amount_off'    => !empty($coupon->amount_off) ? (int) $coupon->amount_off : null,
