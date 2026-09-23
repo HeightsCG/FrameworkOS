@@ -501,7 +501,7 @@ class StripeService {
      * period (and the monthly AI credit grant) stays put. Throws on Stripe errors so the
      * caller can tell a declined card from anything else.
      */
-    /** Price ids that bill add-ons (plans.php '_addons'), not plans. */
+    /** Price ids that bill add-ons (PlanTiers::ADDONS), not plans. */
     private static function addon_price_ids(): array
     {
         $ids = array();

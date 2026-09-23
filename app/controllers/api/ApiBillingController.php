@@ -11,7 +11,7 @@ class ApiBillingController extends BaseApiController {
         if (empty($this->post['price_id'])) {
             $this->jsonError('Please choose a plan');
         }
-        // Only a price one of our plans defines can be subscribed to (app/config/plans.php), and never a retired plan.
+        // Only a price one of our plans defines can be subscribed to (PlanTiers), and never a retired plan.
         $new_tier = PlanTiers::tier_for_price((string) $this->post['price_id']);
         if ($new_tier === '' || PlanTiers::retired($new_tier)) {
             $this->jsonError('That plan is not available.');
@@ -118,7 +118,7 @@ class ApiBillingController extends BaseApiController {
         if ($price_id === (string) ($user['stripe_price_id'] ?? '')) {
             $this->jsonError('That is already your plan.');
         }
-        // The price must belong to a plan we define (app/config/plans.php) that is still offered.
+        // The price must belong to a plan we define (PlanTiers) that is still offered.
         $to_tier = PlanTiers::tier_for_price($price_id);
         if ($to_tier === '' || PlanTiers::retired($to_tier)) {
             $this->jsonError('That plan is not available.');
@@ -150,7 +150,7 @@ class ApiBillingController extends BaseApiController {
     }
 
     /**
-     * Set how many of an add-on (plans.php '_addons', e.g. extra AI influencer slots) the account
+     * Set how many of an add-on (PlanTiers::ADDONS, e.g. extra AI influencer slots) the account
      * holds. Adding charges the prorated difference now; removing lowers what the next invoice
      * bills and keeps the slots until the period ends. Owner only, on a plan that offers it.
      */

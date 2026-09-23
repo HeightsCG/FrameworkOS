@@ -2,7 +2,7 @@
 /**
  * Plan add-ons an account holds (account_addons): extra capacity billed as a quantity line item
  * on the platform Stripe subscription. Definitions (price, max, which plans) live in
- * app/config/plans.php via PlanTiers::addons(); this table only records quantities.
+ * PlanTiers::ADDONS; this table only records quantities.
  */
 class AccountAddonsModel extends Model {
 

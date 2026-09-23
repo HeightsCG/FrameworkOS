@@ -31,7 +31,7 @@ class PlanTiers {
         'Bundles, promo codes &amp; free trials', 'Analytics &amp; exports', 'Claude connector',
     );
 
-    /** Switches that differ by plan (plans.php 'features'), with the label shown on plan cards. */
+    /** Switches that differ by plan (TIERS 'features'), with the label shown on plan cards. */
     const FEATURES = array(
         'inbox_ai' => 'Inbox automation &amp; AI replies',
     );
@@ -43,12 +43,16 @@ class PlanTiers {
     const AI_PACKS = array(10, 25, 50, 100);
 
     /**
-     * Tier definitions come from app/config/plans.php (limits, display prices, Stripe price ids) so a
-     * pricing change is a config edit, not a code change. Stripe price ids can also be set per
-     * environment in app.ini as plan_price_<tier>, which wins over plans.php. DEFAULTS below are the fallback when
-     * that file is missing, and define the shape every tier must have.
+     * The plans: price, limits, per-plan switches, and the Stripe product name keywords ('match').
+     * Stripe price ids differ between test and live, so they come from app.ini
+     * (plan_price_<tier>, addon_price_<addon>) per environment.
+     *
+     *   limits: 0 = unlimited; below 0 = not included (shown as 0, anything already made is locked).
+     *           seats count the owner, so 1 = no collaborators.
+     *   ai_credits_grant: 'monthly' (every billing date) or 'once' (first time on a plan, never refilled).
+     *   retired: closed to new subscribers; existing subscribers keep it.
      */
-    const DEFAULTS = array(
+    const TIERS = array(
         'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Start earning, no card needed.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
             'ai_credits_grant' => 'once', 'features' => array('inbox_ai' => false),
             'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 20,  'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),
@@ -63,31 +67,22 @@ class PlanTiers {
             'limits' => array('fee_percent' => 3,  'seats' => 10, 'influencers' => 10, 'ai_credits' => 300, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0, 'sub_tiers' => 0)),
     );
 
+    /** Add-ons: extra capacity billed as a quantity line item on a plan's subscription. 'max' = most slots per account. */
+    const ADDONS = array(
+        'influencer_slot' => array('key' => 'influencer_slot', 'name' => 'Extra AI influencer', 'note' => 'One more AI influencer slot on the Creator plan.',
+            'price' => 15, 'stripe_price_id' => '', 'plans' => array('creator'), 'limit' => 'influencers', 'max' => 5),
+    );
+
     /** The plan every creator starts on, with no Stripe subscription. */
     const FREE_KEY = 'free';
 
-    /** Tiers from config (cached per request), merged over DEFAULTS so a partial config still works. */
+    /** TIERS with this environment's Stripe price ids from app.ini (cached per request). */
     public static function tiers(): array
     {
         static $tiers = null;
         if ($tiers !== null) { return $tiers; }
-        $file = Main::app_path() . '/app/config/plans.php';
-        $cfg  = is_file($file) ? (array) @require $file : array();
-        $out  = array();
-        foreach (self::DEFAULTS as $key => $def) {
-            $row = isset($cfg[$key]) && is_array($cfg[$key]) ? $cfg[$key] : array();
-            $row['limits'] = array_merge($def['limits'], (array) ($row['limits'] ?? array()));
-            $row['features'] = array_merge((array) ($def['features'] ?? array()), (array) ($row['features'] ?? array()));
-            $out[$key] = array_merge($def, $row);
-            $out[$key]['key'] = $key;
-        }
-        foreach ($cfg as $key => $row) {   // a tier added in config but not in DEFAULTS
-            if (isset($out[$key]) || !is_array($row) || empty($row['name'])) { continue; }
-            $row['limits'] = array_merge(self::DEFAULTS['creator']['limits'], (array) ($row['limits'] ?? array()));
-            $row['key'] = $key;
-            $out[$key] = $row;
-        }
-        // Stripe price ids differ between test and live, so app.ini wins over plans.php:
+        $out = self::TIERS;
+        // Stripe price ids differ between test and live:
         //   [development] / [production]  plan_price_creator = 'price_...'
         $cfg_ini = Main::get_config();
         $env     = Main::get_environment();
@@ -121,14 +116,12 @@ class PlanTiers {
         return $t ? !empty($t['retired']) : false;
     }
 
-    /** Add-on definitions from config (app.ini addon_price_<key> wins for the Stripe price id). */
+    /** ADDONS with this environment's Stripe price ids from app.ini (addon_price_<key>). */
     public static function addons(): array
     {
         static $addons = null;
         if ($addons !== null) { return $addons; }
-        $file = Main::app_path() . '/app/config/plans.php';
-        $cfg  = is_file($file) ? (array) @require $file : array();
-        $out  = (array) ($cfg['_addons'] ?? array());
+        $out  = self::ADDONS;
         $ini  = Main::get_config();
         $env  = Main::get_environment();
         foreach ($out as $key => $row) {

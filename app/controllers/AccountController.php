@@ -258,7 +258,7 @@ class AccountController extends Controller {
             $this->view->is_creator = Plan::is_creator_row($u);
             $this->view->usage     = $this->view->tier !== '' ? Plan::usage($u) : null;
             $this->view->ai_history= $this->view->tier !== '' ? (array) (new AiCreditsModel())->get_transactions((int) $u['user_id'], 10) : array();
-            // Plan cards come from config (app/config/plans.php): price, limits and the Stripe price to bill.
+            // Plan cards come from PlanTiers: price, limits and the Stripe price to bill.
             $this->view->plan_rows = array();
             foreach (PlanTiers::offered($this->view->tier) as $t) {   // retired plans only show to the people already on them
                 $this->view->plan_rows[] = array(

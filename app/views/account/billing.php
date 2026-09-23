@@ -14,7 +14,7 @@
     $over_rows = array();
     if ($usage) { foreach ($usage['rows'] as $r) { if (!empty($r['over'])) { $over_rows[] = $r; } } }
 
-    // Plans come from app/config/plans.php (price, limits, Stripe price id), low → high.
+    // Plans come from PlanTiers (price, limits, Stripe price id), low → high.
     $ordered = (array) $this->plan_rows;
     $is_free = ($tier_key === PlanTiers::FREE_KEY);
     $free_def = PlanTiers::get(PlanTiers::FREE_KEY);

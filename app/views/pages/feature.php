@@ -1,6 +1,6 @@
 <?php
 /**
- * One feature page under /features/<slug>, rendered from app/config/feature_pages.php.
+ * One feature page under /features/<slug>, rendered from FeaturePages::PAGES.
  * Locals: $page (the config row), $slug, $siblings (the other feature pages, for the footer links).
  */
 $site = Main::site_name();

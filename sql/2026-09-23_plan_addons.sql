@@ -1,4 +1,4 @@
--- Plan add-ons (app/config/plans.php '_addons'): quantity-based line items on a creator's
+-- Plan add-ons (PlanTiers::ADDONS): quantity-based line items on a creator's
 -- platform Stripe subscription, e.g. extra AI influencer slots on Creator.
 --   quantity       slots the account is entitled to right now
 --   quantity_next  scheduled quantity from next_at on (a removal takes effect at period end); NULL = none

@@ -74,14 +74,9 @@ class PagesController extends Controller {
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
 
-    /** Feature pages under /features/<slug>, from app/config/feature_pages.php. */
+    /** Feature pages under /features/<slug> (FeaturePages::PAGES). */
     public static function feature_pages(): array {
-        static $cache = null;
-        if ($cache === null) {
-            $f = Main::app_path() . '/app/config/feature_pages.php';
-            $cache = is_file($f) ? (array) require $f : array();
-        }
-        return $cache;
+        return FeaturePages::PAGES;
     }
 
     public function featuresAction(){
@@ -124,7 +119,7 @@ class PagesController extends Controller {
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     /**
      * One row per plan for every public surface (pricing page, home FAQ, schema, llms.txt),
-     * straight from app/config/plans.php. Free has no Stripe price and still belongs here, so
+     * straight from PlanTiers. Free has no Stripe price and still belongs here, so
      * prices come from config, never from the Stripe catalogue.
      */
     public static function pricing_rows(): array {
@@ -178,7 +173,7 @@ class PagesController extends Controller {
         );
         $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
     }
-    /** "Free $0, Creator $49, Studio $199, all per month." (whatever plans.php offers) — one sentence, from config. */
+    /** "Free $0, Creator $49, Studio $199, all per month." (whatever PlanTiers offers) — one sentence. */
     public static function plan_price_sentence(): string {
         $bits = array();
         foreach (self::pricing_rows() as $r) {
