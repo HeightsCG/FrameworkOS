@@ -7,6 +7,34 @@ class Bootstrap
         $this->start_app();
     }
 
+    /**
+     * 301 to the canonical https://www host when the request came in on another one.
+     * Skipped on CLI, on dev/local hosts, and for /api and /mcp (machine callers follow their own URL).
+     */
+    private function canonical_host(array $config, string $env): void
+    {
+        if (php_sapi_name() === 'cli') { return; }
+        $canonical = trim((string) ($config[$env]['canonical_host'] ?? ''));
+        if ($canonical === '') { return; }   // unset (dev) = leave every host alone
+
+        $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host === '') { return; }
+        // force_https counts as proof: behind a proxy that strips the protocol headers, redirecting
+        // an already-https request to itself would loop forever.
+        $https = (!empty($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) !== 'off')
+            || (($_SERVER['SERVER_PORT'] ?? '') == 443)
+            || (strtolower($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+            || !empty($config[$env]['force_https']) || !empty($config['global']['force_https']);
+        if ($host === strtolower($canonical) && $https) { return; }
+
+        $first = strtolower((string) (Main::get_url()[0] ?? ''));
+        if ($first === 'api' || $first === 'mcp') { return; }
+
+        $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+        header('Location: https://' . $canonical . $uri, true, 301);
+        exit;
+    }
+
     public function start_app()
     {
         // Store everything in UTC; display layers convert to the viewer's timezone.
@@ -27,6 +55,11 @@ class Bootstrap
         ini_set('session.cookie_secure',   $isHttps ? '1' : '0');
         ini_set('session.cookie_samesite', 'Lax');
         Session::init();
+
+        // One canonical host: everything answers on https://www.<domain>. Anything else 301s there once,
+        // so links, sitemap URLs and Search Console all agree. Done here rather than in .htaccess:
+        // no server config to get wrong, and it is testable on dev (where it stays off).
+        $this->canonical_host($config, $env);
 
         // Public creator profiles live at /@handle. The "@" namespaces them away
         // from real app routes, so intercept before normal controller resolution.

@@ -199,3 +199,11 @@
 .faq__a{ padding:0 24px 22px; font-size:1rem; line-height:1.65; color:var(--ld-t2); }
 @media (prefers-reduced-motion:reduce){ .faq__icon, .faq__q{ transition:none; } }
 @media (max-width:640px){ .faq__q{ padding:16px 18px; font-size:1rem; } .faq__a{ padding:0 18px 18px; } }
+
+/* Signup block at the end of every generated article (SeoDrafter::cta_html) */
+.gd-cta{ margin:3rem 0 0; padding:1.75rem; border:1px solid var(--sx-line-2); border-radius:var(--sx-r); background:var(--sx-grey); }
+.gd-cta__title{ margin:0; font-size:1.35rem; font-weight:800; letter-spacing:-.02em; color:var(--sx-ink); }
+.gd-cta__text{ margin:.6rem 0 1.25rem; font-size:1rem; line-height:1.65; color:var(--sx-t2); max-width:60ch; }
+.gd-cta__btn{ display:inline-flex; align-items:center; height:44px; padding:0 1.15rem; border-radius:var(--sx-r); background:var(--sx-acc); color:#0a0a0a; font-size:.95rem; font-weight:700; text-decoration:none; }
+.gd-cta__btn:hover{ background:var(--sx-acc-h); color:#0a0a0a; }
+.gd-cta__btn:focus-visible{ outline:none; box-shadow:var(--sx-ring); }

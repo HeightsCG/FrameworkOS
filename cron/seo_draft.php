@@ -20,13 +20,38 @@ if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo date('c'), " another run 
 
 $keywords = new SeoKeywordsModel();
 $seed = array(
-    array('how to monetize content as a creator', 1900, 'doable', 10), array('creator monetization platform', 880, 'hard', 20),
-    array('onlyfans alternative', 6600, 'hard', 15), array('fanvue alternative', 720, 'doable', 15),
-    array('how to sell pay-per-view content', 320, 'easy', 30), array('creator membership tiers', 260, 'easy', 30),
-    array('link in bio for creators', 1300, 'doable', 40), array('best link in bio for creators', 590, 'doable', 45),
-    array('ai influencer content', 480, 'doable', 50), array('creator payouts stripe', 140, 'easy', 60),
-    array('how to price a subscription tier', 210, 'easy', 25), array('cross-post to social media from one place', 390, 'easy', 35),
-    array('monetize digital content', 700, 'doable', 20), array('monetize online content', 590, 'doable', 22), array('online creator platform', 1000, 'hard', 24),
+    // keyword, monthly volume, difficulty, priority, topic cluster (SeoDrafter::CLUSTERS)
+    array('how to monetize content as a creator', 1900, 'doable', 10, 'ai-influencer-monetization'),
+    array('creator monetization platform', 880, 'hard', 20, 'platform-comparisons'),
+    array('onlyfans alternative', 6600, 'hard', 15, 'platform-comparisons'),
+    array('fanvue alternative', 720, 'doable', 15, 'platform-comparisons'),
+    array('how to sell pay-per-view content', 320, 'easy', 30, 'ai-influencer-monetization'),
+    array('creator membership tiers', 260, 'easy', 30, 'ai-influencer-monetization'),
+    array('link in bio for creators', 1300, 'doable', 40, 'platform-comparisons'),
+    array('best link in bio for creators', 590, 'doable', 45, 'platform-comparisons'),
+    array('ai influencer content', 480, 'doable', 50, 'ai-influencer-monetization'),
+    array('creator payouts stripe', 140, 'easy', 60, 'creator-payouts'),
+    array('how to price a subscription tier', 210, 'easy', 25, 'ai-influencer-monetization'),
+    array('cross-post to social media from one place', 390, 'easy', 35, 'platform-comparisons'),
+    array('monetize digital content', 700, 'doable', 20, 'ai-influencer-monetization'),
+    array('monetize online content', 590, 'doable', 22, 'ai-influencer-monetization'),
+    array('online creator platform', 1000, 'hard', 24, 'platform-comparisons'),
+    // creator-side clusters the growth plan targets
+    array('how to make money with an ai influencer', 590, 'doable', 12, 'ai-influencer-monetization'),
+    array('ai influencer monetization', 320, 'doable', 14, 'ai-influencer-monetization'),
+    array('virtual influencer income', 210, 'easy', 26, 'ai-influencer-monetization'),
+    array('ai chat for creators', 480, 'doable', 18, 'ai-dm-chatter'),
+    array('automated dm replies for creators', 260, 'easy', 20, 'ai-dm-chatter'),
+    array('ai chatter for fan messages', 170, 'easy', 28, 'ai-dm-chatter'),
+    array('how to sell content in dms', 320, 'doable', 30, 'ai-dm-chatter'),
+    array('how to train a lora character', 880, 'doable', 16, 'lora-character-training'),
+    array('lora training dataset tips', 390, 'doable', 24, 'lora-character-training'),
+    array('consistent ai character across images', 720, 'doable', 18, 'lora-character-training'),
+    array('flux lora training', 1300, 'hard', 22, 'lora-character-training'),
+    array('how creators get paid online', 590, 'doable', 26, 'creator-payouts'),
+    array('creator payout schedule', 210, 'easy', 34, 'creator-payouts'),
+    array('taxes for online creators', 1600, 'hard', 40, 'creator-payouts'),
+    array('chargebacks for digital content', 170, 'easy', 42, 'creator-payouts'),
 );
 $added = $keywords->seed($seed);
 if ($added > 0) { echo date('c'), " seeded $added keyword(s)\n"; }

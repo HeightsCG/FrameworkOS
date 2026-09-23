@@ -85,6 +85,9 @@ class SeoController extends Controller {
             array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
             array('path' => '/pricing',  'title' => 'Pricing',  'description' => 'Three monthly plans; the take rate falls as you grow.',                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
+        foreach (PagesController::feature_pages() as $slug => $f) {
+            $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
+        }
         foreach (PagesController::COMPETITORS as $slug => $c) {
             $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8');
         }

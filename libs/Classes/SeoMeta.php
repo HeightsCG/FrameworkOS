@@ -27,6 +27,14 @@ class SeoMeta {
     /** Keyword → path. Product pages link to each other with these; the content engine reuses the map. */
     public static function internal_links(): array {
         return array(
+            'ai influencer'                        => '/features/character-generation',
+            'ai character'                         => '/features/character-generation',
+            'lora training'                        => '/features/character-generation',
+            'ai dm'                                => '/features/dm-agent',
+            'ai chat'                              => '/features/dm-agent',
+            'automated messages'                   => '/features/dm-agent',
+            'creator payouts'                      => '/features/payouts',
+            'get paid'                             => '/features/payouts',
             'creator platform'                     => '/features',
             'online creator platform'              => '/features',
             'creator monetization platform'        => '/features',
@@ -69,7 +77,7 @@ class SeoMeta {
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
             'image' => (string) ($m['image'] ?? (self::base() . '/images/og-image.png')),
-            'author' => array('@type' => 'Organization', 'name' => self::site() . ' team', 'url' => self::base() . '/'),
+            'author' => array('@type' => 'Organization', 'name' => trim((string) ($m['author'] ?? '')) !== '' ? (string) $m['author'] : self::site() . ' team', 'url' => self::base() . '/'),
             'publisher' => self::org(),
             'inLanguage' => 'en-US',
         );

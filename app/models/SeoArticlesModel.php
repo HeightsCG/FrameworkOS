@@ -49,6 +49,39 @@ class SeoArticlesModel extends Model {
              FROM seo_articles WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT $offset, $limit");
     }
 
+    /** Title/keyword of every published article (plus the one being rewritten, excluded) — the duplicate guard's corpus. */
+    public function primary_keywords($except_id = 0){
+        return (array) parent::select(
+            "SELECT id, slug, title, target_keyword FROM seo_articles
+             WHERE status IN ('published', 'review') AND id <> :x ORDER BY id DESC",
+            array('x' => (int) $except_id));
+    }
+
+    /**
+     * Published articles in a cluster, newest first, for internal linking. Falls back to
+     * any cluster when the cluster is empty or too small, so an article always has links to make.
+     */
+    public function for_linking($cluster, $except_id = 0, $limit = 6){
+        $limit = max(1, min(20, (int) $limit));
+        $rows = array();
+        if ((string) $cluster !== '') {
+            $rows = (array) parent::select(
+                "SELECT id, slug, title, excerpt, target_keyword FROM seo_articles
+                 WHERE status = 'published' AND cluster = :c AND id <> :x
+                 ORDER BY published_at DESC, id DESC LIMIT $limit",
+                array('c' => (string) $cluster, 'x' => (int) $except_id));
+        }
+        if (count($rows) < $limit) {
+            $more = (array) parent::select(
+                "SELECT id, slug, title, excerpt, target_keyword FROM seo_articles
+                 WHERE status = 'published' AND id <> :x ORDER BY published_at DESC, id DESC LIMIT $limit",
+                array('x' => (int) $except_id));
+            $seen = array_column($rows, 'id');
+            foreach ($more as $m) { if (!in_array($m['id'], $seen, true)) { $rows[] = $m; } }
+        }
+        return array_slice($rows, 0, $limit);
+    }
+
     public function count_published(){
         $rows = parent::select("SELECT COUNT(*) AS c FROM seo_articles WHERE status = 'published'");
         return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;

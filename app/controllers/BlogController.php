@@ -103,7 +103,7 @@ class BlogController extends Controller {
         $published = !empty($a['published_at']) ? gmdate('c', strtotime($a['published_at'] . ' UTC')) : gmdate('c', strtotime($a['created_at'] . ' UTC'));
         $modified  = !empty($a['updated_at'])   ? gmdate('c', strtotime($a['updated_at'] . ' UTC'))   : $published;
         $jsonld = array(
-            SeoMeta::article(array('headline' => $a['title'], 'description' => $a['meta_description'], 'url' => SeoMeta::base() . $path, 'published' => $published, 'modified' => $modified, 'image' => $a['cover_image_url'] ?: null)),
+            SeoMeta::article(array('headline' => $a['title'], 'description' => $a['meta_description'], 'author' => (string) ($a['author'] ?? ''), 'url' => SeoMeta::base() . $path, 'published' => $published, 'modified' => $modified, 'image' => $a['cover_image_url'] ?: null)),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => self::NAME, 'url' => '/blog'), array('name' => $a['title'], 'url' => $path))),
         );
         if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }

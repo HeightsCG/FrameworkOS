@@ -73,6 +73,7 @@ class ApiSeoContentController extends BaseApiController {
         if (!empty($errors)) { $this->jsonError('Fix before publishing: ' . implode('; ', $errors), ['errors' => $errors]); }
         $m->set_status($id, 'published', (int) Session::get('user_id'));
         $this->link_keyword($a, 'published', $id);
+        try { IndexNow::ping(array('/blog/' . $a['slug'], '/blog', '/sitemap.xml')); } catch (\Throwable $e) { error_log('[seo] indexnow: ' . $e->getMessage()); }
         $this->jsonSuccess(['url' => '/blog/' . $a['slug'], 'message' => 'Published']);
     }
 
@@ -81,6 +82,7 @@ class ApiSeoContentController extends BaseApiController {
         $m = new SeoArticlesModel(); $id = (int) ($this->post['id'] ?? 0); $a = $m->get($id);
         if (!$a) { $this->jsonError('Article not found'); }
         $m->set_status($id, 'review'); $this->link_keyword($a, 'drafted', $id);
+        try { IndexNow::ping(array('/blog/' . $a['slug'], '/blog', '/sitemap.xml')); } catch (\Throwable $e) { error_log('[seo] indexnow: ' . $e->getMessage()); }   // tell them it is gone too
         $this->jsonSuccess(['message' => 'Back in review']);
     }
 

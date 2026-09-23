@@ -10,7 +10,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><a href="/blog"><?php echo $e(BlogController::NAME); ?></a><span aria-hidden="true">/</span><span class="gd-crumbs__here" aria-current="page"><?php echo $e($a['title']); ?></span></nav>
         <h1 class="gd-posthead__title"><?php echo $e($a['title']); ?></h1>
         <?php if (trim((string) $a['excerpt']) !== ''): ?><p class="gd-hero__lead"><?php echo $e($a['excerpt']); ?></p><?php endif; ?>
-        <p class="gd-posthead__meta"><span><?php echo $e(SeoMeta::site()); ?> team</span><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
+        <p class="gd-posthead__meta"><span><?php echo $e(trim((string) ($a['author'] ?? '')) !== '' ? $a['author'] : SeoMeta::site() . ' team'); ?></span><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
         </div>
         <?php if ($cover !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover); ?>" alt="" width="1024" height="768"><?php endif; ?>
     </header>
@@ -18,6 +18,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
     <div class="gd-post">
         <article class="gd-post__main">
             <div class="pub-body gd-body"><?php echo $body; ?></div>
+            <?php echo SeoDrafter::cta_html(); ?>
             <?php if (!empty($faq)): ?>
             <section class="faq" aria-labelledby="gd_faq_h">
     <h2 class="faq__title" id="gd_faq_h">Frequently asked questions</h2>

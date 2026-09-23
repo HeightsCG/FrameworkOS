@@ -74,8 +74,39 @@ class PagesController extends Controller {
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
 
+    /** Feature pages under /features/<slug>, from app/config/feature_pages.php. */
+    public static function feature_pages(): array {
+        static $cache = null;
+        if ($cache === null) {
+            $f = Main::app_path() . '/app/config/feature_pages.php';
+            $cache = is_file($f) ? (array) require $f : array();
+        }
+        return $cache;
+    }
+
     public function featuresAction(){
-        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $url = Main::get_url();
+        if (count($url) > 1) {
+            $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', (string) $url[1]));
+            $pages = self::feature_pages();
+            if (count($url) > 2 || $slug === '' || !isset($pages[$slug])) { Errors::page_not_found(); return; }
+            $page = $pages[$slug];
+            $path = '/features/' . $slug;
+            $jsonld = array(
+                SeoMeta::faq((array) ($page['faq'] ?? array())),
+                SeoMeta::breadcrumbs(array(
+                    array('name' => 'Home', 'url' => '/'),
+                    array('name' => 'Features', 'url' => '/features'),
+                    array('name' => $page['nav_title'] ?? $page['title'], 'url' => $path),
+                )),
+            );
+            $siblings = $pages; unset($siblings[$slug]);
+            $cta = (array) ($page['cta'] ?? array());
+            $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld),
+                array('page' => $page, 'slug' => $slug, 'siblings' => $siblings,
+                      'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
+            return;
+        }
         $faq = array(
             array('q' => 'Do I need my own website?', 'a' => 'No. Your public page lives at our domain under your handle and includes your posts, tiers, services, events and links.'),
             array('q' => 'Can I keep posting to my social accounts?', 'a' => 'Yes. The studio publishes each post to your page and to any connected social accounts at the same time, and pulls their engagement back into analytics.'),

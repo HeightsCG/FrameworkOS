@@ -21,7 +21,7 @@ class SeoKeywordsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
-    public function add($keyword, $volume, $difficulty, $priority = 100){
+    public function add($keyword, $volume, $difficulty, $priority = 100, $cluster = ''){
         $keyword = trim(mb_substr((string) $keyword, 0, 160));
         if ($keyword === '') { return 0; }
         $existing = parent::select("SELECT id FROM seo_keywords WHERE keyword = :k", array('k' => $keyword));
@@ -30,7 +30,7 @@ class SeoKeywordsModel extends Model {
         return (int) parent::insert('seo_keywords', array(
             'keyword' => $keyword, 'volume' => $volume === null || $volume === '' ? null : (int) $volume,
             'difficulty' => in_array($difficulty, array('easy', 'doable', 'hard'), true) ? $difficulty : 'doable',
-            'priority' => (int) $priority, 'status' => 'queued', 'created_at' => $now, 'updated_at' => $now,
+            'priority' => (int) $priority, 'cluster' => mb_substr((string) $cluster, 0, 40), 'status' => 'queued', 'created_at' => $now, 'updated_at' => $now,
         ));
     }
 
@@ -61,7 +61,7 @@ class SeoKeywordsModel extends Model {
         foreach ($rows as $r) {
             $before = parent::select("SELECT id FROM seo_keywords WHERE keyword = :k", array('k' => $r[0]));
             if (is_array($before) && count($before)) { continue; }
-            if ($this->add($r[0], $r[1], $r[2], $r[3]) > 0) { $n++; }
+            if ($this->add($r[0], $r[1], $r[2], $r[3], $r[4] ?? '') > 0) { $n++; }
         }
         return $n;
     }
