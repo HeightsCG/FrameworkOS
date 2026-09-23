@@ -130,6 +130,8 @@
 .billing__notice--action .btn{flex-shrink:0;}
 .disc__row{display:flex; justify-content:space-between; gap:1rem; padding:.45rem 0; font-size:.9rem; color:var(--t2); border-bottom:1px solid var(--line2);}
 .disc__row:last-child{border-bottom:0;}
+.disc__row--off span:last-child{color:var(--success);}
+#disc_promo{margin-top:.8rem;}
 .disc__row--total{font-weight:700; color:var(--text); border-bottom:0; padding-top:.6rem;}
 .disc__terms{margin:.6rem 0 0; font-size:.84rem; line-height:1.55; color:var(--muted);}
 .disc__card{margin:.6rem 0 0; font-size:.88rem; font-weight:500; color:var(--text);}

@@ -86,15 +86,37 @@ $(function () {
     }
 
     /* ---- the disclosure: what is charged today, what renews, how often, next date, how to cancel ---- */
-    function disclose(quote_body, title, action) {
-        ApiDataSvc.apiCall('post', 'billing_quote', quote_body, function (data) {
+    var quote_body = null;
+    function show_quote(q) {
+        var rows = (q.lines || []).map(function (l) { return '<div class="disc__row' + (l.amount.charAt(0) === '-' ? ' disc__row--off' : '') + '"><span>' + esc(l.label) + '</span><span>' + esc(l.amount) + '</span></div>'; }).join('');
+        $('#disc_lines').html(rows);
+        $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
+        $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : 'Pay ' + q.today);
+    }
+    /* Promo code (plan checkouts): re-quote with it; the same code goes with the charge. */
+    $('#disc_promo_apply').on('click', function () {
+        var code = String($('#disc_promo_code').val() || '').trim();
+        if (code === '' || !quote_body || !pending) { return; }
+        var $b = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'billing_quote', $.extend({}, quote_body, { promo_code: code }), function (data) {
+            var q = parse(data);
+            $b.prop('disabled', false);
+            if (!q.success) { toastr.error(q.message); return; }
+            pending.body.promo_code = code;
+            show_quote(q);
+            toastr.success((q.promo_label || 'Promo') + ' applied');
+        });
+    });
+    $('#disc_promo_code').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#disc_promo_apply').trigger('click'); } });
+    function disclose(body, title, action) {
+        ApiDataSvc.apiCall('post', 'billing_quote', body, function (data) {
             var q = parse(data);
             if (!q.success) { toastr.error(q.message); return; }
-            pending = action;
-            var rows = (q.lines || []).map(function (l) { return '<div class="disc__row"><span>' + esc(l.label) + '</span><span>' + esc(l.amount) + '</span></div>'; }).join('');
+            pending = action; quote_body = body;
             $('#confirm_title').text(title);
-            $('#disc_lines').html(rows);
-            $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
+            show_quote(q);
+            $('#disc_promo_code').val('');
+            $('#disc_promo').prop('hidden', !q.promo_ok);
             $('#disc_terms').text(q.mode === 'downgrade'
                 ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
                 : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
@@ -107,7 +129,7 @@ $(function () {
                 $('#disc_card_form').show();
                 mount_card('#disc_card_form');
             }
-            $('#confirm_go').prop('disabled', false).text(q.mode === 'downgrade' ? 'Schedule Change' : 'Pay ' + q.today);
+            $('#confirm_go').prop('disabled', false);
             $('#confirm_modal').modal('show');
         });
     }
@@ -543,6 +565,10 @@ $(function () {
             <div class="modal-body">
                 <div class="disc" id="disc_lines"></div>
                 <div class="disc__row disc__row--total"><span>Due today</span><span id="disc_today"></span></div>
+                <div class="promo" id="disc_promo" hidden>
+                    <input type="text" class="form-control promo__input" id="disc_promo_code" placeholder="Promo code" autocomplete="off" autocapitalize="characters" spellcheck="false">
+                    <button type="button" class="btn btn-secondary promo__btn" id="disc_promo_apply">Apply</button>
+                </div>
                 <p class="disc__terms" id="disc_terms"></p>
                 <p class="disc__card" id="disc_card"></p>
                 <div id="disc_card_form"></div>

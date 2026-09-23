@@ -411,19 +411,31 @@ class StripeService {
                 return array(
                     'discount' => array('promotion_code' => (string) $pc->id),
                     'label'    => self::coupon_label($coupon),
-                );
+                ) + self::coupon_terms($coupon, (string) $pc->code);
             }
             $coupon = $client->coupons->retrieve($code);
             if ($coupon && !empty($coupon->valid)) {
                 return array(
                     'discount' => array('coupon' => (string) $coupon->id),
                     'label'    => self::coupon_label($coupon),
-                );
+                ) + self::coupon_terms($coupon, (string) $coupon->id);
             }
         } catch (\Throwable $e) {
             // Unknown coupon id throws a 404 — that's simply "no match".
         }
         return array();
+    }
+
+    /** What a coupon takes off, for app-managed billing: code, percent or amount (cents), and how many charges (null = forever). */
+    private static function coupon_terms($coupon, $code): array
+    {
+        $dur = (string) ($coupon->duration ?? 'once');
+        return array(
+            'code'          => strtoupper((string) $code),
+            'percent_off'   => !empty($coupon->percent_off) ? (float) $coupon->percent_off : null,
+            'amount_off'    => !empty($coupon->amount_off) ? (int) $coupon->amount_off : null,
+            'periods'       => $dur === 'forever' ? null : ($dur === 'repeating' ? max(1, (int) ($coupon->duration_in_months ?? 1)) : 1),
+        );
     }
 
     /** "20% off" / "$10 off" plus the duration, from a coupon object. */

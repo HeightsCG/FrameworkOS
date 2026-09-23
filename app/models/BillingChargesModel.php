@@ -61,6 +61,13 @@ class BillingChargesModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** Has this account already paid a charge with this promo code? (one use per account) */
+    public function promo_used($user_id, $code){
+        $r = parent::select("SELECT id FROM billing_charges WHERE user_id = :u AND status = 'succeeded' AND effects LIKE :c LIMIT 1",
+            array('u' => (int) $user_id, 'c' => '%"promo_code":"' . str_replace(array('%', '_'), array('\\%', '\\_'), strtoupper((string) $code)) . '"%'));
+        return is_array($r) && count($r) === 1;
+    }
+
     /** An unfinished charge that needs the user to authenticate, newest first. */
     public function awaiting_action($user_id){
         $r = parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND status = 'requires_action' ORDER BY id DESC LIMIT 1", array('u' => (int) $user_id));

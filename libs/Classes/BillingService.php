@@ -91,6 +91,10 @@ class BillingService {
         $pack_cents = ($acct['pack_dollars_next'] !== null) ? $pack * 100 : (int) ($acct['pack_price_cents'] ?? $pack * 100);
         $lines = self::lines($plan, $slots, $pack, $pack_cents);
         if (empty($lines)) { return null; }
+        if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
+            $off = self::promo_off(self::plan_cents($plan), $acct);
+            if ($off > 0) { $lines[] = array('Promo ' . $acct['promo_code'], -$off); }
+        }
         return array('at' => (string) $acct['next_charge_at'], 'lines' => $lines, 'total' => array_sum(array_column($lines, 1)),
             'plan' => $plan, 'slots' => $slots, 'pack' => $pack);
     }
@@ -106,6 +110,38 @@ class BillingService {
         if ((int) $slots > 0) { $out[] = array((int) $slots . ' extra AI influencer' . ((int) $slots === 1 ? '' : 's'), (int) $slots * self::slot_cents()); }
         if ((int) $pack_dollars > 0) { $out[] = array((int) $pack_dollars . ' AI credits (monthly pack)', $pack_cents !== null ? (int) $pack_cents : (int) $pack_dollars * 100); }
         return $out;
+    }
+
+    /** What a promo takes off a plan charge (cents): percent of it, or a fixed amount up to it. */
+    public static function promo_off($plan_cents, array $p): int
+    {
+        if (!empty($p['promo_percent'])) { return (int) round((int) $plan_cents * (float) $p['promo_percent'] / 100); }
+        if (!empty($p['promo_amount_cents'])) { return min((int) $plan_cents, (int) $p['promo_amount_cents']); }
+        return 0;
+    }
+
+    /** Check a promo code against Stripe and this account's history. ['ok', 'promo' => [...fields for billing_accounts], 'label'] or ['ok' => false, 'message']. */
+    public static function resolve_promo($user_id, $code): array
+    {
+        $r = StripeService::resolve_promo_code((string) $code);
+        if (empty($r) || (empty($r['percent_off']) && empty($r['amount_off']))) { return array('ok' => false, 'message' => 'That promo code is not valid.'); }
+        if ((new BillingChargesModel())->promo_used((int) $user_id, $r['code'])) { return array('ok' => false, 'message' => 'You have already used that promo code.'); }
+        return array('ok' => true, 'label' => (string) $r['label'], 'promo' => array('promo_code' => $r['code'], 'promo_percent' => $r['percent_off'],
+            'promo_amount_cents' => $r['amount_off'], 'promo_periods_left' => $r['periods']));
+    }
+
+    /** The promo as it stands after one more discounted charge (null = nothing left to store). */
+    private static function promo_after_charge(array $p)
+    {
+        if ($p['promo_periods_left'] === null) { return $p; }   // forever
+        $left = (int) $p['promo_periods_left'] - 1;
+        return $left > 0 ? array_merge($p, array('promo_periods_left' => $left)) : null;
+    }
+
+    /** billing_accounts fields that store (or clear) a promo. */
+    private static function promo_fields($p): array
+    {
+        return is_array($p) ? $p : array('promo_code' => null, 'promo_percent' => null, 'promo_amount_cents' => null, 'promo_periods_left' => null);
     }
 
     /* =====================================================================
@@ -196,12 +232,14 @@ class BillingService {
             case 'subscribe':
                 $f += array('plan_key' => $fx['plan'], 'status' => 'active', 'cancel_at_period_end' => 0, 'pending_plan_key' => null,
                     'current_period_start' => $fx['period_start'], 'current_period_end' => $fx['period_end'], 'next_charge_at' => $fx['period_end'],
-                    'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null);
+                    'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null)
+                    + self::promo_fields(!empty($fx['promo']) ? self::promo_after_charge($fx['promo']) : null);
                 $t = PlanTiers::get($fx['plan']);
                 $ai->set_bucket($uid, 'plan', (int) ($t['limits']['ai_credits'] ?? 0), $t['name'] . ' plan: included AI credits');
                 break;
             case 'upgrade':
                 $f += array('plan_key' => $fx['plan'], 'pending_plan_key' => null, 'cancel_at_period_end' => 0);
+                if (!empty($fx['promo'])) { $f += self::promo_fields(self::promo_after_charge($fx['promo'])); }   // a new code replaces the old one
                 if (!self::takes_slots($fx['plan'])) { $f += array('influencer_slots' => 0, 'influencer_slots_next' => null); }
                 $old = PlanTiers::get($fx['from']); $new = PlanTiers::get($fx['plan']);
                 $diff = (int) ($new['limits']['ai_credits'] ?? 0) - (int) ($old['limits']['ai_credits'] ?? 0);
@@ -220,6 +258,7 @@ class BillingService {
             case 'renewal':
                 $f += array('status' => 'active', 'current_period_start' => $row['period_start'], 'current_period_end' => $row['period_end'],
                     'next_charge_at' => $row['period_end'], 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null);
+                if (!empty($fx['promo'])) { $f += self::promo_fields(self::promo_after_charge($fx['promo'])); }
                 if ((string) $fx['plan'] !== self::PLAN_FREE) {
                     $t = PlanTiers::get($fx['plan']);
                     $ai->set_bucket($uid, 'plan', (int) ($t['limits']['ai_credits'] ?? 0), $t['name'] . ' plan: AI credits for ' . date('M j', strtotime($row['period_start'] . ' UTC')) . ' to ' . date('M j', strtotime($row['period_end'] . ' UTC')));
@@ -290,7 +329,7 @@ class BillingService {
         $plan = (string) $acct['plan_key'];
         if ((int) $acct['cancel_at_period_end']) {
             $plan = self::PLAN_FREE;
-            $f += array('plan_key' => $plan, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null);
+            $f += array('plan_key' => $plan, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null) + self::promo_fields(null);
             (new AiCreditsModel())->set_bucket($uid, 'plan', 0, '');
             self::email($uid, 'Your plan has ended', 'Your paid plan ended as you asked, and your account is now on Free. Everything you made is saved; anything over the Free limits is locked until you upgrade.', array(), '', 'See Plans', '/account/billing');
         } elseif ((string) ($acct['pending_plan_key'] ?? '') !== '') {
@@ -319,6 +358,14 @@ class BillingService {
         $attempt = $last ? (int) $last['attempt'] + 1 : 1;
         $end     = self::add_period($start);
         $fx      = array('plan' => $plan, 'slots' => (int) $acct['influencer_slots'], 'pack' => (int) $acct['pack_dollars']);
+        if ($plan !== self::PLAN_FREE && !empty($acct['promo_code'])) {
+            $off = self::promo_off(self::plan_cents($plan), $acct);
+            if ($off > 0) {
+                $lines[] = array('Promo ' . $acct['promo_code'], -$off);
+                $fx['promo'] = array('promo_code' => $acct['promo_code'], 'promo_percent' => $acct['promo_percent'], 'promo_amount_cents' => $acct['promo_amount_cents'],
+                    'promo_periods_left' => $acct['promo_periods_left'] === null ? null : (int) $acct['promo_periods_left']);
+            }
+        }
         return self::charge($uid, 'renewal', $lines, $fx, $start, $end, 'renewal-' . $uid . '-' . strtotime($start . ' UTC') . '-a' . $attempt, $attempt);
     }
 
@@ -328,7 +375,7 @@ class BillingService {
         $uid  = (int) $user_id;
         $acct = self::account($uid);
         $f = array('plan_key' => self::PLAN_FREE, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null,
-            'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null);
+            'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null) + self::promo_fields(null);
         $keep_pack = !$drop_pack && (int) $acct['pack_dollars'] > 0;
         if ($keep_pack) { $f += array('status' => 'active'); }
         else { $f += array('status' => 'free', 'next_charge_at' => null, 'pack_dollars' => null, 'pack_price_cents' => null, 'pack_started_at' => null, 'pack_dollars_next' => null); }
@@ -377,7 +424,21 @@ class BillingService {
     }
 
     /** What moving to $plan would charge today and from when: for the disclosure before confirming. */
-    public static function quote_plan($user_id, $plan): array
+    public static function quote_plan($user_id, $plan, $code = ''): array
+    {
+        $q = self::quote_plan_base($user_id, $plan);
+        if (empty($q['ok']) || trim((string) $code) === '' || !in_array($q['mode'], array('subscribe', 'upgrade'), true)) { return $q; }
+        $pr = self::resolve_promo($user_id, $code);
+        if (empty($pr['ok'])) { return array('ok' => false, 'message' => $pr['message']); }
+        $off = self::promo_off((int) $q['lines'][0][1], $pr['promo']);   // the new plan's charge is always the first line
+        $q['lines'][] = array('Promo ' . $pr['promo']['promo_code'] . ' (' . $pr['label'] . ')', -$off);
+        $q['today'] = max(0, (int) array_sum(array_column($q['lines'], 1)));
+        $q['promo'] = $pr['promo'];
+        $q['promo_label'] = $pr['label'];
+        return $q;
+    }
+
+    private static function quote_plan_base($user_id, $plan): array
     {
         $acct = self::account($user_id);
         $to = PlanTiers::get($plan);
@@ -409,12 +470,12 @@ class BillingService {
     }
 
     /** Subscribe from Free, upgrade now (prorated), or schedule a downgrade for the billing date. */
-    public static function change_plan($user_id, $plan): array
+    public static function change_plan($user_id, $plan, $code = ''): array
     {
         $uid  = (int) $user_id;
         $acct = self::account($uid);
         if ((string) $acct['status'] === 'past_due') { return array('status' => 'failed', 'message' => 'Update your card to settle your last payment before changing plans.'); }
-        $q = self::quote_plan($uid, $plan);
+        $q = self::quote_plan($uid, $plan, $code);
         if (empty($q['ok'])) { return array('status' => 'failed', 'message' => $q['message']); }
         $name = PlanTiers::get($plan)['name'];
         if ($q['mode'] === 'downgrade') {
@@ -423,13 +484,14 @@ class BillingService {
             return array('status' => 'scheduled', 'message' => 'You\'ll move to ' . $name . ' on ' . date('M j', strtotime($acct['next_charge_at'] . ' UTC')) . '.');
         }
         if ($q['mode'] === 'upgrade') {
-            $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key']);
+            $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null);
             return self::charge($uid, 'upgrade', $q['lines'], $fx, gmdate('Y-m-d H:i:s'), (string) $acct['current_period_end'], 'upgrade-' . $uid . '-' . bin2hex(random_bytes(6)));
         }
         $keep = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = $keep ? (string) $acct['current_period_start'] : gmdate('Y-m-d H:i:s');
         $end   = $keep ? (string) $acct['current_period_end'] : $q['next_at'];
-        return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end), gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
+        return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null),
+            gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
     }
 
     public static function set_cancel($user_id, $cancel): array

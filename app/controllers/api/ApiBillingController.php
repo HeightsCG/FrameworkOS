@@ -39,12 +39,13 @@ class ApiBillingController extends BaseApiController {
         $acct = BillingService::account($uid);
         $fmt  = function ($lines) { return array_map(function ($l) { return array('label' => $l[0], 'amount' => BillingService::money($l[1])); }, $lines); };
         if (isset($this->post['plan'])) {
-            $q = BillingService::quote_plan($uid, (string) $this->post['plan']);
+            $q = BillingService::quote_plan($uid, (string) $this->post['plan'], (string) ($this->post['promo_code'] ?? ''));
             if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
             $t = PlanTiers::get((string) $this->post['plan']);
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
                 'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
-                'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
+                'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card'],
+                'promo_ok' => in_array($q['mode'], array('subscribe', 'upgrade'), true), 'promo_label' => (string) ($q['promo_label'] ?? '')]);
         }
         if (isset($this->post['pack'])) {
             $d = (int) $this->post['pack'];
@@ -95,7 +96,7 @@ class ApiBillingController extends BaseApiController {
         $plan = (string) ($this->post['plan'] ?? '');
         if ($plan === PlanTiers::FREE_KEY) { $r = BillingService::set_cancel((int) $user['user_id'], true); if (empty($r['ok'])) { $this->jsonError($r['message']); } $this->jsonSuccess(['status' => 'scheduled', 'message' => $r['message']]); }
         $t = PlanTiers::get($plan);
-        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
+        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? '')), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
     }
 
     /** One-click cancel: the plan runs to the end of the period, then the account moves to Free. */
