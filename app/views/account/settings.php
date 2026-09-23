@@ -886,20 +886,27 @@
                             <div class="integ__name"><?php echo $meta[0]; ?></div>
                             <div class="integ__meta">
                                 <?php if (!empty($accts)): ?>
-                                    <?php foreach ($accts as $i => $a): ?><?php if ($i > 0): ?><span class="integ__sep">·</span><?php endif; ?><span class="integ__dot is-on"></span><?php echo htmlspecialchars(($a['username'] !== '' && $a['username'] !== null) ? '@' . $a['username'] : 'Connected', ENT_QUOTES, 'UTF-8'); ?><?php endforeach; ?>
+                                    <span class="integ__dot is-on"></span><?php echo count($accts) === 1 ? '1 account connected' : count($accts) . ' accounts connected'; ?>
                                 <?php else: ?>
                                     <span class="integ__dot"></span>Not connected
                                 <?php endif; ?>
                             </div>
                         </div>
                         <div class="integ__actions">
-                            <?php if (!empty($accts)): ?>
-                                <?php foreach ($accts as $a): ?><button type="button" class="btn btn-ghost btn-sm conn-disconnect" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">Disconnect</button><?php endforeach; ?>
-                            <?php else: ?>
-                                <button type="button" class="btn btn-secondary btn-sm conn-connect" data-platform="<?php echo htmlspecialchars($p, ENT_QUOTES, 'UTF-8'); ?>">Connect</button>
-                            <?php endif; ?>
+                            <button type="button" class="btn btn-secondary btn-sm conn-connect" data-platform="<?php echo htmlspecialchars($p, ENT_QUOTES, 'UTF-8'); ?>"><?php echo !empty($accts) ? 'Add Account' : 'Connect'; ?></button>
                         </div>
                     </div>
+                    <?php if (!empty($accts)): ?>
+                    <ul class="integ__accts">
+                        <?php foreach ($accts as $a): ?>
+                        <li class="integ__acct">
+                            <span class="integ__dot is-on"></span>
+                            <span class="integ__acctname"><?php echo htmlspecialchars(($a['username'] !== '' && $a['username'] !== null) ? '@' . $a['username'] : 'Connected', ENT_QUOTES, 'UTF-8'); ?></span>
+                            <button type="button" class="btn btn-ghost btn-sm conn-disconnect" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">Disconnect</button>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
+                    <?php endif; ?>
                     <?php endforeach; ?>
                 </div>
                 <?php endif; ?>
