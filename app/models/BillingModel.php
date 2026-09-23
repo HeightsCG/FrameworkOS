@@ -59,4 +59,10 @@ class BillingModel extends Model {
         return parent::update('user_accounts', array('stripe_subscription_id' => null, 'updated_at' => date('Y-m-d H:i:s')), 'user_id = :user_id', array('user_id' => (int) $user_id));
     }
 
+    /** Accounts the plan mirror calls paid (user_accounts.subscription_status) — for the stale-plan cleanup. */
+    public function users_marked_paid(){
+        $r = parent::select("SELECT user_id FROM user_accounts WHERE subscription_status IN ('active', 'trialing', 'past_due') AND deleted = 0");
+        return array_map('intval', array_column((array) $r, 'user_id'));
+    }
+
 }

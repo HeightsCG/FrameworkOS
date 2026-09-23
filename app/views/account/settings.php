@@ -1924,7 +1924,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/settings?section=creator'; }, 1000);
+                setTimeout(function () { window.location.href = '/account/billing?tab=plan&welcome=1'; }, 800);   // choose a plan next (Free needs no card)
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);

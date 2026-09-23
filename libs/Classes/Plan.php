@@ -21,7 +21,7 @@ class Plan {
         if (!is_array($user)) {
             return false;
         }
-        if (self::has_paid_plan($user)) { return true; }
+        // Only creator accounts have plans: a fan row with leftover plan data (left creator mode) has none.
         return self::is_creator_row($user);   // every creator is at least on Free
     }
 
@@ -383,12 +383,31 @@ class Plan {
         return $best;
     }
 
+    /**
+     * Take the AI credits a run costs (PlanTiers::AI_PRICES) before it starts. Returns
+     * ['ok' => true, 'price'] or ['ok' => false, 'price', 'balance', 'message'] when the account
+     * cannot pay (the caller shows the Buy credits prompt). Free's starter credits land first.
+     */
+    public static function charge_ai($user, $type, $description, array $f = array()): array
+    {
+        $uid = (int) ($user['user_id'] ?? 0);
+        self::grant_monthly($user);
+        $price = self::ai_price($type, $f);
+        $m = new AiCreditsModel();
+        if ($price > 0 && $m->apply_delta($uid, -$price, 'spend', (string) $description) === false) {
+            $bal = (int) $m->get_balance($uid);
+            return array('ok' => false, 'price' => $price, 'balance' => $bal, 'message' => self::credits_message($type, $price, $bal));
+        }
+        return array('ok' => true, 'price' => $price);
+    }
+
     /** The message shown when a job cannot be paid for. */
     public static function credits_message($type, $price, $balance): string
     {
-        $what = ($type === 'video') ? 'a video' : (($type === 'enhance') ? 'an enhancement' : (($price > 1) ? $price . ' images' : 'an image'));
-        return 'You need ' . (int) $price . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . (int) $balance
-            . '. Buy credits or wait for your next monthly allowance.';
+        $unit = max(1, (int) (PlanTiers::AI_PRICES[(string) $type] ?? 1));
+        $n    = max(1, intdiv((int) $price, $unit));
+        $what = ($type === 'video') ? 'a video' : (($type === 'enhance') ? 'an enhancement' : ($n > 1 ? $n . ' images' : 'an image'));
+        return 'You need ' . (int) $price . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . (int) $balance . '. Buy credits to keep going.';
     }
 
     /* =====================================================================

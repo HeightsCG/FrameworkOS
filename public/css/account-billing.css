@@ -212,13 +212,19 @@
 .ccard__stop:hover{color:var(--danger);}
 .ccard__stop:focus-visible{outline:2px solid var(--violet); outline-offset:2px;}
 
+/* first visit after becoming a creator: pick a plan or continue on Free */
+.billing__welcome{display:flex; align-items:center; justify-content:space-between; gap:1.2rem; margin:0 0 1.2rem; padding:1rem 1.2rem; background:var(--vsoft); border:1px solid rgba(91,75,224,.25); border-radius:2px;}
+.billing__welcome-title{font-size:1rem; font-weight:600; color:var(--text);}
+.billing__welcome-text{font-size:.88rem; color:var(--t2); margin-top:.2rem; line-height:1.5;}
+.billing__welcome .btn{flex-shrink:0;}
+
 @media (max-width:820px){
     .plans{grid-template-columns:1fr;}
     .billing__current{flex-direction:column; align-items:flex-start;}
     .usage__row{grid-template-columns:1fr; gap:.4rem;}
     .usage__val, .usage__row--credits .usage__val{text-align:left; justify-content:flex-start;}
     .packs{grid-template-columns:repeat(2,minmax(0,1fr));}
-    .billing__row, .billing__notice--action{flex-direction:column; align-items:flex-start;}
+    .billing__row, .billing__notice--action, .billing__welcome{flex-direction:column; align-items:flex-start;}
     .credits__summary, .credits__pack{flex-direction:column; align-items:flex-start;}
     .credits__split{gap:1.4rem;}
     .btabs{gap:1.2rem; overflow-x:auto;}

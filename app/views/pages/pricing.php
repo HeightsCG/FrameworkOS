@@ -49,7 +49,7 @@ foreach (PlanTiers::addons() as $ad) {
     $trows[] = $tr;
 }
 $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-per-view posts', 'Bundles', 'Services and events', 'Paid messages', 'Promo codes and free trials',
-    'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions and brand images', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
+    'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
     'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = $check; } $trows[] = $tr; }
 echo Sections::open('white', 'Compare plans', 'Plans differ in fee, limits and the AI tools they include. Everything below the limits is on every plan.');

@@ -257,7 +257,7 @@ class McpTools {
                 'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
 
         // ---- Media creation ----
-        $t[] = array('name' => 'generate_image', 'description' => 'Generate a brand AI image (Flux on fal.ai, no AI credits used) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_image', 'description' => 'Generate a brand AI image (Flux on fal.ai; costs AI credits like any AI image) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('prompt'),
             'properties' => array('prompt' => array('type' => 'string'),
                 'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
@@ -611,8 +611,13 @@ class McpTools {
                         $final = BrandService::image_prompt($prompt, (array) $cb);
                     }
                 }
+                $pay = Plan::charge_ai($user, 'image', 'Image (Claude): ' . mb_substr($prompt, 0, 60));
+                if (empty($pay['ok'])) { throw new RuntimeException($pay['message']); }
                 $res = ImageGenService::generate($final, $size);
-                if (empty($res['ok'])) { throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown')); }
+                if (empty($res['ok'])) {
+                    (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: image failed');
+                    throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown'));
+                }
                 return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
             }
             case 'upload_image_from_url': {

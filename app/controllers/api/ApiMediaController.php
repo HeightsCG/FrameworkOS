@@ -70,10 +70,14 @@ class ApiMediaController extends BaseApiController {
             }
         }
 
+        // An AI image costs AI credits on every plan (PlanTiers::AI_PRICES); a failed run gives them back.
+        $pay = Plan::charge_ai($user, 'image', 'Studio image: ' . mb_substr($prompt, 0, 60));
+        if (empty($pay['ok'])) { $this->jsonError($pay['message'], ['need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']]); }
+
         $model    = new MediaAssetsModel();
         $label    = 'Generated · ' . mb_substr($prompt, 0, 40);
         $asset_id = (int) $model->add($creator_id, 'image', $label . '.png', 'image/png', 'processing');
-        if ($asset_id <= 0) { $this->jsonError('Could not save the image. Try again.'); }
+        if ($asset_id <= 0) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: image not started'); $this->jsonError('Could not save the image. Try again.'); }
 
         $job_id = (new DatabaseJobQueue())->dispatch('media_generate', [
             'creator_id' => $creator_id,
@@ -81,8 +85,10 @@ class ApiMediaController extends BaseApiController {
             'prompt'     => $final,
             'size'       => $size_key,
             'watermark'  => !empty($user['watermark_enabled']),
+            'credits'    => (int) $pay['price'],
         ]);
         if ($job_id <= 0) {
+            (new AiCreditsModel())->refund_once($creator_id, (int) $pay['price'], 'image #' . $asset_id);
             $model->set_failed($creator_id, $asset_id, 'Could not queue the generation.');
             $this->jsonError('Could not start the image generation. Try again.');
         }

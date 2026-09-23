@@ -337,6 +337,25 @@ class BillingService {
         self::mirror($uid);
     }
 
+    /**
+     * End the plan immediately with nothing billed again (leaving creator mode): app billing
+     * goes to Free with add-ons and pack removed, and a not-yet-migrated Stripe subscription is
+     * cancelled. No refund for the rest of the period.
+     */
+    public static function end_plan_now($user_id): void
+    {
+        $uid = (int) $user_id;
+        self::to_free($uid, true, 'left_creator');
+        $u = self::user($uid);
+        $sub = (string) ($u['stripe_subscription_id'] ?? '');
+        if ($sub !== '') {
+            try { StripeService::client()->subscriptions->cancel($sub); }
+            catch (\Throwable $e) { error_log('[billing] end_plan_now cancel ' . $sub . ': ' . $e->getMessage()); }
+            (new BillingModel())->forget_stripe_subscription($uid);
+        }
+        (new BillingModel())->save_plan_mirror($uid, null, null, null, 0);
+    }
+
     /* =====================================================================
      * Changes from the billing page
      * =================================================================== */

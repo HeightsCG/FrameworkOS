@@ -356,6 +356,15 @@ $(function () {
     </section>
 
     <section class="bpanel" id="bpanel-plan" role="tabpanel" aria-labelledby="btab-plan" data-tab="plan">
+    <?php if (!empty($_GET['welcome']) && !$has_plan): ?>
+    <div class="billing__welcome">
+        <div>
+            <div class="billing__welcome-title">You're a creator. Choose your plan.</div>
+            <div class="billing__welcome-text">Paid plans lower your fee and add AI influencers, automations and AI replies. Or start on Free, no card needed.</div>
+        </div>
+        <a href="/account/settings?section=creator" class="btn btn-secondary">Continue on Free</a>
+    </div>
+    <?php endif; ?>
     <div class="plans" style="--plans:<?php echo count($ordered); ?>">
         <?php foreach ($ordered as $row): $tier = $row['tier']; ?>
         <?php

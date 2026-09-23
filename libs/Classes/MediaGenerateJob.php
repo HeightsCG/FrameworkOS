@@ -8,35 +8,39 @@ class MediaGenerateJob {
         $prompt     = (string) ($payload['prompt'] ?? '');
         $size_key   = (string) ($payload['size'] ?? 'square');
         $watermark  = !empty($payload['watermark']);
+        $credits    = (int) ($payload['credits'] ?? 0);   // AI credits taken when the run was requested
         $model      = new MediaAssetsModel();
+        $refund     = function () use ($creator_id, $asset_id, $credits) {
+            if ($credits > 0) { (new AiCreditsModel())->refund_once($creator_id, $credits, 'image #' . $asset_id); }
+        };
 
         $rows = (new UsersModel())->get_user_by_id($creator_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user || !$model->get_one($creator_id, $asset_id)) {
-            $model->set_failed($creator_id, $asset_id, 'Creator or asset not found.');
+            $refund(); $model->set_failed($creator_id, $asset_id, 'Creator or asset not found.');
             return 'FAIL creator/asset missing';
         }
         try {
             $res = ImageGenService::generate($prompt, $size_key);
             if (empty($res['ok'])) {
-                $model->set_failed($creator_id, $asset_id, $res['error'] ?? 'Generation failed. Try again.');
+                $refund(); $model->set_failed($creator_id, $asset_id, $res['error'] ?? 'Generation failed. Try again.');
                 return 'FAIL ' . ($res['error'] ?? 'generation');
             }
             $tmp = tempnam(sys_get_temp_dir(), 'gen');
             if ($tmp === false || file_put_contents($tmp, $res['bytes']) === false) {
-                $model->set_failed($creator_id, $asset_id, 'Could not process the generated image. Try again.');
+                $refund(); $model->set_failed($creator_id, $asset_id, 'Could not process the generated image. Try again.');
                 return 'FAIL temp file';
             }
             $r = MediaService::process_image($creator_id, $asset_id, $tmp, (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), $user, $watermark);
             @unlink($tmp);
             if (isset($r['error'])) {
-                $model->set_failed($creator_id, $asset_id, $r['error']);
+                $refund(); $model->set_failed($creator_id, $asset_id, $r['error']);
                 return 'FAIL ' . $r['error'];
             }
             $model->set_ready($creator_id, $asset_id, $r);
             return 'OK asset ' . $asset_id;
         } catch (\Throwable $e) {
-            $model->set_failed($creator_id, $asset_id, 'Generation failed: ' . $e->getMessage());
+            $refund(); $model->set_failed($creator_id, $asset_id, 'Generation failed: ' . $e->getMessage());
             throw $e;   // lets the queue record the error; the asset already shows the failure
         }
     }

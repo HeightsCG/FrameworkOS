@@ -28,7 +28,10 @@ class AutoPostService {
             $asset_id = (int) $ir['asset_id'];
             $gen = array('ok' => true);
         } else {
+            $pay = Plan::charge_ai($user, 'image', 'Automation image: ' . mb_substr($topic, 0, 60));
+            if (empty($pay['ok'])) { return self::fail(null, $pay['message']); }
             $gen = ImageGenService::generate($prompt, $size);
+            if (empty($gen['ok'])) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image failed'); }
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
 

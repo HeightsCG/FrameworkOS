@@ -27,7 +27,7 @@ class PlanTiers {
 
     /** Shown under the plan grid: on every plan, no limits. Per-plan switches are FEATURES. */
     const INCLUDED = array(
-        'Unlimited social connections', 'Unlimited membership tiers', 'Brand images &amp; AI captions',
+        'Unlimited social connections', 'Unlimited membership tiers', 'AI captions',
         'Bundles, promo codes &amp; free trials', 'Analytics &amp; exports', 'Claude connector',
     );
 

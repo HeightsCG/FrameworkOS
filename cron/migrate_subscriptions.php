@@ -12,6 +12,10 @@
  *   APPLICATION_ENV=production php cron/migrate_subscriptions.php --apply --live   production
  *
  * Safe to run again: accounts already migrated are skipped.
+ *
+ * Second pass — stale plans: accounts still marked paid (subscription_status active/trialing/past_due)
+ * with no live Stripe subscription and no paid plan in app billing get nothing for free any more:
+ * they are reset to Free (dry run lists them).
  */
 
 if (php_sapi_name() !== 'cli') { exit(1); }
@@ -39,6 +43,10 @@ foreach ($rows as $uid) {
     $uid = (int) $uid;
     try {
         $u = BillingService::user($uid);
+        if (!Plan::is_creator_row($u)) {   // left creator mode but the subscription kept running: decide by hand
+            echo "user $uid: NOT A CREATOR but has Stripe subscription {$u['stripe_subscription_id']} — skipped; cancel it in Stripe if they should not be billed\n";
+            continue;
+        }
         $existing = $accts->get($uid);
         if ($existing && (string) ($existing['migrated_subscription_id'] ?? '') !== '') { echo "user $uid: already migrated, skipped\n"; continue; }
         $sub = $c->subscriptions->retrieve((string) $u['stripe_subscription_id'], array('expand' => array('items.data.price.product', 'default_payment_method', 'customer')));
@@ -84,3 +92,30 @@ foreach ($rows as $uid) {
         echo "user $uid: ERROR " . $e->getMessage() . "\n";
     }
 }
+
+// ---- Second pass: marked paid, but nothing is paying for it ----
+echo "\n" . ($apply ? 'CLEANING' : 'DRY RUN') . " — stale paid plans\n";
+$stale = 0;
+foreach ((new BillingModel())->users_marked_paid() as $uid) {
+    try {
+        $acct = $accts->get($uid);
+        if ($acct && BillingService::is_paid($acct)) { continue; }   // billed by the app
+        $u = BillingService::user($uid);
+        $sub_id = (string) ($u['stripe_subscription_id'] ?? '');
+        if ($sub_id !== '') {
+            $live = false;
+            try { $live = in_array((string) $c->subscriptions->retrieve($sub_id)->status, array('active', 'trialing', 'past_due'), true); } catch (\Throwable $e) { $live = false; }
+            if ($live) { continue; }   // still on Stripe: the first pass migrates it
+        }
+        $stale++;
+        echo "user $uid (" . $u['u_name'] . "): marked " . ($u['plan_tier'] ?: '?') . "/" . $u['subscription_status'] . " but nothing is paying" . ($apply ? " — reset to Free\n" : " — would reset to Free\n");
+        if ($apply) {
+            if ($sub_id !== '') { (new BillingModel())->forget_stripe_subscription($uid); }
+            if ($acct) { BillingService::to_free($uid, true, 'stale'); }
+            (new BillingModel())->save_plan_mirror($uid, null, null, null, 0);
+        }
+    } catch (\Throwable $e) {
+        echo "user $uid: ERROR " . $e->getMessage() . "\n";
+    }
+}
+echo $stale . " stale plan(s)\n";

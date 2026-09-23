@@ -186,6 +186,14 @@ class AiCreditsModel extends Model {
         return parent::sql("UPDATE user_accounts SET ai_credits_plan = LEAST(ai_credit_balance, :n) WHERE user_id = :u", array(':n' => max(0, (int) $credits), ':u' => (int) $user_id));
     }
 
+    /** Give back the credits a failed run took, once per $key (a job or asset can fail more than once). */
+    public function refund_once($user_id, $credits, $key){
+        $desc = 'Refund: ' . (string) $key;
+        $r = parent::select("SELECT id FROM ai_credit_transactions WHERE user_id = :u AND type = 'refund' AND description = :d LIMIT 1", array('u' => (int) $user_id, 'd' => $desc));
+        if (is_array($r) && count($r)) { return false; }
+        return $this->apply_delta($user_id, (int) $credits, 'refund', $desc);
+    }
+
     /** The two buckets and the rest, for the billing page. */
     public function buckets($user_id){
         $r = parent::select("SELECT ai_credit_balance, ai_credits_plan, ai_credits_pack FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));

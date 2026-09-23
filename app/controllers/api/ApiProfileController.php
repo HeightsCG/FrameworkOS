@@ -293,6 +293,9 @@ class ApiProfileController extends BaseApiController {
 
         $user_id = (int) Session::get('user_id');
 
+        // A fan account has no plan: end any paid plan now so it is never billed again.
+        BillingService::end_plan_now($user_id);
+
         // Hard delete all creator content first (irreversible, no soft delete),
         // then revert the account to a regular User.
         $this->userModel->hard_delete_creator_content($user_id);
