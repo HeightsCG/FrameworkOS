@@ -340,7 +340,7 @@ class SeoDrafter {
         // Passed every hard check above, so it goes live now (cover first): no review step (Daniel, 2026-09-22).
         $articles->set_status($aid, 'published');
         $keywords->set_status($kid, 'published', $aid, null);
-        try { IndexNow::ping(array('/blog/' . $fields['slug'], '/blog', '/sitemap.xml')); } catch (\Throwable $e) { error_log('[seo] indexnow: ' . $e->getMessage()); }
+        try { IndexNow::ping(array('/blog/' . $fields['slug'], '/blog')); } catch (\Throwable $e) { error_log('[seo] indexnow: ' . $e->getMessage()); }
         try {
             Notify::many((new UsersModel())->admin_ids(), 'system', 'New article published', '"' . $fields['title'] . '" is live on the blog, written for "' . $keyword . '".', '/admin/article/' . $aid, 'fa-newspaper');
         } catch (\Throwable $e) { error_log('[seo] notify admins: ' . $e->getMessage()); }

@@ -8,11 +8,15 @@
  * exactly that key must sit at /<key>.txt (public/<key>.txt) — that is how the protocol proves the
  * domain is yours. Bing answers 403 when the file is missing and 422 when the key does not match.
  *
+ * Per indexnow.org/faq: at most 10,000 URLs per request, same host only, and never resubmit an
+ * unchanged URL (it wastes crawl quota), so each URL is held for RECENT_TTL after it is sent.
+ *
  * Never throws and never blocks a publish: failures are logged and ignored.
  */
 class IndexNow {
 
     const ENDPOINT    = 'https://api.indexnow.org/IndexNow';
+    const RECENT_TTL  = 21600;   // 6h: a URL sent this recently is skipped (the FAQ asks for 5 minutes minimum)
     const FALLBACK_KEY = '078E9E11E118AECF36633845ECD77926';   // the Bing site-verification key
 
     /** The IndexNow key: app.ini [global] indexnow_key when set, else the Bing verification key. */
@@ -28,6 +32,30 @@ class IndexNow {
         $host = parse_url(SeoMeta::base(), PHP_URL_HOST) ?: '';
         if ($host === '' || stripos($host, 'localhost') !== false || substr($host, -4) === '.cvk' || substr($host, -6) === '.local') { return false; }
         return is_file(Main::app_path() . '/public/' . self::key() . '.txt');
+    }
+
+    /** Where the "already sent" timestamps live (best-effort; losing it only means one extra ping). */
+    private static function state_file(): string {
+        return sys_get_temp_dir() . '/cls_indexnow_sent.json';
+    }
+
+    /** Drop URLs sent within RECENT_TTL, then record what is about to go out. */
+    private static function drop_recent(array $urls): array {
+        $now = time(); $seen = array();
+        try {
+            $raw = @file_get_contents(self::state_file());
+            $seen = $raw !== false ? (array) json_decode($raw, true) : array();
+        } catch (\Throwable $e) { $seen = array(); }
+
+        $out = array();
+        foreach ($urls as $u) {
+            $last = (int) ($seen[$u] ?? 0);
+            if ($now - $last < self::RECENT_TTL) { continue; }
+            $out[] = $u; $seen[$u] = $now;
+        }
+        foreach ($seen as $u => $t) { if ($now - (int) $t > 604800) { unset($seen[$u]); } }   // forget anything older than a week
+        try { @file_put_contents(self::state_file(), json_encode($seen), LOCK_EX); } catch (\Throwable $e) {}
+        return $out;
     }
 
     /**
@@ -47,6 +75,9 @@ class IndexNow {
         }
         $list = array_values(array_unique($list));
         if (empty($list) || !self::enabled()) { return 0; }
+
+        $list = self::drop_recent($list);
+        if (empty($list)) { return 0; }
 
         $body = json_encode(array(
             'host'        => $host,
