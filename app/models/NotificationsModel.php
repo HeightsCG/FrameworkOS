@@ -80,6 +80,30 @@ class NotificationsModel extends Model {
     }
 
     /** Shared send helper. */
+    /**
+     * Platform billing email (receipt, failed payment, confirm payment): a heading, an intro line,
+     * optional itemized lines [[label, '$49.00'], ...] with a total, and a button.
+     */
+    public function send_billing_email($to_email, $to_name, $subject, $intro, array $lines = array(), $total = '', $button_label = '', $button_url = '', $footer = ''){
+        $body = '<p style="' . self::P . '">' . htmlspecialchars((string) $intro, ENT_QUOTES, 'UTF-8') . '</p>';
+        if (!empty($lines)) {
+            $td = 'padding:8px 0; border-bottom:1px solid #ecebf3; font-family:Arial,Helvetica,sans-serif; font-size:14px; color:#2b2940;';
+            $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 16px;">';
+            foreach ($lines as $l) {
+                $body .= '<tr><td style="' . $td . '">' . htmlspecialchars((string) $l[0], ENT_QUOTES, 'UTF-8') . '</td>'
+                       . '<td align="right" style="' . $td . '">' . htmlspecialchars((string) $l[1], ENT_QUOTES, 'UTF-8') . '</td></tr>';
+            }
+            if ((string) $total !== '') {
+                $body .= '<tr><td style="' . $td . ' font-weight:700; border-bottom:0;">Total</td><td align="right" style="' . $td . ' font-weight:700; border-bottom:0;">'
+                       . htmlspecialchars((string) $total, ENT_QUOTES, 'UTF-8') . '</td></tr>';
+            }
+            $body .= '</table>';
+        }
+        $message = self::brand_wrap((string) $subject, $body, (string) $button_label, (string) $button_url,
+            $footer !== '' ? (string) $footer : 'You can change or cancel your plan anytime from Billing.');
+        return $this->deliver($to_email, $to_name, (string) $subject, $message);
+    }
+
     private function deliver($to_email, $to_name, $subject, $message){
         $to = array(array('email' => $to_email, 'name' => $to_name));
         $notifications = new Notifications();

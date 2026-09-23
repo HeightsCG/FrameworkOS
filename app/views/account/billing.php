@@ -2,183 +2,197 @@
 <script src="https://js.stripe.com/v3/"></script>
 <?php
     $e        = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+    $acct     = (array) $this->acct;
     $has_plan = !empty($this->has_plan);
-    $status   = (string) ($this->user['subscription_status'] ?? '');
     $usage    = is_array($this->usage) ? $this->usage : null;
     $tier_key = (string) ($this->tier ?? '');
     $tier_def = $tier_key !== '' ? PlanTiers::get($tier_key) : null;
-    $canceling = !empty($this->user['subscription_cancel_at_period_end']);
-    $past_due  = ($status === 'past_due');
-    $period_end_ts = !empty($this->user['subscription_current_period_end']) ? strtotime((string) $this->user['subscription_current_period_end']) : 0;
+    $status   = (string) $acct['status'];
+    $past_due = ($status === 'past_due');
+    $canceling = !empty($acct['cancel_at_period_end']);
+    $pending   = (string) ($acct['pending_plan_key'] ?? '') !== '' ? PlanTiers::get((string) $acct['pending_plan_key']) : null;
+    $end_ts    = !empty($acct['current_period_end']) ? strtotime($acct['current_period_end'] . ' UTC') : 0;
+    $next      = $this->next;
+    $next_ts   = $next ? strtotime($next['at'] . ' UTC') : 0;
+    $has_card  = (string) ($acct['stripe_payment_method_id'] ?? '') !== '';
     $grant_n   = $tier_def ? (int) $tier_def['limits']['ai_credits'] : 0;
+    $grants_once = $tier_def ? PlanTiers::grants_once($tier_def) : false;
+    $is_free   = ($tier_key === PlanTiers::FREE_KEY);
+    $ordered   = (array) $this->plan_rows;
+    $slot_def  = PlanTiers::addon('influencer_slot');
+    $slots_on  = $has_plan && BillingService::takes_slots($tier_key) && $slot_def;
+    $slots     = (int) $acct['influencer_slots'];
+    $slots_next = $acct['influencer_slots_next'] !== null ? (int) $acct['influencer_slots_next'] : null;
+    $pack      = (int) $acct['pack_dollars'];
+    $pack_next = $acct['pack_dollars_next'] !== null ? (int) $acct['pack_dollars_next'] : null;
+    $money     = function ($c) { return BillingService::money($c); };
+    $day       = function ($ts) { return date('M j, Y', $ts); };
     $over_rows = array();
     if ($usage) { foreach ($usage['rows'] as $r) { if (!empty($r['over'])) { $over_rows[] = $r; } } }
-
-    // Plans come from PlanTiers (price, limits, Stripe price id), low → high.
-    $ordered = (array) $this->plan_rows;
-    $is_free = ($tier_key === PlanTiers::FREE_KEY);
-    $free_def = PlanTiers::get(PlanTiers::FREE_KEY);
-    $free_fee = $free_def ? (int) $free_def['limits']['fee_percent'] : 0;
-    $grants_once = $tier_def ? PlanTiers::grants_once($tier_def) : false;
-    // Add-ons on the current plan (extra AI influencers on Creator): quantity held + scheduled change.
-    $addons = is_array($this->addons ?? null) ? $this->addons : array();
+    $charge_label = array('subscribe' => 'Plan started', 'renewal' => 'Renewal', 'upgrade' => 'Upgrade', 'slots' => 'Extra AI influencers', 'pack' => 'Credit pack');
 ?>
 <script>
 $(function () {
 
-    var stripe    = Stripe('<?php echo $e($this->stripe_pk); ?>');
-    var elements  = null;
-    var price_id  = '';
-    var paid      = false;
-    var pay_mode  = 'payment';   // 'payment' | 'setup' ($0 first invoice, card saved for renewals)
-    var credit_elements = null;
+    var stripe = Stripe('<?php echo $e($this->stripe_pk); ?>');
+    var card_elements = null;     // Payment Element for saving a card (SetupIntent)
+    var pending = null;           // the action waiting on the disclosure modal: {endpoint, body, ok}
 
-    function fmt_amount(cents, currency) {
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: (currency || 'usd').toUpperCase() }).format(cents / 100);
-    }
     function parse(data) { try { return JSON.parse(data); } catch (e) { return { success: false, message: 'Something went wrong' }; } }
-    function reload_after(ms) { setTimeout(function () { window.location.href = '/account/billing'; }, ms || 1200); }
+    function reload_after(ms) { setTimeout(function () { window.location.href = '/account/billing'; }, ms || 1100); }
+    function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
 
-    /* ---- new subscription (no plan yet) ---- */
-    function start_payment(promo_code) {
-        $('#pay_button').prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'create_subscription', { price_id: price_id, promo_code: promo_code || '' }, function (data) {
+    /* A charge the bank wants the cardholder to confirm (3-D Secure): confirm it here, then record it. */
+    function authenticate(o) {
+        stripe.confirmCardPayment(o.client_secret, o.payment_method ? { payment_method: o.payment_method } : {}).then(function (res) {
+            if (res.error) { toastr.error(res.error.message); reload_after(1800); return; }
+            ApiDataSvc.apiCall('post', 'billing_confirm', { charge_id: o.charge_id }, function (data) {
+                var r = parse(data);
+                if (r.success) { toastr.success(r.message); } else { toastr.error(r.message); }
+                reload_after();
+            });
+        });
+    }
+    /* Answer of any charging endpoint. */
+    function handle(o, $btn) {
+        if (!o.success) { toastr.error(o.message); if ($btn) { $btn.prop('disabled', false); } return; }
+        if (o.status === 'requires_action') { $('#confirm_modal').modal('hide'); authenticate(o); return; }
+        $('#confirm_modal').modal('hide');
+        toastr.success(o.message);
+        reload_after();
+    }
+    function mount_card(target, cb) {
+        $(target).html('<div class="billing__loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span></div>');
+        ApiDataSvc.apiCall('post', 'billing_card_setup', {}, function (data) {
             var o = parse(data);
-            if (!o.success) {
-                toastr.error(o.message);
-                $('#pay_button').prop('disabled', elements === null);
-                $('#promo_apply').prop('disabled', false);
-                return;
-            }
-            pay_mode = o.mode || 'payment';
-            if (pay_mode === 'none') {
-                paid = true;
-                $('#payment_form').modal('hide');
-                ApiDataSvc.apiCall('post', 'sync_subscription', {}, function () { toastr.success('Your subscription is active'); reload_after(); });
-                return;
-            }
-            $('#payment_element').html('');
-            elements = stripe.elements({ clientSecret: o.client_secret });
-            elements.create('payment').mount('#payment_element');
-            $('#pay_button').prop('disabled', false);
-            $('#promo_apply').prop('disabled', false);
-            $('#pay_total').text(fmt_amount(o.amount_due, o.currency));
-            $('#pay_note').toggle(pay_mode === 'setup');
-            if (o.promo_label) { $('#promo_applied').text(o.promo_label + ' applied').show(); $('#promo_row').hide(); }
-            else { $('#promo_applied').hide(); }
-            $('#payment_form').modal('show');
+            if (!o.success) { toastr.error(o.message); $(target).html(''); return; }
+            $(target).html('');
+            card_elements = stripe.elements({ clientSecret: o.client_secret });
+            card_elements.create('payment').mount(target);
+            if (cb) { cb(); }
+        });
+    }
+    /* Save the card in the Payment Element; then run next(). */
+    function save_card(next, $btn) {
+        stripe.confirmSetup({ elements: card_elements, redirect: 'if_required' }).then(function (res) {
+            if (res.error) { toastr.error(res.error.message); $btn.prop('disabled', false); return; }
+            ApiDataSvc.apiCall('post', 'billing_card_save', { setup_intent_id: res.setupIntent.id }, function (data) {
+                var o = parse(data);
+                if (!o.success) { toastr.error(o.message); $btn.prop('disabled', false); return; }
+                if (o.status === 'requires_action') { authenticate(o); return; }
+                next(o);
+            });
         });
     }
 
-    $('.plan-choose').on('click', function () {
-        price_id = $(this).data('price-id');
-        paid = false; elements = null;
-        $('#promo_code').val(''); $('#promo_row').show(); $('#promo_applied').hide();
-        start_payment('');
-    });
-    $('#promo_apply').on('click', function () {
-        var code = String($('#promo_code').val() || '').trim();
-        if (code === '') { return; }
-        $('#promo_apply').prop('disabled', true);
-        start_payment(code);
-    });
-    $('#promo_code').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#promo_apply').trigger('click'); } });
-
-    $('#pay_button').on('click', function () {
-        if (!elements) { return; }
-        $('#pay_button').prop('disabled', true);
-        var method = (pay_mode === 'setup') ? 'confirmSetup' : 'confirmPayment';
-        stripe[method]({ elements: elements, redirect: 'if_required' }).then(function (result) {
-            if (result.error) { $('#pay_button').prop('disabled', false); toastr.error(result.error.message); return; }
-            paid = true;
-            ApiDataSvc.apiCall('post', 'sync_subscription', {}, function () { toastr.success('Your subscription is active'); reload_after(); });
+    /* ---- the disclosure: what is charged today, what renews, how often, next date, how to cancel ---- */
+    function disclose(quote_body, title, action) {
+        ApiDataSvc.apiCall('post', 'billing_quote', quote_body, function (data) {
+            var q = parse(data);
+            if (!q.success) { toastr.error(q.message); return; }
+            pending = action;
+            var rows = (q.lines || []).map(function (l) { return '<div class="disc__row"><span>' + esc(l.label) + '</span><span>' + esc(l.amount) + '</span></div>'; }).join('');
+            $('#confirm_title').text(title);
+            $('#disc_lines').html(rows);
+            $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
+            $('#disc_terms').text(q.mode === 'downgrade'
+                ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
+                : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
+            card_elements = null;
+            if (q.has_card || q.mode === 'downgrade') {
+                $('#disc_card').text(q.mode === 'downgrade' ? '' : 'Charged to ' + q.card).show();
+                $('#disc_card_form').hide().html('');
+            } else {
+                $('#disc_card').hide();
+                $('#disc_card_form').show();
+                mount_card('#disc_card_form');
+            }
+            $('#confirm_go').prop('disabled', false).text(q.mode === 'downgrade' ? 'Schedule Change' : 'Pay ' + q.today);
+            $('#confirm_modal').modal('show');
         });
-    });
-    $('#payment_form').on('hidden.bs.modal', function () {
-        if (paid) { return; }
-        elements = null;
-        ApiDataSvc.apiCall('post', 'abandon_subscription', {}, function () {});
+    }
+    $('#confirm_go').on('click', function () {
+        var $b = $(this); if (!pending) { return; }
+        $b.prop('disabled', true);
+        var run = function () { ApiDataSvc.apiCall('post', pending.endpoint, pending.body, function (data) { handle(parse(data), $b); }); };
+        if (card_elements) { save_card(run, $b); } else { run(); }
     });
 
-    /* ---- change plan (upgrade / downgrade in place, prorated) ---- */
-    $('.plan-change').on('click', function () {
+    /* ---- plans ---- */
+    $('.plan-go').on('click', function () {
         var $b = $(this);
-        var up = $b.data('direction') === 'up';
+        disclose({ plan: $b.data('plan') }, $b.data('title'), { endpoint: 'billing_change_plan', body: { plan: $b.data('plan') } });
+    });
+    $('.plan-cancel, #cancel_plan').on('click', function () {
         Swal.fire({
-            title: (up ? 'Upgrade to ' : 'Downgrade to ') + $b.data('tier-name') + '?',
-            text: up ? 'The difference is prorated and charged today. Your renewal date stays <?php echo $period_end_ts ? $e(date('M j', $period_end_ts)) : 'the same'; ?>.'
-                     : 'The difference is credited to your next invoice. Your renewal date stays <?php echo $period_end_ts ? $e(date('M j', $period_end_ts)) : 'the same'; ?>.',
-            showCancelButton: true,
-            confirmButtonText: up ? 'Upgrade' : 'Downgrade',
-            cancelButtonText: 'Keep current plan',
-            reverseButtons: true,
-            customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' },
-            buttonsStyling: false
+            title: 'Cancel your plan?',
+            html: 'Your plan stays on until <?php echo $end_ts ? $e($day($end_ts)) : 'the end of the period'; ?>. Then you move to Free and no more plan charges are made. Everything you made is kept; anything over the Free limits is locked until you upgrade.',
+            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Cancel Plan', cancelButtonText: 'Keep Plan',
+            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
         }).then(function (r) {
             if (!r.isConfirmed) { return; }
-            $('.plan-change').prop('disabled', true);
-            ApiDataSvc.apiCall('post', 'change_subscription', { price_id: $b.data('price-id') }, function (data) {
-                var o = parse(data);
-                if (!o.success) { toastr.error(o.message); $('.plan-change').prop('disabled', false); return; }
-                toastr.success(o.message);
-                reload_after();
-            });
+            ApiDataSvc.apiCall('post', 'billing_cancel', {}, function (data) { var o = parse(data); if (o.success) { toastr.success(o.message); reload_after(); } else { toastr.error(o.message); } });
+        });
+    });
+    $('#resume_plan').on('click', function () {
+        ApiDataSvc.apiCall('post', 'billing_resume', {}, function (data) { var o = parse(data); if (o.success) { toastr.success(o.message); reload_after(); } else { toastr.error(o.message); } });
+    });
+
+    /* ---- extra AI influencers: adding is charged now (prorated); removing applies on the billing date ---- */
+    function add_slot() {
+        var to = parseInt($('#slots_add').data('quantity'), 10);
+        disclose({ slots: to }, 'Add an AI influencer slot', { endpoint: 'billing_set_slots', body: { quantity: to } });
+    }
+    $('#slots_add').on('click', add_slot);
+    $('#slots_remove').on('click', function () {
+        var to = parseInt($(this).data('quantity'), 10);
+        Swal.fire({
+            title: 'Remove a slot?', text: 'You keep it until your next billing date, then it is removed and no longer charged. If you have more AI influencers than slots, the newest are locked, not deleted.',
+            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Remove Slot', cancelButtonText: 'Keep It',
+            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
+        }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            ApiDataSvc.apiCall('post', 'billing_set_slots', { quantity: to }, function (data) { handle(parse(data)); });
         });
     });
 
-    /* ---- downgrade to Free: cancels the subscription at period end, nothing is deleted ---- */
-    $('.plan-downgrade-free').on('click', function () {
-        Swal.fire({
-            title: 'Downgrade to Free?',
-            html: 'You keep everything you have made. Your plan stays active until <?php echo $period_end_ts ? $e(date('M j, Y', $period_end_ts)) : 'the end of the period'; ?>, then you move to Free: a <?php echo $free_fee; ?>% platform take rate and the Free limits. Anything over those limits is locked, not deleted, and comes back if you upgrade again.',
-            showCancelButton: true,
-            confirmButtonText: 'Downgrade to Free',
-            cancelButtonText: 'Keep current plan',
-            reverseButtons: true,
-            customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' },
-            buttonsStyling: false
-        }).then(function (r) {
-            if (!r.isConfirmed) { return; }
-            $('.plan-downgrade-free').prop('disabled', true);
-            ApiDataSvc.apiCall('post', 'cancel_subscription', {}, function (data) {
-                var o = parse(data);
-                if (!o.success) { toastr.error(o.message); $('.plan-downgrade-free').prop('disabled', false); return; }
-                toastr.success(o.message);
-                reload_after();
-            });
-        });
+    /* ---- recurring credit pack ---- */
+    $('.pack-start').on('click', function () {
+        var d = $(this).data('dollars');
+        disclose({ pack: d }, 'Add a monthly credit pack', { endpoint: 'billing_set_pack', body: { dollars: d } });
+    });
+    $('.pack-change').on('click', function () {
+        ApiDataSvc.apiCall('post', 'billing_set_pack', { dollars: $(this).data('dollars') }, function (data) { handle(parse(data)); });
     });
 
-    /* ---- add-ons (extra AI influencer slots): adding is prorated now, removing applies at period end ---- */
-    $('.addon-set').on('click', function () {
-        var $b = $(this);
-        var target = parseInt($b.data('quantity'), 10);
-        var adding = $b.data('direction') === 'up';
-        Swal.fire({
-            title: adding ? 'Add a slot?' : 'Remove a slot?',
-            text: adding ? ('$' + $b.data('price') + '/month, prorated and charged today. Renews with your plan.')
-                         : 'You keep the slot until your plan renews, then it is removed. If you have more influencers than slots, the newest are locked, not deleted.',
-            showCancelButton: true,
-            confirmButtonText: adding ? 'Add Slot' : 'Remove Slot',
-            cancelButtonText: 'Cancel',
-            reverseButtons: true,
-            customClass: { confirmButton: adding ? 'btn btn-primary' : 'btn btn-danger', cancelButton: 'btn btn-secondary' },
-            buttonsStyling: false
-        }).then(function (r) {
-            if (!r.isConfirmed) { return; }
-            $('.addon-set').prop('disabled', true);
-            ApiDataSvc.apiCall('post', 'addon_set', { addon: $b.data('addon'), quantity: target }, function (data) {
-                var o = parse(data);
-                if (!o.success) { toastr.error(o.message); $('.addon-set').prop('disabled', false); return; }
-                toastr.success(o.message);
-                reload_after();
-            });
-        });
+    /* ---- card on file ---- */
+    $('#update_card').on('click', function () {
+        $('#card_save').prop('disabled', true);
+        $('#card_modal').modal('show');
+        mount_card('#card_element', function () { $('#card_save').prop('disabled', false); });
+    });
+    $('#card_save').on('click', function () {
+        var $b = $(this); $b.prop('disabled', true);
+        save_card(function (o) { $('#card_modal').modal('hide'); toastr.success(o.message); reload_after(); }, $b);
     });
 
-    /* ---- AI credits (top up) ---- */
+    /* ---- a payment waiting on the bank (from the email link, or the notice) ---- */
+    function pay_pending(id) {
+        ApiDataSvc.apiCall('post', 'billing_pending', { charge_id: id }, function (data) {
+            var o = parse(data);
+            if (!o.success) { toastr.info(o.message); return; }
+            authenticate(o);
+        });
+    }
+    $('#pay_pending').on('click', function () { pay_pending($(this).data('charge')); });
+    var qs = new URLSearchParams(window.location.search);
+    if (qs.get('pay')) { pay_pending(qs.get('pay')); }
+    if (qs.get('add') === 'slot' && $('#slots_add').length && !$('#slots_add').prop('disabled')) { add_slot(); }
+
+    /* ---- one-time AI credits (existing flow) ---- */
+    var credit_elements = null;
     $('#buy_credits').on('click', function () { $('#credits_modal').modal('show'); });
-    if (/[?&]buy=credits\b/.test(window.location.search)) { $('#credits_modal').modal('show'); }   // "Buy credits" links from the generate screens
+    if (qs.get('buy') === 'credits') { $('#credits_modal').modal('show'); }   // "Buy credits" links from the generate screens
     $('#credit_packs').on('click', '.pack', function () {
         var dollars = $(this).data('dollars');
         $('#credit_packs .pack').removeClass('is-on'); $(this).addClass('is-on');
@@ -213,88 +227,52 @@ $(function () {
         $('#credit_payment_element').html('');
         $('#credit_pay_button').prop('disabled', true).text('Pay');
     });
-
-    /* ---- cancel / resume ---- */
-    $('#cancel_subscription').on('click', function () { $('#cancel_form').modal('show'); });
-    $('#confirm_cancel').on('click', function () {
-        $('#cancel_form').modal('hide');
-        ApiDataSvc.apiCall('post', 'cancel_subscription', {}, function (data) {
-            var o = parse(data);
-            if (o.success) { toastr.success(o.message); reload_after(); } else { toastr.error(o.message); }
-        });
-    });
-    $('#resume_subscription').on('click', function () {
-        ApiDataSvc.apiCall('post', 'resume_subscription', {}, function (data) {
-            var o = parse(data);
-            if (o.success) { toastr.success(o.message); reload_after(); } else { toastr.error(o.message); }
-        });
-    });
-    $('#cancel_now').on('click', function () { $('#cancel_now_form').modal('show'); });
-    $('#confirm_cancel_now').on('click', function () {
-        $('#cancel_now_form').modal('hide');
-        ApiDataSvc.apiCall('post', 'cancel_now_subscription', {}, function (data) {
-            var o = parse(data);
-            if (o.success) { toastr.success(o.message); reload_after(); } else { toastr.error(o.message); }
-        });
-    });
-
 });
 </script>
 
 <div class="billing">
 
-    <?php if ($has_plan): ?>
-    <div class="billing__current">
-        <div>
-            <div class="billing__current-name"><?php echo $e($tier_def ? $tier_def['name'] : 'Subscription'); ?><?php if ($tier_def): ?> <span class="billing__current-price">$<?php echo number_format((int) $tier_def['price']); ?> / month</span><?php endif; ?><?php if ($tier_def && !empty($tier_def['retired'])): ?> <span class="billing__current-price">&middot; no longer offered to new members</span><?php endif; ?></div>
-            <?php if ($period_end_ts): ?>
-            <div class="billing__current-meta"><?php echo $canceling ? 'Moves to Free on ' : 'Renews on '; ?><?php echo $e(date('M j, Y', $period_end_ts)); ?></div>
-            <?php endif; ?>
-        </div>
-        <div class="billing__current-actions">
-            <span class="billing__status billing__status--<?php echo $canceling ? 'canceling' : ($past_due ? 'due' : 'active'); ?>"><?php echo $canceling ? 'Canceling' : ($past_due ? 'Payment due' : $e($status)); ?></span>
-            <?php if ($canceling): ?>
-            <button type="button" class="btn btn-secondary" id="resume_subscription">Resume Subscription</button>
-            <button type="button" class="btn btn-danger" id="cancel_now">Cancel Immediately</button>
-            <?php else: ?>
-            <button type="button" class="btn btn-secondary" id="cancel_subscription">Cancel Subscription</button>
-            <?php endif; ?>
-        </div>
+    <?php if ($this->awaiting): ?>
+    <div class="billing__notice billing__notice--action">
+        <i class="fa-solid fa-shield-halved"></i>
+        <div><p><b>Your bank needs you to confirm a payment of <?php echo $e($money((int) $this->awaiting['amount_cents'])); ?>.</b> Your plan stays on while you do.</p></div>
+        <button type="button" class="btn btn-primary" id="pay_pending" data-charge="<?php echo (int) $this->awaiting['id']; ?>">Confirm Payment</button>
     </div>
-
+    <?php elseif ($past_due): ?>
+    <div class="billing__notice billing__notice--action">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <div><p><b>Your last payment didn't go through.</b> <?php if (!empty($acct['next_retry_at'])): ?>We'll try again on <?php echo $e($day(strtotime($acct['next_retry_at'] . ' UTC'))); ?>. <?php endif; ?>Update your card and we'll retry right away.</p></div>
+        <button type="button" class="btn btn-primary" onclick="$('#update_card').trigger('click')">Update Card</button>
+    </div>
     <?php endif; ?>
 
-    <?php if ($has_plan && !empty($addons)): ?>
-    <?php foreach ($addons as $ad): $held = (int) $ad['quantity']; $next = $ad['next']; $billed = ($next === null) ? $held : (int) $next; ?>
-    <div class="billing__current billing__addon">
+    <div class="billing__current">
         <div>
-            <div class="billing__current-name"><?php echo $e($ad['def']['name']); ?> <span class="billing__current-price">$<?php echo (int) $ad['def']['price']; ?> / month each</span></div>
+            <div class="billing__current-name"><?php echo $e($tier_def ? $tier_def['name'] : 'Free'); ?> <span class="billing__current-price"><?php echo $e($money(BillingService::plan_cents($tier_key ?: 'free'))); ?> / month</span><?php if ($tier_def && !empty($tier_def['retired'])): ?> <span class="billing__current-price">&middot; no longer offered to new members</span><?php endif; ?></div>
             <div class="billing__current-meta">
-                <?php echo $held; ?> of <?php echo (int) $ad['def']['max']; ?> slots &middot; <?php echo (int) $ad['included']; ?> included with <?php echo $e($tier_def['name']); ?>, <?php echo (int) $ad['included'] + $held; ?> AI influencers in total
-                <?php if ($next !== null && (int) $next < $held): ?>&middot; drops to <?php echo (int) $next; ?> on <?php echo $e(date('M j', strtotime((string) $ad['next_at'] . ' UTC'))); ?><?php endif; ?>
+                <?php if ($has_plan && $canceling): ?>Moves to Free on <?php echo $e($day($end_ts)); ?>. No more plan charges.
+                <?php elseif ($has_plan && $pending): ?>Moves to <?php echo $e($pending['name']); ?> on <?php echo $e($day($end_ts)); ?>.
+                <?php elseif ($next): ?>Next charge <?php echo $e($money($next['total'])); ?> on <?php echo $e($day($next_ts)); ?>
+                <?php else: ?>No card needed. The platform takes <?php echo (int) ($tier_def['limits']['fee_percent'] ?? 0); ?>% of what you earn.<?php endif; ?>
             </div>
         </div>
         <div class="billing__current-actions">
-            <?php if ($canceling): ?>
-            <span class="billing__current-meta">Resume your plan to change add-ons</span>
-            <?php else: ?>
-            <button type="button" class="btn btn-secondary addon-set" data-addon="<?php echo $e($ad['def']['key']); ?>" data-quantity="<?php echo $billed - 1; ?>" data-direction="down" data-price="<?php echo (int) $ad['def']['price']; ?>" <?php echo $billed <= 0 ? 'disabled' : ''; ?> aria-label="Remove a slot"><i class="fa-solid fa-minus"></i></button>
-            <button type="button" class="btn btn-secondary addon-set" data-addon="<?php echo $e($ad['def']['key']); ?>" data-quantity="<?php echo $billed + 1; ?>" data-direction="up" data-price="<?php echo (int) $ad['def']['price']; ?>" <?php echo $billed >= (int) $ad['def']['max'] ? 'disabled' : ''; ?>><i class="fa-solid fa-plus"></i> Add Slot</button>
+            <span class="billing__status billing__status--<?php echo $past_due ? 'due' : ($canceling ? 'canceling' : 'active'); ?>"><?php echo $past_due ? 'Payment due' : ($canceling ? 'Canceling' : 'Active'); ?></span>
+            <?php if ($has_plan && $canceling): ?>
+            <button type="button" class="btn btn-secondary" id="resume_plan">Resume Plan</button>
+            <?php elseif ($has_plan): ?>
+            <button type="button" class="btn btn-secondary" id="cancel_plan">Cancel Plan</button>
             <?php endif; ?>
         </div>
     </div>
-    <?php endforeach; ?>
-    <?php endif; ?>
 
-    <?php if ($tier_key === PlanTiers::FREE_KEY): ?>
-    <div class="billing__current">
-        <div>
-            <div class="billing__current-name">Free <span class="billing__current-price">$0 / month</span></div>
-            <div class="billing__current-meta">No card needed. The platform takes <?php echo (int) ($tier_def['limits']['fee_percent'] ?? 0); ?>% of what you earn.</div>
-        </div>
-        <div class="billing__current-actions">
-            <span class="billing__status billing__status--active">Active</span>
-        </div>
+    <?php if ($next): ?>
+    <div class="billing__next">
+        <div class="billing__next-head">Next charge on <?php echo $e($day($next_ts)); ?></div>
+        <?php foreach ($next['lines'] as $l): ?>
+        <div class="disc__row"><span><?php echo $e($l[0]); ?></span><span><?php echo $e($money($l[1])); ?></span></div>
+        <?php endforeach; ?>
+        <div class="disc__row disc__row--total"><span>Total</span><span><?php echo $e($money($next['total'])); ?></span></div>
     </div>
     <?php endif; ?>
 
@@ -309,30 +287,75 @@ $(function () {
     </div>
     <?php endif; ?>
 
-    <?php if ($usage): ?>
-    <div class="billing__section billing__section--first">
-        <div class="billing__section-head">
-            <h2 class="billing__section-title">Usage</h2>
-            <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy AI Credits</button>
+    <?php if ($slots_on): ?>
+    <div class="billing__section">
+        <h2 class="billing__section-title">Extra AI Influencers</h2>
+        <div class="billing__row">
+            <div>
+                <div class="billing__row-title"><?php echo $slots; ?> extra &middot; <?php echo (int) $tier_def['limits']['influencers'] + $slots; ?> AI influencers in total</div>
+                <div class="billing__row-meta"><?php echo $e($money(BillingService::slot_cents())); ?> / month each, up to <?php echo (int) $slot_def['max']; ?>. Adding one is charged now for the rest of this period.<?php if ($slots_next !== null): ?> Drops to <?php echo $slots_next; ?> on <?php echo $e($day($next_ts ?: $end_ts)); ?>.<?php endif; ?></div>
+            </div>
+            <div class="billing__row-actions">
+                <?php $billed = $slots_next !== null ? $slots_next : $slots; ?>
+                <button type="button" class="btn btn-secondary" id="slots_remove" data-quantity="<?php echo max(0, $billed - 1); ?>" <?php echo ($billed <= 0 || $canceling || $past_due) ? 'disabled' : ''; ?> aria-label="Remove a slot"><i class="fa-solid fa-minus"></i></button>
+                <button type="button" class="btn btn-secondary" id="slots_add" data-quantity="<?php echo $slots + 1; ?>" <?php echo ($slots >= (int) $slot_def['max'] || $canceling || $past_due) ? 'disabled' : ''; ?>><i class="fa-solid fa-plus"></i> Add Slot</button>
+            </div>
         </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($usage): ?>
+    <div class="billing__section">
+        <div class="billing__section-head">
+            <h2 class="billing__section-title">AI Credits</h2>
+            <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy Credits</button>
+        </div>
+        <div class="billing__row">
+            <div>
+                <div class="billing__row-title"><?php echo number_format((int) $this->buckets['total']); ?> credits</div>
+                <div class="billing__row-meta">
+                    <?php echo number_format((int) $this->buckets['plan']); ?> from your plan<?php echo $grants_once ? '' : ' (reset each billing date, used first)'; ?> &middot;
+                    <?php echo number_format((int) $this->buckets['pack']); ?> from your monthly pack &middot;
+                    <?php echo number_format((int) $this->buckets['other']); ?> bought<?php echo $grants_once ? ' or starter' : ''; ?>
+                </div>
+            </div>
+        </div>
+        <div class="billing__row">
+            <div>
+                <div class="billing__row-title">Monthly credit pack</div>
+                <div class="billing__row-meta">
+                    <?php if ($pack > 0): ?>
+                        <?php echo $pack; ?> credits for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?> / month<?php if ($next_ts): ?>, renews <?php echo $e($day($next_ts)); ?><?php endif; ?>.
+                        <?php if ($pack_next !== null): ?><?php echo $pack_next === 0 ? ' Stops on ' . $e($day($next_ts)) . '.' : ' Changes to ' . $pack_next . ' credits on ' . $e($day($next_ts)) . '.'; ?><?php endif; ?>
+                    <?php else: ?>
+                        Get credits every month on any plan. Charged now, then monthly<?php echo $has_plan ? ' with your plan' : ''; ?>.
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="billing__row-actions billing__row-actions--packs">
+                <?php foreach (PlanTiers::AI_PACKS as $d): $d = (int) $d; ?>
+                    <?php if ($pack > 0): ?>
+                    <?php $sel = ($pack_next !== null ? $pack_next : $pack) === $d; ?>
+                    <button type="button" class="btn btn-secondary btn-sm pack-change<?php echo $sel ? ' is-on' : ''; ?>" data-dollars="<?php echo $d; ?>" <?php echo ($sel || $past_due) ? 'disabled' : ''; ?>><?php echo $d; ?></button>
+                    <?php else: ?>
+                    <button type="button" class="btn btn-secondary btn-sm pack-start" data-dollars="<?php echo $d; ?>" <?php echo $past_due ? 'disabled' : ''; ?>><?php echo $d; ?> / $<?php echo $d; ?></button>
+                    <?php endif; ?>
+                <?php endforeach; ?>
+                <?php if ($pack > 0 && $pack_next !== 0): ?><button type="button" class="btn btn-secondary btn-sm pack-change" data-dollars="0" <?php echo $past_due ? 'disabled' : ''; ?>>Stop Pack</button><?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <div class="billing__section">
+        <h2 class="billing__section-title">Usage</h2>
         <div class="usage">
             <?php foreach ($usage['rows'] as $r): ?>
             <?php if ($r['kind'] === 'credits'): ?>
-            <?php if ($grants_once): ?>
-            <?php $bal = (int) $usage['ai_credit_balance']; ?>
             <div class="usage__row usage__row--text">
                 <span class="usage__label"><?php echo $e($r['label']); ?></span>
-                <span class="usage__text"><?php echo number_format($grant_n); ?> to start, no monthly refill</span>
-                <span class="usage__val"><b><?php echo number_format($bal); ?></b> left</span>
+                <span class="usage__text"><?php echo $grants_once ? number_format($grant_n) . ' to start, no monthly refill' : number_format($grant_n) . ' included each billing date'; ?></span>
+                <span class="usage__val"><b><?php echo number_format((int) $usage['ai_credit_balance']); ?></b> left</span>
             </div>
-            <?php else: ?>
-            <?php $spent = (int) $usage['ai_credit_spent']; $pct = $grant_n > 0 ? min(100, round($spent / $grant_n * 100)) : 0; ?>
-            <div class="usage__row">
-                <span class="usage__label"><?php echo $e($r['label']); ?> / month</span>
-                <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
-                <span class="usage__val"><b><?php echo number_format($spent); ?></b> of <?php echo number_format($grant_n); ?> &middot; <?php echo number_format((int) $usage['ai_credit_balance']); ?> left</span>
-            </div>
-            <?php endif; ?>
             <?php elseif ($r['kind'] === 'percent'): ?>
             <div class="usage__row usage__row--text">
                 <span class="usage__label"><?php echo $e($r['label']); ?></span>
@@ -364,30 +387,21 @@ $(function () {
     </div>
     <?php endif; ?>
 
-    <div class="billing__head<?php echo $has_plan ? ' billing__head--section' : ''; ?>">
-        <?php if ($has_plan): ?>
-        <h2 class="billing__section-title">Plans</h2>
-        <?php elseif ($is_free): ?>
-        <h1 class="billing__title">Upgrade your plan</h1>
-        <p class="billing__sub">Monthly, cancel anytime. Paid plans lower your take rate and add AI influencers, automations and AI inbox replies.</p>
-        <?php else: ?>
-        <h1 class="billing__title">Choose a plan</h1>
-        <p class="billing__sub">Monthly, cancel anytime. Paid plans lower your take rate and add AI influencers, automations and AI inbox replies.</p>
-        <?php endif; ?>
+    <div class="billing__head billing__head--section">
+        <h2 class="billing__section-title"><?php echo $has_plan ? 'Plans' : 'Upgrade your plan'; ?></h2>
+        <?php if (!$has_plan): ?><p class="billing__sub">Monthly, cancel anytime. Paid plans lower your take rate and add AI influencers, automations and AI inbox replies.</p><?php endif; ?>
     </div>
 
-    <?php if (empty($ordered)): ?>
-        <p class="billing__empty">No plans are available right now.</p>
-    <?php else: ?>
     <div class="plans" style="--plans:<?php echo count($ordered); ?>">
-        <?php foreach ($ordered as $row): $tier = $row['tier']; $price_id = (string) $row['price_id']; ?>
+        <?php foreach ($ordered as $row): $tier = $row['tier']; ?>
         <?php
             $is_current  = ($tier['key'] === $tier_key);
             $is_free_row = ($tier['key'] === PlanTiers::FREE_KEY);
             $is_featured = !$has_plan && !empty($tier['recommended']);
-            $direction   = ($tier_def && $tier['rank'] > $tier_def['rank']) ? 'up' : 'down';
+            $up          = $tier_def ? BillingService::plan_cents($tier['key']) > BillingService::plan_cents($tier_key) : true;
+            $is_pending  = $pending && $pending['key'] === $tier['key'];
         ?>
-        <div class="plan<?php echo ($is_current && !$is_free) ? ' plan--current' : ''; echo $is_featured ? ' plan--featured' : ''; ?>">
+        <div class="plan<?php echo ($is_current && $has_plan) ? ' plan--current' : ''; echo $is_featured ? ' plan--featured' : ''; ?>">
             <?php if ($is_featured): ?><span class="plan__badge plan__badge--pop">Most popular</span><?php endif; ?>
             <?php if ($is_current): ?><span class="plan__badge">Current</span><?php endif; ?>
             <div class="plan__name"><?php echo $e($tier['name']); ?></div>
@@ -398,16 +412,10 @@ $(function () {
             </div>
             <dl class="plan__rows">
                 <?php foreach (PlanTiers::ROWS as $r): ?>
-                <div class="plan__row">
-                    <dt><?php echo $e($r['label']); ?></dt>
-                    <dd><?php echo $e(PlanTiers::fmt_tier_limit($tier, $r['key'])); ?></dd>
-                </div>
+                <div class="plan__row"><dt><?php echo $e($r['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($tier, $r['key'])); ?></dd></div>
                 <?php endforeach; ?>
                 <?php foreach (PlanTiers::FEATURES as $fk => $flabel): ?>
-                <div class="plan__row">
-                    <dt><?php echo $flabel; ?></dt>
-                    <dd><?php echo PlanTiers::has_feature($tier, $fk) ? 'Included' : '&mdash;'; ?></dd>
-                </div>
+                <div class="plan__row"><dt><?php echo $flabel; ?></dt><dd><?php echo PlanTiers::has_feature($tier, $fk) ? 'Included' : '&mdash;'; ?></dd></div>
                 <?php endforeach; ?>
             </dl>
             <?php foreach ((array) ($row['addons'] ?? array()) as $ad): ?>
@@ -415,24 +423,68 @@ $(function () {
             <?php endforeach; ?>
             <?php if ($is_current): ?>
             <button type="button" class="btn btn-secondary plan__btn" disabled>Current Plan</button>
+            <?php elseif ($is_pending): ?>
+            <button type="button" class="btn btn-secondary plan__btn" disabled>Starts <?php echo $e(date('M j', $end_ts)); ?></button>
             <?php elseif ($is_free_row): ?>
-            <button type="button" class="btn btn-secondary plan__btn plan-downgrade-free">Downgrade to Free</button>
-            <?php elseif ($price_id === ''): ?>
-            <button type="button" class="btn btn-secondary plan__btn" disabled>Unavailable</button>
-            <?php elseif (!$has_plan): ?>
-            <button type="button" class="btn <?php echo $is_featured ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-choose" data-price-id="<?php echo $e($price_id); ?>">Choose <?php echo $e($tier['name']); ?></button>
+            <button type="button" class="btn btn-secondary plan__btn plan-cancel" <?php echo $canceling ? 'disabled' : ''; ?>><?php echo $canceling ? 'Starts ' . $e(date('M j', $end_ts)) : 'Downgrade to Free'; ?></button>
             <?php else: ?>
-            <button type="button" class="btn btn-secondary plan__btn plan-change" data-price-id="<?php echo $e($price_id); ?>" data-tier-name="<?php echo $e($tier['name']); ?>" data-direction="<?php echo $e($direction); ?>"><?php echo $direction === 'up' ? 'Upgrade to ' : 'Switch to '; ?><?php echo $e($tier['name']); ?></button>
+            <?php $label = !$has_plan ? 'Choose ' . $tier['name'] : ($up ? 'Upgrade to ' . $tier['name'] : 'Switch to ' . $tier['name']); ?>
+            <button type="button" class="btn <?php echo $is_featured ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>" data-title="<?php echo $e($label); ?>" <?php echo $past_due ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
             <?php endif; ?>
         </div>
         <?php endforeach; ?>
     </div>
     <p class="plans__included"><span>Included on every plan:</span> <?php echo implode(' &middot; ', PlanTiers::INCLUDED); ?></p>
-    <?php endif; ?>
+
+    <div class="billing__section">
+        <h2 class="billing__section-title">Card on File</h2>
+        <div class="billing__row">
+            <div>
+                <?php if ($has_card): ?>
+                <div class="billing__row-title"><i class="fa-regular fa-credit-card"></i> <?php echo $e($acct['card_brand']); ?><?php if ((string) $acct['card_last4'] !== ''): ?> &bull;&bull;&bull;&bull; <?php echo $e($acct['card_last4']); ?><?php endif; ?></div>
+                <div class="billing__row-meta"><?php echo (string) $acct['card_exp'] !== '' ? 'Expires ' . $e($acct['card_exp']) . '. ' : ''; ?>Used for your plan, add-ons and monthly pack.</div>
+                <?php else: ?>
+                <div class="billing__row-title">No card on file</div>
+                <div class="billing__row-meta">You'll add one when you choose a plan or a monthly pack.</div>
+                <?php endif; ?>
+            </div>
+            <div class="billing__row-actions"><button type="button" class="btn btn-secondary" id="update_card"><?php echo $has_card ? 'Update Card' : 'Add Card'; ?></button></div>
+        </div>
+    </div>
+
+    <div class="billing__section">
+        <h2 class="billing__section-title">Charges</h2>
+        <?php if (empty($this->charges) && empty($this->invoices)): ?>
+            <p class="billing__empty">No charges yet.</p>
+        <?php else: ?>
+        <table class="invoices">
+            <thead><tr><th>Date</th><th>Items</th><th>Amount</th><th>Status</th></tr></thead>
+            <tbody>
+                <?php foreach ((array) $this->charges as $c): $items = (array) json_decode((string) $c['line_items'], true); ?>
+                <tr>
+                    <td><?php echo $e(date('M j, Y', strtotime($c['created_at'] . ' UTC'))); ?></td>
+                    <td><?php echo $e(implode(', ', array_column($items, 'label')) ?: ($charge_label[$c['kind']] ?? $c['kind'])); ?></td>
+                    <td><?php echo $e($money((int) $c['amount_cents'])); ?></td>
+                    <?php $st = (string) $c['status']; ?>
+                    <td><span class="inv-status inv-status--<?php echo $st === 'succeeded' ? 'paid' : ($st === 'failed' ? 'void' : 'open'); ?>" <?php echo $st === 'failed' && $c['failure_reason'] ? 'title="' . $e($c['failure_reason']) . '"' : ''; ?>><?php echo $st === 'succeeded' ? 'Paid' : ($st === 'failed' ? 'Failed' : ($st === 'requires_action' ? 'Needs confirmation' : 'Pending')); ?></span></td>
+                </tr>
+                <?php endforeach; ?>
+                <?php foreach ((array) $this->invoices as $inv): ?>
+                <tr>
+                    <td><?php echo $e(date('M j, Y', $inv['created'])); ?></td>
+                    <td>Earlier plan invoice<?php if (!empty($inv['hosted'])): ?> &middot; <a href="<?php echo $e($inv['hosted']); ?>" target="_blank" rel="noopener">View</a><?php endif; ?></td>
+                    <td><?php echo ((int) $inv['amount'] < 0 ? '&minus;$' : '$') . number_format(abs((int) $inv['amount']) / 100, 2); ?></td>
+                    <td><span class="inv-status inv-status--<?php echo $e($inv['status']); ?>"><?php echo $e(ucfirst($inv['status'])); ?></span></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php endif; ?>
+    </div>
 
     <?php if (!empty($this->ai_history)): ?>
     <div class="billing__section">
-        <h2 class="billing__section-title">AI credit activity</h2>
+        <h2 class="billing__section-title">AI Credit Activity</h2>
         <table class="invoices">
             <thead><tr><th>Date</th><th>Activity</th><th class="invoices__num">Credits</th><th class="invoices__num">Balance</th></tr></thead>
             <tbody>
@@ -448,81 +500,44 @@ $(function () {
         </table>
     </div>
     <?php endif; ?>
-
-    <?php if (!empty($this->user['stripe_customer_id'])): ?>
-    <div class="billing__section">
-        <h2 class="billing__section-title">Payment Methods</h2>
-        <?php if (empty($this->cards)): ?>
-            <p class="billing__empty">No cards on file.</p>
-        <?php else: ?>
-        <div class="cards">
-            <?php foreach ($this->cards as $card): ?>
-            <div class="cardrow">
-                <div class="cardrow__main">
-                    <i class="fa-regular fa-credit-card cardrow__icon"></i>
-                    <span class="cardrow__brand"><?php echo $e($card['brand']); ?></span>
-                    <?php if ($card['type'] === 'card'): ?>
-                        <span class="cardrow__num">&bull;&bull;&bull;&bull; <?php echo $e($card['last4']); ?></span>
-                    <?php elseif (!empty($card['detail'])): ?>
-                        <span class="cardrow__num"><?php echo $e($card['detail']); ?></span>
-                    <?php endif; ?>
-                    <?php if ($card['is_default']): ?><span class="cardrow__default">Default</span><?php endif; ?>
-                </div>
-                <?php if ($card['type'] === 'card' && $card['exp_year']): ?>
-                <span class="cardrow__exp">Expires <?php echo str_pad((string) $card['exp_month'], 2, '0', STR_PAD_LEFT); ?>/<?php echo $e($card['exp_year']); ?></span>
-                <?php endif; ?>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <div class="billing__section">
-        <h2 class="billing__section-title">Billing History</h2>
-        <?php if (empty($this->invoices)): ?>
-            <p class="billing__empty">No invoices yet.</p>
-        <?php else: ?>
-        <table class="invoices">
-            <thead><tr><th>Date</th><th>Amount</th><th>Status</th><th></th></tr></thead>
-            <tbody>
-                <?php foreach ($this->invoices as $inv): ?>
-                <tr>
-                    <td><?php echo $e(date('M j, Y', $inv['created'])); ?></td>
-                    <td><?php echo ((int) $inv['amount'] < 0 ? '&minus;$' : '$') . number_format(abs((int) $inv['amount']) / 100, 2); ?><?php echo (int) $inv['amount'] < 0 ? ' credit' : ''; ?></td>
-                    <td><span class="inv-status inv-status--<?php echo $e($inv['status']); ?>"><?php echo $e(ucfirst($inv['status'])); ?></span></td>
-                    <td class="invoices__action"><?php if (!empty($inv['hosted'])): ?><a href="<?php echo $e($inv['hosted']); ?>" target="_blank" rel="noopener">View</a><?php endif; ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-        <?php endif; ?>
-    </div>
-    <?php endif; ?>
 </div>
 
-<div class="modal fade" id="payment_form" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="confirm_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Payment</h5>
+                <h5 class="modal-title" id="confirm_title">Confirm</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="payment_element"></div>
-                <div class="promo" id="promo_row">
-                    <input type="text" class="form-control promo__input" id="promo_code" placeholder="Promo code" autocomplete="off" autocapitalize="characters" spellcheck="false">
-                    <button type="button" class="btn btn-secondary promo__btn" id="promo_apply">Apply</button>
-                </div>
-                <div class="promo__applied" id="promo_applied" style="display:none;"></div>
-                <div class="pay-total">
-                    <span class="pay-total__label">Due today</span>
-                    <span class="pay-total__amount" id="pay_total"></span>
-                </div>
-                <p class="pay-note" id="pay_note" style="display:none;">Nothing is charged today. Your card is saved for future renewals.</p>
+                <div class="disc" id="disc_lines"></div>
+                <div class="disc__row disc__row--total"><span>Due today</span><span id="disc_today"></span></div>
+                <p class="disc__terms" id="disc_terms"></p>
+                <p class="disc__card" id="disc_card"></p>
+                <div id="disc_card_form"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="pay_button">Subscribe</button>
+                <button type="button" class="btn btn-primary" id="confirm_go">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="card_modal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Update card</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="card_element"></div>
+                <p class="disc__terms">This card is charged for your plan, add-ons and monthly pack on each billing date.<?php echo $past_due ? ' Your overdue payment is retried as soon as it is saved.' : ''; ?></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="card_save" disabled>Save Card</button>
             </div>
         </div>
     </div>
@@ -541,48 +556,12 @@ $(function () {
                     <button type="button" class="pack" data-dollars="<?php echo (int) $d; ?>"><span class="pack__n"><?php echo (int) $d; ?></span><span class="pack__l">credits</span><span class="pack__p">$<?php echo (int) $d; ?></span></button>
                     <?php endforeach; ?>
                 </div>
-                <p class="packs__note">$1 per credit. Credits never expire and are used after your monthly plan credits.</p>
+                <p class="packs__note">One-time purchase. $1 per credit. Bought credits never expire and are used after your plan's included credits.</p>
                 <div id="credit_payment_element"></div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="credit_pay_button" disabled>Pay</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="cancel_form" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Cancel Subscription</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">Your subscription stays active until the end of the current billing period, then it won't renew. You can resume any time before then.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Subscription</button>
-                <button type="button" class="btn btn-danger" id="confirm_cancel">Cancel Subscription</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="cancel_now_form" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Cancel Immediately</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-0">This ends your paid plan right now and moves you to Free, with no refund for the rest of the period. Anything over the Free limits is locked, not deleted.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Keep Subscription</button>
-                <button type="button" class="btn btn-danger" id="confirm_cancel_now">Cancel Immediately</button>
             </div>
         </div>
     </div>

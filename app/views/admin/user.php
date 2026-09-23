@@ -95,7 +95,7 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                         <?php if ($is_creator): ?><div><dt>Creator since</dt><dd><?php echo $e($fmt($u['creator_since'], false)); ?></dd></div><?php endif; ?>
                     </dl>
                 </div>
-                <?php if ((string) ($u['stripe_subscription_id'] ?? '') !== ''): ?>
+                <?php $bacct = BillingService::account((int) $u['user_id']); if (BillingService::is_paid($bacct)): ?>
                 <div class="adm-box">
                     <div class="adm-box__row">
                         <h2 class="adm-box__h">Creator Plan</h2>
@@ -109,6 +109,7 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                         <div><dt>Plan</dt><dd><?php echo $e($tier !== '' ? $tier : 'Unknown'); ?></dd></div>
                         <div><dt>Status</dt><dd><?php echo $e(ucfirst((string) $u['subscription_status'])); ?><?php if (!empty($u['subscription_cancel_at_period_end'])): ?> <span class="adm-pill adm-pill--warn">Cancels at period end</span><?php endif; ?></dd></div>
                         <div><dt>Period ends</dt><dd><?php echo $e($fmt($u['subscription_current_period_end'], false)); ?></dd></div>
+                        <div><dt>Next charge</dt><dd><?php $nx = BillingService::next_charge($bacct); echo $nx ? $e(BillingService::money($nx['total']) . ' on ' . $fmt($nx['at'], false)) : '—'; ?></dd></div>
                     </dl>
                 </div>
                 <?php endif; ?>

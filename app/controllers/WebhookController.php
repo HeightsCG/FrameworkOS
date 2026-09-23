@@ -106,23 +106,19 @@ class WebhookController extends Controller {
         $obj  = $event->data->object;
         $subs = new CreatorSubscriptionsModel();
 
-        // A creator's own platform plan (not a fan membership on a connected account): keep
-        // user_accounts in step with Stripe, so a plan cancelled at period end becomes Free.
-        if (empty($event->account) && strpos((string) $event->type, 'customer.subscription.') === 0) {
-            $billing = new BillingModel();
-            $uid = $billing->user_id_for_subscription((string) $obj->id);
-            if ($uid > 0) {
-                if ($event->type === 'customer.subscription.deleted' || in_array((string) $obj->status, array('canceled', 'incomplete_expired'), true)) {
-                    $billing->clear_subscription($uid);
-                    (new AccountAddonsModel())->clear($uid);
-                } else {
-                    $item = StripeService::plan_item($obj);
-                    $billing->save_subscription($uid, (string) $obj->id, (string) ($item->price->id ?? ''), (string) $obj->status, $item->current_period_end ?? null, !empty($obj->cancel_at_period_end) ? 1 : 0);
-                }
-                http_response_code(200);
-                echo 'ok';
-                exit;
+        // A creator's platform plan is billed by the app (BillingService): reconcile its PaymentIntents.
+        // settle() is idempotent with the job and the page, so nothing is charged or granted twice.
+        if (empty($event->account) && in_array($event->type, array('payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.requires_action'), true)
+            && (string) ($obj->metadata['type'] ?? '') === 'platform_billing') {
+            $row = (new BillingChargesModel())->by_payment_intent((string) $obj->id);
+            if ($row) {
+                $st = $event->type === 'payment_intent.succeeded' ? 'succeeded' : ($event->type === 'payment_intent.requires_action' ? 'requires_action' : 'failed');
+                BillingService::settle((int) $row['id'], array('status' => $st, 'payment_intent_id' => (string) $obj->id, 'client_secret' => '',
+                    'reason' => (string) ($obj->last_payment_error->message ?? '')));
             }
+            http_response_code(200);
+            echo 'ok';
+            exit;
         }
 
         switch ($event->type) {

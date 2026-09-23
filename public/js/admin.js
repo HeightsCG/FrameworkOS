@@ -367,3 +367,19 @@
     });
     render('1');
 })();
+
+/* Billing tab: retry a past-due account's renewal now. */
+(function () {
+    document.addEventListener('click', function (e) {
+        var btn = e.target.closest('[data-billing-retry]');
+        if (!btn) { return; }
+        var row = btn.closest('.adm-urow');
+        btn.disabled = true;
+        ApiDataSvc.apiCall('post', 'admin_billing_retry', { user_id: row.getAttribute('data-uid') }, function (r) {
+            var o = null; try { o = JSON.parse(r); } catch (x) {}
+            if (!o || !o.success) { btn.disabled = false; toastr.error((o && o.message) || 'Retry failed'); return; }
+            toastr.success(o.message);
+            setTimeout(function () { window.location.reload(); }, 900);
+        });
+    });
+})();

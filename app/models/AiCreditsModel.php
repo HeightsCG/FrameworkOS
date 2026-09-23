@@ -4,6 +4,10 @@
  * by purchase ($1 = 1 credit). Spent by influencer image/enhance/video jobs. Separate
  * from the fan-facing wallet (CreditsModel). Every change is a ledger row in
  * ai_credit_transactions with the resulting balance.
+ *
+ * ai_credit_balance is the total. Two buckets inside it: ai_credits_plan (the plan's included
+ * credits, replaced every billing period and spent first) and ai_credits_pack (the recurring
+ * credit pack, spent next). Whatever is left is bought or starter credits, which never expire.
  */
 class AiCreditsModel extends Model {
 
@@ -98,7 +102,7 @@ class AiCreditsModel extends Model {
 
         $this->db->beginTransaction();
         try {
-            $sth = $this->db->prepare("SELECT ai_credit_balance FROM user_accounts WHERE user_id = :u FOR UPDATE");
+            $sth = $this->db->prepare("SELECT ai_credit_balance, ai_credits_plan, ai_credits_pack FROM user_accounts WHERE user_id = :u FOR UPDATE");
             $sth->bindValue(':u', $user_id, PDO::PARAM_INT);
             $sth->execute();
             $row = $sth->fetch(PDO::FETCH_ASSOC);
@@ -106,7 +110,18 @@ class AiCreditsModel extends Model {
             $after = $current + $credits;
             if (!$row || $after < 0) { $this->db->rollBack(); return false; }
 
-            $upd = $this->db->prepare("UPDATE user_accounts SET ai_credit_balance = :bal, updated_at = :now WHERE user_id = :u");
+            // Spending drains the plan's included credits first, then the recurring pack, then the rest.
+            $plan = (int) $row['ai_credits_plan']; $pack = (int) $row['ai_credits_pack'];
+            if ($credits < 0) {
+                $need = -$credits;
+                $from_plan = min($plan, $need); $plan -= $from_plan; $need -= $from_plan;
+                $from_pack = min($pack, $need); $pack -= $from_pack;
+            }
+            $plan = min($plan, $after); $pack = min($pack, max(0, $after - $plan));
+
+            $upd = $this->db->prepare("UPDATE user_accounts SET ai_credit_balance = :bal, ai_credits_plan = :pl, ai_credits_pack = :pk, updated_at = :now WHERE user_id = :u");
+            $upd->bindValue(':pl', $plan, PDO::PARAM_INT);
+            $upd->bindValue(':pk', $pack, PDO::PARAM_INT);
             $upd->bindValue(':bal', $after, PDO::PARAM_INT);
             $upd->bindValue(':now', date('Y-m-d H:i:s'));
             $upd->bindValue(':u', $user_id, PDO::PARAM_INT);
@@ -120,6 +135,63 @@ class AiCreditsModel extends Model {
             error_log('[ai_credits] apply_delta failed: ' . $e->getMessage());
             return false;
         }
+    }
+
+    /**
+     * Replace a bucket ('plan' or 'pack') with $credits: what is left of the old bucket expires first
+     * (unless $keep_old, e.g. a recurring pack whose credits carry over), then the new credits land.
+     * Returns the new balance, or false.
+     */
+    public function set_bucket($user_id, $bucket, $credits, $description, $keep_old = false){
+        $user_id = (int) $user_id; $credits = max(0, (int) $credits);
+        $col = ($bucket === 'pack') ? 'ai_credits_pack' : 'ai_credits_plan';
+        $this->db->beginTransaction();
+        try {
+            $sth = $this->db->prepare("SELECT ai_credit_balance, ai_credits_plan, ai_credits_pack FROM user_accounts WHERE user_id = :u FOR UPDATE");
+            $sth->bindValue(':u', $user_id, PDO::PARAM_INT);
+            $sth->execute();
+            $row = $sth->fetch(PDO::FETCH_ASSOC);
+            if (!$row) { $this->db->rollBack(); return false; }
+            $bal = (int) $row['ai_credit_balance']; $old = min((int) $row[$col], $bal);
+            if ($old > 0 && !$keep_old) {
+                $bal -= $old;
+                $this->ledger($user_id, $bucket . '_expire', -$old, $bal, ($bucket === 'pack' ? 'Unused pack credits expired' : 'Unused plan credits expired'), null, null);
+            }
+            $new = ($keep_old ? $old : 0) + $credits;
+            $bal += $credits;
+            if ($credits > 0) { $this->ledger($user_id, $bucket === 'pack' ? 'pack_grant' : 'plan_grant', $credits, $bal, (string) $description, null, null); }
+            $upd = $this->db->prepare("UPDATE user_accounts SET ai_credit_balance = :b, $col = :n, updated_at = :now WHERE user_id = :u");
+            $upd->bindValue(':b', $bal, PDO::PARAM_INT);
+            $upd->bindValue(':n', $new, PDO::PARAM_INT);
+            $upd->bindValue(':now', date('Y-m-d H:i:s'));
+            $upd->bindValue(':u', $user_id, PDO::PARAM_INT);
+            $upd->execute();
+            $this->db->commit();
+            return $bal;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
+            error_log('[ai_credits] set_bucket failed: ' . $e->getMessage());
+            return false;
+        }
+    }
+
+    /** Add to the plan bucket mid-period (an upgrade raises the included amount). */
+    public function add_plan_credits($user_id, $credits, $description){
+        if ((int) $credits <= 0) { return $this->get_balance($user_id); }
+        return $this->set_bucket($user_id, 'plan', (int) $credits, $description, true);
+    }
+
+    /** Mark part of the existing balance as this period's plan credits (migration from Stripe subscriptions). No ledger row: nothing is added. */
+    public function adopt_plan_bucket($user_id, $credits){
+        return parent::sql("UPDATE user_accounts SET ai_credits_plan = LEAST(ai_credit_balance, :n) WHERE user_id = :u", array(':n' => max(0, (int) $credits), ':u' => (int) $user_id));
+    }
+
+    /** The two buckets and the rest, for the billing page. */
+    public function buckets($user_id){
+        $r = parent::select("SELECT ai_credit_balance, ai_credits_plan, ai_credits_pack FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));
+        $row = (is_array($r) && count($r)) ? $r[0] : array('ai_credit_balance' => 0, 'ai_credits_plan' => 0, 'ai_credits_pack' => 0);
+        $total = (int) $row['ai_credit_balance']; $plan = min((int) $row['ai_credits_plan'], $total); $pack = min((int) $row['ai_credits_pack'], $total - $plan);
+        return array('total' => $total, 'plan' => $plan, 'pack' => $pack, 'other' => $total - $plan - $pack);
     }
 
     private function ledger($user_id, $type, $credits, $after, $description, $job_id, $pi){

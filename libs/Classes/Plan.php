@@ -26,14 +26,15 @@ class Plan {
     }
 
     /**
-     * An active (or trialing) Stripe subscription — i.e. a paid plan, not Free. A plan set to
-     * cancel at period end is Free once that period is over, even before Stripe tells us.
+     * A paid plan (not Free), from the BillingService mirror on user_accounts. Past due counts
+     * during the grace period (BillingService moves the account to Free when it ends). A plan set
+     * to cancel at period end is Free once that period is over, even if the job hasn't run yet.
      */
     public static function has_paid_plan($user): bool
     {
         if (!is_array($user)) { return false; }
         $status = (string) ($user['subscription_status'] ?? '');
-        if ($status !== 'active' && $status !== 'trialing') { return false; }
+        if (!in_array($status, array('active', 'trialing', 'past_due'), true)) { return false; }
         $end = (string) ($user['subscription_current_period_end'] ?? '');
         if (!empty($user['subscription_cancel_at_period_end']) && $end !== '' && strtotime($end . ' UTC') <= time()) { return false; }
         return true;
@@ -69,10 +70,7 @@ class Plan {
             return PlanTiers::FREE_KEY;   // creator, no subscription: the free plan
         }
         $tier = (string) ($user['plan_tier'] ?? '');
-        if ($tier === '' && !empty($user['stripe_price_id'])) {
-            $tier = StripeService::plan_tier_slug((string) $user['stripe_price_id']);
-        }
-        return $tier !== '' ? $tier : PlanTiers::FREE_KEY;
+        return ($tier !== '' && PlanTiers::get($tier)) ? $tier : PlanTiers::FREE_KEY;
     }
 
     /** The full tier definition (PlanTiers) for the user's plan, or array(). */
@@ -136,13 +134,9 @@ class Plan {
         if ($uid <= 0 || !$a || !self::has_paid_plan($user) || !in_array(self::tier($user), (array) ($a['plans'] ?? array()), true)) { return 0; }
         $ck = $uid . ':' . $addon_key;
         if (isset($cache[$ck])) { return $cache[$ck]; }
-        $m   = new AccountAddonsModel();
-        $row = $m->get($uid, $addon_key);
-        $q   = $row ? (int) $row['quantity'] : 0;
-        if ($row && $row['quantity_next'] !== null && !empty($row['next_at']) && strtotime($row['next_at'] . ' UTC') <= time()) {
-            $q = (int) $row['quantity_next'];
-            $m->save($uid, $addon_key, array('quantity' => $q, 'quantity_next' => null, 'next_at' => null));
-        }
+        // Slots the account holds right now; a removal waits in influencer_slots_next until the billing date.
+        $row = (string) $addon_key === 'influencer_slot' ? (new BillingAccountsModel())->get($uid) : null;
+        $q = $row ? (int) $row['influencer_slots'] : 0;
         return $cache[$ck] = max(0, min($q, (int) ($a['max'] ?? 0)));
     }
 
@@ -332,6 +326,7 @@ class Plan {
         $n = (int) self::limit($user, 'ai_credits');
         if ($n <= 0) { return false; }
         $tier = self::features($user);
+        if ($tier && !PlanTiers::grants_once($tier)) { return false; }   // paid plans: BillingService grants on each successful charge
         if ($tier && PlanTiers::grants_once($tier)) {
             // One-time starter credits (Free): only for an account that has never had a plan grant.
             if ((string) ($user['ai_credit_grant_period'] ?? '') !== '') { return false; }

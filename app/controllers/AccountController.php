@@ -228,67 +228,31 @@ class AccountController extends Controller {
 
     public function billingAction(){
         $user = $this->userModel->get_user_by_id(Session::get('user_id'));
-        if (is_array($user) && count($user) === 1) {
-            $u = $user[0];
-            // A renewal Stripe billed while we weren't looking: refresh the cached period
-            // end so the billing period (and this month's AI credits) are right.
-            if (!empty($u['stripe_subscription_id']) && in_array((string) ($u['subscription_status'] ?? ''), array('active', 'trialing', 'past_due'), true)
-                && !empty($u['subscription_current_period_end']) && strtotime((string) $u['subscription_current_period_end']) < time()) {
-                try {
-                    $sub = StripeService::client()->subscriptions->retrieve((string) $u['stripe_subscription_id']);
-                    if (in_array((string) $sub->status, array('canceled', 'incomplete_expired'), true)) {
-                        (new BillingModel())->clear_subscription((int) $u['user_id']);
-                        (new AccountAddonsModel())->clear((int) $u['user_id']);
-                    } else {
-                        $item = StripeService::plan_item($sub);   // the plan line, not an add-on line
-                        (new BillingModel())->save_subscription((int) $u['user_id'], $sub->id, $item->price->id ?? $u['stripe_price_id'],
-                            $sub->status, $item->current_period_end ?? null, $sub->cancel_at_period_end ? 1 : 0);
-                    }
-                    $u = $this->userModel->get_user_by_id(Session::get('user_id'))[0];
-                } catch (\Throwable $e) {
-                    error_log('[stripe] billing refresh: ' . $e->getMessage());
-                }
-            }
-            $customer_id           = $u['stripe_customer_id'] ?? '';
-            $this->view->user      = $u;
-            // A paid plan (a plan cancelled at period end counts as Free once the period is over).
-            $this->view->has_plan  = Plan::has_paid_plan($u) || (string) ($u['subscription_status'] ?? '') === 'past_due';
-            $this->view->tier      = Plan::tier($u);
-            // Free is a real plan now: usage and AI credit history apply to every creator.
-            $this->view->is_creator = Plan::is_creator_row($u);
-            $this->view->usage     = $this->view->tier !== '' ? Plan::usage($u) : null;
-            $this->view->ai_history= $this->view->tier !== '' ? (array) (new AiCreditsModel())->get_transactions((int) $u['user_id'], 10) : array();
-            // Plan cards come from PlanTiers: price, limits and the Stripe price to bill.
-            $this->view->plan_rows = array();
-            foreach (PlanTiers::offered($this->view->tier) as $t) {   // retired plans only show to the people already on them
-                $this->view->plan_rows[] = array(
-                    'tier'     => $t,
-                    'price_id' => PlanTiers::stripe_price_id($t['key']),
-                    'addons'   => PlanTiers::addons_for($t['key']),
-                );
-            }
-            // Add-ons the current plan takes (Creator: extra AI influencer slots), with what the account holds.
-            $this->view->addons = array();
-            if (Plan::has_paid_plan($u)) {
-                $am = new AccountAddonsModel();
-                foreach (PlanTiers::addons_for($this->view->tier) as $ad) {
-                    if (empty($ad['stripe_price_id'])) { continue; }
-                    $held = Plan::addon_quantity($u, $ad['key']);
-                    $row  = $am->get((int) $u['user_id'], $ad['key']);
-                    $tdef = PlanTiers::get($this->view->tier);
-                    $this->view->addons[] = array('def' => $ad, 'quantity' => $held,
-                        'next' => ($row && $row['quantity_next'] !== null) ? (int) $row['quantity_next'] : null, 'next_at' => $row['next_at'] ?? null,
-                        'included' => (int) ($tdef['limits'][$ad['limit']] ?? 0));
-                }
-            }
-            $this->view->invoices  = StripeService::get_invoices($customer_id);
-            $this->view->cards     = StripeService::get_payment_methods($customer_id);
-            $this->view->stripe_pk = StripeService::publishable_key();
-            $this->view->render();
-        } else {
-            Header('Location: /');
-            exit;
+        if (!is_array($user) || count($user) !== 1) { Header('Location: /'); exit; }
+        $u   = $user[0];
+        $uid = (int) $u['user_id'];
+        // App-managed billing: plan, add-ons, schedule and card live in billing_accounts (BillingService).
+        $acct = BillingService::account($uid);
+        $this->view->user       = $u;
+        $this->view->acct       = $acct;
+        $this->view->tier       = Plan::tier($u);
+        $this->view->has_plan   = BillingService::is_paid($acct);
+        $this->view->is_creator = Plan::is_creator_row($u);
+        $this->view->usage      = $this->view->tier !== '' ? Plan::usage($u) : null;
+        $this->view->buckets    = (new AiCreditsModel())->buckets($uid);
+        $this->view->ai_history = $this->view->tier !== '' ? (array) (new AiCreditsModel())->get_transactions($uid, 10) : array();
+        $this->view->next       = BillingService::next_charge($acct);
+        $this->view->charges    = (new BillingChargesModel())->history($uid, 24);
+        $this->view->awaiting   = (new BillingChargesModel())->awaiting_action($uid);
+        // Plan cards from PlanTiers; retired plans only show to the people already on them.
+        $this->view->plan_rows = array();
+        foreach (PlanTiers::offered($this->view->tier) as $t) {
+            $this->view->plan_rows[] = array('tier' => $t, 'addons' => PlanTiers::addons_for($t['key']));
         }
+        // Invoices from before app billing (the old Stripe subscriptions), kept as history.
+        $this->view->invoices  = StripeService::get_invoices((string) ($u['stripe_customer_id'] ?? ''));
+        $this->view->stripe_pk = StripeService::publishable_key();
+        $this->view->render();
     }
 
     /**

@@ -39,8 +39,23 @@ class PlanTiers {
     /** What each AI job type costs in AI credits (per output). Training is free: the influencer count gates it. */
     const AI_PRICES = array('image' => 5, 'enhance' => 1, 'video' => 20);
 
-    /** Top-up packs: $1 = 1 AI credit. */
+    /** AI credit packs ($1 = 1 credit): bought once, or added as a recurring monthly pack. */
     const AI_PACKS = array(10, 25, 50, 100);
+
+    /**
+     * App-managed billing (BillingService). Stripe only stores the card and runs each charge.
+     *   interval_months   length of a billing period
+     *   retry_after_days  after a failed renewal, retry this many days after the first failure
+     *   grace_days        paid features stay on while past due; after this (or the last retry) the account moves to Free
+     *   pack_carry_over   recurring pack credits roll over (true) or are replaced each period (false)
+     */
+    const BILLING = array(
+        'interval_months'  => 1,
+        'retry_after_days' => array(1, 3, 5),
+        'grace_days'       => 7,
+        'pack_carry_over'  => true,
+        'currency'         => 'usd',
+    );
 
     /**
      * The plans: price, limits, per-plan switches, and the Stripe product name keywords ('match').
@@ -152,34 +167,7 @@ class PlanTiers {
         return $out;
     }
 
-    /**
-     * The Stripe price a tier bills against: the configured id, else the live price whose product
-     * name matches the tier (how it worked before ids were configurable). '' for Free, which has no
-     * subscription, and '' when Stripe has nothing matching.
-     */
-    public static function stripe_price_id($key): string
-    {
-        $key = (string) $key;
-        if ($key === self::FREE_KEY) { return ''; }
-        $t = self::get($key);
-        if (!$t) { return ''; }
-        $id = trim((string) ($t['stripe_price_id'] ?? ''));
-        if ($id !== '') { return $id; }
-
-        static $by_tier = null;
-        if ($by_tier === null) {
-            $by_tier = array();
-            try {
-                foreach (StripeService::get_plans() as $p) {
-                    $k = self::match((string) ($p['name'] ?? ''));
-                    if ($k !== '' && !isset($by_tier[$k])) { $by_tier[$k] = (string) $p['price_id']; }
-                }
-            } catch (\Throwable $e) { $by_tier = array(); }
-        }
-        return (string) ($by_tier[$key] ?? '');
-    }
-
-    /** Tier key for a Stripe price id (configured ids first, then a Stripe product-name match). */
+    /** Tier key for a legacy Stripe subscription price id (configured ids first, then a product-name match). Migration only. */
     public static function tier_for_price($price_id): string
     {
         $price_id = trim((string) $price_id);

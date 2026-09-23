@@ -29,46 +29,34 @@ class BillingModel extends Model {
         );
     }
 
-    public function save_subscription($user_id, $subscription_id, $price_id, $status, $current_period_end, $cancel_at_period_end = 0){
+    /**
+     * Mirror of the app-managed plan (BillingService::mirror) so Plan:: checks stay column reads.
+     * $tier/$status null = Free. The Stripe subscription columns are only history now.
+     */
+    public function save_plan_mirror($user_id, $tier, $status, $period_end, $cancel_at_period_end){
         return parent::update(
             'user_accounts',
             array(
-                'stripe_subscription_id'           => $subscription_id,
-                'stripe_price_id'                  => $price_id,
-                // Resolve + cache the code tier once here (at subscribe/renewal) so
-                // entitlement checks are a plain column read, no Stripe call.
-                'plan_tier'                        => PlanTiers::tier_for_price($price_id),
-                'subscription_status'              => $status,
-                'subscription_current_period_end'  => $current_period_end ? date('Y-m-d H:i:s', (int) $current_period_end) : null,
-                'subscription_cancel_at_period_end'=> $cancel_at_period_end ? 1 : 0,
-                'updated_at'                       => date('Y-m-d H:i:s'),
-            ),
-            'user_id = :user_id',
-            array('user_id' => (int) $user_id)
-        );
-    }
-
-    /** The account whose platform plan is this Stripe subscription, or 0. */
-    public function user_id_for_subscription($subscription_id){
-        $r = parent::select("SELECT user_id FROM user_accounts WHERE stripe_subscription_id = :s AND deleted = 0 LIMIT 1", array('s' => (string) $subscription_id));
-        return (is_array($r) && count($r) === 1) ? (int) $r[0]['user_id'] : 0;
-    }
-
-    public function clear_subscription($user_id){
-        return parent::update(
-            'user_accounts',
-            array(
-                'stripe_subscription_id'            => null,
-                'stripe_price_id'                   => null,
-                'plan_tier'                         => null,
-                'subscription_status'               => null,
-                'subscription_current_period_end'   => null,
-                'subscription_cancel_at_period_end' => 0,
+                'plan_tier'                         => $tier,
+                'subscription_status'               => $status,
+                'subscription_current_period_end'   => $period_end,
+                'subscription_cancel_at_period_end' => $cancel_at_period_end ? 1 : 0,
                 'updated_at'                        => date('Y-m-d H:i:s'),
             ),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
         );
+    }
+
+    /** Accounts still billed by a Stripe subscription (cron/migrate_subscriptions.php). */
+    public function users_with_stripe_subscription(){
+        $r = parent::select("SELECT user_id FROM user_accounts WHERE stripe_subscription_id IS NOT NULL AND stripe_subscription_id <> '' AND deleted = 0");
+        return array_map('intval', array_column((array) $r, 'user_id'));
+    }
+
+    /** Forget the Stripe subscription once the app bills the account (billing_accounts keeps its id). */
+    public function forget_stripe_subscription($user_id){
+        return parent::update('user_accounts', array('stripe_subscription_id' => null, 'updated_at' => date('Y-m-d H:i:s')), 'user_id = :user_id', array('user_id' => (int) $user_id));
     }
 
 }

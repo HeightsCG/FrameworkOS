@@ -17,8 +17,8 @@ class ApiRoutes {
             'become_creator', 'leave_creator', 'delete_my_account', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [
-            'create_subscription', 'abandon_subscription', 'sync_subscription', 'cancel_subscription', 'resume_subscription', 'cancel_now_subscription',
-            'change_subscription', 'addon_set', 'buy_ai_credits', 'confirm_ai_credit_purchase',
+            'billing_quote', 'billing_card_setup', 'billing_card_save', 'billing_change_plan', 'billing_cancel', 'billing_resume',
+            'billing_set_slots', 'billing_set_pack', 'billing_confirm', 'billing_pending', 'buy_ai_credits', 'confirm_ai_credit_purchase',
             'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
             'disconnect_payout_account',
         ],
@@ -74,7 +74,7 @@ class ApiRoutes {
         'ApiAdminController' => [
             'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
             'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email',
-            'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_set_plan_cancel',
+            'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel',
         ],
         'ApiTeamController' => [
             'team_invite', 'team_set_role', 'team_set_status', 'team_remove',

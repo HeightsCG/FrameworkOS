@@ -88,6 +88,7 @@
 
 /* Sales + chargebacks tables */
 .adm-table--sales{ --adm-cols:minmax(150px,1fr) minmax(150px,1.5fr) 78px 92px 158px 106px; }
+.adm-table--billing{ --adm-cols:minmax(180px,1.2fr) 110px minmax(120px,1fr) 96px 150px 130px 96px; }
 .adm-table--cb{ --adm-cols:minmax(140px,1fr) minmax(120px,1.2fr) 92px 118px 158px; }
 .adm-srow, .adm-cbrow{ display:grid; grid-template-columns:var(--adm-cols); gap:1rem; align-items:center; padding:.7rem 1.1rem; border-bottom:1px solid #f2f1f7; }
 .adm-srow:last-of-type, .adm-cbrow:last-of-type{ border-bottom:0; }

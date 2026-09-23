@@ -20,6 +20,7 @@ class AuditModel extends Model {
         'admin_resend_verification'  => 'Resent the verification email',
         'admin_cancel_membership'    => 'Canceled a membership',
         'admin_set_plan_cancel'      => 'Changed a creator plan',
+        'admin_billing_retry'        => 'Retried a plan payment',
         'support_reply'              => 'Replied to a support request',
         'support_close'              => 'Closed or reopened a support request',
         'seo_keyword_add'            => 'Added a blog keyword',

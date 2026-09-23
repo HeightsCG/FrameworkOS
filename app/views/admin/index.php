@@ -34,6 +34,8 @@ $tier_bits = array(); foreach (PlanTiers::all() as $pt) { $n = (int) ($f['plans'
         <button type="button" class="adm-tab" data-panel="reports"><i class="fa-solid fa-flag"></i> Reports<?php if ((int) $this->reports_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->reports_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="verification"><i class="fa-solid fa-user-check"></i> Verification<?php if ((int) $this->verif_pending > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->verif_pending; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="sales"><i class="fa-solid fa-receipt"></i> Sales</button>
+<?php $bill_due = 0; foreach ((array) $this->billing as $b) { if ((string) $b['status'] === 'past_due') { $bill_due++; } } ?>
+        <button type="button" class="adm-tab" data-panel="billing"><i class="fa-solid fa-credit-card"></i> Billing<?php if ($bill_due > 0): ?> <b class="adm-tab__badge"><?php echo $bill_due; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
         <button type="button" class="adm-tab" data-panel="support"><i class="fa-solid fa-life-ring"></i> Support<?php if ((int) $this->support_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->support_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
@@ -300,6 +302,37 @@ $last12 = array_slice($this->series, -12);
         </div>
     </section>
     <?php endif; ?>
+
+    <section class="adm-sec adm-panel" data-panel="billing">
+        <div class="adm-sec__head"><h2 class="adm-sec__title">Plan Billing</h2></div>
+        <?php if (empty($this->billing)): ?>
+        <p class="adm-kv__none">No paid plans or monthly packs yet.</p>
+        <?php else: ?>
+        <div class="adm-table adm-table--billing">
+            <div class="adm-table__head"><span>Account</span><span>Plan</span><span>Add-ons</span><span>Status</span><span>Next charge</span><span>Last charge</span><span></span></div>
+            <div class="adm-table__body">
+            <?php foreach ((array) $this->billing as $b):
+                $bn = trim($b['first_name'] . ' ' . $b['last_name']); $bn = $bn !== '' ? $bn : '@' . $b['u_name'];
+                $bt = PlanTiers::get((string) $b['plan_key']);
+                $bst = (string) $b['status'];
+                $adds = array();
+                if ((int) $b['influencer_slots'] > 0) { $adds[] = (int) $b['influencer_slots'] . ' extra influencer' . ((int) $b['influencer_slots'] === 1 ? '' : 's'); }
+                if ((int) $b['pack_dollars'] > 0) { $adds[] = (int) $b['pack_dollars'] . '-credit pack'; }
+            ?>
+            <div class="adm-urow" data-uid="<?php echo (int) $b['user_id']; ?>">
+                <div class="adm-ucell adm-ucell--user"><span class="adm-uinfo"><a class="adm-uinfo__name" href="/admin/user/<?php echo (int) $b['user_id']; ?>"><?php echo $e($bn); ?></a><span class="adm-uinfo__meta"><?php echo $e($b['user_email']); ?></span></span></div>
+                <div class="adm-ucell"><?php echo $e($bt ? $bt['name'] : $b['plan_key']); ?><?php if (!empty($b['cancel_at_period_end'])): ?> <span class="adm-pill adm-pill--warn">Canceling</span><?php endif; ?></div>
+                <div class="adm-ucell adm-ucell--muted"><?php echo $e($adds ? implode(', ', $adds) : '—'); ?></div>
+                <div class="adm-ucell"><span class="adm-status adm-status--<?php echo $bst === 'past_due' ? 'off' : 'on'; ?>"><span class="adm-status__dot"></span><?php echo $e($bst === 'past_due' ? 'Past due' : ucfirst($bst)); ?></span></div>
+                <div class="adm-ucell adm-ucell--muted"><?php $bnx = BillingService::next_charge($b); echo $bnx ? $e(BillingService::money($bnx['total']) . ' · ' . $fmt($bnx['at'])) : '—'; ?><?php if ($bst === 'past_due' && !empty($b['next_retry_at'])): ?><br>Retry <?php echo $e($fmt($b['next_retry_at'])); ?><?php endif; ?></div>
+                <div class="adm-ucell adm-ucell--muted" <?php echo !empty($b['last_failure']) ? 'title="' . $e($b['last_failure']) . '"' : ''; ?>><?php echo !empty($b['last_charge_at']) ? $e(ucfirst(str_replace('_', ' ', (string) $b['last_charge_status'])) . ' · ' . BillingService::money((int) $b['last_amount_cents'])) : '—'; ?></div>
+                <div class="adm-ucell adm-ucell--act"><?php if ($bst === 'past_due'): ?><button type="button" class="adm-btn adm-btn--ok" data-billing-retry>Retry Now</button><?php endif; ?></div>
+            </div>
+            <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    </section>
 
     <section class="adm-sec adm-panel" data-panel="users">
         <div class="adm-sec__head">

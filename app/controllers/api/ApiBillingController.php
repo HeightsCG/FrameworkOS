@@ -1,210 +1,148 @@
 <?php
-/** Platform subscriptions (Stripe), credit purchases and creator payouts. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
+/** Platform plan billing (app-managed, BillingService), credit purchases and creator payouts. Routed from /api/<action> by ApiRoutes; extends BaseApiController. */
 class ApiBillingController extends BaseApiController {
 
-    public function create_subscriptionAction(){
+    /* ---------- Platform plan: app-managed billing (BillingService); Stripe only holds the card ---------- */
 
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-
-        if (empty($this->post['price_id'])) {
-            $this->jsonError('Please choose a plan');
-        }
-        // Only a price one of our plans defines can be subscribed to (PlanTiers), and never a retired plan.
-        $new_tier = PlanTiers::tier_for_price((string) $this->post['price_id']);
-        if ($new_tier === '' || PlanTiers::retired($new_tier)) {
-            $this->jsonError('That plan is not available.');
-        }
-
-        try {
-            $stripe  = StripeService::client();
-            $user_id = (int) Session::get('user_id');
-            $user    = $this->userModel->get_user_by_id($user_id)[0];
-
-            // A live plan is changed with change_subscription (prorated); a second
-            // subscription here would bill twice.
-            if (!empty($user['stripe_subscription_id']) && in_array((string) ($user['subscription_status'] ?? ''), ['active', 'trialing', 'past_due'], true)) {
-                $this->jsonError('You already have a plan. Use Change plan instead.');
-            }
-
-            $customer_id = $user['stripe_customer_id'] ?? '';
-            if (empty($customer_id)) {
-                $customer = $stripe->customers->create([
-                    'email'    => $user['user_email'],
-                    'name'     => trim($user['first_name'] . ' ' . $user['last_name']),
-                    'metadata' => ['user_id' => (string) $user_id],
-                ]);
-                $customer_id = $customer->id;
-                $this->billingModel->set_customer_id($user_id, $customer_id);
-            }
-
-            // Optional promo code, resolved against the platform account. A code that
-            // doesn't match is an error (not silently ignored) so the user knows.
-            $promo_code = trim((string) ($this->post['promo_code'] ?? ''));
-            $promo      = [];
-            if ($promo_code !== '') {
-                $promo = StripeService::resolve_promo_code($promo_code);
-                if (empty($promo)) {
-                    $this->jsonError('That promo code is not valid.');
-                }
-            }
-
-            // Choosing a plan again (or applying a code) while an earlier attempt was
-            // never paid must not pile up incomplete subscriptions in Stripe.
-            $this->cancel_incomplete_subscription($user);
-
-            $params = [
-                'customer'         => $customer_id,
-                'items'            => [['price' => $this->post['price_id']]],
-                'payment_behavior' => 'default_incomplete',
-                'payment_settings' => ['save_default_payment_method' => 'on_subscription'],
-                'expand'           => ['latest_invoice.confirmation_secret', 'pending_setup_intent'],
-            ];
-            if (!empty($promo)) {
-                $params['discounts'] = [$promo['discount']];
-            }
-            $subscription = $stripe->subscriptions->create($params);
-
-            // Normal case: the first invoice needs a payment → confirmPayment on the client.
-            // $0 first invoice (100% promo): Stripe activates the subscription with no
-            // PaymentIntent and instead offers a SetupIntent so a card can be saved for
-            // renewals → confirmSetup on the client. No SetupIntent either → nothing to
-            // collect; the subscription is simply live.
-            $mode          = 'payment';
-            $client_secret = $subscription->latest_invoice->confirmation_secret->client_secret ?? null;
-            if (empty($client_secret)) {
-                $client_secret = $subscription->pending_setup_intent->client_secret ?? null;
-                $mode          = !empty($client_secret) ? 'setup' : 'none';
-            }
-            if ($mode === 'none' && !in_array((string) $subscription->status, ['active', 'trialing'], true)) {
-                // Nothing to confirm and not live: don't leave a stray subscription behind.
-                error_log('[stripe] create_subscription: no client secret, status=' . $subscription->status . ' sub=' . $subscription->id);
-                try { $stripe->subscriptions->cancel($subscription->id); } catch (\Throwable $e) {}
-                $this->jsonError('Could not initialize payment');
-            }
-
-            $period_end = StripeService::plan_item($subscription)->current_period_end ?? null;
-            $this->billingModel->save_subscription($user_id, $subscription->id, $this->post['price_id'], $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
-
-            $this->jsonSuccess(['mode' => $mode, 'client_secret' => (string) $client_secret, 'subscription_id' => $subscription->id, 'amount_due' => (int) ($subscription->latest_invoice->amount_due ?? 0), 'currency' => (string) ($subscription->latest_invoice->currency ?? 'usd'), 'promo_label' => !empty($promo) ? $promo['label'] : '', 'message' => 'Subscription started']);
-
-        } catch (\Throwable $e) {
-            error_log('[stripe] create_subscription: ' . $e->getMessage());
-            $this->jsonError('Could not start the subscription. Please try again.');
-        }
+    /** Plan, add-ons, card and the next charge, for the billing page script. */
+    private function billing_state(array $user): array{
+        $acct = BillingService::account((int) $user['user_id']);
+        $next = BillingService::next_charge($acct);
+        return array(
+            'plan' => (string) $acct['plan_key'], 'status' => (string) $acct['status'],
+            'next_charge_at' => (string) ($acct['next_charge_at'] ?? ''), 'cancel_at_period_end' => (int) $acct['cancel_at_period_end'],
+            'card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '' ? trim($acct['card_brand'] . ((string) $acct['card_last4'] !== '' ? ' •••• ' . $acct['card_last4'] : '')) : '',
+            'next' => $next,
+        );
     }
 
-    /** Upgrade or downgrade the live platform plan in place (prorated, same renewal date). */
-    public function change_subscriptionAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
+    /** Answer a BillingService charge result; requires_action hands the page a secret to confirm with. */
+    private function charge_answer(array $r, string $ok_message): void{
+        $st = (string) ($r['status'] ?? 'failed');
+        if ($st === 'succeeded' || $st === 'scheduled') { $this->jsonSuccess(['status' => $st, 'message' => $st === 'succeeded' ? $ok_message : (string) $r['message']]); }
+        if ($st === 'requires_action') {
+            $acct = BillingService::account((int) Session::get('user_id') > 0 ? Permissions::creator_id() : 0);
+            $this->jsonSuccess(['status' => $st, 'charge_id' => (int) $r['charge_id'], 'client_secret' => (string) $r['client_secret'],
+                'payment_method' => (string) ($acct['stripe_payment_method_id'] ?? ''), 'message' => (string) $r['message']]);
         }
-
-        $price_id = trim((string) ($this->post['price_id'] ?? ''));
-        if ($price_id === '') {
-            $this->jsonError('Please choose a plan');
-        }
-
-        $user_id = (int) Session::get('user_id');
-        $user    = $this->userModel->get_user_by_id($user_id)[0];
-        $sub_id  = (string) ($user['stripe_subscription_id'] ?? '');
-        $status  = (string) ($user['subscription_status'] ?? '');
-
-        if ($sub_id === '' || !in_array($status, ['active', 'trialing'], true)) {
-            $this->jsonError($status === 'past_due' ? 'Update your payment method before changing plans.' : 'You don\'t have a plan to change. Choose a plan first.');
-        }
-        if ($price_id === (string) ($user['stripe_price_id'] ?? '')) {
-            $this->jsonError('That is already your plan.');
-        }
-        // The price must belong to a plan we define (PlanTiers) that is still offered.
-        $to_tier = PlanTiers::tier_for_price($price_id);
-        if ($to_tier === '' || PlanTiers::retired($to_tier)) {
-            $this->jsonError('That plan is not available.');
-        }
-
-        try {
-            $sub = StripeService::change_subscription_price($sub_id, $price_id);
-        } catch (\Stripe\Exception\CardException $e) {
-            error_log('[stripe] change_subscription card: ' . $e->getMessage());
-            $this->jsonError('We couldn\'t charge your card for the upgrade. Update your payment method and try again.');
-        } catch (\Throwable $e) {
-            error_log('[stripe] change_subscription: ' . $e->getMessage());
-            $this->jsonError('Could not change the plan. Please try again.');
-        }
-
-        $period_end = StripeService::plan_item($sub)->current_period_end ?? null;
-        $this->billingModel->save_subscription($user_id, $sub->id, $price_id, $sub->status, $period_end, $sub->cancel_at_period_end ? 1 : 0);
-        // Add-ons the new plan doesn't take were removed from the subscription above; forget them here too.
-        $new_tier = PlanTiers::tier_for_price($price_id);
-        foreach (PlanTiers::addons() as $a) {
-            if (!in_array($new_tier, (array) ($a['plans'] ?? array()), true)) { (new AccountAddonsModel())->clear($user_id, $a['key']); }
-        }
-
-        // Moving up mid-period: the grant tops the balance up to the new plan's amount right away.
-        $fresh = $this->userModel->get_user_by_id($user_id)[0];
-        Plan::grant_monthly($fresh);
-
-        $this->jsonSuccess(['message' => 'Your plan is now ' . Plan::tier_name($fresh), 'tier' => Plan::tier($fresh)]);
+        if ($st === 'processing') { $this->jsonSuccess(['status' => $st, 'message' => (string) $r['message']]); }
+        $this->jsonError((string) ($r['message'] ?? 'The payment did not go through.'));
     }
 
     /**
-     * Set how many of an add-on (PlanTiers::ADDONS, e.g. extra AI influencer slots) the account
-     * holds. Adding charges the prorated difference now; removing lowers what the next invoice
-     * bills and keeps the slots until the period ends. Owner only, on a plan that offers it.
+     * The recurring-charge disclosure before a change: what is charged today, what renews, how
+     * often, the next charge date. For plans (plan=<key>), slots (slots=<n>) or a pack (pack=<dollars>).
      */
-    public function addon_setAction(){
+    public function billing_quoteAction(){
         $user = $this->require_creator('owner');
         $uid  = (int) $user['user_id'];
-        $a    = PlanTiers::addon((string) ($this->post['addon'] ?? ''));
-        if (!$a || empty($a['stripe_price_id'])) { $this->jsonError('That add-on is not available.'); }
-        $tier = Plan::tier($user);
-        if (!Plan::has_paid_plan($user) || !in_array($tier, (array) ($a['plans'] ?? array()), true)) {
-            $this->jsonError($a['name'] . ' is only available on the ' . implode(', ', array_map(function ($k) { $t = PlanTiers::get($k); return $t ? $t['name'] : $k; }, (array) $a['plans'])) . ' plan.');
+        $acct = BillingService::account($uid);
+        $fmt  = function ($lines) { return array_map(function ($l) { return array('label' => $l[0], 'amount' => BillingService::money($l[1])); }, $lines); };
+        if (isset($this->post['plan'])) {
+            $q = BillingService::quote_plan($uid, (string) $this->post['plan']);
+            if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
+            $t = PlanTiers::get((string) $this->post['plan']);
+            $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
+                'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
+                'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
         }
-        if (!empty($user['subscription_cancel_at_period_end'])) { $this->jsonError('Resume your plan before changing add-ons.'); }
-        $max    = (int) ($a['max'] ?? 0);
-        $target = (int) ($this->post['quantity'] ?? -1);
-        if ($target < 0 || $target > $max) { $this->jsonError('Choose between 0 and ' . $max . '.'); }
-
-        $m       = new AccountAddonsModel();
-        $row     = $m->get($uid, $a['key']);
-        $current = Plan::addon_quantity($user, $a['key']);                                            // entitled now
-        $billed  = $row ? (int) ($row['quantity_next'] !== null ? $row['quantity_next'] : $row['quantity']) : 0;   // on the next invoice
-        if ($target === $billed) { $this->jsonError('No change.'); }
-        $sub_id  = (string) $user['stripe_subscription_id'];
-
-        try {
-            if ($target > $current) {
-                // Undo a pending removal first without charging (those slots are already paid for), then prorate the rest.
-                if ($billed < $current) { StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $current, false); }
-                $sub = StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $target, true);
-                $m->save($uid, $a['key'], array('quantity' => $target, 'quantity_next' => null, 'next_at' => null,
-                    'stripe_item_id' => ($it = StripeService::addon_item($sub, $a['stripe_price_id'])) ? $it->id : null));
-                $msg = 'Added ' . ($target - $current) . ' slot' . ($target - $current === 1 ? '' : 's') . '. You now have ' . $target . ' extra.';
-            } else {
-                $sub = StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $target, false);
-                $end = !empty($user['subscription_current_period_end']) ? (string) $user['subscription_current_period_end'] : null;
-                $it  = StripeService::addon_item($sub, $a['stripe_price_id']);
-                if ($target === $current) {
-                    $m->save($uid, $a['key'], array('quantity' => $current, 'quantity_next' => null, 'next_at' => null, 'stripe_item_id' => $it ? $it->id : null));
-                    $msg = 'Removal cancelled';
-                } else {
-                    $m->save($uid, $a['key'], array('quantity' => $current, 'quantity_next' => $target, 'next_at' => $end, 'stripe_item_id' => $it ? $it->id : null));
-                    $msg = 'You keep ' . $current . ' until ' . ($end ? date('M j', strtotime($end . ' UTC')) : 'the end of the period') . ', then ' . $target;
-                }
-            }
-        } catch (\Stripe\Exception\CardException $e) {
-            error_log('[stripe] addon_set card: ' . $e->getMessage());
-            $this->jsonError('We couldn\'t charge your card. Update your payment method and try again.');
-        } catch (\Throwable $e) {
-            error_log('[stripe] addon_set: ' . $e->getMessage());
-            $this->jsonError('Could not change the add-on. Please try again.');
+        if (isset($this->post['pack'])) {
+            $d = (int) $this->post['pack'];
+            if (!in_array($d, PlanTiers::AI_PACKS, true)) { $this->jsonError('Choose a valid credit pack.'); }
+            $sched = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
+            $next  = $sched ? (string) $acct['next_charge_at'] : BillingService::add_period(gmdate('Y-m-d H:i:s'));
+            $this->jsonSuccess(['mode' => 'pack', 'today' => BillingService::money($d * 100), 'lines' => $fmt(array(array($d . ' AI credits (monthly pack)', $d * 100))),
+                'recurring' => BillingService::money($d * 100) . ' / month for ' . $d . ' AI credits', 'next_at' => date('M j, Y', strtotime($next . ' UTC')),
+                'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
         }
-        Plan::forget_addons();
-        $fresh = $this->userModel->get_user_by_id($uid)[0];
-        $this->jsonSuccess(['message' => $msg, 'quantity' => $target, 'limit' => Plan::limit($fresh, (string) $a['limit'])]);
+        if (isset($this->post['slots'])) {
+            $add = (int) $this->post['slots'] - (int) $acct['influencer_slots'];
+            if ($add <= 0) { $this->jsonError('Nothing to charge.'); }
+            $cents = (int) round($add * BillingService::slot_cents() * BillingService::remaining_fraction($acct));
+            $this->jsonSuccess(['mode' => 'slots', 'today' => BillingService::money($cents), 'lines' => $fmt(array(array($add . ' extra AI influencer' . ($add === 1 ? '' : 's') . ' (rest of this period)', $cents))),
+                'recurring' => BillingService::money(BillingService::slot_cents()) . ' / month per extra AI influencer', 'next_at' => date('M j, Y', strtotime($acct['next_charge_at'] . ' UTC')),
+                'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
+        }
+        $this->jsonError('Nothing to quote.');
+    }
+
+    /** Start saving a card: a SetupIntent for off-session charges. */
+    public function billing_card_setupAction(){
+        $user = $this->require_creator('owner');
+        $customer = StripeService::ensure_customer($user);
+        $si = $customer !== '' ? StripeService::create_setup_intent($customer) : array();
+        if (empty($si)) { $this->jsonError('Could not start adding a card. Please try again.'); }
+        $this->jsonSuccess(['client_secret' => $si['client_secret']]);
+    }
+
+    /** The SetupIntent succeeded in the page: keep its card as the one we charge (retries a past-due account). */
+    public function billing_card_saveAction(){
+        $user = $this->require_creator('owner');
+        $r = BillingService::save_card((int) $user['user_id'], (string) ($this->post['setup_intent_id'] ?? ''));
+        if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
+        $retry = (array) ($r['retry'] ?? array());
+        if (($retry['status'] ?? '') === 'requires_action') {
+            $acct = BillingService::account((int) $user['user_id']);
+            $this->jsonSuccess(['message' => 'Card saved. Confirm the payment with your bank.', 'status' => 'requires_action', 'charge_id' => (int) $retry['charge_id'],
+                'client_secret' => (string) $retry['client_secret'], 'payment_method' => (string) ($acct['stripe_payment_method_id'] ?? '')]);
+        }
+        $this->jsonSuccess(['message' => (string) $r['message']]);
+    }
+
+    /** Choose a paid plan (from Free), upgrade now (prorated), or schedule a downgrade. */
+    public function billing_change_planAction(){
+        $user = $this->require_creator('owner');
+        $plan = (string) ($this->post['plan'] ?? '');
+        if ($plan === PlanTiers::FREE_KEY) { $r = BillingService::set_cancel((int) $user['user_id'], true); if (empty($r['ok'])) { $this->jsonError($r['message']); } $this->jsonSuccess(['status' => 'scheduled', 'message' => $r['message']]); }
+        $t = PlanTiers::get($plan);
+        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
+    }
+
+    /** One-click cancel: the plan runs to the end of the period, then the account moves to Free. */
+    public function billing_cancelAction(){
+        $user = $this->require_creator('owner');
+        $r = BillingService::set_cancel((int) $user['user_id'], true);
+        if (empty($r['ok'])) { $this->jsonError($r['message']); }
+        $this->jsonSuccess(['message' => $r['message']]);
+    }
+
+    public function billing_resumeAction(){
+        $user = $this->require_creator('owner');
+        $r = BillingService::set_cancel((int) $user['user_id'], false);
+        if (empty($r['ok'])) { $this->jsonError($r['message']); }
+        $this->jsonSuccess(['message' => $r['message']]);
+    }
+
+    /** Extra AI influencer slots (Creator): quantity = the total wanted. */
+    public function billing_set_slotsAction(){
+        $user = $this->require_creator('owner');
+        $q = (int) ($this->post['quantity'] ?? -1);
+        $this->charge_answer(BillingService::set_slots((int) $user['user_id'], $q), 'You now have ' . $q . ' extra AI influencer' . ($q === 1 ? '' : 's') . '.');
+    }
+
+    /** Recurring AI credit pack: dollars = a pack from PlanTiers::AI_PACKS, or 0 to stop it. */
+    public function billing_set_packAction(){
+        $user = $this->require_creator('owner');
+        $d = (int) ($this->post['dollars'] ?? -1);
+        $this->charge_answer(BillingService::set_pack((int) $user['user_id'], $d), $d . ' AI credits added. The pack renews monthly.');
+    }
+
+    /** The page finished a bank authentication: record the payment's outcome. */
+    public function billing_confirmAction(){
+        $user = $this->require_creator('owner');
+        $this->charge_answer(BillingService::confirm((int) $user['user_id'], (int) ($this->post['charge_id'] ?? 0)), 'Payment confirmed.');
+    }
+
+    /** A payment waiting for authentication (the link in the "confirm your payment" email). */
+    public function billing_pendingAction(){
+        $user = $this->require_creator('owner');
+        $row  = (new BillingChargesModel())->get_for_user((int) $user['user_id'], (int) ($this->post['charge_id'] ?? 0));
+        if (!$row || (string) $row['status'] !== 'requires_action' || (string) $row['stripe_payment_intent_id'] === '') { $this->jsonError('There is no payment waiting for you.'); }
+        $r = StripeService::payment_intent_result((string) $row['stripe_payment_intent_id']);
+        if ($r['status'] === 'succeeded') { BillingService::settle((int) $row['id'], $r); $this->jsonError('That payment is already complete.'); }
+        $acct = BillingService::account((int) $user['user_id']);
+        $this->jsonSuccess(['charge_id' => (int) $row['id'], 'client_secret' => $r['client_secret'], 'payment_method' => (string) $acct['stripe_payment_method_id'],
+            'amount' => BillingService::money((int) $row['amount_cents'])]);
     }
 
     /* ---------- AI credits ($1 = 1 credit) ---------- */
@@ -267,115 +205,6 @@ class ApiBillingController extends BaseApiController {
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_ai_credit_purchase: ' . $e->getMessage());
             $this->jsonError('Could not confirm the purchase');
-        }
-    }
-
-    /**
-     * The user closed the payment form without paying. Cancel the never-paid
-     * subscription in Stripe and forget it locally, so it can't show up as a plan.
-     */
-    public function abandon_subscriptionAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-
-        $user_id = (int) Session::get('user_id');
-        $user    = $this->userModel->get_user_by_id($user_id)[0];
-        $this->cancel_incomplete_subscription($user);
-
-        $this->jsonSuccess(['message' => 'Payment cancelled']);
-    }
-
-    public function sync_subscriptionAction(){
-
-        $response = ['success' => false, 'message' => 'Something went wrong', 'status' => ''];
-
-        if (empty(Session::get('user_id'))) {
-            $response['message'] = 'Not authorized';
-            echo json_encode($response);
-            exit;
-        }
-
-        try {
-            $user_id = (int) Session::get('user_id');
-            $user    = $this->userModel->get_user_by_id($user_id)[0];
-            $sub_id  = $user['stripe_subscription_id'] ?? '';
-
-            if (empty($sub_id)) {
-                $response['success'] = true;
-                $response['status']  = '';
-                echo json_encode($response);
-                exit;
-            }
-
-            $stripe       = StripeService::client();
-            $subscription = $stripe->subscriptions->retrieve($sub_id);
-            $item         = StripeService::plan_item($subscription);
-            $price_id     = $item->price->id ?? ($user['stripe_price_id'] ?? '');
-            $period_end   = $item->current_period_end ?? null;
-
-            // A dead subscription is not a plan — drop it rather than caching its status.
-            if (in_array((string) $subscription->status, ['canceled', 'incomplete_expired'], true)) {
-                $this->billingModel->clear_subscription($user_id);
-                (new AccountAddonsModel())->clear($user_id);
-                $response['success'] = true;
-                $response['status']  = '';
-                $response['message'] = 'Subscription updated';
-                echo json_encode($response);
-                exit;
-            }
-
-            $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
-
-            $response['success'] = true;
-            $response['status']  = $subscription->status;
-            $response['message'] = 'Subscription updated';
-            echo json_encode($response);
-            exit;
-
-        } catch (\Throwable $e) {
-            error_log('[stripe] sync_subscription: ' . $e->getMessage());
-            $response['message'] = 'Could not refresh subscription';
-            echo json_encode($response);
-            exit;
-        }
-    }
-
-    public function cancel_subscriptionAction(){
-        echo json_encode($this->set_cancel_at_period_end(true, 'Your subscription will cancel at the end of the period'));
-        exit;
-    }
-
-    public function resume_subscriptionAction(){
-        echo json_encode($this->set_cancel_at_period_end(false, 'Your subscription has been resumed'));
-        exit;
-    }
-
-    public function cancel_now_subscriptionAction(){
-
-        if (empty(Session::get('user_id'))) {
-            $this->jsonError('Not authorized');
-        }
-
-        try {
-            $user_id = (int) Session::get('user_id');
-            $user    = $this->userModel->get_user_by_id($user_id)[0];
-            $sub_id  = $user['stripe_subscription_id'] ?? '';
-
-            if (empty($sub_id)) {
-                $this->jsonError('No active subscription');
-            }
-
-            StripeService::client()->subscriptions->cancel($sub_id);
-            $this->billingModel->clear_subscription($user_id);
-            (new AccountAddonsModel())->clear($user_id);
-
-            $this->jsonSuccess(['message' => 'Your subscription has been canceled']);
-
-        } catch (\Throwable $e) {
-            error_log('[stripe] cancel_now_subscription: ' . $e->getMessage());
-            $this->jsonError('Could not cancel the subscription. Please try again.');
         }
     }
 
@@ -590,67 +419,6 @@ class ApiBillingController extends BaseApiController {
     }
 
     /* ---------- Credits & wallet ---------- */
-
-    /**
-     * If the account's stored subscription was never paid (incomplete), cancel it in
-     * Stripe and clear the local record. Live subscriptions are left untouched.
-     */
-    private function cancel_incomplete_subscription(array $user): void{
-        $sub_id = (string) ($user['stripe_subscription_id'] ?? '');
-        $status = (string) ($user['subscription_status'] ?? '');
-        if ($sub_id === '' || !in_array($status, ['incomplete', 'incomplete_expired'], true)) {
-            return;
-        }
-        try {
-            $sub = StripeService::client()->subscriptions->retrieve($sub_id);
-            if ($sub && $sub->status === 'incomplete') {
-                StripeService::client()->subscriptions->cancel($sub_id);
-            }
-        } catch (\Throwable $e) {
-            error_log('[stripe] cancel_incomplete_subscription: ' . $e->getMessage());
-        }
-        $this->billingModel->clear_subscription((int) $user['user_id']);
-    }
-
-    private function set_cancel_at_period_end(bool $cancel, string $success_message): array{
-        $response = ['success' => false, 'message' => 'Something went wrong'];
-
-        if (empty(Session::get('user_id'))) {
-            $response['message'] = 'Not authorized';
-            return $response;
-        }
-
-        try {
-            $user_id = (int) Session::get('user_id');
-            $user    = $this->userModel->get_user_by_id($user_id)[0];
-            $sub_id  = $user['stripe_subscription_id'] ?? '';
-
-            if (empty($sub_id)) {
-                $response['message'] = 'No active subscription';
-                return $response;
-            }
-
-            $stripe       = StripeService::client();
-            $subscription = $stripe->subscriptions->update($sub_id, ['cancel_at_period_end' => (bool) $cancel]);
-            $item         = StripeService::plan_item($subscription);
-            $price_id     = $item->price->id ?? ($user['stripe_price_id'] ?? '');
-            $period_end   = $item->current_period_end ?? null;
-
-            $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
-            $this->notify($user_id, 'subscriptions', $cancel ? 'Plan will cancel' : 'Plan resumed',
-                $cancel ? ('Your ' . Plan::tier_name($user) . ' plan ends ' . ($period_end ? 'on ' . date('M j, Y', (int) $period_end) : 'at the end of the billing period') . '. After that you\'re on Free. Resume anytime before then.') : 'Your Creator Link Studio plan will renew as usual.',
-                '/account/billing', $cancel ? 'fa-heart-crack' : 'fa-heart');
-
-            $response['success'] = true;
-            $response['message'] = $success_message;
-            return $response;
-
-        } catch (\Throwable $e) {
-            error_log('[stripe] set_cancel_at_period_end: ' . $e->getMessage());
-            $response['message'] = 'Could not update the subscription. Please try again.';
-            return $response;
-        }
-    }
 
     /* ---------- Social publishing (Post for Me) ---------- */
 

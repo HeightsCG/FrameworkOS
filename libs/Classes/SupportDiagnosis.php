@@ -53,7 +53,7 @@ class SupportDiagnosis {
             $tier = Plan::tier_name($u);   // Free for a creator with no paid plan
             if ($tier !== '') {
                 $c[] = array('Creator plan', $tier . ($u['subscription_status'] ? ', ' . ucfirst((string) $u['subscription_status']) : ''), Plan::has_paid_plan($u) || Plan::tier($u) === PlanTiers::FREE_KEY ? 'ok' : 'warn', null);
-                if (!empty($u['stripe_subscription_id'])) $c[] = array('Renews', !empty($u['subscription_cancel_at_period_end']) ? 'Cancels on ' . $fmt($u['subscription_current_period_end']) : $fmt($u['subscription_current_period_end']), !empty($u['subscription_cancel_at_period_end']) ? 'warn' : 'info',
+                if (Plan::has_paid_plan($u)) $c[] = array('Renews', !empty($u['subscription_cancel_at_period_end']) ? 'Cancels on ' . $fmt($u['subscription_current_period_end']) : $fmt($u['subscription_current_period_end']), !empty($u['subscription_cancel_at_period_end']) ? 'warn' : 'info',
                     array('act' => 'plan', 'cancel' => !empty($u['subscription_cancel_at_period_end']) ? '0' : '1', 'label' => !empty($u['subscription_cancel_at_period_end']) ? 'Resume' : 'Cancel'));
             }
             $c[] = array('Active memberships', (string) count($memberships), 'info', count($memberships) ? array('href' => '/admin/user/' . $uid . '?tab=memberships', 'label' => 'Manage') : null);

@@ -134,16 +134,12 @@ jQuery(function ($) {
                 text: LIM.message || 'Your plan includes no more AI influencers.',
                 showCancelButton: true, showDenyButton: slot, reverseButtons: true,
                 confirmButtonText: slot ? 'Add Slot ($' + LIM.addon_price + '/mo)' : 'See Plans',
-                denyButtonText: 'See Plans', cancelButtonText: 'Not Now',
+                denyButtonText: 'Upgrade to Studio', cancelButtonText: 'Not Now',
                 customClass: { confirmButton: 'btn btn-primary', denyButton: 'btn btn-secondary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
             }).then(function (r) {
                 if (r.isDenied || (r.isConfirmed && !slot)) { window.location.href = '/account/billing'; return; }
                 if (!r.isConfirmed) { return; }
-                api('addon_set', { addon: LIM.addon, quantity: LIM.addon_next }, function (o) {
-                    if (!o || !o.success) { err(o); return; }
-                    toastr.success(o.message);
-                    window.location.href = '/influencers/create';
-                });
+                window.location.href = '/account/billing?add=slot';   // the charge is confirmed there, with its disclosure
             });
         }
         $(document).on('click', '#inf_new_btn, .inf-card--new, #inf_empty .btn', function (e) {

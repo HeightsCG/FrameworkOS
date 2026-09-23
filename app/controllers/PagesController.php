@@ -129,7 +129,6 @@ class PagesController extends Controller {
                 'tier'     => $tier,
                 'amount'   => (int) $tier['price'] * 100,   // cents, so callers keep formatting as before
                 'interval' => 'month',
-                'price_id' => PlanTiers::stripe_price_id($tier['key']),
             );
         }
         usort($rows, function ($a, $b) { return $a['tier']['rank'] <=> $b['tier']['rank']; });

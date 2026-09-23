@@ -501,7 +501,131 @@ class StripeService {
      * period (and the monthly AI credit grant) stays put. Throws on Stripe errors so the
      * caller can tell a declined card from anything else.
      */
-    /** Price ids that bill add-ons (PlanTiers::ADDONS), not plans. */
+    /* ---------- Platform billing: cards and one-off charges (BillingService owns the schedule) ---------- */
+
+    /** Methods charged off-session for plans: cards, plus Link methods saved before app billing. New saves are cards only. */
+    const RECURRING_METHODS = array('card', 'link');
+    const SAVE_METHODS      = array('card');
+
+    /** The user's Stripe customer id, created (and saved) the first time. '' on failure. */
+    public static function ensure_customer(array $user): string
+    {
+        $id = (string) ($user['stripe_customer_id'] ?? '');
+        if ($id !== '') { return $id; }
+        try {
+            $c = self::client()->customers->create(array(
+                'email'    => (string) ($user['user_email'] ?? ''),
+                'name'     => trim((string) ($user['first_name'] ?? '') . ' ' . (string) ($user['last_name'] ?? '')),
+                'metadata' => array('user_id' => (string) (int) $user['user_id']),
+            ));
+            (new BillingModel())->set_customer_id((int) $user['user_id'], $c->id);
+            return (string) $c->id;
+        } catch (\Throwable $e) {
+            error_log('[stripe] ensure_customer: ' . $e->getMessage());
+            return '';
+        }
+    }
+
+    /** A SetupIntent to save a card for off-session charges. Returns ['id', 'client_secret'] or []. */
+    public static function create_setup_intent($customer_id): array
+    {
+        try {
+            $si = self::client()->setupIntents->create(array(
+                'customer' => (string) $customer_id, 'usage' => 'off_session', 'payment_method_types' => self::SAVE_METHODS,
+            ));
+            return array('id' => (string) $si->id, 'client_secret' => (string) $si->client_secret);
+        } catch (\Throwable $e) {
+            error_log('[stripe] create_setup_intent: ' . $e->getMessage());
+            return array();
+        }
+    }
+
+    /**
+     * The card a succeeded SetupIntent saved, made the customer's default. Returns
+     * ['id', 'brand', 'last4', 'exp'] or [] when the intent is not the customer's or not succeeded.
+     */
+    public static function card_from_setup_intent($customer_id, $setup_intent_id): array
+    {
+        try {
+            $c  = self::client();
+            $si = $c->setupIntents->retrieve((string) $setup_intent_id);
+            if ((string) $si->status !== 'succeeded' || (string) $si->customer !== (string) $customer_id || empty($si->payment_method)) { return array(); }
+            $pm = $c->paymentMethods->retrieve((string) $si->payment_method);
+            $c->customers->update((string) $customer_id, array('invoice_settings' => array('default_payment_method' => $pm->id)));
+            return self::card_info($pm);
+        } catch (\Throwable $e) {
+            error_log('[stripe] card_from_setup_intent: ' . $e->getMessage());
+            return array();
+        }
+    }
+
+    /** ['id', 'brand', 'last4', 'exp'] for a PaymentMethod object or id. */
+    public static function card_info($pm): array
+    {
+        try {
+            if (is_string($pm)) { $pm = self::client()->paymentMethods->retrieve($pm); }
+            $card = ((string) $pm->type === 'card') ? ($pm->card ?? null) : null;
+            $brand = $card ? ucfirst((string) $card->brand) : ucfirst(str_replace('_', ' ', (string) $pm->type));
+            return array('id' => (string) $pm->id, 'brand' => $brand, 'last4' => $card ? (string) $card->last4 : '',
+                'exp' => $card ? sprintf('%02d/%d', (int) $card->exp_month, (int) $card->exp_year) : '');
+        } catch (\Throwable $e) {
+            error_log('[stripe] card_info: ' . $e->getMessage());
+            return array();
+        }
+    }
+
+    /**
+     * Charge a saved card off-session: one PaymentIntent, confirm=true, with an idempotency key.
+     * Returns ['status' => succeeded|requires_action|failed, 'payment_intent_id', 'client_secret', 'reason'].
+     * requires_action: the bank wants the cardholder to authenticate; the page confirms it with client_secret.
+     */
+    public static function charge_saved_card($customer_id, $payment_method_id, $amount_cents, $description, array $metadata, $idempotency_key): array
+    {
+        try {
+            $pi = self::client()->paymentIntents->create(array(
+                'amount' => (int) $amount_cents, 'currency' => (string) PlanTiers::BILLING['currency'],
+                'customer' => (string) $customer_id, 'payment_method' => (string) $payment_method_id,
+                'payment_method_types' => self::RECURRING_METHODS, 'off_session' => true, 'confirm' => true,
+                'description' => (string) $description, 'metadata' => $metadata,
+            ), array('idempotency_key' => (string) $idempotency_key));
+            return self::pi_result($pi, '');
+        } catch (\Stripe\Exception\CardException $e) {
+            $err = $e->getError();
+            $pi  = $err->payment_intent ?? null;
+            if ((string) ($err->code ?? '') === 'authentication_required' && $pi) {
+                return array('status' => 'requires_action', 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => 'Your bank needs you to confirm this payment.');
+            }
+            return array('status' => 'failed', 'payment_intent_id' => $pi ? (string) $pi->id : '', 'client_secret' => '', 'reason' => (string) ($err->message ?? $e->getMessage()));
+        } catch (\Throwable $e) {
+            error_log('[stripe] charge_saved_card: ' . $e->getMessage());
+            return array('status' => 'failed', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'The payment could not be processed.');
+        }
+    }
+
+    /** Current state of a PaymentIntent, same shape as charge_saved_card(). */
+    public static function payment_intent_result($payment_intent_id): array
+    {
+        try {
+            return self::pi_result(self::client()->paymentIntents->retrieve((string) $payment_intent_id), '');
+        } catch (\Throwable $e) {
+            error_log('[stripe] payment_intent_result: ' . $e->getMessage());
+            return array('status' => 'failed', 'payment_intent_id' => (string) $payment_intent_id, 'client_secret' => '', 'reason' => 'The payment could not be checked.');
+        }
+    }
+
+    private static function pi_result($pi, $reason): array
+    {
+        $st = (string) $pi->status;
+        $status = ($st === 'succeeded') ? 'succeeded' : ((in_array($st, array('requires_action', 'requires_confirmation'), true)) ? 'requires_action'
+                : (($st === 'processing') ? 'processing' : 'failed'));
+        $why = $reason;
+        if ($status === 'failed') { $why = (string) ($pi->last_payment_error->message ?? 'The card was declined.'); }
+        return array('status' => $status, 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => $why);
+    }
+
+    /* ---------- Reading legacy platform subscriptions (migration only) ---------- */
+
+    /** Price ids that billed add-ons, not plans. */
     private static function addon_price_ids(): array
     {
         $ids = array();
@@ -526,61 +650,6 @@ class StripeService {
             if ((string) ($item->price->id ?? '') === (string) $addon_price_id) { return $item; }
         }
         return null;
-    }
-
-    /**
-     * Set an add-on's quantity on the platform subscription. $prorate: charge the difference now
-     * (adding) or change only what the next invoice bills (removing, which takes effect at period
-     * end). Quantity 0 removes the line item. Returns the updated subscription.
-     */
-    public static function set_addon_quantity($subscription_id, $addon_price_id, $quantity, $prorate)
-    {
-        $client = self::client();
-        $sub    = $client->subscriptions->retrieve($subscription_id, array('expand' => array('items.data')));
-        $item   = self::addon_item($sub, $addon_price_id);
-        $quantity = max(0, (int) $quantity);
-        if ($quantity === 0) {
-            if (!$item) { return $sub; }
-            $line = array('id' => $item->id, 'deleted' => true);
-        } elseif ($item) {
-            $line = array('id' => $item->id, 'quantity' => $quantity);
-        } else {
-            $line = array('price' => (string) $addon_price_id, 'quantity' => $quantity);
-        }
-        return $client->subscriptions->update($subscription_id, array(
-            'items'              => array($line),
-            'proration_behavior' => $prorate ? 'always_invoice' : 'none',
-            'payment_behavior'   => 'error_if_incomplete',
-            'expand'             => array('items.data'),
-        ));
-    }
-
-    /**
-     * Move the platform subscription to another plan price (prorated, same renewal date). Add-on
-     * items the new plan doesn't take (e.g. extra influencers when moving Creator -> Studio) are
-     * removed in the same update, credited for the unused time.
-     */
-    public static function change_subscription_price($subscription_id, $price_id)
-    {
-        $client = self::client();
-        $sub    = $client->subscriptions->retrieve($subscription_id, array('expand' => array('items.data')));
-        $item   = self::plan_item($sub);
-        if (!$item) { throw new RuntimeException('Subscription has no items'); }
-        $new_tier = PlanTiers::tier_for_price($price_id);
-        $items    = array(array('id' => $item->id, 'price' => (string) $price_id));
-        foreach (PlanTiers::addons() as $a) {
-            if (empty($a['stripe_price_id']) || in_array($new_tier, (array) ($a['plans'] ?? array()), true)) { continue; }
-            $ai = self::addon_item($sub, $a['stripe_price_id']);
-            if ($ai) { $items[] = array('id' => $ai->id, 'deleted' => true); }
-        }
-        return $client->subscriptions->update($subscription_id, array(
-            'items'                => $items,
-            'proration_behavior'   => 'always_invoice',
-            'billing_cycle_anchor' => 'unchanged',
-            'cancel_at_period_end' => false,
-            'payment_behavior'     => 'error_if_incomplete',
-            'expand'               => array('items.data'),
-        ));
     }
 
     public static function set_subscription_cancel_at_period_end($account_id, $subscription_id, $cancel): bool

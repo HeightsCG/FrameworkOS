@@ -243,24 +243,27 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Membership will end at the end of the paid period']);
     }
 
-    /** Cancel or resume a creator's own plan at the end of the current period. */
+    /** Cancel or resume a creator's own plan at the end of the current period (app-managed billing). */
     public function admin_set_plan_cancelAction(){
         $this->admin_guard();
         $u = $this->target_user();
         $cancel = (string) ($this->post['cancel'] ?? '1') === '1';
-        $sub_id = (string) ($u['stripe_subscription_id'] ?? '');
-        if ($sub_id === '') { $this->jsonError('This account has no plan'); }
-        try {
-            $subscription = StripeService::client()->subscriptions->update($sub_id, ['cancel_at_period_end' => $cancel]);
-            $item       = StripeService::plan_item($subscription);   // the plan line, not an add-on line
-            $price_id   = $item->price->id ?? ($u['stripe_price_id'] ?? '');
-            $period_end = $item->current_period_end ?? null;
-            $this->billingModel->save_subscription((int) $u['user_id'], $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
-        } catch (\Throwable $e) {
-            error_log('[admin] plan cancel: ' . $e->getMessage());
-            $this->jsonError('Could not update the plan. Please try again.');
-        }
+        $r = BillingService::set_cancel((int) $u['user_id'], $cancel);
+        if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
         $this->jsonSuccess(['message' => $cancel ? 'Plan will cancel at the end of the period' : 'Plan resumed']);
+    }
+
+    /** Retry a past-due account's renewal now (admin Billing tab). */
+    public function admin_billing_retryAction(){
+        $this->admin_guard();
+        $u = $this->target_user();
+        $acct = BillingService::account((int) $u['user_id']);
+        if ((string) $acct['status'] !== 'past_due') { $this->jsonError('This account has no overdue payment.'); }
+        $r = BillingService::renew((int) $u['user_id']);
+        $st = (string) ($r['status'] ?? 'failed');
+        if ($st === 'succeeded') { $this->jsonSuccess(['message' => 'Payment collected']); }
+        if ($st === 'requires_action') { $this->jsonError('The bank wants the cardholder to confirm this payment. They have been emailed a link.'); }
+        $this->jsonError('Payment failed: ' . (string) ($r['message'] ?? 'declined'));
     }
 
     private function admin_guard(): void{
