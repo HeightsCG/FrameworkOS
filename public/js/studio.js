@@ -503,8 +503,21 @@ jQuery(function ($) {
             $('#csGenBuy').prop('hidden', true);
             $('#csGenRun').prop('hidden', false).prop('disabled', false).html(lastGenAsset ? REGEN_LABEL : GEN_LABEL);
             $('#csGenEdit, #csGenUse').prop('hidden', true);
+            genCredits();   // Regenerate with too few credits shows the out-of-credits screen
         }
     }
+    /* Not enough AI credits for an image: show the out-of-credits screen instead of the form. */
+    CFG.ai = CFG.ai || { balance: 0, image_price: 0 };
+    function genCredits() {
+        var out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(CFG.ai.image_price, 10) || 0);
+        $('#csGenPrice').text(CFG.ai.image_price);
+        $('#csGenEmpty').prop('hidden', !out);
+        $('#csGenBuy').prop('hidden', !out);
+        if (out) { $('#csGenInputs, #csGenPreview, #csGenResult, #csGenStatus, #csGenRun, #csGenEdit, #csGenUse').prop('hidden', true); }
+        return out;
+    }
+    $('#csGenerate').on('show.bs.modal', function () { if (!genCredits()) { $('#csGenEmpty, #csGenBuy').prop('hidden', true); } });
+
     function genError(msg) {
         $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
         setGenState('edit');
@@ -547,13 +560,9 @@ jQuery(function ($) {
         ApiDataSvc.apiCall('post', 'media_generate', { prompt: prompt, size: $('#csGenSize').val(), use_brand: useBrand }, function (data) {
             $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
             var o = JSON.parse(data);
-            if (o && o.need_credits) {   // out of AI credits: say what it costs and swap Generate for Buy Credits
-                genError('An image costs ' + o.price + ' AI credits. You have ' + o.balance + '.');
-                $('#csGenStatus').removeClass('is-error');
-                $('#csGenRun').prop('hidden', true); $('#csGenBuy').prop('hidden', false);
-                return;
-            }
+            if (o && o.need_credits) { CFG.ai.balance = o.balance; genCredits(); return; }   // balance changed elsewhere
             if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
+            CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(CFG.ai.image_price, 10) || 0));   // charged on request
             if (o.queued && o.asset && o.asset.status !== 'ready') {
                 // Generation now runs in the background; poll the asset until it is ready or failed.
                 var assetId = o.asset.id, brandUsed = o.brand_used, tries = 0;

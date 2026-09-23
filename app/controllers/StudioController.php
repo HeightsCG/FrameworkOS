@@ -82,6 +82,10 @@ class StudioController extends Controller {
             $this->view->automation_plan = array('can_create' => !empty($acap['ok']), 'included' => $alim !== null && (int) $alim >= 0,
                 'message' => (string) ($acap['message'] ?? ''), 'upgrade_name' => $aup ? (string) $aup['name'] : '');
 
+            // AI credits: the Generate window checks these before anyone types a prompt.
+            Plan::grant_monthly($user);
+            $this->view->ai = array('balance' => (int) (new AiCreditsModel())->get_balance((int) ($user['user_id'] ?? 0)), 'image_price' => Plan::ai_price('image'));
+
             // Brand identity — used to steer AI image generation on-brand.
             $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));
             $this->view->brand = array(

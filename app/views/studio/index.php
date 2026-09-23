@@ -474,6 +474,11 @@
             </div>
             <div class="modal-body">
                 <div class="cs-gen">
+                    <div class="cs-gen__empty" id="csGenEmpty" hidden>
+                        <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
+                        <h3 class="cs-gen__empty-title">You're out of AI credits</h3>
+                        <p class="cs-gen__empty-text">Each image uses <span id="csGenPrice"></span> credits. Buy credits to start generating.</p>
+                    </div>
                     <div id="csGenInputs">
                         <div class="cs-gen__field">
                             <label for="csGenPrompt">Describe the image</label>
@@ -728,6 +733,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'inbox'    => $this->inbox,
     'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),
     'brand'    => $this->brand,
+    'ai'       => $this->ai ?? array('balance' => 0, 'image_price' => 0),
     'automation_plan' => $this->automation_plan ?? null,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
