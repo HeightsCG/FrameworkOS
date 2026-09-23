@@ -911,8 +911,11 @@ class ApiCreatorStudioController extends BaseApiController {
     private function scheduler_rule_json(array $r, string $tz): array{
         $accounts = json_decode((string) ($r['social_accounts'] ?? '[]'), true) ?: [];
         $days     = array_values(array_filter(array_map('intval', explode(',', (string) $r['days_of_week'])), function ($d) { return $d >= 0 && $d <= 6; }));
+        $cost = Plan::automation_credits($r);
         return [
             'id'               => (int) $r['id'],
+            'credits_per_run'  => $cost['per_run'],     // AI credits each run uses
+            'credits_per_month'=> $cost['per_month'],   // at this cadence
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
             'image_source'     => (($r['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand',
             'influencer_id'    => (int) ($r['influencer_id'] ?? 0),

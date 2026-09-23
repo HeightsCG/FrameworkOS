@@ -401,6 +401,23 @@ class Plan {
         return array('ok' => true, 'price' => $price);
     }
 
+    /**
+     * What an automation costs in AI credits: per run (a post makes one AI image; a scheduled
+     * message only writes text, which is free) and per month at its cadence (daily = 30 runs,
+     * weekly = chosen days x 52/12).
+     */
+    public static function automation_credits(array $rule): array
+    {
+        $per = ((string) ($rule['kind'] ?? 'post') === 'message') ? 0 : self::ai_price('image', array('params' => array('num_images' => 1)));
+        if ((string) ($rule['cadence'] ?? 'daily') === 'weekly') {
+            $days = array_filter(array_map('intval', explode(',', (string) ($rule['days_of_week'] ?? ''))), function ($d) { return $d >= 0 && $d <= 6; });
+            $runs = (int) round(count($days) * 52 / 12);
+        } else {
+            $runs = 30;
+        }
+        return array('per_run' => $per, 'per_month' => $per * $runs);
+    }
+
     /** The message shown when a job cannot be paid for. */
     public static function credits_message($type, $price, $balance): string
     {

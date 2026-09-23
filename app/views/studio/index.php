@@ -507,6 +507,7 @@
                 </div>
             </div>
             <div class="modal-footer">
+                <span class="cs-gen__cost" id="csGenCost"></span>
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
                 <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy Credits</a>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
@@ -710,6 +711,8 @@
                             <div class="cs-ae__days" id="csSchedDays" role="group" aria-labelledby="csSchedDaysLabel"></div>
                             <p class="cs-ae__error" id="csSchedErr_days" role="alert" hidden></p>
                         </div>
+
+                        <div class="cs-ae__credits" id="csSchedCredits"></div>
                     </section>
 
                 </div>

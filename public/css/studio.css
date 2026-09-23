@@ -316,6 +316,11 @@
 .cs-gen__status{ display:flex; align-items:center; gap:.5rem; font-size:.88rem; color:var(--t2); }
 .cs-gen__status.is-error{ color:var(--danger); }
 .cs-gen__result{ display:flex; flex-direction:column; gap:.7rem; }
+.cs-gen__cost{ margin-right:auto; font-size:.85rem; color:var(--muted); }
+.cs-ae__credits{ margin-top:1.4rem; padding:.8rem 1rem; background:var(--vsoft); border-radius:var(--r-sm, 4px); font-size:.88rem; color:var(--t2); line-height:1.5; }
+.cs-ae__credits b{ color:var(--text); font-weight:600; }
+.cs-ae__credits a{ font-weight:600; }
+.cs-ae__credits.is-low{ background:var(--warning-bg); }
 .cs-gen__empty{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:1.6rem 1rem 1.2rem; }
 .cs-gen__empty-ic{ width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--vsoft); color:var(--violet); font-size:1.2rem; margin-bottom:.9rem; }
 .cs-gen__empty-title{ font-size:1.05rem; font-weight:600; color:var(--text); margin:0 0 .35rem; }

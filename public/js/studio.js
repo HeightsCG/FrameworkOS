@@ -508,7 +508,13 @@ jQuery(function ($) {
     }
     /* Not enough AI credits for an image: show the out-of-credits screen instead of the form. */
     CFG.ai = CFG.ai || { balance: 0, image_price: 0 };
+    function fmtNum(n) { return (parseInt(n, 10) || 0).toLocaleString('en-US'); }
+    /* "50 credits · 3,750 left" beside Generate; updates after every image. */
+    function genCost() {
+        $('#csGenCost').text(fmtNum(CFG.ai.image_price) + ' credits · ' + fmtNum(CFG.ai.balance) + ' left');
+    }
     function genCredits() {
+        genCost();
         var out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(CFG.ai.image_price, 10) || 0);
         $('#csGenPrice').text(CFG.ai.image_price);
         $('#csGenEmpty').prop('hidden', !out);
@@ -563,6 +569,7 @@ jQuery(function ($) {
             if (o && o.need_credits) { CFG.ai.balance = o.balance; genCredits(); return; }   // balance changed elsewhere
             if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
             CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(CFG.ai.image_price, 10) || 0));   // charged on request
+            genCost();
             if (o.queued && o.asset && o.asset.status !== 'ready') {
                 // Generation now runs in the background; poll the asset until it is ready or failed.
                 var assetId = o.asset.id, brandUsed = o.brand_used, tries = 0;
@@ -1872,6 +1879,7 @@ jQuery(function ($) {
                 '<p class="cs-sched__topic">' + (isMsg ? '<i class="fa-solid fa-paper-plane cs-sched__kind" title="Scheduled message"></i> ' : '') + esc(body) + '</p>' +
                 '<div class="cs-sched__meta">' +
                     '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
+                    (r.credits_per_run > 0 ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-coins"></i>' + fmtNum(r.credits_per_run) + ' credits per post · about ' + fmtNum(r.credits_per_month) + ' a month</span>' : '') +
                     '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : (r.audience === 'subscribers' ? 'lock' : 'globe')) + '"></i>' + esc(aud) + '</span>' +
                     (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
                     lastRun +
@@ -1940,7 +1948,20 @@ jQuery(function ($) {
     $('#csSchedNavSelect').on('change', function () { showSchedSection(this.value, true); });
 
     function schedSum(key, text) { $('#csSchedNav [data-sum="' + key + '"]').text(text); }
+    /* What this automation costs in AI credits, from its kind and schedule (Plan::automation_credits does the same on the server). */
+    function schedCredits() {
+        var kind = $('#csSchedKind').val() || 'post';
+        var $c = $('#csSchedCredits');
+        if (kind !== 'post') { $c.removeClass('is-low').text('Scheduled messages don\'t use AI credits.'); return; }
+        var per = parseInt(CFG.ai.image_price, 10) || 0;
+        var runs = (schedForm.cadence === 'weekly') ? Math.round($('#csSchedDays .cs-ae__day.is-on').length * 52 / 12) : 30;
+        var bal = parseInt(CFG.ai.balance, 10) || 0;
+        var low = bal < per * runs;
+        $c.toggleClass('is-low', low).html('Uses <b>' + fmtNum(per) + ' AI credits</b> per post, about <b>' + fmtNum(per * runs) + '</b> a month. You have ' + fmtNum(bal) + '.'
+            + (low ? ' <a href="/account/billing?tab=credits">Buy credits</a>' : ''));
+    }
     function updateSchedSummaries() {
+        schedCredits();
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
             var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer') : 'Brand photo';
