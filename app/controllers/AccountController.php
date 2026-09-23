@@ -233,6 +233,11 @@ class AccountController extends Controller {
         $uid = (int) $u['user_id'];
         // App-managed billing: plan, add-ons, schedule and card live in billing_accounts (BillingService).
         $acct = BillingService::account($uid);
+        // Old data says "paid" but nothing is paying (no app plan, no Stripe subscription): it is Free.
+        if (!BillingService::is_paid($acct) && Plan::has_paid_plan($u) && (string) ($u['stripe_subscription_id'] ?? '') === '') {
+            (new BillingModel())->save_plan_mirror($uid, null, null, null, 0);
+            $u = $this->userModel->get_user_by_id($uid)[0];
+        }
         $this->view->user       = $u;
         $this->view->acct       = $acct;
         $this->view->tier       = Plan::tier($u);

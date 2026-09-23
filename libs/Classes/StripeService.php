@@ -71,6 +71,7 @@ class StripeService {
                 'limit'    => $limit,
             ));
         } catch (\Throwable $e) {
+            self::forget_if_missing_customer($customer_id, $e);
             error_log('[stripe] get_invoices failed: ' . $e->getMessage());
             return array();
         }
@@ -102,6 +103,7 @@ class StripeService {
             $default_pm = $customer->invoice_settings->default_payment_method ?? null;
             $methods    = $stripe->customers->allPaymentMethods($customer_id, array('limit' => 20));
         } catch (\Throwable $e) {
+            self::forget_if_missing_customer($customer_id, $e);
             error_log('[stripe] get_payment_methods failed: ' . $e->getMessage());
             return array();
         }
@@ -507,11 +509,32 @@ class StripeService {
     const RECURRING_METHODS = array('card', 'link');
     const SAVE_METHODS      = array('card');
 
-    /** The user's Stripe customer id, created (and saved) the first time. '' on failure. */
+    /**
+     * A stored customer id Stripe answers "No such customer" for (a test-mode id on live, or a deleted
+     * customer) is cleared, so pages stop asking for it and the next purchase creates a fresh one.
+     */
+    public static function forget_if_missing_customer($customer_id, \Throwable $e): void
+    {
+        $code = ($e instanceof \Stripe\Exception\ApiErrorException) ? (string) $e->getStripeCode() : '';
+        if ((string) $customer_id !== '' && ($code === 'resource_missing' || stripos($e->getMessage(), 'No such customer') !== false)) {
+            (new BillingModel())->forget_customer_id((string) $customer_id);
+            error_log('[stripe] cleared missing customer ' . $customer_id);
+        }
+    }
+
+    /** The user's Stripe customer id, created (and saved) the first time; a stored id Stripe no longer has is replaced. '' on failure. */
     public static function ensure_customer(array $user): string
     {
         $id = (string) ($user['stripe_customer_id'] ?? '');
-        if ($id !== '') { return $id; }
+        if ($id !== '') {
+            try {
+                $c = self::client()->customers->retrieve($id);
+                if (empty($c->deleted)) { return $id; }
+            } catch (\Throwable $e) {
+                self::forget_if_missing_customer($id, $e);
+                if (stripos($e->getMessage(), 'No such customer') === false) { return $id; }   // a network blip: keep it
+            }
+        }
         try {
             $c = self::client()->customers->create(array(
                 'email'    => (string) ($user['user_email'] ?? ''),

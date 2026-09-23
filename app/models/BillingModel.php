@@ -17,6 +17,12 @@ class BillingModel extends Model {
         );
     }
 
+    /** Drop a Stripe customer id that Stripe no longer knows (e.g. a test-mode id on live); a new one is made when needed. */
+    public function forget_customer_id($customer_id){
+        return parent::update('user_accounts', array('stripe_customer_id' => null, 'updated_at' => date('Y-m-d H:i:s')),
+            'stripe_customer_id = :c', array('c' => (string) $customer_id));
+    }
+
     public function set_connect_account_id($user_id, $account_id){
         return parent::update(
             'user_accounts',

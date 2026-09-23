@@ -426,17 +426,9 @@ class ApiBillingController extends BaseApiController {
     private function ensure_stripe_customer($stripe): array{
         $user_id     = (int) Session::get('user_id');
         $user        = $this->userModel->get_user_by_id($user_id)[0];
-        $customer_id = $user['stripe_customer_id'] ?? '';
-        if (empty($customer_id)) {
-            $customer = $stripe->customers->create([
-                'email'    => $user['user_email'],
-                'name'     => trim($user['first_name'] . ' ' . $user['last_name']),
-                'metadata' => ['user_id' => (string) $user_id],
-            ]);
-            $customer_id = $customer->id;
-            $this->billingModel->set_customer_id($user_id, $customer_id);
-        }
-        return [$user, $customer_id];
+        $customer_id = StripeService::ensure_customer($user);   // replaces a stored id Stripe no longer has
+        if ($customer_id === '') { throw new RuntimeException('Could not create the Stripe customer'); }
+        return [$this->userModel->get_user_by_id($user_id)[0], $customer_id];
     }
 
     /** Absolute origin for Stripe return URLs — proxy-aware (X-Forwarded-Proto / force_https). */

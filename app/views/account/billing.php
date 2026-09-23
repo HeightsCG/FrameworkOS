@@ -302,9 +302,7 @@ $(function () {
     <?php endif; ?>
 
 <?php
-    // Not yet moved from the old Stripe subscription (cron/migrate_subscriptions.php): show their plan, but no changes, so nothing is billed twice.
-    $legacy  = !$has_plan && Plan::has_paid_plan($this->user);
-    $cur_key = $has_plan || $legacy ? $tier_key : PlanTiers::FREE_KEY;
+    $cur_key = $has_plan ? $tier_key : PlanTiers::FREE_KEY;
     $cur_cents = BillingService::plan_cents($cur_key);
     $next_up = '';   // the one plan to push: the cheapest offered plan above the current one
     foreach ($ordered as $row) { if (BillingService::plan_cents($row['tier']['key']) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $row['tier']['key']; break; } }
@@ -312,9 +310,6 @@ $(function () {
     <div class="billing__head">
         <h1 class="billing__title">Billing</h1>
     </div>
-    <?php if ($legacy): ?>
-    <div class="billing__notice"><i class="fa-solid fa-circle-info"></i><div><p>We're moving your plan to our new billing. It keeps working as usual; plan changes open again shortly.</p></div></div>
-    <?php endif; ?>
 
 
     <nav class="btabs" role="tablist" aria-label="Billing">
@@ -372,7 +367,7 @@ $(function () {
             $is_free_row = ($tier['key'] === PlanTiers::FREE_KEY);
             $up          = BillingService::plan_cents($tier['key']) > $cur_cents;
             $is_pending  = $pending && $pending['key'] === $tier['key'];
-            $locked      = $past_due || $legacy;
+            $locked      = $past_due;
         ?>
         <div class="plan<?php echo $is_current ? ' plan--mine' : ''; ?>">
             <?php if ($is_current): ?><span class="plan__badge plan__badge--mine">Your plan</span><?php endif; ?>
@@ -395,9 +390,7 @@ $(function () {
 
             <?php if ($is_current): ?>
             <div class="plan__mine">
-                <?php if ($legacy): ?>
-                    <p class="plan__mine-line">Active</p>
-                <?php elseif ($past_due): ?>
+                <?php if ($past_due): ?>
                     <p class="plan__mine-line plan__mine-line--bad">Payment failed. Update your card in Payments.</p>
                 <?php elseif ($has_plan && $canceling): ?>
                     <p class="plan__mine-line">Ends <?php echo $e($day($end_ts)); ?>. Then you're on Free.</p>
