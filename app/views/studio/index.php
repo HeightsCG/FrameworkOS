@@ -503,6 +503,7 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
+                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy Credits</a>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
                 <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
             </div>

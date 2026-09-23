@@ -500,6 +500,7 @@ jQuery(function ($) {
             $('#csGenInputs').prop('hidden', false);
             $('#csGenPreview, #csGenResult').prop('hidden', true);
             $('#csGenStatus').prop('hidden', true).removeClass('is-error');
+            $('#csGenBuy').prop('hidden', true);
             $('#csGenRun').prop('hidden', false).prop('disabled', false).html(lastGenAsset ? REGEN_LABEL : GEN_LABEL);
             $('#csGenEdit, #csGenUse').prop('hidden', true);
         }
@@ -546,11 +547,13 @@ jQuery(function ($) {
         ApiDataSvc.apiCall('post', 'media_generate', { prompt: prompt, size: $('#csGenSize').val(), use_brand: useBrand }, function (data) {
             $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
             var o = JSON.parse(data);
-            if (!o || !o.success) {
-                genError((o && o.message) || 'Generation failed. Try again.');
-                if (o && o.need_credits) { $('#csGenStatus').append(' <a href="/account/billing?tab=credits">Buy credits</a>'); }   // out of AI credits
+            if (o && o.need_credits) {   // out of AI credits: say what it costs and swap Generate for Buy Credits
+                genError('An image costs ' + o.price + ' AI credits. You have ' + o.balance + '.');
+                $('#csGenStatus').removeClass('is-error');
+                $('#csGenRun').prop('hidden', true); $('#csGenBuy').prop('hidden', false);
                 return;
             }
+            if (!o || !o.success) { genError((o && o.message) || 'Generation failed. Try again.'); return; }
             if (o.queued && o.asset && o.asset.status !== 'ready') {
                 // Generation now runs in the background; poll the asset until it is ready or failed.
                 var assetId = o.asset.id, brandUsed = o.brand_used, tries = 0;
