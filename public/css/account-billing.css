@@ -137,12 +137,12 @@
 
 /* AI credits card: balance + breakdown, then the monthly pack as one segmented control */
 .credits{background:var(--surface); border:1px solid var(--line); border-radius:2px;}
-.credits__summary{display:flex; align-items:center; justify-content:space-between; gap:1.5rem; padding:1.1rem 1.2rem; border-bottom:1px solid var(--line2);}
+.credits__summary{display:flex; align-items:flex-start; justify-content:space-between; gap:1.5rem; padding:1.2rem 1.2rem 1.1rem; border-bottom:1px solid var(--line2);}
 .credits__total{display:flex; align-items:baseline; gap:.45rem;}
 .credits__n{font-size:1.6rem; font-weight:700; letter-spacing:-.02em; color:var(--text); line-height:1;}
 .credits__unit{font-size:.88rem; color:var(--muted);}
-.credits__split{display:flex; gap:2rem; margin:0;}
-.credits__split dt{font-size:.7rem; font-weight:600; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:0 0 .15rem;}
+.credits__split{display:flex; gap:2rem; margin:.7rem 0 0;}
+.credits__split dt{font-size:.8rem; font-weight:400; color:var(--muted); margin:0 0 .1rem;}
 .credits__split dd{font-size:.95rem; font-weight:600; color:var(--text); margin:0; text-align:left;}
 .credits__pack{display:flex; align-items:center; justify-content:space-between; gap:1.2rem; padding:1rem 1.2rem;}
 .credits__actions{display:flex; align-items:center; gap:.4rem; flex-shrink:0;}
@@ -156,6 +156,62 @@
 .seg__btn.is-on{background:var(--vsoft); color:var(--violet7); cursor:default;}
 .seg__btn:disabled:not(.is-on){opacity:.45; cursor:not-allowed;}
 
+/* your plan: the one card that stands out, with its renewal and cancel inside */
+.plan--mine{border:2px solid var(--violet); box-shadow:0 12px 32px -20px rgba(91,75,224,.45);}
+.plan--mine:hover{transform:none;}
+.plan__badge--mine{color:#fff; background:var(--violet);}
+.plan__mine{margin-top:auto; padding:.8rem .9rem; background:var(--vsoft); border-radius:2px; margin-bottom:.7rem;}
+.plan__mine-line{margin:0; font-size:.86rem; color:var(--text); line-height:1.45;}
+.plan__mine-line--bad{color:var(--danger); font-weight:600;}
+.plan__mine-items{list-style:none; margin:.45rem 0 0; padding:0;}
+.plan__mine-items li{display:flex; justify-content:space-between; gap:.8rem; font-size:.8rem; color:var(--muted); padding:.12rem 0;}
+.plan--mine .plan__btn{margin-top:0;}
+.plan__btn--quiet{color:var(--muted);}
+.plan__btn--quiet:hover{color:var(--danger);}
+
+/* tabs: Plan / AI credits / Payments */
+.btabs{display:flex; gap:1.6rem; border-bottom:1px solid var(--line); margin:0 0 1.6rem;}
+.btabs__tab{position:relative; background:none; border:0; padding:.7rem 0; font-size:.92rem; font-weight:500; color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; gap:.45rem;}
+.btabs__tab:hover{color:var(--text);}
+.btabs__tab.is-on{color:var(--text); font-weight:600;}
+.btabs__tab.is-on::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--violet);}
+.btabs__tab:focus-visible{outline:2px solid var(--violet); outline-offset:2px; border-radius:2px;}
+.btabs__dot{width:7px; height:7px; border-radius:50%; background:var(--danger);}
+.bpanel > .billing__section-title{margin-top:0;}
+.bpanel .billing__section:first-child{margin-top:0;}
+
+/* settings list (Payments tab): one row per item, action on the right */
+.blist{background:var(--surface); border:1px solid var(--line); border-radius:2px;}
+.blist__row{display:flex; align-items:center; padding:1.1rem 1.4rem; border-bottom:1px solid var(--line2);}
+.blist__row:last-child{border-bottom:0;}
+.blist__label{display:none;}
+.blist__value{font-size:.95rem; font-weight:600; color:var(--text);}
+.blist__meta{font-size:.85rem; color:var(--muted); margin-top:.15rem; line-height:1.5;}
+.blist__body--inline{display:flex; align-items:center; gap:.6rem; width:100%;}
+.blist__grow{flex:1; min-width:0;}
+
+/* AI credits tab: one full-width card — balance, then pick an amount and buy (monthly repeat is opt-in) */
+.ccard{background:var(--surface); border:1px solid var(--line); border-radius:2px; padding:1.5rem;}
+.ccard__big{font-size:2.2rem; font-weight:700; letter-spacing:-.03em; color:var(--text); line-height:1; margin:0 0 .5rem;}
+.ccard__big span{font-size:1rem; font-weight:500; letter-spacing:0; color:var(--muted);}
+.ccard__text{font-size:.88rem; line-height:1.55; color:var(--muted); margin:0;}
+.ccard__monthly{display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-top:1rem; padding:.7rem .9rem; background:var(--vsoft); border-radius:2px; font-size:.88rem; color:var(--text);}
+.ccard__title{font-size:.95rem; font-weight:600; color:var(--text); margin:1.4rem 0 .8rem; padding-top:1.4rem; border-top:1px solid var(--line2);}
+.copts{display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:.6rem;}
+.copt{display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; padding:.8rem .9rem; background:var(--surface); border:1px solid var(--line); border-radius:2px; cursor:pointer; text-align:left;}
+.copt:hover{border-color:var(--violet);}
+.copt:focus-visible{outline:2px solid var(--violet); outline-offset:2px;}
+.copt__n{font-size:.92rem; font-weight:600; color:var(--text);}
+.copt__p{font-size:.84rem; color:var(--muted);}
+.copt.is-on{border:2px solid var(--violet); padding:calc(.8rem - 1px) calc(.9rem - 1px); background:var(--vsoft);}
+.copt.is-on .copt__n{color:var(--violet7);}
+.ccard__repeat{display:flex; align-items:center; gap:.5rem; margin:1rem 0 1.2rem; font-size:.88rem; color:var(--text); cursor:pointer; width:max-content;}
+.ccard__repeat input{margin:0;}
+.ccard__btn{min-width:220px;}
+.ccard__stop{flex-shrink:0; background:none; border:0; padding:0; font-size:.85rem; color:var(--muted); text-decoration:underline; text-underline-offset:2px; cursor:pointer;}
+.ccard__stop:hover{color:var(--danger);}
+.ccard__stop:focus-visible{outline:2px solid var(--violet); outline-offset:2px;}
+
 @media (max-width:820px){
     .plans{grid-template-columns:1fr;}
     .billing__current{flex-direction:column; align-items:flex-start;}
@@ -165,6 +221,9 @@
     .billing__row, .billing__notice--action{flex-direction:column; align-items:flex-start;}
     .credits__summary, .credits__pack{flex-direction:column; align-items:flex-start;}
     .credits__split{gap:1.4rem;}
+    .btabs{gap:1.2rem; overflow-x:auto;}
+    .copts{grid-template-columns:repeat(2,minmax(0,1fr));}
+    .ccard__btn{width:100%;}
 }
 
 /* payment modal — promo code + total */
