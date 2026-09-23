@@ -108,7 +108,7 @@ class BillingService {
             if ($t) { $out[] = array($t['name'] . ' plan', self::plan_cents($plan)); }
         }
         if ((int) $slots > 0) { $out[] = array((int) $slots . ' extra AI influencer' . ((int) $slots === 1 ? '' : 's'), (int) $slots * self::slot_cents()); }
-        if ((int) $pack_dollars > 0) { $out[] = array((int) $pack_dollars . ' AI credits (monthly pack)', $pack_cents !== null ? (int) $pack_cents : (int) $pack_dollars * 100); }
+        if ((int) $pack_dollars > 0) { $out[] = array(number_format(PlanTiers::pack_credits($pack_dollars)) . ' AI credits (monthly)', $pack_cents !== null ? (int) $pack_cents : (int) $pack_dollars * 100); }
         return $out;
     }
 
@@ -262,7 +262,7 @@ class BillingService {
                 if (!empty($fx['start_schedule'])) {
                     $f += array('status' => 'active', 'current_period_start' => $fx['period_start'], 'current_period_end' => $fx['period_end'], 'next_charge_at' => $fx['period_end']);
                 }
-                $ai->set_bucket($uid, 'pack', (int) $fx['pack'], (int) $fx['pack'] . ' AI credits (monthly pack)', (bool) PlanTiers::BILLING['pack_carry_over']);
+                $ai->set_bucket($uid, 'pack', PlanTiers::pack_credits($fx['pack']), number_format(PlanTiers::pack_credits($fx['pack'])) . ' AI credits (monthly)', (bool) PlanTiers::BILLING['pack_carry_over']);
                 break;
             case 'renewal':
                 $f += array('status' => 'active', 'current_period_start' => $row['period_start'], 'current_period_end' => $row['period_end'],
@@ -273,7 +273,7 @@ class BillingService {
                     $ai->set_bucket($uid, 'plan', (int) ($t['limits']['ai_credits'] ?? 0), $t['name'] . ' plan: AI credits for ' . date('M j', strtotime($row['period_start'] . ' UTC')) . ' to ' . date('M j', strtotime($row['period_end'] . ' UTC')));
                 }
                 if ((int) $fx['pack'] > 0) {
-                    $ai->set_bucket($uid, 'pack', (int) $fx['pack'], (int) $fx['pack'] . ' AI credits (monthly pack)', (bool) PlanTiers::BILLING['pack_carry_over']);
+                    $ai->set_bucket($uid, 'pack', PlanTiers::pack_credits($fx['pack']), number_format(PlanTiers::pack_credits($fx['pack'])) . ' AI credits (monthly)', (bool) PlanTiers::BILLING['pack_carry_over']);
                 }
                 break;
         }
@@ -546,13 +546,13 @@ class BillingService {
             $next = ($d === $have) ? null : $d;
             (new BillingAccountsModel())->save($uid, array('pack_dollars_next' => $next));
             $when = date('M j', strtotime($acct['next_charge_at'] . ' UTC'));
-            return array('status' => 'scheduled', 'message' => $next === null ? 'No change to your pack.' : ($d === 0 ? 'Your pack stops on ' . $when . '.' : 'Your pack changes to ' . $d . ' credits on ' . $when . '.'));
+            return array('status' => 'scheduled', 'message' => $next === null ? 'No change to your monthly credits.' : ($d === 0 ? 'Your monthly credits stop on ' . $when . '.' : 'Your monthly credits change to ' . number_format(PlanTiers::pack_credits($d)) . ' on ' . $when . '.'));
         }
         if ($d === 0) { return array('status' => 'failed', 'message' => 'You have no recurring pack.'); }
         $scheduled = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = gmdate('Y-m-d H:i:s');
         $fx = array('pack' => $d, 'pack_cents' => $d * 100, 'start_schedule' => !$scheduled, 'period_start' => $start, 'period_end' => self::add_period($start));
-        $lines = array(array($d . ' AI credits (monthly pack)', $d * 100));
+        $lines = array(array(number_format(PlanTiers::pack_credits($d)) . ' AI credits (monthly)', $d * 100));
         return self::charge($uid, 'pack', $lines, $fx, $start, $scheduled ? (string) $acct['next_charge_at'] : $fx['period_end'], 'pack-' . $uid . '-' . bin2hex(random_bytes(6)));
     }
 

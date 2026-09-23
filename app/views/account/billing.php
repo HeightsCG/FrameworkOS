@@ -192,12 +192,13 @@ $(function () {
     });
 
     /* ---- AI credits: pick an amount, buy it once, or tick "Repeat every month" ---- */
-    var credit_pick = parseInt($('.copt.is-on').data('dollars'), 10) || 0;
+    var credit_pick = parseInt($('.copt.is-on').data('dollars'), 10) || 0;   // packs are identified by price
     function credit_label() {
         var repeat = $('#credit_repeat').is(':checked');
         var cur = parseInt($('#credit_repeat').data('current'), 10) || 0;
-        var txt = !repeat ? 'Buy ' + credit_pick + ' Credits for $' + credit_pick
-                : (cur > 0 ? (cur === credit_pick ? 'Already Monthly' : 'Switch to ' + credit_pick + ' Credits a Month') : 'Get ' + credit_pick + ' Credits Every Month');
+        var n = (parseInt($('.copt.is-on').data('credits'), 10) || 0).toLocaleString('en-US');
+        var txt = !repeat ? 'Buy ' + n + ' Credits for $' + credit_pick
+                : (cur > 0 ? (cur === credit_pick ? 'Already Monthly' : 'Switch to ' + n + ' Credits a Month') : 'Get ' + n + ' Credits Every Month');
         $('#credit_go').text(txt).prop('disabled', repeat && cur === credit_pick);
     }
     $('.copts').on('click', '.copt', function () {
@@ -217,7 +218,7 @@ $(function () {
             ApiDataSvc.apiCall('post', 'billing_set_pack', { dollars: credit_pick }, function (data) { handle(parse(data)); });
             return;
         }
-        disclose({ pack: credit_pick }, credit_pick + ' credits every month', { endpoint: 'billing_set_pack', body: { dollars: credit_pick } });
+        disclose({ pack: credit_pick }, $('.copt.is-on .copt__n').text() + ' every month', { endpoint: 'billing_set_pack', body: { dollars: credit_pick } });
     });
     $('.pack-change').on('click', function () {
         ApiDataSvc.apiCall('post', 'billing_set_pack', { dollars: $(this).data('dollars') }, function (data) { handle(parse(data)); });
@@ -500,7 +501,7 @@ $(function () {
 
             <?php if ($pack > 0): ?>
             <div class="ccard__monthly">
-                <span>You get <b><?php echo $pack; ?> credits every month</b> for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?><?php echo $next_ts ? ', next on ' . $e(date('M j', $next_ts)) : ''; ?>.<?php if ($pack_next === 0): ?> Stops after that.<?php elseif ($pack_next !== null): ?> Changes to <?php echo $pack_next; ?> then.<?php endif; ?></span>
+                <span>You get <b><?php echo number_format(PlanTiers::pack_credits($pack)); ?> credits every month</b> for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?><?php echo $next_ts ? ', next on ' . $e(date('M j', $next_ts)) : ''; ?>.<?php if ($pack_next === 0): ?> Stops after that.<?php elseif ($pack_next !== null): ?> Changes to <?php echo number_format(PlanTiers::pack_credits($pack_next)); ?> then.<?php endif; ?></span>
                 <?php if ($pack_next !== 0): ?><button type="button" class="ccard__stop pack-change" data-dollars="0" <?php echo $past_due ? 'disabled' : ''; ?>>Stop</button><?php endif; ?>
             </div>
             <?php endif; ?>
@@ -508,13 +509,13 @@ $(function () {
             <h2 class="ccard__title">Buy credits</h2>
             <div class="copts" role="radiogroup" aria-label="How many credits">
                 <?php foreach ($packs as $d): ?>
-                <button type="button" class="copt<?php echo $d === $pick ? ' is-on' : ''; ?>" role="radio" aria-checked="<?php echo $d === $pick ? 'true' : 'false'; ?>" data-dollars="<?php echo $d; ?>">
-                    <span class="copt__n"><?php echo $d; ?> credits</span><span class="copt__p">$<?php echo $d; ?></span>
+                <button type="button" class="copt<?php echo $d === $pick ? ' is-on' : ''; ?>" role="radio" aria-checked="<?php echo $d === $pick ? 'true' : 'false'; ?>" data-dollars="<?php echo $d; ?>" data-credits="<?php echo PlanTiers::pack_credits($d); ?>">
+                    <span class="copt__n"><?php echo number_format(PlanTiers::pack_credits($d)); ?> credits</span><span class="copt__p">$<?php echo $d; ?></span>
                 </button>
                 <?php endforeach; ?>
             </div>
             <label class="ccard__repeat"><input type="checkbox" class="form-check-input" id="credit_repeat" data-current="<?php echo (int) $monthly; ?>" <?php echo $past_due ? 'disabled' : ''; ?>> Repeat every month</label>
-            <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo $pick; ?> Credits for $<?php echo $pick; ?></button>
+            <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo number_format(PlanTiers::pack_credits($pick)); ?> Credits for $<?php echo $pick; ?></button>
         </div>
     </section>
 
@@ -623,7 +624,7 @@ $(function () {
             <div class="modal-body">
                 <div class="packs" id="credit_packs">
                     <?php foreach (PlanTiers::AI_PACKS as $d): ?>
-                    <button type="button" class="pack" data-dollars="<?php echo (int) $d; ?>"><span class="pack__n"><?php echo (int) $d; ?></span><span class="pack__l">credits</span><span class="pack__p">$<?php echo (int) $d; ?></span></button>
+                    <button type="button" class="pack" data-dollars="<?php echo (int) $d; ?>"><span class="pack__n"><?php echo number_format(PlanTiers::pack_credits($d)); ?></span><span class="pack__l">credits</span><span class="pack__p">$<?php echo (int) $d; ?></span></button>
                     <?php endforeach; ?>
                 </div>
                 <p class="packs__note">One-time purchase. Bought credits never expire.</p>

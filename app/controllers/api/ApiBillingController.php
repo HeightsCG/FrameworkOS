@@ -52,8 +52,8 @@ class ApiBillingController extends BaseApiController {
             if (!in_array($d, PlanTiers::AI_PACKS, true)) { $this->jsonError('Choose a valid credit pack.'); }
             $sched = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
             $next  = $sched ? (string) $acct['next_charge_at'] : BillingService::add_period(gmdate('Y-m-d H:i:s'));
-            $this->jsonSuccess(['mode' => 'pack', 'today' => BillingService::money($d * 100), 'lines' => $fmt(array(array($d . ' AI credits (monthly pack)', $d * 100))),
-                'recurring' => BillingService::money($d * 100) . ' / month for ' . $d . ' AI credits', 'next_at' => date('M j, Y', strtotime($next . ' UTC')),
+            $this->jsonSuccess(['mode' => 'pack', 'today' => BillingService::money($d * 100), 'lines' => $fmt(array(array(number_format(PlanTiers::pack_credits($d)) . ' AI credits (monthly)', $d * 100))),
+                'recurring' => BillingService::money($d * 100) . ' / month for ' . number_format(PlanTiers::pack_credits($d)) . ' AI credits', 'next_at' => date('M j, Y', strtotime($next . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
         }
         if (isset($this->post['slots'])) {
@@ -125,7 +125,7 @@ class ApiBillingController extends BaseApiController {
     public function billing_set_packAction(){
         $user = $this->require_creator('owner');
         $d = (int) ($this->post['dollars'] ?? -1);
-        $this->charge_answer(BillingService::set_pack((int) $user['user_id'], $d), $d . ' AI credits added. The pack renews monthly.');
+        $this->charge_answer(BillingService::set_pack((int) $user['user_id'], $d), number_format(PlanTiers::pack_credits($d)) . ' AI credits added. They renew monthly.');
     }
 
     /** The page finished a bank authentication: record the payment's outcome. */
@@ -146,7 +146,7 @@ class ApiBillingController extends BaseApiController {
             'amount' => BillingService::money((int) $row['amount_cents'])]);
     }
 
-    /* ---------- AI credits ($1 = 1 credit) ---------- */
+    /* ---------- AI credits ($1 = 10 credits, PlanTiers::AI_CREDITS_PER_DOLLAR) ---------- */
 
     public function buy_ai_creditsAction(){
         $user    = $this->require_creator('owner');
@@ -164,14 +164,14 @@ class ApiBillingController extends BaseApiController {
                 'currency'                  => 'usd',
                 'customer'                  => $customer_id,
                 'automatic_payment_methods' => ['enabled' => true],
-                'description'               => $dollars . ' AI credits',
+                'description'               => PlanTiers::pack_credits($dollars) . ' AI credits',
                 'metadata'                  => [
                     'user_id' => (string) $user['user_id'],
-                    'credits' => (string) $dollars,
+                    'credits' => (string) PlanTiers::pack_credits($dollars),
                     'type'    => 'ai_credit_purchase',
                 ],
             ]);
-            $this->jsonSuccess(['client_secret' => $intent->client_secret, 'credits' => $dollars, 'total_cents' => $cents, 'message' => 'Payment ready']);
+            $this->jsonSuccess(['client_secret' => $intent->client_secret, 'credits' => PlanTiers::pack_credits($dollars), 'total_cents' => $cents, 'message' => 'Payment ready']);
         } catch (\Throwable $e) {
             error_log('[stripe] buy_ai_credits: ' . $e->getMessage());
             $this->jsonError('Could not start the purchase. Please try again.');

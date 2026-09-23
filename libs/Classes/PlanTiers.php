@@ -37,10 +37,19 @@ class PlanTiers {
     );
 
     /** What each AI job type costs in AI credits (per output). Training is free: the influencer count gates it. */
-    const AI_PRICES = array('image' => 5, 'enhance' => 1, 'video' => 20);
+    const AI_PRICES = array('image' => 50, 'enhance' => 10, 'video' => 200);
 
-    /** AI credit packs ($1 = 1 credit): bought once, or added as a recurring monthly pack. */
+    /** AI credits per dollar. Same rate as the fan wallet, so credits never read as dollars. */
+    const AI_CREDITS_PER_DOLLAR = 10;
+
+    /** AI credit packs by price in dollars: bought once, or added as a recurring monthly pack. */
     const AI_PACKS = array(10, 25, 50, 100);
+
+    /** Credits in a pack ($10 -> 100). */
+    public static function pack_credits($dollars): int
+    {
+        return (int) $dollars * self::AI_CREDITS_PER_DOLLAR;
+    }
 
     /**
      * App-managed billing (BillingService). Stripe only stores the card and runs each charge.
@@ -70,16 +79,16 @@ class PlanTiers {
     const TIERS = array(
         'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Start earning, no card needed.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
             'ai_credits_grant' => 'once', 'features' => array('inbox_ai' => false),
-            'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 20,  'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 200, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),
         'creator' => array('key' => 'creator', 'rank' => 1, 'name' => 'Creator', 'tagline' => 'Go solo, get paid.',             'price' => 49,  'stripe_price_id' => '', 'match' => array('creator'), 'recommended' => true,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
-            'limits' => array('fee_percent' => 10, 'seats' => 1,  'influencers' => 1,  'ai_credits' => 50,  'automations' => 5,  'storage_gb' => 25,  'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('fee_percent' => 10, 'seats' => 1,  'influencers' => 1,  'ai_credits' => 500, 'automations' => 5,  'storage_gb' => 25,  'socials' => 0, 'sub_tiers' => 0)),
         'pro'     => array('key' => 'pro',     'rank' => 2, 'name' => 'Pro',     'tagline' => 'Scale your solo brand.',         'price' => 149, 'stripe_price_id' => '', 'match' => array('pro'),     'recommended' => false, 'retired' => true,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
-            'limits' => array('fee_percent' => 5,  'seats' => 3,  'influencers' => 3,  'ai_credits' => 150, 'automations' => 20, 'storage_gb' => 100, 'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('fee_percent' => 5,  'seats' => 3,  'influencers' => 3,  'ai_credits' => 1500, 'automations' => 20, 'storage_gb' => 100, 'socials' => 0, 'sub_tiers' => 0)),
         'studio'  => array('key' => 'studio',  'rank' => 3, 'name' => 'Studio',  'tagline' => 'Run a team or agency.',          'price' => 199, 'stripe_price_id' => '', 'match' => array('studio'),  'recommended' => false,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
-            'limits' => array('fee_percent' => 3,  'seats' => 10, 'influencers' => 10, 'ai_credits' => 300, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0, 'sub_tiers' => 0)),
+            'limits' => array('fee_percent' => 3,  'seats' => 10, 'influencers' => 10, 'ai_credits' => 3000, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0, 'sub_tiers' => 0)),
     );
 
     /** Add-ons: extra capacity billed as a quantity line item on a plan's subscription. 'max' = most slots per account. */
