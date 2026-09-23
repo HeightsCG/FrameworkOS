@@ -276,117 +276,6 @@ $(function () {
     </div>
     <?php endif; ?>
 
-    <?php if (!empty($over_rows)): ?>
-    <div class="billing__notice">
-        <i class="fa-solid fa-circle-exclamation"></i>
-        <div>
-            <?php foreach ($over_rows as $r): ?>
-            <p>You have <?php echo $e($r['kind'] === 'gb' ? number_format($r['used'], 1) . ' GB of storage' : $r['used'] . ' ' . ($r['key'] === 'seats' ? 'team seats' : $r['label'])); ?>; <?php echo $e($usage['tier_name']); ?> includes <?php echo $e($r['limit_text']); ?>. <?php echo $r['kind'] === 'gb' ? 'Your files stay, but you can\'t upload more until you\'re under the limit or on a bigger plan.' : 'Nothing is deleted. The ones over the limit are locked until you upgrade.'; ?></p>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($slots_on): ?>
-    <div class="billing__section">
-        <h2 class="billing__section-title">Extra AI Influencers</h2>
-        <div class="billing__row">
-            <div>
-                <div class="billing__row-title"><?php echo $slots; ?> extra &middot; <?php echo (int) $tier_def['limits']['influencers'] + $slots; ?> AI influencers in total</div>
-                <div class="billing__row-meta"><?php echo $e($money(BillingService::slot_cents())); ?> / month each, up to <?php echo (int) $slot_def['max']; ?>. Adding one is charged now for the rest of this period.<?php if ($slots_next !== null): ?> Drops to <?php echo $slots_next; ?> on <?php echo $e($day($next_ts ?: $end_ts)); ?>.<?php endif; ?></div>
-            </div>
-            <div class="billing__row-actions">
-                <?php $billed = $slots_next !== null ? $slots_next : $slots; ?>
-                <button type="button" class="btn btn-secondary" id="slots_remove" data-quantity="<?php echo max(0, $billed - 1); ?>" <?php echo ($billed <= 0 || $canceling || $past_due) ? 'disabled' : ''; ?> aria-label="Remove a slot"><i class="fa-solid fa-minus"></i></button>
-                <button type="button" class="btn btn-secondary" id="slots_add" data-quantity="<?php echo $slots + 1; ?>" <?php echo ($slots >= (int) $slot_def['max'] || $canceling || $past_due) ? 'disabled' : ''; ?>><i class="fa-solid fa-plus"></i> Add Slot</button>
-            </div>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php if ($usage): ?>
-    <div class="billing__section">
-        <div class="billing__section-head">
-            <h2 class="billing__section-title">AI Credits</h2>
-            <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy Credits</button>
-        </div>
-        <div class="billing__row">
-            <div>
-                <div class="billing__row-title"><?php echo number_format((int) $this->buckets['total']); ?> credits</div>
-                <div class="billing__row-meta">
-                    <?php echo number_format((int) $this->buckets['plan']); ?> from your plan<?php echo $grants_once ? '' : ' (reset each billing date, used first)'; ?> &middot;
-                    <?php echo number_format((int) $this->buckets['pack']); ?> from your monthly pack &middot;
-                    <?php echo number_format((int) $this->buckets['other']); ?> bought<?php echo $grants_once ? ' or starter' : ''; ?>
-                </div>
-            </div>
-        </div>
-        <div class="billing__row">
-            <div>
-                <div class="billing__row-title">Monthly credit pack</div>
-                <div class="billing__row-meta">
-                    <?php if ($pack > 0): ?>
-                        <?php echo $pack; ?> credits for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?> / month<?php if ($next_ts): ?>, renews <?php echo $e($day($next_ts)); ?><?php endif; ?>.
-                        <?php if ($pack_next !== null): ?><?php echo $pack_next === 0 ? ' Stops on ' . $e($day($next_ts)) . '.' : ' Changes to ' . $pack_next . ' credits on ' . $e($day($next_ts)) . '.'; ?><?php endif; ?>
-                    <?php else: ?>
-                        Get credits every month on any plan. Charged now, then monthly<?php echo $has_plan ? ' with your plan' : ''; ?>.
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="billing__row-actions billing__row-actions--packs">
-                <?php foreach (PlanTiers::AI_PACKS as $d): $d = (int) $d; ?>
-                    <?php if ($pack > 0): ?>
-                    <?php $sel = ($pack_next !== null ? $pack_next : $pack) === $d; ?>
-                    <button type="button" class="btn btn-secondary btn-sm pack-change<?php echo $sel ? ' is-on' : ''; ?>" data-dollars="<?php echo $d; ?>" <?php echo ($sel || $past_due) ? 'disabled' : ''; ?>><?php echo $d; ?></button>
-                    <?php else: ?>
-                    <button type="button" class="btn btn-secondary btn-sm pack-start" data-dollars="<?php echo $d; ?>" <?php echo $past_due ? 'disabled' : ''; ?>><?php echo $d; ?> / $<?php echo $d; ?></button>
-                    <?php endif; ?>
-                <?php endforeach; ?>
-                <?php if ($pack > 0 && $pack_next !== 0): ?><button type="button" class="btn btn-secondary btn-sm pack-change" data-dollars="0" <?php echo $past_due ? 'disabled' : ''; ?>>Stop Pack</button><?php endif; ?>
-            </div>
-        </div>
-    </div>
-
-    <div class="billing__section">
-        <h2 class="billing__section-title">Usage</h2>
-        <div class="usage">
-            <?php foreach ($usage['rows'] as $r): ?>
-            <?php if ($r['kind'] === 'credits'): ?>
-            <div class="usage__row usage__row--text">
-                <span class="usage__label"><?php echo $e($r['label']); ?></span>
-                <span class="usage__text"><?php echo $grants_once ? number_format($grant_n) . ' to start, no monthly refill' : number_format($grant_n) . ' included each billing date'; ?></span>
-                <span class="usage__val"><b><?php echo number_format((int) $usage['ai_credit_balance']); ?></b> left</span>
-            </div>
-            <?php elseif ($r['kind'] === 'percent'): ?>
-            <div class="usage__row usage__row--text">
-                <span class="usage__label"><?php echo $e($r['label']); ?></span>
-                <span class="usage__text"><?php echo $e($r['limit_text']); ?> of what you earn</span>
-                <span class="usage__val"></span>
-            </div>
-            <?php elseif ($r['limit'] !== null && (int) $r['limit'] < 0): ?>
-            <?php $up_t = PlanTiers::lowest_including($r['key']); ?>
-            <div class="usage__row usage__row--text<?php echo !empty($r['over']) ? ' usage__row--over' : ''; ?>">
-                <span class="usage__label"><?php echo $e($r['label']); ?></span>
-                <span class="usage__text">Not on <?php echo $e($usage['tier_name']); ?><?php echo $up_t ? '. Included from ' . $e($up_t['name']) : ''; ?></span>
-                <span class="usage__val"><?php if (!empty($r['used'])): ?><b><?php echo (int) $r['used']; ?></b> locked<?php endif; ?></span>
-            </div>
-            <?php else: ?>
-            <?php
-                $used  = (float) $r['used'];
-                $limit = $r['limit'] === null ? 0 : (float) $r['limit'];
-                $pct   = $r['unlimited'] ? 6 : ($limit > 0 ? min(100, round($used / $limit * 100)) : 0);
-                $used_text = ($r['kind'] === 'gb') ? number_format($used, $used >= 10 ? 0 : 1) . ' GB' : number_format($used);
-            ?>
-            <div class="usage__row<?php echo !empty($r['over']) ? ' usage__row--over' : ''; ?>">
-                <span class="usage__label"><?php echo $e($r['label']); ?></span>
-                <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
-                <span class="usage__val"><b><?php echo $e($used_text); ?></b> <?php echo $r['unlimited'] ? '&middot; unlimited' : 'of ' . $e($r['limit_text']); ?></span>
-            </div>
-            <?php endif; ?>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
     <div class="billing__head billing__head--section">
         <h2 class="billing__section-title"><?php echo $has_plan ? 'Plans' : 'Upgrade your plan'; ?></h2>
         <?php if (!$has_plan): ?><p class="billing__sub">Monthly, cancel anytime. Paid plans lower your take rate and add AI influencers, automations and AI inbox replies.</p><?php endif; ?>
@@ -435,6 +324,114 @@ $(function () {
         <?php endforeach; ?>
     </div>
     <p class="plans__included"><span>Included on every plan:</span> <?php echo implode(' &middot; ', PlanTiers::INCLUDED); ?></p>
+
+    <?php if (!empty($over_rows)): ?>
+    <div class="billing__notice">
+        <i class="fa-solid fa-circle-exclamation"></i>
+        <div>
+            <?php foreach ($over_rows as $r): ?>
+            <p>You have <?php echo $e($r['kind'] === 'gb' ? number_format($r['used'], 1) . ' GB of storage' : $r['used'] . ' ' . ($r['key'] === 'seats' ? 'team seats' : $r['label'])); ?>; <?php echo $e($usage['tier_name']); ?> includes <?php echo $e($r['limit_text']); ?>. <?php echo $r['kind'] === 'gb' ? 'Your files stay, but you can\'t upload more until you\'re under the limit or on a bigger plan.' : 'Nothing is deleted. The ones over the limit are locked until you upgrade.'; ?></p>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($slots_on): ?>
+    <div class="billing__section">
+        <h2 class="billing__section-title">Extra AI Influencers</h2>
+        <div class="billing__row">
+            <div>
+                <div class="billing__row-title"><?php echo $slots; ?> extra &middot; <?php echo (int) $tier_def['limits']['influencers'] + $slots; ?> AI influencers in total</div>
+                <div class="billing__row-meta"><?php echo $e($money(BillingService::slot_cents())); ?> / month each, up to <?php echo (int) $slot_def['max']; ?>. Adding one is charged now for the rest of this period.<?php if ($slots_next !== null): ?> Drops to <?php echo $slots_next; ?> on <?php echo $e($day($next_ts ?: $end_ts)); ?>.<?php endif; ?></div>
+            </div>
+            <div class="billing__row-actions">
+                <?php $billed = $slots_next !== null ? $slots_next : $slots; ?>
+                <button type="button" class="btn btn-secondary" id="slots_remove" data-quantity="<?php echo max(0, $billed - 1); ?>" <?php echo ($billed <= 0 || $canceling || $past_due) ? 'disabled' : ''; ?> aria-label="Remove a slot"><i class="fa-solid fa-minus"></i></button>
+                <button type="button" class="btn btn-secondary" id="slots_add" data-quantity="<?php echo $slots + 1; ?>" <?php echo ($slots >= (int) $slot_def['max'] || $canceling || $past_due) ? 'disabled' : ''; ?>><i class="fa-solid fa-plus"></i> Add Slot</button>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($usage): ?>
+    <div class="billing__section">
+        <div class="billing__section-head">
+            <h2 class="billing__section-title">AI Credits</h2>
+            <button type="button" class="btn btn-secondary btn-sm" id="buy_credits"><i class="fa-solid fa-plus"></i> Buy Credits</button>
+        </div>
+        <div class="credits">
+            <div class="credits__summary">
+                <div class="credits__total"><span class="credits__n"><?php echo number_format((int) $this->buckets['total']); ?></span><span class="credits__unit">AI credits</span></div>
+                <dl class="credits__split">
+                    <div><dt>Plan</dt><dd><?php echo number_format((int) $this->buckets['plan']); ?></dd></div>
+                    <div><dt>Monthly pack</dt><dd><?php echo number_format((int) $this->buckets['pack']); ?></dd></div>
+                    <div><dt><?php echo $grants_once ? 'Bought or starter' : 'Bought'; ?></dt><dd><?php echo number_format((int) $this->buckets['other']); ?></dd></div>
+                </dl>
+            </div>
+            <div class="credits__pack">
+                <div>
+                    <div class="billing__row-title">Monthly credit pack</div>
+                    <div class="billing__row-meta">
+                        <?php if ($pack > 0): ?>
+                            <?php echo $pack; ?> credits for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?> a month<?php if ($next_ts): ?>, renews <?php echo $e(date('M j', $next_ts)); ?><?php endif; ?>.<?php if ($pack_next !== null): ?> <?php echo $pack_next === 0 ? 'Stops ' . $e(date('M j', $next_ts)) . '.' : 'Changes to ' . $pack_next . ' on ' . $e(date('M j', $next_ts)) . '.'; ?><?php endif; ?>
+                        <?php else: ?>
+                            $1 per credit, billed monthly. Change or stop anytime.
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <div class="credits__actions">
+                    <div class="seg" role="group" aria-label="Credits per month">
+                        <?php foreach (PlanTiers::AI_PACKS as $d): $d = (int) $d; $sel = $pack > 0 && ($pack_next !== null && $pack_next > 0 ? $pack_next : $pack) === $d; ?>
+                        <button type="button" class="seg__btn <?php echo $pack > 0 ? 'pack-change' : 'pack-start'; ?><?php echo $sel ? ' is-on' : ''; ?>" data-dollars="<?php echo $d; ?>" aria-pressed="<?php echo $sel ? 'true' : 'false'; ?>" <?php echo ($sel || $past_due) ? 'disabled' : ''; ?>><?php echo $d; ?></button>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php if ($pack > 0 && $pack_next !== 0): ?><button type="button" class="btn btn-link credits__stop pack-change" data-dollars="0" <?php echo $past_due ? 'disabled' : ''; ?>>Stop</button><?php endif; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="billing__section">
+        <h2 class="billing__section-title">Usage</h2>
+        <div class="usage">
+            <?php foreach ($usage['rows'] as $r): ?>
+            <?php if ($r['kind'] === 'credits'): ?>
+            <div class="usage__row usage__row--text">
+                <span class="usage__label"><?php echo $e($r['label']); ?></span>
+                <span class="usage__text"><?php echo $grants_once ? number_format($grant_n) . ' to start, no monthly refill' : number_format($grant_n) . ' included each billing date'; ?></span>
+                <span class="usage__val"><b><?php echo number_format((int) $usage['ai_credit_balance']); ?></b> left</span>
+            </div>
+            <?php elseif ($r['kind'] === 'percent'): ?>
+            <div class="usage__row usage__row--text">
+                <span class="usage__label"><?php echo $e($r['label']); ?></span>
+                <span class="usage__text"><?php echo $e($r['limit_text']); ?> of what you earn</span>
+                <span class="usage__val"></span>
+            </div>
+            <?php elseif ($r['limit'] !== null && (int) $r['limit'] < 0): ?>
+            <?php $up_t = PlanTiers::lowest_including($r['key']); ?>
+            <div class="usage__row usage__row--text<?php echo !empty($r['over']) ? ' usage__row--over' : ''; ?>">
+                <span class="usage__label"><?php echo $e($r['label']); ?></span>
+                <span class="usage__text">Not on <?php echo $e($usage['tier_name']); ?><?php echo $up_t ? '. Included from ' . $e($up_t['name']) : ''; ?></span>
+                <span class="usage__val"><?php if (!empty($r['used'])): ?><b><?php echo (int) $r['used']; ?></b> locked<?php endif; ?></span>
+            </div>
+            <?php else: ?>
+            <?php
+                $used  = (float) $r['used'];
+                $limit = $r['limit'] === null ? 0 : (float) $r['limit'];
+                $pct   = $r['unlimited'] ? 6 : ($limit > 0 ? min(100, round($used / $limit * 100)) : 0);
+                $used_text = ($r['kind'] === 'gb') ? number_format($used, $used >= 10 ? 0 : 1) . ' GB' : number_format($used);
+            ?>
+            <div class="usage__row<?php echo !empty($r['over']) ? ' usage__row--over' : ''; ?>">
+                <span class="usage__label"><?php echo $e($r['label']); ?></span>
+                <div class="usage__bar"><div class="usage__fill" style="width:<?php echo $pct; ?>%"></div></div>
+                <span class="usage__val"><b><?php echo $e($used_text); ?></b> <?php echo $r['unlimited'] ? '&middot; unlimited' : 'of ' . $e($r['limit_text']); ?></span>
+            </div>
+            <?php endif; ?>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+
 
     <div class="billing__section">
         <h2 class="billing__section-title">Card on File</h2>
