@@ -42,6 +42,12 @@ jQuery(function ($) {
         var left = parseInt(C.ai_credits, 10) || 0;
         return n + ' credit' + (n === 1 ? '' : 's') + ' \u00b7 ' + left + ' left';
     }
+    /* The cost line, plus a Buy Credits link once the balance can't cover two more runs. */
+    function credits_html(n) {
+        var left = parseInt(C.ai_credits, 10) || 0;
+        var low  = left < n * 2;
+        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?buy=credits">' + (left < n ? 'Buy credits to generate' : 'Running low. Buy credits') + '</a>' : '');
+    }
     function spend_credits(n) { C.ai_credits = Math.max(0, (parseInt(C.ai_credits, 10) || 0) - n); }
     function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }
 
@@ -119,12 +125,40 @@ jQuery(function ($) {
             var busy = list.some(is_busy);
             if (busy) { poll_timer = setTimeout(function () { if (!document.hidden) { load(true); } else { schedule(list); } }, 5000); }
         }
+        var LIM = CFG.limit || {};
+        /* At the plan's limit: offer a paid slot (Creator) or an upgrade instead of opening the wizard. */
+        function limit_prompt() {
+            var slot = !!LIM.addon;
+            Swal.fire({
+                title: slot ? 'Add an AI influencer slot?' : 'Upgrade for more AI influencers',
+                text: LIM.message || 'Your plan includes no more AI influencers.',
+                showCancelButton: true, showDenyButton: slot, reverseButtons: true,
+                confirmButtonText: slot ? 'Add Slot ($' + LIM.addon_price + '/mo)' : 'See Plans',
+                denyButtonText: 'See Plans', cancelButtonText: 'Not Now',
+                customClass: { confirmButton: 'btn btn-primary', denyButton: 'btn btn-secondary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
+            }).then(function (r) {
+                if (r.isDenied || (r.isConfirmed && !slot)) { window.location.href = '/account/billing'; return; }
+                if (!r.isConfirmed) { return; }
+                api('addon_set', { addon: LIM.addon, quantity: LIM.addon_next }, function (o) {
+                    if (!o || !o.success) { err(o); return; }
+                    toastr.success(o.message);
+                    window.location.href = '/influencers/create';
+                });
+            });
+        }
+        $(document).on('click', '#inf_new_btn, .inf-card--new, #inf_empty .btn', function (e) {
+            if (LIM.can_create !== false) { return; }
+            e.preventDefault();
+            limit_prompt();
+        });
         function render(list) {
+            $('#inf_upgrade').prop('hidden', LIM.included !== false);   // no AI influencers on this plan: prompt above any locked ones
+            if (LIM.included === false && !list.length) { $('#inf_empty, #inf_cards, #inf_new_btn').prop('hidden', true); return; }
             if (!list.length) { $('#inf_empty').prop('hidden', false); $('#inf_cards').prop('hidden', true); $('#inf_new_btn').prop('hidden', true); return; }
-            $('#inf_empty').prop('hidden', true); $('#inf_new_btn').prop('hidden', false);
+            $('#inf_empty').prop('hidden', true); $('#inf_new_btn').prop('hidden', LIM.included === false);
             $cards.empty().prop('hidden', false);
             list.forEach(function (inf, i) { $cards.append(card(inf, first ? i : 0)); });
-            $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New Influencer</span></a>');
+            if (LIM.included !== false) { $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New Influencer</span></a>'); }
             first = false;
         }
         function target_for(inf) {
@@ -132,11 +166,11 @@ jQuery(function ($) {
             return '/influencers/create/' + inf.id;
         }
         function card(inf, i) {
-            var ready = inf.status === 'ready' && inf.active_model_id > 0;
-            var $c = $('<div class="inf-card" tabindex="0">').attr('data-id', inf.id).css('animation-delay', Math.min(i * 18, 360) + 'ms');
+            var ready = inf.status === 'ready' && inf.active_model_id > 0 && !inf.locked;
+            var $c = $('<div class="inf-card' + (inf.locked ? ' inf-card--locked' : '') + '" tabindex="0">').attr('data-id', inf.id).css('animation-delay', Math.min(i * 18, 360) + 'ms');
             var media = inf.cover_url ? '<img src="' + esc(inf.cover_url) + '" alt="' + esc(inf.name) + '" loading="lazy">' : '<i class="fa-regular fa-user"></i>';
             $c.append('<div class="inf-card__media">' + media + '</div>');
-            $c.append('<div class="inf-card__body"><span class="inf-card__name">' + esc(inf.name) + '</span>' + state_pill(inf) + '</div>');
+            $c.append('<div class="inf-card__body"><span class="inf-card__name">' + esc(inf.name) + '</span>' + (inf.locked ? '<span class="inf-state inf-state--locked"><i class="fa-solid fa-lock"></i> Locked</span>' : state_pill(inf)) + '</div>');
             var menu = '<div class="dropdown">' +
                 '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
@@ -145,16 +179,23 @@ jQuery(function ($) {
                          '<li><a class="dropdown-item" href="/influencers/gallery/' + inf.id + '"><i class="fa-solid fa-images"></i> Gallery</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-sliders"></i> Settings</a></li>' +
                          (inf.pending_model_id > 0 ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '/retrain" data-act="retrain"><i class="fa-solid fa-rotate"></i> Retrain</a></li>')
-                       : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right"></i> Continue setup</a></li>') +
+                       : (inf.locked ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right"></i> Continue setup</a></li>')) +
                 '<li><hr class="dropdown-divider"></li>' +
                 '<li><button type="button" class="dropdown-item text-danger" data-act="delete"><i class="fa-solid fa-trash"></i> Delete</button></li>' +
                 '</ul></div>';
             $c.append(menu);
+            function open_card() {
+                if (!inf.locked) { window.location = target_for(inf); return; }
+                Swal.fire({ title: inf.name + ' is locked', text: 'Your plan includes fewer AI influencers than you have, so the newest are locked. Nothing is deleted. Upgrade or add a slot to use them again.',
+                    showCancelButton: true, reverseButtons: true, confirmButtonText: 'See Plans', cancelButtonText: 'Not Now',
+                    customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false })
+                    .then(function (r) { if (r.isConfirmed) { window.location.href = '/account/billing'; } });
+            }
             $c.on('click', function (e) {
                 if ($(e.target).closest('.dropdown').length) { return; }
-                window.location = target_for(inf);
+                open_card();
             });
-            $c.on('keydown', function (e) { if (e.key === 'Enter' && !$(e.target).closest('.dropdown').length) { window.location = target_for(inf); } });
+            $c.on('keydown', function (e) { if (e.key === 'Enter' && !$(e.target).closest('.dropdown').length) { open_card(); } });
             $c.find('[data-act="delete"]').on('click', function () {
                 Swal.fire({ title: 'Delete ' + inf.name + '?', text: 'The trained model is removed. Images already in your library stay there.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
                     .then(function (r) {
@@ -688,7 +729,7 @@ jQuery(function ($) {
         function model_label(key) { var m = (C.pickers.image || []).filter(function (o) { return o.key === key; })[0]; return m ? m.label : key; }
         function cost() {
             var n = parseInt(seg_val('inf_n'), 10) || 1;
-            $('#inf_gen_cost').text(credits_text(price_of('image', n)));
+            $('#inf_gen_cost').html(credits_html(price_of('image', n)));
         }
 
         $('#inf_who').on('change', function () { window.location = '/influencers/images/' + this.value; });
@@ -858,7 +899,7 @@ jQuery(function ($) {
             cost();
         }
         function vprice() { var m = model_opt(model_key()); return (m && m.credits) ? m.credits : price_of('video', 1); }
-        function cost() { $('#inf_vcost').text(credits_text(vprice())); }
+        function cost() { $('#inf_vcost').html(credits_html(vprice())); }
         $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
         $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });

@@ -159,6 +159,10 @@ class AccountController extends Controller {
         $this->view->inbox_settings      = $can_manage ? (new InboxSettingsModel())->get_for_creator($owner['user_id']) : InboxSettingsModel::defaults();
         $this->view->inbox_pending       = ($can_manage && $this->view->can_inbox) ? (new InboxRepliesModel())->count_pending($owner['user_id']) : 0;
         $this->view->claude_ok           = ClaudeService::configured();
+        // AI replies are a per-plan switch (Free has none); welcome and trigger messages work on every plan.
+        $this->view->inbox_ai            = Plan::has_feature($owner, 'inbox_ai');
+        $inbox_up                        = PlanTiers::lowest_with_feature('inbox_ai');
+        $this->view->inbox_ai_upgrade    = $inbox_up ? (string) $inbox_up['name'] : '';
         $this->view->fanvue_configured   = FanvueService::configured();
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
@@ -234,9 +238,11 @@ class AccountController extends Controller {
                     $sub = StripeService::client()->subscriptions->retrieve((string) $u['stripe_subscription_id']);
                     if (in_array((string) $sub->status, array('canceled', 'incomplete_expired'), true)) {
                         (new BillingModel())->clear_subscription((int) $u['user_id']);
+                        (new AccountAddonsModel())->clear((int) $u['user_id']);
                     } else {
-                        (new BillingModel())->save_subscription((int) $u['user_id'], $sub->id, $sub->items->data[0]->price->id ?? $u['stripe_price_id'],
-                            $sub->status, $sub->items->data[0]->current_period_end ?? null, $sub->cancel_at_period_end ? 1 : 0);
+                        $item = StripeService::plan_item($sub);   // the plan line, not an add-on line
+                        (new BillingModel())->save_subscription((int) $u['user_id'], $sub->id, $item->price->id ?? $u['stripe_price_id'],
+                            $sub->status, $item->current_period_end ?? null, $sub->cancel_at_period_end ? 1 : 0);
                     }
                     $u = $this->userModel->get_user_by_id(Session::get('user_id'))[0];
                 } catch (\Throwable $e) {
@@ -245,11 +251,36 @@ class AccountController extends Controller {
             }
             $customer_id           = $u['stripe_customer_id'] ?? '';
             $this->view->user      = $u;
-            $this->view->has_plan  = in_array((string) ($u['subscription_status'] ?? ''), array('active', 'trialing', 'past_due'), true);
+            // A paid plan (a plan cancelled at period end counts as Free once the period is over).
+            $this->view->has_plan  = Plan::has_paid_plan($u) || (string) ($u['subscription_status'] ?? '') === 'past_due';
             $this->view->tier      = Plan::tier($u);
-            $this->view->usage     = $this->view->has_plan ? Plan::usage($u) : null;
-            $this->view->ai_history= $this->view->has_plan ? (array) (new AiCreditsModel())->get_transactions((int) $u['user_id'], 10) : array();
-            $this->view->plans     = StripeService::get_plans();
+            // Free is a real plan now: usage and AI credit history apply to every creator.
+            $this->view->is_creator = Plan::is_creator_row($u);
+            $this->view->usage     = $this->view->tier !== '' ? Plan::usage($u) : null;
+            $this->view->ai_history= $this->view->tier !== '' ? (array) (new AiCreditsModel())->get_transactions((int) $u['user_id'], 10) : array();
+            // Plan cards come from config (app/config/plans.php): price, limits and the Stripe price to bill.
+            $this->view->plan_rows = array();
+            foreach (PlanTiers::offered($this->view->tier) as $t) {   // retired plans only show to the people already on them
+                $this->view->plan_rows[] = array(
+                    'tier'     => $t,
+                    'price_id' => PlanTiers::stripe_price_id($t['key']),
+                    'addons'   => PlanTiers::addons_for($t['key']),
+                );
+            }
+            // Add-ons the current plan takes (Creator: extra AI influencer slots), with what the account holds.
+            $this->view->addons = array();
+            if (Plan::has_paid_plan($u)) {
+                $am = new AccountAddonsModel();
+                foreach (PlanTiers::addons_for($this->view->tier) as $ad) {
+                    if (empty($ad['stripe_price_id'])) { continue; }
+                    $held = Plan::addon_quantity($u, $ad['key']);
+                    $row  = $am->get((int) $u['user_id'], $ad['key']);
+                    $tdef = PlanTiers::get($this->view->tier);
+                    $this->view->addons[] = array('def' => $ad, 'quantity' => $held,
+                        'next' => ($row && $row['quantity_next'] !== null) ? (int) $row['quantity_next'] : null, 'next_at' => $row['next_at'] ?? null,
+                        'included' => (int) ($tdef['limits'][$ad['limit']] ?? 0));
+                }
+            }
             $this->view->invoices  = StripeService::get_invoices($customer_id);
             $this->view->cards     = StripeService::get_payment_methods($customer_id);
             $this->view->stripe_pk = StripeService::publishable_key();

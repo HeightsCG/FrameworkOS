@@ -606,6 +606,7 @@ class InfluencerJobService {
         $cid = (int) ($user['user_id'] ?? 0);
         $infl = (new InfluencersModel())->get_one($cid, (int) ($rule['influencer_id'] ?? 0));
         if (!$infl) { return array('ok' => false, 'error' => 'This automation has no influencer selected.'); }
+        if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { return array('ok' => false, 'error' => Plan::locked_message($user, 'influencers')); }
         if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { return array('ok' => false, 'error' => $infl['name'] . ' is not trained yet.'); }
         $model = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']);
         if (!$model || (string) $model['status'] !== 'ready') { return array('ok' => false, 'error' => $infl['name'] . ' has no active model.'); }

@@ -6,7 +6,7 @@ $home_faq = array(
     array('q' => 'How do fans pay?', 'a' => 'Memberships bill on your schedule; everything else uses credits.'),
     array('q' => 'How do I get paid?', 'a' => "Earnings collect as credits, net of your plan's fee. Cash out to your bank anytime."),
     array('q' => 'Can people follow me for free?', 'a' => 'Yes. Free follows, plus an optional free membership tier.'),
-    array('q' => 'What do the plans cost?', 'a' => 'Pricing is shown at checkout; the platform fee drops as you move up.'),
+    array('q' => 'What do the plans cost?', 'a' => PagesController::plan_cost_answer()),
 );
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
 echo Sections::tab_hero(array(

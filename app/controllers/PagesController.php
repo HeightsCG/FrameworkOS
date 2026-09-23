@@ -122,24 +122,20 @@ class PagesController extends Controller {
         $this->page('features', array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
+    /**
+     * One row per plan for every public surface (pricing page, home FAQ, schema, llms.txt),
+     * straight from app/config/plans.php. Free has no Stripe price and still belongs here, so
+     * prices come from config, never from the Stripe catalogue.
+     */
     public static function pricing_rows(): array {
-        $cache = sys_get_temp_dir() . '/cls_public_plans.json';
-        if (is_file($cache) && filemtime($cache) > time() - 600) {
-            $plans = json_decode(file_get_contents($cache), true) ?: array();
-        } else {
-            $plans = (array) StripeService::get_plans();
-            if (!empty($plans)) { @file_put_contents($cache, json_encode($plans), LOCK_EX); }
-        }
-        $by_tier = array();
-        foreach ($plans as $p) {
-            $key = PlanTiers::match((string) ($p['name'] ?? ''));
-            if ($key === '' || (($p['interval'] ?? 'month') !== 'month')) { continue; }
-            if (!isset($by_tier[$key])) { $by_tier[$key] = $p; }
-        }
         $rows = array();
-        foreach (PlanTiers::all() as $tier) {
-            $p = $by_tier[$tier['key']] ?? null;
-            $rows[] = array('tier' => $tier, 'amount' => $p ? (int) $p['amount'] : null, 'interval' => $p ? (string) $p['interval'] : null);
+        foreach (PlanTiers::offered() as $tier) {   // retired plans are never shown publicly
+            $rows[] = array(
+                'tier'     => $tier,
+                'amount'   => (int) $tier['price'] * 100,   // cents, so callers keep formatting as before
+                'interval' => 'month',
+                'price_id' => PlanTiers::stripe_price_id($tier['key']),
+            );
         }
         usort($rows, function ($a, $b) { return $a['tier']['rank'] <=> $b['tier']['rank']; });
         return $rows;
@@ -156,17 +152,23 @@ class PagesController extends Controller {
     public function pricingAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $rows = self::pricing_rows();
+        $free = PlanTiers::get(PlanTiers::FREE_KEY);
+        $ai_first = PlanTiers::lowest_including('influencers');
         $faq  = array(
-            array('q' => 'Is there a free plan?', 'a' => 'No. Every plan includes the whole platform and unlimited fans; the plans differ in take rate, seats, AI credits, automations and storage.'),
+            array('q' => 'Is there a free plan?', 'a' => 'Yes. Free costs nothing and needs no card. It includes your page, memberships, pay-per-view, publishing and payouts. The platform takes ' . (int) $free['limits']['fee_percent'] . '% of what you earn. Paid plans lower that rate and add AI influencers, automations and AI inbox replies.'),
             array('q' => 'What is the platform take rate?', 'a' => 'A flat percentage of what fans pay you, set by your plan and shown on this page. It falls as you move up.'),
-            array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Changes prorate.'),
-            array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
+            array('q' => 'Can I buy AI credits on any plan?', 'a' => 'Yes, including Free. Free starts with ' . (int) $free['limits']['ai_credits'] . ' AI credits, and paid plans add credits every month. Buy more at any time, $1 per credit. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
+            array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
-        $offers = array();
-        foreach ($rows as $r) {
-            if ($r['amount'] === null) { continue; }
-            $offers[] = array('@type' => 'Offer', 'name' => $r['tier']['name'], 'price' => number_format($r['amount'] / 100, 2, '.', ''), 'priceCurrency' => 'USD', 'url' => SeoMeta::base() . '/pricing', 'availability' => 'https://schema.org/InStock');
+        foreach (PlanTiers::addons() as $ad) {
+            $on = array(); foreach ((array) $ad['plans'] as $k) { $t = PlanTiers::get($k); if ($t) { $on[] = $t['name']; } }
+            $faq[] = array('q' => 'Can I add more AI influencers?', 'a' => 'On ' . implode(' and ', $on) . ', yes: each extra AI influencer is $' . (int) $ad['price'] . ' a month, up to ' . (int) $ad['max'] . ' extra. Add or remove them from Billing.');
         }
+        $faq = array_merge($faq, array(
+            array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
+        ));
+        $offers = array();
+        foreach (self::plan_offers() as $o) { $offers[] = $o + array('availability' => 'https://schema.org/InStock'); }
         $product = array('@type' => 'Product', 'name' => Main::site_name() . ' plans', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/pricing');
         if (!empty($offers)) { $product['offers'] = $offers; }
         $jsonld = array(
@@ -174,8 +176,59 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Pricing', 'url' => '/pricing'))),
         );
-        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => 'Three monthly plans. Every plan includes the whole platform; the take rate falls as you grow.', 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
+        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
     }
+    /** "Free $0, Creator $49, Studio $199, all per month." (whatever plans.php offers) — one sentence, from config. */
+    public static function plan_price_sentence(): string {
+        $bits = array();
+        foreach (self::pricing_rows() as $r) {
+            $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100);
+        }
+        return implode(', ', $bits) . ', all per month.';
+    }
+
+    /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
+    public static function plan_cost_answer(): string {
+        $free = PlanTiers::get(PlanTiers::FREE_KEY);
+        return trim(self::plan_price_sentence() . ' Free needs no card and takes ' . (int) ($free['limits']['fee_percent'] ?? 0) . '% of what you earn; the paid plans lower the take rate, raise the limits and add AI influencers, automations and AI inbox replies. ' . self::addon_sentence());
+    }
+
+    /** schema.org Offer rows for every plan and add-on (home SoftwareApplication + /pricing Product). */
+    public static function plan_offers(): array {
+        $offers = array();
+        foreach (self::pricing_rows() as $r) {
+            $offers[] = array('@type' => 'Offer', 'name' => $r['tier']['name'],
+                'price' => number_format($r['amount'] / 100, 2, '.', ''), 'priceCurrency' => 'USD',
+                'url' => SeoMeta::base() . '/pricing');
+        }
+        foreach (PlanTiers::addons() as $ad) {
+            $offers[] = array('@type' => 'Offer', 'name' => $ad['name'] . ' add-on (per month)',
+                'price' => number_format((float) $ad['price'], 2, '.', ''), 'priceCurrency' => 'USD',
+                'url' => SeoMeta::base() . '/pricing');
+        }
+        return $offers;
+    }
+
+    /** "Extra AI influencer: $15/month each on Creator, up to 5." for every add-on, from config. */
+    public static function addon_sentence(): string {
+        $bits = array();
+        foreach (PlanTiers::addons() as $ad) {
+            $on = array(); foreach ((array) $ad['plans'] as $k) { $t = PlanTiers::get($k); if ($t) { $on[] = $t['name']; } }
+            $bits[] = $ad['name'] . ': $' . (int) $ad['price'] . '/month each on ' . implode(' and ', $on) . ', up to ' . (int) $ad['max'] . '.';
+        }
+        return implode(' ', $bits);
+    }
+
+    /** Meta description for /pricing, built from the plans so the prices in search results stay right. */
+    public static function pricing_meta(): string {
+        $bits = array();
+        foreach (self::pricing_rows() as $r) {
+            $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100) . '/mo';
+        }
+        $free = PlanTiers::get(PlanTiers::FREE_KEY);
+        return 'Plans: ' . implode(', ', $bits) . '. Free forever with a ' . (int) ($free['limits']['fee_percent'] ?? 0) . '% take rate; paid plans lower it and raise the limits.';
+    }
+
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
     public static function our_facts(): array {
         $tiers = PlanTiers::all(); $fees = array();

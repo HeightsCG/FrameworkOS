@@ -43,7 +43,9 @@
 .usage__row--text .usage__text{font-size:.85rem; color:var(--t2);}
 
 /* plan grid */
-.plans{display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:1.1rem; align-items:stretch;}
+.plans{display:grid; grid-template-columns:repeat(var(--plans,3),minmax(0,1fr)); gap:1.1rem; align-items:stretch;}
+.plan__addon{margin:-.6rem 0 1.2rem; font-size:.8rem; line-height:1.45; color:var(--muted);}
+.billing__addon{margin-top:-.4rem;}
 .plan{position:relative; display:flex; flex-direction:column; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:var(--sh-xs); padding:1.7rem 1.55rem; transition:border-color .15s, box-shadow .15s, transform .15s;}
 .plan:hover{border-color:rgba(91,75,224,.45); box-shadow:0 16px 36px -24px rgba(40,32,90,.34); transform:translateY(-2px);}
 .plan--current{border-color:var(--violet); box-shadow:0 0 0 1px var(--violet) inset, var(--sh-xs);}

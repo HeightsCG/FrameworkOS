@@ -88,6 +88,11 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('This account has been suspended. Contact support if you believe this is a mistake.');
         }
 
+        // A collaborator whose seat is over the owner's plan limit is kept, but can't sign in.
+        if (Plan::team_member_locked($user)) {
+            $this->jsonError(Plan::SEAT_LOCKED_MESSAGE);
+        }
+
         // Hard gate: an unconfirmed email cannot sign in.
         if ((int) ($user['email_verified'] ?? 0) === 0) {
             $this->jsonError('Please verify your email before signing in. Check your inbox for the verification link.', ['unverified' => true]);

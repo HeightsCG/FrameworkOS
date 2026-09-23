@@ -12,22 +12,52 @@
 class Plan {
 
     /**
-     * Using ANY creator feature (Studio, publishing, scheduling, analytics,
-     * profile/branding) requires an active platform plan. 'trialing' counts as
-     * active so a plan's free-trial window still grants access.
+     * Using ANY creator feature (Studio, publishing, scheduling, analytics, profile/branding)
+     * requires a creator account. Since 2026-09-23 every creator has at least the Free plan,
+     * so what a paid plan buys is a lower take rate and higher limits, not access.
      */
     public static function can_use_creator_features($user): bool
     {
         if (!is_array($user)) {
             return false;
         }
-        $status = (string) ($user['subscription_status'] ?? '');
-        return $status === 'active' || $status === 'trialing';
+        if (self::has_paid_plan($user)) { return true; }
+        return self::is_creator_row($user);   // every creator is at least on Free
     }
 
     /**
-     * The user's tier key ('creator'|'pro'|'studio'), or '' when they have no
-     * active plan. Reads the cached user_accounts.plan_tier; falls back to a
+     * An active (or trialing) Stripe subscription — i.e. a paid plan, not Free. A plan set to
+     * cancel at period end is Free once that period is over, even before Stripe tells us.
+     */
+    public static function has_paid_plan($user): bool
+    {
+        if (!is_array($user)) { return false; }
+        $status = (string) ($user['subscription_status'] ?? '');
+        if ($status !== 'active' && $status !== 'trialing') { return false; }
+        $end = (string) ($user['subscription_current_period_end'] ?? '');
+        if (!empty($user['subscription_cancel_at_period_end']) && $end !== '' && strtotime($end . ' UTC') <= time()) { return false; }
+        return true;
+    }
+
+    /** Is this user row a Creator account? (Free is a creator plan, so this decides who gets it.) */
+    public static function is_creator_row($user): bool
+    {
+        if (!is_array($user)) { return false; }
+        $name = strtolower(trim((string) ($user['role_name'] ?? '')));
+        if ($name !== '') { return $name === 'creator'; }
+        $rid = (int) ($user['role_id'] ?? 0);
+        if ($rid <= 0) { return false; }
+        static $creator_role = null;
+        if ($creator_role === null) {
+            try { $creator_role = (int) (new UsersModel())->get_role_id_by_name('Creator'); }
+            catch (\Throwable $e) { $creator_role = 0; }
+        }
+        return $creator_role > 0 && $rid === $creator_role;
+    }
+
+    /**
+     * The user's tier key ('free'|'creator'|'pro'|'studio'), or '' when the account is not a
+     * creator at all. A creator without a Stripe subscription is on 'free'. Reads the cached user_accounts.plan_tier; falls back to a
      * one-time Stripe lookup for subscriptions saved before the column existed.
      */
     public static function tier($user): string
@@ -35,11 +65,14 @@ class Plan {
         if (!self::can_use_creator_features($user)) {
             return '';
         }
+        if (!self::has_paid_plan($user)) {
+            return PlanTiers::FREE_KEY;   // creator, no subscription: the free plan
+        }
         $tier = (string) ($user['plan_tier'] ?? '');
         if ($tier === '' && !empty($user['stripe_price_id'])) {
             $tier = StripeService::plan_tier_slug((string) $user['stripe_price_id']);
         }
-        return $tier;
+        return $tier !== '' ? $tier : PlanTiers::FREE_KEY;
     }
 
     /** The full tier definition (PlanTiers) for the user's plan, or array(). */
@@ -66,14 +99,100 @@ class Plan {
     }
 
     /**
-     * A numeric limit for the user's tier (e.g. 'seats', 'storage_gb', 'fee_percent').
-     * Returns null when the user has no plan; 0 means "unlimited".
+     * A numeric limit for the user's tier (e.g. 'seats', 'storage_gb', 'fee_percent'), plus any
+     * add-on slots that raise it (extra AI influencers on Creator).
+     * Returns null when the user has no plan; 0 means "unlimited"; below 0 means "not included".
      */
     public static function limit($user, $key)
     {
         $t = PlanTiers::get(self::tier($user));
         if (!$t) { return null; }
-        return $t['limits'][(string) $key] ?? null;
+        $v = $t['limits'][(string) $key] ?? null;
+        if ($v !== null && (int) $v > 0) {
+            foreach (PlanTiers::addons_for($t['key']) as $a) {
+                if ((string) ($a['limit'] ?? '') === (string) $key) { $v = (int) $v + self::addon_quantity($user, $a['key']); }
+            }
+        }
+        return $v;
+    }
+
+    /**
+     * How many of an add-on the account holds right now: 0 unless the account is on a paid plan
+     * that offers it. A removal scheduled for period end is applied here once that date passes.
+     */
+    private static $addon_cache = array();
+
+    /** Drop cached add-on quantities after they change in this request. */
+    public static function forget_addons(): void
+    {
+        self::$addon_cache = array();
+    }
+
+    public static function addon_quantity($user, $addon_key): int
+    {
+        $cache = &self::$addon_cache;
+        $uid = (int) (is_array($user) ? ($user['user_id'] ?? 0) : 0);
+        $a   = PlanTiers::addon($addon_key);
+        if ($uid <= 0 || !$a || !self::has_paid_plan($user) || !in_array(self::tier($user), (array) ($a['plans'] ?? array()), true)) { return 0; }
+        $ck = $uid . ':' . $addon_key;
+        if (isset($cache[$ck])) { return $cache[$ck]; }
+        $m   = new AccountAddonsModel();
+        $row = $m->get($uid, $addon_key);
+        $q   = $row ? (int) $row['quantity'] : 0;
+        if ($row && $row['quantity_next'] !== null && !empty($row['next_at']) && strtotime($row['next_at'] . ' UTC') <= time()) {
+            $q = (int) $row['quantity_next'];
+            $m->save($uid, $addon_key, array('quantity' => $q, 'quantity_next' => null, 'next_at' => null));
+        }
+        return $cache[$ck] = max(0, min($q, (int) ($a['max'] ?? 0)));
+    }
+
+    /**
+     * Ids of what is over the plan's limit for $key ('influencers' | 'automations' | 'seats'):
+     * kept, never deleted, but not usable until the account is back under its limit. The oldest
+     * stay unlocked. Seats count the owner, so members beyond (limit - 1) are locked.
+     */
+    public static function locked_ids($user, $key): array
+    {
+        static $cache = array();
+        $uid = (int) (is_array($user) ? ($user['user_id'] ?? 0) : 0);
+        if ($uid <= 0) { return array(); }
+        $limit = self::limit($user, $key);
+        if ($limit === null || (int) $limit === 0) { return array(); }
+        $ck = $uid . ':' . $key . ':' . (int) $limit;
+        if (isset($cache[$ck])) { return $cache[$ck]; }
+        switch ((string) $key) {
+            case 'influencers': $ids = (new InfluencersModel())->ids_oldest_first($uid); break;
+            case 'automations': $ids = (new SchedulerRulesModel())->ids_oldest_first($uid); break;
+            case 'seats':       $ids = (new TeamModel())->member_ids_oldest_first($uid); break;
+            default:            $ids = array();
+        }
+        $keep = ((int) $limit < 0) ? 0 : (((string) $key === 'seats') ? (int) $limit - 1 : (int) $limit);
+        return $cache[$ck] = array_map('intval', array_slice($ids, max(0, $keep)));
+    }
+
+    /** Is this influencer / automation / team member locked by the plan's limit? */
+    public static function is_locked($user, $key, $id): bool
+    {
+        return in_array((int) $id, self::locked_ids($user, $key), true);
+    }
+
+    /** Is this collaborator's seat over the owner's plan limit? (Their account is kept; they can't sign in.) */
+    public static function team_member_locked($member): bool
+    {
+        if (!is_array($member) || empty($member['team_role']) || (int) ($member['created_by'] ?? 0) <= 0) { return false; }
+        $rows = (new UsersModel())->get_user_by_id((int) $member['created_by']);
+        if (!is_array($rows) || count($rows) !== 1) { return false; }
+        return self::is_locked($rows[0], 'seats', (int) $member['user_id']);
+    }
+
+    const SEAT_LOCKED_MESSAGE = 'Your seat on this team is paused because the account owner\'s plan has fewer team seats. Ask them to upgrade to get back in.';
+
+    /** The message shown when something locked is used. */
+    public static function locked_message($user, $key): string
+    {
+        $row  = PlanTiers::row($key);
+        $noun = $row ? $row['noun'] : (string) $key;
+        return 'This is locked because your ' . self::tier_name($user) . ' plan includes fewer ' . $noun . ' than you have. It\'s saved, not deleted. Upgrade to use it again.';
     }
 
     /**
@@ -115,11 +234,28 @@ class Plan {
                 'message' => 'Choose a plan to add ' . $noun . '.');
         }
         $limit = (int) $limit;
+        if ($limit < 0) {
+            return array('ok' => false, 'limit' => $limit, 'used' => $used, 'need_upgrade' => true,
+                'message' => ucfirst($noun) . ' aren\'t included on ' . self::tier_name($user) . '. Upgrade to ' . (($up = PlanTiers::lowest_including($key)) ? $up['name'] . ' ' : '') . 'to add them.',
+                'upgrade_to' => ($up = PlanTiers::lowest_including($key)) ? $up['key'] : '');
+        }
         if ($limit === 0 || $used < $limit) {
             return array('ok' => true, 'limit' => $limit, 'used' => $used, 'message' => '');
         }
-        return array('ok' => false, 'limit' => $limit, 'used' => $used, 'need_upgrade' => true,
+        $out = array('ok' => false, 'limit' => $limit, 'used' => $used, 'need_upgrade' => true,
             'message' => self::tier_name($user) . ' includes ' . $limit . ' ' . self::noun($noun, $limit) . '. You\'re using ' . $used . '. Upgrade to add more.');
+        // An add-on can raise this limit on the current plan: say so, and let the UI offer it.
+        foreach (PlanTiers::addons_for(self::tier($user)) as $a) {
+            if ((string) ($a['limit'] ?? '') !== (string) $key || !self::has_paid_plan($user)) { continue; }
+            if (self::addon_quantity($user, $a['key']) < (int) ($a['max'] ?? 0)) {
+                $out['addon'] = $a['key'];
+                $out['addon_price'] = (int) $a['price'];
+                $held = self::addon_quantity($user, $a['key']);
+                $out['message'] = 'Your plan covers ' . $limit . ' ' . self::noun($noun, $limit) . ($held > 0 ? ' (' . self::tier_name($user) . ' plus ' . $held . ' extra)' : '')
+                    . '. Add a slot for $' . (int) $a['price'] . '/month, or upgrade for more.';
+            }
+        }
+        return $out;
     }
 
     private static function noun($noun, $n): string
@@ -195,11 +331,61 @@ class Plan {
         if (!is_array($user) || !self::can_use_creator_features($user)) { return false; }
         $n = (int) self::limit($user, 'ai_credits');
         if ($n <= 0) { return false; }
+        $tier = self::features($user);
+        if ($tier && PlanTiers::grants_once($tier)) {
+            // One-time starter credits (Free): only for an account that has never had a plan grant.
+            if ((string) ($user['ai_credit_grant_period'] ?? '') !== '') { return false; }
+            return (new AiCreditsModel())->grant_for_period((int) $user['user_id'], 'once', $n, self::tier_name($user) . ' plan: ' . $n . ' starter AI credits') > 0;
+        }
         $key = self::period_key($user);
         if ((string) ($user['ai_credit_grant_period'] ?? '') === $key && (int) ($user['ai_credit_grant_amount'] ?? 0) >= $n) { return false; }
         $added = (new AiCreditsModel())->grant_for_period((int) $user['user_id'], $key, $n,
             self::tier_name($user) . ' plan: AI credits for ' . date('M j', strtotime($key)) . ' to ' . date('M j', strtotime(self::period_bounds($user)[1])));
         return $added > 0;
+    }
+
+    /** Is a per-plan switch (PlanTiers::FEATURES, e.g. 'inbox_ai') on for the user's plan? */
+    public static function has_feature($user, $feature): bool
+    {
+        $t = self::features($user);
+        return !empty($t) && PlanTiers::has_feature($t, $feature);
+    }
+
+    /** "Inbox automation & AI replies start on the Creator plan. Upgrade to turn them on." */
+    public static function feature_message($feature): string
+    {
+        $label = html_entity_decode((string) (PlanTiers::FEATURES[(string) $feature] ?? 'This'), ENT_QUOTES, 'UTF-8');
+        $t = PlanTiers::lowest_with_feature($feature);
+        return $label . ($t ? ' start on the ' . $t['name'] . ' plan. Upgrade to turn them on.' : ' are not on your plan.');
+    }
+
+    /**
+     * What $gross_cents of sales would have cost on each plan (monthly price + add-ons + take
+     * rate), compared with the user's current plan. Returns the offered higher plan that would
+     * have saved the most, as ['tier' => def, 'savings_cents' => int, 'current_cents', 'other_cents'],
+     * or null when no higher plan is cheaper.
+     */
+    public static function upgrade_savings($user, $gross_cents)
+    {
+        $cur = self::features($user);
+        if (!$cur) { return null; }
+        $gross = max(0, (int) $gross_cents);
+        $cost  = function (array $t, $addon_cents) use ($gross) {
+            return (int) $t['price'] * 100 + (int) $addon_cents + (int) round($gross * (float) $t['limits']['fee_percent'] / 100);
+        };
+        $addons = 0;
+        foreach (PlanTiers::addons_for($cur['key']) as $a) { $addons += self::addon_quantity($user, $a['key']) * (int) $a['price'] * 100; }
+        $now  = $cost($cur, self::has_paid_plan($user) ? $addons : 0);
+        $best = null;
+        foreach (PlanTiers::offered() as $t) {
+            if ((int) $t['rank'] <= (int) $cur['rank']) { continue; }
+            $other = $cost($t, 0);
+            $save  = $now - $other;
+            if ($save > 0 && ($best === null || $save > $best['savings_cents'])) {
+                $best = array('tier' => $t, 'savings_cents' => $save, 'current_cents' => $now, 'other_cents' => $other);
+            }
+        }
+        return $best;
     }
 
     /** The message shown when a job cannot be paid for. */
@@ -240,8 +426,9 @@ class Plan {
             $unlimited = ($limit !== null && (int) $limit === 0 && $r['kind'] !== 'percent');
             $over = false; $remaining = null;
             if ($used !== null && $limit !== null && !$unlimited && in_array($r['kind'], array('count', 'gb'), true)) {
-                $remaining = max(0, $limit - $used);
-                $over = $used > $limit;
+                $cap = ((int) $limit < 0) ? ($r['key'] === 'seats' ? 1 : 0) : $limit;   // "not included": seats still hold the owner
+                $remaining = max(0, $cap - $used);
+                $over = $used > $cap;
             }
             $rows[] = array('key' => $r['key'], 'label' => $r['label'], 'kind' => $r['kind'], 'used' => $used,
                 'limit' => $limit, 'limit_text' => $limit === null ? '' : PlanTiers::fmt_limit($r['key'], $limit),

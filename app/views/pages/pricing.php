@@ -2,8 +2,8 @@
 $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
-    <h1 class="sx-hero__title">Three plans. The fee falls as you grow.</h1>
-    <p class="sx-hero__lead">Monthly, cancel anytime. Every plan includes the whole platform and unlimited fans, tiers and social connections. Only the rows in the cards differ. Fans join free; plans are for creators.</p>
+    <h1 class="sx-hero__title">Start free. The fee falls as you grow.</h1>
+    <p class="sx-hero__lead">Free forever, no card needed. Every plan includes your page, memberships, pay-per-view, publishing and payouts, with unlimited fans, tiers and social connections. Paid plans lower the fee and add AI influencers, automations and AI inbox replies. Fans join free; plans are for creators.</p>
 <?php
 ?>
 <div class="sx-plans">
@@ -14,12 +14,13 @@ $e = function ($s) { return Sections::e($s); };
         <p class="sx-plan__line"><?php echo $e($t['tagline']); ?></p>
         <div class="sx-plan__price"><?php if ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <p class="sx-plan__keep">Keep <?php echo 100 - (int) $t['limits']['fee_percent']; ?>% of every sale</p>
-        <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_limit($row['key'], $t['limits'][$row['key']] ?? 0)); ?></dd></div><?php endforeach; ?></dl>
+        <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($t, $row['key'])); ?></dd></div><?php endforeach; ?><?php foreach (PlanTiers::FEATURES as $fk => $fl): ?><div><dt><?php echo $fl; ?></dt><dd><?php echo PlanTiers::has_feature($t, $fk) ? 'Included' : '&mdash;'; ?></dd></div><?php endforeach; ?></dl>
+        <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
         <div class="sx-plan__cta"><a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="/?auth=register" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
     </article>
 <?php endforeach; ?>
 </div>
-<p class="sx-note">Card-processing fees are separate from the platform take rate.</p>
+<p class="sx-note">AI credits can be bought on every plan, $1 per credit. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
 
@@ -34,18 +35,28 @@ foreach ($rows as $r) { $price_row[] = $r['amount'] !== null ? '$' . $e(number_f
 $trows[] = $price_row;
 foreach (PlanTiers::ROWS as $row) {
     $tr = array($e($row['label']));
-    foreach ($rows as $r) { $tr[] = $e(PlanTiers::fmt_limit($row['key'], $r['tier']['limits'][$row['key']] ?? 0)); }
+    foreach ($rows as $r) { $tr[] = $e(PlanTiers::fmt_tier_limit($r['tier'], $row['key'])); }
+    $trows[] = $tr;
+}
+foreach (PlanTiers::FEATURES as $fk => $fl) {   // per-plan switches (inbox AI replies)
+    $tr = array($fl);
+    foreach ($rows as $r) { $tr[] = PlanTiers::has_feature($r['tier'], $fk) ? $check : '&mdash;'; }
+    $trows[] = $tr;
+}
+foreach (PlanTiers::addons() as $ad) {
+    $tr = array($e($ad['name'] . ' add-on'));
+    foreach ($rows as $r) { $tr[] = in_array($r['tier']['key'], (array) $ad['plans'], true) ? '$' . (int) $ad['price'] . ' / month each' : '&mdash;'; }
     $trows[] = $tr;
 }
 $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-per-view posts', 'Bundles', 'Services and events', 'Paid messages', 'Promo codes and free trials',
-    'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions and brand images', 'Inbox AI replies and welcome messages', 'Broadcasts to audience segments',
+    'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions and brand images', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
     'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = $check; } $trows[] = $tr; }
-echo Sections::open('white', 'Compare plans', 'Every plan includes the whole platform. Plans differ only in fee, seats and limits.');
+echo Sections::open('white', 'Compare plans', 'Plans differ in fee, limits and the AI tools they include. Everything below the limits is on every plan.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
 echo Sections::close();
 
 echo Sections::faq($faq, 'white');
-$cta_title = 'Pick a plan after you sign up.';
-$cta_text = 'Create your account first. Nothing to pay until you choose a plan.';
+$cta_title = 'Start on Free.';
+$cta_text = 'Create your account and start selling. Upgrade from Billing when a lower fee pays for itself.';
 $cta_no_pricing = true;

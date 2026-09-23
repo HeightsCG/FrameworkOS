@@ -14,7 +14,7 @@ $name = trim((string) $u['first_name'] . ' ' . (string) $u['last_name']);
 $disabled = ((string) $u['user_status'] === 'Disabled');
 $deleted = !empty($u['deleted']);
 $is_creator = in_array(strtolower((string) ($u['role_name'] ?? '')), array('creator'), true);
-$tier = PlanTiers::TIERS[(string) ($u['plan_tier'] ?? '')]['name'] ?? '';
+$tier = Plan::tier_name($u);   // Free for a creator with no paid plan
 $kind_label = array('ppv' => 'Pay-per-view', 'bundle' => 'Bundle', 'message' => 'Paid message');
 $refunded = array(); foreach ($this->refunds as $rf) { $refunded[$rf['kind'] . ':' . $rf['ref_id']] = true; }
 $sup_status = array('open' => 'Waiting on us', 'answered' => 'Replied', 'closed' => 'Closed');

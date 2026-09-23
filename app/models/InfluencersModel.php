@@ -51,6 +51,12 @@ class InfluencersModel extends Model {
         return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
     }
 
+    /** Live influencer ids, oldest first (the order plan limits keep them unlocked in). */
+    public function ids_oldest_first($creator_id){
+        $r = parent::select("SELECT id FROM influencers WHERE creator_id = :c AND deleted_at IS NULL ORDER BY created_at ASC, id ASC", array('c' => (int) $creator_id));
+        return array_map('intval', array_column((array) $r, 'id'));
+    }
+
     public function list_for_creator($creator_id){
         return (array) parent::select(
             "SELECT * FROM influencers WHERE creator_id = :c AND deleted_at IS NULL ORDER BY created_at DESC, id DESC",

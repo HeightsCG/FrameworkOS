@@ -252,8 +252,9 @@ class ApiAdminController extends BaseApiController {
         if ($sub_id === '') { $this->jsonError('This account has no plan'); }
         try {
             $subscription = StripeService::client()->subscriptions->update($sub_id, ['cancel_at_period_end' => $cancel]);
-            $price_id   = $subscription->items->data[0]->price->id ?? ($u['stripe_price_id'] ?? '');
-            $period_end = $subscription->items->data[0]->current_period_end ?? null;
+            $item       = StripeService::plan_item($subscription);   // the plan line, not an add-on line
+            $price_id   = $item->price->id ?? ($u['stripe_price_id'] ?? '');
+            $period_end = $item->current_period_end ?? null;
             $this->billingModel->save_subscription((int) $u['user_id'], $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
         } catch (\Throwable $e) {
             error_log('[admin] plan cancel: ' . $e->getMessage());

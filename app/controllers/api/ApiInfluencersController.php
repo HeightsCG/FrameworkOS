@@ -24,10 +24,17 @@ class ApiInfluencersController extends BaseApiController {
         return $infl;
     }
 
+    /** Owned influencer the plan lets you use: one over the plan's limit is kept but locked. */
+    private function usable($user, $id){
+        $infl = $this->owned((int) $user['user_id'], $id);
+        if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { $this->jsonError(Plan::locked_message($user, 'influencers'), ['need_upgrade' => true, 'locked' => true]); }
+        return $infl;
+    }
+
     /** Answer with a shared-service result: error -> jsonError (with need_* flags), ok -> jsonSuccess(payload). */
     private function answer(array $r){
         if (empty($r['ok'])) {
-            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'need_credits', 'price', 'balance']));
+            $extra = array_intersect_key($r, array_flip(['need_upgrade', 'need_plan', 'need_credits', 'price', 'balance', 'addon', 'addon_price', 'locked']));
             $this->jsonError((string) $r['error'], $extra);
         }
         unset($r['ok'], $r['error']);
@@ -59,7 +66,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_save_stepAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
         foreach (['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'] as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
         foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
@@ -98,7 +105,7 @@ class ApiInfluencersController extends BaseApiController {
         @ini_set('memory_limit', '512M');
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $file = $_FILES['file'] ?? null;
         if (!$file || ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
             $this->jsonError('No file was received. Please pick a file and try again.');
@@ -123,7 +130,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_trainAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $this->answer(InfluencerActions::train($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0))));
+        $this->answer(InfluencerActions::train($cid, $this->usable($user, (int) ($this->post['id'] ?? 0))));
     }
 
     public function influencer_modelsAction(){
@@ -137,7 +144,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_reference_generateAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
         if (isset($this->post['source_description']))  { $in['source_description'] = $this->text('source_description', 2000); }
         if (isset($this->post['reference_model_key'])) { $in['reference_model_key'] = (string) $this->post['reference_model_key']; }
@@ -147,13 +154,13 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_reference_pickAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $this->answer(InfluencerActions::reference_pick($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
+        $this->answer(InfluencerActions::reference_pick($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
     }
 
     public function influencer_training_set_startAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $this->answer(InfluencerActions::training_set_start($cid, $infl, isset($this->post['steer_text']) ? $this->text('steer_text', 1000) : null));
     }
 
@@ -166,7 +173,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_training_set_retryAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $this->answer(InfluencerActions::training_set_retry($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (int) ($this->post['job_id'] ?? 0)));
+        $this->answer(InfluencerActions::training_set_retry($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), (int) ($this->post['job_id'] ?? 0)));
     }
 
     /** One job with its landed assets (polling from the wizard / generate pages). */
@@ -183,7 +190,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_generate_imageAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('prompt' => $this->text('prompt', 4000));
         foreach (['model_key', 'image_size', 'num_images', 'seed', 'level', 'guidance', 'steps', 'lora_scale'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_image($cid, $infl, $in, 'studio'));
@@ -207,7 +214,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $kind = ((string) ($this->post['kind'] ?? 'image') === 'video') ? 'video' : 'image';
-        $this->answer(InfluencerActions::prompt_auto($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), $this->text('hint', 500), $kind));
+        $this->answer(InfluencerActions::prompt_auto($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->text('hint', 500), $kind));
     }
 
     /** Delete one of her generated/uploaded files from the library. */
@@ -232,7 +239,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_generate_videoAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('asset_id' => (int) ($this->post['asset_id'] ?? 0), 'prompt' => $this->text('prompt', 2000));
         foreach (['model_key', 'duration', 'level'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_video($cid, $infl, $in, 'studio'));
@@ -241,7 +248,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_enhanceAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
-        $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $this->answer(InfluencerActions::enhance($cid, $infl, (int) ($this->post['asset_id'] ?? 0), (string) ($this->post['model_key'] ?? ''), (string) ($this->post['level'] ?? 'safe'), 'studio'));
     }
 }

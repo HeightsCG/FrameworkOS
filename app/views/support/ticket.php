@@ -103,7 +103,7 @@ $u = ($staff && $this->requester) ? $this->requester : null;
                 <div><dt>Replies</dt><dd><?php echo count($replies); ?></dd></div>
             </dl>
 
-            <?php if ($u): $tier = PlanTiers::TIERS[(string) ($u['plan_tier'] ?? '')]['name'] ?? ''; ?>
+            <?php if ($u): $tier = Plan::tier_name($u); ?>
             <div class="sw-tabs" role="tablist" aria-label="Requester">
                 <button type="button" class="sup-stab is-on" role="tab" aria-selected="true" data-stab="diagnosis">Diagnosis</button>
                 <button type="button" class="sup-stab" role="tab" aria-selected="false" data-stab="fixes">Quick Fixes</button>

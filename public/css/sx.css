@@ -461,6 +461,7 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 
 /* Pricing: keep line, comparison checks */
 .sx-plan__keep { margin: 12px 0 0; font-size: .875rem; font-weight: 600; color: var(--sx-acc); }
+.sx-plan__addon { margin: 0 0 16px; font-size: .8125rem; line-height: 1.5; color: var(--sx-muted); }
 .pt-check { color: var(--sx-acc); vertical-align: middle; }
 .pt .sx-table td, .pt .sx-table thead th:not(:first-child) { text-align: center; }
 

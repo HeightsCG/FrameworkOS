@@ -452,6 +452,30 @@ class AnalyticsModel extends Model {
      * Amounts are the gross price the buyer paid, in credits. COLLATE reconciles the
      * differing text collations across the joined title columns.
      */
+    /**
+     * What fans paid the creator since $since_utc, in CENTS, before the platform take rate:
+     * pay-per-view, bundles, paid messages, events and services (credits, $1 = 10), plus one
+     * month of every paid membership that is active now (weekly/yearly prices scaled to a month).
+     */
+    public function gross_sales_cents($creator_id, $since_utc){
+        $c = (int) $creator_id; $s = (string) $since_utc;
+        $r = parent::select(
+            "SELECT COALESCE(SUM(credits), 0) AS n FROM (
+                SELECT pu.price_credits AS credits FROM ppv_unlocks pu WHERE pu.creator_id = :c1 AND pu.created_at >= :s1
+                UNION ALL SELECT bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.created_at >= :s2
+                UNION ALL SELECT mu.price_credits FROM message_unlocks mu WHERE mu.creator_id = :c3 AND mu.created_at >= :s3
+                UNION ALL SELECT er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c4 AND er.status = 'registered' AND er.created_at >= :s4
+                UNION ALL SELECT sp.price_credits FROM service_purchases sp JOIN services sv ON sv.id = sp.service_id WHERE sv.creator_id = :c5 AND sp.status = 'paid' AND sp.created_at >= :s5
+             ) x",
+            array('c1' => $c, 's1' => $s, 'c2' => $c, 's2' => $s, 'c3' => $c, 's3' => $s, 'c4' => $c, 's4' => $s, 'c5' => $c, 's5' => $s));
+        $cents = (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0) * 10;
+        $m = parent::select(
+            "SELECT COALESCE(SUM(CASE billing_interval WHEN 'week' THEN price_cents * 52 / 12 WHEN 'year' THEN price_cents / 12 ELSE price_cents END), 0) AS n
+             FROM creator_subscriptions WHERE creator_id = :c AND status = 'active' AND is_free = 0",
+            array('c' => $c));
+        return $cents + (int) round((float) ((is_array($m) && count($m)) ? $m[0]['n'] : 0));
+    }
+
     public function recent_sales($creator_id, $limit = 8){
         $limit = max(1, min(50, (int) $limit));
         $c = (int) $creator_id;

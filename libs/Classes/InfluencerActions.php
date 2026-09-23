@@ -28,7 +28,7 @@ class InfluencerActions {
         if ($gender === '') { return self::fail('Choose Woman or Man.'); }
         $m = new InfluencersModel();
         $cap = Plan::check_count(InfluencerJobService::user($cid), 'influencers', $m->count_for_creator($cid));
-        if (empty($cap['ok'])) { return self::fail($cap['message'], array_intersect_key($cap, array_flip(array('need_plan', 'need_upgrade', 'limit', 'used')))); }
+        if (empty($cap['ok'])) { return self::fail($cap['message'], array_intersect_key($cap, array_flip(array('need_plan', 'need_upgrade', 'limit', 'used', 'addon', 'addon_price')))); }
         if ($m->name_taken($cid, $name)) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $id = $m->create($cid, $name, $path, 0, $gender);
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }

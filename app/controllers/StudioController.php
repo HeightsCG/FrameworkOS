@@ -71,9 +71,16 @@ class StudioController extends Controller {
                 $row = array('id' => (int) $inf['id'], 'name' => (string) $inf['name'], 'status' => (string) $inf['status'],
                     'share_accounts' => InfluencersModel::share_accounts($inf));
                 $infl_all[] = $row;
-                if ((string) $inf['status'] === 'ready' && !empty($inf['active_model_id'])) { $infl_ready[] = $row; }
+                if ((string) $inf['status'] === 'ready' && !empty($inf['active_model_id']) && !Plan::is_locked($user, 'influencers', (int) $inf['id'])) { $infl_ready[] = $row; }
             }
             $this->view->influencers = array('all' => $infl_all, 'ready' => $infl_ready);
+
+            // Automations the plan allows (Free has none): the Scheduler shows an upgrade prompt instead of the form.
+            $acap = Plan::check_count($user, 'automations', (new SchedulerRulesModel())->count_for_creator((int) ($user['user_id'] ?? 0)));
+            $alim = Plan::limit($user, 'automations');
+            $aup  = PlanTiers::lowest_including('automations');
+            $this->view->automation_plan = array('can_create' => !empty($acap['ok']), 'included' => $alim !== null && (int) $alim >= 0,
+                'message' => (string) ($acap['message'] ?? ''), 'upgrade_name' => $aup ? (string) $aup['name'] : '');
 
             // Brand identity — used to steer AI image generation on-brand.
             $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));

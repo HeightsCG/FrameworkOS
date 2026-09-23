@@ -91,6 +91,8 @@ class InboxAutomationService {
         try {
             $settings = (new InboxSettingsModel())->get_for_creator((int) $creator_id);
             if (empty($settings['cls_enabled'])) { return 0; }
+            $rows = (new UsersModel())->get_user_by_id((int) $creator_id);
+            if (!is_array($rows) || count($rows) !== 1 || !Plan::has_feature($rows[0], 'inbox_ai')) { return 0; }   // plan has no AI replies
             $payload = json_encode(array('id' => 'cls:' . (int) $message_id, 'type' => 'message', 'data' => array(
                 'conversation_id' => (int) $conversation_id, 'message_id' => (int) $message_id,
                 'fan_id' => (int) $fan_id, 'text' => (string) $body)));
@@ -112,7 +114,7 @@ class InboxAutomationService {
 
         $settings = (new InboxSettingsModel())->get_for_creator($creator_id);
         if (empty($settings['cls_enabled']))                      { return self::skip('disabled'); }
-        if (!Plan::can_use_creator_features($owner))                 { return self::skip('plan'); }
+        if (!Plan::has_feature($owner, 'inbox_ai'))               { return self::skip('plan'); }
         if ($text === '')                                         { return self::skip('no_text'); }
         if ((new BlocksModel())->is_blocked($creator_id, $fan_id)) { return self::skip('blocked'); }
 

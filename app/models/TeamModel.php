@@ -29,6 +29,16 @@ class TeamModel extends Model {
         return 1 + (int) (is_array($r) && count($r) ? $r[0]['n'] : 0);
     }
 
+    /** Active team member ids, oldest first (the order plan seat limits keep them unlocked in). */
+    public function member_ids_oldest_first($owner_id){
+        $r = parent::select(
+            "SELECT user_id FROM user_accounts
+             WHERE created_by = :o AND team_role IS NOT NULL AND deleted = 0 AND user_status = 'Active'
+             ORDER BY user_id ASC",
+            array('o' => (int) $owner_id));
+        return array_map('intval', array_column((array) $r, 'user_id'));
+    }
+
     public function is_member($owner_id, $member_id){
         $r = parent::select(
             "SELECT user_id FROM user_accounts

@@ -664,7 +664,7 @@
             <section class="settings__section" data-section="inbox">
                 <div class="settings__section-head">
                     <h2 class="settings__section-title">Inbox Automation</h2>
-                    <p class="settings__section-desc">Answer fan messages in your own voice, automatically. Drafts wait for your approval until you decide to let them send on their own.</p>
+                    <p class="settings__section-desc"><?php echo !empty($this->inbox_ai) ? 'Answer fan messages in your own voice, automatically. Drafts wait for your approval until you decide to let them send on their own.' : 'Welcome and trigger messages go out automatically, once per fan.'; ?></p>
                 </div>
 
                 <?php if (!$this->can_inbox): ?>
@@ -676,18 +676,32 @@
                         </div>
                     </div>
                 <?php else: ?>
-                <?php $is = $this->inbox_settings; ?>
+                <?php $is = $this->inbox_settings; $inbox_ai = !empty($this->inbox_ai); ?>
 
-                <?php if (!$this->claude_ok): ?>
+                <?php if (!$inbox_ai): ?>
+                    <div class="settings__upgrade inbox-upgrade">
+                        <i class="fa-solid fa-lock settings__upgrade-icon"></i>
+                        <div>
+                            <div class="settings__upgrade-title">AI replies start on <?php echo htmlspecialchars((string) $this->inbox_ai_upgrade, ENT_QUOTES, 'UTF-8'); ?></div>
+                            <p class="settings__upgrade-text">Your inbox works as usual and you answer fans yourself. Upgrade to have fan messages answered in your voice.</p>
+                        </div>
+                        <a href="/account/billing" class="btn btn-primary">Upgrade to <?php echo htmlspecialchars((string) $this->inbox_ai_upgrade, ENT_QUOTES, 'UTF-8'); ?></a>
+                    </div>
+                <?php endif; ?>
+
+                <?php if ($inbox_ai && !$this->claude_ok): ?>
                     <p class="inbox-note inbox-note--warn"><i class="fa-solid fa-triangle-exclamation"></i> AI replies are not configured on this server yet.</p>
                 <?php endif; ?>
 
                 <div class="inbox-tabs" id="inboxTabs" role="tablist">
+                    <?php if ($inbox_ai): ?>
                     <button type="button" class="inbox-tabs__tab is-active" data-tab="queue" role="tab">Queue<span class="inbox-tabs__count" id="inboxQueueCount"></span></button>
                     <button type="button" class="inbox-tabs__tab" data-tab="settings" role="tab">Settings</button>
-                    <button type="button" class="inbox-tabs__tab" data-tab="messages" role="tab">Welcome Messages</button>
+                    <?php endif; ?>
+                    <button type="button" class="inbox-tabs__tab<?php echo $inbox_ai ? '' : ' is-active'; ?>" data-tab="messages" role="tab">Welcome Messages</button>
                 </div>
 
+                <?php if ($inbox_ai): ?>
                 <div class="inbox-panel" data-tab="queue">
                 <div class="inbox-block">
                     <div class="inbox-block__head">
@@ -773,7 +787,9 @@
                 </div>
                 </div>
 
-                <div class="inbox-panel" data-tab="messages" hidden>
+                <?php endif; ?>
+
+                <div class="inbox-panel" data-tab="messages"<?php echo $inbox_ai ? ' hidden' : ''; ?>>
                 <div class="inbox-block">
                     <div class="inbox-block__head"><h3 class="inbox-block__title">Welcome &amp; trigger messages</h3></div>
                     <p class="inbox-block__desc">Sent automatically as a direct message, once per fan. Attach media and set a price to sell from the first hello.</p>
@@ -787,7 +803,7 @@
                                 </div>
                                 <span class="inbox-trigger__state" data-role="state">Off</span>
                             </div>
-                            <textarea class="form-control inbox-trigger__input" rows="2" maxlength="2000" placeholder="Write the message, or let AI draft one" data-role="text"></textarea>
+                            <textarea class="form-control inbox-trigger__input" rows="2" maxlength="2000" placeholder="<?php echo $inbox_ai ? 'Write the message, or let AI draft one' : 'Write the message'; ?>" data-role="text"></textarea>
                             <div class="inbox-trigger__media" data-role="media">
                                 <div class="inbox-trigger__thumbs" data-role="thumbs"></div>
                                 <button type="button" class="inbox-trigger__attach" data-role="attach"><i class="fa-solid fa-image"></i> Attach Media</button>
@@ -795,7 +811,7 @@
                             </div>
                             <div class="inbox-trigger__actions">
                                 <span class="inbox-trigger__sent" data-role="sent"></span>
-                                <button type="button" class="btn btn-secondary" data-role="ai" <?php echo $this->claude_ok ? '' : 'disabled'; ?>><i class="fa-solid fa-wand-magic-sparkles"></i> Write with AI</button>
+                                <?php if ($inbox_ai): ?><button type="button" class="btn btn-secondary" data-role="ai" <?php echo $this->claude_ok ? '' : 'disabled'; ?>><i class="fa-solid fa-wand-magic-sparkles"></i> Write with AI</button><?php endif; ?>
                                 <button type="button" class="btn btn-secondary" data-role="off" hidden>Turn Off</button>
                                 <button type="button" class="btn btn-primary" data-role="save">Save</button>
                             </div>
@@ -2646,6 +2662,7 @@ $(function () {
     $('#inboxTabs').on('click', '.inbox-tabs__tab', function () { inbox_tab($(this).data('tab')); });
     var inbox_deep_tab = (params.get('tab') || '').replace(/[^a-z]/g, '');
     if (inbox_deep_tab && $('#inboxTabs [data-tab="' + inbox_deep_tab + '"]').length) { inbox_tab(inbox_deep_tab); }
+    else if ($('#inboxTabs .is-active').data('tab') === 'messages') { setTimeout(function () { load_inbox_triggers(); }, 0); }   // plans without AI replies open on Welcome Messages
 
     var inbox_triggers_loaded = false, inbox_trigger_media = {};
     function load_inbox_triggers() {

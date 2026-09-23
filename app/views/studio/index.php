@@ -210,6 +210,12 @@
                 <p class="cs-empty__text">Set one up and the Studio will generate on-brand content and publish it on your schedule, even while you're away.</p>
                 <button type="button" class="btn btn-primary" id="csSchedEmptyNew"><i class="fa-solid fa-plus"></i> New Automation</button>
             </div>
+            <div class="cs-empty cs-sched-upgrade" id="csSchedUpgrade" hidden>
+                <i class="fa-solid fa-lock cs-empty__icon"></i>
+                <h2 class="cs-empty__title" id="csSchedUpgradeTitle">Upgrade for Automations</h2>
+                <p class="cs-empty__text" id="csSchedUpgradeText">Your plan doesn't include scheduled automations.</p>
+                <a href="/account/billing" class="btn btn-primary" id="csSchedUpgradeBtn">See Plans</a>
+            </div>
             <div class="cs-sched" id="csSchedList" hidden></div>
         </div>
 
@@ -721,6 +727,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'inbox'    => $this->inbox,
     'influencers' => $this->influencers ?? array('all' => array(), 'ready' => array()),
     'brand'    => $this->brand,
+    'automation_plan' => $this->automation_plan ?? null,
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>

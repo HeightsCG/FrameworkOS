@@ -83,7 +83,7 @@ class SeoController extends Controller {
     public static function public_pages(): array {
         $pages = array(
             array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
-            array('path' => '/pricing',  'title' => 'Pricing',  'description' => 'Three monthly plans; the take rate falls as you grow.',                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
+            array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' The take rate falls as you grow. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
@@ -106,6 +106,9 @@ class SeoController extends Controller {
         $l[] = '# ' . $site;
         $l[] = '';
         $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and payouts to your bank. Plans are monthly; the platform take rate falls as the plan grows.';
+        $l[] = '';
+        $l[] = '## Plans';
+        $l[] = '- ' . PagesController::plan_cost_answer();
         $l[] = '';
         $l[] = '## Product';
         foreach (self::public_pages() as $p) { $l[] = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description']; }

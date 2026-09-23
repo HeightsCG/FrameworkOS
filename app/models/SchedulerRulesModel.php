@@ -96,6 +96,12 @@ class SchedulerRulesModel extends Model {
         return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
     }
 
+    /** Automation ids, oldest first (the order plan limits keep them unlocked in). */
+    public function ids_oldest_first($creator_id){
+        $r = parent::select("SELECT id FROM scheduler_rules WHERE creator_id = :c ORDER BY created_at ASC, id ASC", array('c' => (int) $creator_id));
+        return array_map('intval', array_column((array) $r, 'id'));
+    }
+
     public function list_for_creator($creator_id){
         return parent::select("SELECT * FROM scheduler_rules WHERE creator_id = :c ORDER BY created_at DESC",
             array('c' => (int) $creator_id));

@@ -531,7 +531,9 @@ class McpTools {
                 return array('id' => (int) (new SchedulerRulesModel())->create($cid, $a));
             }
             case 'update_automation':     return $ok((new SchedulerRulesModel())->update_rule($cid, $iid, $a));
-            case 'set_automation_active': return $ok((new SchedulerRulesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
+            case 'set_automation_active':
+                if (!empty($a['active']) && Plan::is_locked(self::user($cid), 'automations', $iid)) { throw new RuntimeException(Plan::locked_message(self::user($cid), 'automations')); }
+                return $ok((new SchedulerRulesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));
             case 'delete_automation':     return $ok((new SchedulerRulesModel())->delete_rule($cid, $iid));
 
             // Audience
@@ -559,7 +561,7 @@ class McpTools {
 
             // Promo codes
             case 'create_promo_code': {
-                self::requirePlan($cid, 'promo_codes', 'Discount codes require a Pro or Studio plan');
+                self::requirePlan($cid, 'promo_codes', 'Discount codes require an active plan');
                 return array('id' => (int) (new CreatorPromoCodesModel())->add($cid, self::promoFields($a, null)));
             }
             case 'update_promo_code': {
@@ -570,7 +572,7 @@ class McpTools {
 
             // Bundles
             case 'create_bundle': {
-                self::requirePlan($cid, 'bundles', 'Content bundles require a Pro or Studio plan');
+                self::requirePlan($cid, 'bundles', 'Content bundles require an active plan');
                 $name = trim((string) ($a['name'] ?? '')); $price = (int) ($a['price_credits'] ?? 0);
                 if ($name === '') { throw new InvalidArgumentException('name is required'); }
                 if ($price < 1) { throw new InvalidArgumentException('price_credits must be >= 1'); }
@@ -597,7 +599,7 @@ class McpTools {
             // Media creation
             case 'generate_image': {
                 $user = self::user($cid);
-                self::requirePlan($cid, 'ai_tools', 'AI image generation requires a Pro or Studio plan');
+                self::requirePlan($cid, 'ai_tools', 'AI image generation requires an active plan');
                 if (!S3Service::configured()) { throw new RuntimeException('Image generation unavailable (storage not configured)'); }
                 $prompt = trim((string) ($a['prompt'] ?? ''));
                 if ($prompt === '') { throw new InvalidArgumentException('prompt is required'); }
@@ -691,19 +693,19 @@ class McpTools {
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
             case 'influencer_model_options':  return array('enabled' => InfluencerConfig::enabled(), 'reference' => InfluencerConfig::picker_options('reference'), 'image' => InfluencerConfig::picker_options('image'), 'video' => InfluencerConfig::picker_options('video'), 'enhance' => InfluencerConfig::picker_options('enhance'));
             case 'create_influencer': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::create($cid, (string) ($a['name'] ?? ''), (string) ($a['path'] ?? 'photos'), (string) ($a['gender'] ?? '')));
             }
             case 'update_influencer': {
                 $in = array_intersect_key($a, array_flip(array('name', 'gender', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts')));
-                return self::result(InfluencerActions::update($cid, self::influencer($cid, $a), $in));
+                return self::result(InfluencerActions::update($cid, self::influencer_usable($cid, $a), $in));
             }
             case 'delete_influencer':          return self::result(InfluencerActions::delete($cid, self::influencer($cid, $a)));
             case 'add_influencer_photo': {
                 $user = self::user($cid);
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 $img  = MediaIngestService::fetch_image((string) ($a['url'] ?? ''));
-                return self::result(InfluencerActions::attach_photo($cid, $user, self::influencer($cid, $a), $img['bytes'], $img['ext'], $img['mime'], (string) ($a['role'] ?? 'upload')));
+                return self::result(InfluencerActions::attach_photo($cid, $user, self::influencer_usable($cid, $a), $img['bytes'], $img['ext'], $img['mime'], (string) ($a['role'] ?? 'upload')));
             }
             case 'remove_influencer_image':    return self::result(InfluencerActions::remove_image($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
             case 'delete_influencer_asset':    return self::result(InfluencerActions::delete_asset($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
@@ -713,34 +715,34 @@ class McpTools {
                 return array('images' => InfluencerService::images_json($cid, (int) $infl['id'], $role));
             }
             case 'generate_influencer_reference': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::reference_generate($cid, self::influencer($cid, $a), array_intersect_key($a, array_flip(array('source_description', 'reference_model_key')))));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::reference_generate($cid, self::influencer_usable($cid, $a), array_intersect_key($a, array_flip(array('source_description', 'reference_model_key')))));
             }
-            case 'approve_influencer_reference': return self::result(InfluencerActions::reference_pick($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0)));
+            case 'approve_influencer_reference': return self::result(InfluencerActions::reference_pick($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0)));
             case 'generate_influencer_training_set': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::training_set_start($cid, self::influencer($cid, $a), array_key_exists('steer_text', $a) ? (string) $a['steer_text'] : null));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::training_set_start($cid, self::influencer_usable($cid, $a), array_key_exists('steer_text', $a) ? (string) $a['steer_text'] : null));
             }
             case 'get_influencer_training_set':   return self::result(InfluencerActions::training_set_status($cid, self::influencer($cid, $a)));
-            case 'retry_influencer_training_slot': return self::result(InfluencerActions::training_set_retry($cid, self::influencer($cid, $a), (int) ($a['job_id'] ?? 0)));
+            case 'retry_influencer_training_slot': return self::result(InfluencerActions::training_set_retry($cid, self::influencer_usable($cid, $a), (int) ($a['job_id'] ?? 0)));
             case 'train_influencer': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::train($cid, self::influencer($cid, $a)));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::train($cid, self::influencer_usable($cid, $a)));
             }
             case 'list_influencer_models':     return self::result(InfluencerActions::models($cid, self::influencer($cid, $a)));
             case 'generate_influencer_image': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::generate_image($cid, self::influencer($cid, $a), $a, 'studio'));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::generate_image($cid, self::influencer_usable($cid, $a), $a, 'studio'));
             }
             case 'generate_influencer_video': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::generate_video($cid, self::influencer($cid, $a), $a, 'studio'));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::generate_video($cid, self::influencer_usable($cid, $a), $a, 'studio'));
             }
             case 'enhance_influencer_image': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require a Pro or Studio plan');
-                return self::result(InfluencerActions::enhance($cid, self::influencer($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), (string) ($a['level'] ?? 'safe'), 'studio'));
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerActions::enhance($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), (string) ($a['level'] ?? 'safe'), 'studio'));
             }
-            case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer($cid, $a), (string) ($a['hint'] ?? ''), (($a['kind'] ?? 'image') === 'video') ? 'video' : 'image'));
+            case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer_usable($cid, $a), (string) ($a['hint'] ?? ''), (($a['kind'] ?? 'image') === 'video') ? 'video' : 'image'));
             case 'get_influencer_job': {
                 $job = (new InfluencerJobsModel())->get_one($cid, (int) ($a['job_id'] ?? 0));
                 return array('job' => InfluencerJobService::job_json($cid, self::need($job, 'Job not found')));
@@ -752,6 +754,7 @@ class McpTools {
                 $user = self::user($cid);
                 $rule = (new SchedulerRulesModel())->get_one($cid, $iid);
                 if (!$rule) { throw new InvalidArgumentException('Automation not found'); }
+                if (Plan::is_locked($user, 'automations', (int) $rule['id'])) { throw new RuntimeException(Plan::locked_message($user, 'automations')); }
                 $res = AutoPostService::run_rule($rule, $user);
                 (new SchedulerRunsModel())->add((int) $rule['id'], $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
                 (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
@@ -865,6 +868,13 @@ class McpTools {
     private static function influencer($cid, array $a){
         $id = (int) ($a['influencer_id'] ?? ($a['id'] ?? 0));
         return self::need((new InfluencersModel())->get_one($cid, $id), 'Influencer not found');
+    }
+    /** An influencer the plan lets you use: over-limit ones are kept but locked (Plan::locked_ids). */
+    private static function influencer_usable($cid, array $a){
+        $infl = self::influencer($cid, $a);
+        $user = self::user($cid);
+        if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { throw new RuntimeException(Plan::locked_message($user, 'influencers')); }
+        return $infl;
     }
     /** Shared-service result -> tool payload (errors become tool errors). */
     private static function result(array $r){

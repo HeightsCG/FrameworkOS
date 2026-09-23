@@ -68,6 +68,7 @@
                     'operatingSystem' => 'Web',
                     'url' => $seo_base_raw . '/',
                     'description' => 'A creator platform: one public page at your handle with content, memberships, pay-per-view posts, content bundles, events, services, and tracked links. Publish, schedule, or automate posts; fans pay with credits; creators cash earnings out to their bank.',
+                    'offers' => PagesController::plan_offers(),
                 ],
                 [
                     '@type' => 'FAQPage',
@@ -76,7 +77,7 @@
                         ['@type' => 'Question', 'name' => 'How do fans pay?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Memberships bill on your schedule; everything else uses credits.']],
                         ['@type' => 'Question', 'name' => 'How do I get paid?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Earnings collect as credits, net of your plan\'s fee. Cash out to your bank anytime.']],
                         ['@type' => 'Question', 'name' => 'Can people follow me for free?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes. Free follows, plus an optional free membership tier.']],
-                        ['@type' => 'Question', 'name' => 'What do the plans cost?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Pricing is shown at checkout; the platform fee drops as you move up.']],
+                        ['@type' => 'Question', 'name' => 'What do the plans cost?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => PagesController::plan_cost_answer()]],
                     ],
                 ],
             ],

@@ -40,6 +40,19 @@ class InfluencersController extends Controller {
         $fv = (new FanvueAccountsModel())->get_connected_for_user((int) $user['user_id']);
         if ($fv) { array_unshift($accounts, array('id' => FanvueShareService::ACCOUNT_ID, 'platform' => 'fanvue', 'username' => (string) (($fv['handle'] ?? '') !== '' ? $fv['handle'] : 'Fanvue'))); }
         $this->view->social = array('accounts' => $accounts, 'can_post' => Plan::can_social_post($user));
+        // What the plan allows: create another, add a paid slot (Creator), or upgrade (Free has none).
+        $cap = Plan::check_count($user, 'influencers', (new InfluencersModel())->count_for_creator($creator_id));
+        $lim = Plan::limit($user, 'influencers');
+        $up  = PlanTiers::lowest_including('influencers');
+        $this->view->limit = array(
+            'can_create'   => !empty($cap['ok']),
+            'included'     => $lim !== null && (int) $lim >= 0,
+            'message'      => (string) ($cap['message'] ?? ''),
+            'upgrade_name' => $up ? (string) $up['name'] : '',
+            'addon'        => (string) ($cap['addon'] ?? ''),
+            'addon_price'  => (int) ($cap['addon_price'] ?? 0),
+            'addon_next'   => !empty($cap['addon']) ? Plan::addon_quantity($user, (string) $cap['addon']) + 1 : 0,
+        );
         return $user;
     }
 
@@ -62,9 +75,10 @@ class InfluencersController extends Controller {
         $this->view->page = 'create';
         $id = $this->id_from_url();
         $this->view->influencer = null;
+        if ($id === 0 && empty($this->view->limit['can_create'])) { header('Location: /influencers'); exit; }   // at the plan's limit
         if ($id > 0) {
             $infl = (new InfluencersModel())->get_one((int) $user['user_id'], $id);
-            if (!$infl) { header('Location: /influencers'); exit; }
+            if (!$infl || Plan::is_locked($user, 'influencers', (int) $infl['id'])) { header('Location: /influencers'); exit; }
             $this->view->influencer = InfluencerService::influencer_json((int) $user['user_id'], $infl);
         }
         $this->view->retrain = ((string) (Main::get_url()[3] ?? '') === 'retrain');   // /influencers/create/<id>/retrain
@@ -81,6 +95,7 @@ class InfluencersController extends Controller {
             if (!empty($ready)) { header('Location: /influencers/' . strtolower(str_replace('Action', '', Main::method_name())) . '/' . (int) $ready[0]['id']); exit; }
             header('Location: /influencers'); exit;
         }
+        if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { header('Location: /influencers'); exit; }   // over the plan's limit
         if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { header('Location: /influencers/create/' . (int) $infl['id']); exit; }
         $this->view->influencer = InfluencerService::influencer_json((int) $user['user_id'], $infl);
         return $infl;

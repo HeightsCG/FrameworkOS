@@ -252,6 +252,7 @@ class InfluencerService {
             'trigger_word'        => $active ? (string) $active['trigger_word'] : ($pending ? (string) $pending['trigger_word'] : ''),
             'trained_at'          => $active ? (string) $active['trained_at'] : '',
             'share_accounts'      => InfluencersModel::share_accounts($infl),
+            'locked'              => Plan::is_locked(InfluencerJobService::user($creator_id), 'influencers', (int) $infl['id']),
             'last_error'          => (string) ($infl['last_error'] ?? ''),
             'wizard_step'         => self::resume_step($infl, $counts),
             'counts'              => $counts,

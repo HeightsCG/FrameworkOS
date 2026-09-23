@@ -37,7 +37,7 @@ class BillingModel extends Model {
                 'stripe_price_id'                  => $price_id,
                 // Resolve + cache the code tier once here (at subscribe/renewal) so
                 // entitlement checks are a plain column read, no Stripe call.
-                'plan_tier'                        => StripeService::plan_tier_slug($price_id),
+                'plan_tier'                        => PlanTiers::tier_for_price($price_id),
                 'subscription_status'              => $status,
                 'subscription_current_period_end'  => $current_period_end ? date('Y-m-d H:i:s', (int) $current_period_end) : null,
                 'subscription_cancel_at_period_end'=> $cancel_at_period_end ? 1 : 0,
@@ -46,6 +46,12 @@ class BillingModel extends Model {
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
         );
+    }
+
+    /** The account whose platform plan is this Stripe subscription, or 0. */
+    public function user_id_for_subscription($subscription_id){
+        $r = parent::select("SELECT user_id FROM user_accounts WHERE stripe_subscription_id = :s AND deleted = 0 LIMIT 1", array('s' => (string) $subscription_id));
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['user_id'] : 0;
     }
 
     public function clear_subscription($user_id){

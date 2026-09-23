@@ -141,8 +141,12 @@ class SeoDrafter {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());
             if (empty($t['name'])) { continue; }
             $price = isset($r['amount']) && $r['amount'] !== null ? ('$' . number_format(((int) $r['amount']) / 100) . '/' . (string) ($r['interval'] ?? 'month')) : 'price shown at checkout';
-            $lines[] = 'Plan ' . $t['name'] . ': ' . $price . ', take rate ' . (int) ($lim['fee_percent'] ?? 0) . '%, ' . (int) ($lim['seats'] ?? 1) . ' seat(s), ' . (int) ($lim['ai_credits'] ?? 0) . ' AI credits/month, ' . (int) ($lim['automations'] ?? 0) . ' automations, ' . (int) ($lim['storage_gb'] ?? 0) . ' GB storage.';
+            $bits = array();
+            foreach (PlanTiers::ROWS as $row) { $bits[] = strtolower($row['label']) . ' ' . PlanTiers::fmt_tier_limit($t, $row['key']); }
+            foreach (PlanTiers::FEATURES as $fk => $fl) { $bits[] = html_entity_decode($fl, ENT_QUOTES, 'UTF-8') . (PlanTiers::has_feature($t, $fk) ? ' included' : ' not included'); }
+            $lines[] = 'Plan ' . $t['name'] . ': ' . $price . ', ' . implode(', ', $bits) . '.';
         }
+        if (PagesController::addon_sentence() !== '') { $lines[] = 'Add-ons: ' . PagesController::addon_sentence(); }
         $lines[] = 'Pages you may link to (relative paths only):';
         foreach (SeoController::public_pages() as $p) { $lines[] = '- ' . $p['path'] . ' — ' . $p['title'] . ': ' . $p['description']; }
         try {

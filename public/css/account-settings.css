@@ -15,6 +15,9 @@
 .settings__upgrade-icon{font-size:1.5rem; color:var(--violet);}
 .settings__upgrade-title{font-size:1.02rem; font-weight:600; color:var(--text);}
 .settings__upgrade-text{color:var(--muted); font-size:.9rem; line-height:1.5; margin:.3rem 0 0; max-width:54ch;}
+.inbox-upgrade{margin-bottom:1.4rem;}
+.inbox-upgrade .btn{margin-left:auto; flex-shrink:0;}
+@media (max-width:640px){.inbox-upgrade{flex-wrap:wrap;} .inbox-upgrade .btn{margin-left:0;}}
 .settings__upgrade .btn{margin-left:auto; white-space:nowrap;}
 
 /* sub-nav + content — body fills remaining height; only the content column scrolls */

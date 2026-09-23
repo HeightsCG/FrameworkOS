@@ -15,6 +15,28 @@ class Controller {
         $this->view = new View($this->protected);
         $this->post = self::clean_post_data();
         $this->touch_presence();
+        $this->enforce_team_seat();
+    }
+
+    /**
+     * A collaborator already signed in when the owner's plan dropped below their seat is signed
+     * out on the next request (at most one check a minute). Their account stays; see Plan::locked_ids.
+     */
+    private function enforce_team_seat(){
+        if ((int) Session::get('user_id') <= 0 || (string) Session::get('team_role') === '') { return; }
+        $now = time();
+        if ($now - (int) Session::get('seat_check_at') < 60) { return; }
+        Session::set('seat_check_at', $now);
+        $rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
+        if (!is_array($rows) || count($rows) !== 1 || !Plan::team_member_locked($rows[0])) { return; }
+        Session::destroy();
+        if (strtolower((string) Main::controller_name()) === 'apicontroller' || strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/api/') === 0) {
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => Plan::SEAT_LOCKED_MESSAGE));
+            exit;
+        }
+        header('Location: /');
+        exit;
     }
 
     /**

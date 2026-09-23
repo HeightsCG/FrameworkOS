@@ -106,6 +106,25 @@ class WebhookController extends Controller {
         $obj  = $event->data->object;
         $subs = new CreatorSubscriptionsModel();
 
+        // A creator's own platform plan (not a fan membership on a connected account): keep
+        // user_accounts in step with Stripe, so a plan cancelled at period end becomes Free.
+        if (empty($event->account) && strpos((string) $event->type, 'customer.subscription.') === 0) {
+            $billing = new BillingModel();
+            $uid = $billing->user_id_for_subscription((string) $obj->id);
+            if ($uid > 0) {
+                if ($event->type === 'customer.subscription.deleted' || in_array((string) $obj->status, array('canceled', 'incomplete_expired'), true)) {
+                    $billing->clear_subscription($uid);
+                    (new AccountAddonsModel())->clear($uid);
+                } else {
+                    $item = StripeService::plan_item($obj);
+                    $billing->save_subscription($uid, (string) $obj->id, (string) ($item->price->id ?? ''), (string) $obj->status, $item->current_period_end ?? null, !empty($obj->cancel_at_period_end) ? 1 : 0);
+                }
+                http_response_code(200);
+                echo 'ok';
+                exit;
+            }
+        }
+
         switch ($event->type) {
             case 'customer.subscription.created':
             case 'customer.subscription.updated':

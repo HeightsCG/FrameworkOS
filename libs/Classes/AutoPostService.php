@@ -12,6 +12,7 @@ class AutoPostService {
         $topic      = trim((string) ($rule['topic'] ?? ''));
         if ($creator_id <= 0) { return self::fail(null, 'Missing creator.'); }
         if (!Plan::can_use_creator_features($user)) { return self::fail(null, 'Your plan is inactive. Choose a plan to keep automations running.'); }
+        if (Plan::is_locked($user, 'automations', (int) ($rule['id'] ?? 0))) { return self::fail(null, Plan::locked_message($user, 'automations')); }
         if ($topic === '')    { return self::fail(null, 'This automation has no topic to generate from.'); }
 
         $cb        = (new CreatorBrandModel())->get_for_user($creator_id);

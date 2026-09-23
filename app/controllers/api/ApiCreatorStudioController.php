@@ -426,10 +426,16 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $out        = [];
+        $locked     = Plan::locked_ids($user, 'automations');
         foreach ((new SchedulerRulesModel())->list_for_creator($creator_id) as $r) {
-            $out[] = $this->scheduler_rule_json($r, $tz);
+            $out[] = $this->scheduler_rule_json($r, $tz) + ['locked' => in_array((int) $r['id'], $locked, true)];
         }
-        $this->jsonSuccess(['rules' => $out, 'can_social' => Plan::can_social_post($user)]);
+        $cap = Plan::check_count($user, 'automations', count($out));
+        $lim = Plan::limit($user, 'automations');
+        $up  = PlanTiers::lowest_including('automations');
+        $this->jsonSuccess(['rules' => $out, 'can_social' => Plan::can_social_post($user),
+            'can_create' => !empty($cap['ok']), 'included' => $lim !== null && (int) $lim >= 0,
+            'limit_message' => (string) ($cap['message'] ?? ''), 'upgrade_name' => $up ? (string) $up['name'] : '']);
     }
 
     public function scheduler_saveAction(){
@@ -498,6 +504,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
         $active     = ((string) ($this->post['active'] ?? '0')) === '1';
+        if ($active && Plan::is_locked($user, 'automations', (int) ($this->post['id'] ?? 0))) {
+            $this->jsonError(Plan::locked_message($user, 'automations'), ['need_upgrade' => true]);
+        }
         (new SchedulerRulesModel())->set_active($creator_id, (int) ($this->post['id'] ?? 0), $active);
         $this->jsonSuccess(['active' => $active ? 1 : 0]);
     }
@@ -515,6 +524,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $rule       = (new SchedulerRulesModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
         if (!$rule) { $this->jsonError('Automation not found'); }
+        if (Plan::is_locked($user, 'automations', (int) $rule['id'])) {
+            $this->jsonError(Plan::locked_message($user, 'automations'), ['need_upgrade' => true]);
+        }
         $prev  = (new SchedulerRunsModel())->recent_for_rule((int) $rule['id'], 1);
         $since = (int) ($prev[0]['id'] ?? 0);
         // Runs take up to a minute (image generation, cross-posting): hand it to the queue worker and

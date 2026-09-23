@@ -59,6 +59,8 @@
 .inf-state--training{ background:var(--info-bg); color:var(--info); }
 .inf-state--ready{ background:var(--success-bg); color:var(--success); }
 .inf-state--failed{ background:var(--danger-bg); color:var(--danger); }
+.inf-state--locked{ background:#f1f0f6; color:#6b6779; }
+.inf-card--locked .inf-card__media{ opacity:.45; filter:grayscale(1); }
 
 /* ---- path chooser ---- */
 .inf-chooser{ max-width:820px; }
@@ -281,3 +283,9 @@
 .inf .inf-btn--danger{ color:var(--danger); }
 .inf .inf-btn--danger:hover{ border-color:var(--danger); background:var(--danger-bg); color:var(--danger); }
 .inf-result__actions--only{ margin-top:0; padding-top:0; border-top:none; }
+
+/* Low-balance link next to the cost of a run */
+.inf-buy-credits{ margin-left:.35rem; font-weight:600; color:var(--violet); text-decoration:none; }
+.inf-buy-credits:hover{ text-decoration:underline; }
+.inf-buy-credits:focus-visible{ outline:2px solid var(--violet); outline-offset:2px; border-radius:2px; }
+.inf-upgrade{ padding:2.5rem 1.5rem 2rem; }

@@ -501,14 +501,80 @@ class StripeService {
      * period (and the monthly AI credit grant) stays put. Throws on Stripe errors so the
      * caller can tell a declined card from anything else.
      */
+    /** Price ids that bill add-ons (plans.php '_addons'), not plans. */
+    private static function addon_price_ids(): array
+    {
+        $ids = array();
+        foreach (PlanTiers::addons() as $a) { if (!empty($a['stripe_price_id'])) { $ids[] = (string) $a['stripe_price_id']; } }
+        return $ids;
+    }
+
+    /** The subscription item that bills the plan (a subscription may also carry add-on items). */
+    public static function plan_item($sub)
+    {
+        $addons = self::addon_price_ids();
+        foreach ((array) ($sub->items->data ?? array()) as $item) {
+            if (!in_array((string) ($item->price->id ?? ''), $addons, true)) { return $item; }
+        }
+        return $sub->items->data[0] ?? null;
+    }
+
+    /** The subscription item billing an add-on price, or null. */
+    public static function addon_item($sub, $addon_price_id)
+    {
+        foreach ((array) ($sub->items->data ?? array()) as $item) {
+            if ((string) ($item->price->id ?? '') === (string) $addon_price_id) { return $item; }
+        }
+        return null;
+    }
+
+    /**
+     * Set an add-on's quantity on the platform subscription. $prorate: charge the difference now
+     * (adding) or change only what the next invoice bills (removing, which takes effect at period
+     * end). Quantity 0 removes the line item. Returns the updated subscription.
+     */
+    public static function set_addon_quantity($subscription_id, $addon_price_id, $quantity, $prorate)
+    {
+        $client = self::client();
+        $sub    = $client->subscriptions->retrieve($subscription_id, array('expand' => array('items.data')));
+        $item   = self::addon_item($sub, $addon_price_id);
+        $quantity = max(0, (int) $quantity);
+        if ($quantity === 0) {
+            if (!$item) { return $sub; }
+            $line = array('id' => $item->id, 'deleted' => true);
+        } elseif ($item) {
+            $line = array('id' => $item->id, 'quantity' => $quantity);
+        } else {
+            $line = array('price' => (string) $addon_price_id, 'quantity' => $quantity);
+        }
+        return $client->subscriptions->update($subscription_id, array(
+            'items'              => array($line),
+            'proration_behavior' => $prorate ? 'always_invoice' : 'none',
+            'payment_behavior'   => 'error_if_incomplete',
+            'expand'             => array('items.data'),
+        ));
+    }
+
+    /**
+     * Move the platform subscription to another plan price (prorated, same renewal date). Add-on
+     * items the new plan doesn't take (e.g. extra influencers when moving Creator -> Studio) are
+     * removed in the same update, credited for the unused time.
+     */
     public static function change_subscription_price($subscription_id, $price_id)
     {
         $client = self::client();
         $sub    = $client->subscriptions->retrieve($subscription_id, array('expand' => array('items.data')));
-        $item   = $sub->items->data[0] ?? null;
+        $item   = self::plan_item($sub);
         if (!$item) { throw new RuntimeException('Subscription has no items'); }
+        $new_tier = PlanTiers::tier_for_price($price_id);
+        $items    = array(array('id' => $item->id, 'price' => (string) $price_id));
+        foreach (PlanTiers::addons() as $a) {
+            if (empty($a['stripe_price_id']) || in_array($new_tier, (array) ($a['plans'] ?? array()), true)) { continue; }
+            $ai = self::addon_item($sub, $a['stripe_price_id']);
+            if ($ai) { $items[] = array('id' => $ai->id, 'deleted' => true); }
+        }
         return $client->subscriptions->update($subscription_id, array(
-            'items'                => array(array('id' => $item->id, 'price' => (string) $price_id)),
+            'items'                => $items,
             'proration_behavior'   => 'always_invoice',
             'billing_cycle_anchor' => 'unchanged',
             'cancel_at_period_end' => false,

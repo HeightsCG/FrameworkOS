@@ -180,3 +180,10 @@
 #dashPosts td.dash__td--social{ white-space:nowrap; }
 #dashPosts td.dash__td--social .dash__plats{ justify-content:flex-end; }
 #dashPosts td.dash__td--social .dash__num-sub{ margin-top:.2rem; }
+
+/* Upgrade nudge: shown only when a higher plan would have cost less over the last 30 days */
+.dash-nudge{ display:flex; align-items:center; justify-content:space-between; gap:1.2rem; background:#fff; border:1px solid var(--dash-border); border-radius:var(--r-sm); box-shadow:var(--dash-ishadow); padding:1rem 1.2rem; margin-bottom:1.2rem; }
+.dash-nudge__title{ font-size:.98rem; font-weight:600; color:var(--text); }
+.dash-nudge__text{ margin:.25rem 0 0; font-size:.85rem; line-height:1.5; color:var(--muted); max-width:70ch; }
+.dash-nudge__btn{ flex-shrink:0; }
+@media (max-width:640px){ .dash-nudge{ flex-direction:column; align-items:flex-start; } }

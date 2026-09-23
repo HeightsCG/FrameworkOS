@@ -11,6 +11,9 @@ class ApiInboxController extends BaseApiController {
         }
         $f['persona']      = html_entity_decode((string) ($this->post['persona'] ?? ''), ENT_QUOTES, 'UTF-8');
         $f['avoid_topics'] = html_entity_decode((string) ($this->post['avoid_topics'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if (!empty($f['cls_enabled']) && !Plan::has_feature($user, 'inbox_ai')) {
+            $this->jsonError(Plan::feature_message('inbox_ai'), ['need_upgrade' => true]);
+        }
 
         $clean = (new InboxSettingsModel())->save((int) $user['user_id'], $f);
         $this->jsonSuccess(['message' => 'Inbox settings saved', 'settings' => $clean]);
@@ -55,6 +58,7 @@ class ApiInboxController extends BaseApiController {
     /** Try the current persona/guardrails on a sample fan message. Nothing is stored or sent. */
     public function inbox_test_draftAction(){
         $user   = $this->inbox_user();
+        if (!Plan::has_feature($user, 'inbox_ai')) { $this->jsonError(Plan::feature_message('inbox_ai'), ['need_upgrade' => true]); }
         $sample = trim(html_entity_decode((string) ($this->post['sample_text'] ?? ''), ENT_QUOTES, 'UTF-8'));
         if ($sample === '') {
             $this->jsonError('Type a sample message first.');
@@ -121,6 +125,7 @@ class ApiInboxController extends BaseApiController {
         $trigger = (string) ($this->post['trigger'] ?? '');
         if (!AutoMessagesModel::is_trigger($trigger)) { $this->jsonError('Unknown trigger.'); }
         if (!empty($this->post['ai_generate'])) {
+            if (!Plan::has_feature($user, 'inbox_ai')) { $this->jsonError(Plan::feature_message('inbox_ai'), ['need_upgrade' => true]); }
             if (!ClaudeService::configured()) { $this->jsonError('AI is not configured on this server.'); }
             $ip = $this->get_ip_address();
             if ($this->loginAttemptsModel->count_recent($ip, 'inbox_test', 1) >= 10) {

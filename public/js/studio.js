@@ -1788,6 +1788,7 @@ jQuery(function ($) {
     // Scheduler (automations)
     // =====================================================================
     var schedModal, schedRules = [], schedRunning = {};
+    var schedPlan = CFG.automation_plan || { can_create: true, included: true, message: '', upgrade_name: '' };   // what the plan allows; refreshed by scheduler_list
     var DOW_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
     var schedForm = { audience: 'free', cadence: 'daily' };
 
@@ -1801,13 +1802,20 @@ jQuery(function ($) {
                 $('#csSchedLoading').prop('hidden', true);
                 if (!o || !o.success) { $('#csSchedError').prop('hidden', false); return; }
                 schedRules = o.rules || [];
+                schedPlan = { can_create: o.can_create !== false, included: o.included !== false, message: o.limit_message || '', upgrade_name: o.upgrade_name || '' };
                 renderSchedRules();
             });
     }
 
     function renderSchedRules() {
         var $list = $('#csSchedList');
-        if (!schedRules.length) { $list.prop('hidden', true).empty(); $('#csSchedEmpty').prop('hidden', false); return; }
+        // Not on this plan (Free): an upgrade prompt instead of the empty state; saved ones still list, locked.
+        $('#csSchedUpgrade').prop('hidden', schedPlan.included);
+        if (!schedPlan.included) {
+            if (schedPlan.upgrade_name) { $('#csSchedUpgradeTitle').text('Automations Start on ' + schedPlan.upgrade_name); $('#csSchedUpgradeBtn').text('Upgrade to ' + schedPlan.upgrade_name); }
+            $('#csSchedUpgradeText').text('Set one up and the Studio generates on-brand content and publishes it on your schedule. Your plan doesn\'t include automations' + (schedRules.length ? ', so the ones below are saved but paused.' : '.'));
+        }
+        if (!schedRules.length) { $list.prop('hidden', true).empty(); $('#csSchedEmpty').prop('hidden', !schedPlan.included); return; }
         $('#csSchedEmpty').prop('hidden', true);
         $list.prop('hidden', false).empty();
         schedRules.forEach(function (r) { $list.append(schedCard(r)); });
@@ -1830,6 +1838,12 @@ jQuery(function ($) {
                 ? '<span class="cs-sched__metaitem cs-sched__metaitem--fail" title="' + esc(r.last_message || '') + '"><i class="fa-solid fa-circle-exclamation"></i>Last run failed' + (r.last_message ? ': ' + esc(r.last_message) : '') + '</span>'
                 : '');
         var stTitle = r.active ? 'Active — posting on schedule. Click to pause.' : 'Paused. Click to activate.';
+        if (r.locked) {   // over the plan's limit: kept, not deleted, but it doesn't run
+            return $('<div class="cs-sched__card is-paused is-locked" data-id="' + r.id + '"><div class="cs-sched__body"><div class="cs-sched__top"><span class="cs-sched__name">' + esc(r.name) + '</span>' +
+                '<span class="cs-sched__status"><i class="fa-solid fa-lock"></i> Locked</span></div><p class="cs-sched__topic">' + esc(body) + '</p>' +
+                '<div class="cs-sched__meta"><span class="cs-sched__metaitem">Over your plan\'s automation limit. Saved, not running. <a href="/account/billing">Upgrade</a> to turn it back on.</span></div></div>' +
+                '<div class="cs-sched__actions"><button type="button" class="cs-sched__btn cs-sched__btn--icon cs-sched__btn--danger" data-sched-del aria-label="Delete" title="Delete"><i class="fa-solid fa-trash-can"></i></button></div></div>');
+        }
         return $(
             '<div class="cs-sched__card' + (r.active ? '' : ' is-paused') + '" data-id="' + r.id + '">' +
             '<div class="cs-sched__body">' +
@@ -1858,7 +1872,13 @@ jQuery(function ($) {
         );
     }
 
-    $('#csSchedNew, #csSchedEmptyNew').on('click', function () { openSchedForm(null, 'post'); });
+    function schedLimitPrompt() {
+        Swal.fire({ title: schedPlan.included ? 'Automation limit reached' : 'Upgrade for automations', text: schedPlan.message,
+            showCancelButton: true, reverseButtons: true, confirmButtonText: 'See Plans', cancelButtonText: 'Not Now',
+            customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false })
+            .then(function (r) { if (r.isConfirmed) { window.location.href = '/account/billing'; } });
+    }
+    $('#csSchedNew, #csSchedEmptyNew').on('click', function () { if (!schedPlan.can_create) { schedLimitPrompt(); return; } openSchedForm(null, 'post'); });
     // Deep links from the Influencers pages: #automation-new-<id> opens a preset automation,
     // #library-influencer-<id> shows her media in the Library.
     (function () {
@@ -1872,7 +1892,7 @@ jQuery(function ($) {
         m = /^#library-influencer-(\d+)$/.exec(window.location.hash || '');
         if (m && $('#csFilterInfluencer').length) { gotoLibraryTab(); $('#csFilterInfluencer').val(m[1]); state.filters.influencer = m[1]; loadLibrary(); }
     })();
-    $('#csSchedNewMsg').on('click', function () { openSchedForm(null, 'message'); });
+    $('#csSchedNewMsg').on('click', function () { if (!schedPlan.can_create) { schedLimitPrompt(); return; } openSchedForm(null, 'message'); });
     $('#csSchedList').on('click', '[data-sched-edit]', function () {
         var id = $(this).closest('.cs-sched__card').data('id');
         openSchedForm(schedRules.filter(function (r) { return r.id == id; })[0] || null);

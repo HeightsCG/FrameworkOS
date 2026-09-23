@@ -16,6 +16,9 @@ class MessageBlastService {
             if (!Plan::can_use_creator_features($user)) {
                 return self::fail('Your plan does not include scheduled messages.');
             }
+            if (Plan::is_locked($user, 'automations', (int) ($rule['id'] ?? 0))) {
+                return self::fail(Plan::locked_message($user, 'automations'));
+            }
             $targets = SchedulerRulesModel::targets($rule);
             if (empty($targets['cls'])) {
                 return self::fail('No audience selected for this message.');

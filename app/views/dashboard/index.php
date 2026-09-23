@@ -102,6 +102,16 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         <?php endforeach; ?>
     </div>
 
+    <?php if (!empty($this->nudge)): $nd = $this->nudge; ?>
+    <div class="dash-nudge">
+        <div class="dash-nudge__main">
+            <div class="dash-nudge__title">You'd have kept $<?php echo number_format($nd['savings_cents'] / 100, 2); ?> more last month on <?php echo htmlspecialchars((string) $nd['tier']['name'], ENT_QUOTES, 'UTF-8'); ?></div>
+            <p class="dash-nudge__text">On $<?php echo number_format($nd['gross_cents'] / 100, 2); ?> of sales in the last 30 days, your plan and fees cost $<?php echo number_format($nd['current_cents'] / 100, 2); ?>. <?php echo htmlspecialchars((string) $nd['tier']['name'], ENT_QUOTES, 'UTF-8'); ?> would have cost $<?php echo number_format($nd['other_cents'] / 100, 2); ?>, including its $<?php echo number_format((int) $nd['tier']['price']); ?> monthly price and <?php echo (int) $nd['tier']['limits']['fee_percent']; ?>% take rate.</p>
+        </div>
+        <a href="/account/billing" class="btn btn-primary dash-nudge__btn">Upgrade to <?php echo htmlspecialchars((string) $nd['tier']['name'], ENT_QUOTES, 'UTF-8'); ?></a>
+    </div>
+    <?php endif; ?>
+
     <div class="dash__tabs" id="dashTabs" role="tablist">
         <button type="button" class="dash__tab is-active" data-panel="revenue" role="tab"><i class="fa-solid fa-sack-dollar"></i> Revenue</button>
         <button type="button" class="dash__tab" data-panel="content" role="tab"><i class="fa-solid fa-photo-film"></i> Content</button>

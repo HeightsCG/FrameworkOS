@@ -10,6 +10,7 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'social'     => $this->social ?? array('accounts' => array(), 'can_post' => false),
     'config'     => (array) ($this->config ?? array()),
     'can_ai'     => !empty($this->can_ai),
+    'limit'      => (array) ($this->limit ?? array()),
 ), JSON_UNESCAPED_SLASHES); ?>;
 </script>
 <?php if (!empty($this->needs_plan)): ?>

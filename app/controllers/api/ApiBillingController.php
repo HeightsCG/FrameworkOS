@@ -11,6 +11,11 @@ class ApiBillingController extends BaseApiController {
         if (empty($this->post['price_id'])) {
             $this->jsonError('Please choose a plan');
         }
+        // Only a price one of our plans defines can be subscribed to (app/config/plans.php), and never a retired plan.
+        $new_tier = PlanTiers::tier_for_price((string) $this->post['price_id']);
+        if ($new_tier === '' || PlanTiers::retired($new_tier)) {
+            $this->jsonError('That plan is not available.');
+        }
 
         try {
             $stripe  = StripeService::client();
@@ -79,7 +84,7 @@ class ApiBillingController extends BaseApiController {
                 $this->jsonError('Could not initialize payment');
             }
 
-            $period_end = $subscription->items->data[0]->current_period_end ?? null;
+            $period_end = StripeService::plan_item($subscription)->current_period_end ?? null;
             $this->billingModel->save_subscription($user_id, $subscription->id, $this->post['price_id'], $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
 
             $this->jsonSuccess(['mode' => $mode, 'client_secret' => (string) $client_secret, 'subscription_id' => $subscription->id, 'amount_due' => (int) ($subscription->latest_invoice->amount_due ?? 0), 'currency' => (string) ($subscription->latest_invoice->currency ?? 'usd'), 'promo_label' => !empty($promo) ? $promo['label'] : '', 'message' => 'Subscription started']);
@@ -113,11 +118,9 @@ class ApiBillingController extends BaseApiController {
         if ($price_id === (string) ($user['stripe_price_id'] ?? '')) {
             $this->jsonError('That is already your plan.');
         }
-        $known = false;
-        foreach (StripeService::get_plans() as $p) {
-            if ($p['price_id'] === $price_id) { $known = true; break; }
-        }
-        if (!$known) {
+        // The price must belong to a plan we define (app/config/plans.php) that is still offered.
+        $to_tier = PlanTiers::tier_for_price($price_id);
+        if ($to_tier === '' || PlanTiers::retired($to_tier)) {
             $this->jsonError('That plan is not available.');
         }
 
@@ -131,14 +134,77 @@ class ApiBillingController extends BaseApiController {
             $this->jsonError('Could not change the plan. Please try again.');
         }
 
-        $period_end = $sub->items->data[0]->current_period_end ?? null;
+        $period_end = StripeService::plan_item($sub)->current_period_end ?? null;
         $this->billingModel->save_subscription($user_id, $sub->id, $price_id, $sub->status, $period_end, $sub->cancel_at_period_end ? 1 : 0);
+        // Add-ons the new plan doesn't take were removed from the subscription above; forget them here too.
+        $new_tier = PlanTiers::tier_for_price($price_id);
+        foreach (PlanTiers::addons() as $a) {
+            if (!in_array($new_tier, (array) ($a['plans'] ?? array()), true)) { (new AccountAddonsModel())->clear($user_id, $a['key']); }
+        }
 
         // Moving up mid-period: the grant tops the balance up to the new plan's amount right away.
         $fresh = $this->userModel->get_user_by_id($user_id)[0];
         Plan::grant_monthly($fresh);
 
         $this->jsonSuccess(['message' => 'Your plan is now ' . Plan::tier_name($fresh), 'tier' => Plan::tier($fresh)]);
+    }
+
+    /**
+     * Set how many of an add-on (plans.php '_addons', e.g. extra AI influencer slots) the account
+     * holds. Adding charges the prorated difference now; removing lowers what the next invoice
+     * bills and keeps the slots until the period ends. Owner only, on a plan that offers it.
+     */
+    public function addon_setAction(){
+        $user = $this->require_creator('owner');
+        $uid  = (int) $user['user_id'];
+        $a    = PlanTiers::addon((string) ($this->post['addon'] ?? ''));
+        if (!$a || empty($a['stripe_price_id'])) { $this->jsonError('That add-on is not available.'); }
+        $tier = Plan::tier($user);
+        if (!Plan::has_paid_plan($user) || !in_array($tier, (array) ($a['plans'] ?? array()), true)) {
+            $this->jsonError($a['name'] . ' is only available on the ' . implode(', ', array_map(function ($k) { $t = PlanTiers::get($k); return $t ? $t['name'] : $k; }, (array) $a['plans'])) . ' plan.');
+        }
+        if (!empty($user['subscription_cancel_at_period_end'])) { $this->jsonError('Resume your plan before changing add-ons.'); }
+        $max    = (int) ($a['max'] ?? 0);
+        $target = (int) ($this->post['quantity'] ?? -1);
+        if ($target < 0 || $target > $max) { $this->jsonError('Choose between 0 and ' . $max . '.'); }
+
+        $m       = new AccountAddonsModel();
+        $row     = $m->get($uid, $a['key']);
+        $current = Plan::addon_quantity($user, $a['key']);                                            // entitled now
+        $billed  = $row ? (int) ($row['quantity_next'] !== null ? $row['quantity_next'] : $row['quantity']) : 0;   // on the next invoice
+        if ($target === $billed) { $this->jsonError('No change.'); }
+        $sub_id  = (string) $user['stripe_subscription_id'];
+
+        try {
+            if ($target > $current) {
+                // Undo a pending removal first without charging (those slots are already paid for), then prorate the rest.
+                if ($billed < $current) { StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $current, false); }
+                $sub = StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $target, true);
+                $m->save($uid, $a['key'], array('quantity' => $target, 'quantity_next' => null, 'next_at' => null,
+                    'stripe_item_id' => ($it = StripeService::addon_item($sub, $a['stripe_price_id'])) ? $it->id : null));
+                $msg = 'Added ' . ($target - $current) . ' slot' . ($target - $current === 1 ? '' : 's') . '. You now have ' . $target . ' extra.';
+            } else {
+                $sub = StripeService::set_addon_quantity($sub_id, $a['stripe_price_id'], $target, false);
+                $end = !empty($user['subscription_current_period_end']) ? (string) $user['subscription_current_period_end'] : null;
+                $it  = StripeService::addon_item($sub, $a['stripe_price_id']);
+                if ($target === $current) {
+                    $m->save($uid, $a['key'], array('quantity' => $current, 'quantity_next' => null, 'next_at' => null, 'stripe_item_id' => $it ? $it->id : null));
+                    $msg = 'Removal cancelled';
+                } else {
+                    $m->save($uid, $a['key'], array('quantity' => $current, 'quantity_next' => $target, 'next_at' => $end, 'stripe_item_id' => $it ? $it->id : null));
+                    $msg = 'You keep ' . $current . ' until ' . ($end ? date('M j', strtotime($end . ' UTC')) : 'the end of the period') . ', then ' . $target;
+                }
+            }
+        } catch (\Stripe\Exception\CardException $e) {
+            error_log('[stripe] addon_set card: ' . $e->getMessage());
+            $this->jsonError('We couldn\'t charge your card. Update your payment method and try again.');
+        } catch (\Throwable $e) {
+            error_log('[stripe] addon_set: ' . $e->getMessage());
+            $this->jsonError('Could not change the add-on. Please try again.');
+        }
+        Plan::forget_addons();
+        $fresh = $this->userModel->get_user_by_id($uid)[0];
+        $this->jsonSuccess(['message' => $msg, 'quantity' => $target, 'limit' => Plan::limit($fresh, (string) $a['limit'])]);
     }
 
     /* ---------- AI credits ($1 = 1 credit) ---------- */
@@ -245,12 +311,14 @@ class ApiBillingController extends BaseApiController {
 
             $stripe       = StripeService::client();
             $subscription = $stripe->subscriptions->retrieve($sub_id);
-            $price_id     = $subscription->items->data[0]->price->id ?? ($user['stripe_price_id'] ?? '');
-            $period_end   = $subscription->items->data[0]->current_period_end ?? null;
+            $item         = StripeService::plan_item($subscription);
+            $price_id     = $item->price->id ?? ($user['stripe_price_id'] ?? '');
+            $period_end   = $item->current_period_end ?? null;
 
             // A dead subscription is not a plan — drop it rather than caching its status.
             if (in_array((string) $subscription->status, ['canceled', 'incomplete_expired'], true)) {
                 $this->billingModel->clear_subscription($user_id);
+                (new AccountAddonsModel())->clear($user_id);
                 $response['success'] = true;
                 $response['status']  = '';
                 $response['message'] = 'Subscription updated';
@@ -259,9 +327,6 @@ class ApiBillingController extends BaseApiController {
             }
 
             $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
-            $this->notify($user_id, 'subscriptions', $cancel ? 'Plan will cancel' : 'Plan resumed',
-                $cancel ? ('Your Creator Link Studio plan ends ' . ($period_end ? 'on ' . date('M j, Y', (int) $period_end) : 'at the end of the billing period') . '. Resume anytime before then.') : 'Your Creator Link Studio plan will renew as usual.',
-                '/account/billing', $cancel ? 'fa-heart-crack' : 'fa-heart');
 
             $response['success'] = true;
             $response['status']  = $subscription->status;
@@ -304,6 +369,7 @@ class ApiBillingController extends BaseApiController {
 
             StripeService::client()->subscriptions->cancel($sub_id);
             $this->billingModel->clear_subscription($user_id);
+            (new AccountAddonsModel())->clear($user_id);
 
             $this->jsonSuccess(['message' => 'Your subscription has been canceled']);
 
@@ -566,10 +632,14 @@ class ApiBillingController extends BaseApiController {
 
             $stripe       = StripeService::client();
             $subscription = $stripe->subscriptions->update($sub_id, ['cancel_at_period_end' => (bool) $cancel]);
-            $price_id     = $subscription->items->data[0]->price->id ?? ($user['stripe_price_id'] ?? '');
-            $period_end   = $subscription->items->data[0]->current_period_end ?? null;
+            $item         = StripeService::plan_item($subscription);
+            $price_id     = $item->price->id ?? ($user['stripe_price_id'] ?? '');
+            $period_end   = $item->current_period_end ?? null;
 
             $this->billingModel->save_subscription($user_id, $subscription->id, $price_id, $subscription->status, $period_end, $subscription->cancel_at_period_end ? 1 : 0);
+            $this->notify($user_id, 'subscriptions', $cancel ? 'Plan will cancel' : 'Plan resumed',
+                $cancel ? ('Your ' . Plan::tier_name($user) . ' plan ends ' . ($period_end ? 'on ' . date('M j, Y', (int) $period_end) : 'at the end of the billing period') . '. After that you\'re on Free. Resume anytime before then.') : 'Your Creator Link Studio plan will renew as usual.',
+                '/account/billing', $cancel ? 'fa-heart-crack' : 'fa-heart');
 
             $response['success'] = true;
             $response['message'] = $success_message;

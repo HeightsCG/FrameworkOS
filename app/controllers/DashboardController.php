@@ -56,6 +56,14 @@ class DashboardController extends Controller {
         $this->view->share_stats       = $a->share_stats($user_id, $start_utc);
         $this->view->timezone          = $tz;
 
+        // Upgrade nudge: last 30 days of sales priced on the current plan vs each higher plan.
+        $this->view->nudge = null;
+        if ($user && !Permissions::is_team_member()) {
+            $gross = $a->gross_sales_cents($user_id, gmdate('Y-m-d H:i:s', time() - 30 * 86400));
+            $this->view->nudge = Plan::upgrade_savings($user, $gross);
+            if ($this->view->nudge) { $this->view->nudge['gross_cents'] = $gross; }
+        }
+
         $this->view->render();
     }
 
