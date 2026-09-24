@@ -17,6 +17,7 @@
             <p class="cs-head__sub">Upload once, use everywhere. Everything for your content lives here.</p>
         </div>
         <div class="cs-head__actions">
+            <?php echo Tutorials::button('13'); ?>
             <button type="button" class="btn btn-secondary cs-privacy" id="csPrivacy" aria-pressed="false" title="Blur every thumbnail and preview in the Studio. Hover to peek."><i class="fa-solid fa-eye-slash" aria-hidden="true"></i> <span>Privacy</span></button>
             <div class="dropdown cs-create">
                 <button type="button" class="btn btn-primary dropdown-toggle" id="csCreateBtn" data-bs-toggle="dropdown" aria-expanded="false">
@@ -89,6 +90,7 @@
                     <option value="unused">Not used yet</option>
                 </select>
                 <button type="button" class="btn btn-link cs-clear" id="csClearFilters" hidden>Clear</button>
+                <?php echo Tutorials::button('16', 'data-push'); ?>
             </div>
 
             <div class="cs-dropzone" id="csDropzone">
@@ -155,6 +157,7 @@
                     </div>
                     <h2 class="cs-calnav__title" id="csCalTitle">—</h2>
                 </div>
+                <?php echo Tutorials::button('17', 'data-push'); ?>
                 <div class="cs-seg cs-seg--sm" id="csCalView">
                     <button type="button" class="cs-seg__opt is-on" data-cal="month">Month</button>
                     <button type="button" class="cs-seg__opt" data-cal="week">Week</button>
@@ -290,6 +293,7 @@
                     </div>
                 </div>
                 <div class="cs-pe__headtools">
+                    <?php echo Tutorials::button('14'); ?>
                     <button type="button" class="cs-pe__pvtoggle" id="csPePreviewBtn" aria-pressed="false" aria-controls="csPePreview">Preview</button>
                     <button type="button" class="btn-close cs-pe__close" id="csPeClose" aria-label="Close"></button>
                 </div>
@@ -387,6 +391,7 @@
                     </section>
 
                     <section class="cs-pe__section" data-section="publish" aria-labelledby="csPeH_publish" hidden>
+                        <?php echo Tutorials::button('15', 'data-float'); ?>
                         <h3 class="cs-pe__h" id="csPeH_publish" tabindex="-1">Publish</h3>
                         <p class="cs-pe__sub">Choose when this post should become available.</p>
 
@@ -524,6 +529,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate an image</h5>
+                <?php echo Tutorials::button('20', 'data-push'); ?>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -587,7 +593,10 @@
                         <span class="cs-ae__status" id="csSchedStatus" hidden><span class="cs-ae__statusdot" aria-hidden="true"></span><span id="csSchedStatusText">Active</span></span>
                     </div>
                 </div>
-                <button type="button" class="btn-close cs-ae__close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="cs-ae__headtools">
+                    <?php echo Tutorials::button('18', 'data-kind="post"') . Tutorials::button('19', 'data-kind="message" hidden'); ?>
+                    <button type="button" class="btn-close cs-ae__close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
             </header>
 
             <div class="cs-ae__body">

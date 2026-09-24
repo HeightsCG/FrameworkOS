@@ -44,6 +44,21 @@
 .sup-faq__item p{ margin:0; padding:0 1.1rem .9rem; font-size:.85rem; line-height:1.6; color:#8a8797; }
 .sup-faq__item a{ font-weight:600; color:var(--violet7,#4636c4); }
 
+/* Tutorials: walkthrough videos from Tutorials.php, played by the site.js [data-tutorial] modal */
+.sup-tuts + .sup-tuts{ margin-top:1.25rem; }
+.sup-tuts__h{ margin:0 0 .6rem; font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#8a8797; }
+.sup-tuts__grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
+.sup-tut{ display:flex; flex-direction:column; padding:0; border:1px solid #e7e5f0; border-radius:var(--r-sm); background:#fff; text-align:left; font:inherit; cursor:pointer; overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); transition:border-color .12s,box-shadow .12s; }
+.sup-tut:hover{ border-color:#c9c5da; box-shadow:0 1px 2px rgba(20,16,40,.04),0 10px 24px -18px rgba(40,32,90,.35); }
+.sup-tut:focus-visible{ outline:none; border-color:var(--violet,#5b4be0); box-shadow:var(--ring); }
+.sup-tut__thumb{ position:relative; display:block; aspect-ratio:16/9; background:#16131f center/cover no-repeat; }
+.sup-tut__play{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; border-radius:50%; background:rgba(255,255,255,.92); color:#1c1830; font-size:.9rem; padding-left:3px; opacity:0; transition:opacity .15s; }
+.sup-tut:hover .sup-tut__play, .sup-tut:focus-visible .sup-tut__play{ opacity:1; }
+.sup-tut__len{ position:absolute; right:8px; bottom:8px; padding:2px 6px; border-radius:2px; background:rgba(14,12,24,.78); color:#fff; font-size:.72rem; font-weight:600; font-variant-numeric:tabular-nums; }
+.sup-tut__meta{ display:flex; align-items:baseline; gap:.5rem; padding:.7rem .85rem .8rem; }
+.sup-tut__num{ flex:none; font-size:.74rem; font-weight:700; color:#a6a3b3; font-variant-numeric:tabular-nums; }
+.sup-tut__title{ min-width:0; font-size:.88rem; font-weight:600; line-height:1.35; color:#1c1830; }
+
 /* Modal form (same as Services) */
 .sup-field{ display:flex; flex-direction:column; gap:.35rem; margin-bottom:.9rem; }
 .sup-field label{ font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:#8a8797; }

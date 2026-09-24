@@ -308,7 +308,7 @@ $(function () {
 <div class="billing">
 
     <?php if (empty($this->is_creator)): ?>
-    <div class="billing__head"><h1 class="billing__title">Billing</h1></div>
+    <div class="billing__head tut-head"><h1 class="billing__title">Billing</h1><?php echo Tutorials::button('02'); ?></div>
     <div class="blist">
         <div class="blist__row">
             <div class="blist__body blist__body--inline">
@@ -343,8 +343,9 @@ $(function () {
     $next_up = '';   // the one plan to push: the cheapest offered plan above the current one
     foreach ($ordered as $row) { if (BillingService::plan_cents($row['tier']['key']) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $row['tier']['key']; break; } }
 ?>
-    <div class="billing__head">
+    <div class="billing__head tut-head">
         <h1 class="billing__title">Billing</h1>
+        <?php echo Tutorials::button('02'); ?>
     </div>
 
 

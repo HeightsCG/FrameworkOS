@@ -32,6 +32,26 @@ $faq = SupportModel::QUICK_ANSWERS;
     </div>
     <?php endif; ?>
 
+    <?php $tut_sections = Tutorials::by_section(); if (!empty($tut_sections)): ?>
+    <h2 class="sup__h2">Tutorials</h2>
+    <?php foreach ($tut_sections as $sec): ?>
+    <div class="sup-tuts">
+        <h3 class="sup-tuts__h"><?php echo $e($sec['title']); ?></h3>
+        <div class="sup-tuts__grid">
+            <?php foreach ($sec['videos'] as $v): ?>
+            <button type="button" class="sup-tut" <?php echo Tutorials::attrs($v); ?>>
+                <span class="sup-tut__thumb"<?php echo $v['poster'] !== '' ? ' style="background-image:url(\'' . $e($v['poster']) . '\')"' : ''; ?>>
+                    <span class="sup-tut__play"><i class="fa-solid fa-play" aria-hidden="true"></i></span>
+                    <?php if ($v['length'] !== ''): ?><span class="sup-tut__len"><?php echo $e($v['length']); ?></span><?php endif; ?>
+                </span>
+                <span class="sup-tut__meta"><span class="sup-tut__num"><?php echo $e($v['id']); ?></span><span class="sup-tut__title"><?php echo $e($v['title']); ?></span></span>
+            </button>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+    <?php endif; ?>
+
     <h2 class="sup__h2">Quick Answers</h2>
     <div class="sup-faq">
         <?php foreach ($faq as $qa): ?>

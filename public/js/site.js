@@ -305,6 +305,42 @@ $(document).ready(function() {
         });
     });
 
+    // Walkthrough videos — any [data-tutorial] element (Tutorials::button, /support list) opens
+    // the player. It can open over another modal (post editor, automation editor), so it sits above it.
+    $(document).on('click', '[data-tutorial]', function (e) {
+        e.preventDefault();
+        if (!window.bootstrap) { return; }
+        var $el = $(this);
+        var $m = $('#tutModal');
+        if (!$m.length) {
+            $m = $('<div class="modal fade tut-modal" id="tutModal" tabindex="-1" aria-hidden="true" aria-labelledby="tutModalTitle">'
+                + '<div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content">'
+                + '<div class="modal-header"><h5 class="modal-title" id="tutModalTitle"></h5>'
+                + '<button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>'
+                + '<div class="modal-body tut-modal__body"><video class="tut-modal__video" controls playsinline preload="metadata"></video>'
+                + '<details class="tut-modal__steps"><summary>Transcript<i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary><ol></ol></details>'
+                + '</div></div></div></div>').appendTo('body');
+            $m.on('shown.bs.modal', function () {
+                var v = $m.find('video')[0];
+                v.focus();   // take focus from the editor underneath, so Escape closes the video and not the editor
+                var p = v.play(); if (p && p.catch) { p.catch(function () {}); }
+            });
+            $m.on('hidden.bs.modal', function () {
+                var v = $m.find('video')[0]; v.pause(); v.removeAttribute('src'); v.load();
+                if ($('.modal.show').length) { $('body').addClass('modal-open'); }   // keep the modal underneath scroll-locked
+                var opener = $m.data('opener'); if (opener && document.body.contains(opener)) { opener.focus(); }
+            });
+        }
+        var steps = []; try { steps = JSON.parse($el.attr('data-tut-steps') || '[]'); } catch (err) {}
+        $m.data('opener', this);
+        $m.find('.modal-title').text($el.attr('data-tut-title') || 'Walkthrough');
+        $m.find('video').attr({ src: $el.attr('data-tut-src'), poster: $el.attr('data-tut-poster') || null });
+        $m.find('.tut-modal__steps').prop('open', false).prop('hidden', !steps.length)
+            .find('ol').empty().append(steps.map(function (s) { return $('<li>').text(s); }));
+        bootstrap.Modal.getOrCreateInstance($m[0]).show();
+        $('.modal-backdrop').last().addClass('tut-backdrop');
+    });
+
     // Global loading bar — shows on every AJAX request so users see activity.
     var $loadbar = $('<div id="app-loadbar"></div>').appendTo('body');
     $(document).ajaxStart(function () {

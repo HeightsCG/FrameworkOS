@@ -36,6 +36,7 @@
         <div class="settings__content">
 
             <section class="settings__section is-active" data-section="account">
+                <?php echo Tutorials::bar('08'); ?>
                 <?php $my_av = (string) ($this->my_avatar ?? ''); ?>
                 <div class="myav">
                     <label class="uname__label">Profile Photo</label>
@@ -117,6 +118,7 @@
             </section>
 
             <section class="settings__section" data-section="security">
+                <?php echo Tutorials::bar('09'); ?>
                 <div class="acct-card">
                     <h3 class="acct-card__title">Password</h3>
                     <p class="acct-card__desc">Change the password you use to sign in.</p>
@@ -162,6 +164,7 @@
             </section>
 
             <section class="settings__section" data-section="notifications">
+                <?php echo Tutorials::bar('10'); ?>
 
                 <div class="notif">
                     <div class="notif__row notif__row--head">
@@ -190,6 +193,7 @@
             </section>
 
             <section class="settings__section" data-section="creator">
+                <?php echo Tutorials::bar($this->is_creator ? '03' : '01'); ?>
                 <?php if (!$this->is_creator): ?>
                 <div class="creator-cta">
                     <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
@@ -300,6 +304,7 @@
             <?php if ($this->can_content): $cb = $this->creator_brand; ?>
             <section class="settings__section" data-section="brand">
                 <div class="settings__section-head">
+                    <?php echo Tutorials::button('04', 'data-float'); ?>
                     <h2 class="settings__section-title">Brand Identity</h2>
                     <p class="settings__section-desc">Paste your website and we'll draft a brand kit — name, tagline, voice, colours, and keywords — from your own content. Review, tweak, then save.</p>
                 </div>
@@ -358,6 +363,7 @@
 
             <?php if ($this->can_manage): ?>
             <section class="settings__section" data-section="plans">
+                <?php echo Tutorials::bar('05'); ?>
                 <div class="links-head">
                     <h3 class="links-head__title">Membership Plans</h3>
                     <button type="button" class="btn btn-secondary" id="plan_add_btn"><i class="fa-solid fa-plus"></i> Add Plan</button>
@@ -499,6 +505,7 @@
             </section>
 
             <section class="settings__section" data-section="wallet">
+                <?php echo Tutorials::bar('11'); ?>
                 <?php
                     $ar     = $this->autoreplenishment;
                     $ar_on  = !empty($ar['enabled']);
@@ -623,6 +630,7 @@
             </section>
 
             <section class="settings__section" data-section="privacy">
+                <?php echo Tutorials::bar('12'); ?>
                 <div class="notif">
                     <div class="notif__row notif__row--single">
                         <div class="notif__label">
@@ -638,6 +646,7 @@
             </section>
 
             <section class="settings__section" data-section="blocked">
+                <?php echo Tutorials::bar('12'); ?>
                 <div class="acct-panel">
                 <div class="acct-list" id="block_list">
                     <?php if (empty($this->blocked_users)): ?>
@@ -663,6 +672,7 @@
             <?php if ($this->can_manage): ?>
             <section class="settings__section" data-section="inbox">
                 <div class="settings__section-head">
+                    <?php echo Tutorials::button('07', 'data-float'); ?>
                     <h2 class="settings__section-title">Inbox Automation</h2>
                     <p class="settings__section-desc"><?php echo !empty($this->inbox_ai) ? 'Answer fan messages in your own voice, automatically. Drafts wait for your approval until you decide to let them send on their own.' : 'Welcome and trigger messages go out automatically, once per fan.'; ?></p>
                 </div>
@@ -825,6 +835,7 @@
 
             <section class="settings__section" data-section="connected">
                 <div class="settings__section-head">
+                    <?php echo Tutorials::button('06', 'data-float'); ?>
                     <h2 class="settings__section-title">Integrations</h2>
                     <p class="settings__section-desc">Connect the platforms you publish to and the tools that work on your behalf.</p>
                 </div>

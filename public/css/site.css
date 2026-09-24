@@ -258,3 +258,34 @@ body.has-setup-widget .app-content{ padding-bottom:104px; }
 
 /* Consistency (2026-09-22): Bootstrap's default 6px corners never show in the app. Controls are 2px, boxes use --r-sm. */
 .app-shell .form-control, .app-shell .form-select, .app-shell .input-group-text, .app-shell .btn{ border-radius:2px; }
+
+/* Walkthrough videos (Tutorials.php): the "Watch How" button on each page and the player modal from site.js. */
+.tut-btn{ display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border:1px solid transparent; border-radius:2px; background:none; color:var(--t2); font:inherit; font-size:.84rem; font-weight:600; white-space:nowrap; cursor:pointer; transition:background .12s,color .12s,border-color .12s; }
+.tut-btn i{ font-size:.95rem; color:var(--violet); }
+.tut-btn:hover{ background:var(--vsoft); color:var(--text); }
+.tut-btn:active{ background:rgba(91,75,224,.14); }
+.tut-btn:focus-visible{ outline:none; box-shadow:var(--ring); border-color:var(--violet); }
+.tut-btn__len{ font-size:.74rem; font-weight:500; color:var(--muted2); font-variant-numeric:tabular-nums; }
+.tut-bar{ display:flex; justify-content:flex-end; margin:-4px 0 8px; }
+.tut-modal{ z-index:1800; }   /* above the Studio editors (1600) and their pickers (1700) */
+body .modal-backdrop.tut-backdrop{ z-index:1750; }
+.tut-modal .modal-content{ border:0; border-radius:var(--r-sm); overflow:hidden; }
+.tut-modal .modal-header{ padding:12px 16px; border-bottom:1px solid var(--line); }
+.tut-modal .modal-title{ font-size:1rem; font-weight:700; color:var(--text); }
+.tut-modal__body{ padding:0; }
+.tut-modal__video{ display:block; width:100%; aspect-ratio:16/9; background:#0e0c18; }
+.tut-modal__steps{ border-top:1px solid var(--line); }
+.tut-modal__steps summary{ list-style:none; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; font-size:.86rem; font-weight:600; color:var(--t2); cursor:pointer; }
+.tut-modal__steps summary::-webkit-details-marker{ display:none; }
+.tut-modal__steps summary:hover{ background:var(--line2); }
+.tut-modal__steps summary:focus-visible{ outline:none; box-shadow:inset var(--ring); }
+.tut-modal__steps summary i{ font-size:.72rem; color:var(--muted2); transition:transform .2s; }
+.tut-modal__steps[open] summary i{ transform:rotate(180deg); }
+.tut-modal__steps ol{ margin:0; padding:0 16px 16px 36px; max-height:220px; overflow-y:auto; font-size:.86rem; line-height:1.6; color:var(--t2); }
+.tut-modal__steps li + li{ margin-top:4px; }
+.tut-btn[data-float]{ float:right; margin:0 0 8px 16px; }
+.tut-head{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.tut-btn[data-push]{ margin-left:auto; }
+.tut-btn[hidden]{ display:none; }
+.tut-bar .tut-btn, .tut-btn[data-float]{ margin-right:-10px; }   /* text lines up with the card edge below */
+.modal-header .tut-btn[data-push] + .btn-close{ margin-left:8px; }
