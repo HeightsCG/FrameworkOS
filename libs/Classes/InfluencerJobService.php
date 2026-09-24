@@ -111,7 +111,7 @@ class InfluencerJobService {
             $class = InfluencerConfig::provider_class((string) $job['provider']);
             if ($class !== '') { try { $class::cancel(self::handle($job)); } catch (\Throwable $e) {} }
         }
-        if ($n === 1) { self::refund_credits($job); }
+        if ($n === 1) { self::refund_credits($job); self::drop_placeholder($job); }
         return array('ok' => $n === 1, 'error' => $n === 1 ? '' : 'This job can no longer be cancelled');
     }
 
@@ -485,9 +485,18 @@ class InfluencerJobService {
         if (!$job) { return self::out('failed', true, null, (string) $error); }
         $n = $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
             'error' => mb_substr((string) $error, 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));
-        if ($n === 1) { self::refund_credits($job); }
+        if ($n === 1) { self::refund_credits($job); self::drop_placeholder($m->get_by_id($job['id'])); }
         self::after_terminal($m->get_by_id($job['id']));
         return self::out('failed', true, null, (string) $error);
+    }
+
+    /** A failed/cancelled job leaves nothing in the library: remove the 'processing' tile it claimed for its output. */
+    private static function drop_placeholder($job){
+        $aid = (int) ($job['result_asset_id'] ?? 0);
+        if ($aid <= 0) { return; }
+        $mm = new MediaAssetsModel();
+        $a = $mm->get_one((int) $job['creator_id'], $aid);
+        if ($a && (string) $a['status'] !== 'ready') { $mm->soft_delete((int) $job['creator_id'], $aid); }
     }
 
     /** Side effects once a job is done/failed (training bookkeeping, wizard status). */
