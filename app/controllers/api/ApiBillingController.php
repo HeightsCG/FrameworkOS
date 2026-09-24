@@ -45,7 +45,8 @@ class ApiBillingController extends BaseApiController {
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
                 'recurring' => BillingService::money($q['recurring']) . ' / month for ' . $t['name'], 'next_at' => date('M j, Y', strtotime($q['next_at'] . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card'],
-                'promo_ok' => in_array($q['mode'], array('subscribe', 'upgrade'), true), 'promo_label' => (string) ($q['promo_label'] ?? '')]);
+                'promo_ok' => in_array($q['mode'], array('subscribe', 'upgrade'), true), 'promo_label' => (string) ($q['promo_label'] ?? ''),
+                'today_zero' => (int) $q['today'] === 0, 'card_needed' => !empty($q['card_needed'])]);
         }
         if (isset($this->post['pack'])) {
             $d = (int) $this->post['pack'];

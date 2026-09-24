@@ -91,7 +91,33 @@ $(function () {
         var rows = (q.lines || []).map(function (l) { return '<div class="disc__row' + (l.amount.charAt(0) === '-' ? ' disc__row--off' : '') + '"><span>' + esc(l.label) + '</span><span>' + esc(l.amount) + '</span></div>'; }).join('');
         $('#disc_lines').html(rows);
         $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
-        $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : 'Pay ' + q.today);
+        $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : (q.today_zero ? 'Start Plan' : 'Pay ' + q.today));
+        $('#disc_terms').text(q.mode === 'downgrade'
+            ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
+            : (q.today_zero && q.card_needed === false)
+            ? 'Nothing is charged today, and your promo keeps this plan free every month. Cancel anytime from Billing.'
+            : q.today_zero
+            ? 'Nothing is charged today. Then ' + q.recurring + ', charged to your card on ' + q.next_at + ' and monthly after that. Cancel anytime from Billing before then and you won\u2019t be charged.'
+            : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
+        show_card(q);
+    }
+    /* Card section: the saved card, a card form, or nothing when this change never charges (card_needed === false). */
+    function show_card(q) {
+        if (q.card_needed === false || q.mode === 'downgrade') {
+            card_elements = null;
+            $('#disc_card').hide().html(''); $('#disc_card_form').hide().html('');
+            $('#confirm_go').prop('disabled', false);
+        } else if (q.has_card) {
+            card_elements = null;
+            $('#disc_card').html('Charged to ' + esc(q.card) + ' <button type="button" class="disc__change" id="disc_change">Change</button>').show();
+            $('#disc_card_form').hide().html('');
+            $('#confirm_go').prop('disabled', false);
+        } else if (!$('#disc_card_form').children().length) {   // keep a card form that is already open (and anything typed in it)
+            card_elements = null;
+            $('#disc_card').hide();
+            $('#disc_card_form').show();
+            mount_card('#disc_card_form');
+        }
     }
     /* Promo code (plan checkouts): re-quote with it; the same code goes with the charge. */
     $('#disc_promo_apply').on('click', function () {
@@ -114,22 +140,11 @@ $(function () {
             if (!q.success) { toastr.error(q.message); return; }
             pending = action; quote_body = body;
             $('#confirm_title').text(title);
-            show_quote(q);
             $('#disc_promo_code').val('');
             $('#disc_promo').prop('hidden', !q.promo_ok);
-            $('#disc_terms').text(q.mode === 'downgrade'
-                ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
-                : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
-            card_elements = null;
-            if (q.has_card || q.mode === 'downgrade') {
-                $('#disc_card').html(q.mode === 'downgrade' ? '' : 'Charged to ' + esc(q.card) + ' <button type="button" class="disc__change" id="disc_change">Change</button>').show();
-                $('#disc_card_form').hide().html('');
-            } else {
-                $('#disc_card').hide();
-                $('#disc_card_form').show();
-                mount_card('#disc_card_form');
-            }
+            $('#disc_card_form').hide().html('');   // fresh card form per checkout (show_quote mounts it if needed)
             $('#confirm_go').prop('disabled', false);
+            show_quote(q);
             $('#confirm_modal').modal('show');
         });
     }

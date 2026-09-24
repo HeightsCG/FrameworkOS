@@ -436,15 +436,33 @@ class BillingService {
     public static function quote_plan($user_id, $plan, $code = ''): array
     {
         $q = self::quote_plan_base($user_id, $plan);
-        if (empty($q['ok']) || trim((string) $code) === '' || !in_array($q['mode'], array('subscribe', 'upgrade'), true)) { return $q; }
-        $pr = self::resolve_promo($user_id, $code, (int) $q['lines'][0][1]);
-        if (empty($pr['ok'])) { return array('ok' => false, 'message' => $pr['message']); }
-        $off = self::promo_off((int) $q['lines'][0][1], $pr['promo']);   // the new plan's charge is always the first line
-        $q['lines'][] = array('Promo ' . $pr['promo']['promo_code'] . ' (' . $pr['label'] . ')', -$off);
-        $q['today'] = max(0, (int) array_sum(array_column($q['lines'], 1)));
-        $q['promo'] = $pr['promo'];
-        $q['promo_label'] = $pr['label'];
+        if (empty($q['ok'])) { return $q; }
+        if (trim((string) $code) !== '' && in_array($q['mode'], array('subscribe', 'upgrade'), true)) {
+            $pr = self::resolve_promo($user_id, $code, (int) $q['lines'][0][1]);
+            if (empty($pr['ok'])) { return array('ok' => false, 'message' => $pr['message']); }
+            $off = self::promo_off((int) $q['lines'][0][1], $pr['promo']);   // the new plan's charge is always the first line
+            $q['lines'][] = array('Promo ' . $pr['promo']['promo_code'] . ' (' . $pr['label'] . ')', -$off);
+            $q['today'] = max(0, (int) array_sum(array_column($q['lines'], 1)));
+            $q['promo'] = $pr['promo'];
+            $q['promo_label'] = $pr['label'];
+        }
+        $q['card_needed'] = self::card_needed(self::account($user_id), $q);
         return $q;
+    }
+
+    /**
+     * Does this plan change need a card on file? Not for a downgrade, and not when nothing is due today
+     * and nothing will ever be due: a forever promo covering the whole plan, with no credit pack or
+     * extra AI influencers renewing alongside it. A one-time or limited promo still needs a card for the renewal.
+     */
+    private static function card_needed(array $acct, array $q): bool
+    {
+        if ($q['mode'] === 'downgrade') { return false; }
+        if ((int) $q['today'] > 0) { return true; }
+        $p = $q['promo'] ?? null;
+        $free_forever = is_array($p) && $p['promo_periods_left'] === null && self::promo_off((int) $q['recurring'], $p) >= (int) $q['recurring'];
+        $pack = $acct['pack_dollars_next'] !== null ? (int) $acct['pack_dollars_next'] : (int) $acct['pack_dollars'];
+        return !$free_forever || $pack > 0 || (int) $acct['influencer_slots'] > 0;
     }
 
     private static function quote_plan_base($user_id, $plan): array
@@ -487,6 +505,8 @@ class BillingService {
         $q = self::quote_plan($uid, $plan, $code);
         if (empty($q['ok'])) { return array('status' => 'failed', 'message' => $q['message']); }
         $name = PlanTiers::get($plan)['name'];
+        // $0 today but a renewal to come: the card has to be on file now, or the plan lapses at renewal.
+        if (!empty($q['card_needed']) && (string) ($acct['stripe_payment_method_id'] ?? '') === '') { return array('status' => 'failed', 'message' => 'Add a card first.'); }
         if ($q['mode'] === 'downgrade') {
             (new BillingAccountsModel())->save($uid, array('pending_plan_key' => $plan, 'cancel_at_period_end' => 0));
             self::mirror($uid);
