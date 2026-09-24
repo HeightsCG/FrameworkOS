@@ -44,8 +44,17 @@
 .sup-faq__item p{ margin:0; padding:0 1.1rem .9rem; font-size:.85rem; line-height:1.6; color:#8a8797; }
 .sup-faq__item a{ font-weight:600; color:var(--violet7,#4636c4); }
 
+/* Page tabs: Requests / Tutorials / Quick Answers (same look as the Billing tabs) */
+.sup-tabs{ display:flex; gap:.8rem; border-bottom:1px solid #e7e5f0; margin:0 0 1.5rem -.4rem; overflow-x:auto; }
+.sup-tab{ position:relative; display:inline-flex; align-items:center; gap:.45rem; padding:.7rem .4rem; border:0; border-radius:2px; background:none; font:inherit; font-size:.92rem; font-weight:500; color:#8a8797; white-space:nowrap; cursor:pointer; }
+.sup-tab:hover{ color:#1c1830; }
+.sup-tab.is-on{ color:#1c1830; font-weight:600; }
+.sup-tab.is-on::after{ content:""; position:absolute; left:.4rem; right:.4rem; bottom:0; height:2px; background:var(--violet,#5b4be0); }
+.sup-tab:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--violet,#5b4be0); }
+.sup-panel[hidden]{ display:none; }
+
 /* Tutorials: walkthrough videos from Tutorials.php, played by the site.js [data-tutorial] modal */
-.sup-tuts + .sup-tuts{ margin-top:1.25rem; }
+.sup-tuts + .sup-tuts{ margin-top:2rem; }
 .sup-tuts__h{ margin:0 0 .6rem; font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:#8a8797; }
 .sup-tuts__grid{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
 .sup-tut{ display:flex; flex-direction:column; padding:0; border:1px solid #e7e5f0; border-radius:var(--r-sm); background:#fff; text-align:left; font:inherit; cursor:pointer; overflow:hidden; box-shadow:0 1px 2px rgba(20,16,40,.04); transition:border-color .12s,box-shadow .12s; }

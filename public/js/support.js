@@ -3,6 +3,28 @@ $(document).ready(function () {
 
     function parse(r) { try { return typeof r === 'string' ? JSON.parse(r) : r; } catch (e) { return null; } }
 
+    /* ---- Page tabs (Requests / Tutorials / Quick Answers); #tutorials etc. opens a tab directly ---- */
+    function show_tab(k, focus) {
+        var $t = $('.sup-tab[data-tab="' + k + '"]');
+        if (!$t.length) { return; }
+        $('.sup-tab').each(function () { var on = $(this).attr('data-tab') === k; $(this).toggleClass('is-on', on).attr({ 'aria-selected': on ? 'true' : 'false', tabindex: on ? '0' : '-1' }); });
+        $('.sup-panel').each(function () { this.hidden = $(this).attr('data-tab') !== k; });
+        if (focus) { $t.trigger('focus'); }
+        if (window.location.hash !== '#' + k) { history.replaceState(null, '', '#' + k); }
+    }
+    $('.sup-tab').on('click', function () { show_tab($(this).attr('data-tab')); });
+    $('.sup-tabs').on('keydown', '.sup-tab', function (e) {
+        var $all = $('.sup-tab'), i = $all.index(this);
+        if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+            e.preventDefault();
+            var n = $all.eq((i + (e.key === 'ArrowRight' ? 1 : -1) + $all.length) % $all.length);
+            show_tab(n.attr('data-tab'), true);
+        }
+    });
+    function tab_from_hash() { if (window.location.hash) { show_tab(window.location.hash.slice(1).replace(/[^a-z]/g, '')); } }
+    $(window).on('hashchange', tab_from_hash);
+    tab_from_hash();
+
     /* ---- New request (modal, same pattern as Services) ---- */
     var modalEl = document.getElementById('supportModal');
     var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;

@@ -5,62 +5,79 @@ $fmt = $this->fmt;
 $status_label = array('open' => 'Waiting on support', 'answered' => 'Support replied', 'closed' => 'Closed');
 $faq = SupportModel::QUICK_ANSWERS;
 ?>
+<?php
+$tut_sections = Tutorials::by_section();
+// Land on Requests when there are some; otherwise the tutorials are the useful first view.
+$tab = !empty($this->tickets) ? 'requests' : (!empty($tut_sections) ? 'tutorials' : 'requests');
+$tabs = array('requests' => 'Requests', 'tutorials' => 'Tutorials', 'answers' => 'Quick Answers');
+if (empty($tut_sections)) { unset($tabs['tutorials']); }
+?>
 <div class="sup">
     <header class="sup__head">
         <h1 class="sup__title">Support</h1>
         <button type="button" class="sup-btn sup-btn--primary" id="supCreate"><i class="fa-solid fa-plus"></i> New Request</button>
     </header>
 
-    <?php if (empty($this->tickets)): ?>
-    <div class="sup-empty">
-        <span class="sup-empty__ic"><i class="fa-solid fa-life-ring"></i></span>
-        <h2 class="sup-empty__t">No Requests Yet</h2>
-    </div>
-    <?php else: ?>
-    <div class="sup-table">
-        <div class="sup-table__head"><span>Request</span><span>Topic</span><span>Last update</span><span>Status</span></div>
-        <div class="sup-table__body">
-            <?php foreach ($this->tickets as $t): ?>
-            <a class="sup-row" href="/support/ticket/<?php echo (int) $t['id']; ?>">
-                <span class="sup-cell sup-cell--title"><span class="sup-cell__name"><?php echo $e($t['subject']); ?></span></span>
-                <span class="sup-cell sup-cell--muted"><?php echo $e($this->categories[$t['category']] ?? 'Something else'); ?></span>
-                <span class="sup-cell sup-cell--muted"><?php echo $e($fmt($t['last_message_at'])); ?></span>
-                <span class="sup-cell"><span class="sup-status sup-status--<?php echo $e($t['status']); ?>"><span class="sup-status__dot"></span><?php echo $e($status_label[$t['status']] ?? $t['status']); ?></span></span>
-            </a>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endif; ?>
-
-    <?php $tut_sections = Tutorials::by_section(); if (!empty($tut_sections)): ?>
-    <h2 class="sup__h2">Tutorials</h2>
-    <?php foreach ($tut_sections as $sec): ?>
-    <div class="sup-tuts">
-        <h3 class="sup-tuts__h"><?php echo $e($sec['title']); ?></h3>
-        <div class="sup-tuts__grid">
-            <?php foreach ($sec['videos'] as $v): ?>
-            <button type="button" class="sup-tut" <?php echo Tutorials::attrs($v); ?>>
-                <span class="sup-tut__thumb"<?php echo $v['poster'] !== '' ? ' style="background-image:url(\'' . $e($v['poster']) . '\')"' : ''; ?>>
-                    <span class="sup-tut__play"><i class="fa-solid fa-play" aria-hidden="true"></i></span>
-                    <?php if ($v['length'] !== ''): ?><span class="sup-tut__len"><?php echo $e($v['length']); ?></span><?php endif; ?>
-                </span>
-                <span class="sup-tut__meta"><span class="sup-tut__num"><?php echo $e($v['id']); ?></span><span class="sup-tut__title"><?php echo $e($v['title']); ?></span></span>
-            </button>
-            <?php endforeach; ?>
-        </div>
-    </div>
-    <?php endforeach; ?>
-    <?php endif; ?>
-
-    <h2 class="sup__h2">Quick Answers</h2>
-    <div class="sup-faq">
-        <?php foreach ($faq as $qa): ?>
-        <details class="sup-faq__item">
-            <summary><?php echo $e($qa[0]); ?><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
-            <p><?php echo $e($qa[1]); ?> <a href="<?php echo $e($qa[2]); ?>">Go There</a></p>
-        </details>
+    <nav class="sup-tabs" role="tablist" aria-label="Support">
+        <?php foreach ($tabs as $k => $t): ?>
+        <button type="button" class="sup-tab<?php echo $k === $tab ? ' is-on' : ''; ?>" role="tab" id="supTab_<?php echo $k; ?>" data-tab="<?php echo $k; ?>" aria-controls="supPanel_<?php echo $k; ?>" aria-selected="<?php echo $k === $tab ? 'true' : 'false'; ?>" tabindex="<?php echo $k === $tab ? '0' : '-1'; ?>"><?php echo $e($t); ?></button>
         <?php endforeach; ?>
-    </div>
+    </nav>
+
+    <section class="sup-panel" role="tabpanel" id="supPanel_requests" aria-labelledby="supTab_requests" data-tab="requests"<?php echo $tab === 'requests' ? '' : ' hidden'; ?>>
+        <?php if (empty($this->tickets)): ?>
+        <div class="sup-empty">
+            <span class="sup-empty__ic"><i class="fa-solid fa-life-ring"></i></span>
+            <h2 class="sup-empty__t">No Requests Yet</h2>
+        </div>
+        <?php else: ?>
+        <div class="sup-table">
+            <div class="sup-table__head"><span>Request</span><span>Topic</span><span>Last update</span><span>Status</span></div>
+            <div class="sup-table__body">
+                <?php foreach ($this->tickets as $t): ?>
+                <a class="sup-row" href="/support/ticket/<?php echo (int) $t['id']; ?>">
+                    <span class="sup-cell sup-cell--title"><span class="sup-cell__name"><?php echo $e($t['subject']); ?></span></span>
+                    <span class="sup-cell sup-cell--muted"><?php echo $e($this->categories[$t['category']] ?? 'Something else'); ?></span>
+                    <span class="sup-cell sup-cell--muted"><?php echo $e($fmt($t['last_message_at'])); ?></span>
+                    <span class="sup-cell"><span class="sup-status sup-status--<?php echo $e($t['status']); ?>"><span class="sup-status__dot"></span><?php echo $e($status_label[$t['status']] ?? $t['status']); ?></span></span>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
+    </section>
+
+    <?php if (!empty($tut_sections)): ?>
+    <section class="sup-panel" role="tabpanel" id="supPanel_tutorials" aria-labelledby="supTab_tutorials" data-tab="tutorials"<?php echo $tab === 'tutorials' ? '' : ' hidden'; ?>>
+        <?php foreach ($tut_sections as $sec): ?>
+        <div class="sup-tuts">
+            <h2 class="sup-tuts__h"><?php echo $e($sec['title']); ?></h2>
+            <div class="sup-tuts__grid">
+                <?php foreach ($sec['videos'] as $v): ?>
+                <button type="button" class="sup-tut" <?php echo Tutorials::attrs($v); ?>>
+                    <span class="sup-tut__thumb"<?php echo $v['poster'] !== '' ? ' style="background-image:url(\'' . $e($v['poster']) . '\')"' : ''; ?>>
+                        <span class="sup-tut__play"><i class="fa-solid fa-play" aria-hidden="true"></i></span>
+                        <?php if ($v['length'] !== ''): ?><span class="sup-tut__len"><?php echo $e($v['length']); ?></span><?php endif; ?>
+                    </span>
+                    <span class="sup-tut__meta"><span class="sup-tut__num"><?php echo $e($v['id']); ?></span><span class="sup-tut__title"><?php echo $e($v['title']); ?></span></span>
+                </button>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </section>
+    <?php endif; ?>
+
+    <section class="sup-panel" role="tabpanel" id="supPanel_answers" aria-labelledby="supTab_answers" data-tab="answers"<?php echo $tab === 'answers' ? '' : ' hidden'; ?>>
+        <div class="sup-faq">
+            <?php foreach ($faq as $qa): ?>
+            <details class="sup-faq__item">
+                <summary><?php echo $e($qa[0]); ?><i class="fa-solid fa-chevron-down" aria-hidden="true"></i></summary>
+                <p><?php echo $e($qa[1]); ?> <a href="<?php echo $e($qa[2]); ?>">Go There</a></p>
+            </details>
+            <?php endforeach; ?>
+        </div>
+    </section>
 </div>
 
 <div class="modal fade" id="supportModal" tabindex="-1" aria-hidden="true" aria-labelledby="supModalTitle">
