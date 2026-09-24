@@ -13,6 +13,7 @@
                 </select>
             </label>
             <div class="inf-field">
+                <div class="inf-chips inf-stills__roles" id="inf_still_roles" role="group" aria-label="Filter images" hidden></div>
                 <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading images…</span></div>
             </div>
             <div class="inf-field">

@@ -920,6 +920,22 @@ jQuery(function ($) {
                 });
                 $g.append($t);
             });
+            // Same groups as the Gallery, so every image of hers is one click away (not buried below the fold).
+            var labels = { generated: 'Generated', enhanced: 'Enhanced', training: 'Training set', upload: 'Uploads', reference: 'Reference', face: 'Face' };
+            var roles = Object.keys(labels).filter(function (r) { return imgs.some(function (x) { return x.role === r; }); });
+            if (roles.length > 1) {
+                var $r = $('#inf_still_roles').empty().prop('hidden', false);
+                $r.append('<button type="button" class="inf-chip is-on" data-role="" aria-pressed="true">All</button>');
+                roles.forEach(function (r) { $r.append($('<button type="button" class="inf-chip" aria-pressed="false">').attr('data-role', r).text(labels[r])); });
+                $r.on('click', '.inf-chip', function () {
+                    var role = $(this).attr('data-role');
+                    $r.find('.inf-chip').removeClass('is-on').attr('aria-pressed', 'false');
+                    $(this).addClass('is-on').attr('aria-pressed', 'true');
+                    var role_of = {}; imgs.forEach(function (x) { role_of[x.id] = x.role; });
+                    $g.find('.inf-photo').each(function () { this.hidden = role !== '' && role_of[+$(this).attr('data-id')] !== role; });
+                    $g.scrollTop(0);
+                });
+            }
             // Only a still handed over from "Make Video" is preselected; otherwise the creator picks one.
             if (still && !$g.find('.is-on').length) { still = 0; }
             $('#inf_vgo').prop('disabled', !still);
