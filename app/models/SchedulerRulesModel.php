@@ -62,7 +62,7 @@ class SchedulerRulesModel extends Model {
         $out['image_source']     = ($src === 'influencer') ? 'influencer' : 'brand';
         $out['influencer_id']    = ($out['image_source'] === 'influencer' && (int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null;
         $out['influencer_model_key'] = ($out['image_source'] === 'influencer') ? (mb_substr(trim((string) ($f['influencer_model_key'] ?? '')), 0, 64) ?: null) : null;
-        $out['content_level']    = 'safe';   // one content level: everything renders with the safety filter on
+        $out['content_level']    = 'safe';   // legacy column, always 'safe'; nothing reads it
         $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
         $out['comments_enabled'] = !empty($f['comments_enabled']) ? 1 : 0;

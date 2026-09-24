@@ -198,7 +198,7 @@ class InfluencerActions {
         if (!$model) { return self::fail('No reference model is configured.'); }
         $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
             'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $desc,
-            'params' => array('image_size' => 'square', 'num_images' => 1, 'level' => 'safe'),
+            'params' => array('image_size' => 'square', 'num_images' => 1),
         ));
         if ($job_id <= 0) { return self::fail('Could not start the reference image.'); }
         return self::okr(array('job_id' => $job_id));
@@ -241,7 +241,7 @@ class InfluencerActions {
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
                 'group_key' => $group, 'group_index' => $i,
-                'params' => array('aspect_ratio' => '1:1', 'num_images' => 1, 'level' => 'safe', 'image_size' => 'square'),
+                'params' => array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square'),
             ));
         }
         return self::okr(array('group_key' => $group, 'job_ids' => $ids));
@@ -321,11 +321,10 @@ class InfluencerActions {
         $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'square';
         $n     = max(1, min(4, (int) ($in['num_images'] ?? 1)));
         $seed  = (int) ($in['seed'] ?? 0);
-        $level = 'safe';
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
-        $params = array('image_size' => $size, 'num_images' => $n, 'level' => $level, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
+        $params = array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
             'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0));
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
@@ -339,7 +338,7 @@ class InfluencerActions {
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id)), 'trigger_word' => $trigger));
     }
 
-    /** Image-to-video from one of her stills. $in: asset_id (required), prompt, model_key, duration, level. */
+    /** Image-to-video from one of her stills. $in: asset_id (required), prompt, model_key, duration. */
     public static function generate_video($cid, array $infl, array $in, $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $aid = (int) ($in['asset_id'] ?? 0);
@@ -354,12 +353,11 @@ class InfluencerActions {
         $durs = array_values((array) ($mk['durations'] ?? array()));
         $dur  = (string) ($in['duration'] ?? ($durs[0] ?? '5'));
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
-        $level = 'safe';
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
                 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'input_asset_id' => $aid,
-                'params' => array('duration' => $dur, 'level' => $level, 'user_prompt' => $user_prompt),
+                'params' => array('duration' => $dur, 'user_prompt' => $user_prompt),
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);
@@ -369,7 +367,7 @@ class InfluencerActions {
     }
 
     /** Enhance (upscale) one of her images into a new asset. */
-    public static function enhance($cid, array $infl, $aid, $model_key = '', $unused_level = 'safe', $origin = 'studio'){
+    public static function enhance($cid, array $infl, $aid, $model_key = '', $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $aid = (int) $aid;
         $a   = (new MediaAssetsModel())->get_one($cid, $aid);
@@ -383,7 +381,7 @@ class InfluencerActions {
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'enhance', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'prompt' => $src_prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'input_asset_id' => $aid, 'params' => array('level' => 'safe', 'num_images' => 1),
+                'input_asset_id' => $aid, 'params' => array('num_images' => 1),
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);

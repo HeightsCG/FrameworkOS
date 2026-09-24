@@ -160,8 +160,14 @@ class Main {
 
     public static function get_base_domain(): string
     {
-        $host = $_SERVER['HTTP_HOST'] ?? self::config('development', 'domain');
-        return self::site_protocol() . $host;
+        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
+        if ($host !== '') { return self::site_protocol() . $host; }
+        // No request (cron, queue worker): this environment's domain, else the public brand domain.
+        $cfg = self::get_config();
+        $env = self::get_environment();
+        $host = (string) ($cfg[$env]['domain'] ?? '');
+        if ($host === '') { $host = (string) ($cfg['global']['public_domain'] ?? ''); }
+        return (($env === 'development') ? self::site_protocol() : 'https://') . $host;
     }
 
 }

@@ -7,7 +7,7 @@
  * McpTools generate_image. Not metered in AI credits.
  *
  * Model: InfluencerConfig::get('brand_model') (app.ini infl_brand_model), default flux_pro_11.
- * Everything renders with the provider's safety filter on.
+ * Renders with fal's safety filter off (safety_tolerance 6); cron/moderate.php flags what lands.
  */
 class ImageGenService {
 
@@ -45,7 +45,6 @@ class ImageGenService {
             'num_images'      => 1,
             'image_size'      => self::dimensions($size),
             'aspect_ratio'    => '1:1',
-            'level'           => 'safe',
         );
         $sub = $class::generate_image($req);
         if (empty($sub['ok'])) { return array('ok' => false, 'error' => self::friendly($sub)); }

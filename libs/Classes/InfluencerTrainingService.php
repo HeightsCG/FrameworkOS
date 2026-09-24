@@ -37,7 +37,7 @@ class InfluencerTrainingService {
 
         $job_id = InfluencerJobService::create_job($creator_id, $iid, 'training', array(
             'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => $trigger,
-            'params' => array('asset_ids' => $asset_ids, 'steps' => $steps, 'trigger_word' => $trigger, 'model_id' => $model_id, 'level' => 'safe'),
+            'params' => array('asset_ids' => $asset_ids, 'steps' => $steps, 'trigger_word' => $trigger, 'model_id' => $model_id),
             'result_model_id' => $model_id,
         ), false);
         if ($job_id <= 0) { $models->mark_failed($model_id, 'Could not create the training job'); return array('ok' => false, 'error' => 'Could not create the training job.'); }
@@ -82,7 +82,6 @@ class InfluencerTrainingService {
             'images_data_url' => $url,
             'trigger_word'    => (string) ($p['trigger_word'] ?? ''),
             'steps'           => (int) ($p['steps'] ?? InfluencerConfig::get('training_steps', 1000)),
-            'level'           => 'safe',
         );
     }
 

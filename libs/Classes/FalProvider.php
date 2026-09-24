@@ -18,7 +18,6 @@ class FalProvider implements InfluencerProvider {
     public static function capabilities(): array {
         return array(
             'ops'    => array('reference' => true, 'training_set' => true, 'image' => true, 'video' => true, 'enhance' => true, 'training' => true),
-            'levels' => array('safe', 'spicy'),
         );
     }
 
@@ -52,8 +51,7 @@ class FalProvider implements InfluencerProvider {
         if (!empty($req['seed'])) { $in['seed'] = (int) $req['seed']; }
         $n = max(1, min(4, (int) ($req['num_images'] ?? 1)));
         // fal's post-render safety checker does not error: it hands back a BLACK image for
-        // anything it flags (tease/lingerie included). It is always off.
-        $spicy = true;
+        // anything it flags (tease/lingerie included). It is always off (flux-pro: most permissive tolerance).
 
         if (strpos($ep, 'nano-banana') !== false) {
             // Reference edit: prompt + image_urls; aspect ratio string; output png.
@@ -67,7 +65,7 @@ class FalProvider implements InfluencerProvider {
             $in['image_url'] = (string) ($req['image_url'] ?? '');
             if (trim((string) ($req['negative_prompt'] ?? '')) !== '') { $in['negative_prompt'] = (string) $req['negative_prompt']; }
             if ($in['prompt'] === '') { unset($in['prompt']); }
-            $in['enable_safety_checker'] = !$spicy;
+            $in['enable_safety_checker'] = false;
             return $in;
         }
         // Flux family (flux-lora, flux/schnell, flux-pro/v1.1): image_size preset + num_images.
@@ -81,10 +79,10 @@ class FalProvider implements InfluencerProvider {
         }
         if (strpos($ep, 'flux-pro') !== false) {
             $in['output_format']    = 'jpeg';
-            $in['safety_tolerance'] = $spicy ? '6' : '2';
+            $in['safety_tolerance'] = '6';
         } else {
             $in['output_format']         = 'png';
-            $in['enable_safety_checker'] = !$spicy;
+            $in['enable_safety_checker'] = false;
         }
         return $in;
     }

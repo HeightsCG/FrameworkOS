@@ -745,7 +745,7 @@ class McpTools {
             }
             case 'enhance_influencer_image': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
-                return self::result(InfluencerActions::enhance($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), (string) ($a['level'] ?? 'safe'), 'studio'));
+                return self::result(InfluencerActions::enhance($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), 'studio'));
             }
             case 'write_influencer_prompt':    return self::result(InfluencerActions::prompt_auto($cid, self::influencer_usable($cid, $a), (string) ($a['hint'] ?? ''), (($a['kind'] ?? 'image') === 'video') ? 'video' : 'image'));
             case 'get_influencer_job': {

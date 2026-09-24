@@ -177,11 +177,6 @@ class InfluencerJobService {
         $model = InfluencerConfig::resolve_model(self::op_for($type), (string) $job['model_key']);
         if (!$model) { return self::fail_job($job, $m, 'submitting', 'validation', 'No model is configured for ' . $type); }
 
-        $level = (string) (InfluencerJobsModel::params($job)['level'] ?? 'safe');
-        if (!in_array($level, (array) $model['levels'], true)) {
-            return self::fail_job($job, $m, 'submitting', 'content_policy',
-                'The "' . $model['label'] . '" model does not allow ' . $level . ' content. Pick another model or content level.');
-        }
 
         // Build the provider request once (presigned inputs, ZIP for training).
         try {
@@ -205,8 +200,8 @@ class InfluencerJobService {
                 $attempts[] = $att; continue;
             }
             $caps = $class::capabilities();
-            if (empty($caps['ops'][self::op_for($type)]) || !in_array($level, (array) ($caps['levels'] ?? array()), true)) {
-                $att['outcome'] = 'skipped'; $att['error'] = 'provider does not support ' . $type . ' at level ' . $level;
+            if (empty($caps['ops'][self::op_for($type)])) {
+                $att['outcome'] = 'skipped'; $att['error'] = 'provider does not support ' . $type;
                 $attempts[] = $att; continue;
             }
             $endpoint = InfluencerConfig::endpoint_for($model, $pkey);
@@ -531,7 +526,6 @@ class InfluencerJobService {
             'num_images'      => max(1, min(4, (int) ($p['num_images'] ?? 1))),
             'image_size'      => (string) ($p['image_size'] ?? 'square'),
             'aspect_ratio'    => (string) ($p['aspect_ratio'] ?? '1:1'),
-            'level'           => (string) ($p['level'] ?? 'safe'),
         );
         // Per-job overrides of the catalog's fixed params (steps, guidance, upscale factor...).
         foreach ((array) ($p['overrides'] ?? array()) as $k => $v) { $req['params'][$k] = $v; }
@@ -628,8 +622,7 @@ class InfluencerJobService {
         if ($balance < $price) { return array('ok' => false, 'error' => Plan::credits_message('image', $price, $balance)); }
 
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-        $level = 'safe';
-        $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, $level, InfluencerService::noun($infl)) : $topic;
+        $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, InfluencerService::noun($infl)) : $topic;
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
         $scene    = trim((string) $scene);
@@ -646,7 +639,7 @@ class InfluencerJobService {
             $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
                 'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
                 'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'level' => $level, 'scene' => (string) $scene),
+                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'scene' => (string) $scene),
             ), false);
         } catch (PlanLimitException $e) {
             return array('ok' => false, 'error' => $e->getMessage());

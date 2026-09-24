@@ -124,6 +124,7 @@ class NotificationsModel extends Model {
      */
     private static function brand_wrap($heading, $body_html, $button_label, $button_url, $footer_note){
         $name = self::brand_name();
+        $button_url = self::absolute_url($button_url);   // callers often pass an app path ('/account/billing')
 
         $button = '';
         if ($button_label !== '' && $button_url !== '') {

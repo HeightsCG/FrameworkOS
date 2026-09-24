@@ -192,7 +192,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('prompt' => $this->text('prompt', 4000));
-        foreach (['model_key', 'image_size', 'num_images', 'seed', 'level', 'guidance', 'steps', 'lora_scale'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['model_key', 'image_size', 'num_images', 'seed', 'guidance', 'steps', 'lora_scale'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_image($cid, $infl, $in, 'studio'));
     }
 
@@ -241,7 +241,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('asset_id' => (int) ($this->post['asset_id'] ?? 0), 'prompt' => $this->text('prompt', 2000));
-        foreach (['model_key', 'duration', 'level'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['model_key', 'duration'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_video($cid, $infl, $in, 'studio'));
     }
 
@@ -249,6 +249,6 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerActions::enhance($cid, $infl, (int) ($this->post['asset_id'] ?? 0), (string) ($this->post['model_key'] ?? ''), (string) ($this->post['level'] ?? 'safe'), 'studio'));
+        $this->answer(InfluencerActions::enhance($cid, $infl, (int) ($this->post['asset_id'] ?? 0), (string) ($this->post['model_key'] ?? ''), 'studio'));
     }
 }

@@ -40,48 +40,47 @@ class InfluencerConfig {
      * Model catalog. `label`/`purpose` are what the user sees; `endpoints` maps each provider
      * that can serve the entry to its endpoint id (a fallback provider needs one here or via
      * infl_endpoint_<model_key>_<provider>); `price_usd` + `price_unit` feed the cost estimate;
-     * `levels` are the content levels the entry accepts; `params` are fixed inputs merged into
-     * the request.
+     * `params` are fixed inputs merged into the request.
      */
     const MODELS = array(
         // -- reference image (text -> image), reference path only --
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Best likeness', 'purpose' => 'Sharper faces and skin, slower',
-            'price_usd' => 0.04, 'price_unit' => 'image', 'levels' => array('safe'), 'params' => array()),
+            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array()),
         'flux_schnell' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux/schnell'),
             'label' => 'Quick draft', 'purpose' => 'Fast and cheap, good for testing',
-            'price_usd' => 0.003, 'price_unit' => 'image', 'levels' => array('safe', 'spicy'), 'params' => array('num_inference_steps' => 4)),
+            'price_usd' => 0.003, 'price_unit' => 'image', 'params' => array('num_inference_steps' => 4)),
         // -- reference-based edits (image + prompt -> image): training set, face photo -> reference --
         'nano_banana_edit' => array('provider' => 'fal', 'op' => 'training_set', 'endpoints' => array('fal' => 'fal-ai/nano-banana/edit'),
             'label' => 'Consistent likeness', 'purpose' => 'Keeps the same face across variations',
-            'price_usd' => 0.039, 'price_unit' => 'image', 'levels' => array('safe'), 'params' => array()),
+            'price_usd' => 0.039, 'price_unit' => 'image', 'params' => array()),
         // -- generation with the trained weights --
         'flux_lora_quality' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
             'label' => 'Best quality', 'purpose' => 'Most detail, best for final posts',
-            'price_usd' => 0.035, 'price_unit' => 'image', 'levels' => array('safe', 'spicy'),
+            'price_usd' => 0.035, 'price_unit' => 'image',
             'params' => array('num_inference_steps' => 28, 'guidance_scale' => 3.5, 'acceleration' => 'none')),
         'flux_lora_fast' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
             'label' => 'Fast', 'purpose' => 'Quicker drafts to explore ideas',
-            'price_usd' => 0.035, 'price_unit' => 'image', 'levels' => array('safe', 'spicy'),
+            'price_usd' => 0.035, 'price_unit' => 'image',
             'params' => array('num_inference_steps' => 16, 'guidance_scale' => 3.5, 'acceleration' => 'regular')),
         // -- image -> video --
         'hailuo_02' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/minimax/hailuo-02/standard/image-to-video'),
             'label' => 'Natural motion', 'purpose' => 'Smooth, budget friendly',
-            'price_usd' => 0.045, 'price_unit' => 'second', 'levels' => array('safe'),
+            'price_usd' => 0.045, 'price_unit' => 'second',
             'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => 200),
         'kling_v3' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/image-to-video'),
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
-            'price_usd' => 0.084, 'price_unit' => 'second', 'levels' => array('safe'),
+            'price_usd' => 0.084, 'price_unit' => 'second',
             'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => 300),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
-            'price_usd' => 0.03, 'price_unit' => 'image', 'levels' => array('safe', 'spicy'),
+            'price_usd' => 0.03, 'price_unit' => 'image',
             'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8)),
         // -- training --
         'flux_lora_fast_training' => array('provider' => 'fal', 'op' => 'training', 'endpoints' => array('fal' => 'fal-ai/flux-lora-fast-training'),
             'label' => 'Standard training', 'purpose' => 'Flux LoRA, about 1000 steps',
-            'price_usd' => 2.00, 'price_unit' => 'per_1000_steps', 'levels' => array('safe', 'spicy'), 'params' => array()),
+            'price_usd' => 2.00, 'price_unit' => 'per_1000_steps', 'params' => array()),
     );
 
     /** Model keys offered in each picker, in display order (first = default). */

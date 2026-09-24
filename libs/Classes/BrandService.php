@@ -46,9 +46,7 @@ class BrandService {
             . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
             . "no hashtags unless they feel natural. " . ($style === 'tease'
                 ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
-                : ($style === 'spicy'
-                ? "Tone: sultry and intimate, first person, written for paying subscribers: confident, teasing, a little dirty in implication but never graphic, hinting that the full set is waiting for them, and end with an invitation to unlock, reply or tell her what they want next. No explicit sexual acts or anatomy. "
-                : ''))
+                : '')
             . "Respond with ONLY the caption text — no quotes, no preamble.";
 
         // Shared client: it returns the first TEXT block, so a leading thinking block on

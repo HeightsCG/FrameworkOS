@@ -8,7 +8,7 @@
  *
  * Request shape ($req), built by InfluencerJobService from the job row:
  *   endpoint, params (fixed inputs from the catalog), prompt, negative_prompt, seed,
- *   num_images, image_size (square|portrait|landscape), aspect_ratio, level (safe|spicy),
+ *   num_images, image_size (square|portrait|landscape), aspect_ratio,
  *   loras => [['url' => presigned, 'scale' => float]], image_urls => [presigned...],
  *   image_url (single input), duration, images_data_url, trigger_word, steps
  *
@@ -22,7 +22,7 @@ interface InfluencerProvider {
     /** Provider key as used in InfluencerConfig ('fal'). */
     public static function key(): string;
 
-    /** ['ops' => ['image' => true, 'video' => true, 'training' => true, 'enhance' => true], 'levels' => ['safe','spicy']]. */
+    /** ['ops' => ['image' => true, 'video' => true, 'training' => true, 'enhance' => true]]. */
     public static function capabilities(): array;
 
     /** Submit an image job (text-to-image, reference edit, or LoRA inference). Returns ok + handle. */
