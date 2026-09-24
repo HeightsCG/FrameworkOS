@@ -513,6 +513,33 @@ jQuery(function ($) {
     function genCost() {
         $('#csGenCost').text(fmtNum(CFG.ai.image_price) + ' credits · ' + fmtNum(CFG.ai.balance) + ' left');
     }
+    /* "Who's in it": no influencer, or one of the creator's trained influencers (CFG.influencers.ready). */
+    function whoOptions($sel, noneLabel) {
+        var cur = $sel.val() || '';
+        $sel.empty().append($('<option value="">').text(noneLabel));
+        ((CFG.influencers || {}).ready || []).forEach(function (i) { $sel.append($('<option>').val(i.id).text(i.name)); });
+        $sel.val(cur);
+        if ($sel.val() === null) { $sel.val(''); }
+    }
+    /* Follow an influencer job until it lands, then hand back the library asset (media_get shape). */
+    function followInfluencerJob(jobId, done, fail, tries) {
+        tries = (tries || 0) + 1;
+        ApiDataSvc.apiCall('post', 'influencer_job_get', { job_id: jobId }, function (d) {
+            var r = null; try { r = JSON.parse(d); } catch (e) {}
+            var j = r && r.success ? r.job : null;
+            if (!j) { fail('Could not check on it. It will appear in your Library when ready.'); return; }
+            if (j.status === 'failed' || j.status === 'cancelled') { fail(j.error || 'It did not work this time. Your credits were returned.'); return; }
+            var a = (j.assets || []).filter(function (x) { return x.status === 'ready'; })[0];
+            if (j.status !== 'done' || !a) {
+                if (tries >= 180) { fail('Still working in the background. It will appear in your Library when ready.'); return; }
+                setTimeout(function () { followInfluencerJob(jobId, done, fail, tries); }, 4000); return;
+            }
+            ApiDataSvc.apiCall('post', 'media_get', { id: a.id }, function (d2) {
+                var m = null; try { m = JSON.parse(d2); } catch (e) {}
+                if (m && m.success && m.asset) { done(m.asset); } else { fail('It is ready in your Library.'); }
+            });
+        });
+    }
     function genCredits() {
         genCost();
         var out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(CFG.ai.image_price, 10) || 0);
@@ -522,7 +549,16 @@ jQuery(function ($) {
         if (out) { $('#csGenInputs, #csGenPreview, #csGenResult, #csGenStatus, #csGenRun, #csGenEdit, #csGenUse').prop('hidden', true); }
         return out;
     }
-    $('#csGenerate').on('show.bs.modal', function () { if (!genCredits()) { $('#csGenEmpty, #csGenBuy').prop('hidden', true); } });
+    $('#csGenerate').on('show.bs.modal', function () {
+        whoOptions($('#csGenWho'), 'Brand image (no influencer)');
+        $('#csGenWho').trigger('change');
+        if (!genCredits()) { $('#csGenEmpty, #csGenBuy').prop('hidden', true); }
+    });
+    $('#csGenWho').on('change', function () {   // an influencer's look comes from their trained model, not the brand
+        var b = CFG.brand || {};
+        $('#csGenBrandRow').prop('hidden', !!$(this).val() || !b.has_brand);
+        $('#csGenPrompt').attr('placeholder', $(this).val() ? 'At a rooftop bar at sunset, smiling' : 'Sunset over Lake Eola, golden hour');
+    });
 
     function genError(msg) {
         $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', false);
@@ -556,6 +592,24 @@ jQuery(function ($) {
     function runGeneration() {
         var prompt = ($('#csGenPrompt').val() || '').trim();
         if (prompt === '') { toastr.info('Describe the image you want.'); $('#csGenPrompt').focus(); return; }
+        var who = $('#csGenWho').val() || '';
+        if (who) {   // the influencer's trained model, same as Influencers → Generate Images
+            $('#csGenPrompt, #csGenSize, #csGenWho').prop('disabled', true);
+            setGenState('busy');
+            $('#csGenStatus').prop('hidden', false).removeClass('is-error')
+                .html('<span class="spinner-border spinner-border-sm text-primary"></span> Creating your image. This can take up to a minute.');
+            var unlock = function () { $('#csGenPrompt, #csGenSize, #csGenWho').prop('disabled', false); };
+            ApiDataSvc.apiCall('post', 'influencer_generate_image', { id: who, prompt: prompt, image_size: $('#csGenSize').val(), num_images: 1 }, function (data) {
+                var o = null; try { o = JSON.parse(data); } catch (e) {}
+                if (o && o.need_credits) { unlock(); CFG.ai.balance = o.balance; genCredits(); return; }
+                if (!o || !o.success || !o.job_id) { unlock(); genError((o && o.message) || 'Generation failed. Try again.'); return; }
+                CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(CFG.ai.image_price, 10) || 0));
+                genCost();
+                followInfluencerJob(o.job_id, function (asset) { unlock(); injectAsset(asset); showGenerated(asset, false); },
+                    function (msg) { unlock(); genError(msg); });
+            });
+            return;
+        }
         var b = CFG.brand || {};
         var useBrand = (b.has_brand && $('#csGenBrand').is(':checked')) ? '1' : '0';
         $('#csGenPrompt, #csGenSize, #csGenBrand').prop('disabled', true);
@@ -625,11 +679,14 @@ jQuery(function ($) {
     }
     function vidImages() {
         var $g = $('#csVidImages').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span></div>');
-        ApiDataSvc.apiCall('post', 'media_list', {}, function (resp) {
+        var who = $('#csVidWho').val() || '';
+        // An influencer's video starts from one of their images; otherwise any Library image.
+        ApiDataSvc.apiCall('post', who ? 'influencer_images' : 'media_list', who ? { id: who } : {}, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) {}
-            var imgs = (o && o.success ? o.assets : []).filter(function (a) { return a.type === 'image' && a.status === 'ready'; }).slice(0, 24);
+            var list = o && o.success ? (who ? o.images : o.assets) : [];
+            var imgs = (list || []).filter(function (a) { return a.type === 'image' && a.status === 'ready'; }).slice(0, 48);
             $g.empty();
-            $('#csVidNone').prop('hidden', imgs.length > 0);
+            $('#csVidNone').prop('hidden', imgs.length > 0).text(who ? 'This influencer has no images yet. Generate one first, then turn it into a video.' : 'Add or generate an image first, then turn it into a video.');
             imgs.forEach(function (a) {
                 $g.append($('<button type="button" class="cs-vid__img" role="radio" aria-checked="false">').attr('data-id', a.id)
                     .append($('<img>').attr('src', a.thumb_url || '').attr('alt', '')));
@@ -643,12 +700,14 @@ jQuery(function ($) {
         vidAsset = null; vidPick = parseInt(preselect, 10) || 0;
         $('#csVidPreview, #csVidUse, #csVidStatus').prop('hidden', true);
         $('#csVidPrompt').val('');
+        whoOptions($('#csVidWho'), 'Any image from my Library');
         vidModels();
         if (vidCost()) { vidImages(); }
         vidModal.show();
     }
     $('#csGenVideoBtn').on('click', function () { openVideo(0); });
     $('#csVidModel').on('change', function () { vidLengths(); vidCost(); });
+    $('#csVidWho').on('change', function () { vidPick = 0; vidImages(); });
     $('#csVidImages').on('click', '.cs-vid__img', function () {
         $('#csVidImages .cs-vid__img').removeClass('is-on').attr('aria-checked', 'false');
         $(this).addClass('is-on').attr('aria-checked', 'true');
@@ -663,6 +722,24 @@ jQuery(function ($) {
         $('#csVidRun').prop('disabled', true);
         $('#csVidInputs :input').prop('disabled', true);
         vidStatus('<span class="spinner-border spinner-border-sm text-primary"></span> Creating your video. This usually takes 1 to 3 minutes; you can close this and find it in your Library.');
+        var vwho = $('#csVidWho').val() || '';
+        if (vwho) {   // the influencer's video flow (their prompt defaults, filed to their gallery)
+            ApiDataSvc.apiCall('post', 'influencer_generate_video', { id: vwho, asset_id: vidPick, prompt: prompt, model_key: $('#csVidModel').val(), duration: $('#csVidLength').val() }, function (data) {
+                var o = null; try { o = JSON.parse(data); } catch (e) {}
+                $('#csVidInputs :input').prop('disabled', false);
+                if (o && o.need_credits) { CFG.ai.balance = o.balance; $('#csVidStatus').prop('hidden', true); vidCost(); return; }
+                if (!o || !o.success || !o.job_id) { $('#csVidRun').prop('disabled', false); vidStatus(esc((o && o.message) || 'The video could not be started. Try again.'), true); return; }
+                CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(vidModelSel().credits, 10) || 0));
+                genCost(); vidCost();
+                followInfluencerJob(o.job_id, function (asset) {
+                    vidAsset = asset; injectAsset(asset); $('#csVidStatus').prop('hidden', true);
+                    $('#csVidPreviewVideo').attr('src', asset.video_url || '').attr('poster', asset.thumb_url || '');
+                    $('#csVidPreview, #csVidUse').prop('hidden', false); vidCost();
+                    toastr.success('Video added to your Library.');
+                }, function (msg) { $('#csVidRun').prop('disabled', false); vidStatus(esc(msg), true); });
+            });
+            return;
+        }
         ApiDataSvc.apiCall('post', 'media_generate_video', { source_asset_id: vidPick, prompt: prompt, model_key: $('#csVidModel').val(), duration: $('#csVidLength').val() }, function (data) {
             var o = null; try { o = JSON.parse(data); } catch (e) {}
             $('#csVidInputs :input').prop('disabled', false);

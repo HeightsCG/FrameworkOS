@@ -482,6 +482,10 @@
                     </div>
                     <div id="csVidInputs">
                         <div class="cs-gen__field">
+                            <label for="csVidWho">Who's in it</label>
+                            <select class="form-select" id="csVidWho"></select>
+                        </div>
+                        <div class="cs-gen__field">
                             <label>Image</label>
                             <div class="cs-vid__images" id="csVidImages" role="radiogroup" aria-label="Image to animate"></div>
                             <p class="cs-vid__none" id="csVidNone" hidden>Add or generate an image first, then turn it into a video.</p>
@@ -530,6 +534,10 @@
                         <p class="cs-gen__empty-text">Each image uses <span id="csGenPrice"></span> credits. Buy credits to start generating.</p>
                     </div>
                     <div id="csGenInputs">
+                        <div class="cs-gen__field">
+                            <label for="csGenWho">Who's in it</label>
+                            <select class="form-select" id="csGenWho"></select>
+                        </div>
                         <div class="cs-gen__field">
                             <label for="csGenPrompt">Describe the image</label>
                             <textarea class="form-control" id="csGenPrompt" rows="3" placeholder="Sunset over Lake Eola, golden hour"></textarea>
