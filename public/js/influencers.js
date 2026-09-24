@@ -901,46 +901,44 @@ jQuery(function ($) {
         $('#inf_vdur').on('click', '.inf-seg__opt', function () { $('#inf_vdur .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); cost(); });
         durations();
 
-        /* stills: every image of hers, newest generated first */
-        api('influencer_images', { id: inf.id }, function (o) {
+        /* stills: any ready image in the creator's Studio Library, newest first; a chip narrows it to hers */
+        var her_ids = {};
+        $('#inf_stills').on('click', '.inf-photo--pick', function () {
+            var id = +$(this).attr('data-id');
+            var was = (still === id);   // clicking the chosen image again clears the choice
+            $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false');
+            still = was ? 0 : id;
+            if (!was) { $(this).addClass('is-on').attr('aria-pressed', 'true'); }
+            $('#inf_vgo').prop('disabled', !still);
+        });
+        $('#inf_still_roles').on('click', '.inf-chip', function () {
+            $('#inf_still_roles .inf-chip').removeClass('is-on').attr('aria-pressed', 'false');
+            $(this).addClass('is-on').attr('aria-pressed', 'true');
+            var mine = $(this).attr('data-scope') === 'mine';
+            $('#inf_stills .inf-photo').each(function () { this.hidden = mine && !her_ids[+$(this).attr('data-id')]; });
+            $('#inf_stills').scrollTop(0);
+        });
+        api('media_list', { type: 'image' }, function (o) {
             var $g = $('#inf_stills').empty();
-            var imgs = (o && o.success) ? o.images.filter(function (x) { return x.type === 'image' && x.status === 'ready' && x.thumb_url; }) : [];
-            var order = { generated: 0, enhanced: 1, reference: 2, upload: 3, training: 4, face: 5 };
-            imgs.sort(function (a, b) { return (order[a.role] - order[b.role]) || (b.id - a.id); });
-            if (!imgs.length) { $g.html('<span class="inf-wiz__meta">No images yet. Generate one first.</span>'); return; }
+            var imgs = (o && o.success) ? (o.assets || []).filter(function (x) { return x.status === 'ready' && x.thumb_url && x.moderation !== 'blocked'; }) : [];
+            if (!imgs.length) { $g.html('<span class="inf-wiz__meta">No images in your Library yet. Generate or upload one first.</span>'); return; }
             imgs.forEach(function (img) {
-                var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === still ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
-                $t.attr('aria-pressed', img.id === still ? 'true' : 'false').attr('aria-label', 'Use this image');
-                $t.on('click', function () {
-                    var was = (still === img.id);   // clicking the chosen image again clears the choice
-                    $('#inf_stills .inf-photo').removeClass('is-on').attr('aria-pressed', 'false');
-                    still = was ? 0 : img.id;
-                    if (!was) { $t.addClass('is-on').attr('aria-pressed', 'true'); }
-                    $('#inf_vgo').prop('disabled', !still);
-                });
-                $g.append($t);
+                var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === still ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="" loading="lazy">');
+                $g.append($t.attr('aria-pressed', img.id === still ? 'true' : 'false').attr('aria-label', 'Use this image'));
             });
-            // Same groups as the Gallery, so every image of hers is one click away (not buried below the fold).
-            var labels = { generated: 'Generated', enhanced: 'Enhanced', training: 'Training set', upload: 'Uploads', reference: 'Reference', face: 'Face' };
-            var roles = Object.keys(labels).filter(function (r) { return imgs.some(function (x) { return x.role === r; }); });
-            if (roles.length > 1) {
-                var $r = $('#inf_still_roles').empty().prop('hidden', false);
-                $r.append('<button type="button" class="inf-chip is-on" data-role="" aria-pressed="true">All</button>');
-                roles.forEach(function (r) { $r.append($('<button type="button" class="inf-chip" aria-pressed="false">').attr('data-role', r).text(labels[r])); });
-                $r.on('click', '.inf-chip', function () {
-                    var role = $(this).attr('data-role');
-                    $r.find('.inf-chip').removeClass('is-on').attr('aria-pressed', 'false');
-                    $(this).addClass('is-on').attr('aria-pressed', 'true');
-                    var role_of = {}; imgs.forEach(function (x) { role_of[x.id] = x.role; });
-                    $g.find('.inf-photo').each(function () { this.hidden = role !== '' && role_of[+$(this).attr('data-id')] !== role; });
-                    $g.scrollTop(0);
-                });
-            }
             // Only a still handed over from "Make Video" is preselected; otherwise the creator picks one.
             if (still && !$g.find('.is-on').length) { still = 0; }
             $('#inf_vgo').prop('disabled', !still);
-           
             drop_broken('#inf_stills');
+            api('media_list', { type: 'image', influencer: inf.id }, function (o2) {
+                var mine = (o2 && o2.success) ? (o2.assets || []) : [];
+                mine.forEach(function (x) { her_ids[x.id] = 1; });
+                if (mine.length && mine.length < imgs.length) {
+                    $('#inf_still_roles').empty().prop('hidden', false)
+                        .append('<button type="button" class="inf-chip is-on" data-scope="all" aria-pressed="true">All Library</button>')
+                        .append($('<button type="button" class="inf-chip" data-scope="mine" aria-pressed="false">').text(inf.name || 'This influencer'));
+                }
+            });
         });
 
         function busy(t) { $('#inf_vidle').prop('hidden', true); $('#inf_video').prop('hidden', true); $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }

@@ -344,7 +344,7 @@ class InfluencerActions {
         $aid = (int) ($in['asset_id'] ?? 0);
         $a   = (new MediaAssetsModel())->get_one($cid, $aid);
         if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { return self::fail('Pick a ready image first.'); }
-        if (!(new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid)) { return self::fail('That image does not belong to this influencer.'); }
+        // Any ready image in the creator's Studio Library can be animated (get_one already scopes it to them).
         $mk = InfluencerConfig::resolve_model('video', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No video model is configured.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 2000);
