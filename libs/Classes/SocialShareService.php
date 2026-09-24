@@ -2,7 +2,8 @@
 /**
  * Cross-post the PROMOTIONAL version of a post to selected connected social accounts.
  * Best-effort — never throws. Always sends the public caption + a SAFE preview image
- * (blurred variant for subscriber posts) — never the subscriber media. No link is
+ * (blurred variant for subscriber posts) — never the subscriber media. Free posts send all
+ * their media as a carousel, trimmed per platform (see media_for). No link is
  * appended: outbound links suppress reach on X and friends; the profile URL lives in the bio.
  *
  * Extracted from ApiCreatorStudioController so both the manual publish/schedule flow and the
@@ -55,26 +56,38 @@ class SocialShareService {
                 if ($fit !== $promo) { $platform_configurations[$platform] = array('caption' => $fit); }
             }
 
-            $media_urls = array();
             $assets = (new PostsModel())->get_assets((int) $post['id']);
             $cover = null;
             foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
             if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+
+            // Uploaded items as array('url' => ..., 'video' => bool), cover first.
+            $items = array();
             if ($cover) {
-                $is_video = ((string) $cover['type'] === 'video');
                 if ($post['audience'] === 'subscribers') {
                     // Teaser only: the blurred still, never the media itself.
-                    $media_urls = self::push_media((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', $media_urls);
-                } elseif ($is_video) {
-                    // The actual clip; if the upload fails, fall back to the poster so the post still goes out.
-                    $before = count($media_urls);
-                    $media_urls = self::push_media((string) ($cover['original_key'] ?? ''), (string) ($cover['mime'] ?: 'video/mp4'), $media_urls);
-                    if (count($media_urls) === $before) {
-                        error_log('[social share] video upload failed for asset ' . (int) $cover['asset_id'] . ', sending the poster instead');
-                        $media_urls = self::push_media((string) ($cover['poster_key'] ?? ''), 'image/jpeg', $media_urls);
-                    }
+                    $items = self::push_item((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', false, $items);
                 } else {
-                    $media_urls = self::push_media((string) ($cover['display_key'] ?? ''), 'image/jpeg', $media_urls);
+                    $items = self::push_asset($cover, $items);
+                }
+            }
+            // Free posts go out as a carousel: the rest of the post's media after the cover.
+            // Adult-flagged or blocked extras are left off.
+            if ($cover && $post['audience'] === 'free') {
+                foreach ($assets as $a) {
+                    if (count($items) >= self::MAX_MEDIA) { break; }
+                    if ((int) $a['asset_id'] === (int) $cover['asset_id'] || !empty($a['deleted_at'])) { continue; }
+                    if (in_array((string) $a['moderation_status'], array('flagged', 'blocked'), true)) { continue; }
+                    $items = self::push_asset($a, $items);
+                }
+            }
+
+            // Each platform gets only as much of the carousel as it accepts.
+            $media_urls = array_column($items, 'url');
+            foreach ($platforms as $platform) {
+                $fit = array_column(self::media_for($platform, $items), 'url');
+                if ($fit !== $media_urls) {
+                    $platform_configurations[$platform]['media'] = array_map(function ($u) { return array('url' => $u); }, $fit);
                 }
             }
 
@@ -144,6 +157,49 @@ class SocialShareService {
             $n += $light ? 1 : 2;
         }
         return $n;
+    }
+
+    /** Most media items sent with one cross-post (Instagram's carousel limit). */
+    const MAX_MEDIA = 10;
+
+    /** Per-platform item limits; platforms not listed take one item. */
+    const MEDIA_LIMITS = array(
+        'instagram' => 10, 'facebook' => 10, 'threads' => 10,
+        'x' => 4, 'bluesky' => 4, 'linkedin' => 9, 'tiktok' => 10, 'tiktok_business' => 10,
+    );
+
+    /** Platforms whose carousels can mix photos and videos; the rest take several photos or one video. */
+    const MIXED_MEDIA = array('instagram', 'facebook', 'threads');
+
+    /** The slice of the uploaded items one platform accepts (the cover is always first). */
+    public static function media_for($platform, array $items): array {
+        $platform = strtolower((string) $platform);
+        $limit    = self::MEDIA_LIMITS[$platform] ?? 1;
+        if (count($items) > 1 && !in_array($platform, self::MIXED_MEDIA, true) && in_array(true, array_column($items, 'video'), true)) {
+            $limit = 1;
+        }
+        return array_slice($items, 0, $limit);
+    }
+
+    /** Upload one asset: images as the display rendition, videos as the clip (falling back to the poster). */
+    private static function push_asset(array $asset, array $items){
+        if ((string) $asset['type'] !== 'video') {
+            return self::push_item((string) ($asset['display_key'] ?? ''), 'image/jpeg', false, $items);
+        }
+        $before = count($items);
+        $items  = self::push_item((string) ($asset['original_key'] ?? ''), (string) ($asset['mime'] ?: 'video/mp4'), true, $items);
+        if (count($items) === $before) {
+            error_log('[social share] video upload failed for asset ' . (int) $asset['asset_id'] . ', sending the poster instead');
+            $items = self::push_item((string) ($asset['poster_key'] ?? ''), 'image/jpeg', false, $items);
+        }
+        return $items;
+    }
+
+    /** push_media, keeping track of whether the item is a video. */
+    private static function push_item($key, $mime, $is_video, array $items){
+        $urls = self::push_media($key, $mime, array());
+        if (!empty($urls)) { $items[] = array('url' => $urls[0], 'video' => (bool) $is_video); }
+        return $items;
     }
 
     /** Upload one S3 object to Post for Me's media store; returns $media_urls with the new media_url appended on success. */
