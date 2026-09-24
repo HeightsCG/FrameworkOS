@@ -27,6 +27,7 @@
                     <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New Post</strong><small>Write, schedule &amp; publish</small></span></button></li>
                     <?php if (!empty($this->can_ai)): ?>
                     <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
+                    <li><button type="button" class="dropdown-item" id="csGenVideoBtn"><span class="cs-create__ic"><i class="fa-solid fa-film"></i></span><span><strong>Generate Video</strong><small>Bring one of your images to life</small></span></button></li>
                     <?php endif; ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
                     <?php if (!empty($this->inbox['can'])): ?>
@@ -465,6 +466,55 @@
     </div>
 </div>
 <!-- ============ GENERATE IMAGE ============ -->
+<div class="modal fade" id="csGenVideo" tabindex="-1" aria-hidden="true" aria-labelledby="csVidTitle">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="csVidTitle"><i class="fa-solid fa-film"></i> Generate a video</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="cs-gen">
+                    <div class="cs-gen__empty" id="csVidEmpty" hidden>
+                        <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
+                        <h3 class="cs-gen__empty-title">You're out of AI credits</h3>
+                        <p class="cs-gen__empty-text">A video uses <span id="csVidPriceEmpty"></span> credits. Buy credits to start generating.</p>
+                    </div>
+                    <div id="csVidInputs">
+                        <div class="cs-gen__field">
+                            <label>Image</label>
+                            <div class="cs-vid__images" id="csVidImages" role="radiogroup" aria-label="Image to animate"></div>
+                            <p class="cs-vid__none" id="csVidNone" hidden>Add or generate an image first, then turn it into a video.</p>
+                        </div>
+                        <div class="cs-gen__field">
+                            <label for="csVidPrompt">Describe the motion</label>
+                            <textarea class="form-control" id="csVidPrompt" rows="2" placeholder="Slow push-in, hair moving in the wind"></textarea>
+                        </div>
+                        <div class="cs-vid__row">
+                            <div class="cs-gen__field">
+                                <label for="csVidModel">Style</label>
+                                <select class="form-select" id="csVidModel"></select>
+                            </div>
+                            <div class="cs-gen__field">
+                                <label for="csVidLength">Length</label>
+                                <select class="form-select" id="csVidLength"></select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="cs-gen__status" id="csVidStatus" hidden></div>
+                    <div class="cs-gen__preview" id="csVidPreview" hidden><video id="csVidPreviewVideo" controls playsinline></video></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <span class="cs-gen__cost" id="csVidCost"></span>
+                <button type="button" class="btn btn-primary" id="csVidRun"><i class="fa-solid fa-film"></i> Generate</button>
+                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csVidBuy" hidden>Buy Credits</a>
+                <button type="button" class="btn btn-primary" id="csVidUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="csGenerate" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">

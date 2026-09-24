@@ -28,7 +28,7 @@ class ApiRoutes {
             'cancel_creator_subscription', 'reactivate_creator_subscription',
         ],
         'ApiMediaController' => [
-            'media_upload', 'media_generate', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',
+            'media_upload', 'media_generate', 'media_generate_video', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',
             'media_list', 'media_get', 'media_update', 'media_sign', 'media_watermark', 'media_delete',
             'media_bulk', 'collections_list', 'collection_save', 'collection_delete', 'collection_add_assets', 'collection_remove_assets',
         ],

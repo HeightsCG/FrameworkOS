@@ -31,6 +31,7 @@ $max_jobs  = (int) ($opts['max-jobs'] ?? 100);
 $handlers = [
     'scheduler_run'  => 'SchedulerRunJob',
     'media_generate' => 'MediaGenerateJob',
+    'media_video'    => 'MediaVideoJob',
     'influencer_job' => 'InfluencerJob',
     'broadcast_send' => 'BroadcastSendJob',
     'post_notify'    => 'PostNotifyJob',

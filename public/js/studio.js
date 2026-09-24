@@ -595,6 +595,115 @@ jQuery(function ($) {
     }
     $('#csGenRun').on('click', runGeneration);
 
+    /* =====================================================================
+     * Generate a video: animate one of the creator's library images (image-to-video).
+     * Shows the live cost and balance; out of credits shows the Buy Credits screen first.
+     * =================================================================== */
+    var vidModal = null, vidPick = 0, vidAsset = null;
+    function vidModelSel() {
+        var key = $('#csVidModel').val();
+        return (CFG.ai.video_models || []).filter(function (m) { return m.key === key; })[0] || (CFG.ai.video_models || [])[0] || { credits: 0, durations: [] };
+    }
+    function vidCost() {
+        var m = vidModelSel(), out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(m.credits, 10) || 0);
+        $('#csVidCost').text(fmtNum(m.credits) + ' credits · ' + fmtNum(CFG.ai.balance) + ' left');
+        $('#csVidPriceEmpty').text(fmtNum(m.credits));
+        $('#csVidEmpty').prop('hidden', !out);
+        $('#csVidInputs').prop('hidden', out || !!vidAsset);
+        $('#csVidBuy').prop('hidden', !out || !!vidAsset);
+        $('#csVidRun').prop('hidden', out || !!vidAsset).prop('disabled', !vidPick);
+        return !out;
+    }
+    function vidModels() {
+        var $m = $('#csVidModel').empty();
+        (CFG.ai.video_models || []).forEach(function (m) { $m.append($('<option>').val(m.key).text(m.label + ' · ' + fmtNum(m.credits) + ' credits')); });
+        vidLengths();
+    }
+    function vidLengths() {
+        var $l = $('#csVidLength').empty();
+        (vidModelSel().durations || []).forEach(function (d) { $l.append($('<option>').val(d).text(d + ' seconds')); });
+    }
+    function vidImages() {
+        var $g = $('#csVidImages').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span></div>');
+        ApiDataSvc.apiCall('post', 'media_list', {}, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            var imgs = (o && o.success ? o.assets : []).filter(function (a) { return a.type === 'image' && a.status === 'ready'; }).slice(0, 24);
+            $g.empty();
+            $('#csVidNone').prop('hidden', imgs.length > 0);
+            imgs.forEach(function (a) {
+                $g.append($('<button type="button" class="cs-vid__img" role="radio" aria-checked="false">').attr('data-id', a.id)
+                    .append($('<img>').attr('src', a.thumb_url || '').attr('alt', '')));
+            });
+            if (vidPick) { $g.find('[data-id="' + vidPick + '"]').addClass('is-on').attr('aria-checked', 'true'); }
+            vidCost();
+        });
+    }
+    function openVideo(preselect) {
+        if (!vidModal) { vidModal = bootstrap.Modal.getOrCreateInstance('#csGenVideo'); }
+        vidAsset = null; vidPick = parseInt(preselect, 10) || 0;
+        $('#csVidPreview, #csVidUse, #csVidStatus').prop('hidden', true);
+        $('#csVidPrompt').val('');
+        vidModels();
+        if (vidCost()) { vidImages(); }
+        vidModal.show();
+    }
+    $('#csGenVideoBtn').on('click', function () { openVideo(0); });
+    $('#csVidModel').on('change', function () { vidLengths(); vidCost(); });
+    $('#csVidImages').on('click', '.cs-vid__img', function () {
+        $('#csVidImages .cs-vid__img').removeClass('is-on').attr('aria-checked', 'false');
+        $(this).addClass('is-on').attr('aria-checked', 'true');
+        vidPick = parseInt($(this).data('id'), 10) || 0;
+        vidCost();
+    });
+    function vidStatus(html, err) { $('#csVidStatus').prop('hidden', false).toggleClass('is-error', !!err).html(html); }
+    $('#csVidRun').on('click', function () {
+        var prompt = ($('#csVidPrompt').val() || '').trim();
+        if (!vidPick) { vidStatus('Pick an image to animate.', true); return; }
+        if (!prompt) { vidStatus('Describe the motion you want.', true); $('#csVidPrompt').focus(); return; }
+        $('#csVidRun').prop('disabled', true);
+        $('#csVidInputs :input').prop('disabled', true);
+        vidStatus('<span class="spinner-border spinner-border-sm text-primary"></span> Creating your video. This usually takes 1 to 3 minutes; you can close this and find it in your Library.');
+        ApiDataSvc.apiCall('post', 'media_generate_video', { source_asset_id: vidPick, prompt: prompt, model_key: $('#csVidModel').val(), duration: $('#csVidLength').val() }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            $('#csVidInputs :input').prop('disabled', false);
+            if (o && o.need_credits) { CFG.ai.balance = o.balance; $('#csVidStatus').prop('hidden', true); vidCost(); return; }
+            if (!o || !o.success) { $('#csVidRun').prop('disabled', false); vidStatus(esc((o && o.message) || 'The video could not be started. Try again.'), true); return; }
+            CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(o.price, 10) || 0));   // charged on request
+            if (typeof genCost === 'function') { genCost(); }
+            injectAsset(o.asset);
+            var id = o.asset.id, tries = 0;
+            (function pollVid() {
+                tries++;
+                ApiDataSvc.apiCall('post', 'media_get', { id: id }, function (d2) {
+                    var r = null; try { r = JSON.parse(d2); } catch (e) {}
+                    if (!r || !r.success || !r.asset) { $('#csVidRun').prop('disabled', false); vidStatus('Could not check on the video. It will appear in your Library when ready.', true); return; }
+                    if (r.asset.status === 'failed') { $('#csVidRun').prop('disabled', false); vidStatus(esc(r.asset.failure_reason || 'The video failed. Your credits were returned.'), true); return; }
+                    if (r.asset.status !== 'ready') {
+                        if (tries >= 120) { vidStatus('Still working in the background. It will appear in your Library when ready.'); return; }
+                        setTimeout(pollVid, 5000); return;
+                    }
+                    vidAsset = r.asset;
+                    injectAsset(r.asset);
+                    $('#csVidStatus').prop('hidden', true);
+                    if (r.asset.video_url) { $('#csVidPreviewVideo').attr('src', r.asset.video_url).attr('poster', r.asset.thumb_url || ''); }
+                    else { $('#csVidPreviewVideo').attr('poster', r.asset.thumb_url || ''); }
+                    $('#csVidPreview, #csVidUse').prop('hidden', false);
+                    vidCost();
+                    toastr.success('Video added to your Library.');
+                });
+            })();
+        });
+    });
+    $('#csVidUse').on('click', function () {
+        if (!vidAsset) return;
+        var asset = vidAsset;
+        if (vidModal) vidModal.hide();
+        newComposer();
+        composerModal.show();
+        composerAddAsset(asset);
+    });
+    $('#csGenVideo').on('hidden.bs.modal', function () { var v = document.getElementById('csVidPreviewVideo'); if (v) { v.pause(); } });
+
     // "Regenerate" from the result view → bring the inputs back to tweak (button now reads "Regenerate").
     $('#csGenEdit').on('click', function () { setGenState('edit'); $('#csGenPrompt').focus(); });
 

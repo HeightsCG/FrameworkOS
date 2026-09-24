@@ -97,6 +97,46 @@ class ApiMediaController extends BaseApiController {
         $this->jsonSuccess(['queued' => true, 'job_id' => $job_id, 'brand_used' => $brand_used,
             'asset' => $this->studio_asset_json($a, $creator_id)]);
     }
+    /**
+     * Turn a library image into a short video (image-to-video on fal). Costs the model's AI
+     * credits up front; the media_video job lands it in the library or refunds on failure.
+     */
+    public function media_generate_videoAction(){
+        $user       = $this->require_creator();
+        $creator_id = (int) $user['user_id'];
+        if (!S3Service::configured() || !InfluencerConfig::enabled()) { $this->jsonError('Video generation is unavailable right now. Please try again shortly.'); }
+        $src = (new MediaAssetsModel())->get_one($creator_id, (int) ($this->post['source_asset_id'] ?? 0));
+        if (!$src || (string) $src['type'] !== 'image' || (string) $src['status'] !== 'ready') { $this->jsonError('Pick an image from your Library.'); }
+        $prompt = html_entity_decode(trim((string) ($this->post['prompt'] ?? '')), ENT_QUOTES);
+        if ($prompt === '') { $this->jsonError('Describe the motion you want.'); }
+        $model = InfluencerConfig::resolve_model('video', (string) ($this->post['model_key'] ?? ''));
+        if (!$model) { $this->jsonError('No video model is configured.'); }
+        $durs = array_values((array) ($model['durations'] ?? array()));
+        $dur  = (string) ($this->post['duration'] ?? ($durs[0] ?? '5'));
+        if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
+        if (!$this->within_storage_cap($user, 20 * 1048576)) {   // a short video is ~5-20 MB
+            $this->jsonError("You've reached your plan's storage limit. Upgrade or remove files to free up space.", ['need_upgrade' => true]);
+        }
+
+        $pay = Plan::charge_ai($user, 'video', 'Studio video: ' . mb_substr($prompt, 0, 60), array('model_key' => (string) $model['key']));
+        if (empty($pay['ok'])) { $this->jsonError($pay['message'], ['need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']]); }
+
+        $model_assets = new MediaAssetsModel();
+        $asset_id = (int) $model_assets->add($creator_id, 'video', 'Generated · ' . mb_substr($prompt, 0, 40) . '.mp4', 'video/mp4', 'processing');
+        if ($asset_id <= 0) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: video not started'); $this->jsonError('Could not save the video. Try again.'); }
+        $job_id = (new DatabaseJobQueue())->dispatch('media_video', [
+            'creator_id' => $creator_id, 'asset_id' => $asset_id, 'source_asset_id' => (int) $src['id'], 'model_key' => (string) $model['key'],
+            'prompt' => $prompt, 'duration' => $dur, 'credits' => (int) $pay['price'],
+        ]);
+        if ($job_id <= 0) {
+            (new AiCreditsModel())->refund_once($creator_id, (int) $pay['price'], 'video #' . $asset_id);
+            $model_assets->set_failed($creator_id, $asset_id, 'Could not queue the video.');
+            $this->jsonError('Could not start the video. Try again.');
+        }
+        $a = $model_assets->get_one($creator_id, $asset_id);
+        $this->jsonSuccess(['queued' => true, 'price' => (int) $pay['price'], 'asset' => $this->studio_asset_json($a, $creator_id)]);
+    }
+
     /** Begin (or resume) a resumable multipart video upload. */
     public function media_upload_initAction(){
         $user       = $this->require_creator();

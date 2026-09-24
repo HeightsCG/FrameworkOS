@@ -84,7 +84,13 @@ class StudioController extends Controller {
 
             // AI credits: the Generate window checks these before anyone types a prompt.
             Plan::grant_monthly($user);
-            $this->view->ai = array('balance' => (int) (new AiCreditsModel())->get_balance((int) ($user['user_id'] ?? 0)), 'image_price' => Plan::ai_price('image'));
+            $video_models = array();
+            foreach (InfluencerConfig::picker_options('video') as $vm) {
+                $video_models[] = array('key' => $vm['key'], 'label' => $vm['label'], 'purpose' => $vm['purpose'], 'durations' => $vm['durations'],
+                    'credits' => Plan::ai_price('video', array('model_key' => $vm['key'])));
+            }
+            $this->view->ai = array('balance' => (int) (new AiCreditsModel())->get_balance((int) ($user['user_id'] ?? 0)), 'image_price' => Plan::ai_price('image'),
+                'video_models' => $video_models);
 
             // Brand identity — used to steer AI image generation on-brand.
             $brand = (new CreatorBrandModel())->get_for_user((int) ($user['user_id'] ?? 0));
