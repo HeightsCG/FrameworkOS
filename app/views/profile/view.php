@@ -126,96 +126,141 @@ $in_app     = !empty($viewer_logged_in);
 
         <div class="pf-grid">
             <div class="pf-main">
-<?php $render_ev_card = function (array $ec) { $al = array('free' => 'Free', 'paid' => 'Paid', 'subscribers' => 'Subscribers only', 'tier' => 'Members only'); ?>
-                        <article class="pf-ev" data-ev-card="<?php echo (int) $ec['id']; ?>">
-                            <div class="pf-ev__main">
-                                <div class="pf-ev__when"><i class="fa-regular fa-calendar"></i> <?php echo htmlspecialchars((string) $ec['when'], ENT_QUOTES, 'UTF-8'); ?></div>
-                                <h3 class="pf-ev__title"><?php echo htmlspecialchars((string) $ec['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
-                                <?php if (trim((string) $ec['description']) !== ''): ?><p class="pf-ev__desc"><?php echo nl2br(htmlspecialchars((string) $ec['description'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
-                                <div class="pf-ev__meta">
-                                    <span class="pf-ev__tag pf-ev__tag--<?php echo htmlspecialchars((string) $ec['access_type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($al[$ec['access_type']] ?? 'Free', ENT_QUOTES, 'UTF-8'); echo ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0) ? ' · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : ''; ?></span>
-                                    <?php if ($ec['is_online']): ?><span class="pf-ev__where"><i class="fa-solid fa-video"></i> Virtual</span><?php elseif ($ec['is_inperson']): ?><span class="pf-ev__where"><i class="fa-solid fa-location-dot"></i> In person</span><?php endif; ?>
-                                    <?php if ((int) $ec['capacity'] > 0): ?><span class="pf-ev__seats"><i class="fa-solid fa-user-group"></i> <?php echo max(0, (int) $ec['capacity'] - (int) $ec['attendees']); ?> seats left</span><?php endif; ?>
-                                </div>
-                                <?php if (!empty($ec['access'])): $ax = $ec['access']; ?>
-                                <div class="pf-ev__access">
-                                    <span class="pf-ev__access-h"><i class="fa-solid <?php echo $ec['is_self'] ? 'fa-eye' : 'fa-circle-check'; ?>"></i> <?php echo $ec['is_self'] ? 'Attendees see this after they register' : 'You&rsquo;re registered'; ?></span>
-                                    <?php if (trim((string) $ax['location']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> <?php echo htmlspecialchars((string) $ax['location'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
-                                    <?php if (trim((string) $ax['url']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="<?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow"><?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?></a></span><?php endif; ?>
-                                    <?php if (trim((string) $ax['instructions']) !== ''): ?><span class="pf-ev__access-row pf-ev__access-instr"><?php echo nl2br(htmlspecialchars((string) $ax['instructions'], ENT_QUOTES, 'UTF-8')); ?></span><?php endif; ?>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="pf-ev__cta">
-                                <?php if (!empty($ec['is_canceled'])): ?>
-                                <span class="pf-ev__status pf-ev__status--full">Canceled</span>
-                                <?php elseif (!empty($ec['is_past'])): ?>
-                                <span class="pf-ev__status pf-ev__status--full">This event has ended</span>
-                                <?php elseif ($ec['is_self']): ?>
-                                <span class="pf-ev__status pf-ev__status--own"><i class="fa-solid fa-user-pen"></i> Your event</span>
-                                <?php elseif (!empty($ec['registered'])): ?>
-                                <span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Registered</span>
-                                <?php elseif (!empty($ec['is_full'])): ?>
-                                <span class="pf-ev__status pf-ev__status--full">Sold out</span>
-                                <?php else: ?>
-                                <button type="button" class="pf-btn pf-btn--subscribe pf-ev__register" data-ev-register="<?php echo (int) $ec['id']; ?>">
-                                    <i class="fa-solid fa-calendar-check"></i>
-                                    <?php echo ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0) ? 'Register · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Register'; ?>
-                                </button>
-                                <?php endif; ?>
-                            </div>
-                        </article>
+<?php $render_ev_card = function (array $ec) use ($user, $display_name) {
+    // One row per event in the Events tab; the whole row opens the event page, where people register.
+    $h_   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+    $paid = ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0);
+    $req  = $ec['access_type'] === 'tier' ? ($ec['tier_name'] !== '' ? $ec['tier_name'] . ' subscribers' : 'Subscribers') : ($ec['access_type'] === 'subscribers' ? 'Subscribers' : '');
+    $left = (int) $ec['capacity'] > 0 ? max(0, (int) $ec['capacity'] - (int) $ec['attendees']) : null;
+    $flag = !empty($ec['is_canceled']) ? array('Canceled', 'off') : (!empty($ec['is_past']) ? array('Ended', 'off') : (!empty($ec['registered']) ? array('Registered', 'ok') : (!empty($ec['is_full']) ? array('Sold out', 'off') : null)));
+    $where = $ec['is_inperson'] ? ($ec['place']['short'] !== '' ? $ec['place']['short'] : 'In person') : 'Online';
+?>
+                        <a class="pel" href="/@<?php echo $h_(rawurlencode((string) $user['u_name'])); ?>/events/<?php echo (int) $ec['id']; ?>" data-ev-card="<?php echo (int) $ec['id']; ?>">
+                            <span class="pel__date" aria-hidden="true"><span class="pel__m"><?php echo $h_($ec['tile_month']); ?></span><span class="pel__d"><?php echo $h_($ec['tile_day']); ?></span></span>
+                            <span class="pel__body">
+                                <span class="pel__title"><?php echo $h_($ec['title']); ?><?php if ($flag): ?> <span class="pel__flag pel__flag--<?php echo $flag[1]; ?>"><?php echo $flag[0]; ?></span><?php endif; ?></span>
+                                <span class="pel__meta">
+                                    <span><?php echo $h_($ec['time_line']); ?></span>
+                                    <span class="pel__sep" aria-hidden="true">·</span>
+                                    <span class="pel__where"><i class="fa-solid <?php echo $ec['is_inperson'] ? 'fa-location-dot' : 'fa-video'; ?>" aria-hidden="true"></i> <?php echo $h_($where); ?></span>
+                                    <?php if ($left !== null && !$flag): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $left; ?> <?php echo $left === 1 ? 'spot' : 'spots'; ?> left</span><?php endif; ?>
+                                </span>
+                                <?php if (trim((string) $ec['description']) !== ''): ?><span class="pel__desc"><?php echo $h_($ec['description']); ?></span><?php endif; ?>
+                            </span>
+                            <span class="pel__price">
+                                <span class="pel__amount"><?php echo $paid ? '$' . $h_($ec['price_dollars']) : 'Free'; ?></span>
+                                <?php if ($req !== ''): ?><span class="pel__req"><?php echo $h_($req); ?></span><?php endif; ?>
+                            </span>
+                            <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
+                        </a>
 <?php }; ?>
                 <?php if (!empty($focus_event)): $fe = $focus_event;
+                    $h_       = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+                    $fe_url   = '/@' . rawurlencode((string) $user['u_name']);
                     $fe_paid  = ($fe['access_type'] !== 'free' && (int) $fe['price_credits'] > 0);
                     $fe_left  = (int) $fe['capacity'] > 0 ? max(0, (int) $fe['capacity'] - (int) $fe['attendees']) : null;
-                    $fe_who   = in_array($fe['access_type'], array('subscribers', 'tier'), true) ? 'Subscribers only' : 'Open to everyone';
-                    $fe_state = !empty($fe['is_canceled']) ? 'canceled' : (!empty($fe['is_past']) ? 'ended' : (!empty($fe['is_self']) ? 'self' : (!empty($fe['registered']) ? 'registered' : (!empty($fe['is_full']) ? 'full' : 'open'))));
+                    $fe_members = in_array($fe['access_type'], array('subscribers', 'tier'), true);
+                    $fe_req   = $fe['access_type'] === 'tier' ? ($fe['tier_name'] !== '' ? 'For ' . $fe['tier_name'] . ' subscribers' : 'For subscribers on one plan') : ($fe_members ? 'For ' . $display_name . '’s subscribers' : 'Open to everyone');
+                    // One state drives the card: what this viewer can do right now.
+                    $fe_state = !empty($fe['is_canceled']) ? 'canceled' : (!empty($fe['is_past']) ? 'ended'
+                              : (!empty($fe['registered']) ? 'registered'
+                              : (!empty($fe['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : (empty($fe['eligible']) && empty($fe['is_self']) ? 'ineligible' : 'open')))));   // the host sees what an eligible fan sees
+                    $ax = $fe['access'] ?? null;   // venue / link / instructions: only for registered attendees and the host
+                    $can_see = is_array($ax);
+                ?>
+                <?php
+                    $pl = $fe['place'];
+                    $maps_q = trim(implode(', ', array_filter(array($pl['venue'], $pl['street'], $pl['city_line']), 'strlen')));
+                    if ($maps_q === '') { $maps_q = $pl['line']; }
                 ?>
                 <article class="pe pf-ev" data-ev-card="<?php echo (int) $fe['id']; ?>">
-                    <a class="pe-back" href="/@<?php echo htmlspecialchars(rawurlencode((string) $user['u_name']), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></a>
+                    <div class="pe-bar">
+                        <a class="pe-back" href="<?php echo $h_($fe_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
+                        <?php if (!empty($fe['is_self'])): ?><a class="pe-manage" href="/events/manage/<?php echo (int) $fe['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Event</a><?php endif; ?>
+                    </div>
+
+
                     <div class="pe-grid">
                         <div class="pe-main">
-                            <p class="pe-kicker"><?php echo !empty($fe['is_canceled']) ? 'Canceled' : (!empty($fe['is_past']) ? 'Past event' : ($fe['is_inperson'] ? 'In-person event' : 'Online event')); ?></p>
-                            <h1 class="pe-title"><?php echo htmlspecialchars((string) $fe['title'], ENT_QUOTES, 'UTF-8'); ?></h1>
-                            <a class="pe-host" href="/@<?php echo htmlspecialchars(rawurlencode((string) $user['u_name']), ENT_QUOTES, 'UTF-8'); ?>">
-                                <span class="pe-host__av"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span>Hosted by <b><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></b><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></span>
-                            </a>
-                            <ul class="pe-facts">
-                                <li><span class="pe-facts__ic"><i class="fa-regular fa-calendar" aria-hidden="true"></i></span><span><?php echo htmlspecialchars((string) $fe['when'], ENT_QUOTES, 'UTF-8'); ?></span></li>
-                                <li><span class="pe-facts__ic"><i class="fa-solid <?php echo $fe['is_inperson'] ? 'fa-location-dot' : 'fa-video'; ?>" aria-hidden="true"></i></span><span><?php echo $fe['is_inperson'] ? 'In person' . (!empty($fe['access']['location']) ? ' · ' . htmlspecialchars((string) $fe['access']['location'], ENT_QUOTES, 'UTF-8') : ' · address shared after you register') : 'Online · link shared after you register'; ?></span></li>
-                                <li><span class="pe-facts__ic"><i class="fa-solid fa-ticket" aria-hidden="true"></i></span><span><?php echo $fe_paid ? '$' . htmlspecialchars((string) $fe['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?> · <?php echo $fe_who; ?></span></li>
-                            </ul>
+                            <header class="pe-hero">
+                                <div class="pe-hero__date" aria-hidden="true">
+                                    <span class="pe-hero__m"><?php echo $h_($fe['tile_month']); ?></span>
+                                    <span class="pe-hero__d"><?php echo $h_($fe['tile_day']); ?></span>
+                                    <span class="pe-hero__w"><?php echo $h_($fe['tile_wday']); ?></span>
+                                </div>
+                                <div class="pe-hero__text">
+                                    <h1 class="pe-title<?php echo mb_strlen((string) $fe['title']) > 60 ? ' pe-title--long' : ''; ?>"><?php echo $h_($fe['title']); ?></h1>
+                                    <div class="pe-meta">
+                                    <a class="pe-host" href="<?php echo $h_($fe_url); ?>">
+                                        <span class="pe-host__av"<?php echo $has_avatar ? ' style="background-image:url(\'' . $h_($profile['avatar_url']) . '\')"' : ''; ?>><?php echo $has_avatar ? '' : $h_($initial); ?></span>
+                                        <span class="pe-host__text"><span class="pe-host__by">Hosted by</span><span class="pe-host__name"><?php echo $h_($display_name); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></span></span>
+                                    </a>
+                                    </div>
+                                </div>
+                            </header>
+                            <div class="pe-tiles">
+                                <section class="pe-tile">
+                                    <h2 class="pe-tile__h"><i class="fa-regular fa-calendar" aria-hidden="true"></i> Date and Time</h2>
+                                    <p class="pe-tile__main"><?php echo $h_($fe['date_long']); ?></p>
+                                    <p class="pe-tile__sub"><?php echo $h_($fe['time_range']); ?></p>
+                                </section>
+                                <section class="pe-tile">
+                                    <h2 class="pe-tile__h"><i class="fa-solid <?php echo $fe['is_inperson'] ? 'fa-location-dot' : 'fa-video'; ?>" aria-hidden="true"></i> <?php echo $fe['is_inperson'] ? 'In-Person Event' : 'Online Event'; ?></h2>
+                                    <?php if ($fe['is_inperson']): ?>
+                                        <?php if ($pl['venue'] !== ''): ?><p class="pe-tile__main"><?php echo $h_($pl['venue']); ?></p><?php endif; ?>
+                                        <?php if ($pl['street'] !== ''): ?><p class="<?php echo $pl['venue'] === '' ? 'pe-tile__main' : 'pe-tile__sub'; ?>"><?php echo $h_($pl['street']); ?></p><?php endif; ?>
+                                        <?php if ($pl['city_line'] !== ''): ?><p class="pe-tile__sub"><?php echo $h_($pl['city_line']); ?></p><?php endif; ?>
+                                        <?php if ($maps_q === ''): ?><p class="pe-tile__main">In person</p><?php else: ?>
+                                        <a class="pe-tile__link" href="https://www.google.com/maps/search/?api=1&amp;query=<?php echo $h_(rawurlencode($maps_q)); ?>" target="_blank" rel="noopener noreferrer">Open in Maps <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+                                        <?php endif; ?>
+                                    <?php else: ?>
+                                        <p class="pe-tile__main">Online</p>
+                                        <?php if ($fe_state === 'registered'): ?><p class="pe-tile__sub">Your meeting link was sent to your email.</p>
+                                        <?php elseif (in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?><p class="pe-tile__sub">The meeting link is emailed when you register.</p><?php endif; ?>
+                                    <?php endif; ?>
+                                </section>
+                            </div>
                             <?php if (trim((string) $fe['description']) !== ''): ?>
                             <section class="pe-about">
-                                <h2 class="pe-about__h">About this event</h2>
-                                <p><?php echo nl2br(htmlspecialchars((string) $fe['description'], ENT_QUOTES, 'UTF-8')); ?></p>
+                                <h2 class="pe-about__h">About This Event</h2>
+                                <p class="pe-desc"><?php echo nl2br($h_($fe['description'])); ?></p>
+                            </section>
+                            <?php endif; ?>
+                            <?php if ($can_see && trim((string) $ax['instructions']) !== ''): ?>
+                            <section class="pe-about pe-about--instr">
+                                <h2 class="pe-about__h">Instructions for Attendees</h2>
+                                <p class="pe-desc"><?php echo nl2br($h_($ax['instructions'])); ?></p>
                             </section>
                             <?php endif; ?>
                         </div>
 
-                        <aside class="pe-card">
-                            <div class="pe-card__price"><?php echo $fe_paid ? '$' . htmlspecialchars((string) $fe['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?></div>
-                            <?php if ($fe_left !== null && $fe_state === 'open'): ?><p class="pe-card__spots"><?php echo $fe_left; ?> <?php echo $fe_left === 1 ? 'spot' : 'spots'; ?> left</p><?php endif; ?>
-                            <div class="pf-ev__cta pe-card__cta">
-                                <?php if ($fe_state === 'canceled'): ?><span class="pe-status">This event was canceled</span>
-                                <?php elseif ($fe_state === 'ended'): ?><span class="pe-status">This event has ended</span>
-                                <?php elseif ($fe_state === 'self'): ?><a class="pe-btn pe-btn--ghost" href="/events/manage/<?php echo (int) $fe['id']; ?>">Manage Event</a>
-                                <?php elseif ($fe_state === 'registered'): ?><span class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</span>
-                                <?php elseif ($fe_state === 'full'): ?><span class="pe-status">Sold out</span>
-                                <?php else: ?><button type="button" class="pe-btn" data-ev-register="<?php echo (int) $fe['id']; ?>"><?php echo $fe_paid ? 'Register · $' . htmlspecialchars((string) $fe['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Register'; ?></button><?php endif; ?>
+                        <aside class="pe-ticket" aria-label="Registration">
+                            <div class="pe-ticket__top">
+                                <p class="pe-ticket__label">Admission</p>
+                                <p class="pe-ticket__price"><?php echo $fe_paid ? '$' . $h_($fe['price_dollars']) . ' <span>per person</span>' : 'Free'; ?></p>
+                                <p class="pe-ticket__row"><i class="fa-solid <?php echo $fe_members ? 'fa-user-group' : 'fa-globe'; ?>" aria-hidden="true"></i> <?php echo $h_($fe_req); ?></p>
+                                <?php if ($fe_left !== null && in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?>
+                                <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fe_left; ?> of <?php echo (int) $fe['capacity']; ?> <?php echo (int) $fe['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
+                                <?php endif; ?>
                             </div>
-                            <div class="pf-ev__main pe-card__main">
-                                <?php if (!empty($fe['access'])): $ax = $fe['access']; ?>
-                                <div class="pf-ev__access">
-                                    <span class="pf-ev__access-h"><i class="fa-solid <?php echo $fe['is_self'] ? 'fa-eye' : 'fa-circle-check'; ?>"></i> <?php echo $fe['is_self'] ? 'Attendees see this after they register' : 'Your details'; ?></span>
-                                    <?php if (trim((string) $ax['location']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> <?php echo htmlspecialchars((string) $ax['location'], ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
-                                    <?php if (trim((string) $ax['url']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="<?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow"><?php echo htmlspecialchars((string) $ax['url'], ENT_QUOTES, 'UTF-8'); ?></a></span><?php endif; ?>
-                                    <?php if (trim((string) $ax['instructions']) !== ''): ?><span class="pf-ev__access-row pf-ev__access-instr"><?php echo nl2br(htmlspecialchars((string) $ax['instructions'], ENT_QUOTES, 'UTF-8')); ?></span><?php endif; ?>
-                                </div>
-                                <?php elseif ($fe_state === 'open' && in_array($fe['access_type'], array('subscribers', 'tier'), true)): ?>
-                                <p class="pe-card__note">For <?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>&rsquo;s subscribers. <a href="/@<?php echo htmlspecialchars(rawurlencode((string) $user['u_name']), ENT_QUOTES, 'UTF-8'); ?>">See membership plans</a></p>
+                            <div class="pe-ticket__tear" aria-hidden="true"></div>
+                            <div class="pf-ev__cta pe-ticket__bottom">
+                                <?php if ($fe_state === 'canceled'): ?>
+                                <p class="pe-status">This event was canceled.</p>
+                                <?php elseif ($fe_state === 'ended'): ?>
+                                <p class="pe-status">This event has ended.</p>
+                                <?php elseif ($fe_state === 'registered'): ?>
+                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
+                                <p class="pe-card__sub">See you there.</p>
+                                <?php elseif ($fe_state === 'full'): ?>
+                                <p class="pe-status">This event is full.</p>
+                                <?php elseif ($fe_state === 'signin'): ?>
+                                <a class="pe-btn" href="/">Sign In to Register</a>
+                                <?php elseif ($fe_state === 'ineligible'): ?>
+                                <a class="pe-btn" href="<?php echo $h_($fe_url); ?>#plans">View Membership Plans</a>
+                                <p class="pe-card__sub"><?php echo $fe['access_type'] === 'tier' && $fe['tier_name'] !== '' ? 'Subscribe to ' . $h_($fe['tier_name']) . ' to register.' : 'Subscribe to ' . $h_($display_name) . ' to register.'; ?></p>
+                                <?php else: ?>
+                                <button type="button" class="pe-btn" data-ev-register="<?php echo (int) $fe['id']; ?>">Register for Event</button>
                                 <?php endif; ?>
                             </div>
                         </aside>
@@ -398,7 +443,7 @@ $in_app     = !empty($viewer_logged_in);
 
                 <?php if (!empty($event_cards)): ?>
                 <section class="pf-panel" data-panel="events">
-                    <div class="pf-events">
+                    <div class="pel-list">
                         <?php foreach ($event_cards as $ec) { $render_ev_card($ec); } ?>
                     </div>
                 </section>
@@ -587,7 +632,11 @@ $in_app     = !empty($viewer_logged_in);
                     var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                     if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not register'); return; }
                     if (o.need_login) { window.location = '/'; return; }
-                    if (o.need_subscription) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'This event is for subscribers.'); goToPlans(); return; }
+                    if (o.need_subscription) {
+                        b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'This event is for subscribers.');
+                        if (document.querySelector('.pf-tabs')) { goToPlans(); } else { window.location = '/@' + encodeURIComponent(<?php echo json_encode((string) $user['u_name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>) + '#plans'; }
+                        return;
+                    }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
                         pfToast(o.message || 'Not enough credits.');
@@ -595,8 +644,9 @@ $in_app     = !empty($viewer_logged_in);
                         return;
                     }
                     if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not register'); return; }
-                    revealEventAccess(b, o.access || {});
                     pfToast('You\'re registered!');
+                    if (b.closest('.pe')) { setTimeout(function () { window.location.reload(); }, 700); return; }   // the event page re-renders with the attendee details
+                    revealEventAccess(b, o.access || {});
                 });
             };
         });
@@ -609,8 +659,6 @@ $in_app     = !empty($viewer_logged_in);
             if (!main || main.querySelector('.pf-ev__access')) { return; }
             function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
             var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> You&rsquo;re registered</span>';
-            if (ax.location) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> ' + e(ax.location) + '</span>'; }
-            if (ax.url) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="' + e(ax.url) + '" target="_blank" rel="noopener noreferrer nofollow">' + e(ax.url) + '</a></span>'; }
             if (ax.instructions) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.instructions).replace(/\n/g, '<br>') + '</span>'; }
             var wrap = document.createElement('div'); wrap.className = 'pf-ev__access'; wrap.innerHTML = rows;
             main.appendChild(wrap);

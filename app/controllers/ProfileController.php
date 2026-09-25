@@ -138,7 +138,7 @@ class ProfileController extends Controller {
         // Published events this creator is hosting (PRD §23). Access details (venue,
         // link, instructions) are revealed ONLY to a registered attendee or the creator.
         $eventsModel = new EventsModel();
-        $make_event_card = function (array $ev) use ($eventsModel, $is_self, $viewer_logged_in, $viewer_id) {
+        $make_event_card = function (array $ev) use ($eventsModel, $is_self, $viewer_logged_in, $viewer_id, $plans) {
             $ev_tz = (string) ($ev['timezone'] !== '' ? $ev['timezone'] : 'UTC');
             $when  = '';
             try {
@@ -153,6 +153,11 @@ class ProfileController extends Controller {
                         : ' – ' . $ed->format('M j, g:i A');
                 }
                 $when .= ' ' . $sd->format('T');
+                // Event list: a date tile (SEP / 26) and a short time line ("Sat · 6:30 – 8:00 PM EDT").
+                $tile_month = $sd->format('M'); $tile_day = $sd->format('j'); $tile_wday = $sd->format('D');
+                $date_long  = $sd->format('l, F j, Y');
+                $time_range = $sd->format('g:i A') . (isset($ed) ? ' – ' . ($sd->format('Y-m-d') === $ed->format('Y-m-d') ? $ed->format('g:i A') : $ed->format('M j, g:i A')) : '') . ' ' . $sd->format('T');
+                $time_line  = $sd->format('D') . ' · ' . $sd->format('g:i A') . (isset($ed) && $sd->format('Y-m-d') === $ed->format('Y-m-d') ? ' – ' . $ed->format('g:i A') : '') . ' ' . $sd->format('T');
             } catch (\Throwable $x) { $when = ''; }
 
             $registered = (!$is_self && $viewer_logged_in) ? $eventsModel->is_registered((int) $ev['id'], $viewer_id) : false;
@@ -179,12 +184,28 @@ class ProfileController extends Controller {
                 'registered'    => $registered,
                 'is_self'       => $is_self,
             );
-            if ($registered || $is_self) {
-                $card['access'] = array(
-                    'url'          => $in_person ? '' : (string) $ev['external_url'],
-                    'location'     => $in_person ? (string) $ev['location'] : '',
-                    'instructions' => (string) $ev['access_instructions'],
-                );
+            // An in-person event's address is public (people need to know where it is before they register).
+            $dec = function ($k) use ($ev) { return trim(html_entity_decode((string) ($ev[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+            $city_line = implode(', ', array_filter(array($dec('city'), trim($dec('region') . ' ' . $dec('postal_code'))), 'strlen'));
+            $structured = ($dec('venue_name') !== '' || $dec('street') !== '' || $city_line !== '');
+            $card['tile_month'] = $tile_month ?? ''; $card['tile_day'] = $tile_day ?? ''; $card['tile_wday'] = $tile_wday ?? ''; $card['time_line'] = $time_line ?? $when;
+            $card['date_long'] = $date_long ?? $when; $card['time_range'] = $time_range ?? '';
+            $card['tier_name'] = '';
+            if ((string) $ev['access_type'] === 'tier') {
+                foreach ((array) $plans as $pl) { if ((int) $pl['id'] === (int) $ev['tier_id']) { $card['tier_name'] = html_entity_decode((string) $pl['name'], ENT_QUOTES, 'UTF-8'); break; } }
+            }
+            $card['place'] = array(   // venue / street / city lines; older events only have the one-line location
+                'venue'     => $in_person ? $dec('venue_name') : '',
+                'street'    => $in_person ? ($structured ? $dec('street') : $dec('location')) : '',
+                'city_line' => $in_person ? $city_line : '',
+                'line'      => $in_person ? $dec('location') : '',
+                'short'     => $in_person ? implode(', ', array_filter(array($dec('venue_name') !== '' ? $dec('venue_name') : $dec('street'), $dec('city')), 'strlen')) : '',
+            );
+            if ($in_person && $card['place']['short'] === '') { $card['place']['short'] = $dec('location'); }
+            // Attendee instructions are for registered attendees only. The meeting link is never on the page: it only
+            // travels by email (registration confirmation + reminder). The creator sees the page exactly as fans do.
+            if ($registered) {
+                $card['access'] = array('instructions' => (string) $ev['access_instructions']);
             }
             return $card;
         };
@@ -197,6 +218,16 @@ class ProfileController extends Controller {
             $row = $eventsModel->get_one((int) $user['user_id'], (int) $url_parts[2]);
             if (!$row || ((string) $row['status'] === 'draft' && !$is_self)) { Errors::page_not_found(); return; }
             $focus_event = $make_event_card($row);
+            // Who may register: anyone (free / paid) or subscribers (any plan, or one specific plan).
+            $fe_access = (string) $row['access_type'];
+            $focus_event['tier_name'] = '';
+            if ($fe_access === 'tier') {
+                foreach ((array) $plans as $pl) { if ((int) $pl['id'] === (int) $row['tier_id']) { $focus_event['tier_name'] = html_entity_decode((string) $pl['name'], ENT_QUOTES, 'UTF-8'); break; } }
+            }
+            $focus_event['eligible'] = !in_array($fe_access, array('subscribers', 'tier'), true)
+                || ($fe_access === 'subscribers' && !empty($subscribed_plan_ids))
+                || ($fe_access === 'tier' && in_array((int) $row['tier_id'], array_map('intval', (array) $subscribed_plan_ids), true));
+            $focus_event['is_live'] = ((string) $row['status'] === 'published');
         }
 
         // Published events this creator is hosting (PRD §23). Access details (venue,

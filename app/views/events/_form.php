@@ -82,7 +82,7 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
 
     <section class="cs-ae__section" data-section="where" aria-labelledby="evH_where" hidden>
         <h3 class="cs-ae__h" id="evH_where" tabindex="-1">Where</h3>
-        <p class="cs-ae__sub">Attendees get these details once they register.</p>
+        <p class="cs-ae__sub">The address shows on the event page. Meeting links are emailed to attendees when they register and in a reminder the day before.</p>
         <div class="cs-ae__field ev-formatrow">
             <span class="cs-ae__label" id="evFormatLabel">Format</span>
             <div class="cs-seg cs-ae__seg" id="evFormat" role="group" aria-labelledby="evFormatLabel">

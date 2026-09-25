@@ -243,6 +243,24 @@ class EventsModel extends Model {
         return (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0);
     }
 
+    /** Registrations to remind now: the event is live and starts within 24 hours, never reminded, registered over an hour ago. */
+    public function due_reminders($limit = 200){
+        $limit = max(1, min(500, (int) $limit));
+        return (array) parent::select(
+            "SELECT r.id AS reg_id, r.user_id, e.*
+             FROM event_registrations r
+             JOIN events e ON e.id = r.event_id
+             WHERE r.status = 'registered' AND r.reminded_at IS NULL AND e.status = 'published'
+               AND e.start_at > UTC_TIMESTAMP() AND e.start_at <= UTC_TIMESTAMP() + INTERVAL 24 HOUR
+               AND r.created_at <= UTC_TIMESTAMP() - INTERVAL 1 HOUR
+             ORDER BY e.start_at ASC LIMIT $limit");
+    }
+
+    /** Mark a registration reminded; true only for the call that did it (the mutex against a double send). */
+    public function claim_reminder($reg_id){
+        return parent::update('event_registrations', array('reminded_at' => gmdate('Y-m-d H:i:s')), 'id = :id AND reminded_at IS NULL', array('id' => (int) $reg_id)) > 0;
+    }
+
     public function registration($event_id, $reg_id){
         $r = parent::select("SELECT * FROM event_registrations WHERE id = :id AND event_id = :e", array('id' => (int) $reg_id, 'e' => (int) $event_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;

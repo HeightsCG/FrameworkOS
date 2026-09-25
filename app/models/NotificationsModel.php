@@ -104,6 +104,63 @@ class NotificationsModel extends Model {
         return $this->deliver($to_email, $to_name, (string) $subject, $message);
     }
 
+    /**
+     * Event email (registration confirmation, reminder): a heading and intro, then an event block (title, host,
+     * when, where) and, for online events, a Join Meeting button, the host's instructions, and calendar/event links.
+     * $e: title, host, date_line, time_line, format ('in_person'|'virtual'), place_lines[], join_url, instructions,
+     *     calendar_url, event_url.
+     */
+    public function send_event_email($to_email, $to_name, $subject, $heading, $intro, array $e){
+        if ((string) $to_email === '') { return false; }
+        return $this->deliver($to_email, $to_name, (string) $subject, self::build_event_email($heading, $intro, $e));
+    }
+
+    public static function build_event_email($heading, $intro, array $e){
+        $h   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $f   = 'font-family:Arial,Helvetica,sans-serif;';
+        $lbl = 'margin:0 0 3px; ' . $f . ' font-size:12px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:#8a8797;';
+        $val = 'margin:0; ' . $f . ' font-size:15px; line-height:1.5; color:#1c1830;';
+        $row = function ($label, $html, $last = false) use ($lbl) {
+            return '<tr><td style="padding:14px 18px;' . ($last ? '' : ' border-bottom:1px solid #ecebf3;') . '">'
+                 . '<p style="' . $lbl . '">' . $label . '</p>' . $html . '</td></tr>';
+        };
+        $body = '<p style="' . self::P . '">' . $h($intro) . '</p>';
+
+        // the event block
+        $when = '<p style="' . $val . ' font-weight:700;">' . $h($e['date_line'] ?? '') . '</p>'
+              . (!empty($e['time_line']) ? '<p style="' . $val . '">' . $h($e['time_line']) . '</p>' : '');
+        if (($e['format'] ?? 'virtual') === 'in_person') {
+            $lines = array_values(array_filter((array) ($e['place_lines'] ?? array()), 'strlen'));
+            $where = '';
+            foreach ($lines as $i => $l) { $where .= '<p style="' . $val . ($i === 0 ? ' font-weight:700;' : '') . '">' . $h($l) . '</p>'; }
+            if ($where === '') { $where = '<p style="' . $val . '">In person</p>'; }
+            $where_label = 'Location';
+        } else {
+            $where = '<p style="' . $val . ' font-weight:700;">Online</p>'
+                   . (!empty($e['join_url']) ? '<p style="' . $val . ' word-break:break-all;"><a href="' . $h($e['join_url']) . '" style="color:#C2410C; text-decoration:underline;">' . $h($e['join_url']) . '</a></p>' : '');
+            $where_label = 'Where';
+        }
+        $instr = trim((string) ($e['instructions'] ?? ''));
+        $body .= '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 20px; border:1px solid #ecebf3; border-radius:10px; border-collapse:separate;">'
+               . '<tr><td style="padding:16px 18px; border-bottom:1px solid #ecebf3; background:#fbfaf8; border-radius:10px 10px 0 0;">'
+               .   '<p style="margin:0; ' . $f . ' font-size:18px; font-weight:700; line-height:1.35; color:#1c1830;">' . $h($e['title'] ?? '') . '</p>'
+               .   (!empty($e['host']) ? '<p style="margin:4px 0 0; ' . $f . ' font-size:14px; color:#6f6c7b;">Hosted by ' . $h($e['host']) . '</p>' : '')
+               . '</td></tr>'
+               . $row('Date and time', $when)
+               . $row($where_label, $where, $instr === '')
+               . ($instr !== '' ? $row('Instructions', '<p style="' . $val . '">' . nl2br($h($instr)) . '</p>', true) : '')
+               . '</table>';
+
+        // actions: Join Meeting (online) is the primary button; calendar + event page are links
+        $links = array();
+        if (!empty($e['calendar_url'])) { $links[] = '<a href="' . $h($e['calendar_url']) . '" style="color:#C2410C; text-decoration:underline;">Add to Google Calendar</a>'; }
+        if (!empty($e['event_url']))    { $links[] = '<a href="' . $h(self::absolute_url($e['event_url'])) . '" style="color:#C2410C; text-decoration:underline;">View event page</a>'; }
+        $after = !empty($links) ? '<p style="margin:14px 0 0; ' . $f . ' font-size:14px; color:#4b4863;">' . implode(' &nbsp;·&nbsp; ', $links) . '</p>' : '';
+        $online = (($e['format'] ?? 'virtual') !== 'in_person') && !empty($e['join_url']);
+        return self::brand_wrap((string) $heading, $body, $online ? 'Join Meeting' : '', $online ? (string) $e['join_url'] : '',
+            'You’re receiving this because you registered for this event. Keep it — it’s your ticket.', $after);
+    }
+
     private function deliver($to_email, $to_name, $subject, $message){
         $to = array(array('email' => $to_email, 'name' => $to_name));
         $notifications = new Notifications();
@@ -122,7 +179,7 @@ class NotificationsModel extends Model {
      * brand header, an optional CTA button, and a muted footer note. Table-based
      * with inline styles for broad email-client support.
      */
-    private static function brand_wrap($heading, $body_html, $button_label, $button_url, $footer_note){
+    private static function brand_wrap($heading, $body_html, $button_label, $button_url, $footer_note, $after_html = ''){
         $name = self::brand_name();
         $button_url = self::absolute_url($button_url);   // callers often pass an app path ('/account/billing')
 
@@ -161,7 +218,7 @@ class NotificationsModel extends Model {
       .         $body_html
       .       '</td></tr>'
                   // button
-      .       ($button !== '' ? '<tr><td style="padding:2px 32px 20px;">' . $button . '</td></tr>' : '')
+      .       ($button !== '' || $after_html !== '' ? '<tr><td style="padding:2px 32px 20px;">' . $button . $after_html . '</td></tr>' : '')
                   // footer
       .       '<tr><td style="padding:18px 32px 22px; border-top:1px solid #f0f0f5;">'
       .         '<p style="margin:0; font-family:Arial,Helvetica,sans-serif; font-size:12px; '

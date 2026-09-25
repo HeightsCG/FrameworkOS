@@ -127,19 +127,12 @@ class ApiEventsController extends BaseApiController {
         }
 
         $t = mb_substr(html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 0, 60);
-        $handle = '';
-        $h = $this->userModel->get_user_by_id($creator_id);
-        if (is_array($h) && count($h) === 1) { $handle = (string) $h[0]['u_name']; }
         $charged  = ($price > 0 && (int) $claim['prior_paid'] <= 0) ? $price : 0;
         $fan_name = Notify::name_of($me) ?: 'Someone';
         $this->notify($creator_id, 'events', 'New event registration',
             $fan_name . ' registered for "' . $t . '" (' . $this->event_when($ev, $creator_id) . ')'
             . ($charged > 0 ? ' and paid ' . Notify::credits($charged) . '.' : '.'), '/events/' . (int) $ev['id'], 'fa-calendar-check');
-        $this->notify($me, 'events', 'Registration confirmed',
-            '"' . $t . '" on ' . $this->event_when($ev, $me) . '.'
-            . ($charged > 0 ? ' Paid: ' . Notify::credits($charged) . '.' : '')
-            . $this->event_where($ev),
-            $handle !== '' ? '/@' . $handle : '', 'fa-calendar-check');
+        EventMail::confirmation($ev, $me, $charged);   // always emailed: it's their ticket, and the meeting link only travels by email
         $this->jsonSuccess(['access' => $this->event_access($ev)]);
     }
 
@@ -168,18 +161,9 @@ class ApiEventsController extends BaseApiController {
     }
 
     /** The actual joining details, as the attendee will need them (empty when the event has none). */
-    private function event_where(array $ev): string{
-        $url = trim((string) ($ev['external_url'] ?? ''));
-        $loc = trim(html_entity_decode((string) ($ev['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if (($ev['format'] ?? 'virtual') === 'in_person') { return $loc !== '' ? ' Address: ' . $loc . '.' : ''; }
-        return $url !== '' ? ' Video link: ' . $url : '';
-    }
-
+    /** What the page may show a new attendee. Never the meeting link: that only travels by email (confirmation + reminder). */
     private function event_access(array $ev){
-        $in_person = (($ev['format'] ?? 'virtual') === 'in_person');
         return [
-            'url'          => $in_person ? '' : (string) ($ev['external_url'] ?? ''),
-            'location'     => $in_person ? (string) ($ev['location'] ?? '') : '',
             'instructions' => html_entity_decode((string) ($ev['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8'),
         ];
     }

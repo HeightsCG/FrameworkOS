@@ -49,6 +49,14 @@ try {
     error_log('[scheduler] publish_due failed: ' . $e->getMessage());
 }
 
+// Event reminders: one email per attendee about 24 hours before the start (the meeting link only travels by email).
+try {
+    $n = EventReminders::run(200);
+    if ($n > 0) { fwrite(STDOUT, date('c') . " event reminders sent: {$n}\n"); }
+} catch (\Throwable $e) {
+    error_log('[scheduler] event reminders failed: ' . $e->getMessage());
+}
+
 $now = gmdate('Y-m-d H:i:s');
 $due = $rulesM->due_rules($now);
 if (empty($due)) { exit(0); }

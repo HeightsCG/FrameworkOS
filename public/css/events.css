@@ -63,8 +63,8 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
 .evm-top__back:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; border-radius:2px; }
 .evm-top__row{ display:flex; align-items:flex-start; gap:24px; min-width:0; }
 .evm-top__heading{ flex:1 1 auto; min-width:0; }
-.evm-top__titlerow{ display:flex; align-items:center; gap:12px; min-width:0; }
-.evm-top__title{ margin:0; font-size:24px; font-weight:700; letter-spacing:-.015em; line-height:1.25; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.evm-top__titlerow{ display:flex; align-items:flex-start; gap:12px; min-width:0; }
+.evm-top__title{ margin:0; font-size:24px; font-weight:700; letter-spacing:-.015em; line-height:1.25; color:var(--text); overflow-wrap:anywhere; text-wrap:balance; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }   /* long titles wrap to two lines */
 .evm-top__desc{ margin:6px 0 0; max-width:720px; font-size:14px; line-height:1.5; color:var(--t2); display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
 .evm-top__actions{ display:flex; align-items:center; gap:8px; flex:none; }
 .evm-flag{ flex:none; display:inline-flex; align-items:center; gap:6px; padding:3px 10px; border-radius:999px; background:#F1F0F3; color:#6f6c7b; font-size:12px; font-weight:600; }
@@ -112,13 +112,12 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
 .evm-note{ margin:0; padding:32px 20px; text-align:center; font-size:14px; color:var(--muted); }
 
 .evm-tools{ flex:none; display:flex; align-items:center; justify-content:space-between; gap:16px; padding:12px 20px; }
-.evm-search{ position:relative; flex:0 1 320px; margin:0; }
+.evm-search{ position:relative; flex:1 1 auto; margin:0; }
 .evm-search i, .evm-search svg{ position:absolute; width:13px; height:13px; left:12px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--muted2); pointer-events:none; }
 .evm-search .form-control{ height:40px; padding-left:34px; font-size:14px; border:1px solid rgba(29, 29, 29, .14); border-radius:2px; box-shadow:none; }
 .evm-search .form-control:focus{ border-color:var(--acc); box-shadow:0 0 0 2px rgba(255, 106, 19, .2); }
 .evm-search .form-control::placeholder{ color:var(--muted2); }
-.evm-tools__earned{ font-size:13px; color:var(--t2); white-space:nowrap; }
-.evm-tools__earned b{ color:var(--text); font-variant-numeric:tabular-nums; }
+.evm-band__earned{ color:var(--text); font-weight:600; font-variant-numeric:tabular-nums; }
 
 .evm-empty{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; padding:32px 24px; text-align:center; }
 .evm-empty__ic{ display:inline-flex; width:52px; height:52px; align-items:center; justify-content:center; border-radius:50%; background:#FFF2EA; color:#C2410C; font-size:20px; margin-bottom:6px; }

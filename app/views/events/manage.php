@@ -99,13 +99,14 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
             <?php if ($city_line !== ''): ?><dd class="evm-band__sub"><?php echo $e($city_line); ?></dd><?php endif; ?>
             <?php else: ?>
             <dd class="evm-band__main">Online</dd>
-            <dd class="evm-band__sub">Link shared after registration</dd>
+            <dd class="evm-band__sub">Link emailed to attendees</dd>
             <?php endif; ?>
         </div>
         <div class="evm-band__cell">
             <dt>Tickets</dt>
             <dd class="evm-band__main"><?php echo $e($price); ?></dd>
             <dd class="evm-band__sub"><?php echo $e($who); ?></dd>
+            <?php if ($price !== 'Free' || (int) $stats['net'] > 0): ?><dd class="evm-band__sub"><b class="evm-band__earned"><?php echo $e($dollars($stats['net'])); ?></b> earned<?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></dd><?php endif; ?>
         </div>
         <div class="evm-band__cell">
             <dt>Registration</dt>
@@ -143,7 +144,6 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                     <span class="visually-hidden">Search attendees</span>
                     <input type="search" class="form-control" id="evmSearch" placeholder="Search attendees" autocomplete="off" maxlength="100">
                 </label>
-                <span class="evm-tools__earned"><b><?php echo $e($dollars($stats['net'])); ?></b> earned<?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></span>
             </div>
             <div class="evm-table" id="evmAttendees">
                 <table class="evm-tbl">
