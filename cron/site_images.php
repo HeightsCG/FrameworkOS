@@ -19,7 +19,17 @@ spl_autoload_register(function ($class) use ($root) {
 $opts = getopt('', array('regen::', 'all', 'bg'));
 $keys = array_keys(SiteImages::SUBJECTS);
 if (isset($opts['bg'])) {
-    foreach ($keys as $k) { $t = microtime(true); $u = SiteImages::make_bg($k); printf("%s.bg %s %.1fs\n", $k, $u !== '' ? $u : 'FAILED', microtime(true) - $t); }
+    if (empty(SiteImages::all())) {
+        fwrite(STDERR, "No site images on this server (" . Main::app_path() . "/app/config/site_images.json is missing or empty).\n"
+            . "Copy that file from an environment that has it, or run this script without --bg to generate the photos first.\n");
+        exit(1);
+    }
+    foreach ($keys as $k) {
+        $t = microtime(true);
+        if (SiteImages::url($k) === '') { printf("%s.bg skipped: no original image for %s\n", $k, $k); continue; }
+        $u = SiteImages::make_bg($k);
+        printf("%s.bg %s %.1fs\n", $k, $u !== '' ? $u : 'FAILED (see the PHP error log: download, GD or S3 upload)', microtime(true) - $t);
+    }
     exit(0);
 }
 if (!empty($opts['regen'])) { $keys = array((string) $opts['regen']); }
