@@ -65,7 +65,7 @@ class AutoPostService {
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
         $caption   = $ai_assist ? BrandService::caption_for($scene, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
-        if ($caption === '') { $caption = $ai_assist ? $scene : $topic; }
+        if ($caption === '') { $caption = $fixed !== '' ? $fixed : $topic; }   // never publish the image brief as a caption
 
         // 4) Create the post.
         $audience = (($rule['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
