@@ -6,6 +6,7 @@
                 <div class="cs-ae__heading">
                     <span class="cs-ae__eyebrow">Event</span>
                     <div class="cs-ae__titlerow"><h2 class="cs-ae__title" id="evModalTitle"><?php echo empty($editing) ? 'New Event' : 'Edit Event'; ?></h2></div>
+                    <?php if (!empty($editing)): ?><p class="ev-editor__context" id="evModalSub"><?php echo $e(html_entity_decode((string) ($ev['title'] ?? ''), ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
                 </div>
                 <div class="cs-ae__headtools">
                     <button type="button" class="btn-close cs-ae__close" data-bs-dismiss="modal" aria-label="Close"></button>

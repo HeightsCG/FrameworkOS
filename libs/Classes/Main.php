@@ -35,6 +35,7 @@ class Main {
     public static function controller_name(): string
     {
         $url = self::get_url();
+        if (isset($url[0][0]) && $url[0][0] === '@') { return 'ProfileController'; }   // /@handle is a profile, never the controller its handle spells (@admin, @events…)
         if (isset($url[0]) && $url[0] !== '') {
             $segment = preg_replace('/[^A-Za-z0-9_]/', '', $url[0]);
             if ($segment !== '') {

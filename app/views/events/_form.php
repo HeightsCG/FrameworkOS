@@ -10,8 +10,6 @@ if (class_exists('IntlTimeZone')) {
     $itz = IntlTimeZone::createTimeZone($tz);
     if ($itz && $itz->getID() !== 'Etc/Unknown') { $tz_label = $itz->getDisplayName(false, IntlTimeZone::DISPLAY_LONG_GENERIC, 'en_US'); }
 }
-$tz_short = 'UTC';
-try { $tz_short = (new DateTime('now', new DateTimeZone($tz ?: 'UTC')))->format('T'); } catch (\Throwable $x) {}
 $sections = array('details' => 'Details', 'when' => 'When', 'where' => 'Where', 'tickets' => 'Tickets');
 $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular fa-calendar', 'where' => 'fa-solid fa-location-dot', 'tickets' => 'fa-solid fa-ticket');
 ?>
@@ -55,22 +53,31 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
 
     <section class="cs-ae__section" data-section="when" aria-labelledby="evH_when" hidden>
         <h3 class="cs-ae__h" id="evH_when" tabindex="-1">When</h3>
-        <p class="cs-ae__sub" data-tz-short="<?php echo $e($tz_short); ?>">Times are in <?php echo $e($tz_label); ?>.</p>
-        <div class="cs-ae__row cs-ae__row--3">
+        <p class="cs-ae__sub">Set when the event starts and ends.</p>
+        <div class="cs-ae__field">
+            <label class="cs-ae__label" for="ev_date">Date</label>
+            <input type="date" class="form-control" id="ev_date" aria-describedby="evErr_date">
+        </div>
+        <div class="cs-ae__row">
             <div class="cs-ae__field">
-                <label class="cs-ae__label" for="ev_date">Date</label>
-                <input type="date" class="form-control" id="ev_date" aria-describedby="evErr_date">
-            </div>
-            <div class="cs-ae__field">
-                <label class="cs-ae__label" for="ev_time">Starts</label>
+                <label class="cs-ae__label" for="ev_time">Start Time</label>
                 <input type="time" class="form-control" id="ev_time" step="300" aria-describedby="evErr_date">
             </div>
             <div class="cs-ae__field">
-                <label class="cs-ae__label" for="ev_time_end">Ends</label>
+                <label class="cs-ae__label" for="ev_time_end">End Time</label>
                 <input type="time" class="form-control" id="ev_time_end" step="300" aria-describedby="evErr_date">
             </div>
         </div>
         <p class="cs-ae__error" id="evErr_date" role="alert" hidden></p>
+        <div class="cs-ae__field ev-tzfield">
+            <label class="cs-ae__label" for="ev_tz">Time Zone</label>
+            <div class="ev-tzselect">
+                <i class="fa-solid fa-globe" aria-hidden="true"></i>
+                <select class="form-select" id="ev_tz" data-default="<?php echo $e($tz); ?>">
+                    <?php foreach (EventsModel::timezone_options($tz) as $id => $label): ?><option value="<?php echo $e($id); ?>"><?php echo $e($label); ?></option><?php endforeach; ?>
+                </select>
+            </div>
+        </div>
     </section>
 
     <section class="cs-ae__section" data-section="where" aria-labelledby="evH_where" hidden>

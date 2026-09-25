@@ -6,7 +6,7 @@ class ApiEventsController extends BaseApiController {
     public function event_saveAction(){
         $user = $this->require_creator('manage');
         $creator_id = (int) $user['user_id'];
-        $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $tz = EventsModel::clean_timezone($this->post['timezone'] ?? '', (string) ($user['content_timezone'] ?? 'UTC'));   // the event's own zone; the account's by default
         $id = (int) ($this->post['id'] ?? 0);
 
         $title = trim(html_entity_decode((string) ($this->post['title'] ?? ''), ENT_QUOTES, 'UTF-8'));

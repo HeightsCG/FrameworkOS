@@ -39,8 +39,9 @@ class EventsController extends Controller {
         $this->view->event     = $ev;
         $this->view->stats     = $model->stats($id);
         $this->view->registrations = $model->registration_count($id);
-        $this->view->message_count = $model->message_count($id);
         $this->view->has_paid  = $model->has_paid_going($id);
+        $blocked = (new BlocksModel())->related_ids($creator_id);   // same filter event_message_send applies
+        $this->view->recipients = count(array_filter($model->going_user_ids($id), function ($u) use ($blocked) { return !isset($blocked[$u]); }));
         $this->view->tiers     = (new CreatorPlansModel())->get_for_user($creator_id);
         $this->view->timezone  = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->handle    = (string) ($owner['u_name'] ?? '');

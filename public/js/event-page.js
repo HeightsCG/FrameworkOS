@@ -94,11 +94,13 @@
     /* ---- attendees: one page at a time, sized to the table region ---- */
     var rows_el = el('evmRows'), search = el('evmSearch');
     var att = { page: 1, per: 10, q: '', loaded_key: '', seq: 0 };
+    var box_el = el('evmAttendees');
     function per_fit() {
-        if (!rows_el || !desktop()) { return 10; }
-        var h = rows_el.clientHeight;
+        if (!box_el || !desktop()) { return 10; }
+        var head = box_el.querySelector('thead'), h = box_el.clientHeight - (head ? head.offsetHeight : 0);
         return h > 0 ? Math.max(3, Math.min(50, Math.floor(h / 56))) : att.per;   // hidden panel: keep the current size
     }
+    function msg_row(html) { return '<tr class="evm-tbl__msg"><td colspan="5">' + html + '</td></tr>'; }
     function att_row(a) {
         var name = a.name || a.handle || 'Attendee', initial = esc(name.charAt(0).toUpperCase());
         var av = a.avatar ? '<img class="evm-person__av" src="' + esc(a.avatar) + '" alt="">' : '<span class="evm-person__av evm-person__av--init" aria-hidden="true">' + initial + '</span>';
@@ -109,13 +111,13 @@
                 + (a.paid_credits > 0 ? '<li><button type="button" class="dropdown-item" data-refund>Refund ' + esc(a.paid) + '…</button></li>' : '')
                 + '<li><button type="button" class="dropdown-item" data-remove>Remove…</button></li></ul></div>';
         }
-        return '<div class="evm-row" data-reg="' + a.id + '" data-name="' + esc(name) + '" data-paid="' + a.paid_credits + '">'
-            + '<div class="evm-person">' + av + '<span class="evm-person__text"><span class="evm-person__name">' + esc(name) + '</span>'
-            + (a.handle ? '<span class="evm-person__handle">@' + esc(a.handle) + '</span>' : '') + '</span></div>'
-            + '<div class="evm-cell">' + esc(a.registered) + '</div>'
-            + '<div class="evm-cell">' + esc(a.paid) + '</div>'
-            + '<div class="evm-cell"><span class="evm-pill evm-pill--' + esc(a.status) + '">' + esc(a.status_label) + '</span></div>'
-            + '<div class="evm-cell evm-cell--act">' + acts + '</div></div>';
+        return '<tr class="evm-row" data-reg="' + a.id + '" data-name="' + esc(name) + '" data-paid="' + a.paid_credits + '">'
+            + '<td><div class="evm-person">' + av + '<span class="evm-person__text"><span class="evm-person__name">' + esc(name) + '</span>'
+            + (a.handle ? '<span class="evm-person__handle">@' + esc(a.handle) + '</span>' : '') + '</span></div></td>'
+            + '<td class="evm-col-reg">' + esc(a.registered) + '</td>'
+            + '<td class="evm-col-paid">' + esc(a.paid) + '</td>'
+            + '<td><span class="evm-pill evm-pill--' + esc(a.status) + '">' + esc(a.status_label) + '</span></td>'
+            + '<td class="evm-col-act">' + acts + '</td></tr>';
     }
     function att_resize() {   // page size follows the table region; keep the first visible row on screen
         var per = per_fit();
@@ -132,13 +134,14 @@
         call('event_attendees', { page: att.page, per: att.per, q: att.q }, function (o) {
             if (seq !== att.seq) { return; }   // a newer search/page already went out
             rows_el.setAttribute('aria-busy', 'false');
-            if (!o) { rows_el.innerHTML = '<p class="evm-note">Could not load attendees. <button type="button" class="evm-link" data-att-retry>Try again</button></p>'; return; }
+            if (!o) { rows_el.innerHTML = msg_row('Could not load attendees. <button type="button" class="evm-link" data-att-retry>Try again</button>'); return; }
             att.page = o.page; att.loaded_key = o.page + '|' + att.per + '|' + att.q;
             if (!o.attendees.length) {
-                rows_el.innerHTML = att.q !== '' ? '<div class="evm-noresults">No attendees match “' + esc(att.q) + '”. <button type="button" class="evm-link" data-clear-search>Clear search</button></div>'
-                                                 : '<p class="evm-note">No one is registered right now.</p>';
+                rows_el.innerHTML = att.q !== '' ? msg_row('No attendees match “' + esc(att.q) + '”. <button type="button" class="evm-link" data-clear-search>Clear Search</button>')
+                                                 : msg_row('No one is registered right now.');
             } else {
                 rows_el.innerHTML = o.attendees.map(att_row).join('');
+                box_el.scrollTop = 0;
             }
             var start = o.total ? (o.page - 1) * o.per + 1 : 0, end = Math.min(o.total, o.page * o.per);
             el('evmRange').textContent = o.total ? start + '–' + end + ' of ' + o.total + (o.total === 1 ? ' attendee' : ' attendees') : '0 attendees';
@@ -180,11 +183,9 @@
         call('event_messages', { page: page, per: 10 }, function (o) {
             if (!o) { list_el.innerHTML = '<p class="evm-note">Could not load messages. <button type="button" class="evm-link" data-msg-retry>Try again</button></p>'; return; }
             msg_loaded = true; msg_page = o.page;
-            el('evmMsgCount').textContent = o.total;
             if (!o.messages.length) { list_el.innerHTML = '<p class="evm-note">' + esc(root.getAttribute('data-msg-empty')) + '</p>'; el('evmMsgPager').hidden = true; return; }
             list_el.innerHTML = o.messages.map(function (m) {
-                return '<article class="evm-msg"><div class="evm-msg__meta"><span class="evm-msg__sent"><i class="fa-solid fa-check" aria-hidden="true"></i> Sent</span>'
-                    + '<span>' + esc(m.sent_at) + '</span><span>To ' + m.recipients + (m.recipients === 1 ? ' attendee' : ' attendees') + '</span></div>'
+                return '<article class="evm-msg"><time class="evm-msg__time">' + esc(m.sent_at) + '</time>'
                     + '<p class="evm-msg__body">' + esc(m.body) + '</p></article>';
             }).join('');
             list_el.scrollTop = 0;
@@ -225,6 +226,7 @@
     if (modal_el && edit_btn && window.EventEditor) {
         var modal = window.bootstrap ? new bootstrap.Modal(modal_el) : null;
         var editor = window.EventEditor(modal_el, {
+            onTitle: function (t) { el('evModalSub').textContent = t !== '' ? t : 'Untitled event'; },
             onSaved: function () { toast(true, 'Changes saved'); setTimeout(function () { location.reload(); }, 400); }
         });
         edit_btn.addEventListener('click', function () {

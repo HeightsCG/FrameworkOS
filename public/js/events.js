@@ -18,6 +18,7 @@
         });
         ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
         el('ev_who').addEventListener('change', refresh);
+        el('ev_tz').addEventListener('change', refresh);
 
         /* Narrow screens: the preview replaces the form while it's open (never stacked below it). */
         var pv_toggle = el('evPvToggle');
@@ -40,7 +41,7 @@
             el('evPv_desc').textContent = el('ev_desc').value.trim();
             var d = el('ev_date').value, t1 = el('ev_time').value, t2 = el('ev_time_end').value, dt = d ? new Date(d + 'T12:00:00') : null;
             text_lines(el('evPv_when'), dt && !isNaN(dt)
-                ? [dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), t1 ? fmt_time(t1) + (t2 ? ' – ' + fmt_time(t2) : '') + ' ' + tz_short : '']
+                ? [dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), t1 ? fmt_time(t1) + (t2 ? ' – ' + fmt_time(t2) : '') + ' ' + tz_abbr(dt) : '']
                 : ['Pick a date']);
             if (el('ev_format').value === 'in_person') {
                 var city = [el('ev_city').value.trim(), (el('ev_region').value.trim() + ' ' + el('ev_postal').value.trim()).trim()].filter(function (x) { return x !== ''; }).join(', ');
@@ -55,7 +56,10 @@
             el('evPv_per').textContent = paid ? 'per person' : '';
             el('evPv_spots').textContent = cap > 0 ? cap + (cap === 1 ? ' spot' : ' spots') : 'No spot limit';
         }
-        var tz_short = (container.querySelector('[data-tz-short]') || { getAttribute: function () { return ''; } }).getAttribute('data-tz-short') || '';
+        function tz_abbr(d) {   // "EDT" for the chosen zone on that date
+            try { return new Intl.DateTimeFormat('en-US', { timeZone: el('ev_tz').value, timeZoneName: 'short' }).formatToParts(d).filter(function (p) { return p.type === 'timeZoneName'; })[0].value; }
+            catch (x) { return el('ev_tz').value; }
+        }
 
         function fmt_when() {
             var d = el('ev_date').value, t = el('ev_time').value;
@@ -63,7 +67,7 @@
             var dt = new Date(d + 'T' + (t || '00:00'));
             if (isNaN(dt)) { return 'Not set'; }
             var s = dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
-            return t ? s + ' · ' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : s;
+            return t ? s + ' · ' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + ' ' + tz_abbr(dt) : s;
         }
         function refresh() {
             var name = el('ev_title').value.trim();
@@ -87,6 +91,8 @@
             el('ev_date').value     = start ? start.slice(0, 10) : '';
             el('ev_time').value     = start ? start.slice(11, 16) : '';
             el('ev_time_end').value = end ? end.slice(11, 16) : '';
+            var tz = d && d.timezone ? d.timezone : el('ev_tz').getAttribute('data-default');
+            el('ev_tz').value = el('ev_tz').querySelector('option[value="' + tz + '"]') ? tz : el('ev_tz').getAttribute('data-default');
             el('ev_url').value      = d ? (d.external_url || '') : '';
             el('ev_venue').value    = d ? (d.venue_name || '') : '';
             el('ev_street').value   = d ? (d.street || (d.venue_name ? '' : (d.location || ''))) : '';   // older events only have the one-line location
@@ -135,6 +141,7 @@
                 description: el('ev_desc').value,
                 start_at: date + 'T' + el('ev_time').value,
                 end_at: el('ev_time_end').value !== '' ? date + 'T' + el('ev_time_end').value : '',
+                timezone: el('ev_tz').value,
                 format: el('ev_format').value === 'in_person' ? 'in_person' : 'virtual',
                 external_url: el('ev_url').value.trim(),
                 venue_name: el('ev_venue').value.trim(),

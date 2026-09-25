@@ -9,6 +9,38 @@ class EventsModel extends Model {
 
     public static function access_types(){ return array('free', 'paid', 'subscribers', 'tier'); }
 
+    /** Time zones an event can be set in (the editor's Time Zone list). An event's own zone is always kept even if it isn't here. */
+    const TIMEZONES = array(
+        'America/New_York', 'America/Chicago', 'America/Denver', 'America/Phoenix', 'America/Los_Angeles', 'America/Anchorage', 'Pacific/Honolulu',
+        'America/Puerto_Rico', 'America/Toronto', 'America/Vancouver', 'America/Mexico_City', 'America/Bogota', 'America/Sao_Paulo', 'America/Argentina/Buenos_Aires',
+        'Europe/London', 'Europe/Dublin', 'Europe/Lisbon', 'Europe/Madrid', 'Europe/Paris', 'Europe/Amsterdam', 'Europe/Berlin', 'Europe/Rome', 'Europe/Stockholm',
+        'Europe/Athens', 'Europe/Istanbul', 'Africa/Lagos', 'Africa/Johannesburg', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Bangkok', 'Asia/Singapore', 'Asia/Hong_Kong',
+        'Asia/Tokyo', 'Asia/Seoul', 'Australia/Perth', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
+    );
+
+    /** A valid IANA zone, else $fallback. */
+    public static function clean_timezone($tz, $fallback = 'UTC'){
+        $tz = trim((string) $tz);
+        return in_array($tz, DateTimeZone::listIdentifiers(), true) ? $tz : ((string) $fallback !== '' ? (string) $fallback : 'UTC');
+    }
+
+    /** "Eastern Time — New York" for the Time Zone list; the event's zone first-class even when it isn't in TIMEZONES. */
+    public static function timezone_options($current = ''){
+        $ids = self::TIMEZONES;
+        if ((string) $current !== '' && !in_array($current, $ids, true)) { array_unshift($ids, (string) $current); }
+        $out = array();
+        foreach ($ids as $id) {
+            $city = $id === 'UTC' ? '' : str_replace('_', ' ', substr($id, strrpos($id, '/') + 1));
+            $name = $id === 'UTC' ? 'Coordinated Universal Time' : $city;
+            if (class_exists('IntlTimeZone')) {
+                $z = IntlTimeZone::createTimeZone($id);
+                if ($z && $z->getID() !== 'Etc/Unknown') { $name = $z->getDisplayName(false, IntlTimeZone::DISPLAY_LONG_GENERIC, 'en_US'); }
+            }
+            $out[$id] = ($city !== '' && stripos($name, $city) === false) ? $name . ' — ' . $city : $name;
+        }
+        return $out;
+    }
+
     /* ---------- Creator management ---------- */
 
     public function create($creator_id, array $f){

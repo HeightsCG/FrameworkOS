@@ -2,13 +2,14 @@
 <?php
 $e  = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $d  = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
-$tz = (string) ($this->timezone ?? 'UTC');
-$local = function ($utc, $format) use ($tz) {
+$tz = (string) ($this->timezone ?? 'UTC');   // the account's zone: the editor's default for new events
+$ev        = $this->event;
+$ev_tz = EventsModel::clean_timezone($ev['timezone'] ?? '', $tz);   // this event's own zone: every time on the page is shown in it
+$local = function ($utc, $format) use ($ev_tz) {
     if ((string) $utc === '' || $utc === null) { return ''; }
-    try { $x = new DateTime((string) $utc, new DateTimeZone('UTC')); $x->setTimezone(new DateTimeZone($tz ?: 'UTC')); return $x->format($format); }
+    try { $x = new DateTime((string) $utc, new DateTimeZone('UTC')); $x->setTimezone(new DateTimeZone($ev_tz)); return $x->format($format); }
     catch (\Throwable $t) { return ''; }
 };
-$ev        = $this->event;
 $stats     = $this->stats;
 $tiers     = $this->tiers;
 $canceled  = ($ev['status'] === 'canceled');
@@ -18,7 +19,7 @@ $dollars   = function ($credits) { return '$' . number_format(((int) $credits) /
 $public_link = Main::get_base_domain() . '/@' . rawurlencode((string) $this->handle) . '/events/' . (int) $ev['id'];
 $editor_data = array(
     'id' => (int) $ev['id'], 'title' => $d($ev['title']), 'description' => $d($ev['description']),
-    'start_at' => $local($ev['start_at'], 'Y-m-d\TH:i'), 'end_at' => $local($ev['end_at'], 'Y-m-d\TH:i'),
+    'start_at' => $local($ev['start_at'], 'Y-m-d\TH:i'), 'end_at' => $local($ev['end_at'], 'Y-m-d\TH:i'), 'timezone' => $ev_tz,
     'format' => $ev['format'] ?? 'virtual', 'external_url' => (string) $ev['external_url'], 'location' => $d($ev['location']),
     'venue_name' => $d($ev['venue_name'] ?? ''), 'street' => $d($ev['street'] ?? ''), 'city' => $d($ev['city'] ?? ''),
     'region' => $d($ev['region'] ?? ''), 'postal_code' => $d($ev['postal_code'] ?? ''),
@@ -35,7 +36,8 @@ if ($ev['access_type'] === 'tier') {
 }
 $pct   = $cap > 0 ? min(100, (int) round($going * 100 / $cap)) : 0;
 $ended = strtotime((string) (!empty($ev['end_at']) ? $ev['end_at'] : $ev['start_at']) . ' UTC') < time();
-$can_message = !$canceled && !$ended && $going > 0;
+$recipients  = (int) $this->recipients;   // who a send actually reaches (people going, minus anyone blocked either way)
+$can_message = !$canceled && !$ended && $recipients > 0;
 $tab   = (string) ($this->tab ?? 'attendees');
 // Where: venue on one line, street on the next, then city/state/ZIP. Older events only have the one-line location.
 $venue = trim($d($ev['venue_name'] ?? ''));
@@ -43,7 +45,7 @@ $street = trim($d($ev['street'] ?? ''));
 $city_line = trim(implode(', ', array_filter(array(trim($d($ev['city'] ?? '')), trim(trim($d($ev['region'] ?? '')) . ' ' . trim($d($ev['postal_code'] ?? '')))), 'strlen')));
 if ($in_person && $venue === '' && $street === '' && $city_line === '') { $street = $d($ev['location']); }
 $empty_note = $canceled ? 'This event was canceled.' : ($ended ? 'This event has ended.' : ($live ? 'People who register show up here. Share the event link to get started.' : 'Turn on Live to open registration.'));
-$msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has ended.' : ($going === 0 ? 'Once people register you can message all of them here.' : 'Messages you send to attendees show up here.'));
+$msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has ended.' : ($recipients === 0 ? 'Once people register you can message all of them here.' : 'Messages you send to attendees show up here.'));
 ?>
 <div class="evm" data-event-id="<?php echo (int) $ev['id']; ?>" data-link="<?php echo $e($public_link); ?>" data-ev='<?php echo $e(json_encode($editor_data)); ?>'
      data-canceled="<?php echo $canceled ? 1 : 0; ?>" data-msg-empty="<?php echo $e($msg_empty); ?>">
@@ -120,8 +122,8 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
     <section class="evm-work">
         <div class="evm-work__bar">
             <div class="evm-tabs" role="tablist" aria-label="Event workspace">
-                <button type="button" class="evm-tab" role="tab" id="evmTabAtt" data-tab="attendees" aria-controls="evmPanelAtt" aria-selected="<?php echo $tab === 'attendees' ? 'true' : 'false'; ?>"<?php echo $tab === 'attendees' ? '' : ' tabindex="-1"'; ?>>Attendees <span class="evm-tab__n"><?php echo $going; ?></span></button>
-                <button type="button" class="evm-tab" role="tab" id="evmTabMsg" data-tab="messages" aria-controls="evmPanelMsg" aria-selected="<?php echo $tab === 'messages' ? 'true' : 'false'; ?>"<?php echo $tab === 'messages' ? '' : ' tabindex="-1"'; ?>>Messages <span class="evm-tab__n" id="evmMsgCount"><?php echo (int) $this->message_count; ?></span></button>
+                <button type="button" class="evm-tab" role="tab" id="evmTabAtt" data-tab="attendees" aria-controls="evmPanelAtt" aria-selected="<?php echo $tab === 'attendees' ? 'true' : 'false'; ?>"<?php echo $tab === 'attendees' ? '' : ' tabindex="-1"'; ?>>Attendees</button>
+                <button type="button" class="evm-tab" role="tab" id="evmTabMsg" data-tab="messages" aria-controls="evmPanelMsg" aria-selected="<?php echo $tab === 'messages' ? 'true' : 'false'; ?>"<?php echo $tab === 'messages' ? '' : ' tabindex="-1"'; ?>>Messages</button>
             </div>
             <?php if ($can_message): ?><button type="button" class="ev-btn" id="evmNewMsg" hidden><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> New Message</button><?php endif; ?>
         </div>
@@ -144,8 +146,11 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                 <span class="evm-tools__earned"><b><?php echo $e($dollars($stats['net'])); ?></b> earned<?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></span>
             </div>
             <div class="evm-table" id="evmAttendees">
-                <div class="evm-table__head" aria-hidden="true"><span>Attendee</span><span>Registered</span><span>Paid</span><span>Status</span><span></span></div>
-                <div class="evm-table__body" id="evmRows" aria-live="polite"><p class="evm-note">Loading attendees…</p></div>
+                <table class="evm-tbl">
+                    <caption class="visually-hidden">People going to this event</caption>
+                    <thead><tr><th scope="col">Attendee</th><th scope="col" class="evm-col-reg">Registered</th><th scope="col" class="evm-col-paid">Paid</th><th scope="col">Status</th><th scope="col" class="evm-col-act"><span class="visually-hidden">Actions</span></th></tr></thead>
+                    <tbody id="evmRows" aria-live="polite"><tr class="evm-tbl__msg"><td colspan="5">Loading attendees…</td></tr></tbody>
+                </table>
             </div>
             <footer class="evm-pager">
                 <span class="evm-pager__range" id="evmRange"></span>
@@ -174,12 +179,12 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                     <h2 class="evm-compose__title">New Message</h2>
                     <button type="button" class="evm-link" id="evmBack"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Sent Messages</button>
                 </div>
-                <p class="evm-compose__to"><span class="evm-compose__tolabel">To</span> All registered attendees <span class="evm-tab__n"><?php echo $going; ?></span></p>
+                <p class="evm-compose__to"><span class="evm-compose__tolabel">To</span> All registered attendees <span class="evm-tab__n"><?php echo $recipients; ?></span></p>
                 <label class="evm-compose__label" for="evmMsgBody">Message</label>
                 <textarea class="form-control evm-msg__text" id="evmMsgBody" maxlength="2000" rows="5" placeholder="Doors open at 6:30. Parking is on the north side."></textarea>
                 <div class="evm-compose__foot">
                     <button type="button" class="ev-btn" id="evmMsgCancel">Cancel</button>
-                    <button type="button" class="ev-btn ev-btn--primary" id="evmMsgSend" data-count="<?php echo $going; ?>" disabled>Send to <?php echo $going; ?> <?php echo $going === 1 ? 'Attendee' : 'Attendees'; ?></button>
+                    <button type="button" class="ev-btn ev-btn--primary" id="evmMsgSend" data-count="<?php echo $recipients; ?>" disabled>Send to <?php echo $recipients; ?> <?php echo $recipients === 1 ? 'Attendee' : 'Attendees'; ?></button>
                 </div>
             </div>
             <?php endif; ?>
