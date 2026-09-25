@@ -10,6 +10,23 @@ class Sections {
 
     public static function e($s): string { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }
 
+    /**
+     * Headline Title Case (Daniel's rule): capitalise each word's first letter, keep short joining words lower
+     * (except first/last), and never lower anything, so "AI", "OnlyFans", "Ko-fi" and "$29/mo" stay as written.
+     */
+    public static function tc(string $s): string {
+        $small = array('a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on', 'or', 'per', 'the', 'to', 'vs', 'via', 'with');
+        $w = preg_split('/(\s+)/u', trim($s), -1, PREG_SPLIT_DELIM_CAPTURE);
+        $last = count($w) - 1;
+        foreach ($w as $i => $word) {
+            if ($word === '' || preg_match('/^\s+$/u', $word)) { continue; }
+            $bare = strtolower(trim($word, '.,:;!?()"\''));
+            if ($i !== 0 && $i !== $last && in_array($bare, $small, true)) { continue; }
+            $w[$i] = preg_replace_callback('/^([\'"(\[]*)(\p{Ll})/u', function ($m) { return $m[1] . mb_strtoupper($m[2]); }, $word);
+        }
+        return implode('', $w);
+    }
+
     /** Lucide icons (24px grid, 1.5 stroke). */
     public static function icon(string $name, int $size = 22): string {
         $p = array(
@@ -75,7 +92,7 @@ class Sections {
         $bg = trim((string) ($h['bg_image'] ?? ''));
         $o = '<section class="sx sx--hero' . ($home ? ' sx--home' : '') . ($img === '' && empty($h['media_html']) ? ' sx--noimg' : '') . ($bg !== '' ? ' sx--bgimg' : '') . '"' . ($bg !== '' ? ' style="--hero-bg:url(\'' . self::e($bg) . '\')"' : '') . '><div class="ld-wrap sx__in sx-hero">';
         $o .= '<div class="sx-hero__text">';
-        $o .= '<h1 class="sx-hero__title">' . self::e($h['title']) . '</h1>';
+        $o .= '<h1 class="sx-hero__title">' . self::e(self::tc($h['title'])) . '</h1>';
         if (!empty($h['lead'])) { $o .= '<p class="sx-hero__lead">' . self::e($h['lead']) . '</p>'; }
         $o .= self::buttons((array) ($h['buttons'] ?? array())) . '</div>';
         if ($img !== '') { $o .= '<div class="sx-hero__media"><img src="' . self::e($img) . '" alt="" width="1024" height="768" fetchpriority="high"></div>'; }
@@ -93,10 +110,10 @@ class Sections {
         $wide = true; // every group uses the same layout: heading on top, even grid below (photos inside groups made pages look chaotic)
         $cols = (count($g['items']) % 4 === 0 && count($g['items']) <= 4) ? 4 : 3;
         $o = '<section class="sx sx--group' . ($bg === 'alt' ? ' sx--alt' : '') . '" id="' . self::e($g['id']) . '"><div class="ld-wrap sx__in sx-fg' . ($wide ? ' sx-fg--wide sx-fg--c' . $cols : '') . '">';
-        $o .= '<div class="sx-fg__side"><h2 class="sx-h2">' . self::e($g['title']) . '</h2><p class="sx-lead">' . self::e($g['lead']) . '</p>';
+        $o .= '<div class="sx-fg__side"><h2 class="sx-h2">' . self::e(self::tc($g['title'])) . '</h2><p class="sx-lead">' . self::e($g['lead']) . '</p>';
         $o .= '</div><ul class="sx-fg__items">';
         foreach ($g['items'] as $it) {
-            $o .= '<li class="sx-fg__item"><span class="sx-fg__ic">' . self::icon($it[0], 20) . '</span><div><h3 class="sx-fg__t">' . self::e($it[1]) . '</h3><p class="sx-fg__x">' . self::e($it[2]) . '</p></div></li>';
+            $o .= '<li class="sx-fg__item"><span class="sx-fg__ic">' . self::icon($it[0], 20) . '</span><div><h3 class="sx-fg__t">' . self::e(self::tc($it[1])) . '</h3><p class="sx-fg__x">' . self::e($it[2]) . '</p></div></li>';
         }
         return $o . '</ul></div></section>';
     }
@@ -105,7 +122,7 @@ class Sections {
     public static function index_list(array $items): string {
         $o = '<ul class="sx-ix">';
         foreach ($items as $it) {
-            $o .= '<li class="sx-ix__row"><h3 class="sx-ix__t">' . self::e($it['title']) . '</h3><p class="sx-ix__x">' . self::e($it['text']) . '</p><span class="sx-ix__ic">' . self::icon($it['icon'], 28) . '</span></li>';
+            $o .= '<li class="sx-ix__row"><h3 class="sx-ix__t">' . self::e(self::tc($it['title'])) . '</h3><p class="sx-ix__x">' . self::e($it['text']) . '</p><span class="sx-ix__ic">' . self::icon($it['icon'], 28) . '</span></li>';
         }
         return $o . '</ul>';
     }
@@ -130,7 +147,7 @@ class Sections {
         $o = '<section class="sx hx"><div class="hx__in"><div class="hx__left">';
         $o .= $title === '' ? '<h1 class="hx__words" role="tablist">' . $words . '</h1>' : '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>';
         $o .= '<div class="hx__intro">';
-        if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e($title) . '</h1>'; }
+        if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e(self::tc($title)) . '</h1>'; }
         if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
         if (!empty($h['lead'])) { $o .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
@@ -145,7 +162,7 @@ class Sections {
         $panel = (string) ($h['panel'] ?? '');
         $bg = trim((string) ($h['bg_image'] ?? ''));
         $o = '<section class="sx hx hx--panel' . ($panel === '' ? ' hx--solo' : '') . ($bg !== '' ? ' sx--bgimg' : '') . '"' . ($bg !== '' ? ' style="--hero-bg:url(\'' . self::e($bg) . '\')"' : '') . '><div class="hx__in"><div class="hx__left">';
-        $o .= '<h1 class="hx__big">' . self::e($h['title']) . '</h1>';
+        $o .= '<h1 class="hx__big">' . self::e(self::tc($h['title'])) . '</h1>';
         if (!empty($h['below'])) { $o .= '<div class="hx__below">' . $h['below'] . '</div>'; }
         if (!empty($h['lead'])) { $o .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
@@ -156,7 +173,7 @@ class Sections {
 
     /** Panel heading + optional text + body. */
     public static function pane(string $title, string $text, string $body): string {
-        return '<h2 class="hx__h' . ($text === '' ? ' hx__h--solo' : '') . '">' . self::e($title) . '</h2>' . ($text !== '' ? '<p class="hx__p">' . self::e($text) . '</p>' : '') . $body;
+        return '<h2 class="hx__h' . ($text === '' ? ' hx__h--solo' : '') . '">' . self::e(self::tc($title)) . '</h2>' . ($text !== '' ? '<p class="hx__p">' . self::e($text) . '</p>' : '') . $body;
     }
 
     /** Selectable options (one at a time). $items: array(title, text). */
@@ -220,7 +237,7 @@ class Sections {
     public static function open(string $bg = 'white', string $title = '', string $lead = '', string $id = ''): string {
         $o = '<section class="sx' . ($bg === 'alt' ? ' sx--alt' : '') . '"' . ($id !== '' ? ' id="' . self::e($id) . '"' : '') . '><div class="ld-wrap sx__in">';
         if ($title !== '') {
-            $o .= '<div class="sx-head"><h2 class="sx-h2">' . self::e($title) . '</h2>' . ($lead !== '' ? '<p class="sx-lead">' . self::e($lead) . '</p>' : '') . '</div>';
+            $o .= '<div class="sx-head"><h2 class="sx-h2">' . self::e(self::tc($title)) . '</h2>' . ($lead !== '' ? '<p class="sx-lead">' . self::e($lead) . '</p>' : '') . '</div>';
         }
         return $o;
     }
@@ -240,7 +257,7 @@ class Sections {
             $img = trim((string) ($r['image'] ?? '')); $flip = ($n++ % 2 === 1);
             $o .= '<article class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';
             if ($img !== '') { $o .= '<div class="sx-row__media"><img src="' . self::e($img) . '" alt="" loading="lazy" width="1024" height="768"></div>'; }
-            $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e($r['title']) . '</h3><p class="sx-p">' . self::e($r['text']) . '</p>';
+            $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e(self::tc($r['title'])) . '</h3><p class="sx-p">' . self::e($r['text']) . '</p>';
             if (!empty($r['points'])) { $o .= self::checks((array) $r['points']); }
             if (!empty($r['link'])) { $o .= '<a class="sx-more" href="' . self::e($r['link'][1]) . '">' . self::e($r['link'][0]) . '</a>'; }
             $o .= '</div></article>';
@@ -254,7 +271,7 @@ class Sections {
         foreach ($cards as $c) {
             $o .= '<article class="sx-card">';
             if (!empty($c['icon'])) { $o .= '<span class="sx-card__icon">' . self::icon($c['icon']) . '</span>'; }
-            $o .= '<h3 class="sx-card__title">' . self::e($c['title']) . '</h3>';
+            $o .= '<h3 class="sx-card__title">' . self::e(self::tc($c['title'])) . '</h3>';
             if (!empty($c['text'])) { $o .= '<p class="sx-card__text">' . self::e($c['text']) . '</p>'; }
             if (!empty($c['points'])) { $o .= self::checks((array) $c['points']); }
             if (!empty($c['note'])) { $o .= '<p class="sx-card__note">' . self::e($c['note']) . '</p>'; }
@@ -282,7 +299,7 @@ class Sections {
 
     /** FAQ accordion (questions and answers are plain text). */
     public static function faq(array $faq, string $bg = 'alt'): string {
-        $o = self::open($bg) . '<div class="sx-faq"><h2 class="sx-h2" id="sx_faq">Frequently asked questions</h2><div class="sx-faq__list">';
+        $o = self::open($bg) . '<div class="sx-faq"><h2 class="sx-h2" id="sx_faq">Frequently Asked Questions</h2><div class="sx-faq__list">';
         foreach ($faq as $qa) {
             $o .= '<details class="sx-faq__item"><summary>' . self::e($qa['q']) . '<svg class="sx-faq__chev" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sx-faq__a">' . self::e($qa['a']) . '</div></details>';
         }
@@ -291,7 +308,7 @@ class Sections {
 
     /** Closing call to action: full-width black band. */
     public static function cta(string $title, string $text = '', bool $pricing_link = true): string {
-        return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e($title) . '</h2>'
+        return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
             . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
             . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="/?auth=register" data-auth="register">Get Started</a>'
             . ($pricing_link ? '<a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a>' : '') . '</div></div></section>';

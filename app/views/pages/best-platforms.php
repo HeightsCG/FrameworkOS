@@ -1,7 +1,11 @@
 <?php
 $e = function ($s) { return Sections::e($s); }; $us = PagesController::our_facts(); $site = Main::site_name();
 $fee_rows = array(array($site, $us['fee'], true));
-foreach (PagesController::COMPETITORS as $slug => $cp) { $fee_rows[] = array($cp['name'], $cp['fee']['value']); }
+// The hero panel stays short: one example per kind of platform, as one-line fees. Every platform is in the tables below.
+foreach (array('onlyfans', 'patreon', 'kofi', 'linktree') as $slug) {
+    $cp = PagesController::COMPETITORS[$slug] ?? null;
+    if ($cp) { $fee_rows[] = array($cp['name'], (string) ($cp['fee_short'] ?? $cp['fee']['value'])); }
+}
 echo Sections::panel_hero(array(
     'title' => 'Best creator monetization platforms in ' . date('Y'),
     'lead' => 'There is no single best platform; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build ' . $site . ', and we say so where it matters.',
@@ -18,30 +22,35 @@ echo Sections::cards(array(
 ), 4);
 echo Sections::close();
 
+// One scannable table: every platform, one line each. The full sourced detail lives on each /compare page.
+$kind = array('fan' => 'Subscription platform', 'membership' => 'Memberships and tips', 'bio' => 'Link-in-bio storefront');
+echo Sections::open('alt', 'All platforms at a glance', 'One line per platform. Open a comparison for payouts, what you can sell, social publishing and audience export, each with its source.');
+$rows = array(array('<span class="bp-us">' . $e($site) . '</span>', 'Creator platform', '<strong>' . $e($us['fee']) . '</strong>', '<a class="sx-tlink" href="/features">See features</a>'));
 foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
-    $rows = array();
     foreach (PagesController::COMPETITORS as $slug => $c) {
         if (($c['type'] ?? '') !== $type) { continue; }
-        $rows[] = array('<strong>' . $e($c['name']) . '</strong>', $e($c['fee']['value']), $e($c['content']['value']), $e($c['payout']['value']), '<a href="/compare/' . $e($slug) . '" aria-label="' . $e($site . ' vs ' . $c['name']) . '">vs ' . $e($c['name']) . '</a>');
+        $rows[] = array($e($c['name']), $e($kind[$type]), $e((string) ($c['fee_short'] ?? $c['fee']['value'])),
+            '<a class="sx-tlink" href="/compare/' . $e($slug) . '" aria-label="' . $e($site . ' vs ' . $c['name']) . '">Compare</a>');
     }
-    if (empty($rows)) { continue; }
-    echo Sections::open($type === 'membership' ? 'white' : 'alt', $g[0], $g[1]);
-    echo Sections::table(array('Platform', 'Fee', 'What you can sell', 'Payouts', ''), $rows, -1);
-    echo Sections::close();
 }
+echo Sections::table(array('Platform', 'Kind', 'Fee', ''), $rows, -1);
+echo '<p class="sx-note">Figures come from each platform\'s own pricing, help or legal pages, linked and dated on its comparison page. Where a platform blocks automated access we use published reporting and label it "reported". We build ' . $e($site) . ', so read our row with that in mind.</p>';
+echo Sections::close();
 
+// Who each suits, grouped by kind so the nine options read as three short lists.
 echo Sections::open('white', 'Who each platform suits');
-$fit = array();
-foreach (PagesController::COMPETITORS as $slug => $c) {
-    $fit[] = array('title' => $c['name'], 'text' => (string) ($c['best_for'] ?? $c['summary']), 'link' => array('Compare with ' . $c['name'], '/compare/' . $slug));
+foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
+    $cards = array();
+    foreach (PagesController::COMPETITORS as $slug => $c) {
+        if (($c['type'] ?? '') !== $type) { continue; }
+        $cards[] = array('title' => $c['name'], 'text' => (string) ($c['best_for'] ?? $c['summary']), 'link' => array('Compare with ' . $c['name'], '/compare/' . $slug));
+    }
+    if (empty($cards)) { continue; }
+    echo '<div class="bp-group"><h3 class="bp-group__title">' . $e(Sections::tc($g[0])) . '</h3><p class="bp-group__lead">' . $e($g[1]) . '</p>' . Sections::cards($cards, max(2, min(3, count($cards)))) . '</div>';
 }
-$fit[] = array('title' => $site, 'text' => 'Creators who sell more than subscriptions (pay-per-view, bundles, services and events) from one page, publish to all their socials from one studio, and want a fee that falls as they grow.', 'link' => array('See the features', '/features'));
-echo Sections::cards($fit, 3);
+echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($site) . '</h3><p class="bp-group__lead">For creators who sell more than subscriptions (pay-per-view, bundles, services and events) from one page, publish to all their socials from one studio, and want a fee that falls as they grow.</p>'
+   . Sections::buttons(array(array('See the features', '/features', 'secondary'))) . '</div>';
 echo Sections::close();
 
-echo Sections::open('alt', 'How we compared');
-echo '<p class="sx-p">Every figure comes from the platform\'s own pricing, help or legal pages, linked on each comparison and checked on the date shown there. Where a platform blocks automated access, we use published third-party reporting and label it "reported". "Not published" means we could not find the platform stating it. We build ' . $e($site) . ', so read our own row with that in mind, and tell us if anything has changed.</p>';
-echo Sections::close();
-
-if (!empty($faq)) { echo Sections::faq($faq, 'white'); }
+if (!empty($faq)) { echo Sections::faq($faq, 'alt'); }
 $cta_title = 'See it with your own page.';

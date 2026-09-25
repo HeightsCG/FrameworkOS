@@ -373,7 +373,7 @@ class PagesController extends Controller {
     const COMPETITOR_GROUPS = array(
         'fan'        => array('Subscription platforms', 'Paid subscriptions, pay-per-view and messages inside the platform\'s own app.'),
         'membership' => array('Memberships and tips', 'Recurring support tiers, tips and small shops for podcasters, writers and artists.'),
-        'bio'        => array('Link-in-bio storefronts', 'A page for your bio link that sells digital products, courses or bookings.'),
+        'bio'        => array('Link-in-Bio Storefronts', 'A page for your bio link that sells digital products, courses or bookings.'),
     );
 
     /** Best-of FAQ: every answer is built from the sourced competitor rows and our own plan facts. */

@@ -233,3 +233,10 @@
 .dir-pages__a{ height:36px; display:inline-flex; align-items:center; padding:0 14px; border:1px solid var(--sx-line); border-radius:var(--sx-r); color:inherit; text-decoration:none; font-size:.88rem; font-weight:600; }
 .dir-pages__a:hover{ border-color:var(--sx-muted); }
 .dir-pages__n{ font-size:.86rem; color:var(--sx-muted); }
+
+/* Best-of page: grouped "who each suits" and our row in the table */
+.bp-us{ color:var(--sx-ink); font-weight:700; }
+.bp-group + .bp-group{ margin-top:48px; padding-top:40px; border-top:1px solid var(--sx-line-2); }
+.bp-group__title{ margin:0 0 6px; font-size:1.25rem; font-weight:700; letter-spacing:-.01em; color:var(--sx-ink); }
+.bp-group__lead{ margin:0 0 20px; font-size:.95rem; color:var(--sx-t2); max-width:640px; }
+.bp-group--us .sx-acts{ margin-top:4px; }
