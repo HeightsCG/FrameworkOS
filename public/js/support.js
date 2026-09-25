@@ -125,7 +125,7 @@ $(document).ready(function () {
         function confirm_close() {
             if (!window.Swal) { return Promise.resolve(window.confirm('Close this request?')); }
             return Swal.fire({ title: 'Close this request?', text: 'It moves to Closed. Anyone can reopen it by replying or with Reopen.', icon: 'question',
-                showCancelButton: true, reverseButtons: true, focusCancel: true, confirmButtonText: 'Close Request', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779' })
+                showCancelButton: true, reverseButtons: true, focusCancel: true, confirmButtonText: 'Close Request', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
                 .then(function (r) { return r.isConfirmed; });
         }
         $thread.on('click', '[data-close]', function () {

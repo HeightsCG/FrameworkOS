@@ -4,7 +4,7 @@
 .pur__sub{ color:var(--muted); font-size:.95rem; margin:.3rem 0 0; max-width:640px; }
 
 .pur__empty{ background:#fff; border:1px solid var(--line); border-radius:var(--r-sm); padding:3rem 1rem; text-align:center; box-shadow:var(--sh-xs); }
-.pur__empty-icon{ font-size:1.8rem; color:var(--muted2, #b8b6c6); }
+.pur__empty-icon{ font-size:1.8rem; color:var(--muted2, #BEBEBE); }
 .pur__empty-title{ font-size:1rem; font-weight:600; color:var(--text); margin:.9rem 0 .2rem; }
 .pur__empty-text{ font-size:.9rem; color:var(--muted); margin:0; }
 
@@ -13,21 +13,21 @@
 .pur-card__head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.85rem; }
 .pur-card__meta{ display:flex; align-items:center; gap:.6rem; min-width:0; }
 .pur-card__badge{ flex:none; font-size:.66rem; font-weight:700; letter-spacing:.03em; text-transform:uppercase; padding:.17rem .45rem; border-radius:4px; }
-.pur-card__badge--ppv{ background:var(--vsoft); color:var(--violet7); }
+.pur-card__badge--ppv{ background:var(--vsoft); color:var(--acc-ink); }
 .pur-card__badge--bundle{ background:#e7f6ec; color:#1a7f37; }
 .pur-card__badge--message{ background:#fff1e3; color:#b25e0a; }
 .pur-card__title{ font-size:.98rem; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .pur-card__creator{ flex:none; font-size:.85rem; color:var(--muted); text-decoration:none; }
-.pur-card__creator:hover{ color:var(--violet7); text-decoration:underline; }
+.pur-card__creator:hover{ color:var(--acc-ink); text-decoration:underline; }
 .pur-card__gone{ font-size:.85rem; color:var(--muted); margin:0; }
 
 .pur-media{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px,1fr)); gap:.5rem; }
-.pur-media__item{ position:relative; width:100%; aspect-ratio:1; padding:0; border:0; cursor:pointer; border-radius:var(--r-sm); background:#f1f0f6 center/cover no-repeat; box-shadow:inset 0 0 0 1px var(--line2, #eceaf3); transition:transform .12s; }
+.pur-media__item{ position:relative; width:100%; aspect-ratio:1; padding:0; border:0; cursor:pointer; border-radius:var(--r-sm); background:#F3F3F3 center/cover no-repeat; box-shadow:inset 0 0 0 1px var(--line2, #EEEEEE); transition:transform .12s; }
 .pur-media__item:hover{ transform:scale(1.02); }
 .pur-media__vid{ position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); color:#fff; font-size:1.2rem; text-shadow:0 1px 5px rgba(0,0,0,.7); pointer-events:none; }
 
 /* Internal media viewer */
-.pur-lb{ position:fixed; inset:0; z-index:2000; background:rgba(16,12,32,.88); display:flex; align-items:center; justify-content:center; padding:44px; }
+.pur-lb{ position:fixed; inset:0; z-index:2000; background:rgba(22, 22, 22, .88); display:flex; align-items:center; justify-content:center; padding:44px; }
 .pur-lb[hidden]{ display:none; }
 .pur-lb__stage{ max-width:100%; max-height:100%; display:flex; }
 .pur-lb__media{ max-width:100%; max-height:calc(100vh - 88px); border-radius:var(--r-sm); box-shadow:0 30px 80px -30px rgba(0,0,0,.6); display:block; }
@@ -38,7 +38,7 @@
 .pur-card__side{ flex:none; display:flex; align-items:center; gap:1rem; }
 .pur-dl{ display:inline-flex; align-items:center; gap:.4rem; height:32px; padding:0 .75rem; border:1px solid var(--line); border-radius:2px; background:var(--surface); color:var(--t2); font-size:.82rem; font-weight:600; text-decoration:none; white-space:nowrap; transition:border-color .12s, color .12s; }
 .pur-dl:hover{ border-color:var(--muted2); color:var(--text); }
-.pur-dl:focus-visible{ outline:none; box-shadow:var(--ring); border-color:var(--violet); }
+.pur-dl:focus-visible{ outline:none; box-shadow:var(--ring); border-color:var(--acc); }
 .pur-lb__dl{ position:fixed; top:18px; right:76px; display:inline-flex; align-items:center; gap:.45rem; height:42px; padding:0 1rem; border-radius:999px; background:rgba(255,255,255,.14); color:#fff; font-size:.86rem; font-weight:600; text-decoration:none; transition:background .12s; }
 .pur-lb__dl:hover{ background:rgba(255,255,255,.26); color:#fff; }
 .pur-lb__dl:focus-visible{ outline:2px solid #fff; outline-offset:2px; }

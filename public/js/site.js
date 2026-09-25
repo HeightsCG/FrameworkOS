@@ -231,7 +231,7 @@ $(document).ready(function() {
                            : 'You can still open it any time at /setup. It won\u2019t come back on its own.',
             width: 440, showCancelButton: true, reverseButtons: true,
             confirmButtonText: complete ? 'I\u2019m Finished' : 'Hide Checklist', cancelButtonText: complete ? 'Not Yet' : 'Keep',
-            confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779'
+            confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779'
         }).then(function (r) { if (r.isConfirmed) { hide(); } });
     });
 

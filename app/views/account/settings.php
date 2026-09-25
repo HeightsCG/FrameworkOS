@@ -1603,7 +1603,7 @@ $(function () {
                 + '<textarea id="vfNote" rows="3" maxlength="2000" placeholder="Links, socials, or context."></textarea>'
                 + '</div>',
             focusConfirm: false, showCancelButton: true, reverseButtons: true,
-            confirmButtonText: 'Submit request', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779',
+            confirmButtonText: 'Submit request', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
             preConfirm: function () {
                 var name = (document.getElementById('vfName').value || '').trim();
                 if (name === '') { Swal.showValidationMessage('Enter your legal name'); return false; }
@@ -2677,7 +2677,7 @@ $(function () {
                 + '<p style="margin:.5rem 0 0;font-size:.78rem;color:#9a97a8;">Create one in Bluesky under Settings &rarr; Privacy and security &rarr; App passwords. It is not your account password.</p>'
                 + '</div>',
             focusConfirm: false, showCancelButton: true, reverseButtons: true,
-            confirmButtonText: 'Connect', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779',
+            confirmButtonText: 'Connect', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
             preConfirm: function () {
                 var handle = (document.getElementById('bsHandle').value || '').trim().replace(/^@/, '');
                 var pw = (document.getElementById('bsAppPw').value || '').trim();

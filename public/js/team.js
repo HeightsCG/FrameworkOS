@@ -34,7 +34,7 @@
             showCancelButton: true,
             reverseButtons: true,
             confirmButtonText: 'Send invite',
-            confirmButtonColor: '#5b4be0',
+            confirmButtonColor: '#CD4C00',
             cancelButtonColor: '#6b6779',
             didOpen: function () { var n = document.getElementById('swiName'); if (n) { n.focus(); } },
             preConfirm: function () {
@@ -56,7 +56,7 @@
                         + '<span style="font-size:.8rem;color:#8a8797;">Or copy the link and share it directly:</span>'
                         + '<input readonly value="' + esc(o.invite_link) + '" onclick="this.select()" style="width:100%;margin-top:.45rem;padding:.5rem .6rem;border:1px solid #e2e0ea;border-radius:8px;font-size:.76rem;color:#4b4757;">',
                     confirmButtonText: 'Done',
-                    confirmButtonColor: '#5b4be0'
+                    confirmButtonColor: '#CD4C00'
                 }).then(function () { window.location.reload(); });
             });
         });

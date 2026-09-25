@@ -94,7 +94,7 @@ $last12 = array_slice($this->series, -12);
         </section>
 
         <div class="fz-minis" id="fzMinis">
-            <?php foreach (array('revenue' => array('Platform revenue', '#16a36a'), 'plans' => array('Plan payments', '#5b4be0'), 'fee' => array('Our fee on sales', '#0f8a5f'),
+            <?php foreach (array('revenue' => array('Platform revenue', '#16a36a'), 'plans' => array('Plan payments', '#FF6A13'), 'fee' => array('Our fee on sales', '#0f8a5f'),
                                  'cash_in' => array('Money in from credits', '#2f7ae5'), 'refunds' => array('Refunds', '#d9463b'), 'payouts' => array('Paid out to creators', '#e08a12')) as $mk => $md): ?>
             <article class="fz-mini" data-m="<?php echo $mk; ?>" data-c="<?php echo $md[1]; ?>">
                 <header><span><?php echo $e($md[0]); ?></span><b data-t>—</b></header>

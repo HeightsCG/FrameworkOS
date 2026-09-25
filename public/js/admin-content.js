@@ -5,7 +5,7 @@
     function bad(msg) { if (window.toastr) { toastr.error(msg || 'Something went wrong'); } }
     function confirmAction(opts) {
         if (!window.Swal) { return Promise.resolve(window.confirm(opts.title)); }
-        return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779' }, opts)).then(function (r) { return r.isConfirmed ? (r.value === undefined ? true : r.value) : false; });
+        return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }, opts)).then(function (r) { return r.isConfirmed ? (r.value === undefined ? true : r.value) : false; });
     }
 
     /* ---- Keyword queue (Content tab) ---- */

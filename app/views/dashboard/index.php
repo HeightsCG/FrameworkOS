@@ -423,7 +423,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                     <span class="dash__heat-day"><?php echo $dname; ?></span>
                     <div class="dash__heat-cells">
                         <?php for ($h = 0; $h < 24; $h++): $n = (int) $hgrid[$di][$h]; $a = $n > 0 ? round(0.18 + 0.82 * $n / $hmax, 3) : 0; ?>
-                        <span class="dash__heat-cell" <?php echo $n > 0 ? 'style="background:rgba(91,75,224,' . $a . ')"' : ''; ?> title="<?php echo $dname . ' ' . $hhour($h) . ' — ' . $n . ' view' . ($n === 1 ? '' : 's'); ?>"></span>
+                        <span class="dash__heat-cell" <?php echo $n > 0 ? 'style="background:rgba(255, 106, 19,' . $a . ')"' : ''; ?> title="<?php echo $dname . ' ' . $hhour($h) . ' — ' . $n . ' view' . ($n === 1 ? '' : 's'); ?>"></span>
                         <?php endfor; ?>
                     </div>
                 </div>

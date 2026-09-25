@@ -647,7 +647,7 @@ jQuery(function ($) {
                 });
             });
             $('#inf_set_regen').on('click', function () {
-                Swal.fire({ title: 'Start the set over?', text: 'The current images are set aside and ' + size + ' new ones are generated.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Start over', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779' })
+                Swal.fire({ title: 'Start the set over?', text: 'The current images are set aside and ' + size + ' new ones are generated.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Start over', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
                     .then(function (r) { if (r.isConfirmed) { inf.training_set_group = ''; clearTimeout(set_timer); paint({ group_key: '', complete: false, slots: [] }); } });
             });
             $('#inf_set_next').on('click', function () {
@@ -698,7 +698,7 @@ jQuery(function ($) {
                 set_actions('<button type="button" class="btn btn-outline-secondary btn-sm" id="inf_switch">Switch path</button>');
                 $('#inf_switch').on('click', function () {
                     var other = path === 'photos' ? 'reference' : 'photos';
-                    Swal.fire({ title: 'Switch to ' + (other === 'photos' ? 'Train from your photos' : 'Text or single image') + '?', text: 'Your name and anything already uploaded are kept.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Switch', confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779' })
+                    Swal.fire({ title: 'Switch to ' + (other === 'photos' ? 'Train from your photos' : 'Text or single image') + '?', text: 'Your name and anything already uploaded are kept.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Switch', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
                         .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
                 });
             }

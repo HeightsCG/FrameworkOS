@@ -1,20 +1,20 @@
 .app-content .container{ width: 75%; margin:0 auto; padding:0;}
 .password-meter{ margin-top:-.35rem;}
 .password-meter__bar{display:flex; gap:5px;}
-.password-meter__bar span{flex:1; height:4px; border-radius:2px; background:#e4e4ea; transition:background .25s;}
+.password-meter__bar span{flex:1; height:4px; border-radius:2px; background:#E7E7E7; transition:background .25s;}
 .password-meter__label{font-size:.78rem; font-weight:600; color:var(--muted); margin:.5rem 0 0; transition:color .2s;}
 .password-meter.is-weak   .password-meter__bar span:nth-child(-n+1){background:var(--danger);}
 .password-meter.is-fair   .password-meter__bar span:nth-child(-n+2){background:#e8973a;}
-.password-meter.is-good   .password-meter__bar span:nth-child(-n+3){background:var(--violet);}
+.password-meter.is-good   .password-meter__bar span:nth-child(-n+3){background:var(--acc);}
 .password-meter.is-strong .password-meter__bar span{background:#1f9d6b;}
 .password-meter.is-weak   .password-meter__label{color:var(--danger);}
 .password-meter.is-fair   .password-meter__label{color:#c97a22;}
-.password-meter.is-good   .password-meter__label{color:var(--violet7);}
+.password-meter.is-good   .password-meter__label{color:var(--acc-ink);}
 .password-meter.is-strong .password-meter__label{color:#1f9d6b;}
 
 .password-reqs li{display:flex; align-items:center; gap:.5rem; font-size:.8rem; color:var(--muted); transition:color .15s;}
-.password-reqs__dot{width:15px; height:15px; border-radius:50%; border:1.5px solid #cfcfd8; flex:none; position:relative; transition:background .15s, border-color .15s;}
+.password-reqs__dot{width:15px; height:15px; border-radius:50%; border:1.5px solid #D3D3D3; flex:none; position:relative; transition:background .15s, border-color .15s;}
 .password-reqs li.is-met{color:var(--t2);}
-.password-reqs li.is-met .password-reqs__dot{background:var(--violet); border-color:var(--violet);}
+.password-reqs li.is-met .password-reqs__dot{background:var(--acc); border-color:var(--acc);}
 .password-reqs li.is-met .password-reqs__dot::after{content:""; position:absolute; left:4.5px; top:1.5px; width:3px; height:6.5px; border:solid #fff; border-width:0 1.6px 1.6px 0; transform:rotate(45deg);}
 

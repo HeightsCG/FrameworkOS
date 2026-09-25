@@ -8,7 +8,7 @@
     function confirmAction(opts) {
         if (window.Swal) {
             return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, focusCancel: true,
-                confirmButtonColor: '#5b4be0', cancelButtonColor: '#6b6779' }, opts)).then(function (res) { return res.isConfirmed ? (res.value === undefined ? true : res.value) : false; });
+                confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }, opts)).then(function (res) { return res.isConfirmed ? (res.value === undefined ? true : res.value) : false; });
         }
         return Promise.resolve(window.confirm(opts.title || 'Are you sure?'));
     }
@@ -69,11 +69,11 @@
             call('admin_resend_verification', { user_id: user_id }, b, false);
         } else if (act === 'status') {
             var s = b.getAttribute('data-status');
-            confirmAction({ title: s === 'Disabled' ? 'Suspend this account?' : 'Reactivate this account?', text: s === 'Disabled' ? 'They are signed out and blocked from signing in.' : 'They can sign in again.', icon: s === 'Disabled' ? 'warning' : 'question', confirmButtonText: s === 'Disabled' ? 'Suspend' : 'Reactivate', confirmButtonColor: s === 'Disabled' ? '#e5484d' : '#5b4be0' })
+            confirmAction({ title: s === 'Disabled' ? 'Suspend this account?' : 'Reactivate this account?', text: s === 'Disabled' ? 'They are signed out and blocked from signing in.' : 'They can sign in again.', icon: s === 'Disabled' ? 'warning' : 'question', confirmButtonText: s === 'Disabled' ? 'Suspend' : 'Reactivate', confirmButtonColor: s === 'Disabled' ? '#e5484d' : '#FF6A13' })
                 .then(function (ok) { if (ok) { call('admin_set_user_status', { user_id: user_id, status: s }, b); } });
         } else if (act === 'plan') {
             var c = b.getAttribute('data-cancel');
-            confirmAction({ title: c === '1' ? 'Cancel this plan at the end of the period?' : 'Resume this plan?', text: c === '1' ? 'The plan stays active until the current period ends, then stops renewing.' : 'The plan will keep renewing.', confirmButtonText: c === '1' ? 'Cancel Plan' : 'Resume Plan', confirmButtonColor: c === '1' ? '#e5484d' : '#5b4be0' })
+            confirmAction({ title: c === '1' ? 'Cancel this plan at the end of the period?' : 'Resume this plan?', text: c === '1' ? 'The plan stays active until the current period ends, then stops renewing.' : 'The plan will keep renewing.', confirmButtonText: c === '1' ? 'Cancel Plan' : 'Resume Plan', confirmButtonColor: c === '1' ? '#e5484d' : '#FF6A13' })
                 .then(function (ok) { if (ok) { call('admin_set_plan_cancel', { user_id: user_id, cancel: c }, b); } });
         } else if (act === 'membership') {
             var row = b.closest('[data-membership]');

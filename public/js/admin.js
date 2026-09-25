@@ -323,7 +323,7 @@
         last12.forEach(function (m, i) {
             var v = vals[i], cx = L + slot * i + slot / 2, prev = i > 0 ? vals[i - 1] : (months.length > 12 ? months[months.length - 13].revenue || 0 : 0);
             var cur = (i === last12.length - 1);
-            svg.appendChild(el('rect', { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(v > 0 ? 2 : 0, T + ph - y(v)), rx: 4, fill: cur ? '#5b4be0' : '#b9b1f6' }));
+            svg.appendChild(el('rect', { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(v > 0 ? 2 : 0, T + ph - y(v)), rx: 4, fill: cur ? '#FF6A13' : '#FFC29E' }));
             if (v > 0) { svg.appendChild(el('text', { 'class': 'fz-rev__val', x: cx, y: y(v) - 8, 'text-anchor': 'middle' }, short(v))); }
             svg.appendChild(el('text', { 'class': 'axis', x: cx, y: H - 26, 'text-anchor': 'middle' }, m.label));
             var chg = '', cls = 'fz-rev__chg';
