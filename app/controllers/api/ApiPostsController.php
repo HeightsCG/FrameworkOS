@@ -618,6 +618,8 @@ class ApiPostsController extends BaseApiController {
         if ($viewer_id > 0 && $viewer_id !== $creator_id && (new BlocksModel())->either_blocked($viewer_id, $creator_id)) { return false; }
         if (($post['audience'] ?? 'free') === 'free') { return true; }
         if ($viewer_id <= 0) { return false; }
+        // PPV is locked for everyone (subscribers included) until purchased — never fall through to tiers.
+        if (($post['audience'] ?? '') === 'ppv') { return (new PpvUnlocksModel())->has_unlocked((int) $post['id'], $viewer_id); }
         $subs     = new CreatorSubscriptionsModel();
         $plan_ids = (array) $subs->active_plan_ids($viewer_id, $creator_id);
         $tiers    = (new PostsModel())->tiers_for_posts(array((int) $post['id']))[(int) $post['id']] ?? array();

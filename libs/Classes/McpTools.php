@@ -438,6 +438,7 @@ class McpTools {
                 $post = $p->get_one($cid, $iid);
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
+                self::refuse_blocked_media($p, $iid);
                 $res = $ok($p->set_state($cid, $iid, 'published', null, date('Y-m-d H:i:s')));
                 PostNotifier::published($cid, $iid);
                 return self::with_share($res, $cid, $post, $a, null);
@@ -448,6 +449,7 @@ class McpTools {
                 $p = new PostsModel();
                 $post = $p->get_one($cid, $iid);
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
+                self::refuse_blocked_media($p, $iid);
                 $res = $ok($p->set_state($cid, $iid, 'scheduled', $when));
                 return self::with_share($res, $cid, $post, $a, str_replace(' ', 'T', $when) . 'Z');
             }
@@ -894,6 +896,14 @@ class McpTools {
     private static function need($row, $msg){
         if (!$row) { throw new InvalidArgumentException($msg); }
         return $row;
+    }
+    /** Same hard stop as the Studio publish: moderator-blocked media can never go live or be shared. */
+    private static function refuse_blocked_media(PostsModel $p, $post_id){
+        foreach ($p->get_assets((int) $post_id) as $asset) {
+            if (empty($asset['deleted_at']) && ($asset['moderation_status'] ?? '') === 'blocked') {
+                throw new RuntimeException('This post has media that was blocked by the content check and cannot be published. Remove it first.');
+            }
+        }
     }
     /** Keep only asset ids that belong to this creator (prevents referencing others' media). */
     private static function ownedAssetIds($cid, $ids){

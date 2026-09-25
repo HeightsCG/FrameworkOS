@@ -29,11 +29,17 @@ class FanvueShareService {
             $token = FanvueService::access_token_for($account);
             if ($token === '') { return self::fail('Fanvue session expired. Reconnect in Settings > Integrations.'); }
 
-            // Media: originals of every ready, non-rejected asset, in post order.
+            // Media: originals of every ready, moderation-cleared asset, in post order.
+            $assets = (new PostsModel())->get_assets((int) $post['id']);
+            // Never mirror quarantined or not-yet-scanned media; fail before uploading anything rather than post it partially.
+            foreach ($assets as $a) {
+                if (empty($a['deleted_at']) && in_array(($a['moderation_status'] ?? ''), array('blocked', 'pending', 'error'), true)) {
+                    return self::fail('Media on this post has not cleared the content check, so it was not shared to Fanvue.');
+                }
+            }
             $uuids = array();
-            foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) {
+            foreach ($assets as $a) {
                 if (($a['status'] ?? '') !== 'ready' || !empty($a['deleted_at'])) { continue; }
-                if (($a['moderation_status'] ?? '') === 'rejected') { continue; }
                 $key = (string) ($a['original_key'] ?? '');
                 if ($key === '') { $key = (string) ($a['display_key'] ?? ''); }
                 if ($key === '') { continue; }

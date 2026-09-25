@@ -17,7 +17,12 @@ class BaseApiController extends Controller {
     public function __construct(){
         parent::__construct();
 
-        if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !CSRF::validate()) {
+        // POST only: every client call is a POST, and a GET would skip CSRF (a top-level
+        // link to /api/delete_my_account would otherwise run with the victim's cookie).
+        if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
+            $this->jsonError('Method not allowed', [], 405);
+        }
+        if (!CSRF::validate()) {
             $this->jsonError('Invalid or expired request token');
         }
 

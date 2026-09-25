@@ -12,6 +12,7 @@ if (php_sapi_name() !== 'cli') { exit(1); }
 
 // Match the web app's environment so Database picks the right app.ini section.
 if (!getenv('APPLICATION_ENV')) { putenv('APPLICATION_ENV=development'); }
+date_default_timezone_set('UTC');   // same as Bootstrap: every stored timestamp is UTC
 
 $root = dirname(__DIR__);
 if (is_file($root . '/vendor/autoload.php')) { require_once $root . '/vendor/autoload.php'; }
@@ -36,6 +37,16 @@ try {
     if (date('i') === '00') { (new InboxEventsModel())->purge_older_than(30); }   // once an hour is plenty
 } catch (\Throwable $e) {
     echo '[inbox] drain failed: ' . $e->getMessage() . "\n";
+}
+
+// Scheduled posts: go live at their time even if the creator never opens Studio, and tell followers.
+try {
+    foreach ((new PostsModel())->publish_due(0) as $pid => $cid) {
+        PostNotifier::published($cid, $pid);
+        fwrite(STDOUT, date('c') . " scheduled post {$pid} published\n");
+    }
+} catch (\Throwable $e) {
+    error_log('[scheduler] publish_due failed: ' . $e->getMessage());
 }
 
 $now = gmdate('Y-m-d H:i:s');

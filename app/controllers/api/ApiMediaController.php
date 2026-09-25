@@ -395,6 +395,9 @@ class ApiMediaController extends BaseApiController {
         if (empty($a['original_key'])) {
             $this->jsonError('The original file is unavailable, so the watermark cannot be changed.');
         }
+        if (($a['moderation_status'] ?? '') === 'blocked') {
+            $this->jsonError('This file was blocked by our content check and cannot be changed.');
+        }
         // Pull the original down to a temp file, then re-run the image pipeline.
         $url = S3Service::presigned_get_url($a['original_key'], 300);
         $tmp = tempnam(sys_get_temp_dir(), 'wm');
@@ -413,6 +416,8 @@ class ApiMediaController extends BaseApiController {
         if (isset($res['error'])) {
             $this->jsonError((string) ($res['error']));
         }
+        // Same image, new watermark: keep the existing moderation verdict (incl. any admin decision).
+        unset($res['moderation_status'], $res['moderation_score'], $res['moderation_labels']);
         $model->set_ready($creator_id, $id, $res);
         $a = $model->get_one($creator_id, $id);
         $this->jsonSuccess(['asset' => $this->studio_asset_json($a, $creator_id)]);

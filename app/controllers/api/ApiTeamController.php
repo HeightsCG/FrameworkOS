@@ -66,7 +66,7 @@ class ApiTeamController extends BaseApiController {
 
     /* ---------- Events (PRD §23) ---------- */
 
-    private function team_owner_guard(): array{
+    private function team_owner_guard(): int{
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
         if (!Permissions::is_owner_creator()) { $this->jsonError('Only the account owner can manage the team.'); }

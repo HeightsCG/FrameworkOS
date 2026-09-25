@@ -791,7 +791,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator();
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
-        $model->publish_due($creator_id);   // cron-less: flip any now-due scheduled posts
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { PostNotifier::published($cid, $pid); }   // cron fallback: flip now-due scheduled posts
         $filters = ['state' => (string) ($this->post['state'] ?? ''), 'search' => (string) ($this->post['search'] ?? '')];
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = [];
@@ -809,7 +809,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();
-        $model->publish_due($creator_id);
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { PostNotifier::published($cid, $pid); }
 
         $items = [];
         $furthest = null; $scheduled_count = 0;

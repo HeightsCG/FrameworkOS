@@ -361,16 +361,35 @@ class PostsModel extends Model {
         return $new_id;
     }
 
-    /** Publish any scheduled posts whose time has arrived (cron-less fallback). */
-    public function publish_due($creator_id){
-        $now = date('Y-m-d H:i:s');
-        return parent::sql(
-            "UPDATE posts SET state = 'published',
-                    published_at = COALESCE(published_at, :n1), scheduled_at = NULL, updated_at = :n2
-             WHERE creator_id = :c AND state = 'scheduled' AND scheduled_at <= :n3
-               AND media_missing = 0",
-            array('c' => (int) $creator_id, 'n1' => $now, 'n2' => $now, 'n3' => $now)
+    /**
+     * Publish scheduled posts whose time has arrived — one creator's (Studio fallback) or
+     * everyone's ($creator_id = 0, cron). Posts holding moderator-blocked media stay scheduled.
+     * Each post is claimed with a conditional UPDATE so the cron and a Studio load can't both
+     * flip it. Returns [post_id => creator_id] for the posts THIS call published (notify those).
+     */
+    public function publish_due($creator_id = 0){
+        $now    = date('Y-m-d H:i:s');
+        $params = array('n' => $now);
+        $mine   = '';
+        if ((int) $creator_id > 0) { $mine = ' AND p.creator_id = :c'; $params['c'] = (int) $creator_id; }
+        $rows = parent::select(
+            "SELECT p.id, p.creator_id, p.published_at FROM posts p
+             WHERE p.state = 'scheduled' AND p.scheduled_at <= :n AND p.media_missing = 0" . $mine . "
+               AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets m ON m.id = pa.asset_id
+                               WHERE pa.post_id = p.id AND m.deleted_at IS NULL AND m.moderation_status = 'blocked')
+             ORDER BY p.scheduled_at ASC LIMIT 200",
+            $params
         );
+        $flipped = array();
+        foreach ((array) $rows as $r) {
+            $n = parent::update('posts',
+                array('state' => 'published', 'published_at' => !empty($r['published_at']) ? $r['published_at'] : $now,
+                      'scheduled_at' => null, 'updated_at' => $now),
+                "id = :id AND state = 'scheduled'",
+                array('id' => (int) $r['id']));
+            if ($n > 0) { $flipped[(int) $r['id']] = (int) $r['creator_id']; }
+        }
+        return $flipped;
     }
 
     public function delete_post($creator_id, $id){
