@@ -138,8 +138,7 @@ class ProfileController extends Controller {
         // Published events this creator is hosting (PRD §23). Access details (venue,
         // link, instructions) are revealed ONLY to a registered attendee or the creator.
         $eventsModel = new EventsModel();
-        $event_cards = array();
-        foreach ($eventsModel->list_public_for_creator($user['user_id']) as $ev) {
+        $make_event_card = function (array $ev) use ($eventsModel, $is_self, $viewer_logged_in, $viewer_id) {
             $ev_tz = (string) ($ev['timezone'] !== '' ? $ev['timezone'] : 'UTC');
             $when  = '';
             try {
@@ -157,8 +156,10 @@ class ProfileController extends Controller {
             } catch (\Throwable $x) { $when = ''; }
 
             $registered = (!$is_self && $viewer_logged_in) ? $eventsModel->is_registered((int) $ev['id'], $viewer_id) : false;
-            $attendees  = (int) $ev['attendees'];
+            $attendees  = (int) ($ev['attendees'] ?? $eventsModel->attendee_count((int) $ev['id']));
             $capacity   = (int) $ev['capacity'];
+            $in_person  = (($ev['format'] ?? 'virtual') === 'in_person');
+            $end_ts     = strtotime((string) (!empty($ev['end_at']) ? $ev['end_at'] : $ev['start_at']) . ' UTC');
             $card = array(
                 'id'            => (int) $ev['id'],
                 'title'         => (string) $ev['title'],
@@ -170,19 +171,39 @@ class ProfileController extends Controller {
                 'attendees'     => $attendees,
                 'capacity'      => $capacity,
                 'is_full'       => ($capacity > 0 && $attendees >= $capacity),
-                'is_online'     => (trim((string) $ev['external_url']) !== ''),
-                'is_inperson'   => (trim((string) $ev['location']) !== ''),
+                'is_online'     => !$in_person,
+                'is_inperson'   => $in_person,
+                'is_past'       => $end_ts !== false && $end_ts < time(),
+                'is_canceled'   => ((string) $ev['status'] === 'canceled'),
+                'is_draft'      => ((string) $ev['status'] === 'draft'),
                 'registered'    => $registered,
                 'is_self'       => $is_self,
             );
             if ($registered || $is_self) {
                 $card['access'] = array(
-                    'url'          => (string) $ev['external_url'],
-                    'location'     => (string) $ev['location'],
+                    'url'          => $in_person ? '' : (string) $ev['external_url'],
+                    'location'     => $in_person ? (string) $ev['location'] : '',
                     'instructions' => (string) $ev['access_instructions'],
                 );
             }
-            $event_cards[] = $card;
+            return $card;
+        };
+
+        // /@handle/events/<id>: one event's own page (the link a creator shares). Live or canceled
+        // events are public; a draft is visible only to its creator.
+        $url_parts   = Main::get_url();
+        $focus_event = null;
+        if (($url_parts[1] ?? '') === 'events' && ctype_digit((string) ($url_parts[2] ?? ''))) {
+            $row = $eventsModel->get_one((int) $user['user_id'], (int) $url_parts[2]);
+            if (!$row || ((string) $row['status'] === 'draft' && !$is_self)) { Errors::page_not_found(); return; }
+            $focus_event = $make_event_card($row);
+        }
+
+        // Published events this creator is hosting (PRD §23). Access details (venue,
+        // link, instructions) are revealed ONLY to a registered attendee or the creator.
+        $event_cards = array();
+        foreach ($eventsModel->list_public_for_creator($user['user_id']) as $ev) {
+            $event_cards[] = $make_event_card($ev);
         }
 
         // Published services this creator sells (PRD §22). Booking + delivery details

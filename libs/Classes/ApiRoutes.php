@@ -84,7 +84,7 @@ class ApiRoutes {
             'seo_article_unpublish', 'seo_article_rewrite', 'seo_article_discard', 'seo_article_cover',
         ],
         'ApiEventsController' => [
-            'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all',
+            'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all', 'event_set_live',
         ],
         'ApiServicesController' => [
             'service_save', 'service_delete', 'service_purchase',

@@ -26,12 +26,24 @@ class EventsModel extends Model {
             'capacity'            => max(0, (int) ($f['capacity'] ?? 0)),
             'format'              => self::format($f['format'] ?? 'virtual'),
             'location'            => mb_substr((string) ($f['location'] ?? ''), 0, 255),
+            'venue_name'          => mb_substr((string) ($f['venue_name'] ?? ''), 0, 160),
+            'street'              => mb_substr((string) ($f['street'] ?? ''), 0, 190),
+            'city'                => mb_substr((string) ($f['city'] ?? ''), 0, 100),
+            'region'              => mb_substr((string) ($f['region'] ?? ''), 0, 60),
+            'postal_code'         => mb_substr((string) ($f['postal_code'] ?? ''), 0, 20),
             'external_url'        => self::web_link($f['external_url'] ?? ''),
             'access_instructions' => (string) ($f['access_instructions'] ?? ''),
             'status'              => in_array($f['status'] ?? 'draft', array('draft', 'published', 'canceled'), true) ? $f['status'] : 'draft',
             'created_at'          => $now,
             'updated_at'          => $now,
         ));
+    }
+
+    /** One display line from the structured address: "Venue, 512 E Washington St, Orlando, FL 32801". */
+    public static function address_line(array $a){
+        $tail = trim(implode(' ', array_filter(array(trim((string) ($a['region'] ?? '')), trim((string) ($a['postal_code'] ?? ''))))));
+        $parts = array_filter(array(trim((string) ($a['venue_name'] ?? '')), trim((string) ($a['street'] ?? '')), trim((string) ($a['city'] ?? '')), $tail), 'strlen');
+        return implode(', ', $parts);
     }
 
     /** 'virtual' (video link) or 'in_person' (address). */
@@ -49,7 +61,7 @@ class EventsModel extends Model {
         if (!$this->get_one($creator_id, $id)) { return false; }
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'access_type', 'price_credits',
-                       'tier_id', 'capacity', 'format', 'location', 'external_url', 'access_instructions', 'status') as $k) {
+                       'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'status') as $k) {
             if (!array_key_exists($k, $f)) { continue; }
             if ($k === 'access_type' && !in_array($f[$k], self::access_types(), true)) { continue; }
             if ($k === 'format') { $data[$k] = self::format($f[$k]); continue; }
@@ -173,6 +185,32 @@ class EventsModel extends Model {
              ORDER BY (r.status = 'registered') DESC, r.created_at DESC", array('e' => (int) $event_id));
     }
 
+    /** One page of the people going (the event page's attendee table): search by name, handle or email. */
+    public function going_page($event_id, $q, $limit, $offset){
+        $limit = max(1, min(50, (int) $limit)); $offset = max(0, (int) $offset);
+        $where = "r.event_id = :e AND r.status = 'registered'";
+        $args  = array('e' => (int) $event_id);
+        if ((string) $q !== '') {
+            $where .= " AND (cp.display_name LIKE :q1 OR CONCAT(u.first_name, ' ', u.last_name) LIKE :q2 OR u.u_name LIKE :q3 OR u.user_email LIKE :q4)";
+            $like = '%' . addcslashes((string) $q, '%_\\') . '%';
+            $args += array('q1' => $like, 'q2' => $like, 'q3' => $like, 'q4' => $like);
+        }
+        $from = "FROM event_registrations r JOIN user_accounts u ON u.user_id = r.user_id LEFT JOIN creator_profiles cp ON cp.user_id = r.user_id WHERE $where";
+        $n = parent::select("SELECT COUNT(*) AS n $from", $args);
+        $rows = parent::select(
+            "SELECT r.id, r.user_id, r.status, r.price_credits, r.net_credits, r.created_at,
+                    COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.u_name) AS name,
+                    u.u_name AS handle, cp.avatar_url
+             $from ORDER BY r.created_at DESC, r.id DESC LIMIT $limit OFFSET $offset", $args);
+        return array('rows' => (array) $rows, 'total' => (int) ((is_array($n) && count($n)) ? $n[0]['n'] : 0));
+    }
+
+    /** Every registration row ever (going, canceled, refunded, removed): is there anything to export? */
+    public function registration_count($event_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM event_registrations WHERE event_id = :e", array('e' => (int) $event_id));
+        return (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0);
+    }
+
     public function registration($event_id, $reg_id){
         $r = parent::select("SELECT * FROM event_registrations WHERE id = :id AND event_id = :e", array('id' => (int) $reg_id, 'e' => (int) $event_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
@@ -206,6 +244,18 @@ class EventsModel extends Model {
 
     public function messages($event_id){
         return (array) parent::select("SELECT * FROM event_messages WHERE event_id = :e ORDER BY id DESC", array('e' => (int) $event_id));
+    }
+
+    /** One page of sent messages, newest first. */
+    public function messages_page($event_id, $limit, $offset){
+        $limit = max(1, min(50, (int) $limit)); $offset = max(0, (int) $offset);
+        $rows = parent::select("SELECT id, body, recipients, created_at FROM event_messages WHERE event_id = :e ORDER BY id DESC LIMIT $limit OFFSET $offset", array('e' => (int) $event_id));
+        return array('rows' => (array) $rows, 'total' => $this->message_count($event_id));
+    }
+
+    public function message_count($event_id){
+        $r = parent::select("SELECT COUNT(*) AS n FROM event_messages WHERE event_id = :e", array('e' => (int) $event_id));
+        return (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0);
     }
 
     public function set_paid($registration_id, $price_credits, $net_credits = 0){

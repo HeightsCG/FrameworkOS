@@ -9,13 +9,13 @@ $fmt = function ($utc) use ($tz) {
 };
 $events = $this->events;
 $tiers  = $this->tiers;
-$status_label = array('published' => 'Published', 'draft' => 'Draft', 'canceled' => 'Canceled');
+$status_label = array('published' => 'Live', 'draft' => 'Not live', 'canceled' => 'Canceled');
 ?>
 <div class="ev">
     <header class="ev__head">
         <div>
             <h1 class="ev__title">Events</h1>
-            <p class="ev__sub">Workshops, livestreams and meetups your fans register for. Times are in <?php echo $e(str_replace('_', ' ', $tz)); ?>.</p>
+            <p class="ev__sub">Workshops, livestreams and meetups your fans register for. Times are in <?php $tzl = str_replace('_', ' ', $tz); if (class_exists('IntlTimeZone')) { $z = IntlTimeZone::createTimeZone($tz); if ($z && $z->getID() !== 'Etc/Unknown') { $tzl = $z->getDisplayName(false, IntlTimeZone::DISPLAY_LONG_GENERIC, 'en_US'); } } echo $e($tzl); ?>.</p>
         </div>
         <button type="button" class="ev-btn ev-btn--primary" id="evCreate"><i class="fa-solid fa-plus"></i> Create Event</button>
     </header>
@@ -50,30 +50,7 @@ $status_label = array('published' => 'Published', 'draft' => 'Draft', 'canceled'
     <?php endif; ?>
 </div>
 
-<div class="modal fade cs-ae-modal" id="eventModal" tabindex="-1" aria-hidden="true" aria-labelledby="evModalTitle">
-    <div class="modal-dialog cs-ae">
-        <div class="modal-content cs-ae__surface">
-            <header class="cs-ae__header">
-                <div class="cs-ae__heading">
-                    <span class="cs-ae__eyebrow">Event</span>
-                    <div class="cs-ae__titlerow"><h2 class="cs-ae__title" id="evModalTitle">New Event</h2></div>
-                </div>
-                <div class="cs-ae__headtools">
-                    <button type="button" class="btn-close cs-ae__close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-            </header>
-            <div class="cs-ae__body">
-                <?php require __DIR__ . '/_editor_sections.php'; ?>
-            </div>
-            <footer class="cs-ae__footer">
-                <div class="cs-ae__actions">
-                    <button type="button" class="btn cs-ae__btn cs-ae__btn--ghost" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary cs-ae__btn" id="ev_save">Create Event</button>
-                </div>
-            </footer>
-        </div>
-    </div>
-</div>
+<?php $editing = false; require __DIR__ . '/_modal.php'; ?>
 
 <script src="/js/section-editor.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/section-editor.js'); ?>"></script>
 <script src="/js/events.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/events.js'); ?>"></script>

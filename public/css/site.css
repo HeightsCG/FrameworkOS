@@ -338,6 +338,8 @@ body .modal-backdrop.tut-backdrop{ z-index:1750; }
 .cs-ae-modal .cs-ae__row > .cs-ae__field + .cs-ae__field::before{ content:""; position:absolute; left:-16px; top:26px; bottom:4px; width:1px; background:var(--line); }
 .cs-ae-modal .cs-ae__row > .cs-ae__field[hidden] + .cs-ae__field::before, .cs-ae-modal .cs-ae__row.is-single > .cs-ae__field::before{ display:none; }
 .cs-ae-modal .cs-ae__row.is-single{ grid-template-columns:1fr; }
+.cs-ae-modal .cs-ae__row--3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+.cs-ae-modal .form-control::placeholder{ color:var(--muted2); opacity:1; }
 .cs-ae-modal .cs-ae__label{ font-size:14px; font-weight:500; color:var(--t2); line-height:1.3; }
 .cs-ae-modal .form-control, .cs-ae-modal .form-select{ width:100%; height:44px; padding:0 14px; font-size:15px; color:var(--text); border:1px solid rgba(29, 29, 29, .14); border-radius:2px; box-shadow:none; background-color:#fff; }
 .cs-ae-modal textarea.form-control{ height:auto; min-height:120px; padding:12px 14px; line-height:1.5; resize:vertical; }
@@ -422,3 +424,4 @@ body .modal-backdrop.tut-backdrop{ z-index:1750; }
 .cs-ae-modal.cs-ae-inline .cs-ae__surface{ height:auto; min-height:560px; box-shadow:none; border:1px solid #EBEBEB; }
 .cs-ae-modal.cs-ae-inline .cs-ae__main{ overflow:visible; }
 .cs-ae-modal.cs-ae-inline.is-readonly .cs-ae__main{ opacity:.7; }
+.cs-ae-modal .cs-ae__seg .cs-seg__opt{ display:inline-flex; align-items:center; }   /* icon + label side by side outside the Studio too */

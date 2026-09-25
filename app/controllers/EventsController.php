@@ -38,13 +38,13 @@ class EventsController extends Controller {
 
         $this->view->event     = $ev;
         $this->view->stats     = $model->stats($id);
-        $this->view->attendees = $model->attendees($id);
-        $this->view->messages  = $model->messages($id);
+        $this->view->registrations = $model->registration_count($id);
+        $this->view->message_count = $model->message_count($id);
         $this->view->has_paid  = $model->has_paid_going($id);
         $this->view->tiers     = (new CreatorPlansModel())->get_for_user($creator_id);
         $this->view->timezone  = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->handle    = (string) ($owner['u_name'] ?? '');
-        $this->view->tab       = in_array($tab, array('attendees', 'messages', 'settings'), true) ? $tab : 'attendees';
+        $this->view->tab       = in_array($tab, array('attendees', 'messages'), true) ? $tab : 'attendees';
         $this->view->render();
     }
 }

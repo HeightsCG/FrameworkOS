@@ -1,123 +1,162 @@
-/* Events: EventEditor wires the shared editor sections (events/_editor_sections.php) inside any
-   .cs-ae-modal container — the Create modal on /events and the Settings tab on /events/manage/<id>.
-   Save posts event_save; access_type is derived from "who can attend" + "price". */
+/* Events: EventEditor wires the event form (events/_form.php) inside the Create / Edit modal and turns
+   it into the event_save payload. "Who can come" + "Price" become access_type (+ tier_id); Live is
+   outside the form (opts.status()). */
 (function () {
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
     function el(id) { return document.getElementById(id); }
-    function money(v) { var n = parseFloat(v); return isNaN(n) ? '' : '$' + n.toFixed(2); }
-    function when(v) {
-        if (!v) { return 'Not set'; }
-        var d = new Date(v);   // datetime-local value, already in the creator's timezone
-        if (isNaN(d)) { return 'Not set'; }
-        return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
-    }
 
     window.EventEditor = function (container, opts) {
         opts = opts || {};
-        var ed = window.SectionEditor(container);
+        var ed = window.SectionEditor(container);   // approved shell: left nav, one section at a time
+        var status = 'draft';
+        function price() { var v = parseFloat(el('ev_price').value); return isNaN(v) ? 0 : v; }   // empty = free
 
-        function syncAccess() {
-            var who = el('ev_who').value, pay = el('ev_pay').value;
-            ed.reveal(el('ev_price_wrap'), pay === 'paid');
-            ed.reveal(el('ev_tier_wrap'), who === 'subscribers');
-            // anyone → free | paid; subscribers → subscribers (any plan) | tier (one plan). The price applies to any audience.
-            el('ev_access').value = who === 'anyone' ? (pay === 'paid' ? 'paid' : 'free') : (parseInt(el('ev_tier').value, 10) > 0 ? 'tier' : 'subscribers');
+        var setFormat = ed.seg(el('evFormat'), el('ev_format'), 'data-format', function (v) {
+            ed.reveal(el('ev_url_wrap'), v !== 'in_person');
+            ed.reveal(el('ev_location_wrap'), v === 'in_person');
             refresh();
-        }
-        function syncFormat() {
-            var f = el('ev_format').value;
-            ed.reveal(el('ev_url_wrap'), f === 'virtual');
-            ed.reveal(el('ev_location_wrap'), f === 'in_person');
-            refresh();
-        }
-        var setWho = ed.seg(el('evWho'), el('ev_who'), 'data-who', syncAccess);
-        var setPay = ed.seg(el('evPay'), el('ev_pay'), 'data-pay', syncAccess);
-        var setFormat = ed.seg(el('evFormat'), el('ev_format'), 'data-format', syncFormat);
-        var setStatus = ed.seg(el('evStatusSeg'), el('ev_status'), 'data-status', function () { refresh(); });
-        el('ev_tier').addEventListener('change', syncAccess);
-        el('ev_limit').addEventListener('change', function () { ed.reveal(el('ev_capacity_wrap'), this.checked); refresh(); });
-        ['ev_title', 'ev_start', 'ev_price', 'ev_capacity', 'ev_url', 'ev_location'].forEach(function (id) { el(id).addEventListener('input', refresh); });
+        });
+        ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
+        el('ev_who').addEventListener('change', refresh);
 
+        /* Narrow screens: the preview replaces the form while it's open (never stacked below it). */
+        var pv_toggle = el('evPvToggle');
+        function set_preview(on) {
+            container.classList.toggle('is-previewing', on);
+            pv_toggle.setAttribute('aria-expanded', on ? 'true' : 'false');
+            pv_toggle.textContent = on ? 'Back to Editing' : 'Preview';
+        }
+        pv_toggle.addEventListener('click', function () { set_preview(!container.classList.contains('is-previewing')); });
+        container.querySelectorAll('.cs-ae__navitem').forEach(function (b) { b.addEventListener('click', function () { set_preview(false); }); });
+        el('evNavSelect').addEventListener('change', function () { set_preview(false); });
+
+        function fmt_time(t) { if (!t) { return ''; } var p = t.split(':'), h = parseInt(p[0], 10); return (h % 12 || 12) + ':' + p[1] + ' ' + (h >= 12 ? 'PM' : 'AM'); }
+        function text_lines(node, lines) {   // textContent + <br>: user text never becomes HTML
+            node.textContent = '';
+            lines.filter(function (l) { return l !== ''; }).forEach(function (l, i) { if (i) { node.appendChild(document.createElement('br')); } node.appendChild(document.createTextNode(l)); });
+        }
+        function preview(name, who_label) {
+            el('evPv_title').textContent = name !== '' ? name : 'Untitled event';
+            el('evPv_desc').textContent = el('ev_desc').value.trim();
+            var d = el('ev_date').value, t1 = el('ev_time').value, t2 = el('ev_time_end').value, dt = d ? new Date(d + 'T12:00:00') : null;
+            text_lines(el('evPv_when'), dt && !isNaN(dt)
+                ? [dt.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }), t1 ? fmt_time(t1) + (t2 ? ' – ' + fmt_time(t2) : '') + ' ' + tz_short : '']
+                : ['Pick a date']);
+            if (el('ev_format').value === 'in_person') {
+                var city = [el('ev_city').value.trim(), (el('ev_region').value.trim() + ' ' + el('ev_postal').value.trim()).trim()].filter(function (x) { return x !== ''; }).join(', ');
+                var lines = [el('ev_venue').value.trim(), el('ev_street').value.trim(), city];
+                text_lines(el('evPv_where'), lines.join('') !== '' ? lines : ['In person']);
+            } else {
+                text_lines(el('evPv_where'), ['Online', 'Link shared after registration']);
+            }
+            el('evPv_who').textContent = who_label;
+            var paid = price() >= 1, cap = parseInt(el('ev_capacity').value, 10);
+            el('evPv_price').textContent = paid ? '$' + price().toFixed(2) : 'Free';
+            el('evPv_per').textContent = paid ? 'per person' : '';
+            el('evPv_spots').textContent = cap > 0 ? cap + (cap === 1 ? ' spot' : ' spots') : 'No spot limit';
+        }
+        var tz_short = (container.querySelector('[data-tz-short]') || { getAttribute: function () { return ''; } }).getAttribute('data-tz-short') || '';
+
+        function fmt_when() {
+            var d = el('ev_date').value, t = el('ev_time').value;
+            if (!d) { return 'Not set'; }
+            var dt = new Date(d + 'T' + (t || '00:00'));
+            if (isNaN(dt)) { return 'Not set'; }
+            var s = dt.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+            return t ? s + ' · ' + dt.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : s;
+        }
         function refresh() {
-            var title = (el('ev_title').value || '').trim();
-            if (opts.onTitle) { opts.onTitle(title); }
-            ed.summary('details', title !== '' ? title : 'Untitled');
-            ed.summary('when', when(el('ev_start').value));
-            var f = el('ev_format').value, addr = (el('ev_location').value || '').trim();
-            ed.summary('location', f === 'in_person' ? (addr !== '' ? addr.split(',')[0] : 'In person') : 'Virtual');
-            var o = el('ev_tier').selectedOptions[0];
-            var who = el('ev_who').value === 'anyone' ? 'Anyone' : (parseInt(el('ev_tier').value, 10) > 0 && o ? o.textContent + ' subscribers' : 'Subscribers');
-            var t = who + ' · ' + (el('ev_pay').value === 'paid' ? (money(el('ev_price').value) || 'Paid') : 'Free');
-            if (el('ev_limit').checked && parseInt(el('ev_capacity').value, 10) > 0) { t += ' · ' + parseInt(el('ev_capacity').value, 10) + ' spots'; }
-            ed.summary('tickets', t);
-            ed.summary('publishing', el('ev_status').value === 'published' ? 'Published' : 'Draft');
+            var name = el('ev_title').value.trim();
+            if (opts.onTitle) { opts.onTitle(name); }
+            ed.summary('details', name !== '' ? name : 'Untitled');
+            ed.summary('when', fmt_when());
+            if (el('ev_format').value === 'in_person') { var c = el('ev_city').value.trim(), v = el('ev_venue').value.trim(); ed.summary('where', 'In person' + (v || c ? ' · ' + (v || c) : '')); }
+            else { ed.summary('where', 'Online'); }
+            var who = el('ev_who'), label = who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Subscribers' : who.selectedOptions[0].textContent);
+            var cap = parseInt(el('ev_capacity').value, 10);
+            ed.summary('tickets', (price() >= 1 ? '$' + price().toFixed(2) : 'Free') + ' · ' + label + (cap > 0 ? ' · ' + cap + ' spots' : ''));
+            preview(name, who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Any subscriber' : label + ' subscribers'));
         }
 
         function load(d) {
             ed.clearErrors();
-            el('ev_id').value           = d && d.id ? d.id : '';
-            el('ev_title').value        = d ? (d.title || '') : '';
-            el('ev_desc').value         = d ? (d.description || '') : '';
-            el('ev_start').value        = d ? (d.start_at || '') : '';
-            el('ev_end').value          = d ? (d.end_at || '') : '';
-            el('ev_url').value          = d ? (d.external_url || '') : '';
-            el('ev_location').value     = d ? (d.location || '') : '';
+            var start = d && d.start_at ? String(d.start_at) : '', end = d && d.end_at ? String(d.end_at) : '';
+            el('ev_id').value       = d && d.id ? d.id : '';
+            el('ev_title').value    = d ? (d.title || '') : '';
+            el('ev_desc').value     = d ? (d.description || '') : '';
+            el('ev_date').value     = start ? start.slice(0, 10) : '';
+            el('ev_time').value     = start ? start.slice(11, 16) : '';
+            el('ev_time_end').value = end ? end.slice(11, 16) : '';
+            el('ev_url').value      = d ? (d.external_url || '') : '';
+            el('ev_venue').value    = d ? (d.venue_name || '') : '';
+            el('ev_street').value   = d ? (d.street || (d.venue_name ? '' : (d.location || ''))) : '';   // older events only have the one-line location
+            el('ev_city').value     = d ? (d.city || '') : '';
+            el('ev_region').value   = d ? (d.region || '') : '';
+            el('ev_postal').value   = d ? (d.postal_code || '') : '';
             el('ev_instructions').value = d ? (d.access_instructions || '') : '';
-            el('ev_price').value        = (d && parseFloat(d.price) > 0) ? d.price : '';
-            var at = d ? (d.access_type || 'free') : 'free';
-            el('ev_tier').value = (at === 'tier' && d.tier_id && el('ev_tier').querySelector('option[value="' + d.tier_id + '"]')) ? String(d.tier_id) : '0';
-            var cap = d ? parseInt(d.capacity || 0, 10) : 0;
-            el('ev_limit').checked  = cap > 0;
-            el('ev_capacity').value = cap > 0 ? cap : '';
-            ed.reveal(el('ev_capacity_wrap'), cap > 0);
+            var at = d ? (d.access_type || 'free') : 'free', p = d ? parseFloat(d.price) : 0;
+            el('ev_price').value = at !== 'free' && p > 0 ? p.toFixed(2) : '';
+            var who = 'anyone';
+            if (at === 'subscribers') { who = 'subscribers'; }
+            if (at === 'tier' && d.tier_id && el('ev_who').querySelector('option[value="' + d.tier_id + '"]')) { who = String(d.tier_id); }
+            el('ev_who').value = el('ev_who').querySelector('option[value="' + who + '"]') ? who : 'anyone';
+            el('ev_capacity').value = d && parseInt(d.capacity, 10) > 0 ? parseInt(d.capacity, 10) : '';
+            status = d && d.status ? d.status : 'draft';
             setFormat(d && d.format === 'in_person' ? 'in_person' : 'virtual');
-            setPay(d && at !== 'free' && parseFloat(d.price) > 0 ? 'paid' : 'free');
-            setWho(at === 'subscribers' || at === 'tier' ? 'subscribers' : 'anyone');
-            setStatus(d && d.status === 'published' ? 'published' : 'draft');
+            set_preview(false);
             ed.show(ed.first, false);
             refresh();
         }
 
         function validate() {
-            var errs = [], start = el('ev_start').value, end = el('ev_end').value, url = (el('ev_url').value || '').trim();
-            if ((el('ev_title').value || '').trim() === '') { errs.push({ section: 'details', input: 'ev_title', err: 'evErr_title', msg: 'Enter a title.' }); }
-            if (start === '') { errs.push({ section: 'when', input: 'ev_start', err: 'evErr_start', msg: 'Choose when the event starts.' }); }
-            else if (end !== '' && end <= start) { errs.push({ section: 'when', input: 'ev_end', err: 'evErr_end', msg: 'The end must be after the start.' }); }
-            if (el('ev_format').value === 'virtual' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'location', input: 'ev_url', err: 'evErr_url', msg: 'Add the video link (it starts with https://).' }); }
-            if (el('ev_format').value === 'in_person' && (el('ev_location').value || '').trim() === '') { errs.push({ section: 'location', input: 'ev_location', err: 'evErr_location', msg: 'Add the address where you are meeting.' }); }
-            if (el('ev_pay').value === 'paid' && !(parseFloat(el('ev_price').value) >= 1)) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Enter a ticket price of at least $1.00.' }); }
-            if (el('ev_limit').checked && !(parseInt(el('ev_capacity').value, 10) >= 1)) { errs.push({ section: 'tickets', input: 'ev_capacity', err: 'evErr_capacity', msg: 'Enter how many spots are available.' }); }
+            var errs = [], url = el('ev_url').value.trim(), date = el('ev_date').value, t1 = el('ev_time').value, t2 = el('ev_time_end').value;
+            if (el('ev_title').value.trim() === '') { errs.push({ section: 'details', input: 'ev_title', err: 'evErr_title', msg: 'Give the event a name.' }); }
+            if (date === '' || t1 === '') { errs.push({ section: 'when', input: date === '' ? 'ev_date' : 'ev_time', err: 'evErr_date', msg: 'Pick the date and start time.' }); }
+            else if (t2 !== '' && t2 <= t1) { errs.push({ section: 'when', input: 'ev_time_end', err: 'evErr_date', msg: 'The end time must be after the start time.' }); }
+            if (el('ev_format').value !== 'in_person' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'where', input: 'ev_url', err: 'evErr_url', msg: 'Add the meeting link (it starts with https://).' }); }
+            if (el('ev_format').value === 'in_person' && (el('ev_street').value.trim() === '' || el('ev_city').value.trim() === '')) {
+                errs.push({ section: 'where', input: el('ev_street').value.trim() === '' ? 'ev_street' : 'ev_city', err: 'evErr_location', msg: 'Add the street address and city.' });
+            }
+            if (el('ev_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Paid tickets start at $1.00. Leave it empty for a free event.' }); }
+            var cap = el('ev_capacity').value.trim();
+            if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'tickets', input: 'ev_capacity', err: 'evErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
             ed.showErrors(errs);
             return errs.length === 0;
         }
 
         function save(btn) {
-            if (!validate() || btn.disabled) { return; }
-            btn.disabled = true;
+            if (btn.disabled || !validate()) { return; }
+            var who = el('ev_who').value, paid = price() >= 1, date = el('ev_date').value;
+            var access = who === 'anyone' ? (paid ? 'paid' : 'free') : (who === 'subscribers' ? 'subscribers' : 'tier');
+            var label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
             ApiDataSvc.apiCall('post', 'event_save', {
                 id: el('ev_id').value || 0,
                 title: el('ev_title').value.trim(),
                 description: el('ev_desc').value,
-                start_at: el('ev_start').value,
-                end_at: el('ev_end').value,
-                format: el('ev_format').value,
+                start_at: date + 'T' + el('ev_time').value,
+                end_at: el('ev_time_end').value !== '' ? date + 'T' + el('ev_time_end').value : '',
+                format: el('ev_format').value === 'in_person' ? 'in_person' : 'virtual',
                 external_url: el('ev_url').value.trim(),
-                location: el('ev_location').value,
+                venue_name: el('ev_venue').value.trim(),
+                street: el('ev_street').value.trim(),
+                city: el('ev_city').value.trim(),
+                region: el('ev_region').value.trim(),
+                postal_code: el('ev_postal').value.trim(),
                 access_instructions: el('ev_instructions').value,
-                access_type: el('ev_access').value,
-                tier_id: el('ev_tier').value || 0,
-                price: el('ev_pay').value === 'paid' ? (el('ev_price').value || 0) : 0,
-                capacity: el('ev_limit').checked ? (el('ev_capacity').value || 0) : 0,
-                status: el('ev_status').value
+                access_type: access,
+                tier_id: access === 'tier' ? who : 0,
+                price: paid ? price().toFixed(2) : 0,
+                capacity: el('ev_capacity').value.trim() !== '' ? el('ev_capacity').value : 0,
+                status: opts.status ? opts.status() : status
             }, function (r) {
-                btn.disabled = false;
+                btn.disabled = false; btn.textContent = label;
                 var o = parse(r);
                 if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not save the event'); } return; }
                 if (opts.onSaved) { opts.onSaved(o); }
             });
         }
 
-        return { load: load, save: save, refresh: refresh };
+        return { load: load, save: save };
     };
 
     /* ---- /events list: Create modal ---- */
@@ -126,6 +165,7 @@
     var modal = window.bootstrap ? new bootstrap.Modal(modalEl) : null;
     var editor = window.EventEditor(modalEl, {
         onTitle: function (t) { el('evModalTitle').textContent = t !== '' ? t : 'New Event'; },
+        status: function () { return el('evCreateLive').checked ? 'published' : 'draft'; },
         onSaved: function (o) { window.location.href = '/events/manage/' + o.id; }
     });
     var opener = null;

@@ -16,3 +16,11 @@ CREATE TABLE IF NOT EXISTS event_messages (
     created_at  DATETIME NOT NULL,
     KEY idx_event (event_id)
 );
+
+-- Structured in-person address (the combined `location` line is still written for display/emails).
+ALTER TABLE events
+    ADD COLUMN venue_name  VARCHAR(160) NOT NULL DEFAULT '',
+    ADD COLUMN street      VARCHAR(190) NOT NULL DEFAULT '',
+    ADD COLUMN city        VARCHAR(100) NOT NULL DEFAULT '',
+    ADD COLUMN region      VARCHAR(60)  NOT NULL DEFAULT '',
+    ADD COLUMN postal_code VARCHAR(20)  NOT NULL DEFAULT '';

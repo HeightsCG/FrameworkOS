@@ -26,9 +26,11 @@ class ApiEventsController extends BaseApiController {
 
         $format   = EventsModel::format($this->post['format'] ?? 'virtual');
         $link     = trim((string) ($this->post['external_url'] ?? ''));
-        $address  = trim(html_entity_decode((string) ($this->post['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        if ($format === 'virtual' && !preg_match('#^https?://#i', $link)) { $this->jsonError('Add the video link (it starts with https://).'); }
-        if ($format === 'in_person' && $address === '') { $this->jsonError('Add the address where you are meeting.'); }
+        $dec = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $addr = array('venue_name' => $dec('venue_name'), 'street' => $dec('street'), 'city' => $dec('city'), 'region' => $dec('region'), 'postal_code' => $dec('postal_code'));
+        if ($format === 'virtual' && !preg_match('#^https?://#i', $link)) { $this->jsonError('Add the meeting link (it starts with https://).'); }
+        if ($format === 'in_person' && ($addr['street'] === '' || $addr['city'] === '')) { $this->jsonError('Add the street address and city.'); }
+        $address = EventsModel::address_line($addr);
 
         $fields = [
             'format'              => $format,
@@ -42,6 +44,11 @@ class ApiEventsController extends BaseApiController {
             'tier_id'             => $tier_id,
             'capacity'            => (int) ($this->post['capacity'] ?? 0),
             'location'            => $format === 'in_person' ? $address : '',
+            'venue_name'          => $format === 'in_person' ? $addr['venue_name'] : '',
+            'street'              => $format === 'in_person' ? $addr['street'] : '',
+            'city'                => $format === 'in_person' ? $addr['city'] : '',
+            'region'              => $format === 'in_person' ? $addr['region'] : '',
+            'postal_code'         => $format === 'in_person' ? $addr['postal_code'] : '',
             'external_url'        => $format === 'virtual' ? $link : '',
             'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
@@ -63,8 +70,9 @@ class ApiEventsController extends BaseApiController {
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Event required'); }
         $model = new EventsModel();
-        if (!$model->get_one((int) $user['user_id'], $id)) { $this->jsonError('Event not found'); }
-        if ($model->has_paid_going($id)) { $this->jsonError('Cancel the event to refund attendees first.'); }
+        $ev = $model->get_one((int) $user['user_id'], $id);
+        if (!$ev) { $this->jsonError('Event not found'); }
+        if ((string) $ev['status'] !== 'canceled') { $this->jsonError('Cancel the event before deleting it.'); }   // cancel refunds and tells attendees first
         $model->delete_event((int) $user['user_id'], $id);
         $this->jsonSuccess();
     }
@@ -197,17 +205,24 @@ class ApiEventsController extends BaseApiController {
         ];
     }
 
-    private function local_date(string $utc, string $tz): string{
-        try { $d = new DateTime($utc, new DateTimeZone('UTC')); $d->setTimezone(new DateTimeZone($tz ?: 'UTC')); return $d->format('M j, Y'); }
+    private function local_date(string $utc, string $tz, string $format = 'M j, Y'): string{
+        try { $d = new DateTime($utc, new DateTimeZone('UTC')); $d->setTimezone(new DateTimeZone($tz ?: 'UTC')); return $d->format($format); }
         catch (\Throwable $e) { return ''; }
     }
 
+    /** One page of the people going (search + page); never the whole list. */
     public function event_attendeesAction(){
         [$owner, $ev, $user] = $this->owned_event();
         $tz = (string) ($user['content_timezone'] ?? 'UTC');
         $model = new EventsModel();
-        $list = array_map(function ($a) use ($tz) { return $this->attendee_json($a, $tz); }, $model->attendees((int) $ev['id']));
-        $this->jsonSuccess(['stats' => $model->stats((int) $ev['id']), 'attendees' => $list]);
+        $per  = max(1, min(50, (int) ($this->post['per'] ?? 10)));
+        $page = max(1, (int) ($this->post['page'] ?? 1));
+        $q    = trim(mb_substr(html_entity_decode((string) ($this->post['q'] ?? ''), ENT_QUOTES, 'UTF-8'), 0, 100));
+        $res  = $model->going_page((int) $ev['id'], $q, $per, ($page - 1) * $per);
+        $pages = max(1, (int) ceil($res['total'] / $per));
+        if ($page > $pages) { $page = $pages; $res = $model->going_page((int) $ev['id'], $q, $per, ($page - 1) * $per); }
+        $list = array_map(function ($a) use ($tz) { return $this->attendee_json($a, $tz); }, $res['rows']);
+        $this->jsonSuccess(['attendees' => $list, 'total' => $res['total'], 'page' => $page, 'pages' => $pages, 'per' => $per]);
     }
 
     /** CSV of everyone who registered (a form POST, so CSRF still applies). */
@@ -260,13 +275,26 @@ class ApiEventsController extends BaseApiController {
         $this->jsonSuccess(['recipients' => count($ids), 'message' => 'Sent to ' . count($ids) . (count($ids) === 1 ? ' attendee' : ' attendees')]);
     }
 
+    /** One page of sent messages, newest first, with the real send time. */
     public function event_messagesAction(){
         [$owner, $ev, $user] = $this->owned_event();
         $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $per  = max(1, min(50, (int) ($this->post['per'] ?? 10)));
+        $page = max(1, (int) ($this->post['page'] ?? 1));
+        $res  = (new EventsModel())->messages_page((int) $ev['id'], $per, ($page - 1) * $per);
         $out = array_map(function ($m) use ($tz) {
-            return ['sent_at' => $this->local_date((string) $m['created_at'], $tz), 'body' => (string) $m['body'], 'recipients' => (int) $m['recipients']];
-        }, (new EventsModel())->messages((int) $ev['id']));
-        $this->jsonSuccess(['messages' => $out]);
+            return ['id' => (int) $m['id'], 'sent_at' => $this->local_date((string) $m['created_at'], $tz, 'M j, Y · g:i A'), 'body' => (string) $m['body'], 'recipients' => (int) $m['recipients']];
+        }, $res['rows']);
+        $this->jsonSuccess(['messages' => $out, 'total' => $res['total'], 'page' => $page, 'pages' => max(1, (int) ceil($res['total'] / $per))]);
+    }
+
+    /** Live = fans can see it on the profile and register; not live = hidden. */
+    public function event_set_liveAction(){
+        [$owner, $ev] = $this->owned_event();
+        if ((string) $ev['status'] === 'canceled') { $this->jsonError('This event was canceled.'); }
+        $live = ((string) ($this->post['live'] ?? '0')) === '1';
+        (new EventsModel())->set_status($owner, (int) $ev['id'], $live ? 'published' : 'draft');
+        $this->jsonSuccess(['live' => $live, 'message' => $live ? 'Event is live' : 'Event is hidden']);
     }
 
     /** Cancel the whole event: registration closes, every paid ticket is refunded, every attendee is told. */
