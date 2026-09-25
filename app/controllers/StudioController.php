@@ -119,4 +119,17 @@ class StudioController extends Controller {
         $this->view->render();
     }
 
+
+    /** Download several Library files as one zip: /studio/download?ids=1,2,3 (originals, up to MAX_ZIP_FILES). */
+    const MAX_ZIP_FILES = 100;
+    public function downloadAction(){
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('content')) { http_response_code(403); exit('Not allowed.'); }
+        $ids = array_slice(array_filter(array_map('intval', explode(',', (string) ($_GET['ids'] ?? '')))), 0, self::MAX_ZIP_FILES);
+        $assets = (new MediaAssetsModel())->get_ready_many(Permissions::creator_id(), $ids);
+        if (empty($assets)) { http_response_code(404); exit('Nothing to download.'); }
+        @set_time_limit(0);
+        $zip = tempnam(sys_get_temp_dir(), 'zip');
+        if (MediaService::build_zip($zip, $assets, 'original') === 0) { @unlink($zip); http_response_code(500); exit('Could not prepare the download.'); }
+        MediaService::send_zip($zip, 'Library ' . gmdate('Y-m-d') . '.zip');
+    }
 }

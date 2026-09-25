@@ -38,7 +38,7 @@ $in_app     = !empty($viewer_logged_in);
     <?php
         $seo_base   = Main::get_base_domain();
         $seo_url    = $seo_base . '/@' . rawurlencode($handle);
-        $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : $seo_base . '/images/og-image.png';
+        $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : SeoMeta::default_image();
         $seo_desc   = $bio !== '' ? mb_substr($bio, 0, 160) : $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
         $seo_same   = array();
         foreach ($links as $l) {

@@ -49,6 +49,18 @@ class MediaAssetsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** Several of one creator's ready files by id (others' and deleted ones are left out), in the order given. */
+    public function get_ready_many($creator_id, array $ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (empty($ids)) { return array(); }
+        $in = array(); $params = array('c' => (int) $creator_id);
+        foreach ($ids as $i => $id) { $in[] = ':i' . $i; $params['i' . $i] = $id; }
+        $rows = (array) parent::select("SELECT * FROM media_assets WHERE creator_id = :c AND status = 'ready' AND deleted_at IS NULL AND id IN (" . implode(',', $in) . ")", $params);
+        $by = array(); foreach ($rows as $r) { $by[(int) $r['id']] = $r; }
+        $out = array(); foreach ($ids as $id) { if (isset($by[$id])) { $out[] = $by[$id]; } }
+        return $out;
+    }
+
     /** Apply processed keys + metadata and flip to ready (or failed). */
     public function set_ready($creator_id, $id, array $fields){
         $data = array('status' => 'ready', 'failure_reason' => null, 'updated_at' => date('Y-m-d H:i:s'));

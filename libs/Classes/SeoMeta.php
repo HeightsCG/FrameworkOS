@@ -10,6 +10,12 @@ class SeoMeta {
         return rtrim((string) Main::get_base_domain(), '/');
     }
 
+    /** The default share card. Versioned by file time: social apps cache previews by URL, so a new card needs a new URL. */
+    public static function default_image(): string {
+        $f = Main::app_path() . '/public/images/og-image.png';
+        return self::base() . '/images/og-image.png' . (is_file($f) ? '?v=' . filemtime($f) : '');
+    }
+
     public static function site(): string {
         return (string) Main::site_name();
     }
@@ -76,7 +82,7 @@ class SeoMeta {
             '@context' => 'https://schema.org', '@type' => 'Article',
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
-            'image' => (string) ($m['image'] ?? (self::base() . '/images/og-image.png')),
+            'image' => (string) ($m['image'] ?? self::default_image()),
             'author' => array('@type' => 'Organization', 'name' => trim((string) ($m['author'] ?? '')) !== '' ? (string) $m['author'] : self::site() . ' team', 'url' => self::base() . '/'),
             'publisher' => self::org(),
             'inLanguage' => 'en-US',
@@ -97,7 +103,7 @@ class SeoMeta {
         $type  = in_array($req, array('website', 'article', 'product', 'profile'), true) ? $req : 'website';
         $og_title = trim((string) ($m['og_title'] ?? '')); if ($og_title === '') { $og_title = $full; }
         $card  = in_array((string) ($m['twitter_card'] ?? ''), array('summary', 'summary_large_image'), true) ? (string) $m['twitter_card'] : 'summary_large_image';
-        $image = (string) ($m['image'] ?? (self::base() . '/images/og-image.png'));
+        $image = (string) ($m['image'] ?? self::default_image());
 
         $out   = array();
         $out[] = '<title>' . $e($full) . '</title>';

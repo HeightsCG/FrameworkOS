@@ -142,16 +142,18 @@ class S3Service {
      * (default 10 min). Returns '' if S3 isn't configured or $key is empty. The
      * CALLER is responsible for the entitlement check before calling this.
      */
-    public static function presigned_get_url($key, $ttl = 600): string
+    public static function presigned_get_url($key, $ttl = 600, $download_name = ''): string
     {
         if (!self::configured() || (string) $key === '') {
             return '';
         }
         try {
-            $cmd = self::client()->getCommand('GetObject', array(
-                'Bucket' => self::bucket(),
-                'Key'    => $key,
-            ));
+            $args = array('Bucket' => self::bucket(), 'Key' => $key);
+            if ((string) $download_name !== '') {   // the browser saves the file under this name instead of opening it
+                $ascii = preg_replace('/[^A-Za-z0-9._ -]/', '_', (string) $download_name);
+                $args['ResponseContentDisposition'] = 'attachment; filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode((string) $download_name);
+            }
+            $cmd = self::client()->getCommand('GetObject', $args);
             $request = self::client()->createPresignedRequest($cmd, '+' . (int) $ttl . ' seconds');
             return (string) $request->getUri();
         } catch (\Throwable $e) {

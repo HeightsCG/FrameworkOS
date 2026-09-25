@@ -172,6 +172,7 @@ class AccountController extends Controller {
         $this->view->mcp_url             = Main::get_base_domain() . '/mcp';
         $this->view->notification_prefs  = $prefsModel->get_prefs_map($user['user_id']);
         $this->view->blocked_users       = $blocksModel->get_for_user($user['user_id']);
+        $this->view->data_export         = DataExportService::state_json((new DataExportsModel())->latest_for_user($user['user_id']), (string) ($user['content_timezone'] ?? 'UTC'));
         $this->view->credit_balance      = $creditsModel->get_balance($user['user_id']);
         $this->view->credit_transactions = $creditsModel->get_transactions($user['user_id']);
         $this->view->credit_packages     = CreditsModel::$packages;

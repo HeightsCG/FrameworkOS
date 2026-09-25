@@ -20,12 +20,19 @@
                     <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo $pur['type'] === 'bundle' ? 'Bundle' : ($pur['type'] === 'message' ? 'Message' : 'Pay-per-view'); ?></span>
                     <span class="pur-card__title"><?php echo htmlspecialchars((string) $pur['title'], ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
-                <a class="pur-card__creator" href="/@<?php echo htmlspecialchars(rawurlencode((string) $pur['handle']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $pur['creator'], ENT_QUOTES, 'UTF-8'); ?></a>
+                <div class="pur-card__side">
+                    <a class="pur-card__creator" href="/@<?php echo htmlspecialchars(rawurlencode((string) $pur['handle']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $pur['creator'], ENT_QUOTES, 'UTF-8'); ?></a>
+                    <?php if (count($pur['media']) === 1 && $pur['media'][0]['download'] !== ''): ?>
+                    <a class="pur-dl" href="<?php echo htmlspecialchars((string) $pur['media'][0]['download'], ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-download" aria-hidden="true"></i> Download</a>
+                    <?php elseif (count($pur['media']) > 1): ?>
+                    <a class="pur-dl" href="/purchases/download/<?php echo htmlspecialchars(str_replace(':', '/', (string) $pur['key']), ENT_QUOTES, 'UTF-8'); ?>"><i class="fa-solid fa-download" aria-hidden="true"></i> Download All</a>
+                    <?php endif; ?>
+                </div>
             </div>
             <?php if (!empty($pur['media'])): ?>
             <div class="pur-media">
                 <?php foreach ($pur['media'] as $m): ?>
-                <button type="button" class="pur-media__item" data-full="<?php echo htmlspecialchars((string) $m['url'], ENT_QUOTES, 'UTF-8'); ?>" data-type="<?php echo htmlspecialchars((string) $m['type'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo $m['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars((string) $m['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
+                <button type="button" class="pur-media__item" data-full="<?php echo htmlspecialchars((string) $m['url'], ENT_QUOTES, 'UTF-8'); ?>" data-download="<?php echo htmlspecialchars((string) $m['download'], ENT_QUOTES, 'UTF-8'); ?>" data-type="<?php echo htmlspecialchars((string) $m['type'], ENT_QUOTES, 'UTF-8'); ?>"<?php echo $m['thumb'] !== '' ? ' style="background-image:url(\'' . htmlspecialchars((string) $m['thumb'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
                     <?php if ($m['type'] === 'video'): ?><i class="fa-solid fa-play pur-media__vid"></i><?php endif; ?>
                 </button>
                 <?php endforeach; ?>
@@ -41,6 +48,7 @@
 
 <div class="pur-lb" id="purLb" hidden>
     <button type="button" class="pur-lb__close" id="purLbClose" aria-label="Close">&times;</button>
+    <a class="pur-lb__dl" id="purLbDl" href="#" hidden><i class="fa-solid fa-download" aria-hidden="true"></i> Download</a>
     <div class="pur-lb__stage" id="purLbStage"></div>
 </div>
 <script>
@@ -48,8 +56,10 @@
     var lb = document.getElementById('purLb');
     if (!lb) { return; }
     var stage = document.getElementById('purLbStage');
-    function open(full, type) {
+    var dl = document.getElementById('purLbDl');
+    function open(full, type, download) {
         if (!full) { return; }
+        dl.hidden = !download; dl.setAttribute('href', download || '#');
         stage.innerHTML = (type === 'video')
             ? '<video class="pur-lb__media" src="' + full + '" controls autoplay playsinline></video>'
             : '<img class="pur-lb__media" src="' + full + '" alt="">';
@@ -57,7 +67,7 @@
     }
     function close() { lb.hidden = true; stage.innerHTML = ''; document.body.style.overflow = ''; }
     document.querySelectorAll('.pur-media__item').forEach(function (b) {
-        b.addEventListener('click', function () { open(b.getAttribute('data-full'), b.getAttribute('data-type')); });
+        b.addEventListener('click', function () { open(b.getAttribute('data-full'), b.getAttribute('data-type'), b.getAttribute('data-download')); });
     });
     document.getElementById('purLbClose').addEventListener('click', close);
     lb.addEventListener('click', function (e) { if (e.target === lb) { close(); } });

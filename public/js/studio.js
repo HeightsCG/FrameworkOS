@@ -282,6 +282,17 @@ jQuery(function ($) {
     function runBulk(action) {
         var ids = Array.from(state.selection);
         if (!ids.length) return;
+        if (action === 'download') {
+            // One file downloads directly; several come as one zip of the originals.
+            if (ids.length === 1) {
+                ApiDataSvc.apiCall('post', 'media_download', { id: ids[0] }, function (resp) { var o = JSON.parse(resp); if (o.success && o.url) { window.location = o.url; } else err(o); });
+            } else {
+                if (ids.length > 100) { toastr.error('Download up to 100 files at a time.'); return; }
+                toastr.info('Preparing ' + ids.length + ' files. Your download starts in a moment.');
+                window.location = '/studio/download?ids=' + ids.join(',');
+            }
+            return;
+        }
         if (action === 'delete') {
             confirmDialog('Remove ' + ids.length + ' file' + (ids.length > 1 ? 's' : '') + '?',
                 'They will be taken out of your library and removed from any collections. Posts already using them will show the file as missing.',
@@ -915,7 +926,8 @@ jQuery(function ($) {
             wm +
             '<label class="form-label cs-dv__label">Add to a collection</label><div class="cs-dv__cols">' + cols + '</div>' +
             '<label class="form-label cs-dv__label">Used in</label>' + posts +
-            '<button type="button" class="btn btn-outline-danger w-100 mt-3" id="csDvDelete"><i class="fa-solid fa-trash"></i> Remove file</button>'
+            '<button type="button" class="btn btn-outline-secondary w-100 mt-3" id="csDvDownload"><i class="fa-solid fa-download"></i> Download</button>' +
+            '<button type="button" class="btn btn-outline-danger w-100 mt-2" id="csDvDelete"><i class="fa-solid fa-trash"></i> Remove file</button>'
         );
 
         $('#csDvSave').on('click', function () {
@@ -948,6 +960,13 @@ jQuery(function ($) {
                     toastr.success(!on ? 'Added to ' + nm : 'Removed from ' + nm);
                     loadCollections();
                 } else err(o);
+            });
+        });
+        $('#csDvDownload').on('click', function () {
+            var $b = $(this).prop('disabled', true);
+            ApiDataSvc.apiCall('post', 'media_download', { id: a.id }, function (resp) { var o = JSON.parse(resp);
+                $b.prop('disabled', false);
+                if (o.success && o.url) { window.location = o.url; } else err(o);
             });
         });
         $('#csDvDelete').on('click', function () {

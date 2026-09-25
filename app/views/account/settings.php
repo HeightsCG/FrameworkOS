@@ -108,6 +108,17 @@
                     </div>
                 </div>
 
+                <?php $dx = $this->data_export; ?>
+                <div class="acct-card" id="dx_card" data-export='<?php echo htmlspecialchars(json_encode($dx), ENT_QUOTES, 'UTF-8'); ?>'>
+                    <h3 class="acct-card__title">Download Your Data</h3>
+                    <p class="acct-card__desc">A zip of your account details, posts, messages, purchases, subscriptions and credit history, plus the original files in your Library. We&rsquo;ll notify you when it&rsquo;s ready, and it stays available for 7 days.</p>
+                    <p class="dx__status" id="dx_status" hidden></p>
+                    <div class="acct-card__actions">
+                        <button type="button" class="btn btn-secondary" id="dx_request"><i class="fa-solid fa-file-zipper"></i> Request Export</button>
+                        <button type="button" class="btn btn-secondary" id="dx_download" hidden><i class="fa-solid fa-download"></i> Download Export</button>
+                    </div>
+                </div>
+
                 <div class="acct-danger">
                     <div class="acct-danger__info">
                         <span class="acct-danger__title">Delete Account</span>
@@ -1607,6 +1618,49 @@ $(function () {
         }, function (data) {
             var o = JSON.parse(data);
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+        });
+    });
+
+    /* ---- Download Your Data: request, then poll until the export is ready ---- */
+    var dx_timer = null;
+    function dx_paint(x) {
+        var $s = $('#dx_status'), $r = $('#dx_request'), $d = $('#dx_download');
+        clearTimeout(dx_timer);
+        $r.prop('hidden', false).prop('disabled', false).html('<i class="fa-solid fa-file-zipper"></i> Request Export');
+        $d.prop('hidden', true);
+        if (!x) { $s.prop('hidden', true); return; }
+        $s.prop('hidden', false).removeClass('is-failed');
+        if (x.status === 'queued' || x.status === 'running') {
+            $s.html('<span class="spinner-border spinner-border-sm" role="status"></span> Preparing your export, requested ' + $('<i>').text(x.requested).html() + '.');
+            $r.prop('disabled', true).html('<i class="fa-solid fa-file-zipper"></i> Preparing…');
+            dx_timer = setTimeout(dx_poll, 8000);
+        } else if (x.status === 'ready') {
+            $s.text('Ready' + (x.size ? ', ' + x.size : '') + '. Available until ' + x.expires + '.');
+            $r.prop('hidden', true);
+            $d.prop('hidden', false).data('id', x.id);
+        } else if (x.status === 'failed') {
+            $s.addClass('is-failed').text('Your last export couldn\u2019t be finished. Try again.');
+            $r.html('<i class="fa-solid fa-rotate-right"></i> Try Again');
+        } else {
+            $s.text('Your last export has expired.');
+        }
+    }
+    function dx_poll() {
+        ApiDataSvc.apiCall('post', 'data_export_status', {}, function (data) { var o = null; try { o = JSON.parse(data); } catch (e) {} if (o && o.success) { var was = $('#dx_card').data('state'); dx_paint(o.export); if (o.export && o.export.status === 'ready' && was !== 'ready') { toastr.success('Your data export is ready'); } $('#dx_card').data('state', o.export ? o.export.status : ''); } });
+    }
+    (function () { var x = null; try { x = JSON.parse($('#dx_card').attr('data-export') || 'null'); } catch (e) {} $('#dx_card').data('state', x ? x.status : ''); dx_paint(x); })();
+    $('#dx_request').on('click', function () {
+        var $b = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'data_export_request', {}, function (data) { var o = null; try { o = JSON.parse(data); } catch (e) {}
+            if (o && o.success) { toastr.success(o.message); $('#dx_card').data('state', o.export.status); dx_paint(o.export); }
+            else { $b.prop('disabled', false); toastr.error((o && o.message) || 'Could not start your export'); }
+        });
+    });
+    $('#dx_download').on('click', function () {
+        var $b = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'data_export_download', { id: $(this).data('id') }, function (data) { var o = null; try { o = JSON.parse(data); } catch (e) {}
+            $b.prop('disabled', false);
+            if (o && o.success && o.url) { window.location = o.url; } else { toastr.error((o && o.message) || 'Could not download your export'); dx_poll(); }
         });
     });
 

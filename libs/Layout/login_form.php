@@ -21,14 +21,14 @@
     <meta property="og:title" content="<?php echo $seo_title; ?>">
     <meta property="og:description" content="<?php echo $seo_desc; ?>">
     <meta property="og:url" content="<?php echo $seo_base; ?>/">
-    <meta property="og:image" content="<?php echo $seo_base; ?>/images/og-image.png">
+    <meta property="og:image" content="<?php echo htmlspecialchars(SeoMeta::default_image(), ENT_QUOTES, 'UTF-8'); ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="<?php echo $seo_title; ?>">
     <meta name="twitter:description" content="<?php echo $seo_desc; ?>">
-    <meta name="twitter:image" content="<?php echo $seo_base; ?>/images/og-image.png">
+    <meta name="twitter:image" content="<?php echo htmlspecialchars(SeoMeta::default_image(), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="icon" href="/favicon.ico" sizes="any">
     <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
     <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
@@ -59,7 +59,7 @@
                     'name' => Main::site_name() . ': Create. Share. Earn.',
                     'description' => Main::site_name() . ' brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.',
                     'isPartOf' => ['@id' => $seo_base_raw . '/#website'],
-                    'primaryImageOfPage' => $seo_base_raw . '/images/og-image.png',
+                    'primaryImageOfPage' => SeoMeta::default_image(),
                 ],
                 [
                     '@type' => 'SoftwareApplication',

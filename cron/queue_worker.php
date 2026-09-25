@@ -35,6 +35,7 @@ $handlers = [
     'influencer_job' => 'InfluencerJob',
     'broadcast_send' => 'BroadcastSendJob',
     'post_notify'    => 'PostNotifyJob',
+    'data_export'    => 'DataExportJob',
 ];
 
 $queue     = new DatabaseJobQueue();

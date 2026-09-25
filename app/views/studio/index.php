@@ -230,6 +230,7 @@
         <span class="cs-selbar__count"><strong id="csSelCount">0</strong> selected</span>
         <div class="cs-selbar__actions">
             <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk="collection_add"><i class="fa-solid fa-folder-plus"></i> Add to Collection</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary" data-bulk="download"><i class="fa-solid fa-download"></i> Download</button>
             <button type="button" class="btn btn-sm btn-outline-danger" data-bulk="delete"><i class="fa-solid fa-trash"></i> Remove</button>
             <button type="button" class="btn btn-sm btn-link cs-selbar__cancel" id="csSelClear">Cancel</button>
         </div>

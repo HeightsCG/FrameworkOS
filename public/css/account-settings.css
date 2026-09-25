@@ -567,3 +567,8 @@
 .integ__acctname{flex:1; min-width:0; font-size:.86rem; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
 .integ__acct .btn{flex:none;}
 @media (max-width:640px){ .integ__acct{padding-left:1rem;} }
+
+/* Download Your Data */
+.dx__status{ display:flex; align-items:center; gap:.5rem; margin:-.25rem 0 1rem; font-size:.85rem; color:var(--t2); }
+.dx__status.is-failed{ color:var(--danger); }
+.dx__status .spinner-border{ width:14px; height:14px; border-width:2px; color:var(--muted); }

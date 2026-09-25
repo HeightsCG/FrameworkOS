@@ -79,6 +79,72 @@ class MediaService {
         return $key === '' ? '' : S3Service::presigned_get_url($key, $ttl);
     }
 
+    /* ---- downloads ---- */
+
+    /** Save-as name for one rendition: the file's name in the Library, with the rendition's real extension. */
+    public static function download_name(array $asset, $variant = 'original'): string
+    {
+        $key  = (string) ($asset[self::variant_column($variant)] ?? '');
+        $ext  = strtolower((string) pathinfo($key, PATHINFO_EXTENSION));
+        $name = trim((string) (($asset['display_name'] ?? '') !== '' ? $asset['display_name'] : ($asset['filename'] ?? '')));
+        $name = trim((string) preg_replace('#[\\\\/:*?"<>|\x00-\x1F]+#', '', (string) pathinfo($name, PATHINFO_FILENAME)));
+        if ($name === '') { $name = ((string) ($asset['type'] ?? 'file')) . '-' . (int) ($asset['id'] ?? 0); }
+        return $ext !== '' ? $name . '.' . $ext : $name;
+    }
+
+    /**
+     * Presigned URL that downloads (Content-Disposition: attachment) instead of opening.
+     * Like signed_variant(), the CALLER must already have decided the viewer may have this rendition.
+     */
+    public static function download_url(array $asset, $variant = 'original', $ttl = 900): string
+    {
+        $key = (string) ($asset[self::variant_column($variant)] ?? '');
+        return $key === '' ? '' : S3Service::presigned_get_url($key, $ttl, self::download_name($asset, $variant));
+    }
+
+    /**
+     * Build a zip at $zip_path from assets (each fetched from S3 in $variant) plus extra text files
+     * (path => contents), under $folder/ inside the zip. Names are made unique. Returns the number of
+     * media files added; unreadable files are skipped and logged. The caller has checked entitlement.
+     */
+    public static function build_zip($zip_path, array $assets, $variant = 'original', array $extra = array(), $folder = ''): int
+    {
+        $zip = new ZipArchive();
+        if ($zip->open($zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) { return 0; }
+        foreach ($extra as $path => $contents) { $zip->addFromString((string) $path, (string) $contents); }
+        $used = array(); $added = 0; $tmps = array();
+        foreach ($assets as $a) {
+            $key = (string) ($a[self::variant_column($variant)] ?? '');
+            if ($key === '') { continue; }
+            $tmp = tempnam(sys_get_temp_dir(), 'dl');
+            if ($tmp === false || !S3Service::get_private_to_file($key, $tmp)) { @unlink($tmp); error_log('[download] could not fetch asset ' . (int) ($a['id'] ?? 0)); continue; }
+            $name = self::download_name($a, $variant);
+            $base = pathinfo($name, PATHINFO_FILENAME); $ext = pathinfo($name, PATHINFO_EXTENSION); $n = 2;
+            while (isset($used[strtolower($name)])) { $name = $base . ' (' . $n++ . ')' . ($ext !== '' ? '.' . $ext : ''); }
+            $used[strtolower($name)] = 1;
+            $zip->addFile($tmp, ($folder !== '' ? rtrim($folder, '/') . '/' : '') . $name);
+            $zip->setCompressionName(($folder !== '' ? rtrim($folder, '/') . '/' : '') . $name, ZipArchive::CM_STORE);   // media is already compressed
+            $tmps[] = $tmp; $added++;
+        }
+        $zip->close();   // files are read here, so the temp copies go only after close
+        foreach ($tmps as $t) { @unlink($t); }
+        return $added;
+    }
+
+    /** Send a finished zip to the browser and delete it. */
+    public static function send_zip($zip_path, $download_name): void
+    {
+        $ascii = preg_replace('/[^A-Za-z0-9._ -]/', '_', (string) $download_name);
+        while (ob_get_level() > 0) { ob_end_clean(); }
+        header('Content-Type: application/zip');
+        header('Content-Length: ' . filesize($zip_path));
+        header('Content-Disposition: attachment; filename="' . $ascii . '"');
+        header('Cache-Control: private, no-store');
+        readfile($zip_path);
+        @unlink($zip_path);
+        exit;
+    }
+
     private static function variant_column($variant): string
     {
         $map = array(

@@ -325,6 +325,33 @@ class ApiProfileController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Your account has been deleted']);
     }
 
+    /** "Download Your Data": queue an export of the signed-in person's own account. */
+    public function data_export_requestAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { $this->jsonError('Not authorized'); }
+        $r = DataExportService::request($me);
+        if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
+        $this->jsonSuccess(['message' => 'Your export is being prepared. We\'ll let you know when it\'s ready.', 'export' => DataExportService::state_json($r['export'])]);
+    }
+
+    /** The signed-in person's latest export (Settings polls this while one is being prepared). */
+    public function data_export_statusAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { $this->jsonError('Not authorized'); }
+        $rows = $this->userModel->get_user_by_id($me);
+        $tz = (is_array($rows) && count($rows) === 1) ? (string) ($rows[0]['content_timezone'] ?? 'UTC') : 'UTC';
+        $this->jsonSuccess(['export' => DataExportService::state_json((new DataExportsModel())->latest_for_user($me), $tz)]);
+    }
+
+    /** Signed link to the signed-in person's ready export. */
+    public function data_export_downloadAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { $this->jsonError('Not authorized'); }
+        $url = DataExportService::download_url($me, (int) ($this->post['id'] ?? 0));
+        if ($url === '') { $this->jsonError('This export is no longer available. Request a new one.'); }
+        $this->jsonSuccess(['url' => $url]);
+    }
+
     /** Follow a creator (auth required). */
     public function follow_creatorAction(){
         echo json_encode($this->set_follow(true));

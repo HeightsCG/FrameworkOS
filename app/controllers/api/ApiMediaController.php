@@ -368,6 +368,17 @@ class ApiMediaController extends BaseApiController {
         $this->jsonSuccess(['url' => MediaService::signed_url($a, $variant, $creator_id)]);
     }
 
+    /** Download link for one Library file: the untouched original, saved under its Library name. */
+    public function media_downloadAction(){
+        $user = $this->require_creator();
+        $a    = (new MediaAssetsModel())->get_one((int) $user['user_id'], (int) ($this->post['id'] ?? 0));
+        if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That file is not ready to download.'); }
+        $url = MediaService::download_url($a, 'original');
+        if ($url === '') { $url = MediaService::download_url($a, $a['type'] === 'video' ? 'poster' : 'display'); }
+        if ($url === '') { $this->jsonError('Could not prepare that download.'); }
+        $this->jsonSuccess(['url' => $url]);
+    }
+
     /** Toggle the baked watermark on an image by re-processing from the original. */
     public function media_watermarkAction(){
         @ini_set('memory_limit', '512M');

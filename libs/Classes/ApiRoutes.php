@@ -14,7 +14,7 @@ class ApiRoutes {
         ],
         'ApiProfileController' => [
             'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'block_user', 'unblock_user',
-            'become_creator', 'leave_creator', 'delete_my_account', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
+            'become_creator', 'leave_creator', 'delete_my_account', 'data_export_request', 'data_export_status', 'data_export_download', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [
             'billing_quote', 'billing_card_setup', 'billing_card_save', 'billing_change_plan', 'billing_cancel', 'billing_resume',
@@ -29,7 +29,7 @@ class ApiRoutes {
         ],
         'ApiMediaController' => [
             'media_upload', 'media_generate', 'media_generate_video', 'media_upload_init', 'media_upload_chunk', 'media_upload_status', 'media_upload_complete',
-            'media_list', 'media_get', 'media_update', 'media_sign', 'media_watermark', 'media_delete',
+            'media_list', 'media_get', 'media_update', 'media_sign', 'media_download', 'media_watermark', 'media_delete',
             'media_bulk', 'collections_list', 'collection_save', 'collection_delete', 'collection_add_assets', 'collection_remove_assets',
         ],
         'ApiCreatorStudioController' => [
