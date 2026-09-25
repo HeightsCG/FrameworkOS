@@ -124,14 +124,7 @@ class ApiPostsController extends BaseApiController {
 
         // Same moderation gate the feed applies, re-checked so a post can't be
         // reached by guessing its id. Like the feed, the creator gets no owner exemption.
-        $mod = (new PostsModel())->moderation_map([$id])[$id] ?? '';
-        $show_adult = false;
-        if ($viewer > 0) {
-            $rows = (new UsersModel())->get_user_by_id($viewer);
-            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            $show_adult = !empty($row['adult_content_enabled']);
-        }
-        if ($mod === 'blocked' || $mod === 'pending' || ($mod === 'adult' && !$show_adult)) {
+        if (!$this->moderation_ok($id, $viewer)) {
             $this->jsonError('Post not available');
         }
 
@@ -275,7 +268,11 @@ class ApiPostsController extends BaseApiController {
         }
         $post_id = (int) ($this->post['post_id'] ?? 0);
         $post    = (new PostsModel())->get_by_id($post_id);
-        if (!$post || $post['state'] !== 'published' || $post['audience'] !== 'ppv') {
+        if (!$post || $post['state'] !== 'published' || $post['audience'] !== 'ppv' || empty($post['on_cls'])) {
+            $this->jsonError('That post is not available.');
+        }
+        // Never sell (or reveal) held content by id: blocked, unscanned, or adult for a viewer who opted out.
+        if (!$this->moderation_ok((int) $post['id'], $viewer)) {
             $this->jsonError('That post is not available.');
         }
         $creator_id = (int) $post['creator_id'];
@@ -650,11 +647,25 @@ class ApiPostsController extends BaseApiController {
     /** Signed, ready asset URLs for a post — returned to a viewer who is entitled to see it.
      *  PPV is sold per-post, so an entitled viewer here bought it (or owns it): serve images
      *  UNWATERMARKED. Free/subscriber posts keep the watermarked display variant. */
+    /** Feed moderation gate for one post: false when blocked, unscanned, or adult for a viewer who opted out. */
+    private function moderation_ok(int $post_id, int $viewer): bool{
+        $mod = (new PostsModel())->moderation_map([$post_id])[$post_id] ?? '';
+        if ($mod === 'blocked' || $mod === 'pending') { return false; }
+        if ($mod === 'adult') {
+            if ($viewer <= 0) { return false; }
+            $rows = (new UsersModel())->get_user_by_id($viewer);
+            $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            return !empty($row['adult_content_enabled']);
+        }
+        return true;
+    }
+
     private function ppv_reveal_assets(array $post): array{
         $img_variant = (($post['audience'] ?? '') === 'ppv') ? 'original' : 'display';
         $out = [];
         foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) {
             if (!empty($a['deleted_at']) || $a['status'] !== 'ready') { continue; }
+            if (($a['moderation_status'] ?? '') === 'blocked') { continue; }   // quarantined after sale: never re-served
             if ($a['type'] === 'video') {
                 $out[] = ['type' => 'video',
                     'url'    => MediaService::signed_variant($a, 'original', 900),

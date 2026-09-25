@@ -39,6 +39,21 @@ class CreditsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['credit_balance'] : 0;
     }
 
+    /**
+     * Credits the user may cash out: net EARNINGS (sales earnings, less refund clawbacks and
+     * payouts already sent, plus failed payouts returned), capped at the live balance.
+     * Purchased credits are spendable but never withdrawable (card-to-bank laundering).
+     */
+    public function withdrawable($user_id){
+        $rows = parent::select(
+            "SELECT COALESCE(SUM(credits), 0) AS net FROM credit_transactions
+             WHERE user_id = :u AND (type LIKE '%\\_earning' OR type IN ('refund_reversal', 'payout', 'payout_refund'))",
+            array('u' => (int) $user_id)
+        );
+        $net = (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['net'] : 0;
+        return max(0, min($net, (int) $this->get_balance($user_id)));
+    }
+
     /** Cash-out history (the 'payout' ledger rows), shaped for the Payouts view. */
     public function get_payout_history($user_id, $limit = 12){
         $limit = (int) $limit;

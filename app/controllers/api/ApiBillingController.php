@@ -382,12 +382,17 @@ class ApiBillingController extends BaseApiController {
         if ($account_id === '') {
             $this->jsonError('Set up payouts first');
         }
+        // Money leaves the platform here: re-check suspension now, not on the once-a-minute session check.
+        $fresh = $this->userModel->get_user_by_id($creator_id);
+        if (!is_array($fresh) || count($fresh) !== 1 || (string) ($fresh[0]['user_status'] ?? '') !== 'Active') {
+            $this->jsonError('Payouts are unavailable for this account. Contact support.');
+        }
 
         $credits = new CreditsModel();
-        $balance = (int) $credits->get_balance($creator_id);      // credits
+        $balance = (int) $credits->withdrawable($creator_id);     // earned credits only — purchased credits can't be cashed out
         $min     = 100;                                           // $10.00 minimum ($1 = 10 credits)
         if ($balance < $min) {
-            $this->jsonError('You need at least ' . $min . ' credits ($' . number_format($min / 10, 2) . ') to cash out.');
+            $this->jsonError('You need at least ' . $min . ' earned credits ($' . number_format($min / 10, 2) . ') to cash out.');
         }
         $cents = $balance * 10;                                   // 1 credit = 10 cents
 
@@ -405,7 +410,7 @@ class ApiBillingController extends BaseApiController {
         }
         $this->notify($creator_id, 'credits', 'Payout on its way', '$' . number_format($cents / 100, 2) . ' (' . Notify::credits($balance) . ') is being sent to your bank.', '/account/settings?section=wallet&tab=cashout', 'fa-building-columns');
 
-        $this->jsonSuccess(['message' => 'Payout of $' . number_format($cents / 100, 2) . ' is on its way to your bank.', 'balance' => 0]);
+        $this->jsonSuccess(['message' => 'Payout of $' . number_format($cents / 100, 2) . ' is on its way to your bank.', 'balance' => (int) $credits->get_balance($creator_id)]);
     }
 
     public function disconnect_payout_accountAction(){

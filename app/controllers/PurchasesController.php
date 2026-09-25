@@ -53,7 +53,8 @@ class PurchasesController extends Controller {
      */
     private function purchases_for($user_id){
         $purchases  = array();
-        $ready = function ($rows) { return array_values(array_filter((array) $rows, function ($a) { return empty($a['deleted_at']) && ($a['status'] ?? '') === 'ready'; })); };
+        // Ready media only; anything moderation blocked after the sale is never served again.
+        $ready = function ($rows) { return array_values(array_filter((array) $rows, function ($a) { return empty($a['deleted_at']) && ($a['status'] ?? '') === 'ready' && ($a['moderation_status'] ?? '') !== 'blocked'; })); };
         $postsModel = new PostsModel();
         foreach ((array) (new PpvUnlocksModel())->get_for_fan($user_id) as $u) {
             $cap = trim((string) $u['caption']);

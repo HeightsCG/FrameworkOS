@@ -40,7 +40,7 @@ $(function () {
 
     function parse(data) { try { return JSON.parse(data); } catch (e) { return { success: false, message: 'Something went wrong' }; } }
     function reload_after(ms) { setTimeout(function () { window.location.href = '/account/billing'; }, ms || 1100); }
-    function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     /* A charge the bank wants the cardholder to confirm (3-D Secure): confirm it here, then record it. */
     function authenticate(o) {

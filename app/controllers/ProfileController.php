@@ -343,6 +343,11 @@ class ProfileController extends Controller {
         if (($session['status'] ?? '') !== 'complete' || ($session['payment_status'] ?? '') !== 'paid') {
             return false;
         }
+        // An old success URL stays "complete + paid" forever; only a still-live subscription may
+        // (re)activate the membership, or a fan could cancel and replay the link for free access.
+        if (!in_array((string) ($session['subscription_status'] ?? ''), array('active', 'trialing'), true)) {
+            return false;
+        }
 
         $meta = $session['metadata'] ?? array();
         if ((int) ($meta['subscriber_id'] ?? 0) !== (int) $viewer_id

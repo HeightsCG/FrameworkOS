@@ -16,7 +16,7 @@ jQuery(function ($) {
         toastr.options = $.extend(toastr.options || {}, { positionClass: 'toast-bottom-right', timeOut: 3200, preventDuplicates: true });
     }
 
-    function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     /* Hand a generated asset to the messenger: the creator picks who gets it (media attached, price optional). */
     function send_in_message(a) {
         if (!a || !window.CLSMessenger) { toastr.error('Messages are not available on this page'); return; }
@@ -182,7 +182,7 @@ jQuery(function ($) {
             $c.append(menu);
             function open_card() {
                 if (!inf.locked) { window.location = target_for(inf); return; }
-                Swal.fire({ title: inf.name + ' is locked', text: 'Your plan includes fewer AI influencers than you have, so the newest are locked. Nothing is deleted. Upgrade or add a slot to use them again.',
+                Swal.fire({ titleText: inf.name + ' is locked', text: 'Your plan includes fewer AI influencers than you have, so the newest are locked. Nothing is deleted. Upgrade or add a slot to use them again.',
                     showCancelButton: true, reverseButtons: true, confirmButtonText: 'See Plans', cancelButtonText: 'Not Now',
                     customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false })
                     .then(function (r) { if (r.isConfirmed) { window.location.href = '/account/billing'; } });
@@ -193,7 +193,7 @@ jQuery(function ($) {
             });
             $c.on('keydown', function (e) { if (e.key === 'Enter' && !$(e.target).closest('.dropdown').length) { open_card(); } });
             $c.find('[data-act="delete"]').on('click', function () {
-                Swal.fire({ title: 'Delete ' + inf.name + '?', text: 'The trained model is removed. Images already in your library stay there.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
+                Swal.fire({ titleText: 'Delete ' + inf.name + '?', text: 'The trained model is removed. Images already in your library stay there.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
                     .then(function (r) {
                         if (!r.isConfirmed) { return; }
                         api('influencer_delete', { id: inf.id }, function (o) { if (o && o.success) { toastr.success(o.message); load(true); } else { err(o); } });
@@ -410,7 +410,7 @@ jQuery(function ($) {
         }
         function upload_start(file) {
             if (photos.length + upload_queue.length + upload_active >= LIM.max_photos) { toastr.info('Up to ' + LIM.max_photos + ' photos'); return; }
-            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toastr.error(file.name + ': use JPG, PNG or WebP'); return; }
+            if (!/^image\/(jpeg|png|webp)$/.test(file.type)) { toastr.error(esc(file.name) + ': use JPG, PNG or WebP'); return; }
             var $t = $('<div class="inf-photo inf-photo--up">').append('<div class="inf-photo__bar"><div class="inf-photo__fill"></div></div><span class="inf-photo__st">Waiting</span>');
             $('#inf_photos').append($t);
             upload_queue.push({ file: file, $t: $t });

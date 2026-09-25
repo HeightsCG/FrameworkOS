@@ -11,7 +11,7 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'config'     => (array) ($this->config ?? array()),
     'can_ai'     => !empty($this->can_ai),
     'limit'      => (array) ($this->limit ?? array()),
-), JSON_UNESCAPED_SLASHES); ?>;
+), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 <?php if (!empty($this->needs_plan)): ?>
 <div class="plan-lock">

@@ -390,7 +390,7 @@ class ApiCreatorStudioController extends BaseApiController {
         // Only the creator's own ready Library media may be bundled.
         $valid = [];
         foreach ((array) (new MediaAssetsModel())->get_for_creator($user_id, []) as $a) {
-            if (($a['status'] ?? '') === 'ready' && empty($a['deleted_at'])) { $valid[(int) $a['id']] = true; }
+            if (($a['status'] ?? '') === 'ready' && empty($a['deleted_at']) && ($a['moderation_status'] ?? '') !== 'blocked') { $valid[(int) $a['id']] = true; }
         }
         $asset_ids = [];
         foreach ((array) ($this->post['asset_ids'] ?? []) as $aid) {

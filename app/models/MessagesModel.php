@@ -226,7 +226,7 @@ class MessagesModel extends Model {
         $rows = parent::select(
             "SELECT ma.message_id, ma.sort_order, a.*
              FROM message_assets ma JOIN media_assets a ON a.id = ma.asset_id
-             WHERE ma.message_id IN ($in) AND a.deleted_at IS NULL AND a.status = 'ready'
+             WHERE ma.message_id IN ($in) AND a.deleted_at IS NULL AND a.status = 'ready' AND a.moderation_status <> 'blocked'
              ORDER BY ma.message_id ASC, ma.sort_order ASC, a.id ASC");
         $out = array();
         foreach ((array) $rows as $r) { $out[(int) $r['message_id']][] = $r; }

@@ -746,6 +746,7 @@ class StripeService {
                 'status'             => (string) $session->status,
                 'payment_status'     => (string) $session->payment_status,
                 'subscription_id'    => $sub_id,
+                'subscription_status'=> is_object($sub) ? (string) $sub->status : '',
                 'customer_id'        => (string) $session->customer,
                 'metadata'           => $session->metadata ? $session->metadata->toArray() : array(),
                 'current_period_end' => $period,

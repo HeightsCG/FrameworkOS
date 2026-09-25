@@ -87,7 +87,7 @@ $(document).ready(function () {
             if (open) { ai_sync(); $('#swAiNote').trigger('focus'); }
         }
         function ai_sync() { $('.sw-chip[data-ai]').prop('disabled', ai_busy || ($('#sup_reply').val() || '').trim() === ''); $('#swAiDraft').prop('disabled', ai_busy); }
-        function ai_esc(s) { return $('<div>').text(s).html(); }
+        function ai_esc(s) { return $('<div>').text(s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
         $('#swAiToggle').on('click', function () { ai_open($ai.prop('hidden')); });
         $('#swAiClose').on('click', function () { ai_open(false); $('#swAiToggle').trigger('focus'); });
         function grow() { var el = document.getElementById('sup_reply'); if (!el) { return; } el.style.height = 'auto'; el.style.height = Math.min(Math.max(el.scrollHeight + 2, 110), 420) + 'px'; }

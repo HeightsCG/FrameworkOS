@@ -41,7 +41,7 @@ $(document).ready(function() {
         if (!$input.length || !$panel.length) { return; }
         var timer = null;
 
-        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
+        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
         function ini(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
         function hide() { $panel.prop('hidden', true).empty(); }
 
@@ -112,7 +112,7 @@ $(document).ready(function() {
     (function () {
         var $btn = $('#notifBtn'), $panel = $('#notifPanel'), $badge = $('#notifBadge'), $list = $('#notifList');
         if (!$btn.length) { return; }
-        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
+        function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
         function ftime(iso) { if (!iso) { return ''; } var d = new Date(String(iso).replace(' ', 'T') + 'Z'); return isNaN(d) ? '' : d.toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); }
         function count() {
             ApiDataSvc.apiCall('post', 'notifications_unread_count', {}, function (r) {
@@ -285,7 +285,7 @@ $(document).ready(function() {
         var redirect = $el.attr('data-block-redirect') || '';
         if (!id || !window.Swal) { return; }
         Swal.fire({
-            title: 'Block ' + name + '?',
+            titleText: 'Block ' + name + '?',
             text: 'They won\'t be able to see your page or posts, follow, subscribe, buy from you, or message you, and you won\'t see them. You can unblock from Settings.',
             width: 460,
             showCancelButton: true, reverseButtons: true,
@@ -296,7 +296,7 @@ $(document).ready(function() {
             ApiDataSvc.apiCall('post', 'block_user', { user_id: id }, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (o && o.success) {
-                    if (window.toastr) { toastr.success('Blocked ' + name); }
+                    if (window.toastr) { toastr.success('Blocked ' + $('<div>').text(name).html()); }
                     $(document).trigger('cls:blocked', [id]);
                     if (redirect) { window.location = redirect; }
                 } else if (o && o.need_login) { window.location = '/'; }

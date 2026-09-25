@@ -542,7 +542,7 @@ $in_app     = !empty($viewer_logged_in);
             if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Registered</span>'; }
             var main = card.querySelector('.pf-ev__main');
             if (!main || main.querySelector('.pf-ev__access')) { return; }
-            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
             var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your access details</span>';
             if (ax.location) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-location-dot"></i> ' + e(ax.location) + '</span>'; }
             if (ax.url) { rows += '<span class="pf-ev__access-row"><i class="fa-solid fa-link"></i> <a href="' + e(ax.url) + '" target="_blank" rel="noopener noreferrer nofollow">' + e(ax.url) + '</a></span>'; }
@@ -579,7 +579,7 @@ $in_app     = !empty($viewer_logged_in);
             if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Booked</span>'; }
             var main = card.querySelector('.pf-ev__main');
             if (!main || main.querySelector('.pf-ev__access')) { return; }
-            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
             var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your booking details</span>';
             if (ax.scheduling_url) { rows += '<span class="pf-ev__access-row"><i class="fa-regular fa-calendar-check"></i> <a href="' + e(ax.scheduling_url) + '" target="_blank" rel="noopener noreferrer nofollow">Schedule your session</a></span>'; }
             if (ax.details) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.details).replace(/\n/g, '<br>') + '</span>'; }
@@ -659,7 +659,7 @@ $in_app     = !empty($viewer_logged_in);
             var byId = {}; (window.PROFILE_POSTS || []).forEach(function (p) { byId[p.id] = p; });
             var lb = document.getElementById('pfLightbox'), inner = document.getElementById('pfLbInner');
             if (!lb) { return; }   // no posts on this profile, so no post viewer to wire up
-            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
             function openPost(id) {
                 var p = byId[id]; if (!p) { return; }
                 var h = '';

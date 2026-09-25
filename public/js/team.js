@@ -3,13 +3,13 @@
     var root = document.querySelector('.team');
     if (!root) { return; }
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
-    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function confirmAction(opts) {
         if (window.Swal) {
             return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, focusCancel: true,
                 confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' }, opts)).then(function (res) { return res.isConfirmed; });
         }
-        return Promise.resolve(window.confirm(opts.title || 'Are you sure?'));
+        return Promise.resolve(window.confirm(opts.title || opts.titleText || 'Are you sure?'));
     }
 
     /* ---- Invite (modal) ---- */
@@ -86,7 +86,7 @@
                 var nameEl = row.querySelector('.team-info__name');
                 var name = nameEl ? nameEl.textContent.trim() : 'this member';
                 var proceed = (status === 'Disabled')
-                    ? confirmAction({ title: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
+                    ? confirmAction({ titleText: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
                     : Promise.resolve(true);
                 proceed.then(function (ok) {
                     if (!ok) { return; }
@@ -111,7 +111,7 @@
                 var mid2 = parseInt(row2.getAttribute('data-mid'), 10);
                 var nameEl2 = row2.querySelector('.team-info__name');
                 var name2 = nameEl2 ? nameEl2.textContent.trim() : 'this member';
-                confirmAction({ title: 'Remove ' + name2 + '?', text: 'They lose access to your account and their seat is freed.', icon: 'warning', confirmButtonText: 'Remove' }).then(function (ok) {
+                confirmAction({ titleText: 'Remove ' + name2 + '?', text: 'They lose access to your account and their seat is freed.', icon: 'warning', confirmButtonText: 'Remove' }).then(function (ok) {
                     if (!ok) { return; }
                     ApiDataSvc.apiCall('post', 'team_remove', { member_id: mid2 }, function (r) {
                         var o = parse(r);

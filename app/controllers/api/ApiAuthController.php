@@ -193,7 +193,7 @@ class ApiAuthController extends BaseApiController {
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
         $this->userModel->change_password($user['user_id'], $enc_p_word);
 
-        $this->notify((int) Session::get('user_id'), 'security', 'Password changed', 'Your password was just changed. If this was not you, reset it now and contact support.', '/account/settings?section=security', 'fa-key', false, true);
+        $this->notify((int) $user['user_id'], 'security', 'Password changed', 'Your password was just changed. If this was not you, reset it now and contact support.', '/account/settings?section=security', 'fa-key', false, true);
         $this->jsonSuccess(['message' => 'Your password has been updated']);
     }
 
@@ -303,6 +303,7 @@ class ApiAuthController extends BaseApiController {
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
         $this->userModel->change_password(Session::get('user_id'), $enc_p_word, Session::get('user_id'));
         Session::set('reset_pw', 0);
+        Session::set('p_word', $enc_p_word);   // keep THIS session; every other session is signed out on its next check
 
         $this->jsonSuccess(['message' => 'Your password has been updated']);
     }

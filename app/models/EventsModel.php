@@ -25,12 +25,18 @@ class EventsModel extends Model {
             'tier_id'             => !empty($f['tier_id']) ? (int) $f['tier_id'] : null,
             'capacity'            => max(0, (int) ($f['capacity'] ?? 0)),
             'location'            => mb_substr((string) ($f['location'] ?? ''), 0, 255),
-            'external_url'        => mb_substr((string) ($f['external_url'] ?? ''), 0, 500),
+            'external_url'        => self::web_link($f['external_url'] ?? ''),
             'access_instructions' => (string) ($f['access_instructions'] ?? ''),
             'status'              => in_array($f['status'] ?? 'draft', array('draft', 'published', 'canceled'), true) ? $f['status'] : 'draft',
             'created_at'          => $now,
             'updated_at'          => $now,
         ));
+    }
+
+    /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
+    private static function web_link($url){
+        $url = trim((string) $url);
+        return preg_match('#^https?://#i', $url) ? mb_substr($url, 0, 500) : '';
     }
 
     public function update_event($creator_id, $id, array $f){
@@ -43,6 +49,7 @@ class EventsModel extends Model {
             if ($k === 'status' && !in_array($f[$k], array('draft', 'published', 'canceled'), true)) { continue; }
             if (in_array($k, array('end_at', 'tier_id'), true)) { $data[$k] = !empty($f[$k]) ? $f[$k] : null; }
             elseif (in_array($k, array('price_credits', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
+            elseif ($k === 'external_url') { $data[$k] = self::web_link($f[$k]); }
             else { $data[$k] = $f[$k]; }
         }
         return parent::update('events', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));

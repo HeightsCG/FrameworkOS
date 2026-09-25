@@ -807,7 +807,7 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'ai'       => $this->ai ?? array('balance' => 0, 'image_price' => 0),
     'automation_plan' => $this->automation_plan ?? null,
     's3_ready' => !empty($this->s3_ready),
-), JSON_UNESCAPED_SLASHES); ?>;
+), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 <?php if (empty($this->needs_plan)): ?>
 <script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path().'/public/js/studio.js'); ?>"></script>

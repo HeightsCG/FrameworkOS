@@ -160,11 +160,20 @@ class Main {
 
     public static function get_base_domain(): string
     {
-        $host = (string) ($_SERVER['HTTP_HOST'] ?? '');
-        if ($host !== '') { return self::site_protocol() . $host; }
-        // No request (cron, queue worker): this environment's domain, else the public brand domain.
         $cfg = self::get_config();
         $env = self::get_environment();
+        // The Host header is client-controlled and these URLs go into emails (password reset,
+        // verify, invites). Only use it when it is one of OUR configured hosts or a subdomain.
+        $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
+        if ($host !== '') {
+            foreach (array($cfg[$env]['canonical_host'] ?? '', $cfg[$env]['domain'] ?? '', $cfg['global']['public_domain'] ?? '') as $ok) {
+                $ok = strtolower(trim((string) $ok));
+                if ($ok !== '' && ($host === $ok || substr($host, -strlen('.' . $ok)) === '.' . $ok)) {
+                    return self::site_protocol() . (string) $_SERVER['HTTP_HOST'];
+                }
+            }
+        }
+        // No request (cron, queue worker) or an unknown Host: this environment's domain, else the public brand domain.
         $host = (string) ($cfg[$env]['domain'] ?? '');
         if ($host === '') { $host = (string) ($cfg['global']['public_domain'] ?? ''); }
         return (($env === 'development') ? self::site_protocol() : 'https://') . $host;

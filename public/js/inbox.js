@@ -11,7 +11,7 @@
     var $convs = $('#ibxConvs'), $scroll = $('#ibxScroll'), $pane = $('#ibxPane'), $blank = $('#ibxBlank'), $input = $('#ibxInput');
     var convs = [], filter = 'all', search = '', active = 0, activePeer = null, iAmCreator = false, viewerCredits = 0, unlocking = 0, threadReq = 0;
 
-    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function utc(iso) { if (!iso) { return null; } var d = new Date(String(iso).replace(' ', 'T') + 'Z'); return isNaN(d) ? null : d; }
     function ftime(iso) { var d = utc(iso); if (!d) { return ''; } var now = new Date(); var sameDay = d.toDateString() === now.toDateString(); return sameDay ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); }
     function fclock(iso) { var d = utc(iso); return d ? d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''; }

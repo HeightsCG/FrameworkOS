@@ -19,20 +19,33 @@ class Controller {
     }
 
     /**
-     * A collaborator already signed in when the owner's plan dropped below their seat is signed
-     * out on the next request (at most one check a minute). Their account stays; see Plan::locked_ids.
+     * Re-check the signed-in account against the DB (at most once a minute) and sign the
+     * session out when it no longer should exist: the account was deleted or suspended
+     * (admin, chargeback, owner disabled a team member), its password changed since this
+     * session logged in (reset kills every other session), or — for a collaborator — the
+     * owner's plan dropped below their seat (their account stays; see Plan::locked_ids).
      */
     private function enforce_team_seat(){
-        if ((int) Session::get('user_id') <= 0 || (string) Session::get('team_role') === '') { return; }
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { return; }
         $now = time();
         if ($now - (int) Session::get('seat_check_at') < 60) { return; }
         Session::set('seat_check_at', $now);
-        $rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
-        if (!is_array($rows) || count($rows) !== 1 || !Plan::team_member_locked($rows[0])) { return; }
+        $rows = (new UsersModel())->get_user_by_id($uid);
+        $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        $message = '';
+        if (!$row || (string) ($row['user_status'] ?? '') !== 'Active') {
+            $message = 'Your session has ended. Please sign in again.';
+        } elseif ((string) Session::get('p_word') !== '' && !hash_equals((string) Session::get('p_word'), (string) ($row['p_word'] ?? ''))) {
+            $message = 'Your password was changed. Please sign in again.';
+        } elseif ((string) Session::get('team_role') !== '' && Plan::team_member_locked($row)) {
+            $message = Plan::SEAT_LOCKED_MESSAGE;
+        }
+        if ($message === '') { return; }
         Session::destroy();
         if (strtolower((string) Main::controller_name()) === 'apicontroller' || strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/api/') === 0) {
             header('Content-Type: application/json');
-            echo json_encode(array('success' => false, 'message' => Plan::SEAT_LOCKED_MESSAGE));
+            echo json_encode(array('success' => false, 'message' => $message));
             exit;
         }
         header('Location: /');

@@ -105,7 +105,7 @@ class AccountController extends Controller {
         // not the Stripe balance — credits are the platform's internal currency. History
         // is the creator's own cash-out events (the Stripe bank payout lags on a schedule).
         if ($is_owner_creator) {
-            $payout_credits = (int) $creditsModel->get_balance($user['user_id']);
+            $payout_credits = (int) $creditsModel->withdrawable($user['user_id']);   // earned credits only
             $payout_balance['available']         = $payout_credits * 10;
             $payout_balance['available_credits'] = $payout_credits;
             $payouts = $creditsModel->get_payout_history($user['user_id']);

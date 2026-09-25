@@ -8,7 +8,7 @@
             return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, focusCancel: true,
                 confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' }, opts)).then(function (res) { return res.isConfirmed; });
         }
-        return Promise.resolve(window.confirm(opts.title || 'Are you sure?'));
+        return Promise.resolve(window.confirm(opts.title || opts.titleText || 'Are you sure?'));
     }
 
     /* ---- Tabs ---- */
@@ -229,7 +229,7 @@
             var nameEl = row.querySelector('.adm-uinfo__name');
             var name = nameEl ? nameEl.textContent.trim() : 'this account';
             var proceed = (status === 'Disabled')
-                ? confirmAction({ title: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
+                ? confirmAction({ titleText: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
                 : Promise.resolve(true);
             proceed.then(function (ok) {
                 if (!ok) { return; }

@@ -23,7 +23,7 @@ class ServicesModel extends Model {
             'price_credits'    => max(0, (int) ($f['price_credits'] ?? 0)),
             'duration_min'     => max(0, (int) ($f['duration_min'] ?? 0)),
             'delivery_method'  => in_array($f['delivery_method'] ?? 'custom', self::delivery_methods(), true) ? $f['delivery_method'] : 'custom',
-            'scheduling_url'   => mb_substr((string) ($f['scheduling_url'] ?? ''), 0, 500),
+            'scheduling_url'   => self::web_link($f['scheduling_url'] ?? ''),
             'delivery_details' => (string) ($f['delivery_details'] ?? ''),
             'capacity'         => max(0, (int) ($f['capacity'] ?? 0)),
             'category'         => mb_substr((string) ($f['category'] ?? ''), 0, 64),
@@ -32,6 +32,12 @@ class ServicesModel extends Model {
             'created_at'       => $now,
             'updated_at'       => $now,
         ));
+    }
+
+    /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
+    private static function web_link($url){
+        $url = trim((string) $url);
+        return preg_match('#^https?://#i', $url) ? mb_substr($url, 0, 500) : '';
     }
 
     public function update_service($creator_id, $id, array $f){
@@ -43,6 +49,7 @@ class ServicesModel extends Model {
             if ($k === 'delivery_method' && !in_array($f[$k], self::delivery_methods(), true)) { continue; }
             if ($k === 'status' && !in_array($f[$k], array('draft', 'published'), true)) { continue; }
             if (in_array($k, array('price_credits', 'duration_min', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
+            elseif ($k === 'scheduling_url') { $data[$k] = self::web_link($f[$k]); }
             else { $data[$k] = $f[$k]; }
         }
         return parent::update('services', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));

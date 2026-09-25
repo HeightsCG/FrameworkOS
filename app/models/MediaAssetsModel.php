@@ -32,7 +32,8 @@ class MediaAssetsModel extends Model {
         if (empty($ids)) { return array(); }
         $in = implode(',', $ids);
         $rows = parent::select(
-            "SELECT * FROM media_assets WHERE id IN ($in) AND creator_id = :c AND deleted_at IS NULL AND status = 'ready'",
+            "SELECT * FROM media_assets WHERE id IN ($in) AND creator_id = :c AND deleted_at IS NULL AND status = 'ready'
+               AND moderation_status <> 'blocked'",   // quarantined media never goes out in DMs/broadcasts/automations
             array('c' => (int) $creator_id));
         $by = array();
         foreach ((array) $rows as $r) { $by[(int) $r['id']] = $r; }

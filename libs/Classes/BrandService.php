@@ -115,21 +115,32 @@ class BrandService {
         return $url;
     }
 
+    /**
+     * GET a public web page. Redirects are followed by hand (max 3) and EVERY hop is re-checked
+     * and DNS-pinned via MediaIngestService::safe_url, so neither a redirect nor DNS rebinding
+     * can reach an internal address (cloud metadata, localhost services).
+     */
     private static function fetch($url){
-        $ch = curl_init($url);
-        curl_setopt_array($ch, array(
-            CURLOPT_RETURNTRANSFER  => true,
-            CURLOPT_FOLLOWLOCATION  => true,
-            CURLOPT_MAXREDIRS       => 3,
-            CURLOPT_TIMEOUT         => 15,
-            CURLOPT_USERAGENT       => 'CreatorLinkStudio-BrandBot/1.0',
-            CURLOPT_PROTOCOLS       => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-            CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTP | CURLPROTO_HTTPS,
-        ));
-        $raw  = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        return ($raw === false || $code >= 400) ? null : $raw;
+        for ($hop = 0; $hop <= 3; $hop++) {
+            try { $safe = MediaIngestService::safe_url($url, 'website URL'); } catch (\Throwable $e) { return null; }
+            $ch = curl_init($safe['url']);
+            curl_setopt_array($ch, array(
+                CURLOPT_RETURNTRANSFER  => true,
+                CURLOPT_FOLLOWLOCATION  => false,
+                CURLOPT_RESOLVE         => array($safe['resolve']),
+                CURLOPT_TIMEOUT         => 15,
+                CURLOPT_USERAGENT       => 'CreatorLinkStudio-BrandBot/1.0',
+                CURLOPT_PROTOCOLS       => CURLPROTO_HTTP | CURLPROTO_HTTPS,
+            ));
+            $raw      = curl_exec($ch);
+            $code     = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $location = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL);   // absolute, resolved by curl
+            curl_close($ch);
+            if ($raw === false) { return null; }
+            if ($code >= 300 && $code < 400 && $location !== '') { $url = $location; continue; }
+            return ($code >= 400) ? null : $raw;
+        }
+        return null;   // too many redirects
     }
 
     /** Strip HTML down to a compact text block (title, meta, og, body) for the model. */

@@ -17,7 +17,7 @@ jQuery(function ($) {
 
     var detailOC = bootstrap.Offcanvas.getOrCreateInstance('#csDetail');
 
-    function esc(s) { return $('<div>').text(s == null ? '' : s).html(); }
+    function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     /* ---- Privacy mode: one switch blurs every thumbnail/preview in the Studio (remembered per browser). ---- */
     (function () {
@@ -156,7 +156,7 @@ jQuery(function ($) {
             if (!openCol) return;
             var id = $(this).closest('.cs-tile').data('id');
             ApiDataSvc.apiCall('post', 'collection_remove_assets', { id: openCol.id, ids: [id] }, function (resp) { var o = JSON.parse(resp);
-                if (o.success) { toastr.success('Removed from ' + openCol.name); openCollectionView(openCol); } else err(o);
+                if (o.success) { toastr.success('Removed from ' + esc(openCol.name)); openCollectionView(openCol); } else err(o);
             });
         })
         .on('click', '.cs-tile', function () { openDetail($(this).data('id')); });

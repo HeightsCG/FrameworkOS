@@ -32,7 +32,7 @@
     var $pill     = $('#feed_new_pill');
     var $pill_txt = $('#feed_new_pill_text');
 
-    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmt(n) { n = +n || 0; return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
     function toast(msg) { if (window.toastr) { toastr.info(msg); } }
 

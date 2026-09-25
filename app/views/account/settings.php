@@ -1569,7 +1569,7 @@ $(function () {
     });
 
     function escapeHtml(s) {
-        return $('<div>').text(s == null ? '' : s).html();
+        return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     $('#username_save_btn').on('click', function () {

@@ -112,7 +112,7 @@ class ContentBundlesModel extends Model {
         return parent::select(
             "SELECT ma.* FROM bundle_items bi
              JOIN media_assets ma ON ma.id = bi.asset_id
-             WHERE bi.bundle_id = :b AND ma.deleted_at IS NULL AND ma.status = 'ready'
+             WHERE bi.bundle_id = :b AND ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.moderation_status <> 'blocked'
              ORDER BY bi.id ASC",
             array('b' => (int) $bundle_id)
         );
