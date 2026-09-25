@@ -283,6 +283,7 @@ class ApiPostsController extends BaseApiController {
             $this->jsonSuccess(['assets' => $this->ppv_reveal_assets($post)]);
         }
         if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That post is not available.'); }
+        if ($this->seller_suspended($creator_id)) { $this->jsonError('That post is not available.'); }
         if ($price <= 0) { $this->jsonError('This post is not for sale.'); }
 
         // Optional discount code — applied to the credits charged; the creator's
@@ -328,6 +329,7 @@ class ApiPostsController extends BaseApiController {
         if ($net > 0) {
             $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
+            $unlocks->set_net($post_id, $viewer, $net);
         }
         $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
             'Someone unlocked your post for ' . Notify::credits($charge) . '.', '/dashboard', 'fa-coins');
@@ -363,7 +365,18 @@ class ApiPostsController extends BaseApiController {
             $this->jsonSuccess(['already' => true, 'message' => 'This is your own bundle.']);
         }
         if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That bundle is not available.'); }
+        if ($this->seller_suspended($creator_id)) { $this->jsonError('That bundle is not available.'); }
         if ($price <= 0) { $this->jsonError('This bundle is not for sale.'); }
+        // Adult (or not yet scanned) media is only sold to fans who have adult content on.
+        $vrow = $this->userModel->get_user_by_id($viewer);
+        if (!(is_array($vrow) && count($vrow) === 1 && !empty($vrow[0]['adult_content_enabled']))) {
+            foreach ((array) $model->get_media_for_bundle($bundle_id) as $a) {
+                $st = (string) ($a['moderation_status'] ?? '');
+                if ($st !== 'n_a' && ($st !== 'approved' || !empty($a['is_adult']))) {
+                    $this->jsonError('This bundle has adult content. Turn on adult content in Settings to buy it.');
+                }
+            }
+        }
 
         $credits = new CreditsModel();
         if ($model->has_unlocked($bundle_id, $viewer)) {
@@ -391,7 +404,7 @@ class ApiPostsController extends BaseApiController {
         $creator_row = $this->userModel->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
         $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
-        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); }
+        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); $model->set_unlock_net($bundle_id, $viewer, $net); }
         $this->notify($creator_id, 'purchases', 'New bundle sale',
             'Someone purchased your bundle for ' . Notify::credits($price) . '.', '/dashboard', 'fa-coins');
         $this->notify($viewer, 'purchases', 'Bundle purchased',
@@ -420,6 +433,7 @@ class ApiPostsController extends BaseApiController {
         }
 
         if ((new BlocksModel())->either_blocked($user_id, (int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
+        if ($this->seller_suspended((int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
         $cname = Notify::name_of((int) $plan['user_id']); $chandle = Notify::handle_of((int) $plan['user_id']);
         $this->notify($user_id, 'subscriptions', 'You joined ' . $plan['name'], ($cname !== '' ? $cname . '\'s ' : '') . 'free membership is active.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
@@ -449,6 +463,7 @@ class ApiPostsController extends BaseApiController {
 
         $creator_id = (int) $plan['user_id'];
         if ((new BlocksModel())->either_blocked($user_id, $creator_id)) { $this->jsonError('That plan is no longer available'); }
+        if ($this->seller_suspended($creator_id)) { $this->jsonError('That plan is no longer available'); }
         $subsModel = new CreatorSubscriptionsModel();
         if ($subsModel->is_subscribed_to_plan($user_id, (int) $plan['id'])) {
             $this->jsonError('You are already a member of this plan');

@@ -583,7 +583,7 @@
 </div>
 
 <!-- ============ SCHEDULER — automation form ============ -->
-<div class="modal fade" id="csSchedulerModal" tabindex="-1" aria-hidden="true" aria-labelledby="csSchedModalTitle">
+<div class="modal fade cs-ae-modal" id="csSchedulerModal" tabindex="-1" aria-hidden="true" aria-labelledby="csSchedModalTitle">
     <div class="modal-dialog cs-ae">
         <div class="modal-content cs-ae__surface">
             <header class="cs-ae__header">

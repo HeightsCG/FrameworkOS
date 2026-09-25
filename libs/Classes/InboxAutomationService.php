@@ -125,6 +125,9 @@ class InboxAutomationService {
         $peer     = (string) $conv_id;
 
         $replies = new InboxRepliesModel();
+        if (!$replies->try_peer_lock($creator_id, 'cls', $peer)) {   // another reply to this fan is already being drafted
+            return self::log_skip($replies, $creator_id, 'cls', $peer, $fan_name, $ev, $text, 'rate_cap');
+        }
         $last = $replies->last_sent_at_for_peer($creator_id, 'cls', $peer);
         if ($last !== null && (time() - strtotime($last)) < self::RATE_CAP_SEC) {
             return self::log_skip($replies, $creator_id, 'cls', $peer, $fan_name, $ev, $text, 'rate_cap');

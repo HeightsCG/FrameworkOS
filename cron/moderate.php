@@ -26,7 +26,8 @@ if (empty($due)) { exit(0); }
 
 foreach ($due as $a) {
     $id  = (int) $a['id'];
-    $key = $a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']);
+    // Videos are judged on their poster frame (the original is a video file, not an image).
+    $key = (($a['type'] ?? '') === 'video') ? ($a['poster_key'] ?: $a['thumb_key']) : ($a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key']));
     if ($key === '' || $key === null) {
         $media->set_moderation($id, 'error');
         continue;

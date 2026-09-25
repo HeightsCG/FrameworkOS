@@ -62,6 +62,12 @@ class JobsModel extends Model {
     }
 
     public function release_stale(string $older_than): int {
+        // A job that keeps killing its worker (fatal error, OOM) must not be re-claimed forever:
+        // once it has used its attempts, a stale run is final.
+        parent::update('jobs',
+            ['state' => 'failed', 'last_error' => 'Worker died mid-run (attempts exhausted)', 'dedupe_key' => null,
+             'locked_at' => null, 'locked_by' => null, 'updated_at' => gmdate('Y-m-d H:i:s')],
+            'state = :s AND locked_at < :t AND attempts >= max_attempts', ['s' => 'running', 't' => $older_than]);
         return (int) parent::update('jobs',
             ['state' => 'queued', 'locked_at' => null, 'locked_by' => null, 'updated_at' => gmdate('Y-m-d H:i:s')],
             'state = :s AND locked_at < :t', ['s' => 'running', 't' => $older_than]);

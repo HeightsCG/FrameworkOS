@@ -67,7 +67,16 @@ foreach ($rows as $uid) {
         $card = $pm ? StripeService::card_info($pm) : array();
         $start = gmdate('Y-m-d H:i:s', (int) $item->current_period_start);
         $end   = gmdate('Y-m-d H:i:s', (int) $item->current_period_end);
-        echo "user $uid: {$sub->id} → plan $plan" . ($slots ? " + $slots slot(s)" : '') . ", next charge $end UTC, card " . ($card ? $card['brand'] . ' ' . $card['last4'] : 'NONE (they must add one)')
+        // Past due = the CURRENT period was never paid. The app's renew() bills from current_period_end,
+        // so the paid coverage ends at $start: the retry then bills this unpaid period (not the next one),
+        // and Stripe's own invoice for it is voided below so it can't be collected twice.
+        $past_due = ((string) $sub->status === 'past_due');
+        if ($past_due) {
+            $len   = (int) $item->current_period_end - (int) $item->current_period_start;
+            $end   = $start;
+            $start = gmdate('Y-m-d H:i:s', (int) $item->current_period_start - $len);
+        }
+        echo "user $uid: {$sub->id} → plan $plan" . ($slots ? " + $slots slot(s)" : '') . ($past_due ? ", PAST DUE: retry bills the unpaid period from $end UTC now; Stripe invoice voided + subscription canceled" : ", next charge $end UTC") . ", card " . ($card ? $card['brand'] . ' ' . $card['last4'] : 'NONE (they must add one)')
             . ((int) $sub->cancel_at_period_end ? ', already canceling (moves to Free at period end)' : '') . "\n";
         if (!$apply) { continue; }
 
@@ -82,7 +91,17 @@ foreach ($rows as $uid) {
         $t = PlanTiers::get($plan);
         (new AiCreditsModel())->adopt_plan_bucket($uid, (int) ($t['limits']['ai_credits'] ?? 0));
         // Stop Stripe billing: the subscription ends when the period the customer paid for ends.
-        if (!(int) $sub->cancel_at_period_end) {
+        if ($past_due) {
+            // Nothing paid is running on Stripe: void the open invoice (so Stripe stops retrying it)
+            // and end the subscription now. The app's retry collects this period instead.
+            $inv_id = is_object($sub->latest_invoice ?? null) ? (string) $sub->latest_invoice->id : (string) ($sub->latest_invoice ?? '');
+            if ($inv_id !== '') {
+                try { $inv = $c->invoices->retrieve($inv_id); if ((string) $inv->status === 'open') { $c->invoices->voidInvoice($inv_id); } }
+                catch (\Throwable $e) { echo "user $uid: WARNING could not void invoice $inv_id: " . $e->getMessage() . " — void it in Stripe by hand\n"; }
+            }
+            $c->subscriptions->update($sub->id, array('metadata' => array('migrated_to_app_billing' => gmdate('c'))));
+            $c->subscriptions->cancel($sub->id, array('invoice_now' => false, 'prorate' => false));
+        } elseif (!(int) $sub->cancel_at_period_end) {
             $c->subscriptions->update($sub->id, array('cancel_at_period_end' => true, 'metadata' => array('migrated_to_app_billing' => gmdate('c'))));
         }
         (new BillingModel())->forget_stripe_subscription($uid);

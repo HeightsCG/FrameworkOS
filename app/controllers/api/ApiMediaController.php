@@ -198,12 +198,18 @@ class ApiMediaController extends BaseApiController {
         if (!$session || $session['status'] !== 'active') {
             $this->jsonError('This upload session is no longer active. Please restart the upload.');
         }
-        if ($part_no < 1) {
+        // The storage cap was checked against the DECLARED size, so hold the parts to it: no part
+        // beyond what that size needs, and no part bigger than a chunk.
+        $max_parts = (int) ceil(max(1, (int) $session['bytes_total']) / MediaLimits::CHUNK_SIZE);
+        if ($part_no < 1 || $part_no > $max_parts) {
             $this->jsonError('Invalid upload chunk.');
         }
         $chunk = $_FILES['chunk'] ?? null;
         if (!$chunk || ($chunk['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($chunk['tmp_name'])) {
             $this->jsonError('That chunk did not arrive. It will be retried.');
+        }
+        if ((int) ($chunk['size'] ?? 0) > MediaLimits::CHUNK_SIZE) {
+            $this->jsonError('Invalid upload chunk.');
         }
         $body = @file_get_contents($chunk['tmp_name']);
         $size = strlen((string) $body);

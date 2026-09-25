@@ -40,7 +40,9 @@ class ApiTokensModel extends Model {
         if ($raw === '') { return null; }
         $hash = hash('sha256', $raw);
         $rows = parent::select(
-            "SELECT id, user_id FROM api_tokens WHERE token_hash = :h AND revoked = 0",
+            "SELECT t.id, t.user_id FROM api_tokens t
+             JOIN user_accounts u ON u.user_id = t.user_id AND u.deleted = 0 AND u.user_status = 'Active'
+             WHERE t.token_hash = :h AND t.revoked = 0",   // a suspended/deleted owner's token stops working
             array('h' => $hash));
         if (!is_array($rows) || count($rows) !== 1) { return null; }
         parent::update('api_tokens',

@@ -97,6 +97,17 @@ class InboxRepliesModel extends Model {
            array('c' => (int) $creator_id, 'ch' => (string) $channel, 'p' => (string) $peer_key));
     }
 
+    /**
+     * Non-blocking per-conversation lock (MySQL GET_LOCK, freed when this request's connection
+     * closes). A burst of fan messages is handled in parallel requests; only the one holding the
+     * lock drafts a reply, so the burst can't multiply AI calls past the rate cap.
+     */
+    public function try_peer_lock($creator_id, $channel, $peer_key){
+        $key  = 'ibx:' . substr(sha1((int) $creator_id . '|' . (string) $channel . '|' . (string) $peer_key), 0, 40);
+        $rows = parent::select("SELECT GET_LOCK(:k, 0) AS got", array('k' => $key));
+        return (int) ($rows[0]['got'] ?? 0) === 1;
+    }
+
     public function last_sent_at_for_peer($creator_id, $channel, $peer_key){
         $rows = parent::select(
             "SELECT MAX(sent_at) AS t FROM inbox_replies

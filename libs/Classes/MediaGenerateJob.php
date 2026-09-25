@@ -41,7 +41,9 @@ class MediaGenerateJob {
             return 'OK asset ' . $asset_id;
         } catch (\Throwable $e) {
             $refund(); $model->set_failed($creator_id, $asset_id, 'Generation failed: ' . $e->getMessage());
-            throw $e;   // lets the queue record the error; the asset already shows the failure
+            // Final, like the other failure branches: a retry would render (and bill fal) again
+            // after the credits were already refunded.
+            return 'FAIL ' . $e->getMessage();
         }
     }
 }

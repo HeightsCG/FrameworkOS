@@ -42,6 +42,11 @@ class MessageUnlocksModel extends Model {
     }
 
     /** Remove an unlock (charge failed after insert, or an admin refund). */
+    /** What the creator earned on this unlock (refunds reverse exactly this). */
+    public function set_net($message_id, $fan_id, $net){
+        return parent::update('message_unlocks', array('net_credits' => max(0, (int) $net)), 'message_id = :m AND fan_id = :f', array('m' => (int) $message_id, 'f' => (int) $fan_id));
+    }
+
     public function remove($message_id, $fan_id){
         return parent::delete_all('message_unlocks', 'message_id = :m AND fan_id = :f',
             array('m' => (int) $message_id, 'f' => (int) $fan_id));

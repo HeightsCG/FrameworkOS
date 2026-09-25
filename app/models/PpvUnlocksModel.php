@@ -58,6 +58,11 @@ class PpvUnlocksModel extends Model {
     }
 
     /** Remove an unlock (used to roll back if the credit charge fails after insert). */
+    /** What the creator earned on this unlock (refunds reverse exactly this). */
+    public function set_net($post_id, $fan_id, $net){
+        return parent::update('ppv_unlocks', array('net_credits' => max(0, (int) $net)), 'post_id = :p AND fan_id = :f', array('p' => (int) $post_id, 'f' => (int) $fan_id));
+    }
+
     public function remove($post_id, $fan_id){
         return parent::delete_all('ppv_unlocks', 'post_id = :p AND fan_id = :f',
             array('p' => (int) $post_id, 'f' => (int) $fan_id));

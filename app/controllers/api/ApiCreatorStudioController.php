@@ -699,7 +699,9 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
-        $model->set_state($creator_id, $id, 'published');
+        if (!$model->publish_once($creator_id, $id)) {   // already published (double-click / retry): don't fan out again
+            $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
+        }
         if (!empty($post['on_cls'])) { PostNotifier::published($creator_id, $id); }   // socials-only posts don't notify followers
         $this->share_post_to_social($user, $post, $shares, null);
         $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);

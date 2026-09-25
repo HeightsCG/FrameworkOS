@@ -312,7 +312,7 @@ $in_app     = !empty($viewer_logged_in);
                                 <h3 class="pf-ev__title"><?php echo htmlspecialchars((string) $ec['title'], ENT_QUOTES, 'UTF-8'); ?></h3>
                                 <?php if (trim((string) $ec['description']) !== ''): ?><p class="pf-ev__desc"><?php echo nl2br(htmlspecialchars((string) $ec['description'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
                                 <div class="pf-ev__meta">
-                                    <span class="pf-ev__tag pf-ev__tag--<?php echo htmlspecialchars((string) $ec['access_type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($al[$ec['access_type']] ?? 'Free', ENT_QUOTES, 'UTF-8'); echo ($ec['access_type'] === 'paid' && (int) $ec['price_credits'] > 0) ? ' · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : ''; ?></span>
+                                    <span class="pf-ev__tag pf-ev__tag--<?php echo htmlspecialchars((string) $ec['access_type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars($al[$ec['access_type']] ?? 'Free', ENT_QUOTES, 'UTF-8'); echo ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0) ? ' · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : ''; ?></span>
                                     <?php if ($ec['is_online']): ?><span class="pf-ev__where"><i class="fa-solid fa-video"></i> Online</span><?php elseif ($ec['is_inperson']): ?><span class="pf-ev__where"><i class="fa-solid fa-location-dot"></i> In person</span><?php endif; ?>
                                     <?php if ((int) $ec['capacity'] > 0): ?><span class="pf-ev__seats"><i class="fa-solid fa-user-group"></i> <?php echo max(0, (int) $ec['capacity'] - (int) $ec['attendees']); ?> seats left</span><?php endif; ?>
                                 </div>
@@ -335,7 +335,7 @@ $in_app     = !empty($viewer_logged_in);
                                 <?php else: ?>
                                 <button type="button" class="pf-btn pf-btn--subscribe pf-ev__register" data-ev-register="<?php echo (int) $ec['id']; ?>">
                                     <i class="fa-solid fa-calendar-check"></i>
-                                    <?php echo ($ec['access_type'] === 'paid' && (int) $ec['price_credits'] > 0) ? 'Register · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Register'; ?>
+                                    <?php echo ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0) ? 'Register · $' . htmlspecialchars((string) $ec['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Register'; ?>
                                 </button>
                                 <?php endif; ?>
                             </div>
@@ -447,6 +447,9 @@ $in_app     = !empty($viewer_logged_in);
             document.querySelectorAll('.pf-panel').forEach(function (p) { p.classList.toggle('is-active', p.dataset.panel === panel); });
         }
         document.querySelectorAll('.pf-tab').forEach(function (t) { t.onclick = function () { selectTab(t.dataset.panel); }; });
+        // Deep link to a tab (e.g. /@handle#events from a creator's "Copy Event Link").
+        var hashTab = (location.hash || '').replace('#', '');
+        if (hashTab && document.querySelector('.pf-tab[data-panel="' + hashTab.replace(/[^a-z]/g, '') + '"]')) { selectTab(hashTab.replace(/[^a-z]/g, '')); }
 
         // Plan subscribe (checkout flow lands next; interim: prompt login / notice).
         function pfToast(msg) {

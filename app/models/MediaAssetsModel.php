@@ -20,7 +20,7 @@ class MediaAssetsModel extends Model {
             'mime'       => (string) $mime,
             'status'     => (string) $status,
             // Only images are content-moderated; videos/gifs aren't scanned.
-            'moderation_status' => ($type === 'image') ? 'pending' : 'n_a',
+            'moderation_status' => 'pending',   // images and videos (poster frame) are both moderated
             'created_at' => $now,
             'updated_at' => $now,
         ));
@@ -75,6 +75,7 @@ class MediaAssetsModel extends Model {
             $data['moderation_score']  = ($fields['moderation_score'] ?? null) === null ? null : (float) $fields['moderation_score'];
             $data['moderation_labels'] = $fields['moderation_labels'] ?? null;
             if ($fields['moderation_status'] !== 'pending') { $data['moderated_at'] = date('Y-m-d H:i:s'); }
+            if ($fields['moderation_status'] === 'flagged') { $data['is_adult'] = 1; }   // flagged = adult, same as the cron path
         }
         return parent::update('media_assets', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
@@ -91,9 +92,9 @@ class MediaAssetsModel extends Model {
     public function due_for_moderation($limit = 20){
         $limit = (int) $limit;
         return parent::select(
-            "SELECT id, creator_id, display_key, original_key, thumb_key
+            "SELECT id, creator_id, type, display_key, original_key, thumb_key, poster_key
              FROM media_assets
-             WHERE type = 'image' AND status = 'ready' AND deleted_at IS NULL
+             WHERE type IN ('image', 'video') AND status = 'ready' AND deleted_at IS NULL
                AND moderation_status IN ('pending', 'error')
              ORDER BY created_at DESC
              LIMIT $limit"

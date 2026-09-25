@@ -174,7 +174,7 @@ class PostsModel extends Model {
     public function get_assets($post_id){
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
-                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult,
                     ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
@@ -219,10 +219,10 @@ class PostsModel extends Model {
         $rows = parent::select(
             "SELECT pa.post_id,
                     SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged')) AS unscanned_n,
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS unscanned_n,
                     SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
-             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
+             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
              GROUP BY pa.post_id"
         );
         $out = array();
@@ -246,10 +246,10 @@ class PostsModel extends Model {
         $rows = parent::select(
             "SELECT pa.post_id,
                     SUM(ma.moderation_status = 'blocked') AS blocked_n,
-                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged')) AS held_n,
+                    SUM(ma.moderation_status NOT IN ('approved','blocked','flagged','n_a')) AS held_n,
                     SUM(ma.moderation_status = 'flagged' OR (ma.moderation_status = 'approved' AND ma.is_adult = 1)) AS adult_n
              FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
-             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type = 'image'
+             WHERE pa.post_id IN ($in) AND ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
              GROUP BY pa.post_id"
         );
         $out = array();
@@ -296,6 +296,22 @@ class PostsModel extends Model {
         }
         return parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /**
+     * Publish now, exactly once: true only for the request that moved the post INTO published.
+     * Callers notify followers and cross-post only on true, so a double-click or an MCP retry
+     * can't fan out twice.
+     */
+    public function publish_once($creator_id, $id){
+        $post = $this->get_one($creator_id, $id);
+        if (!$post || ($post['state'] ?? '') === 'published') { return false; }
+        $now = date('Y-m-d H:i:s');
+        return parent::update('posts',
+            array('state' => 'published', 'scheduled_at' => null, 'updated_at' => $now,
+                  'published_at' => !empty($post['published_at']) ? $post['published_at'] : $now),
+            "id = :id AND creator_id = :c AND state <> 'published'",
+            array('id' => (int) $id, 'c' => (int) $creator_id)) > 0;
     }
 
     public function set_media_missing($creator_id, $id, $missing){

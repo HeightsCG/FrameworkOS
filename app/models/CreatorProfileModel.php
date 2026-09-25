@@ -95,7 +95,8 @@ class CreatorProfileModel extends Model {
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
                           AND ma.deleted_at IS NULL AND ma.type = 'image' AND ma.moderation_status = 'approved' AND ma.is_adult = 0
                           AND NOT EXISTS (SELECT 1 FROM post_assets pa2 JOIN media_assets m2 ON m2.id = pa2.asset_id
-                                          WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type = 'image'
+                                          WHERE pa2.post_id = p.id AND m2.deleted_at IS NULL AND m2.type IN ('image', 'video')
+                                            AND m2.moderation_status <> 'n_a'
                                             AND (m2.moderation_status <> 'approved' OR m2.is_adult = 1)))";
     }
 

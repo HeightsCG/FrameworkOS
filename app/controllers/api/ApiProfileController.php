@@ -20,8 +20,19 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('A valid email is required');
         }
 
-        if (strtolower($this->post['user_email']) !== strtolower((string) Session::get('user_email')) && $this->userModel->email_exists($this->post['user_email'])) {
-            $this->jsonError('That email is already in use');
+        $rows = $this->userModel->get_user_by_id((int) Session::get('user_id'));
+        $me   = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$me) { $this->jsonError('Not authorized'); }
+        if (strtolower($this->post['user_email']) !== strtolower((string) $me['user_email'])) {
+            if ($this->userModel->email_exists($this->post['user_email'])) {
+                $this->jsonError('That email is already in use');
+            }
+            // The email is the account-recovery channel: changing it needs the current password,
+            // or anyone with a moment at an open session could take the account over via "forgot password".
+            $current = (string) ($this->post['current_password'] ?? '');   // compared as posted, same as login
+            if ($current === '' || !password_verify($current, (string) $me['p_word'])) {
+                $this->jsonError($current === '' ? 'Enter your current password to change your email.' : 'Your current password is incorrect', ['need_password' => true]);
+            }
         }
 
         $user_phone    = empty($this->post['user_phone']) ? '' : $this->post['user_phone'];
@@ -376,7 +387,9 @@ class ApiProfileController extends BaseApiController {
         $user_id    = (int) Session::get('user_id');
         $creator_id = (int) ($this->post['creator_id'] ?? 0);
 
-        if ($creator_id <= 0) {
+        // Only creators can be followed: a follow also opens DMs (MessagesModel::can_message),
+        // so following a fan's account would let anyone message any fan.
+        if ($creator_id <= 0 || $creator_id === $user_id || ($following && !(new MessagesModel())->is_creator($creator_id))) {
             $response['message'] = 'You cannot follow this account';
             return $response;
         }

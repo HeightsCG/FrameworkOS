@@ -19,10 +19,19 @@ class ApiEventsController extends BaseApiController {
 
         $access = (string) ($this->post['access_type'] ?? 'free');
         if (!in_array($access, EventsModel::access_types(), true)) { $access = 'free'; }
-        $price_credits = ($access === 'paid') ? (int) round(((float) ($this->post['price'] ?? 0)) * 10) : 0;   // $1 = 10 credits
+        // A ticket price can apply to any audience (a subscribers-only event can still be paid); 'free' is anyone, no charge.
+        $price_credits = ($access === 'free') ? 0 : max(0, (int) round(((float) ($this->post['price'] ?? 0)) * 10));   // $1 = 10 credits
+        if ($access === 'paid' && $price_credits < 10) { $this->jsonError('Enter a ticket price of at least $1.00'); }
         $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
 
+        $format   = EventsModel::format($this->post['format'] ?? 'virtual');
+        $link     = trim((string) ($this->post['external_url'] ?? ''));
+        $address  = trim(html_entity_decode((string) ($this->post['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($format === 'virtual' && !preg_match('#^https?://#i', $link)) { $this->jsonError('Add the video link (it starts with https://).'); }
+        if ($format === 'in_person' && $address === '') { $this->jsonError('Add the address where you are meeting.'); }
+
         $fields = [
+            'format'              => $format,
             'title'               => $title,
             'description'         => trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'start_at'            => $start_utc,
@@ -32,14 +41,16 @@ class ApiEventsController extends BaseApiController {
             'price_credits'       => $price_credits,
             'tier_id'             => $tier_id,
             'capacity'            => (int) ($this->post['capacity'] ?? 0),
-            'location'            => trim(html_entity_decode((string) ($this->post['location'] ?? ''), ENT_QUOTES, 'UTF-8')),
-            'external_url'        => trim((string) ($this->post['external_url'] ?? '')),
+            'location'            => $format === 'in_person' ? $address : '',
+            'external_url'        => $format === 'virtual' ? $link : '',
             'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
         $model = new EventsModel();
         if ($id > 0) {
-            if (!$model->get_one($creator_id, $id)) { $this->jsonError('Event not found'); }
+            $cur = $model->get_one($creator_id, $id);
+            if (!$cur) { $this->jsonError('Event not found'); }
+            if ((string) $cur['status'] === 'canceled') { $this->jsonError('This event was canceled, so it can no longer be edited.'); }
             $model->update_event($creator_id, $id, $fields);
         } else {
             $id = (int) $model->create($creator_id, $fields);
@@ -51,7 +62,10 @@ class ApiEventsController extends BaseApiController {
         $user = $this->require_creator('manage');
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Event required'); }
-        (new EventsModel())->delete_event((int) $user['user_id'], $id);
+        $model = new EventsModel();
+        if (!$model->get_one((int) $user['user_id'], $id)) { $this->jsonError('Event not found'); }
+        if ($model->has_paid_going($id)) { $this->jsonError('Cancel the event to refund attendees first.'); }
+        $model->delete_event((int) $user['user_id'], $id);
         $this->jsonSuccess();
     }
 
@@ -66,6 +80,7 @@ class ApiEventsController extends BaseApiController {
         $creator_id = (int) $ev['creator_id'];
         if ($creator_id === $me) { $this->jsonError('This is your own event.'); }
         if ((new BlocksModel())->either_blocked($me, $creator_id)) { $this->jsonError('Event not found'); }
+        if ($this->seller_suspended($creator_id)) { $this->jsonError('Event not found'); }
 
         if ($model->is_registered($id, $me)) { $this->jsonSuccess(['already' => true, 'access' => $this->event_access($ev)]); }
         if ((int) $ev['capacity'] > 0 && $model->attendee_count($id) >= (int) $ev['capacity']) {
@@ -73,54 +88,193 @@ class ApiEventsController extends BaseApiController {
         }
 
         $access = (string) $ev['access_type'];
-        $paid = 0;
         if ($access === 'subscribers' || $access === 'tier') {
             $subs = new CreatorSubscriptionsModel();
             $plan_ids = array_map('intval', (array) $subs->active_plan_ids($me, $creator_id));
             $ok = !empty($plan_ids);
             if ($access === 'tier' && (int) $ev['tier_id'] > 0) { $ok = in_array((int) $ev['tier_id'], $plan_ids, true); }
             if (!$ok) { $this->jsonError('This event is for subscribers.', ['need_subscription' => true]); }
-        } elseif ($access === 'paid' && (int) $ev['price_credits'] > 0) {
-            $price = (int) $ev['price_credits'];
+        }
+        $price = ($access === 'free') ? 0 : (int) $ev['price_credits'];   // subscriber events can carry a ticket price too
+        if ($price > 0) {
             $credits = new CreditsModel();
             if ($credits->get_balance($me) < $price) {
                 $this->jsonError('Not enough credits.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
+        }
+        // Take the seat first (UNIQUE event_id+user_id is the mutex against a double charge), then charge.
+        $claim = $model->claim_registration($id, $me);
+        if ($claim === null) { $this->jsonSuccess(['already' => true, 'access' => $this->event_access($ev)]); }
+        // Coming back after canceling a ticket already paid for: no second charge.
+        if ($price > 0 && (int) $claim['prior_paid'] <= 0) {
             if ($credits->apply_delta($me, -$price, 'event_ticket', 'Event registration') === false) {
+                $model->release_registration($claim);
                 $this->jsonError('Not enough credits.', ['need_credits' => true]);
             }
-            $paid = $price;
             $crow = $this->userModel->get_user_by_id($creator_id);
             $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;
             $net = (int) round($price * (100 - Plan::fee_percent($crow)) / 100);
+            $model->set_paid((int) $claim['id'], $price, $net);
             if ($net > 0) { $credits->apply_delta($creator_id, $net, 'event_earning', 'Event ticket'); }
         }
 
-        $model->register($id, $me, $paid);
-        $t = mb_substr((string) $ev['title'], 0, 60);
+        $t = mb_substr(html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 0, 60);
         $handle = '';
         $h = $this->userModel->get_user_by_id($creator_id);
         if (is_array($h) && count($h) === 1) { $handle = (string) $h[0]['u_name']; }
-        $this->notify($creator_id, 'events', 'New event registration', 'Someone registered for "' . $t . '".', '/events', 'fa-calendar-check');
-        $this->notify($me, 'events', 'Registration confirmed', 'You\'re registered for "' . $t . '".', $handle !== '' ? '/@' . $handle : '', 'fa-calendar-check');
+        $charged  = ($price > 0 && (int) $claim['prior_paid'] <= 0) ? $price : 0;
+        $fan_name = Notify::name_of($me) ?: 'Someone';
+        $this->notify($creator_id, 'events', 'New event registration',
+            $fan_name . ' registered for "' . $t . '" (' . $this->event_when($ev, $creator_id) . ')'
+            . ($charged > 0 ? ' and paid ' . Notify::credits($charged) . '.' : '.'), '/events/' . (int) $ev['id'], 'fa-calendar-check');
+        $this->notify($me, 'events', 'Registration confirmed',
+            '"' . $t . '" on ' . $this->event_when($ev, $me) . '.'
+            . ($charged > 0 ? ' Paid: ' . Notify::credits($charged) . '.' : '')
+            . $this->event_where($ev),
+            $handle !== '' ? '/@' . $handle : '', 'fa-calendar-check');
         $this->jsonSuccess(['access' => $this->event_access($ev)]);
     }
 
+    /** The fan cancels their own spot: before the start a paid ticket is refunded in full; after it, the seat is just freed. */
     public function event_cancelAction(){
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
-        $id = (int) ($this->post['event_id'] ?? 0);
-        (new EventsModel())->cancel_registration($id, $me);
-        $this->jsonSuccess();
+        $model = new EventsModel();
+        $ev = $model->get_public((int) ($this->post['event_id'] ?? 0));
+        if (!$ev) { $this->jsonError('Event not found'); }
+        $reg = null;
+        foreach ($model->attendees((int) $ev['id']) as $a) { if ((int) $a['user_id'] === $me && $a['status'] === 'registered') { $reg = $a; break; } }
+        if (!$reg) { $this->jsonSuccess(['refunded' => 0]); }
+        $before_start = strtotime((string) $ev['start_at'] . ' UTC') > time();
+        if ($before_start && (int) $reg['price_credits'] > 0) {
+            $r = EventRefunds::refund_one($ev, (int) $reg['id'], 'fan');
+            $this->jsonSuccess(['refunded' => (int) ($r['refunded'] ?? 0)]);
+        }
+        $model->set_registration_status((int) $reg['id'], 'registered', 'canceled');
+        $this->jsonSuccess(['refunded' => 0]);
     }
 
     /** The delivery details revealed to a registered attendee. */
+    private function event_when(array $ev, int $reader_id): string{
+        return EventRefunds::when($ev, $reader_id);
+    }
+
+    /** The actual joining details, as the attendee will need them (empty when the event has none). */
+    private function event_where(array $ev): string{
+        $url = trim((string) ($ev['external_url'] ?? ''));
+        $loc = trim(html_entity_decode((string) ($ev['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if (($ev['format'] ?? 'virtual') === 'in_person') { return $loc !== '' ? ' Address: ' . $loc . '.' : ''; }
+        return $url !== '' ? ' Video link: ' . $url : '';
+    }
+
     private function event_access(array $ev){
+        $in_person = (($ev['format'] ?? 'virtual') === 'in_person');
         return [
-            'url'          => (string) ($ev['external_url'] ?? ''),
-            'location'     => (string) ($ev['location'] ?? ''),
+            'url'          => $in_person ? '' : (string) ($ev['external_url'] ?? ''),
+            'location'     => $in_person ? (string) ($ev['location'] ?? '') : '',
             'instructions' => html_entity_decode((string) ($ev['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8'),
         ];
+    }
+
+    /* ---------- Managing one event (creator, Manager+) ---------- */
+
+    /** [owner id, the owner's event, owner row] — or a JSON 'Event not found'. */
+    private function owned_event(): array{
+        $user = $this->require_creator('manage');
+        $ev = (new EventsModel())->get_one((int) $user['user_id'], (int) ($this->post['event_id'] ?? 0));
+        if (!$ev) { $this->jsonError('Event not found'); }
+        return [(int) $user['user_id'], $ev, $user];
+    }
+
+    private function attendee_json(array $a, string $tz): array{
+        $label = ['registered' => 'Going', 'canceled' => 'Canceled', 'refunded' => 'Refunded', 'removed' => 'Removed'];
+        return [
+            'id' => (int) $a['id'], 'name' => html_entity_decode((string) $a['name'], ENT_QUOTES, 'UTF-8'), 'handle' => (string) $a['handle'],
+            'avatar' => (string) ($a['avatar_url'] ?? ''), 'registered' => $this->local_date((string) $a['created_at'], $tz),
+            'paid' => (int) $a['price_credits'] > 0 ? '$' . number_format(((int) $a['price_credits']) / 10, 2) : 'Free',
+            'paid_credits' => (int) $a['price_credits'], 'status' => (string) $a['status'],
+            'status_label' => $label[(string) $a['status']] ?? ucfirst((string) $a['status']),
+        ];
+    }
+
+    private function local_date(string $utc, string $tz): string{
+        try { $d = new DateTime($utc, new DateTimeZone('UTC')); $d->setTimezone(new DateTimeZone($tz ?: 'UTC')); return $d->format('M j, Y'); }
+        catch (\Throwable $e) { return ''; }
+    }
+
+    public function event_attendeesAction(){
+        [$owner, $ev, $user] = $this->owned_event();
+        $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $model = new EventsModel();
+        $list = array_map(function ($a) use ($tz) { return $this->attendee_json($a, $tz); }, $model->attendees((int) $ev['id']));
+        $this->jsonSuccess(['stats' => $model->stats((int) $ev['id']), 'attendees' => $list]);
+    }
+
+    /** CSV of everyone who registered (a form POST, so CSRF still applies). */
+    public function event_attendees_csvAction(){
+        [$owner, $ev, $user] = $this->owned_event();
+        $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $slug = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(EventRefunds::title($ev))), '-') ?: 'event';
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $slug . '-attendees.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Name', 'Handle', 'Email', 'Registered', 'Paid', 'Status'], ',', '"', '');
+        foreach ((new EventsModel())->attendees((int) $ev['id']) as $a) {
+            $j = $this->attendee_json($a, $tz);
+            fputcsv($out, [$j['name'], $j['handle'] !== '' ? '@' . $j['handle'] : '', (string) $a['email'], $j['registered'], $j['paid'], $j['status_label']], ',', '"', '');
+        }
+        fclose($out);
+        exit;
+    }
+
+    public function event_refund_attendeeAction(){
+        [$owner, $ev] = $this->owned_event();
+        $r = EventRefunds::refund_one($ev, (int) ($this->post['registration_id'] ?? 0), 'creator');
+        if (empty($r['ok'])) { $this->jsonError($r['message']); }
+        $this->jsonSuccess(['message' => $r['message']]);
+    }
+
+    public function event_remove_attendeeAction(){
+        [$owner, $ev] = $this->owned_event();
+        $r = EventRefunds::remove_one($ev, (int) ($this->post['registration_id'] ?? 0));
+        if (empty($r['ok'])) { $this->jsonError($r['message']); }
+        $this->jsonSuccess(['message' => $r['message']]);
+    }
+
+    /** One message to everyone going: it lands in each attendee's Inbox (email if they're offline). */
+    public function event_message_sendAction(){
+        [$owner, $ev] = $this->owned_event();
+        $body = trim(html_entity_decode((string) ($this->post['body'] ?? ''), ENT_QUOTES, 'UTF-8'));
+        if ($body === '') { $this->jsonError('Write a message first.'); }
+        if (mb_strlen($body) > 2000) { $this->jsonError('Keep the message under 2,000 characters.'); }
+        $model = new EventsModel();
+        $blocked = (new BlocksModel())->related_ids($owner);
+        $ids = array_values(array_filter($model->going_user_ids((int) $ev['id']), function ($u) use ($blocked) { return !isset($blocked[$u]); }));
+        if (empty($ids)) { $this->jsonError('No one is registered yet.'); }
+        $model->add_message((int) $ev['id'], $owner, $body, count($ids));
+        if (count($ids) > 50 && class_exists('DatabaseJobQueue')) {
+            (new DatabaseJobQueue())->dispatch('event_message', ['event_id' => (int) $ev['id'], 'creator_id' => $owner, 'body' => $body, 'ids' => $ids], null);
+        } else {
+            EventMessageJob::deliver($ev, $owner, $body, $ids);
+        }
+        $this->jsonSuccess(['recipients' => count($ids), 'message' => 'Sent to ' . count($ids) . (count($ids) === 1 ? ' attendee' : ' attendees')]);
+    }
+
+    public function event_messagesAction(){
+        [$owner, $ev, $user] = $this->owned_event();
+        $tz = (string) ($user['content_timezone'] ?? 'UTC');
+        $out = array_map(function ($m) use ($tz) {
+            return ['sent_at' => $this->local_date((string) $m['created_at'], $tz), 'body' => (string) $m['body'], 'recipients' => (int) $m['recipients']];
+        }, (new EventsModel())->messages((int) $ev['id']));
+        $this->jsonSuccess(['messages' => $out]);
+    }
+
+    /** Cancel the whole event: registration closes, every paid ticket is refunded, every attendee is told. */
+    public function event_cancel_allAction(){
+        [$owner, $ev] = $this->owned_event();
+        if ((string) $ev['status'] === 'canceled') { $this->jsonError('This event is already canceled.'); }
+        $r = EventRefunds::cancel_all($ev);
+        $this->jsonSuccess(['refunded' => $r['refunded_n'], 'notified' => $r['notified'], 'message' => 'Event canceled']);
     }
 
     /* ---------- Services (PRD §22) ---------- */

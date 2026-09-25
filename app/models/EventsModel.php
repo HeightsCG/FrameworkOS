@@ -24,6 +24,7 @@ class EventsModel extends Model {
             'price_credits'       => max(0, (int) ($f['price_credits'] ?? 0)),
             'tier_id'             => !empty($f['tier_id']) ? (int) $f['tier_id'] : null,
             'capacity'            => max(0, (int) ($f['capacity'] ?? 0)),
+            'format'              => self::format($f['format'] ?? 'virtual'),
             'location'            => mb_substr((string) ($f['location'] ?? ''), 0, 255),
             'external_url'        => self::web_link($f['external_url'] ?? ''),
             'access_instructions' => (string) ($f['access_instructions'] ?? ''),
@@ -31,6 +32,11 @@ class EventsModel extends Model {
             'created_at'          => $now,
             'updated_at'          => $now,
         ));
+    }
+
+    /** 'virtual' (video link) or 'in_person' (address). */
+    public static function format($v){
+        return ((string) $v === 'in_person') ? 'in_person' : 'virtual';
     }
 
     /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
@@ -43,9 +49,10 @@ class EventsModel extends Model {
         if (!$this->get_one($creator_id, $id)) { return false; }
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'access_type', 'price_credits',
-                       'tier_id', 'capacity', 'location', 'external_url', 'access_instructions', 'status') as $k) {
+                       'tier_id', 'capacity', 'format', 'location', 'external_url', 'access_instructions', 'status') as $k) {
             if (!array_key_exists($k, $f)) { continue; }
             if ($k === 'access_type' && !in_array($f[$k], self::access_types(), true)) { continue; }
+            if ($k === 'format') { $data[$k] = self::format($f[$k]); continue; }
             if ($k === 'status' && !in_array($f[$k], array('draft', 'published', 'canceled'), true)) { continue; }
             if (in_array($k, array('end_at', 'tier_id'), true)) { $data[$k] = !empty($f[$k]) ? $f[$k] : null; }
             elseif (in_array($k, array('price_credits', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
@@ -101,26 +108,109 @@ class EventsModel extends Model {
         return is_array($r) && count($r) === 1;
     }
 
-    /** Register a user (idempotent). Returns true on success/already-registered. */
-    public function register($event_id, $user_id, $price_credits = 0){
-        if ($this->is_registered($event_id, $user_id)) { return true; }
-        // Reactivate a prior canceled row, else insert.
-        $ex = parent::select("SELECT id FROM event_registrations WHERE event_id = :e AND user_id = :u", array('e' => (int) $event_id, 'u' => (int) $user_id));
-        if (is_array($ex) && count($ex)) {
-            return parent::update('event_registrations',
-                array('status' => 'registered', 'price_credits' => max(0, (int) $price_credits)),
-                'id = :id', array('id' => (int) $ex[0]['id']));
+    /**
+     * Atomically take a seat before any charge (UNIQUE event_id+user_id is the mutex).
+     * Returns null when the user is already registered (a concurrent request won), else
+     * ['id', 'fresh' => new row?, 'prior_paid' => credits paid on a canceled row being reactivated].
+     */
+    public function claim_registration($event_id, $user_id){
+        $e = (int) $event_id; $u = (int) $user_id;
+        try {
+            $id = (int) parent::insert('event_registrations', array(
+                'event_id' => $e, 'user_id' => $u, 'status' => 'registered', 'price_credits' => 0,
+                'created_at' => date('Y-m-d H:i:s'),
+            ));
+            return array('id' => $id, 'fresh' => true, 'prior_paid' => 0);
+        } catch (\PDOException $ex) {
+            if ((string) $ex->getCode() !== '23000') { throw $ex; }
         }
-        return (bool) parent::insert('event_registrations', array(
-            'event_id' => (int) $event_id, 'user_id' => (int) $user_id,
-            'status' => 'registered', 'price_credits' => max(0, (int) $price_credits),
-            'created_at' => date('Y-m-d H:i:s'),
-        ));
+        $row = parent::select("SELECT id, status, price_credits, net_credits FROM event_registrations WHERE event_id = :e AND user_id = :u", array('e' => $e, 'u' => $u));
+        if (!is_array($row) || count($row) !== 1) { return null; }
+        $prev = (string) $row[0]['status'];
+        if (!in_array($prev, array('canceled', 'refunded', 'removed'), true)) { return null; }   // already registered
+        // Only a self-canceled paid seat is still paid for; a refunded or removed one is charged fresh.
+        $data = array('status' => 'registered');
+        if ($prev !== 'canceled') { $data += array('price_credits' => 0, 'net_credits' => 0); }
+        $n = parent::update('event_registrations', $data, 'id = :id AND status = :prev', array('id' => (int) $row[0]['id'], 'prev' => $prev));
+        if ($n < 1) { return null; }   // a concurrent request won
+        return array('id' => (int) $row[0]['id'], 'fresh' => false, 'prev' => $prev,
+                     'prior_paid' => $prev === 'canceled' ? (int) $row[0]['price_credits'] : 0,
+                     'prev_paid' => (int) $row[0]['price_credits'], 'prev_net' => (int) $row[0]['net_credits']);
     }
 
-    public function cancel_registration($event_id, $user_id){
-        return parent::update('event_registrations', array('status' => 'canceled'),
-            'event_id = :e AND user_id = :u', array('e' => (int) $event_id, 'u' => (int) $user_id));
+    /** Undo a claim whose payment failed: drop a fresh row, or put a reactivated one back as it was. */
+    public function release_registration(array $claim){
+        if (!empty($claim['fresh'])) { return parent::delete('event_registrations', 'id = :id', 1, array('id' => (int) $claim['id'])); }
+        return parent::update('event_registrations',
+            array('status' => (string) ($claim['prev'] ?? 'canceled'), 'price_credits' => (int) ($claim['prev_paid'] ?? 0), 'net_credits' => (int) ($claim['prev_net'] ?? 0)),
+            'id = :id', array('id' => (int) $claim['id']));
+    }
+
+    /** Sales for the event page: going count, gross + net of going tickets, refunds. Credits. */
+    public function stats($event_id){
+        $r = parent::select("SELECT
+                COALESCE(SUM(status = 'registered'), 0) AS going,
+                COALESCE(SUM(CASE WHEN status = 'registered' THEN price_credits END), 0) AS gross,
+                COALESCE(SUM(CASE WHEN status = 'registered' THEN net_credits END), 0) AS net,
+                COALESCE(SUM(status = 'refunded'), 0) AS refunded_n,
+                COALESCE(SUM(CASE WHEN status = 'refunded' THEN price_credits END), 0) AS refunded_credits
+             FROM event_registrations WHERE event_id = :e", array('e' => (int) $event_id));
+        $x = (is_array($r) && count($r)) ? $r[0] : array();
+        return array('going' => (int) ($x['going'] ?? 0), 'gross' => (int) ($x['gross'] ?? 0), 'net' => (int) ($x['net'] ?? 0),
+                     'refunded_n' => (int) ($x['refunded_n'] ?? 0), 'refunded_credits' => (int) ($x['refunded_credits'] ?? 0));
+    }
+
+    /** Everyone who ever registered, going first, with identity for the attendee list and CSV. */
+    public function attendees($event_id){
+        return (array) parent::select(
+            "SELECT r.id, r.user_id, r.status, r.price_credits, r.net_credits, r.created_at,
+                    COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.u_name) AS name,
+                    u.u_name AS handle, u.user_email AS email, cp.avatar_url
+             FROM event_registrations r
+             JOIN user_accounts u ON u.user_id = r.user_id
+             LEFT JOIN creator_profiles cp ON cp.user_id = r.user_id
+             WHERE r.event_id = :e
+             ORDER BY (r.status = 'registered') DESC, r.created_at DESC", array('e' => (int) $event_id));
+    }
+
+    public function registration($event_id, $reg_id){
+        $r = parent::select("SELECT * FROM event_registrations WHERE id = :id AND event_id = :e", array('id' => (int) $reg_id, 'e' => (int) $event_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** Move a registration from one status to another; true only for the request that moved it (the mutex). */
+    public function set_registration_status($reg_id, $from, $to){
+        return parent::update('event_registrations', array('status' => (string) $to), 'id = :id AND status = :from',
+            array('id' => (int) $reg_id, 'from' => (string) $from)) > 0;
+    }
+
+    public function going_user_ids($event_id){
+        $r = parent::select("SELECT user_id FROM event_registrations WHERE event_id = :e AND status = 'registered'", array('e' => (int) $event_id));
+        return array_map(function ($x) { return (int) $x['user_id']; }, (array) $r);
+    }
+
+    public function has_paid_going($event_id){
+        $r = parent::select("SELECT id FROM event_registrations WHERE event_id = :e AND status = 'registered' AND price_credits > 0 LIMIT 1", array('e' => (int) $event_id));
+        return is_array($r) && count($r) === 1;
+    }
+
+    public function set_status($creator_id, $event_id, $status){
+        return parent::update('events', array('status' => (string) $status, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $event_id, 'c' => (int) $creator_id));
+    }
+
+    public function add_message($event_id, $creator_id, $body, $recipients){
+        return (int) parent::insert('event_messages', array('event_id' => (int) $event_id, 'creator_id' => (int) $creator_id,
+            'body' => (string) $body, 'recipients' => (int) $recipients, 'created_at' => date('Y-m-d H:i:s')));
+    }
+
+    public function messages($event_id){
+        return (array) parent::select("SELECT * FROM event_messages WHERE event_id = :e ORDER BY id DESC", array('e' => (int) $event_id));
+    }
+
+    public function set_paid($registration_id, $price_credits, $net_credits = 0){
+        return parent::update('event_registrations', array('price_credits' => max(0, (int) $price_credits), 'net_credits' => max(0, (int) $net_credits)),
+            'id = :id', array('id' => (int) $registration_id));
     }
 
     /** A user's registered upcoming events (for the profile / "my events"). */

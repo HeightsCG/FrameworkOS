@@ -165,6 +165,19 @@ class BillingService {
     {
         $user_id = (int) $user_id;
         $charges = new BillingChargesModel();
+        // A new attempt replaces any older one still waiting for authentication: cancel its payment so
+        // the customer can't confirm both emailed links and pay for the same thing twice.
+        foreach ($charges->open_action_charges($user_id, (string) $kind, $period_start) as $old) {
+            $pi = (string) $old['stripe_payment_intent_id'];
+            $st = ($pi !== '') ? StripeService::cancel_payment_intent($pi) : 'canceled';
+            if ($st === 'succeeded') {   // the customer paid the old one after all: record it, don't charge again
+                $done = self::settle((int) $old['id'], StripeService::payment_intent_result($pi));
+                if ($kind === 'renewal') { return $done; }
+                continue;
+            }
+            if ($st !== 'canceled') { return array('status' => 'failed', 'charge_id' => (int) $old['id'], 'client_secret' => '', 'message' => 'A previous payment is still being processed. Try again in a minute.'); }
+            $charges->set((int) $old['id'], array('status' => 'failed', 'failure_reason' => 'Replaced by a newer payment attempt'));
+        }
         $amount  = (int) array_sum(array_column($lines, 1));
         $items   = array_map(function ($l) { return array('label' => (string) $l[0], 'amount_cents' => (int) $l[1]); }, $lines);
         try {
@@ -244,14 +257,16 @@ class BillingService {
                     'influencer_slots' => 0, 'influencer_slots_next' => null, 'past_due_since' => null, 'retry_count' => 0, 'next_retry_at' => null)
                     + self::promo_fields(!empty($fx['promo']) ? self::promo_after_charge($fx['promo']) : null);
                 $t = PlanTiers::get($fx['plan']);
-                $ai->set_bucket($uid, 'plan', (int) ($t['limits']['ai_credits'] ?? 0), $t['name'] . ' plan: included AI credits');
+                $frac = isset($fx['credit_frac']) ? max(0.0, min(1.0, (float) $fx['credit_frac'])) : 1.0;
+                $ai->set_bucket($uid, 'plan', (int) round((int) ($t['limits']['ai_credits'] ?? 0) * $frac), $t['name'] . ' plan: included AI credits');
                 break;
             case 'upgrade':
                 $f += array('plan_key' => $fx['plan'], 'pending_plan_key' => null, 'cancel_at_period_end' => 0);
                 if (!empty($fx['promo'])) { $f += self::promo_fields(self::promo_after_charge($fx['promo'])); }   // a new code replaces the old one
                 if (!self::takes_slots($fx['plan'])) { $f += array('influencer_slots' => 0, 'influencer_slots_next' => null); }
                 $old = PlanTiers::get($fx['from']); $new = PlanTiers::get($fx['plan']);
-                $diff = (int) ($new['limits']['ai_credits'] ?? 0) - (int) ($old['limits']['ai_credits'] ?? 0);
+                $frac = isset($fx['credit_frac']) ? max(0.0, min(1.0, (float) $fx['credit_frac'])) : 1.0;
+                $diff = (int) round(((int) ($new['limits']['ai_credits'] ?? 0) - (int) ($old['limits']['ai_credits'] ?? 0)) * $frac);
                 if ($diff > 0) { $ai->add_plan_credits($uid, $diff, $new['name'] . ' plan: included AI credits (upgrade)'); }
                 break;
             case 'slots':
@@ -513,13 +528,16 @@ class BillingService {
             return array('status' => 'scheduled', 'message' => 'You\'ll move to ' . $name . ' on ' . date('M j', strtotime($acct['next_charge_at'] . ' UTC')) . '.');
         }
         if ($q['mode'] === 'upgrade') {
-            $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null);
+            // Included AI credits are prorated exactly like the price: paying for 1/30 of a period buys 1/30 of the extra credits.
+            $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+                        'credit_frac' => self::remaining_fraction($acct));
             return self::charge($uid, 'upgrade', $q['lines'], $fx, gmdate('Y-m-d H:i:s'), (string) $acct['current_period_end'], 'upgrade-' . $uid . '-' . bin2hex(random_bytes(6)));
         }
         $keep = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = $keep ? (string) $acct['current_period_start'] : gmdate('Y-m-d H:i:s');
         $end   = $keep ? (string) $acct['current_period_end'] : $q['next_at'];
-        return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null),
+        return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+                'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0),   // joining a running period mid-way: prorated credits, like the price
             gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
     }
 

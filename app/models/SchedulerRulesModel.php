@@ -129,6 +129,15 @@ class SchedulerRulesModel extends Model {
             'id = :id', array('id' => (int) $id));
     }
 
+    /**
+     * Claim a due rule by advancing next_run_at ONLY if it still holds the value this worker read.
+     * True for exactly one of any overlapping scheduler ticks, so a rule can't fire twice.
+     */
+    public function claim_next_run($id, $seen_next_run_at, $utc){
+        return parent::update('scheduler_rules', array('next_run_at' => $utc, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND next_run_at = :seen', array('id' => (int) $id, 'seen' => (string) $seen_next_run_at)) > 0;
+    }
+
     public function set_last_run($id, $status){
         return parent::update('scheduler_rules',
             array('last_run_at' => date('Y-m-d H:i:s'), 'last_status' => (string) $status, 'updated_at' => date('Y-m-d H:i:s')),

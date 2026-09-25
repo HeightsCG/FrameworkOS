@@ -36,7 +36,8 @@ class FeedModel extends Model {
                 FROM posts p
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
-                WHERE p.state = 'published' AND p.on_cls = 1$block_sql
+                WHERE p.state = 'published' AND p.on_cls = 1
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled')$block_sql
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
         return parent::select($sql, $params);

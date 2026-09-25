@@ -170,6 +170,11 @@ class ContentBundlesModel extends Model {
         }
     }
 
+    /** What the creator earned on this unlock (refunds reverse exactly this). */
+    public function set_unlock_net($bundle_id, $fan_id, $net){
+        return parent::update('bundle_unlocks', array('net_credits' => max(0, (int) $net)), 'bundle_id = :b AND fan_id = :f', array('b' => (int) $bundle_id, 'f' => (int) $fan_id));
+    }
+
     public function remove_unlock($bundle_id, $fan_id){
         return parent::delete_all('bundle_unlocks', 'bundle_id = :b AND fan_id = :f',
             array('b' => (int) $bundle_id, 'f' => (int) $fan_id));

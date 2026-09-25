@@ -403,6 +403,15 @@ class ApiBillingController extends BaseApiController {
         }
         $idem = 'payout_' . $creator_id . '_' . $balance . '_' . bin2hex(random_bytes(8));
         $res  = StripeService::create_transfer($account_id, $cents, 'usd', $idem);
+        if (empty($res['ok']) && !empty($res['unknown'])) {   // network blip: same key, so Stripe can't pay twice
+            $res = StripeService::create_transfer($account_id, $cents, 'usd', $idem);
+        }
+        if (empty($res['ok']) && !empty($res['unknown'])) {
+            // Still unknown: the money may have left. Never hand the credits back blind; flag for review.
+            error_log("[payout] outcome unknown, credits held: creator=$creator_id credits=$balance cents=$cents idem=$idem");
+            $this->notify($creator_id, 'credits', 'Payout being checked', 'We could not confirm your $' . number_format($cents / 100, 2) . ' payout with the bank network. Support will confirm it shortly; you do not need to try again.', '/support', 'fa-clock');
+            $this->jsonError('We could not confirm this payout yet. Support will check it; please do not try again.');
+        }
         if (empty($res['ok'])) {
             $credits->apply_delta($creator_id, $balance, 'payout_refund', 'Payout failed — credits returned');
             $this->notify($creator_id, 'credits', 'Payout failed', 'The transfer of $' . number_format($cents / 100, 2) . ' did not go through and your ' . Notify::credits($balance) . ' are back in your balance. Check your bank connection and try again.', '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');

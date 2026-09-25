@@ -26,7 +26,7 @@ class AdminModel extends Model {
             "SELECT COALESCE(SUM(moderation_status='pending'),0) AS pend,
                     COALESCE(SUM(moderation_status='flagged'),0) AS flag,
                     COALESCE(SUM(moderation_status='blocked'),0) AS blocked
-             FROM media_assets WHERE deleted_at IS NULL AND type = 'image'");
+             FROM media_assets WHERE deleted_at IS NULL AND type IN ('image', 'video')");
         $mod   = (is_array($mod) && count($mod)) ? $mod[0] : array('pend' => 0, 'flag' => 0, 'blocked' => 0);
 
         // Money. Credits are $0.10 each, so gross cents = price_credits * 10.
@@ -256,7 +256,7 @@ class AdminModel extends Model {
              FROM media_assets ma
              JOIN user_accounts u ON u.user_id = ma.creator_id
              LEFT JOIN creator_profiles cp ON cp.user_id = ma.creator_id
-             WHERE ma.deleted_at IS NULL AND ma.type = 'image'
+             WHERE ma.deleted_at IS NULL AND ma.type IN ('image', 'video')
                AND ma.moderation_status IN ('pending', 'flagged')
              ORDER BY (ma.moderation_status = 'flagged') DESC, ma.created_at DESC
              LIMIT $limit"
@@ -341,8 +341,10 @@ class AdminModel extends Model {
     /** Set an asset's moderation decision. */
     public function set_moderation($asset_id, $status){
         if (!in_array($status, array('approved', 'blocked', 'flagged', 'pending'), true)) { return false; }
-        return parent::update('media_assets',
-            array('moderation_status' => $status),
-            'id = :id', array('id' => (int) $asset_id));
+        $data = array('moderation_status' => $status);
+        // Approving a FLAGGED (adult) image keeps it adult: live to opted-in fans only, never SFW.
+        $cur = parent::select("SELECT moderation_status FROM media_assets WHERE id = :id", array('id' => (int) $asset_id));
+        if ($status === 'approved' && (string) ($cur[0]['moderation_status'] ?? '') === 'flagged') { $data['is_adult'] = 1; }
+        return parent::update('media_assets', $data, 'id = :id', array('id' => (int) $asset_id));
     }
 }

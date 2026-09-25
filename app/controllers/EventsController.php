@@ -23,4 +23,28 @@ class EventsController extends Controller {
         $this->view->timezone = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->render();
     }
+
+    /** One event's workspace: /events/manage/<id> — sales, attendees, messages, settings. */
+    public function manageAction(){
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { header('Location: /'); exit; }
+        $creator_id = Permissions::creator_id();
+        $id    = (int) (Main::get_url()[2] ?? 0);
+        $model = new EventsModel();
+        $ev    = $id > 0 ? $model->get_one($creator_id, $id) : null;
+        if (!$ev) { Errors::page_not_found(); return; }
+        $rows  = (new UsersModel())->get_user_by_id($creator_id);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        $tab   = (string) ($_GET['tab'] ?? 'attendees');
+
+        $this->view->event     = $ev;
+        $this->view->stats     = $model->stats($id);
+        $this->view->attendees = $model->attendees($id);
+        $this->view->messages  = $model->messages($id);
+        $this->view->has_paid  = $model->has_paid_going($id);
+        $this->view->tiers     = (new CreatorPlansModel())->get_for_user($creator_id);
+        $this->view->timezone  = (string) ($owner['content_timezone'] ?? 'UTC');
+        $this->view->handle    = (string) ($owner['u_name'] ?? '');
+        $this->view->tab       = in_array($tab, array('attendees', 'messages', 'settings'), true) ? $tab : 'attendees';
+        $this->view->render();
+    }
 }

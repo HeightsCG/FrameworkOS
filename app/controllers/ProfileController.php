@@ -41,6 +41,12 @@ class ProfileController extends Controller {
 
         $user = $rows[0];
 
+        // A suspended account's page is gone while it is suspended.
+        if ((string) ($user['user_status'] ?? 'Active') === 'Disabled') {
+            Errors::page_not_found();
+            return;
+        }
+
         // Only creators have a public profile.
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         if ((int) $user['role_id'] !== $creator_role_id) {
@@ -360,7 +366,10 @@ class ProfileController extends Controller {
             return false;
         }
 
-        (new CreatorSubscriptionsModel())->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        $subs = new CreatorSubscriptionsModel();
+        $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        // Reloading the success URL must not re-count the discount code or re-send the notices.
+        if (!$subs->claim_checkout_recorded((string) ($session['subscription_id'] ?? ''))) { return true; }
         $cname = Notify::name_of((int) $creator['user_id']); $chandle = Notify::handle_of((int) $creator['user_id']);
         Notify::send((int) $viewer_id, 'subscriptions', 'You\'re subscribed to ' . ($cname !== '' ? $cname : $plan['name']), $plan['name'] . ' · $' . number_format(((int) $plan['price_cents']) / 100, 2) . ' per ' . (string) ($plan['billing_interval'] ?? 'month') . '. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
         Notify::send((int) $creator['user_id'], 'subscriptions', 'New subscriber', (Notify::name_of((int) $viewer_id) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');

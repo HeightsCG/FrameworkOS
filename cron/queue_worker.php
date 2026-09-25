@@ -37,6 +37,7 @@ $handlers = [
     'post_notify'    => 'PostNotifyJob',
     'data_export'    => 'DataExportJob',
     'directory_recheck' => 'DirectoryRecheckJob',
+    'event_message'  => 'EventMessageJob',
 ];
 
 $queue     = new DatabaseJobQueue();

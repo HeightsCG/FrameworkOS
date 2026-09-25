@@ -56,10 +56,12 @@ if (empty($due)) { exit(0); }
 foreach ($due as $rule) {
     // Advance next_run_at BEFORE executing, so an overlapping tick (or the next
     // minute's cron) can't pick the same rule up again mid-run.
+    // The conditional update is the claim: an overlapping tick that already advanced it wins.
     try {
-        $rulesM->set_next_run((int) $rule['id'], $rulesM->compute_next_run($rule));
+        if (!$rulesM->claim_next_run((int) $rule['id'], (string) $rule['next_run_at'], $rulesM->compute_next_run($rule))) { continue; }
     } catch (\Throwable $e) {
         error_log('[scheduler] next-run calc failed for rule ' . $rule['id'] . ': ' . $e->getMessage());
+        continue;   // can't claim it safely; the next tick retries
     }
 
     try {

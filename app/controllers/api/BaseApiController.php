@@ -39,6 +39,12 @@ class BaseApiController extends Controller {
      * (Editor: content; Manager: content+manage; Viewer: none; owner-only for 'owner').
      * Returns the OWNER's user array, or exits with a JSON error.
      */
+    /** True when the seller's account is suspended or gone: nothing of theirs may be bought. */
+    protected function seller_suspended(int $creator_id): bool{
+        $rows = $this->userModel->get_user_by_id($creator_id);
+        return !is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled';
+    }
+
     protected function require_creator(string $capability = 'content'): array{
         if (empty(Session::get('user_id'))) {
             $this->jsonError('Not authorized');
@@ -46,6 +52,8 @@ class BaseApiController extends Controller {
         $acting = $this->userModel->get_user_by_id((int) Session::get('user_id'));
         $acting = (is_array($acting) && count($acting) === 1) ? $acting[0] : null;
         if (!$acting) { $this->jsonError('Not authorized'); }
+        // The session copy of team_role is from login; refresh it so a demotion applies at once.
+        Session::set('team_role', $acting['team_role'] ?? null);
 
         // Role gate: a collaborator's team role must allow this capability tier.
         if (!Permissions::team_allows($capability)) {

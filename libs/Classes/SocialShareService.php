@@ -64,8 +64,9 @@ class SocialShareService {
             // Uploaded items as array('url' => ..., 'video' => bool), cover first.
             $items = array();
             if ($cover) {
-                if ($post['audience'] === 'subscribers') {
-                    // Teaser only: the blurred still, never the media itself.
+                if ($post['audience'] === 'subscribers' || !self::sfw($cover)) {
+                    // Teaser only (members-only post, or an adult / not-yet-cleared image on mainstream socials):
+                    // the blurred still, never the media itself.
                     $items = self::push_item((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', false, $items);
                 } else {
                     $items = self::push_asset($cover, $items);
@@ -77,7 +78,7 @@ class SocialShareService {
                 foreach ($assets as $a) {
                     if (count($items) >= self::MAX_MEDIA) { break; }
                     if ((int) $a['asset_id'] === (int) $cover['asset_id'] || !empty($a['deleted_at'])) { continue; }
-                    if (in_array((string) $a['moderation_status'], array('flagged', 'blocked'), true)) { continue; }
+                    if (!self::sfw($a)) { continue; }
                     $items = self::push_asset($a, $items);
                 }
             }
@@ -225,4 +226,12 @@ class SocialShareService {
         else { error_log('[social share] media upload HTTP ' . $ucode . ' ' . $err); }
         return $media_urls;
     }
+
+    /** Safe for mainstream socials: media (image, or a video's poster frame) cleared as non-adult. */
+    private static function sfw(array $a): bool{
+        $st = (string) ($a['moderation_status'] ?? '');
+        if ($st === 'n_a') { return true; }   // video uploaded before videos were moderated
+        return $st === 'approved' && empty($a['is_adult']);
+    }
+
 }

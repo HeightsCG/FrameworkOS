@@ -8,7 +8,8 @@ class ApiMcpController extends BaseApiController {
      * returns the RAW token once — the caller must copy it immediately.
      */
     public function mcp_token_generateAction(){
-        $user   = $this->require_creator('manage');
+        // Owner only: the token acts as the owner with no expiry, so it must not outlive a collaborator.
+        $user   = $this->require_creator('owner');
         $tokens = new ApiTokensModel();
         $tokens->revoke_for_user((int) $user['user_id']);
         $raw    = $tokens->create_for_user((int) $user['user_id'], 'Claude MCP connector');

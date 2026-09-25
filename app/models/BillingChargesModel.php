@@ -47,6 +47,23 @@ class BillingChargesModel extends Model {
         return $sth->rowCount() === 1;
     }
 
+    /**
+     * Older charges still waiting for bank authentication that a new attempt replaces: renewals for
+     * the same period, or any earlier plan subscribe/upgrade. Left open, the customer could confirm
+     * both links and pay twice.
+     */
+    public function open_action_charges($user_id, $kind, $period_start){
+        if ($kind === 'renewal') {
+            return (array) parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND kind = 'renewal' AND period_start = :p AND status = 'requires_action'",
+                array('u' => (int) $user_id, 'p' => (string) $period_start));
+        }
+        if (in_array($kind, array('subscribe', 'upgrade'), true)) {
+            return (array) parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND kind IN ('subscribe', 'upgrade') AND status = 'requires_action'",
+                array('u' => (int) $user_id));
+        }
+        return array();
+    }
+
     /** Has this period's renewal already been paid? (the never-charge-a-period-twice guard) */
     public function renewal_paid($user_id, $period_start){
         $r = parent::select("SELECT id FROM billing_charges WHERE user_id = :u AND kind = 'renewal' AND period_start = :p AND status = 'succeeded' LIMIT 1",

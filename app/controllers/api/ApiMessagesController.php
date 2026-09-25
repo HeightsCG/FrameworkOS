@@ -182,7 +182,14 @@ class ApiMessagesController extends BaseApiController {
         $creator_id = (int) $msg['sender_id'];
         $price      = (int) $msg['price_credits'];
         if ($creator_id === $viewer) { $this->jsonSuccess(['message' => $this->shape([$msg], $viewer, $conv)[0]]); }
+        if ((new BlocksModel())->either_blocked($viewer, $creator_id)) { $this->jsonError('That message is not available.'); }
+        if ($this->seller_suspended($creator_id)) { $this->jsonError('That message is not available.'); }
         if ($price <= 0) { $this->jsonError('This message is not for sale.'); }
+        if (!$this->viewer_shows_adult($viewer)) {
+            foreach ((array) ($model->assets_for_messages([$mid])[$mid] ?? []) as $a) {
+                if (self::adult_or_unscanned($a)) { $this->jsonError('This message has adult content. Turn on adult content in Settings to unlock it.'); }
+            }
+        }
 
         $unlocks = new MessageUnlocksModel();
         $credits = new CreditsModel();
@@ -205,7 +212,7 @@ class ApiMessagesController extends BaseApiController {
         $creator_row = $this->userModel->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
         $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
-        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'message_earning', 'Message unlock'); }
+        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'message_earning', 'Message unlock'); $unlocks->set_net($mid, $viewer, $net); }
         $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];
         $this->notify($creator_id, 'purchases', 'New message unlock',
             $who['name'] . ' unlocked your message for ' . Notify::credits($price) . '.', '/inbox/thread/' . (int) $conv['id'], 'fa-coins');
@@ -269,6 +276,17 @@ class ApiMessagesController extends BaseApiController {
      * `locked`: it carries only blurred covers. Otherwise every asset gets a signed url
      * (originals once paid, display renditions when free) plus a thumb for the grid.
      */
+    private function viewer_shows_adult(int $user_id): bool{
+        $rows = $this->userModel->get_user_by_id($user_id);
+        return is_array($rows) && count($rows) === 1 && !empty($rows[0]['adult_content_enabled']);
+    }
+
+    private static function adult_or_unscanned(array $a): bool{
+        $st = (string) ($a['moderation_status'] ?? '');
+        if ($st === 'n_a') { return false; }   // video from before videos were moderated
+        return $st !== 'approved' || !empty($a['is_adult']);
+    }
+
     private function shape(array $rows, int $me, array $conv): array{
         $model = new MessagesModel();
         $with_media = []; $priced = [];
@@ -279,6 +297,7 @@ class ApiMessagesController extends BaseApiController {
         $assets   = $with_media ? $model->assets_for_messages($with_media) : [];
         $unlocked = $priced ? (new MessageUnlocksModel())->unlocked_map($me, $priced) : [];
         $counts   = ($priced && (int) $conv['creator_id'] === $me) ? $model->unlock_counts($priced) : [];
+        $show_adult = $this->viewer_shows_adult($me);
         $out = [];
         foreach ($rows as $m) {
             $mid   = (int) $m['id'];
@@ -290,6 +309,9 @@ class ApiMessagesController extends BaseApiController {
                 $is_video = ($a['type'] === 'video');
                 if ($locked) {
                     $items[] = ['type' => $a['type'], 'locked_url' => MediaService::signed_variant($a, 'blurred', 900)];
+                } elseif (!$mine && !$show_adult && self::adult_or_unscanned($a)) {
+                    // Adult (or not yet scanned) media never reaches a fan who has adult content off: blurred still only.
+                    $items[] = ['type' => $a['type'], 'thumb' => MediaService::signed_variant($a, 'blurred', 900), 'adult_hidden' => true];
                 } else {
                     $items[] = [
                         'type'    => $a['type'],

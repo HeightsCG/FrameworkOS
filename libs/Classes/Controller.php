@@ -41,7 +41,7 @@ class Controller {
         } elseif ((string) Session::get('team_role') !== '' && Plan::team_member_locked($row)) {
             $message = Plan::SEAT_LOCKED_MESSAGE;
         }
-        if ($message === '') { return; }
+        if ($message === '') { Session::set('team_role', $row['team_role'] ?? null); return; }   // pick up role changes
         Session::destroy();
         if (strtolower((string) Main::controller_name()) === 'apicontroller' || strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/api/') === 0) {
             header('Content-Type: application/json');

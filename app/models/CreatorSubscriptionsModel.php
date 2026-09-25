@@ -157,6 +157,13 @@ class CreatorSubscriptionsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** True exactly once per Stripe subscription: the first success-page visit that records it. */
+    public function claim_checkout_recorded($stripe_subscription_id){
+        if ((string) $stripe_subscription_id === '') { return false; }
+        return parent::update('creator_subscriptions', array('checkout_recorded' => 1),
+            'stripe_subscription_id = :sid AND checkout_recorded = 0', array('sid' => (string) $stripe_subscription_id)) > 0;
+    }
+
     /** Update a subscription's lifecycle from a Stripe webhook (by stripe_subscription_id). */
     public function update_by_stripe_id($stripe_subscription_id, $status, $current_period_end = null, $cancel_at_period_end = 0){
         $data = array('status' => $status, 'updated_at' => date('Y-m-d H:i:s'), 'cancel_at_period_end' => $cancel_at_period_end ? 1 : 0);

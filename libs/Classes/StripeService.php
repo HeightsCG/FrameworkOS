@@ -326,7 +326,9 @@ class StripeService {
             return array('ok' => true, 'error' => '');
         } catch (\Throwable $e) {
             error_log('[stripe] create_transfer: ' . $e->getMessage());
-            return array('ok' => false, 'error' => $e->getMessage());
+            // A network error means we don't know whether Stripe made the transfer: 'unknown' tells
+            // the caller to retry with the SAME idempotency key rather than assume it failed.
+            return array('ok' => false, 'error' => $e->getMessage(), 'unknown' => ($e instanceof \Stripe\Exception\ApiConnectionException));
         }
     }
 
@@ -648,6 +650,22 @@ class StripeService {
         } catch (\Throwable $e) {
             error_log('[stripe] charge_saved_card: ' . $e->getMessage());
             return array('status' => 'failed', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'The payment could not be processed.');
+        }
+    }
+
+    /**
+     * Cancel a PaymentIntent still waiting for the customer (a newer attempt replaced it).
+     * Returns its final status: 'canceled', or e.g. 'succeeded' if the customer already paid it.
+     */
+    public static function cancel_payment_intent($payment_intent_id): string
+    {
+        try {
+            $pi = self::client()->paymentIntents->retrieve((string) $payment_intent_id);
+            if (in_array((string) $pi->status, array('requires_action', 'requires_confirmation', 'requires_payment_method'), true)) { $pi = $pi->cancel(); }
+            return (string) $pi->status;
+        } catch (\Throwable $e) {
+            error_log('[stripe] cancel_payment_intent: ' . $e->getMessage());
+            return '';
         }
     }
 

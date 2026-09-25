@@ -100,14 +100,25 @@ class ServicesModel extends Model {
     }
 
     /** Record a paid purchase. Returns the new row id. */
+    /** Insert the purchase row; returns its id, or 0 if this buyer already has one (UNIQUE service_id+buyer_id). */
     public function record_purchase($service_id, $buyer_id, $price_credits = 0){
-        return (int) parent::insert('service_purchases', array(
-            'service_id'    => (int) $service_id,
-            'buyer_id'      => (int) $buyer_id,
-            'price_credits' => max(0, (int) $price_credits),
-            'status'        => 'paid',
-            'created_at'    => date('Y-m-d H:i:s'),
-        ));
+        try {
+            return (int) parent::insert('service_purchases', array(
+                'service_id'    => (int) $service_id,
+                'buyer_id'      => (int) $buyer_id,
+                'price_credits' => max(0, (int) $price_credits),
+                'status'        => 'paid',
+                'created_at'    => date('Y-m-d H:i:s'),
+            ));
+        } catch (\PDOException $e) {
+            if ((string) $e->getCode() === '23000') { return 0; }   // duplicate: a concurrent request won
+            throw $e;
+        }
+    }
+
+    /** Undo a purchase row whose payment did not go through. */
+    public function remove_purchase($purchase_id){
+        return parent::delete('service_purchases', 'id = :id', 1, array('id' => (int) $purchase_id));
     }
 
     /** A user's purchased services (for the profile / "my services"). */

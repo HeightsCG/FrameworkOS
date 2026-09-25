@@ -43,6 +43,10 @@ class BroadcastsModel extends Model {
         $ids = array();
         foreach ($segments as $s) { $ids = array_merge($ids, $this->segment_ids((int) $creator_id, $s)); }
         $ids = array_values(array_unique(array_filter($ids)));
+        // Never reach anyone in a block relationship with the creator (buyers/expired members keep
+        // their rows after a block, so the segments alone don't exclude them).
+        $blocked = (new BlocksModel())->related_ids((int) $creator_id);
+        if ($blocked) { $ids = array_values(array_filter($ids, function ($id) use ($blocked) { return !isset($blocked[(int) $id]); })); }
         return $ids;
     }
 

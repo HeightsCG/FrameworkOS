@@ -38,9 +38,9 @@ class NotificationsModel extends Model {
         $safe    = htmlspecialchars($code, ENT_QUOTES, 'UTF-8');
         $body    = '<p style="' . self::P . '">Use this code to finish signing in to your '
                  . self::brand_name() . ' account:</p>'
-                 . '<div style="margin:20px 0; padding:16px; text-align:center; background:#f4f3fb; '
-                 . 'border:1px solid #e7e4f6; border-radius:10px; font-family:Arial,Helvetica,sans-serif; '
-                 . 'font-size:30px; font-weight:700; letter-spacing:8px; color:#4636c4;">' . $safe . '</div>';
+                 . '<div style="margin:20px 0; padding:16px; text-align:center; background:#FFF4EC; '
+                 . 'border:1px solid #FDDCC6; border-radius:10px; font-family:Arial,Helvetica,sans-serif; '
+                 . 'font-size:30px; font-weight:700; letter-spacing:8px; color:#C2410C;">' . $safe . '</div>';
         $message = self::brand_wrap('Your verification code', $body, '', '',
                    'This code expires in 10 minutes. If you did not request it, you can ignore this email.');
 
@@ -129,7 +129,7 @@ class NotificationsModel extends Model {
         $button = '';
         if ($button_label !== '' && $button_url !== '') {
             $button = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 4px;">'
-                    . '<tr><td style="border-radius:8px; background:#5b4be0;">'
+                    . '<tr><td style="border-radius:8px; background:#CD4C00;">'
                     . '<a href="' . $button_url . '" target="_blank" '
                     . 'style="display:inline-block; padding:13px 26px; font-family:Arial,Helvetica,sans-serif; '
                     . 'font-size:15px; font-weight:600; line-height:1; color:#ffffff; text-decoration:none; border-radius:8px;">'
@@ -149,7 +149,7 @@ class NotificationsModel extends Model {
                   // brand header
       .       '<tr><td style="padding:26px 32px 6px;">'
       .         '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
-      .           '<td style="width:30px; height:30px; background:#5b4be0; border-radius:9px; font-size:0; line-height:0;">&nbsp;</td>'
+      .           '<td style="width:30px; height:30px; background:#FF6A13; border-radius:9px; font-size:0; line-height:0;">&nbsp;</td>'
       .           '<td style="padding-left:11px; font-family:Arial,Helvetica,sans-serif; font-size:17px; '
       .                  'font-weight:700; color:#1c1830; letter-spacing:-.3px;">' . $name . '</td>'
       .         '</tr></table>'

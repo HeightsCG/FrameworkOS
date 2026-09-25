@@ -21,13 +21,13 @@ class RefundsModel extends Model {
     public function refund($kind, $ref_id, $fan_id, $admin_id, $reason = ''){
         $ref_id = (int) $ref_id; $fan_id = (int) $fan_id;
         if ($kind === 'ppv') {
-            $rows = parent::select("SELECT price_credits, creator_id FROM ppv_unlocks WHERE post_id = :p AND fan_id = :f",
+            $rows = parent::select("SELECT price_credits, net_credits, creator_id FROM ppv_unlocks WHERE post_id = :p AND fan_id = :f",
                 array('p' => $ref_id, 'f' => $fan_id));
         } elseif ($kind === 'bundle') {
-            $rows = parent::select("SELECT price_credits, creator_id FROM bundle_unlocks WHERE bundle_id = :b AND fan_id = :f",
+            $rows = parent::select("SELECT price_credits, net_credits, creator_id FROM bundle_unlocks WHERE bundle_id = :b AND fan_id = :f",
                 array('b' => $ref_id, 'f' => $fan_id));
         } elseif ($kind === 'message') {
-            $rows = parent::select("SELECT price_credits, creator_id FROM message_unlocks WHERE message_id = :m AND fan_id = :f",
+            $rows = parent::select("SELECT price_credits, net_credits, creator_id FROM message_unlocks WHERE message_id = :m AND fan_id = :f",
                 array('m' => $ref_id, 'f' => $fan_id));
         } else {
             return array('ok' => false, 'message' => 'Invalid purchase type');
@@ -38,29 +38,37 @@ class RefundsModel extends Model {
         $charge     = (int) $rows[0]['price_credits'];
         $creator_id = (int) $rows[0]['creator_id'];
 
-        $credits = new CreditsModel();
-        // 1) Credit the buyer back.
-        if ($credits->apply_delta($fan_id, $charge, 'refund', 'Refund: ' . $this->label($kind)) === false) {
-            return array('ok' => false, 'message' => 'Could not credit the buyer');
+        // 1) Revoke access FIRST and only continue if this request deleted the unlock row:
+        //    that row is the mutex, so two concurrent refunds can't both pay the buyer.
+        if ($kind === 'ppv')          { $claimed = (new PpvUnlocksModel())->remove($ref_id, $fan_id); }
+        elseif ($kind === 'message')  { $claimed = (new MessageUnlocksModel())->remove($ref_id, $fan_id); }
+        else                          { $claimed = (new ContentBundlesModel())->remove_unlock($ref_id, $fan_id); }
+        if ((int) $claimed < 1) {
+            return array('ok' => false, 'message' => 'Purchase not found (it may already be refunded)');
         }
-        // 2) Claw the creator's net earning back (best effort — apply_delta won't go negative).
+
+        $credits = new CreditsModel();
+        // 2) Credit the buyer back.
+        if ($credits->apply_delta($fan_id, $charge, 'refund', 'Refund: ' . $this->label($kind)) === false) {
+            error_log("[refund] access revoked but buyer credit FAILED: kind=$kind ref=$ref_id fan=$fan_id credits=$charge");
+            return array('ok' => false, 'message' => 'Access was revoked but the buyer could not be credited. Credit ' . $charge . ' credits by hand.');
+        }
+        // 3) Claw the creator's net earning back, capped at what they still hold (never negative).
         $creator_row = (new UsersModel())->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
-        $net = (int) round($charge * (100 - Plan::fee_percent($creator_row)) / 100);
+        // Reverse what they actually earned at sale time; legacy rows (0) fall back to today's rate.
+        $net = (int) $rows[0]['net_credits'];
+        if ($net <= 0) { $net = (int) round($charge * (100 - Plan::fee_percent($creator_row)) / 100); }
         $clawback_ok = 1; $clawback = 0;
         if ($net > 0) {
-            if ($credits->apply_delta($creator_id, -$net, 'refund_reversal', 'Refund reversal: ' . $this->label($kind)) !== false) {
-                $clawback = $net;
-            } else {
-                $clawback_ok = 0;   // creator already spent it; platform absorbs the shortfall
+            $take = min($net, (int) $credits->get_balance($creator_id));
+            if ($take > 0 && $credits->apply_delta($creator_id, -$take, 'refund_reversal', 'Refund reversal: ' . $this->label($kind)) !== false) {
+                $clawback = $take;
             }
+            if ($clawback < $net) { $clawback_ok = 0; }   // creator already spent some; platform absorbs the shortfall
         }
-        // 3) Reverse the post's recorded earnings so revenue reporting stays correct.
+        // 4) Reverse the post's recorded earnings so revenue reporting stays correct.
         if ($kind === 'ppv' && $net > 0) { (new PostsModel())->add_earnings($ref_id, -$net * 10); }
-        // 4) Revoke access.
-        if ($kind === 'ppv')          { (new PpvUnlocksModel())->remove($ref_id, $fan_id); }
-        elseif ($kind === 'message')  { (new MessageUnlocksModel())->remove($ref_id, $fan_id); }
-        else                          { (new ContentBundlesModel())->remove_unlock($ref_id, $fan_id); }
         // 5) Tell both sides.
         Notify::send($fan_id, 'refunds', 'Refund issued', Notify::credits($charge) . ' returned to your wallet for a ' . $this->label($kind) . '.', '/account/settings?section=wallet', 'fa-rotate-left');
         Notify::send($creator_id, 'refunds', 'Refund issued to a buyer', Notify::credits($charge) . ' were refunded for a ' . $this->label($kind) . ($clawback > 0 ? '; ' . Notify::credits($clawback) . ' came out of your balance.' : '.'), '/dashboard', 'fa-rotate-left');

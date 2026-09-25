@@ -439,9 +439,10 @@ class McpTools {
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
                 self::refuse_blocked_media($p, $iid);
-                $res = $ok($p->set_state($cid, $iid, 'published', null, date('Y-m-d H:i:s')));
+                // Only the call that actually publishes notifies + cross-posts (an agent retry must not fan out twice).
+                if (!$p->publish_once($cid, $iid)) { return array('ok' => true, 'already_published' => true); }
                 PostNotifier::published($cid, $iid);
-                return self::with_share($res, $cid, $post, $a, null);
+                return self::with_share(array('ok' => true), $cid, $post, $a, null);
             }
             case 'schedule_post': {
                 $when = trim((string) ($a['scheduled_at'] ?? ''));
@@ -620,7 +621,12 @@ class McpTools {
                     (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: image failed');
                     throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown'));
                 }
-                return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
+                try {
+                    return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
+                } catch (\Throwable $e) {   // paid for but never stored: give the credits back
+                    (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: image could not be saved');
+                    throw $e;
+                }
             }
             case 'upload_image_from_url': {
                 $user = self::user($cid);

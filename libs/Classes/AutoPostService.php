@@ -43,20 +43,24 @@ class AutoPostService {
 
         // 2) Ingest the bytes as a vault asset (mirrors media_generateAction). An influencer run has already landed its asset.
         if ($asset_id <= 0) {
+        // The image was paid for; if it can't be stored, give the credits back (once).
+        $refund = function () use ($creator_id, $pay) {
+            (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image could not be saved');
+        };
         $tmp = tempnam(sys_get_temp_dir(), 'sched');
         if ($tmp === false || file_put_contents($tmp, $gen['bytes']) === false) {
-            return self::fail(null, 'Could not write the generated image.');
+            $refund(); return self::fail(null, 'Could not write the generated image.');
         }
         $media    = new MediaAssetsModel();
         $label    = 'Scheduled · ' . mb_substr($topic, 0, 40);
         $ext      = in_array($gen['ext'] ?? 'png', array('jpg', 'png', 'webp'), true) ? $gen['ext'] : 'png';
         $mime     = array('jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
         $asset_id = (int) $media->add($creator_id, 'image', $label . '.' . $ext, $mime[$ext], 'processing');
-        if ($asset_id <= 0) { @unlink($tmp); return self::fail(null, 'Could not create the media asset.'); }
+        if ($asset_id <= 0) { @unlink($tmp); $refund(); return self::fail(null, 'Could not create the media asset.'); }
         $watermark = !empty($user['watermark_enabled']);
         $r = MediaService::process_image($creator_id, $asset_id, $tmp, $ext, $mime[$ext], $user, $watermark);
         @unlink($tmp);
-        if (isset($r['error'])) { $media->set_failed($creator_id, $asset_id, $r['error']); return self::fail(null, 'Image processing failed: ' . $r['error']); }
+        if (isset($r['error'])) { $media->set_failed($creator_id, $asset_id, $r['error']); $refund(); return self::fail(null, 'Image processing failed: ' . $r['error']); }
         $media->set_ready($creator_id, $asset_id, $r);
         }
 

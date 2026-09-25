@@ -1626,17 +1626,30 @@ $(function () {
         if ($('#user_email').val() == '') { toastr.error('Email is required'); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test($('#user_email').val())) { toastr.error('A valid email is required'); return; }
 
-        ApiDataSvc.apiCall('post', 'update_profile', {
+        var payload = {
             first_name:    $('#first_name').val(),
             last_name:     $('#last_name').val(),
             user_email:    $('#user_email').val(),
             user_phone:    $('#user_phone').val(),
             business_name: $('#business_name').val(),
             website_url:   $('#website_url').val()
-        }, function (data) {
-            var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
-        });
+        };
+        function send() {
+            ApiDataSvc.apiCall('post', 'update_profile', payload, function (data) {
+                var o = null; try { o = JSON.parse(data); } catch (e) {}
+                if (o && o.success) { $('#user_email').prop('defaultValue', payload.user_email); toastr.success(o.message); } else { toastr.error((o && o.message) || 'Could not save'); }
+            });
+        }
+        // Changing the sign-in email asks for the current password first.
+        if (payload.user_email.toLowerCase() !== String($('#user_email').prop('defaultValue')).toLowerCase() && window.Swal) {
+            Swal.fire({ title: 'Confirm your password', text: 'Enter your current password to change your email.', input: 'password',
+                inputAttributes: { autocomplete: 'current-password' }, showCancelButton: true, reverseButtons: true,
+                confirmButtonText: 'Save Email', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
+                inputValidator: function (v) { return v ? undefined : 'Enter your password'; } })
+                .then(function (r) { if (r.isConfirmed) { payload.current_password = r.value; send(); } });
+            return;
+        }
+        send();
     });
 
     /* ---- Creator Directory: saves on toggle or category change; turning on checks the photos (a few seconds) ---- */

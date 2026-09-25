@@ -215,20 +215,7 @@ class MediaService {
         // Moderate BEFORE the asset is marked ready, so nothing reaches viewers unscanned.
         // If the classifier is unavailable, leave it 'pending' — the cron worker is the
         // fallback and the viewer layer hides pending (unscanned) content until resolved.
-        $moderation = array('status' => 'pending', 'score' => null, 'labels' => null);
-        $mod = ModerationService::classify_image(S3Service::presigned_get_url($display_key, 600));
-        if (!empty($mod['ok'])) {
-            // 'blocked' (suspected minors) is a hard stop — quarantined from EVERYONE and
-            // unpublishable; 'flagged' is adult (allowed, shown only to adult-on viewers).
-            if (!empty($mod['minors'])) {
-                $moderation['status'] = 'blocked';
-                error_log('[MODERATION][BLOCKED] asset ' . $asset_id . ' creator ' . $creator_id . ' — suspected sexual/minors, quarantined.');
-            } else {
-                $moderation['status'] = !empty($mod['adult']) ? 'flagged' : 'approved';
-            }
-            $moderation['score']  = $mod['score'];
-            $moderation['labels'] = empty($mod['labels']) ? null : implode(',', $mod['labels']);
-        }
+        $moderation = self::moderate_key($creator_id, $asset_id, $display_key);
 
         return array(
             'original_key'      => $original_key,
@@ -325,6 +312,29 @@ class MediaService {
      * stored at its key and is not touched. $src is a local path or signed URL.
      * Returns keys to persist, or array('error' => '...').
      */
+    /**
+     * Classify one stored still (an image's display rendition, or a video's poster frame).
+     * 'blocked' (suspected minors) is a hard stop — quarantined from EVERYONE and unpublishable;
+     * 'flagged' is adult (shown only to adult-on viewers). If the classifier is unavailable the
+     * status stays 'pending': the cron worker is the fallback and viewers never see pending media.
+     */
+    private static function moderate_key($creator_id, $asset_id, $key): array
+    {
+        $moderation = array('status' => 'pending', 'score' => null, 'labels' => null);
+        $mod = ModerationService::classify_image(S3Service::presigned_get_url($key, 600));
+        if (!empty($mod['ok'])) {
+            if (!empty($mod['minors'])) {
+                $moderation['status'] = 'blocked';
+                error_log('[MODERATION][BLOCKED] asset ' . $asset_id . ' creator ' . $creator_id . ' — suspected sexual/minors, quarantined.');
+            } else {
+                $moderation['status'] = !empty($mod['adult']) ? 'flagged' : 'approved';
+            }
+            $moderation['score']  = $mod['score'];
+            $moderation['labels'] = empty($mod['labels']) ? null : implode(',', $mod['labels']);
+        }
+        return $moderation;
+    }
+
     public static function process_video($creator_id, $asset_id, $src, array $user, $client_poster_path = ''): array
     {
         $poster_path = ((string) $src !== '') ? self::extract_poster_frame($src) : '';
@@ -390,11 +400,16 @@ class MediaService {
         if (!$ok) {
             return array('error' => 'Storage failed while processing the video preview');
         }
+        // Videos are moderated on their poster frame, with the same verdicts as images.
+        $moderation = self::moderate_key($creator_id, $asset_id, $poster_key);
         return array(
             'poster_key'        => $poster_key,
             'thumb_key'         => $thumb_key,
             'blurred_key'       => $blurred_key,
             'watermark_applied' => 0,   // the video file itself is not watermarked
+            'moderation_status' => $moderation['status'],
+            'moderation_score'  => $moderation['score'],
+            'moderation_labels' => $moderation['labels'],
         );
     }
 
