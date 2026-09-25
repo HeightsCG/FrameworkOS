@@ -12,7 +12,7 @@ $site = Main::site_name();
             <nav class="sf__cols" aria-label="Footer">
                 <div class="sf__col">
                     <h2 class="sf__h">Product</h2>
-                    <a href="/features">Features</a><a href="/pricing">Pricing</a><a href="/blog"><?php echo $fl(BlogController::NAME); ?></a>
+                    <a href="/features">Features</a><?php foreach (FeaturePages::PAGES as $f_slug => $f): ?><a href="/features/<?php echo $fl($f_slug); ?>"><?php echo $fl($f['nav_title']); ?></a><?php endforeach; ?><a href="/pricing">Pricing</a><a href="/blog"><?php echo $fl(BlogController::NAME); ?></a>
                 </div>
                 <div class="sf__col">
                     <h2 class="sf__h">Compare</h2>

@@ -115,7 +115,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
-        $this->page('features', array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
+        $this->page('features', array('path' => '/features', 'title' => 'Features: Memberships, Pay-Per-View and AI Tools for Creators', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     /**
@@ -170,7 +170,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Pricing', 'url' => '/pricing'))),
         );
-        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
+        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing: ' . implode(', ', array_map(function ($r) { return $r['tier']['name'] . ' $' . number_format($r['amount'] / 100); }, self::pricing_rows())) . ' per Month', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
     }
     /** "Free $0, Creator $49, Studio $199, all per month." (whatever PlanTiers offers) — one sentence. */
     public static function plan_price_sentence(): string {
@@ -255,7 +255,7 @@ class PagesController extends Controller {
             array('@type' => 'ItemList', 'name' => $title, 'itemListElement' => $items),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Best creator monetization platforms', 'url' => $path))),
         );
-        $this->page('best-platforms', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld));
+        $this->page('best-platforms', array('path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld));
     }
 
     public function monetizeAction(){
@@ -284,11 +284,11 @@ class PagesController extends Controller {
         if ($slug === '' || $slug !== $raw || !isset(self::COMPETITORS[$slug])) { Errors::page_not_found(); return; }
         $c = self::COMPETITORS[$slug];
         $path = '/compare/' . $slug; $title = Main::site_name() . ' vs ' . $c['name'];
-        $desc = 'A ' . $c['name'] . ' alternative for creators: fees, content types, payouts and ownership compared, with sources.';
+        $desc = (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators: fees, content types, payouts and ownership compared, with sources.';
         $jsonld = array(
             SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00', 'modified' => gmdate('c', filemtime(Main::app_path() . '/app/controllers/PagesController.php')))),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c));
+        $this->page('compare', array('path' => $path, 'title' => $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c));
     }
 }

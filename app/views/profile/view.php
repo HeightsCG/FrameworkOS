@@ -81,19 +81,16 @@ $in_app     = !empty($viewer_logged_in);
         'extra' => array('<meta property="profile:username" content="' . htmlspecialchars($handle, ENT_QUOTES, 'UTF-8') . '">'),
         'jsonld' => $seo_ld,
     )); ?>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
-    <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
-    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
 </head>
 <body class="pf">
 <?php endif; ?>
 
     <!-- Signature: identity + primary action dock in on scroll -->
-    <div class="pf-dock" id="pf_dock" aria-hidden="true">
+    <div class="pf-dock" id="pf_dock" aria-hidden="true" inert>
         <div class="pf-dock__inner">
             <div class="pf-dock__id">
                 <span class="pf-dock__avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?><span class="pf-presence pf-presence--sm <?php echo $is_online ? 'is-online' : 'is-offline'; ?>"></span></span>
@@ -154,7 +151,8 @@ $in_app     = !empty($viewer_logged_in);
                     </div>
                     <div class="pf-feed">
                         <?php foreach ($content_cards as $c): $cov = htmlspecialchars((string) $c['cover'], ENT_QUOTES, 'UTF-8'); ?>
-                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" data-post-id="<?php echo (int) $c['id']; ?>" data-search="<?php echo htmlspecialchars(strtolower((string) $c['caption']), ENT_QUOTES, 'UTF-8'); ?>">
+                        <?php $pc_cap = trim((string) $c['caption']); $pc_label = ($c['entitled'] ? 'Open post' : 'Locked post') . ($pc_cap !== '' ? ': ' . mb_substr($pc_cap, 0, 80) : ''); ?>
+                        <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" aria-label="<?php echo htmlspecialchars($pc_label, ENT_QUOTES, 'UTF-8'); ?>" data-post-id="<?php echo (int) $c['id']; ?>" data-search="<?php echo htmlspecialchars(strtolower((string) $c['caption']), ENT_QUOTES, 'UTF-8'); ?>">
                             <span class="pf-pc__thumb"<?php echo $cov !== '' ? ' style="background-image:url(\'' . $cov . '\')"' : ''; ?>>
                                 <?php if (!$c['entitled']): ?><span class="pf-pc__lockbadge"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
                                 <?php if ($c['entitled'] && $c['has_video']): ?><span class="pf-pc__play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
@@ -388,6 +386,11 @@ $in_app     = !empty($viewer_logged_in);
         <img class="pf-lightbox__img" id="pf_lightbox_img" src="" alt="">
     </div>
 
+    <?php if (!$in_app): ?>
+    <!-- Loaded here, not in <head>, so they don't hold up the first paint; still before the script that uses them. -->
+    <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
+    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
+    <?php endif; ?>
     <script>
     (function () {
         var CREATOR_ID = <?php echo (int) $user['user_id']; ?>;
@@ -629,7 +632,11 @@ $in_app     = !empty($viewer_logged_in);
         var hero = document.querySelector('.pf-name');
         var dock = document.getElementById('pf_dock');
         var dockTop = parseFloat(getComputedStyle(dock).top) || 0;   // below the app top bar when signed in
-        function onScroll() { dock.classList.toggle('is-visible', hero.getBoundingClientRect().bottom < dockTop + 8); }
+        function onScroll() {
+            var on = hero.getBoundingClientRect().bottom < dockTop + 8;
+            dock.classList.toggle('is-visible', on);
+            dock.inert = !on; dock.setAttribute('aria-hidden', on ? 'false' : 'true');   // hidden dock can't be tabbed into
+        }
         window.addEventListener('scroll', onScroll, { passive: true });
 
         // Click any unlocked post image to view it larger.
@@ -651,6 +658,7 @@ $in_app     = !empty($viewer_logged_in);
         (function () {
             var byId = {}; (window.PROFILE_POSTS || []).forEach(function (p) { byId[p.id] = p; });
             var lb = document.getElementById('pfLightbox'), inner = document.getElementById('pfLbInner');
+            if (!lb) { return; }   // no posts on this profile, so no post viewer to wire up
             function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML; }
             function openPost(id) {
                 var p = byId[id]; if (!p) { return; }
