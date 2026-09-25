@@ -94,6 +94,17 @@ class SeoController extends Controller {
         $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8');
         $pages[] = array('path' => '/terms',   'title' => 'Terms of Service', 'description' => 'Terms for using the platform.',                         'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
+        // Creator directory: only once someone is listed, and only categories that have creators (no empty pages indexed).
+        try {
+            $counts = (new CreatorProfileModel())->directory_counts();
+            if (array_sum($counts) > 0) {
+                $pages[] = array('path' => '/creators', 'title' => 'Creator directory', 'description' => 'Creators who chose to be listed, by category: follow them, join a membership or book a service.', 'changefreq' => 'daily', 'priority' => '0.8');
+                foreach (DirectoryService::CATEGORIES as $slug => $label) {
+                    if (empty($counts[$slug])) { continue; }
+                    $pages[] = array('path' => '/creators/' . $slug, 'title' => $label . ' creators', 'description' => $label . ' creators on ' . Main::site_name() . '.', 'changefreq' => 'daily', 'priority' => '0.6');
+                }
+            }
+        } catch (\Throwable $e) { error_log('[seo] directory pages: ' . $e->getMessage()); }
         $pages[] = array('path' => '/monetize-your-content',               'title' => 'How to monetize your content',        'description' => 'Memberships, pay-per-view, bundles, services and events, and how to price each.',           'changefreq' => 'monthly', 'priority' => '0.8');
         return $pages;
     }

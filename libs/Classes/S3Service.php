@@ -45,19 +45,21 @@ class S3Service {
      * Upload a local file to S3 under $key and return its public URL, or '' on
      * failure. Content type is set so the object serves correctly in a browser.
      */
-    public static function upload_file($key, $source_path, $content_type): string
+    public static function upload_file($key, $source_path, $content_type, $cache_control = ''): string
     {
         if (!self::configured()) {
             error_log('[s3] upload attempted but S3 is not configured');
             return '';
         }
         try {
-            self::client()->putObject(array(
+            $args = array(
                 'Bucket'      => self::bucket(),
                 'Key'         => $key,
                 'SourceFile'  => $source_path,
                 'ContentType' => $content_type,
-            ));
+            );
+            if ((string) $cache_control !== '') { $args['CacheControl'] = (string) $cache_control; }
+            self::client()->putObject($args);
         } catch (\Throwable $e) {
             error_log('[s3] upload failed: ' . $e->getMessage());
             return '';

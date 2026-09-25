@@ -287,7 +287,7 @@ class ApiBillingController extends BaseApiController {
             $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Purchased ' . $credits . ' credits');
             $this->notify($user_id, 'credits', 'Credits added', Notify::credits($credits) . ' for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.', '/account/settings?section=wallet', 'fa-coins');
 
-            $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' credits added']);
+            $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' credits added', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_credit_purchase: ' . $e->getMessage());

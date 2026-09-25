@@ -33,7 +33,7 @@ class ApiRoutes {
             'media_bulk', 'collections_list', 'collection_save', 'collection_delete', 'collection_add_assets', 'collection_remove_assets',
         ],
         'ApiCreatorStudioController' => [
-            'heartbeat', 'set_timezone', 'save_creator_profile', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
+            'heartbeat', 'set_timezone', 'save_creator_profile', 'save_directory_listing', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
             'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'save_creator_plan',
             'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
             'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',

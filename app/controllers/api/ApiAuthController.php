@@ -49,6 +49,17 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Could not create an account with those details');
         }
 
+        // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
+        $ft = json_decode((string) ($_COOKIE['cls_ft'] ?? ''), true);
+        if (is_array($ft)) {
+            $seen = strtotime((string) ($ft['at'] ?? ''));
+            $this->userModel->set_acquisition($user_id, array(
+                'acq_source' => $ft['s'] ?? '', 'acq_medium' => $ft['m'] ?? '', 'acq_campaign' => $ft['c'] ?? '', 'acq_term' => $ft['t'] ?? '',
+                'acq_content' => $ft['n'] ?? '', 'acq_gclid' => $ft['g'] ?? '', 'acq_referrer' => $ft['r'] ?? '', 'acq_landing' => $ft['l'] ?? '',
+                'acq_first_seen' => $seen ? gmdate('Y-m-d H:i:s', $seen) : null,
+            ));
+        }
+
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);
         $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);

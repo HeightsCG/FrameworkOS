@@ -80,6 +80,13 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                     <h2 class="adm-box__h">Details</h2>
                     <dl class="adm-facts">
                         <div><dt>Joined</dt><dd><?php echo $e($fmt($u['created_at'])); ?></dd></div>
+                        <?php
+                            // First touch at signup (user_accounts.acq_*): source / medium / campaign, else the referring site, else Direct.
+                            $acq = implode(' / ', array_filter(array((string) ($u['acq_source'] ?? ''), (string) ($u['acq_medium'] ?? ''), (string) ($u['acq_campaign'] ?? ''))));
+                            if ($acq === '' && !empty($u['acq_referrer'])) { $acq = (string) parse_url($u['acq_referrer'], PHP_URL_HOST); }
+                            if ($acq === '' && !empty($u['acq_gclid'])) { $acq = 'Google Ads'; }
+                        ?>
+                        <div><dt>Came from</dt><dd><?php echo $e($acq !== '' ? $acq : (array_key_exists('acq_landing', $u) && $u['acq_landing'] !== null ? 'Direct' : '—')); ?><?php if (!empty($u['acq_landing'])): ?> <small>· landed on <?php echo $e(strtok((string) $u["acq_landing"], "?")); ?></small><?php endif; ?></dd></div>
                         <div><dt>Last active</dt><dd><?php echo $e($fmt($u['last_active_at'])); ?></dd></div>
                         <div><dt>Email</dt><dd><?php echo $e($u['user_email']); ?> <?php echo !empty($u['email_verified']) ? '<span class="adm-pill adm-pill--ok">Verified</span>' : '<span class="adm-pill adm-pill--warn">Not verified</span>'; ?></dd></div>
                         <div><dt>Phone</dt><dd><?php echo $e($u['user_phone'] ?: '—'); ?></dd></div>

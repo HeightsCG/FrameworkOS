@@ -380,4 +380,15 @@ class UsersModel extends Model {
         return $out;
     }
 
+
+    /** First-touch attribution for a new account (the cls_ft cookie), saved once at signup. */
+    public function set_acquisition($user_id, array $a){
+        $f = array();
+        foreach (array('acq_source' => 100, 'acq_medium' => 100, 'acq_campaign' => 150, 'acq_term' => 150, 'acq_content' => 150, 'acq_gclid' => 255, 'acq_referrer' => 255, 'acq_landing' => 255) as $k => $max) {
+            $v = trim((string) ($a[$k] ?? ''));
+            $f[$k] = $v === '' ? null : mb_substr($v, 0, $max);
+        }
+        $f['acq_first_seen'] = !empty($a['acq_first_seen']) ? $a['acq_first_seen'] : null;
+        parent::update('user_accounts', $f, 'user_id = :uid', array('uid' => (int) $user_id));
+    }
 }

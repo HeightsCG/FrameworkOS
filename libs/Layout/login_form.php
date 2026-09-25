@@ -38,13 +38,7 @@
         $seo_ld = [
             '@context' => 'https://schema.org',
             '@graph' => [
-                [
-                    '@type' => 'Organization',
-                    '@id' => $seo_base_raw . '/#org',
-                    'name' => Main::site_name(),
-                    'url' => $seo_base_raw . '/',
-                    'logo' => $seo_base_raw . '/images/android-chrome-512x512.png',
-                ],
+                array('@id' => $seo_base_raw . '/#org', 'logo' => $seo_base_raw . '/images/android-chrome-512x512.png') + SeoMeta::org(),   // same Organization (and sameAs) as every other page
                 [
                     '@type' => 'WebSite',
                     '@id' => $seo_base_raw . '/#website',

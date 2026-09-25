@@ -34,6 +34,14 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Profile saved']);
     }
 
+    /** Creator Directory switch + category (Settings -> Creator Profile). Turning it on checks the photos first. */
+    public function save_directory_listingAction(){
+        $this->require_creator();
+        $r = DirectoryService::save(Permissions::creator_id(), !empty($this->post['listed']), (string) ($this->post['category'] ?? ''));
+        if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
+        $this->jsonSuccess(['message' => $r['message']]);
+    }
+
     /** Generate brand details from a website URL (Claude). Does not persist. */
     public function generate_brand_identityAction(){
         $this->require_creator();

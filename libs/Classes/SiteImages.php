@@ -38,6 +38,38 @@ class SiteImages {
 
     public static function url(string $key): string { return (string) (self::all()[$key] ?? ''); }
 
+    /**
+     * For blurred hero backgrounds: a 640px WebP of the image (a few dozen KB instead of ~300 KB; at 36px blur
+     * it looks the same), falling back to the original until one is built (php cron/site_images.php --bg).
+     */
+    public static function bg(string $key): string {
+        $all = self::all();
+        return (string) ($all[$key . '.bg'] ?? ($all[$key] ?? ''));
+    }
+
+    /** Build (or rebuild) the small background version of one image. Returns its URL or ''. */
+    public static function make_bg(string $key): string {
+        $src = self::url($key);
+        if ($src === '') { return ''; }
+        $bytes = @file_get_contents($src);
+        $im = $bytes !== false ? @imagecreatefromstring($bytes) : false;
+        if (!$im) { error_log('[site-images] bg ' . $key . ': could not read ' . $src); return ''; }
+        $w = imagesx($im); $h = imagesy($im); $nw = min(640, $w); $nh = (int) round($h * $nw / $w);
+        $small = imagecreatetruecolor($nw, $nh);
+        imagecopyresampled($small, $im, 0, 0, 0, 0, $nw, $nh, $w, $h);
+        $tmp = tempnam(sys_get_temp_dir(), 'clsbg');
+        imagewebp($small, $tmp, 60);
+        imagedestroy($im); imagedestroy($small);
+        $url = S3Service::upload_file('creator/site/' . $key . '-bg-' . bin2hex(random_bytes(5)) . '.webp', $tmp, 'image/webp', 'public, max-age=31536000, immutable');
+        @unlink($tmp);
+        if ($url === '') { return ''; }
+        $all = self::all(); $old = (string) ($all[$key . '.bg'] ?? '');
+        $all[$key . '.bg'] = $url; self::$cache = $all;
+        file_put_contents(self::file(), json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
+        if ($old !== '' && strpos($old, '/creator/site/') !== false) { S3Service::delete_by_url($old); }
+        return $url;
+    }
+
     /** Generate (or regenerate) one image and save its URL. Returns the URL or ''. */
     public static function generate(string $key): string {
         if (!isset(self::SUBJECTS[$key])) { return ''; }
@@ -53,6 +85,7 @@ class SiteImages {
         $all[$key] = $url; self::$cache = $all;
         file_put_contents(self::file(), json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
         if ($old !== '' && strpos($old, '/creator/site/') !== false) { S3Service::delete_by_url($old); }
+        self::make_bg($key);   // keep the small hero background in step with the new image
         return $url;
     }
 }

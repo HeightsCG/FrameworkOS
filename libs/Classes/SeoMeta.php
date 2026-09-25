@@ -24,13 +24,24 @@ class SeoMeta {
     }
 
     /** The publisher node reused by every schema block. */
+    /**
+     * The brand's own social profiles (full URLs), label => url. They become Organization sameAs (how Google
+     * and AI assistants tie the site to its accounts) and the footer's social links. Empty = neither shows.
+     */
+    const SOCIAL_PROFILES = array(
+        // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...', 'LinkedIn' => 'https://www.linkedin.com/company/...',
+    );
+
     public static function org(): array {
-        return array(
+        $org = array(
             '@type' => 'Organization',
             'name'  => self::site(),
             'url'   => self::base() . '/',
             'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'),
+            'description' => 'A creator monetization platform: one public page for memberships, pay-per-view, bundles, services and events, a studio that publishes to social networks, and payouts to your bank.',
         );
+        if (!empty(self::SOCIAL_PROFILES)) { $org['sameAs'] = array_values(self::SOCIAL_PROFILES); }
+        return $org;
     }
 
     /** Keyword → path. Product pages link to each other with these; the content engine reuses the map. */

@@ -7,7 +7,7 @@ echo Sections::panel_hero(array(
     'panel' => Sections::pane('Where to start your prices.', 'Start higher than feels comfortable.', Sections::pane_rows(array(
         array('Entry tier', 'The price of a coffee where most of your fans live'), array('Top tier', 'Three to five times the entry tier'),
         array('Pay-per-view', 'A quarter of the entry tier or more'), array('Services', 'Your hourly worth times the real time, plus a third')))),
-    'bg_image' => SiteImages::url('monetize_hero'),
+    'bg_image' => SiteImages::bg('monetize_hero'),
 ));
 echo Sections::open('white', 'Five ways to get paid');
 echo Sections::cards(array(

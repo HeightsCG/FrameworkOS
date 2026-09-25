@@ -6,8 +6,8 @@ echo Sections::panel_hero(array(
     'title' => $site . ' vs ' . $c['name'],
     'lead' => $c['summary'] . ' Here is how the two compare, with sources.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'panel' => Sections::pane('Platform fee', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], $c['fee']['value'], $c['fee']['source'])),
-    'bg_image' => SiteImages::url('compare_hero'),
+    'panel' => Sections::pane('Platform fee', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
+    'bg_image' => SiteImages::bg('compare_hero'),
 ));
 echo Sections::open('white', 'At a glance');
 echo Sections::cards(array(
@@ -29,7 +29,7 @@ echo Sections::close();
 
 echo Sections::open('white', 'Which one fits you');
 echo Sections::cards(array(
-    array('icon' => 'check', 'title' => 'When ' . $c['name'] . ' is the better fit', 'text' => $c['name'] === 'OnlyFans' ? 'Most of your audience already pays on OnlyFans and you do not plan to sell services, events or bundles. Staying there avoids moving anyone.' : 'You only sell subscriptions and messages and want the lowest setup effort. Fanvue does that well.'),
+    array('icon' => 'check', 'title' => 'When ' . $c['name'] . ' is the better fit', 'text' => (string) ($c['best_for'] ?? ('Your audience is already on ' . $c['name'] . ' and it covers everything you sell.'))),
     array('icon' => 'star', 'title' => 'When ' . $site . ' is the better fit', 'points' => array(
         'You post to several social networks and want one studio that publishes to all of them',
         'You sell more than subscriptions: pay-per-view, bundles, services, events and links',
@@ -38,7 +38,14 @@ echo Sections::cards(array(
 ), 2);
 echo Sections::close();
 
-echo Sections::open('alt', 'Moving over');
+if (!empty($c['strengths'])) {
+    echo Sections::open('alt', 'What ' . $c['name'] . ' does well', 'A fair comparison starts with what the other platform gets right.');
+    echo Sections::checks((array) $c['strengths'], 3);
+    echo Sections::close();
+}
+
+echo Sections::open('white', 'Moving over');
 echo '<p class="sx-p">Keep your ' . $e($c['name']) . ' page live while you set up. Publish to both from the studio, put your new page in every bio, and let fans move at their own pace. Memberships and pay-per-view work from day one; payouts start as soon as your payout account is verified.</p>';
 echo Sections::close();
+if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';

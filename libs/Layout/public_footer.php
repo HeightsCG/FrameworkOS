@@ -8,15 +8,18 @@ $site = Main::site_name();
             <div class="sf__brand">
                 <a class="ld-brand" href="/"><span class="ld-brand__mark" aria-hidden="true"></span><span class="ld-brand__name"><?php echo $fl($site); ?></span></a>
                 <p class="sf__blurb">One page for your memberships, pay-per-view posts, services and events, with a studio that publishes everywhere and payouts to your bank.</p>
+                <?php if (!empty(SeoMeta::SOCIAL_PROFILES)): ?>
+                <p class="sf__social"><?php foreach (SeoMeta::SOCIAL_PROFILES as $s_label => $s_url): ?><a href="<?php echo $fl($s_url); ?>" rel="me noopener" target="_blank"><?php echo $fl($s_label); ?></a><?php endforeach; ?></p>
+                <?php endif; ?>
             </div>
             <nav class="sf__cols" aria-label="Footer">
                 <div class="sf__col">
                     <h2 class="sf__h">Product</h2>
-                    <a href="/features">Features</a><?php foreach (FeaturePages::PAGES as $f_slug => $f): ?><a href="/features/<?php echo $fl($f_slug); ?>"><?php echo $fl($f['nav_title']); ?></a><?php endforeach; ?><a href="/pricing">Pricing</a><a href="/blog"><?php echo $fl(BlogController::NAME); ?></a>
+                    <a href="/features">Features</a><?php foreach (FeaturePages::PAGES as $f_slug => $f): ?><a href="/features/<?php echo $fl($f_slug); ?>"><?php echo $fl($f['nav_title']); ?></a><?php endforeach; ?><a href="/pricing">Pricing</a><a href="/creators">Creator directory</a><a href="/blog"><?php echo $fl(BlogController::NAME); ?></a>
                 </div>
                 <div class="sf__col">
                     <h2 class="sf__h">Compare</h2>
-                    <?php foreach (PagesController::COMPETITORS as $slug => $c): ?><a href="/compare/<?php echo $fl($slug); ?>"><?php echo $fl($site); ?> vs <?php echo $fl($c['name']); ?></a><?php endforeach; ?><a href="/best-creator-monetization-platforms">Best creator platforms</a>
+                    <?php foreach (PagesController::COMPETITORS as $slug => $c): ?><a href="/compare/<?php echo $fl($slug); ?>"><?php echo $fl($c['name']); ?> alternative</a><?php endforeach; ?><a href="/best-creator-monetization-platforms">Best creator platforms</a>
                 </div>
                 <div class="sf__col">
                     <h2 class="sf__h">Learn</h2>

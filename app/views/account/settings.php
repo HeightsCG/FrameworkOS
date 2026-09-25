@@ -300,6 +300,24 @@
                         <?php endforeach; ?>
                     </div>
                     <p class="settings__empty links-empty" id="links_empty" <?php echo empty($this->creator_links) ? '' : 'hidden'; ?>>No links yet. Add your website, socials, or anything you want to share.</p>
+
+                    <div class="cprofile__divider"></div>
+                    <?php $dir_on = !empty($cp['directory_listed']); $dir_state = (string) $this->directory_state; ?>
+                    <div class="cprofile__subhead">
+                        <h3 class="cprofile__subtitle">Creator Directory</h3>
+                        <span class="dir-status dir-status--<?php echo $dir_state; ?>" id="dir_status"<?php echo $dir_state === 'off' ? ' hidden' : ''; ?>><?php echo $dir_state === 'listed' ? 'Listed' : 'Not showing yet'; ?></span>
+                    </div>
+                    <div class="dir-row">
+                        <label class="notif__switch">
+                            <input type="checkbox" id="dir_listed" <?php echo $dir_on ? 'checked' : ''; ?> aria-label="List me in the Creator Directory">
+                            <span class="notif__slider"></span>
+                        </label>
+                        <label class="dir-row__label" for="dir_listed">List me in the Creator Directory</label>
+                        <select class="form-select dir-row__cat" id="dir_category" aria-label="Directory category">
+                            <option value="">Choose a category</option>
+                            <?php foreach (DirectoryService::CATEGORIES as $dk => $dl): ?><option value="<?php echo $dk; ?>"<?php echo ((string) ($cp['directory_category'] ?? '')) === $dk ? ' selected' : ''; ?>><?php echo htmlspecialchars($dl, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="creator-danger">
@@ -1620,6 +1638,23 @@ $(function () {
             if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
         });
     });
+
+    /* ---- Creator Directory: saves on toggle or category change; turning on checks the photos (a few seconds) ---- */
+    function dir_save() {
+        var on = $('#dir_listed').is(':checked'), cat = $('#dir_category').val() || '';
+        if (on && cat === '') { $('#dir_listed').prop('checked', false); toastr.info('Choose a category to be listed'); $('#dir_category').trigger('focus'); return; }
+        $('#dir_listed, #dir_category').prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'save_directory_listing', { listed: on ? 1 : 0, category: cat }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            $('#dir_listed, #dir_category').prop('disabled', false);
+            if (!o || !o.success) { $('#dir_listed').prop('checked', !on); toastr.error((o && o.message) || 'Could not save'); return; }
+            toastr.success(o.message);
+            var listed = on && /listed in the Creator Directory/.test(o.message);
+            $('#dir_status').prop('hidden', !on).text(listed ? 'Listed' : 'Not showing yet').attr('class', 'dir-status dir-status--' + (!on ? 'off' : (listed ? 'listed' : 'waiting')));
+        });
+    }
+    $('#dir_listed').on('change', dir_save);
+    $('#dir_category').on('change', function () { if ($('#dir_listed').is(':checked')) { dir_save(); } });
 
     /* ---- Download Your Data: request, then poll until the export is ready ---- */
     var dx_timer = null;

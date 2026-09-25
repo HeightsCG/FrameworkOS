@@ -15,6 +15,7 @@ $(document).ready(function() {
         $('#login_form, #mfa_form, #forgot_form, #register_form').hide();
         if (panel === 'register') {
             $('#register_form').show();
+            if (window.CLSTrack) { window.CLSTrack('sign_up_start', {}); }
         } else {
             $('#login_form').show();
         }
