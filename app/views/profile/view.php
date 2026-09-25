@@ -39,7 +39,9 @@ $in_app     = !empty($viewer_logged_in);
         $seo_base   = Main::get_base_domain();
         $seo_url    = $seo_base . '/@' . rawurlencode($handle);
         $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : SeoMeta::default_image();
-        $seo_desc   = $bio !== '' ? mb_substr($bio, 0, 160) : $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
+        $seo_about  = $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
+        // A bio too short to describe the page gets the standard line after it.
+        $seo_desc   = $bio === '' ? $seo_about : (mb_strlen($bio) < 70 ? mb_substr(rtrim($bio, '. ') . '. ' . $seo_about, 0, 160) : mb_substr($bio, 0, 160));
         $seo_same   = array();
         foreach ($links as $l) {
             if (preg_match('#^https?://#i', (string) $l['url'])) { $seo_same[] = (string) $l['url']; }

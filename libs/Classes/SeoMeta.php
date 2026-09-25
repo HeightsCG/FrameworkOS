@@ -6,6 +6,9 @@
  */
 class SeoMeta {
 
+    /** Titles longer than this lose the " · Creator Link Studio" suffix (Google truncates around 60 characters). */
+    const TITLE_MAX = 65;
+
     public static function base(): string {
         return rtrim((string) Main::get_base_domain(), '/');
     }
@@ -97,6 +100,7 @@ class SeoMeta {
         $site  = self::site();
         $title = trim((string) ($m['title'] ?? ''));
         $full  = ($title === '') ? $site : ((stripos($title, $site) !== false) ? $title : ($title . ' · ' . $site));
+        if ($title !== '' && mb_strlen($full) > self::TITLE_MAX) { $full = $title; }   // Google cuts long titles off; keep the page's own words, drop the brand
         $desc  = trim((string) ($m['description'] ?? ''));
         $url   = (string) ($m['url'] ?? '');
         $req   = (string) ($m['type'] ?? 'website');

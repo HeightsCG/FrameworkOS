@@ -29,7 +29,7 @@ if (!empty($page['cards'])) {
 if (!empty($siblings)) {
     $cards = array();
     foreach ($siblings as $s_slug => $s) {
-        $cards[] = array('icon' => 'layers', 'title' => $s['title'], 'text' => $s['description'], 'link' => array('Read More', '/features/' . $s_slug));
+        $cards[] = array('icon' => 'layers', 'title' => $s['title'], 'text' => $s['description'], 'link' => array('Explore ' . ucwords((string) ($s['nav_title'] ?? $s['title'])), '/features/' . $s_slug));   // descriptive anchor text, not "Read More"
     }
     $cards[] = array('icon' => 'list', 'title' => 'Everything else', 'text' => 'The full feature list: your page, ways to get paid, publishing, the inbox and analytics.', 'link' => array('See All Features', '/features'));
     echo Sections::open('alt', 'More of the platform');

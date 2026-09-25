@@ -41,7 +41,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
     <ol class="gd-list">
         <?php foreach ($related as $r): $img = trim((string) ($r['cover_image_url'] ?? '')); ?>
         <li class="gd-row<?php echo $img === '' ? ' gd-row--noimg' : ''; ?>">
-            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e($img); ?>" alt="" loading="lazy" width="160" height="120"></a><?php endif; ?>
+            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e($img); ?>" alt="<?php echo $e($r['title']); ?>" loading="lazy" width="160" height="120"></a><?php endif; ?>
             <div class="gd-row__body">
                 <p class="gd-row__topic"><?php echo $e(BlogController::topic($r)); ?></p>
                 <h3 class="gd-row__title"><a href="/blog/<?php echo $e($r['slug']); ?>"><?php echo $e($r['title']); ?></a></h3>
