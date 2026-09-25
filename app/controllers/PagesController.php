@@ -110,7 +110,8 @@ class PagesController extends Controller {
             array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
         );
         $jsonld = array(
-            array('@type' => 'Product', 'name' => Main::site_name(), 'description' => 'Creator platform with memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/features'),
+            // Google's product snippets need offers (or a review/rating, which we don't have): the plan prices, same as /pricing.
+            array('@type' => 'Product', 'name' => Main::site_name(), 'description' => 'Creator platform with memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/features', 'offers' => self::product_offers()),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
@@ -161,8 +162,7 @@ class PagesController extends Controller {
         $faq = array_merge($faq, array(
             array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
         ));
-        $offers = array();
-        foreach (self::plan_offers() as $o) { $offers[] = $o + array('availability' => 'https://schema.org/InStock'); }
+        $offers = self::product_offers();
         $product = array('@type' => 'Product', 'name' => Main::site_name() . ' plans', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/pricing');
         if (!empty($offers)) { $product['offers'] = $offers; }
         $jsonld = array(
@@ -185,6 +185,13 @@ class PagesController extends Controller {
     public static function plan_cost_answer(): string {
         $free = PlanTiers::get(PlanTiers::FREE_KEY);
         return trim(self::plan_price_sentence() . ' Free needs no card and takes ' . (int) ($free['limits']['fee_percent'] ?? 0) . '% of what you earn; the paid plans lower the take rate, raise the limits and add AI influencers, automations and AI inbox replies. ' . self::addon_sentence());
+    }
+
+    /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
+    public static function product_offers(): array {
+        $offers = array();
+        foreach (self::plan_offers() as $o) { $offers[] = $o + array('availability' => 'https://schema.org/InStock'); }
+        return $offers;
     }
 
     /** schema.org Offer rows for every plan and add-on (home SoftwareApplication + /pricing Product). */
