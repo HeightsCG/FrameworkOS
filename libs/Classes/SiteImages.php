@@ -1,7 +1,7 @@
 <?php
 /**
  * Photography for the public marketing pages (creators at work). Generated once on fal (ImageGenService) in one
- * house style, stored publicly on S3 under creator/site/, URLs cached in app/config/site_images.json.
+ * house style, stored publicly on S3 under creator/site/, URLs kept in SiteImageUrls::URLS (tracked in git).
  * Views call SiteImages::url('features_hero'); a missing image renders the section without one.
  * Re-roll one: php cron/site_images.php --regen=features_hero
  */
@@ -26,13 +26,23 @@ class SiteImages {
 
     private static $cache = null;
 
-    private static function file(): string { return Main::app_path() . '/app/config/site_images.json'; }
+    private static function file(): string { return Main::app_path() . '/libs/Classes/SiteImageUrls.php'; }
+
+    /** Rewrite SiteImageUrls.php with the current list (then commit it, so every environment gets the URLs). */
+    private static function save(array $all): void {
+        ksort($all);
+        $rows = '';
+        foreach ($all as $k => $u) { $rows .= '        ' . var_export((string) $k, true) . ' => ' . var_export((string) $u, true) . ",\n"; }
+        $php = "<?php\n/**\n * Public URLs of the marketing-page photos (see SiteImages). Tracked in git so every environment gets them.\n"
+             . " * Written by cron/site_images.php (SiteImages::save); after it changes this file, commit it.\n"
+             . " * \"<key>.bg\" is the small WebP version used behind blurred hero sections.\n */\n"
+             . "class SiteImageUrls {\n    const URLS = array(\n" . $rows . "    );\n}\n";
+        file_put_contents(self::file(), $php, LOCK_EX);
+        if (function_exists('opcache_invalidate')) { @opcache_invalidate(self::file(), true); }
+    }
 
     public static function all(): array {
-        if (self::$cache === null) {
-            $f = self::file();
-            self::$cache = is_file($f) ? (array) json_decode((string) file_get_contents($f), true) : array();
-        }
+        if (self::$cache === null) { self::$cache = class_exists('SiteImageUrls') ? (array) SiteImageUrls::URLS : array(); }
         return self::$cache;
     }
 
@@ -65,7 +75,7 @@ class SiteImages {
         if ($url === '') { return ''; }
         $all = self::all(); $old = (string) ($all[$key . '.bg'] ?? '');
         $all[$key . '.bg'] = $url; self::$cache = $all;
-        file_put_contents(self::file(), json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
+        self::save($all);
         if ($old !== '' && strpos($old, '/creator/site/') !== false) { S3Service::delete_by_url($old); }
         return $url;
     }
@@ -83,7 +93,7 @@ class SiteImages {
         if ($url === '') { return ''; }
         $all = self::all(); $old = (string) ($all[$key] ?? '');
         $all[$key] = $url; self::$cache = $all;
-        file_put_contents(self::file(), json_encode($all, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n", LOCK_EX);
+        self::save($all);
         if ($old !== '' && strpos($old, '/creator/site/') !== false) { S3Service::delete_by_url($old); }
         self::make_bg($key);   // keep the small hero background in step with the new image
         return $url;

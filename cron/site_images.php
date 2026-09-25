@@ -5,6 +5,7 @@
  *   php cron/site_images.php --regen=KEY  → re-roll one image
  *   php cron/site_images.php --all        → re-roll all of them
  *   php cron/site_images.php --bg         → (re)build the small 640px WebP hero backgrounds (SiteImages::bg)
+ * Every run rewrites libs/Classes/SiteImageUrls.php with the new URLs: commit it so live gets them.
  */
 if (php_sapi_name() !== 'cli') { exit(1); }
 if (!getenv('APPLICATION_ENV')) { putenv('APPLICATION_ENV=development'); }
@@ -20,8 +21,7 @@ $opts = getopt('', array('regen::', 'all', 'bg'));
 $keys = array_keys(SiteImages::SUBJECTS);
 if (isset($opts['bg'])) {
     if (empty(SiteImages::all())) {
-        fwrite(STDERR, "No site images on this server (" . Main::app_path() . "/app/config/site_images.json is missing or empty).\n"
-            . "Copy that file from an environment that has it, or run this script without --bg to generate the photos first.\n");
+        fwrite(STDERR, "No site images yet (SiteImageUrls::URLS is empty). Run this script without --bg to generate the photos first.\n");
         exit(1);
     }
     foreach ($keys as $k) {
