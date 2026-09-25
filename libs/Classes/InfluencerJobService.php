@@ -623,6 +623,7 @@ class InfluencerJobService {
 
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, InfluencerService::noun($infl)) : $topic;
+        $picked_scene = trim((string) $scene);   // the one scene this image shows; the caption is written from it
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
         $scene    = trim((string) $scene);
@@ -649,7 +650,7 @@ class InfluencerJobService {
         $job = self::run_inline($job_id);
         if (!$job) { return array('ok' => false, 'error' => 'Job vanished.'); }
         if ((string) $job['status'] === 'done' && (int) $job['result_asset_id'] > 0) {
-            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'error' => '');
+            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'scene' => $picked_scene, 'error' => '');
         }
         if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
             return array('ok' => false, 'job_id' => $job_id, 'error' => (string) $job['error']);

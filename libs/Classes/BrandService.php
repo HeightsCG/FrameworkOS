@@ -29,6 +29,25 @@ class BrandService {
     }
 
     /**
+     * Pick ONE concrete photo from an automation's scene description (which often lists several places, activities
+     * or props). The image prompt and the caption both use this, so they always describe the same picture.
+     * Falls back to the description itself when the AI is unavailable.
+     */
+    public static function pick_scene($topic): string {
+        $topic = trim((string) $topic);
+        if ($topic === '' || !ClaudeService::configured()) { return $topic; }
+        $pick = random_int(1, 6);
+        $system = "You turn a creator's description of their automated posts into ONE brief for ONE photo. "
+                . "When the description lists several places, activities, subjects or props, use option number {$pick} from each list, counting from 1 and wrapping around if a list is shorter. "
+                . "Describe what the photo shows in 15 to 40 words: the subject, the setting and what is happening. "
+                . "No camera jargon, no text overlays, no caption or hashtag instructions. Output only the brief: no quotes, no preamble.";
+        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $topic)), 200, 25, 'low');
+        if (empty($res['ok'])) { return $topic; }
+        $scene = trim(trim(preg_replace('/\s+/', ' ', (string) $res['text'])), "\"'“” ");
+        return ($scene !== '' && mb_strlen($scene) <= 400) ? $scene : $topic;
+    }
+
+    /**
      * Write a short social caption for a topic, in the creator's brand voice. Returns the
      * caption string, or '' on any failure (caller can fall back to the topic).
      */

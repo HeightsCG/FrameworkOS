@@ -17,7 +17,10 @@ class AutoPostService {
 
         $cb        = (new CreatorBrandModel())->get_for_user($creator_id);
         $use_brand = !empty($rule['use_brand']);
-        $prompt    = $use_brand ? BrandService::image_prompt($topic, $cb) : $topic;
+        $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
+        // The scene this run shows. The image and the caption must describe the SAME picture, so both come from it
+        // (the topic can list several ideas; letting each AI call pick its own is how a beach photo got a rooftop caption).
+        $scene     = $topic;
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 
         // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
@@ -26,10 +29,13 @@ class AutoPostService {
             $ir = InfluencerJobService::run_for_rule($rule, $user, $topic, $size);
             if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
             $asset_id = (int) $ir['asset_id'];
+            if (!empty($ir['scene'])) { $scene = (string) $ir['scene']; }   // the brief that was actually rendered
             $gen = array('ok' => true);
         } else {
             $pay = Plan::charge_ai($user, 'image', 'Automation image: ' . mb_substr($topic, 0, 60));
             if (empty($pay['ok'])) { return self::fail(null, $pay['message']); }
+            if ($ai_assist) { $scene = BrandService::pick_scene($topic); }
+            $prompt = $use_brand ? BrandService::image_prompt($scene, $cb) : $scene;
             $gen = ImageGenService::generate($prompt, $size);
             if (empty($gen['ok'])) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image failed'); }
         }
@@ -55,12 +61,11 @@ class AutoPostService {
         }
 
         // 3) Caption (AI; fall back to the topic if the model is unavailable).
-        $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
-        $caption   = $ai_assist ? BrandService::caption_for($topic, $use_brand ? $cb : array(), $style)
+        $caption   = $ai_assist ? BrandService::caption_for($scene, $use_brand ? $cb : array(), $style)
                                 : ($fixed !== '' ? $fixed : $topic);
-        if ($caption === '') { $caption = $topic; }
+        if ($caption === '') { $caption = $ai_assist ? $scene : $topic; }
 
         // 4) Create the post.
         $audience = (($rule['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
