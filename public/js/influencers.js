@@ -285,10 +285,13 @@ jQuery(function ($) {
 
         /* --- Training in progress --- */
         function render_training() {
+            var retrain = inf.active_model_id > 0;
             var html = '<div class="inf-progress">' +
                 '<div class="inf-progress__ic"><span class="spinner-border" role="status"></span></div>' +
-                '<h2 class="inf-progress__t">Training ' + esc(inf.name) + '</h2>' +
-                '<p class="inf-progress__x">This usually takes a few minutes. You can leave this page; the card shows the progress and the influencer is ready to use as soon as it finishes.</p>' +
+                '<h2 class="inf-progress__t">' + (retrain ? 'Retraining ' : 'Training ') + esc(inf.name) + '</h2>' +
+                '<p class="inf-progress__x">' + (retrain
+                    ? 'This usually takes a few minutes. Until it finishes, ' + esc(inf.name) + ' keeps generating with the current model, then switches to the new one on her own. You can leave this page.'
+                    : 'This usually takes a few minutes. You can leave this page; the card shows the progress and the influencer is ready to use as soon as it finishes.') + '</p>' +
                 '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back to influencers</a></div>' +
                 '</div>';
             $('#inf_panel').html(html);
@@ -299,8 +302,13 @@ jQuery(function ($) {
             poll_timer = setTimeout(function () {
                 api('influencer_get', { id: inf.id }, function (o) {
                     if (!o || !o.success) { watch(); return; }
+                    var was_retrain = inf.active_model_id > 0;
                     inf = o.influencer;
-                    if (inf.wizard_step === 'training') { watch(); return; }
+                    if (inf.wizard_step === 'training' || inf.pending_model_id > 0) { watch(); return; }
+                    if (was_retrain) {
+                        if (inf.last_error) { toastr.error('Retraining failed: ' + inf.last_error + ' ' + inf.name + ' still uses the previous model.'); }
+                        else { toastr.success(inf.name + ' is retrained and now uses the new model'); }
+                    }
                     show(inf.wizard_step);
                 });
             }, 5000);
@@ -324,14 +332,15 @@ jQuery(function ($) {
             $('#inf_panel').html(html);
             $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'review'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
-            if (!failed) { render_training(); render_settings(); }
+            if (!failed) { render_training_photos(); render_settings(); }
         }
 
         /* --- Trained: the photos her model learned from, and retraining from them --- */
-        function render_training() {
+        function render_training_photos() {
             var busy = inf.pending_model_id > 0, photos_path = path === 'photos';
             var html = '<section class="inf-sec">' +
-                '<div class="inf-sec__head"><h2 class="inf-sec__h">Training Photos</h2>' + (busy ? state_pill(inf) : '') + '</div>';
+                '<div class="inf-sec__head"><h2 class="inf-sec__h">Training Photos</h2>' + (busy ? state_pill(inf) : '') + '</div>' +
+                (!busy && inf.last_error ? '<div class="inf-progress__err inf-sec__err">The last retrain failed: ' + esc(inf.last_error) + ' ' + esc(inf.name) + ' still uses the previous model.</div>' : '');
             if (busy) {
                 html += '<p class="inf-wiz__meta">' + esc(inf.name) + ' keeps generating with the current model until the new one is ready.</p>' +
                         '<div class="inf-photos inf-photos--sm" id="inf_photos"></div></section>';
@@ -490,9 +499,9 @@ jQuery(function ($) {
             var $m = $('#inf_gal_modal');
             if (!$m.length) {
                 $m = $('<div class="modal fade" id="inf_gal_modal" tabindex="-1" aria-labelledby="inf_gal_title" aria-hidden="true">' +
-                    '<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">' +
+                    '<div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">' +
                     '<div class="modal-header"><h5 class="modal-title" id="inf_gal_title">Choose From Gallery</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
-                    '<div class="modal-body"><div class="inf-photos inf-stills" id="inf_gal_grid"></div></div>' +
+                    '<div class="modal-body"><div class="inf-photos inf-stills inf-gal-grid" id="inf_gal_grid"></div></div>' +
                     '<div class="modal-footer"><span class="inf-wiz__meta" id="inf_gal_n"></span><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="inf_gal_add" disabled>Add Photos</button></div>' +
                     '</div></div></div>').appendTo('body');
                 $m.on('click', '.inf-photo--pick', function () {
@@ -516,7 +525,7 @@ jQuery(function ($) {
                 var imgs = ((o && o.success) ? (o.images || []) : []).filter(function (x) { return x.type === 'image' && x.status === 'ready' && ['generated', 'enhanced', 'reference'].indexOf(x.role) >= 0; });
                 if (!imgs.length) { $('#inf_gal_grid').html('<span class="inf-wiz__meta">No images in ' + esc(inf.name) + '\'s gallery yet.</span>'); return; }
                 $('#inf_gal_grid').html(imgs.map(function (x) {
-                    return '<button type="button" class="inf-photo inf-photo--pick" data-id="' + x.id + '" aria-pressed="false"><img src="' + esc(x.thumb_url) + '" alt="" loading="lazy"></button>';
+                    return '<button type="button" class="inf-photo inf-photo--pick" data-id="' + x.id + '" aria-pressed="false"><img src="' + esc(x.display_url || x.thumb_url) + '" alt="" loading="lazy"></button>';
                 }).join(''));
             });
         }
@@ -780,6 +789,7 @@ jQuery(function ($) {
                         .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
                 });
             }
+            if (inf.status === 'ready' && inf.pending_model_id > 0) { show('training'); return; }
             if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'done' : 'review'); return; }
             show(inf.wizard_step || 'name');
         }

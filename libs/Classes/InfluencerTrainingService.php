@@ -194,7 +194,8 @@ class InfluencerTrainingService {
         $model_id = (int) ($p['model_id'] ?? $job['result_model_id']);
         (new InfluencerModelsModel())->mark_failed($model_id, $error);
         $infl = new InfluencersModel();
-        $infl->transition($iid, array('pending_model_id' => null, 'last_error' => mb_substr((string) $error, 0, 2000)),
+        // wizard_step leaves 'training' so the page stops showing progress and says what happened (the done step shows the error).
+        $infl->transition($iid, array('pending_model_id' => null, 'last_error' => mb_substr((string) $error, 0, 2000), 'wizard_step' => 'done'),
             'pending_model_id = :m', array('m' => $model_id));
         $infl->transition($iid, array('status' => 'failed'), 'active_model_id IS NULL AND id = :i2', array('i2' => $iid));
         if (!empty($p['zip_key'])) { S3Service::delete_key((string) $p['zip_key']); }
