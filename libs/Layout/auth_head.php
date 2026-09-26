@@ -256,6 +256,29 @@
             }
         });
 
+        // Back from Google (AccountController::google_callbackAction): a second factor to enter, or why it didn't work.
+        var google_q = new URLSearchParams(location.search);
+        if (google_q.get('auth') === 'mfa') {
+            var m = (google_q.get('m') || '').split(',');
+            setTimeout(function () { startMfa({ totp: m.indexOf('totp') >= 0, email: m.indexOf('email') >= 0 }); }, 0);   // after the dialog opens on Sign In
+        }
+        var google_errors = {
+            denied: 'Google sign-in was cancelled.',
+            expired: 'That Google sign-in took too long or was already used. Try again.',
+            unverified: 'Your Google account’s email isn’t verified, so it can’t be used to sign in.',
+            other: 'That account is linked to a different Google account. Sign in with your email and password.',
+            suspended: 'This account has been suspended. Contact support if you believe this is a mistake.',
+            seat: 'Your team seat is over the account owner’s plan limit. Ask the owner to upgrade.',
+            busy: 'Too many attempts. Please try again later.',
+            unavailable: 'Google sign-in isn’t available right now. Use your email and password.'
+        };
+        var google_err = google_q.get('google_error');
+        if (google_err) {
+            toastr.error(google_errors[google_err] || 'Google sign-in didn’t work. Try again, or use your email and password.');
+            google_q.delete('google_error');
+            history.replaceState(null, '', location.pathname + (google_q.toString() ? '?' + google_q.toString() : ''));
+        }
+
     });
     });
     </script>

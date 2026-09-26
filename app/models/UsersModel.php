@@ -382,6 +382,36 @@ class UsersModel extends Model {
     }
 
 
+    /** The account a Google login belongs to (google_sub = Google's stable account id). */
+    public function get_by_google_sub($sub){
+        $r = parent::select("SELECT u.* FROM user_accounts u WHERE u.google_sub = :s AND u.deleted = 0", array('s' => (string) $sub));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** The single account with this email, or null (none, or more than one — ambiguous, never guess). */
+    public function get_one_by_email($email){
+        $r = parent::select("SELECT u.* FROM user_accounts u WHERE u.user_email = :e AND u.deleted = 0", array('e' => (string) $email));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** Link Google to an account. Google has verified the address, so the account's email counts as verified too. */
+    public function link_google($user_id, $sub){
+        return parent::update('user_accounts', array('google_sub' => (string) $sub, 'email_verified' => 1, 'updated_at' => date('Y-m-d H:i:s')),
+            'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
+    /** First-touch attribution from the cls_ft cookie (set by google_analytics.php), saved once at signup. */
+    public function record_first_touch($user_id){
+        $ft = json_decode((string) ($_COOKIE['cls_ft'] ?? ''), true);
+        if (!is_array($ft)) { return; }
+        $seen = strtotime((string) ($ft['at'] ?? ''));
+        $this->set_acquisition($user_id, array(
+            'acq_source' => $ft['s'] ?? '', 'acq_medium' => $ft['m'] ?? '', 'acq_campaign' => $ft['c'] ?? '', 'acq_term' => $ft['t'] ?? '',
+            'acq_content' => $ft['n'] ?? '', 'acq_gclid' => $ft['g'] ?? '', 'acq_referrer' => $ft['r'] ?? '', 'acq_landing' => $ft['l'] ?? '',
+            'acq_first_seen' => $seen ? gmdate('Y-m-d H:i:s', $seen) : null,
+        ));
+    }
+
     /** First-touch attribution for a new account (the cls_ft cookie), saved once at signup. */
     public function set_acquisition($user_id, array $a){
         $f = array();

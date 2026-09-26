@@ -298,6 +298,10 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .cos-help { color: var(--sx-t2) !important; }
 .cos-submit { background: var(--sx-acc) !important; color: var(--sx-on-acc) !important; border-radius: var(--sx-r) !important; box-shadow: none !important; }
 .cos-submit:hover { background: var(--sx-acc-h) !important; }
+.cos-google { background: #131314 !important; border-color: #8e918f !important; color: #e3e3e3 !important; border-radius: var(--sx-r) !important; }   /* Google's dark-theme button */
+.cos-google:hover { background: #1f1f20 !important; }
+.cos-or { color: var(--sx-t2) !important; }
+.cos-or::before, .cos-or::after { background: var(--sx-line-2) !important; }
 .cos-link { color: var(--sx-t2) !important; }
 .cos-link:hover { color: var(--sx-ink) !important; }
 .cos-link.accent { color: var(--sx-acc) !important; }

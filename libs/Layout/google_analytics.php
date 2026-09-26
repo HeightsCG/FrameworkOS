@@ -10,6 +10,17 @@
       // CLSTrack('sign_up', {...}): one place every page sends GA events through (a no-op if gtag is blocked).
       window.CLSTrack = function (name, params) { try { if (window.gtag) { gtag('event', name, params || {}); } } catch (e) {} };
 
+      // Back from Google sign-in (AccountController::google_callbackAction redirects with ?signed_in=google[&new=1]).
+      (function () {
+        try {
+          var q = new URLSearchParams(location.search);
+          if (q.get('signed_in') !== 'google') { return; }
+          window.CLSTrack(q.get('new') === '1' ? 'sign_up' : 'login', { method: 'google' });
+          q.delete('signed_in'); q.delete('new');
+          history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : '') + location.hash);
+        } catch (e) {}
+      })();
+
       // Key actions → GA events, read from the API responses (one listener, so no page handler has to change).
       // Only successful calls count; the event names are GA's recommended ones where one exists.
       document.addEventListener('DOMContentLoaded', function () {

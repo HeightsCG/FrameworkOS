@@ -50,15 +50,7 @@ class ApiAuthController extends BaseApiController {
         }
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
-        $ft = json_decode((string) ($_COOKIE['cls_ft'] ?? ''), true);
-        if (is_array($ft)) {
-            $seen = strtotime((string) ($ft['at'] ?? ''));
-            $this->userModel->set_acquisition($user_id, array(
-                'acq_source' => $ft['s'] ?? '', 'acq_medium' => $ft['m'] ?? '', 'acq_campaign' => $ft['c'] ?? '', 'acq_term' => $ft['t'] ?? '',
-                'acq_content' => $ft['n'] ?? '', 'acq_gclid' => $ft['g'] ?? '', 'acq_referrer' => $ft['r'] ?? '', 'acq_landing' => $ft['l'] ?? '',
-                'acq_first_seen' => $seen ? gmdate('Y-m-d H:i:s', $seen) : null,
-            ));
-        }
+        $this->userModel->record_first_touch($user_id);
 
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);
@@ -94,14 +86,13 @@ class ApiAuthController extends BaseApiController {
 
         $user = $user_account[0];
 
-        // Suspended (or deleted) accounts cannot sign in.
-        if (($user['user_status'] ?? 'Active') === 'Disabled' || (int) ($user['deleted'] ?? 0) === 1) {
+        // Suspended (or deleted) accounts, and collaborators over the owner's seat limit, cannot sign in.
+        $blocked = LoginGate::blocked($user);
+        if ($blocked === 'suspended') {
             $this->loginAttemptsModel->record($ip, $this->post['u_name'], 'login');
-            $this->jsonError('This account has been suspended. Contact support if you believe this is a mistake.');
+            $this->jsonError(LoginGate::SUSPENDED_MESSAGE);
         }
-
-        // A collaborator whose seat is over the owner's plan limit is kept, but can't sign in.
-        if (Plan::team_member_locked($user)) {
+        if ($blocked === 'seat') {
             $this->jsonError(Plan::SEAT_LOCKED_MESSAGE);
         }
 
@@ -110,22 +101,13 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Please verify your email before signing in. Check your inbox for the verification link.', ['unverified' => true]);
         }
 
-        session_regenerate_id(true);
-
-        // MFA gate: if a second factor is enabled, defer full login until verified.
-        if (!empty($user['mfa_totp_enabled']) || !empty($user['mfa_email_enabled'])) {
-            Session::set('mfa_pending_user_id', (int) $user['user_id']);
-            $has_totp = !empty($user['mfa_totp_enabled']);
-            // No authenticator app → email a code straight away.
-            if (!$has_totp && !empty($user['mfa_email_enabled'])) {
-                $this->issue_and_send_login_code($user);
-            }
-            $this->jsonSuccess(['message' => 'Verification required', 'mfa_required' => true, 'methods' => ['totp' => $has_totp, 'email' => !empty($user['mfa_email_enabled'])]]);
+        // MFA gate (a second factor defers the full login until verified), else the session.
+        $done = LoginGate::finish($user);
+        if (isset($done['mfa'])) {
+            $this->jsonSuccess(['message' => 'Verification required', 'mfa_required' => true, 'methods' => $done['mfa']]);
         }
 
-        $this->start_user_session($user);
-
-        $this->jsonSuccess(['message' => 'Login successful', 'reset_pw' => (int) ($user['reset_pw'] ?? 0)]);
+        $this->jsonSuccess(['message' => 'Login successful', 'reset_pw' => $done['reset_pw']]);
     }
 
     private function start_user_session(array $user): void{
@@ -545,12 +527,7 @@ class ApiAuthController extends BaseApiController {
 
     /** Issue and email a login verification code for a user row. */
     private function issue_and_send_login_code(array $user): void{
-        $mfa  = new MfaModel();
-        $code = $mfa->issue_email_code((int) $user['user_id'], 'login');
-        if (!empty($user['user_email'])) {
-            $to_name = trim($user['first_name'] . ' ' . $user['last_name']);
-            $this->notificationsModel->send_mfa_code_email($user['user_email'], $to_name, $code);
-        }
+        LoginGate::send_login_code($user);
     }
 
     /** Shared disable path for a method; re-authenticates with the current password. */

@@ -50,8 +50,8 @@ $(document).ready(function() {
     /* Arriving from a public page ("Sign In" / "Create Your Account" links to
        /?auth=login or /?auth=register): open the matching dialog on load. */
     var auth_param = new URLSearchParams(location.search).get('auth');
-    if (auth_param === 'login' || auth_param === 'register') {
-        var auth_trigger = document.querySelector('[data-auth="' + auth_param + '"]');
+    if (auth_param === 'login' || auth_param === 'register' || auth_param === 'mfa') {   // mfa: back from Google, code still needed (auth_head.php shows that panel)
+        var auth_trigger = document.querySelector('[data-auth="' + (auth_param === 'mfa' ? 'login' : auth_param) + '"]');
         if (auth_trigger) { auth_trigger.click(); }
     }
 

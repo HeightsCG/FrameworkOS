@@ -308,6 +308,82 @@ class AccountController extends Controller {
         exit;
     }
 
+    /* ---- Sign in / sign up with Google (GoogleAuth). Redirect-only, so they run for logged-out visitors. ---- */
+
+    /** /account/google_start: remember state + PKCE verifier, then off to Google's account chooser. */
+    public function google_startAction(){
+        if ((int) Session::get('user_id') > 0) { Header('Location: /'); exit; }
+        if (!GoogleAuth::configured()) { Header('Location: /?auth=login&google_error=unavailable'); exit; }
+        list($url, $state, $verifier) = GoogleAuth::authorize_url();
+        Session::set('google_oauth', array('state' => $state, 'verifier' => $verifier, 'started' => time()));
+        Header('Location: ' . $url);
+        exit;
+    }
+
+    /**
+     * /account/google_callback: who signed in with Google → their account. Matched by Google's account id, else
+     * linked to the one account with that (Google-verified) email, else a new account. Then the same gate as a
+     * password login (suspended, seat lock, second factor) via LoginGate.
+     */
+    public function google_callbackAction(){
+        $fail = function ($why) { Header('Location: /?auth=login&google_error=' . $why); exit; };
+        $flow = Session::get('google_oauth');
+        Session::destroyValue('google_oauth');
+        $state = (string) ($_GET['state'] ?? '');
+        $code  = (string) ($_GET['code'] ?? '');
+        if (!is_array($flow) || $state === '' || !hash_equals((string) ($flow['state'] ?? ''), $state) || (time() - (int) ($flow['started'] ?? 0)) > 900) {
+            error_log('[google] callback: state mismatch or expired flow');
+            $fail('expired');
+        }
+        if ($code === '') { $fail('denied'); }   // they cancelled on Google's screen (error=access_denied)
+
+        $attempts = new LoginAttemptsModel();
+        $ip = $this->get_ip_address();
+        if ($attempts->count_recent($ip, 'google', 15) >= 20) { $fail('busy'); }
+        $attempts->record($ip, 'google', 'google');
+
+        $g = GoogleAuth::identify($code, (string) ($flow['verifier'] ?? ''));
+        if (!$g || $g['sub'] === '') { $fail('google'); }
+        if (empty($g['email_verified']) || !filter_var($g['email'], FILTER_VALIDATE_EMAIL)) { $fail('unverified'); }
+
+        $users = $this->userModel;
+        $user  = $users->get_by_google_sub($g['sub']);
+        $new   = false;
+        if (!$user) {
+            $user = $users->get_one_by_email($g['email']);
+            if ($user) {
+                if ((string) ($user['google_sub'] ?? '') !== '') { $fail('other'); }   // that account is linked to a different Google account
+                $users->link_google((int) $user['user_id'], $g['sub']);
+            } else {
+                if ($users->email_exists($g['email'])) { $fail('google'); }   // several accounts share the address: never guess which
+                $first = $g['given_name'] !== '' ? $g['given_name'] : explode('@', $g['email'])[0];
+                $last  = $g['family_name'];
+                $uid = (int) $users->create_user($users->generate_unique_username($first, $last), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
+                if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
+                $users->link_google($uid, $g['sub']);
+                $users->record_first_touch($uid);
+                $new = true;
+                $user = array('user_id' => $uid);
+            }
+            $rows = $users->get_user_by_id((int) $user['user_id']);
+            $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+            if (!$user) { $fail('google'); }
+        }
+        if ($g['picture'] !== '') { GoogleAuth::import_avatar((int) $user['user_id'], $g['picture']); }
+
+        $blocked = LoginGate::blocked($user);
+        if ($blocked !== '') { $fail($blocked); }
+        $done = LoginGate::finish($user);
+        if (isset($done['mfa'])) {
+            $m = array_keys(array_filter($done['mfa']));
+            Header('Location: /?auth=mfa&m=' . implode(',', $m));
+            exit;
+        }
+        if ($done['reset_pw'] === 1) { Header('Location: /account/force_reset'); exit; }
+        Header('Location: /?signed_in=google' . ($new ? '&new=1' : ''));
+        exit;
+    }
+
     public function usersAction(){
         if (!Permissions::is_owner_creator()) { Header('Location: /'); exit; }
         $owner_id = (int) Session::get('user_id');

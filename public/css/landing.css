@@ -629,6 +629,18 @@ body.ld {
 .cos-submit:hover { background: var(--ld-violet7); transform: translateY(-1px); }
 .cos-submit:active { transform: translateY(0); }
 .cos-submit:focus-visible { outline: none; box-shadow: var(--ld-ring); }
+/* Continue With Google: Google's own button treatment (white, grey border, colour G), same size as .cos-submit */
+.cos-google {
+    display: flex; align-items: center; justify-content: center; gap: .7rem; width: 100%; height: 54px; border-radius: 4px;
+    background: #fff; border: 1px solid #747775; color: #1f1f1f; text-decoration: none;
+    font-family: inherit; font-size: 1rem; font-weight: 600; transition: background .15s, border-color .15s;
+}
+.cos-google:hover { background: #f8f9fa; border-color: #5f6368; color: #1f1f1f; }
+.cos-google:focus-visible { outline: none; box-shadow: var(--ld-ring); }
+.cos-google__g { flex-shrink: 0; }
+.cos-form-title + .cos-google { margin-top: 1.4rem; }   /* Sign In has no subtitle between the title and the button */
+.cos-or { display: flex; align-items: center; gap: .9rem; margin: 1.25rem 0; color: var(--ld-muted); font-size: .85rem; }
+.cos-or::before, .cos-or::after { content: ""; flex: 1; height: 1px; background: rgba(20, 18, 40, .14); }
 .cos-links { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin-top: 1.5rem; font-size: .92rem; }
 .cos-link { color: var(--ld-t2); font-weight: 600; text-decoration: none; cursor: pointer; transition: color .15s; border-radius:2px; }
 .cos-link:hover { color: var(--ld-ink); }
