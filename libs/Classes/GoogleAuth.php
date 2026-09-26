@@ -29,7 +29,15 @@ class GoogleAuth {
 
     public static function client_id(): string     { return self::cfg('google_client_id'); }
     public static function client_secret(): string { return self::cfg('google_client_secret'); }
-    public static function configured(): bool      { return self::client_id() !== '' && self::client_secret() !== ''; }
+    /**
+     * Keys are set AND Google can send people back here: Google only accepts an https return address (or localhost),
+     * so on a plain-http host such as dev the button stays hidden instead of ending on Google's "Access blocked".
+     */
+    public static function configured(): bool {
+        if (self::client_id() === '' || self::client_secret() === '') { return false; }
+        $u = parse_url(self::redirect_uri());
+        return ($u['scheme'] ?? '') === 'https' || in_array(strtolower((string) ($u['host'] ?? '')), array('localhost', '127.0.0.1'), true);
+    }
     public static function redirect_uri(): string  { return Main::get_base_domain() . '/account/google_callback'; }
 
     /** [url, state, verifier]: the caller keeps state + verifier in the session and checks them on the callback. */
