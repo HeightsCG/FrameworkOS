@@ -615,18 +615,16 @@ class InfluencerJobService {
         if (!$model || (string) $model['status'] !== 'ready') { return array('ok' => false, 'error' => $infl['name'] . ' has no active model.'); }
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Rendering is not configured (no provider key).'); }
 
-        // Nothing is spent (not even the scene prompt) when the account cannot pay for the image.
+        // Nothing is spent when the account cannot pay for the image.
         Plan::grant_monthly($user);
         $price = Plan::ai_price('image', array('params' => array('num_images' => 1)));
         $balance = (new AiCreditsModel())->get_balance($cid);
         if ($balance < $price) { return array('ok' => false, 'error' => Plan::credits_message('image', $price, $balance)); }
 
-        $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-        $scene = $ai_assist ? InfluencerService::scene_from_topic($topic, $size, InfluencerService::noun($infl)) : $topic;
-        $picked_scene = trim((string) $scene);   // the one scene this image shows; the caption is written from it
+        // $topic is the scene AutoPostService picked from the saved prompt, verbatim; it is never rewritten here.
+        $scene    = trim((string) $topic);
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
-        $scene    = trim((string) $scene);
         // The model only draws the trained person when the prompt names them: lead with "photo of a woman/man" unless it already does.
         $noun = InfluencerService::noun($infl);
         if ($scene !== '' && !preg_match('/\\b(wo)?m[ae]n\\b/i', $defaults . ' ' . $scene)) { $scene = 'photo of a ' . $noun . ', ' . $scene; }
@@ -650,7 +648,7 @@ class InfluencerJobService {
         $job = self::run_inline($job_id);
         if (!$job) { return array('ok' => false, 'error' => 'Job vanished.'); }
         if ((string) $job['status'] === 'done' && (int) $job['result_asset_id'] > 0) {
-            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'scene' => $picked_scene, 'error' => '');
+            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'error' => '');
         }
         if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
             return array('ok' => false, 'job_id' => $job_id, 'error' => (string) $job['error']);

@@ -180,42 +180,6 @@ class InfluencerService {
         }
     }
 
-    /* ---- scene briefs (automations) ---- */
-
-    /**
-     * Turn a creator's free-form topic ("mid-day in Miami: beach club daybed or café
-     * patio; outfit rotates ...; caption should ...") into ONE short scene brief in the
-     * form the character tool wants: place, activity, props, outfit. The server picks
-     * which listed option to use so consecutive runs differ. Falls back to the topic.
-     */
-    public static function scene_from_topic($topic, $size = 'square', $gender = 'woman'): string {
-        $topic = trim((string) $topic);
-        if ($topic === '' || !ClaudeService::configured()) { return $topic; }
-        $orient = ($size === 'portrait') ? 'vertical phone photo' : (($size === 'landscape') ? 'wide photo' : 'square photo');
-        $pick   = random_int(1, 6);
-        $man    = ($gender === 'man');
-        list($pr, $po) = $man ? array('he', 'him') : array('she', 'her');
-        $system = "You write scene briefs for a studio that renders a trained AI influencer into photos for a creator's "
-                . "feed, where the goal of every image is to make people stop scrolling and want to see more of {$po}. "
-                . "Given the creator's description of what their automated posts should look like, output ONE brief for ONE image. "
-                . "The influencer is a " . ($man ? 'man' : 'woman') . ". Describe the setting, what {$pr} is doing, props, and outfit, in 15 to 40 words. "
-                . "When the description lists several places, activities or outfits, use option number {$pick} from each list, counting from 1 and wrapping around if the list is shorter. "
-                . ($man
-                    ? "Make it magnetic the way a menswear or swimwear campaign is: a confident, easy pose (leaning toward the camera, glancing back over a shoulder, a hand through his hair, relaxed lean against a wall), direct eye contact or a knowing half-smile, and framing that flatters his build and shows off the outfit. Golden or midday sunlight is welcome. "
-                        . "Keep it within what a mainstream social platform allows: swim shorts, open shirts and fitted clothing are fine, but no nudity, no explicit or sexual language, no fetish framing. "
-                    : "Make it alluring the way a swimwear or fashion campaign is: a confident, flirtatious pose (leaning toward the camera, glancing back over a shoulder, a hand in her hair, hip cocked, lounging with one knee up), direct eye contact or a knowing half-smile, and framing that flatters her figure and shows off the outfit. Golden or midday sunlight is welcome. "
-                        . "Keep it within what a mainstream social platform allows: swimwear and fitted clothing are fine, but nothing sheer, no nudity, no explicit or sexual language, no fetish framing. Prefer 'bikini', 'swimsuit', 'sundress' as plain words; do not invent lingerie. ")
-                . "No character name, no camera or lighting jargon beyond the light itself, no caption or hashtag instructions, no text overlays. "
-                . "The image will be a {$orient}; compose for that but never mention the format in the brief. "
-                . "Output only the brief: no quotes, no preamble, no label.";
-        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $topic)), 200, 25, 'low');
-        if (!$res['ok']) { return $topic; }
-        $scene = trim(preg_replace('/\s+/', ' ', (string) $res['text']));
-        $scene = trim($scene, "\"'“” ");
-        $scene = preg_replace('/^(vertical|wide|square)?\s*(phone\s+)?photo\s*[:\-–—]\s*/i', '', $scene);
-        return ($scene !== '' && mb_strlen($scene) <= 400) ? $scene : $topic;
-    }
-
     /* ---- presentation ---- */
 
     /** Card / wizard payload for one influencer. */

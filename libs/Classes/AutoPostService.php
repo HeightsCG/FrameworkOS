@@ -18,28 +18,32 @@ class AutoPostService {
         $cb        = (new CreatorBrandModel())->get_for_user($creator_id);
         $use_brand = !empty($rule['use_brand']);
         $ai_assist = !isset($rule['ai_assist']) || (int) $rule['ai_assist'] === 1;
-        // The scene this run shows. The image and the caption must describe the SAME picture, so both come from it
-        // (the topic can list several ideas; letting each AI call pick its own is how a beach photo got a rooftop caption).
-        $scene     = $topic;
+        // The scene this run shows: ONE line of the saved prompt, exactly as typed. The image and the caption both use
+        // it, so they describe the same picture. Lines that apply to every photo go with it; caption rules go to the caption.
+        $parts     = AutomationPrompt::split($topic);
+        list($scene, $history) = AutomationPrompt::pick($parts['scenes'], $rule['scene_history'] ?? '');
+        // Scene first: the image model weighs the start of the prompt most, and the pose and expression live there.
+        $image_brief = trim($scene . ' ' . implode(' ', $parts['shared']));
+        if ($image_brief === '') { return self::fail(null, 'This automation has no scene to generate from.'); }
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 
         // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
         $asset_id = 0;
         if (($rule['image_source'] ?? 'brand') === 'influencer') {
-            $ir = InfluencerJobService::run_for_rule($rule, $user, $topic, $size);
+            $ir = InfluencerJobService::run_for_rule($rule, $user, $image_brief, $size);
             if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
             $asset_id = (int) $ir['asset_id'];
-            if (!empty($ir['scene'])) { $scene = (string) $ir['scene']; }   // the brief that was actually rendered
             $gen = array('ok' => true);
         } else {
             $pay = Plan::charge_ai($user, 'image', 'Automation image: ' . mb_substr($topic, 0, 60));
             if (empty($pay['ok'])) { return self::fail(null, $pay['message']); }
-            if ($ai_assist) { $scene = BrandService::pick_scene($topic); }
-            $prompt = $use_brand ? BrandService::image_prompt($scene, $cb) : $scene;
+            $prompt = $use_brand ? BrandService::image_prompt($image_brief, $cb) : $image_brief;
+            error_log('[automation] rule ' . (int) ($rule['id'] ?? 0) . ' image prompt: ' . $prompt);
             $gen = ImageGenService::generate($prompt, $size);
             if (empty($gen['ok'])) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image failed'); }
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
+        if ((int) ($rule['id'] ?? 0) > 0) { (new SchedulerRulesModel())->set_scene_history((int) $rule['id'], $history); }
 
         // 2) Ingest the bytes as a vault asset (mirrors media_generateAction). An influencer run has already landed its asset.
         if ($asset_id <= 0) {
@@ -64,12 +68,13 @@ class AutoPostService {
         $media->set_ready($creator_id, $asset_id, $r);
         }
 
-        // 3) Caption (AI; fall back to the topic if the model is unavailable).
+        // 3) Caption: AI, written from the scene line and held to the creator's caption rules, then cleaned in code
+        // (lowercase, no em dashes, one emoji at most) so the house style never depends on the model obeying.
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
-        $caption   = $ai_assist ? BrandService::caption_for($scene, $use_brand ? $cb : array(), $style)
-                                : ($fixed !== '' ? $fixed : $topic);
-        if ($caption === '') { $caption = $fixed !== '' ? $fixed : $topic; }   // never publish the image brief as a caption
+        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption']))
+                                : $fixed;
+        if ($caption === '') { $caption = $fixed; }   // never publish the saved prompt as a caption
 
         // 4) Create the post.
         $audience = (($rule['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';

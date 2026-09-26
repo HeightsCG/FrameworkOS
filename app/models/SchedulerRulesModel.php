@@ -147,6 +147,11 @@ class SchedulerRulesModel extends Model {
             'id = :id AND next_run_at = :seen', array('id' => (int) $id, 'seen' => (string) $seen_next_run_at)) > 0;
     }
 
+    /** Hashes of the scene lines recent runs used (AutomationPrompt::pick), so runs cycle through the list. */
+    public function set_scene_history($id, $history){
+        return parent::update('scheduler_rules', array('scene_history' => (string) $history), 'id = :id', array('id' => (int) $id));
+    }
+
     public function set_last_run($id, $status){
         return parent::update('scheduler_rules',
             array('last_run_at' => date('Y-m-d H:i:s'), 'last_status' => (string) $status, 'updated_at' => date('Y-m-d H:i:s')),

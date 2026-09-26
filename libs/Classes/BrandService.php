@@ -29,29 +29,10 @@ class BrandService {
     }
 
     /**
-     * Pick ONE concrete photo from an automation's scene description (which often lists several places, activities
-     * or props). The image prompt and the caption both use this, so they always describe the same picture.
-     * Falls back to the description itself when the AI is unavailable.
-     */
-    public static function pick_scene($topic): string {
-        $topic = trim((string) $topic);
-        if ($topic === '' || !ClaudeService::configured()) { return $topic; }
-        $pick = random_int(1, 6);
-        $system = "You turn a creator's description of their automated posts into ONE brief for ONE photo. "
-                . "When the description lists several places, activities, subjects or props, use option number {$pick} from each list, counting from 1 and wrapping around if a list is shorter. "
-                . "Describe what the photo shows in 15 to 40 words: the subject, the setting and what is happening. "
-                . "No camera jargon, no text overlays, no caption or hashtag instructions. Output only the brief: no quotes, no preamble.";
-        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $topic)), 200, 25, 'low');
-        if (empty($res['ok'])) { return $topic; }
-        $scene = trim(trim(preg_replace('/\s+/', ' ', (string) $res['text'])), "\"'“” ");
-        return ($scene !== '' && mb_strlen($scene) <= 400) ? $scene : $topic;
-    }
-
-    /**
      * Write a short social caption for a topic, in the creator's brand voice. Returns the
      * caption string, or '' on any failure (caller can fall back to the topic).
      */
-    public static function caption_for($topic, array $cb, $style = ''){
+    public static function caption_for($topic, array $cb, $style = '', array $rules = array()){
         $key = (string) Main::config('global', 'anthropic_api_key');
         if ($key === '') { $key = (string) Main::config('global', 'claude_api_key'); }
         if ($key === '' || trim((string) $topic) === '') { return ''; }
@@ -66,7 +47,9 @@ class BrandService {
             . "no hashtags unless they feel natural. " . ($style === 'tease'
                 ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
                 : '')
-            . "Respond with ONLY the caption text — no quotes, no preamble.";
+            . (empty($rules) ? '' : "The creator's own caption rules follow. They override every rule above; obey them exactly:\n" . implode("\n", $rules) . "\n")
+            . "Respond with ONLY the caption text: no quotes, no preamble.";
+        error_log('[caption] prompt: ' . $prompt);
 
         // Shared client: it returns the first TEXT block, so a leading thinking block on
         // current models no longer yields an empty caption.
