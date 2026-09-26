@@ -13,6 +13,18 @@
  */
 class McpTools {
 
+    /** Event tool input → model fields: a valid time zone, reminders as the stored CSV, and the one-line location kept in step with the address. */
+    private static function event_fields(array $a, array $current = array()): array {
+        if (array_key_exists('timezone', $a)) { $a['timezone'] = EventsModel::clean_timezone($a['timezone'], 'UTC'); }
+        if (array_key_exists('reminders', $a)) { $a['reminders'] = implode(',', EventsModel::clean_reminders($a['reminders'])); }
+        $keys = array('venue_name', 'street', 'city', 'region', 'postal_code');
+        $sent = array_intersect_key($a, array_flip($keys));
+        if (!empty($sent) && !array_key_exists('location', $a)) {   // partial update: rebuild from the saved address plus what changed
+            $a['location'] = EventsModel::address_line(array_merge(array_intersect_key($current, array_flip($keys)), $sent));
+        }
+        return $a;
+    }
+
     public static function definitions(){
         $none = array('type' => 'object', 'properties' => new stdClass(), 'required' => array());
         $id   = array('type' => 'object', 'properties' => array('id' => array('type' => 'integer')), 'required' => array('id'));
@@ -121,7 +133,14 @@ class McpTools {
                 'start_at' => array('type' => 'string', 'description' => 'UTC datetime'), 'end_at' => array('type' => 'string'),
                 'timezone' => array('type' => 'string'), 'access_type' => array('type' => 'string'),
                 'price_credits' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
-                'location' => array('type' => 'string'), 'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
+                'location' => array('type' => 'string'), 'external_url' => array('type' => 'string', 'description' => 'Meeting link for virtual events (only emailed to attendees)'),
+                'access_instructions' => array('type' => 'string'), 'tier_id' => array('type' => 'integer'),
+                'format' => array('type' => 'string', 'enum' => array('virtual', 'in_person')),
+                'venue_name' => array('type' => 'string'), 'street' => array('type' => 'string'), 'city' => array('type' => 'string'),
+                'region' => array('type' => 'string', 'description' => 'State / region'), 'postal_code' => array('type' => 'string'),
+                'reminders' => array('type' => 'array', 'items' => array('type' => 'integer', 'enum' => array(10080, 1440, 180, 60, 15)),
+                    'description' => 'Reminder emails to attendees, in minutes before the start (10080 = 1 week, 1440 = 1 day, 180 = 3 hours, 60 = 1 hour, 15 = 15 minutes). [] = none. New events default to [1440].'),
+                'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
             )));
         $t[] = array('name' => 'update_event', 'description' => 'Update an event (send id plus only the fields to change).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
@@ -134,6 +153,11 @@ class McpTools {
                 'tier_id' => array('type' => 'integer'), 'capacity' => array('type' => 'integer'),
                 'location' => array('type' => 'string'), 'external_url' => array('type' => 'string'),
                 'access_instructions' => array('type' => 'string'),
+                'format' => array('type' => 'string', 'enum' => array('virtual', 'in_person')),
+                'venue_name' => array('type' => 'string'), 'street' => array('type' => 'string'), 'city' => array('type' => 'string'),
+                'region' => array('type' => 'string', 'description' => 'State / region'), 'postal_code' => array('type' => 'string'),
+                'reminders' => array('type' => 'array', 'items' => array('type' => 'integer', 'enum' => array(10080, 1440, 180, 60, 15)),
+                    'description' => 'Reminder emails to attendees, in minutes before the start (10080 = 1 week, 1440 = 1 day, 180 = 3 hours, 60 = 1 hour, 15 = 15 minutes). [] = none. New events default to [1440].'),
                 'status' => array('type' => 'string', 'enum' => array('draft', 'published', 'canceled')),
             )));
         $t[] = array('name' => 'delete_event', 'description' => 'Delete an event.', 'inputSchema' => $id);
@@ -506,9 +530,12 @@ class McpTools {
                     throw new InvalidArgumentException('title and start_at are required');
                 }
                 $a += array('access_type' => 'free', 'status' => 'draft'); // fields the model reads unguarded
-                return array('id' => (int) (new EventsModel())->create($cid, $a));
+                return array('id' => (int) (new EventsModel())->create($cid, self::event_fields($a)));
             }
-            case 'update_event': return $ok((new EventsModel())->update_event($cid, $iid, $a));
+            case 'update_event': {
+                $em = new EventsModel();
+                return $ok($em->update_event($cid, $iid, self::event_fields($a, (array) $em->get_one($cid, $iid))));
+            }
             case 'delete_event': return $ok((new EventsModel())->delete_event($cid, $iid));
 
             // Services

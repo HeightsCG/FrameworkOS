@@ -228,6 +228,8 @@ class ProfileController extends Controller {
                 || ($fe_access === 'subscribers' && !empty($subscribed_plan_ids))
                 || ($fe_access === 'tier' && in_array((int) $row['tier_id'], array_map('intval', (array) $subscribed_plan_ids), true));
             $focus_event['is_live'] = ((string) $row['status'] === 'published');
+            $mine = ($viewer_logged_in && !empty($focus_event['registered'])) ? $eventsModel->going_registration((int) $row['id'], $viewer_id) : null;
+            $focus_event['my_paid'] = $mine ? (int) $mine['price_credits'] : 0;   // shown in the cancel dialog (refunded before the start)
         }
 
         // Published events this creator is hosting (PRD §23). Access details (venue,

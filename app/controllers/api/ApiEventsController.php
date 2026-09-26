@@ -144,8 +144,7 @@ class ApiEventsController extends BaseApiController {
         $model = new EventsModel();
         $ev = $model->get_public((int) ($this->post['event_id'] ?? 0));
         if (!$ev) { $this->jsonError('Event not found'); }
-        $reg = null;
-        foreach ($model->attendees((int) $ev['id']) as $a) { if ((int) $a['user_id'] === $me && $a['status'] === 'registered') { $reg = $a; break; } }
+        $reg = $model->going_registration((int) $ev['id'], $me);
         if (!$reg) { $this->jsonSuccess(['refunded' => 0]); }
         $before_start = strtotime((string) $ev['start_at'] . ' UTC') > time();
         if ($before_start && (int) $reg['price_credits'] > 0) {

@@ -251,7 +251,7 @@ $in_app     = !empty($viewer_logged_in);
                                 <p class="pe-status">This event has ended.</p>
                                 <?php elseif ($fe_state === 'registered'): ?>
                                 <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
-                                <p class="pe-card__sub">See you there.</p>
+                                <button type="button" class="pe-cancel" data-ev-cancel="<?php echo (int) $fe['id']; ?>" data-paid="<?php echo (int) ($fe['my_paid'] ?? 0); ?>">Cancel Registration</button>
                                 <?php elseif ($fe_state === 'full'): ?>
                                 <p class="pe-status">This event is full.</p>
                                 <?php elseif ($fe_state === 'signin'): ?>
@@ -650,6 +650,27 @@ $in_app     = !empty($viewer_logged_in);
                 });
             };
         });
+        // Cancel my registration (event page). Before the start a paid ticket is refunded to the wallet.
+        document.querySelectorAll('[data-ev-cancel]').forEach(function (b) {
+            b.onclick = function () {
+                var paid = parseInt(b.getAttribute('data-paid'), 10) || 0;
+                var text = paid > 0 ? '$' + (paid / 10).toFixed(2) + ' goes back to your wallet and your spot is released.' : 'Your spot is released for someone else.';
+                var go = function () {
+                    b.disabled = true; b.textContent = 'Canceling…';
+                    ApiDataSvc.apiCall('post', 'event_cancel', { event_id: b.getAttribute('data-ev-cancel') }, function (resp) {
+                        var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                        if (!o || !o.success) { b.disabled = false; b.textContent = 'Cancel Registration'; pfToast((o && o.message) || 'Could not cancel'); return; }
+                        pfToast(o.refunded > 0 ? 'Registration canceled. $' + (o.refunded / 10).toFixed(2) + ' refunded.' : 'Registration canceled.');
+                        setTimeout(function () { window.location.reload(); }, 900);
+                    });
+                };
+                if (!window.Swal) { if (window.confirm('Cancel your registration? ' + text)) { go(); } return; }
+                Swal.fire({ title: 'Cancel your registration?', text: text, showCancelButton: true, reverseButtons: true, focusCancel: true,
+                    confirmButtonText: 'Cancel Registration', cancelButtonText: 'Keep My Spot', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
+                    .then(function (r) { if (r.isConfirmed) { go(); } });
+            };
+        });
+
         function revealEventAccess(btn, ax) {
             var card = btn.closest('.pf-ev');
             if (!card) { return; }

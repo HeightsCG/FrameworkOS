@@ -301,6 +301,13 @@ class EventsModel extends Model {
         return $out;
     }
 
+    /** This user's live registration for an event, or null. */
+    public function going_registration($event_id, $user_id){
+        $r = parent::select("SELECT * FROM event_registrations WHERE event_id = :e AND user_id = :u AND status = 'registered' LIMIT 1",
+            array('e' => (int) $event_id, 'u' => (int) $user_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
     public function registration($event_id, $reg_id){
         $r = parent::select("SELECT * FROM event_registrations WHERE id = :id AND event_id = :e", array('id' => (int) $reg_id, 'e' => (int) $event_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;

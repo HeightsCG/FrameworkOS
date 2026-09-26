@@ -502,6 +502,10 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
 .pe-btn:disabled{ opacity:.7; cursor:default; }
 .pe-status{ display:flex; align-items:center; justify-content:center; gap:8px; min-height:50px; margin:0; padding:12px; border-radius:8px; background:#F4F3F6; font-size:15px; font-weight:600; color:#4b4957; text-align:center; }
 .pe-status--ok{ background:#e7f6ee; color:#1a7a4a; }
+.pe-cancel{ display:block; margin:12px auto 0; padding:4px 8px; border:0; background:none; font-size:14px; font-weight:500; color:#6f6c7b; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.pe-cancel:hover{ color:#b1493f; }
+.pe-cancel:disabled{ opacity:.6; cursor:default; }
+.pe-cancel:focus-visible{ outline:2px solid #FF6A13; outline-offset:2px; border-radius:4px; }
 @media (max-width:900px){
     .pf--event .pf-container{ padding-top:16px; }
     .pe-hero{ padding:20px; gap:18px; align-items:flex-start; }
