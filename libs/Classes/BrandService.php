@@ -15,16 +15,13 @@ class BrandService {
      * generation prompt. Shared by the Studio "Generate Image" flow and the Scheduler.
      */
     public static function image_prompt($prompt, array $cb){
+        // The creator's prompt as typed, then their own brand kit (only when they left Use Brand on). No house style.
         $style = array();
         if (!empty($cb['voice']))    { $style[] = 'mood and tone: ' . $cb['voice']; }
         if (!empty($cb['keywords'])) { $style[] = 'themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)); }
         if (!empty($cb['colors']))   { $style[] = 'colour palette: ' . implode(', ', array_slice((array) $cb['colors'], 0, 5)); }
-        $name  = !empty($cb['brand_name']) ? (' for the brand "' . $cb['brand_name'] . '"') : '';
-
-        $guide  = rtrim(trim((string) $prompt), '.') . '.';
-        $guide .= ' Photorealistic professional photograph, natural lighting, sharp focus, rich detail, editorial quality' . $name . '.';
-        if ($style) { $guide .= ' ' . ucfirst(implode('; ', $style)) . '.'; }
-        $guide .= ' No text, logos or watermarks.';
+        $guide = trim((string) $prompt);
+        if ($style) { $guide = rtrim($guide, '. ') . '. ' . ucfirst(implode('; ', $style)) . '.'; }
         return $guide;
     }
 

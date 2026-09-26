@@ -368,8 +368,6 @@ class InfluencerJobService {
      */
     const QUALITY_REROLLS = 2;
     const BLANK_REROLLS   = 3;
-    /** Appended to the prompt from the second blank re-roll on: steers the render away from what fal's classifier blanks. */
-    const SOFTEN = ', fully clothed, nothing exposed, tasteful editorial photo';
 
     private static function reroll_or_fail($job, InfluencerJobsModel $m, $why, $kind = 'blank', $max = 1){
         if (!$job) { return self::out('failed', true, null, (string) $why); }
@@ -386,12 +384,9 @@ class InfluencerJobService {
                 'result_json' => json_encode($result), 'attempts_json' => json_encode($attempts),
                 'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
                 'poll_count' => 0, 'deadline_at' => null, 'error' => null, 'error_code' => null);
-            // A second blank: the seed alone was not enough, soften the wording as well (kept on the job so it shows in the history).
-            if ($kind === 'blank' && $rerolls >= 1 && strpos((string) $job['prompt'], self::SOFTEN) === false) {
-                $data['prompt'] = mb_substr((string) $job['prompt'], 0, 1900) . self::SOFTEN;
-            }
+            // Only the seed changes: the creator's prompt is never reworded.
             $n = $m->transition($job['id'], 'landing', $data);
-            if ($n === 1) { return self::out('queued', false, 0, $kind . ' render, re-rolling with a new seed' . (isset($data['prompt']) ? ' and softer wording' : '')); }
+            if ($n === 1) { return self::out('queued', false, 0, $kind . ' render, re-rolling with a new seed'); }
         }
         $why = rtrim((string) $why); if ($why !== '' && !preg_match('/[.!?]$/', $why)) { $why .= '.'; }
         return self::fail_job($job, $m, 'landing', $kind, $why . ($kind === 'blank' ? ' Try a different prompt or a less revealing scene.' : ' Try a simpler pose or a different scene.'));
@@ -603,7 +598,7 @@ class InfluencerJobService {
     /**
      * Scheduler entry: render one image of the rule's influencer for $topic and drive the job
      * inline (same state machine as the queue). Returns ['ok', 'asset_id', 'job_id', 'error'].
-     * The prompt is the trigger word + the influencer's prompt defaults + the scene; nothing else.
+     * The prompt is the trigger word + the influencer's prompt defaults + the scene as typed; nothing else.
      */
     public static function run_for_rule(array $rule, array $user, $topic, $size){
         $cid = (int) ($user['user_id'] ?? 0);
@@ -625,9 +620,8 @@ class InfluencerJobService {
         $scene    = trim((string) $topic);
         $trigger  = (string) $model['trigger_word'];
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
-        // The model only draws the trained person when the prompt names them: lead with "photo of a woman/man" unless it already does.
-        $noun = InfluencerService::noun($infl);
-        if ($scene !== '' && !preg_match('/\\b(wo)?m[ae]n\\b/i', $defaults . ' ' . $scene)) { $scene = 'photo of a ' . $noun . ', ' . $scene; }
+        // The creator's words go to the model as written: only the trigger word (the model's ID token) and the
+        // influencer's own saved prompt defaults are added, the same as a hand-made render.
         // The trigger word goes first unless the defaults or the scene already carry it.
         $parts = array((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger : '', $defaults, $scene);
         $prompt = trim(implode(' ', array_filter($parts, 'strlen')));
