@@ -23,7 +23,7 @@ class AutoPostService {
         $parts     = AutomationPrompt::split($topic);
         list($scene, $history) = AutomationPrompt::pick($parts['scenes'], $rule['scene_history'] ?? '');
         // Scene first: the image model weighs the start of the prompt most, and the pose and expression live there.
-        $image_brief = trim($scene . ' ' . implode(' ', $parts['shared']));
+        $image_brief = trim(rtrim($scene, " .") . (empty($parts['shared']) ? '' : '. ' . implode(' ', $parts['shared'])));
         if ($image_brief === '') { return self::fail(null, 'This automation has no scene to generate from.'); }
         $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
 

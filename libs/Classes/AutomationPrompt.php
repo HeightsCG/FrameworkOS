@@ -2,42 +2,50 @@
 /**
  * Reads an automation's saved prompt (scheduler_rules.topic) without rewriting it.
  *
- * The prompt is usually a list of scene lines plus some lines that apply to every image and some caption rules.
- * split() sorts the LINES into those three groups (Claude answers with line numbers only, never text, so it cannot
- * reword anything); pick() chooses one scene line in code. Every line reaches the image model and the caption model
- * exactly as the creator typed it.
+ * Creators write it two ways: one line per scene, or one paragraph ("…rules… look… Scenes: a; b; c"). segments()
+ * cuts either into pieces (lines, the items of a "Scenes:" list, the sentences of a long paragraph) and every piece
+ * is sorted into scenes / shared (applies to every photo) / caption rules / directions (instructions to the
+ * automation itself, which no model should draw). Claude only answers with piece numbers, never text, so nothing is
+ * reworded; pick() chooses one scene in code. Every piece reaches the image model and the caption model as typed.
  */
 class AutomationPrompt {
 
     /** How many recently used scene lines to remember per automation (scheduler_rules.scene_history). */
     const HISTORY = 50;
 
-    /** ['scenes' => [line], 'shared' => [line], 'caption' => [line]], every entry verbatim from $topic. */
-    public static function split($topic): array {
-        $lines = array();
-        foreach (preg_split('/\R/u', (string) $topic) as $l) { if (trim($l) !== '') { $lines[] = trim($l); } }
-        $out = array('scenes' => array(), 'shared' => array(), 'caption' => array());
-        if (count($lines) <= 1) { $out['scenes'] = $lines; return $out; }   // one line: that is the scene
+    /** A line longer than this is a paragraph: it is cut into sentences so rules and look can be told apart. */
+    const PARAGRAPH = 300;
 
-        $groups = self::classify($lines) ?? self::classify_plain($lines);
-        foreach ($groups as $key => $idx) {
-            foreach ($idx as $i) { $out[$key][] = self::strip_marker($lines[$i]); }
+    /** ['scenes' => [text], 'shared' => [text], 'caption' => [text]], every entry verbatim from $topic. */
+    public static function split($topic): array {
+        $out  = array('scenes' => array(), 'shared' => array(), 'caption' => array());
+        $segs = self::segments($topic);
+        if (count($segs) <= 1) { foreach ($segs as $s) { $out['scenes'][] = $s['text']; } return $out; }   // one piece: that is the scene
+
+        // Items of a "Scenes:" list are scenes by construction; only the other pieces need sorting.
+        $open = array();
+        foreach ($segs as $i => $s) { if ($s['scene']) { $out['scenes'][] = $s['text']; } else { $open[] = $s['text']; } }
+        if (!empty($open)) {
+            $groups = (count($open) === 1 && !empty($out['scenes'])) ? array('shared' => array(0)) : (self::classify($open, !empty($out['scenes'])) ?? self::classify_plain($open));
+            foreach (array('scenes', 'shared', 'caption') as $key) {
+                foreach ((array) ($groups[$key] ?? array()) as $i) { $out[$key][] = $open[$i]; }
+            }
         }
-        // No list of alternatives: the image lines together are the one scene.
+        // No list of alternatives: the image pieces together are the one scene.
         if (empty($out['scenes']) && !empty($out['shared'])) { $out['scenes'] = array(implode(' ', $out['shared'])); $out['shared'] = array(); }
         return $out;
     }
 
     /**
-     * One scene line, chosen at random from the lines this automation has not used recently (all of them once every
-     * line has been used). $history is the rule's scene_history; returns [line, new history].
+     * One scene, chosen at random from the ones this automation has not used recently (all of them once every scene
+     * has been used). $history is the rule's scene_history; returns [scene, new history].
      */
     public static function pick(array $scenes, $history): array {
         if (empty($scenes)) { return array('', (string) $history); }
         $used = json_decode((string) $history, true);
         $used = is_array($used) ? $used : array();
         $fresh = array_values(array_filter($scenes, function ($s) use ($used) { return !in_array(md5($s), $used, true); }));
-        if (empty($fresh)) {   // every line used: start a new cycle, but never repeat the line that ran last
+        if (empty($fresh)) {   // every scene used: start a new cycle, but never repeat the one that ran last
             $last = end($used);
             $fresh = array_values(array_filter($scenes, function ($s) use ($last) { return md5($s) !== $last; }));
             $used = array();
@@ -66,55 +74,96 @@ class AutomationPrompt {
     /** One emoji as a reader sees it: ZWJ sequences, skin tones, variation selectors and flags count once. */
     const EMOJI = '/(?:\p{Extended_Pictographic}[\x{FE0F}\x{1F3FB}-\x{1F3FF}]*(?:\x{200D}\p{Extended_Pictographic}[\x{FE0F}\x{1F3FB}-\x{1F3FF}]*)*|[\x{1F1E6}-\x{1F1FF}]{2}|[0-9#*]\x{FE0F}?\x{20E3})/u';
 
-    /** Claude sorts the numbered lines; null when it is unavailable or answers with anything unusable. */
-    private static function classify(array $lines) {
+    /**
+     * The prompt cut into pieces, in order: [['text' => string, 'scene' => bool]]. 'scene' is true for the items of a
+     * "Scenes:" list (inline "Scenes: a; b; c", or the lines under a "Scenes:" heading line).
+     */
+    public static function segments($topic): array {
+        $out = array();
+        $under_scenes = false;
+        foreach (preg_split('/\R/u', (string) $topic) as $line) {
+            $line = trim($line);
+            if ($line === '') { continue; }
+            if (self::is_heading($line)) { $under_scenes = (bool) preg_match('/^(scenes?|shots?|poses?|options?)\b/i', $line); continue; }
+            // "…text… Scenes: a; b; c" — the list after the label, one scene per item.
+            if (preg_match('/^(.*?)(?:^|[\s.])(?:scenes?|shots?|poses?)\s*:\s*(.+)$/isu', $line, $m) && substr_count($m[2], ';') >= 1) {
+                foreach (self::sentences($m[1]) as $t) { $out[] = array('text' => $t, 'scene' => false); }
+                foreach (explode(';', $m[2]) as $t) { $t = self::tidy($t); if ($t !== '') { $out[] = array('text' => $t, 'scene' => true); } }
+                $under_scenes = false;
+                continue;
+            }
+            if ($under_scenes) { $out[] = array('text' => self::tidy($line), 'scene' => true); continue; }
+            foreach ((mb_strlen($line) > self::PARAGRAPH ? self::sentences($line) : array($line)) as $t) { $out[] = array('text' => self::tidy($t), 'scene' => false); }
+        }
+        return array_values(array_filter($out, function ($s) { return $s['text'] !== ''; }));
+    }
+
+    /** A paragraph's sentences, each as typed. Splits after . ! ? only when the next sentence starts with a capital or a quote. */
+    private static function sentences($text): array {
+        $text = trim((string) $text);
+        if ($text === '') { return array(); }
+        $parts = preg_split('/(?<=[.!?])\s+(?=[\p{Lu}"“])/u', $text);
+        return array_values(array_filter(array_map('trim', $parts), 'strlen'));
+    }
+
+    /** Claude sorts the numbered pieces; null when it is unavailable or answers with anything unusable. */
+    private static function classify(array $pieces, $has_scene_list = false) {
         if (!ClaudeService::configured()) { return null; }
         $numbered = '';
-        foreach ($lines as $i => $l) { $numbered .= ($i + 1) . ': ' . $l . "\n"; }
+        foreach ($pieces as $i => $p) { $numbered .= ($i + 1) . ': ' . $p . "\n"; }
         $system = "A creator wrote instructions for an automation that posts one AI photo with a caption on each run. "
-                . "Sort their numbered lines into three groups:\n"
-                . "scenes: lines that each describe one alternative photo (one option per run).\n"
-                . "shared: lines about the photo that apply to every run (the person, look, style, lighting), and section headings about the photos.\n"
-                . "caption: lines about the caption or text of the post (tone, case, punctuation, emoji, hashtags, length), and their headings.\n"
-                . "Every line number goes in exactly one group. Reply with JSON only, numbers only, like {\"scenes\":[2,3],\"shared\":[1],\"caption\":[4]}.";
-        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $numbered)), 300, 25, 'low');
+                . "Sort their numbered pieces into four groups:\n"
+                . ($has_scene_list
+                    ? "scenes: leave empty; the scene options are listed separately.\n"
+                    : "scenes: pieces that each describe one alternative photo (one option per run).\n")
+                . "shared: descriptions of the photo that apply to every run (the person, body, outfit, setting, light, style), and headings about the photos.\n"
+                . "caption: anything about the caption or text of the post (voice, tone, case, punctuation, emoji, hashtags, length), and its headings.\n"
+                . "directions: instructions or rules addressed to the automation or the AI rather than descriptions of the picture: how to pick or cycle scenes, and rules about how to follow the scene lines (\"HEAD RULE: …\", \"follow…\", \"when it says…\", \"must not…\", \"do not add…\"). A sentence that continues a rule belongs to the same group as the rule.\n"
+                . "Every number goes in exactly one group. Reply with JSON only, numbers only, like {\"scenes\":[2,3],\"shared\":[1],\"caption\":[4],\"directions\":[5]}.";
+        $res = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $numbered)), 400, 25, 'low');
         if (empty($res['ok']) || !preg_match('/\{.*\}/s', (string) $res['text'], $m)) { return null; }
         $d = json_decode($m[0], true);
         if (!is_array($d)) { return null; }
-        $out = array('scenes' => array(), 'shared' => array(), 'caption' => array());
+        $out = array('scenes' => array(), 'shared' => array(), 'caption' => array(), 'directions' => array());
         $taken = array();
         foreach ($out as $key => $_) {
+            if ($key === 'scenes' && $has_scene_list) { continue; }
             foreach ((array) ($d[$key] ?? array()) as $n) {
                 $i = (int) $n - 1;
-                if ($i >= 0 && $i < count($lines) && !isset($taken[$i])) { $out[$key][] = $i; $taken[$i] = true; }
+                if ($i >= 0 && $i < count($pieces) && !isset($taken[$i])) { $out[$key][] = $i; $taken[$i] = true; }
             }
         }
-        foreach ($lines as $i => $_) { if (!isset($taken[$i])) { $out['shared'][] = $i; } }   // anything left out still reaches the image
-        foreach ($out as $key => $idx) { sort($out[$key]); }
-        // Headings ("Scenes:", "Caption rules:") are not content.
-        foreach ($out as $key => $idx) { $out[$key] = array_values(array_filter($idx, function ($i) use ($lines) { return !self::is_heading($lines[$i]); })); }
+        foreach ($pieces as $i => $_) { if (!isset($taken[$i])) { $out['shared'][] = $i; } }   // anything left out still reaches the image
+        // A rule about the scene lines is never drawn: the image model would take "face", "camera" and "looking" as content.
+        foreach ($out['shared'] as $k => $i) {
+            if (preg_match(self::DIRECTION, $pieces[$i])) { $out['directions'][] = $i; unset($out['shared'][$k]); }
+        }
+        foreach ($out as $key => $idx) { $out[$key] = array_values($idx); sort($out[$key]); }
         return $out;
     }
 
-    /** No AI: list items are scenes, lines under a caption heading or about captions are caption rules, the rest is shared. */
-    private static function classify_plain(array $lines): array {
-        $out = array('scenes' => array(), 'shared' => array(), 'caption' => array());
-        $section = '';
-        foreach ($lines as $i => $l) {
-            if (self::is_heading($l)) { $section = preg_match('/caption|text|copy/i', $l) ? 'caption' : ''; continue; }
-            if ($section === 'caption' || preg_match('/\b(captions?|hashtags?|emojis?|lowercase|em[ -]?dash(es)?)\b/i', $l)) { $out['caption'][] = $i; }
-            elseif (preg_match('/^\s*([-*•–]|\d+[.)])\s+/u', $l)) { $out['scenes'][] = $i; }
+    /** No AI: caption talk goes to the caption, instructions to the automation are dropped, list items are scenes, the rest is shared. */
+    private static function classify_plain(array $pieces): array {
+        $out = array('scenes' => array(), 'shared' => array(), 'caption' => array(), 'directions' => array());
+        foreach ($pieces as $i => $p) {
+            if (preg_match('/\b(captions?|hashtags?|emojis?|lowercase|capitali[sz]e|em[ -]?dash(es)?)\b/i', $p)) { $out['caption'][] = $i; }
+            elseif (preg_match(self::DIRECTION, $p)) { $out['directions'][] = $i; }
+            elseif (preg_match('/^\s*([-*•–]|\d+[.)])\s+/u', $p)) { $out['scenes'][] = $i; }
             else { $out['shared'][] = $i; }
         }
         return $out;
     }
 
+    /** Wording that only ever appears in instructions to the automation, never in a description of the picture. */
+    const DIRECTION = '/\b(each run|every run|pick one|cycle through|before repeating|scene lines?|follow the|when it says|must not|must be|do not add|[A-Z]{3,} RULE)\b/u';
+
     private static function is_heading($l): bool {
         return (bool) preg_match('/^[\p{L}\p{N} \/&\'()-]{1,40}:$/u', trim($l));
     }
 
-    /** "- beach at sunset" → "beach at sunset". Only the list marker goes; the words stay as typed. */
-    private static function strip_marker($l): string {
-        return trim(preg_replace('/^\s*([-*•–]|\d+[.)])\s+/u', '', $l));
+    /** Only a list marker or the separator's leftovers go ("- beach at sunset;" → "beach at sunset"); the words stay as typed. */
+    private static function tidy($t): string {
+        $t = trim(preg_replace('/^\s*([-*•–]|\d+[.)])\s+/u', '', (string) $t));
+        return trim(rtrim($t, ';'));
     }
 }
