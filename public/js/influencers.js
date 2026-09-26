@@ -168,7 +168,7 @@ jQuery(function ($) {
             $c.append('<div class="inf-card__media">' + media + '</div>');
             $c.append('<div class="inf-card__body"><span class="inf-card__name">' + esc(inf.name) + '</span>' + (inf.locked ? '<span class="inf-state inf-state--locked"><i class="fa-solid fa-lock"></i> Locked</span>' : state_pill(inf)) + '</div>');
             var menu = '<div class="dropdown">' +
-                '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
+                '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
                 (ready ? '<li><a class="dropdown-item" href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard"></i> Generate Video</a></li>' +
