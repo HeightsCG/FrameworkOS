@@ -61,6 +61,7 @@
                     'applicationCategory' => 'BusinessApplication',
                     'operatingSystem' => 'Web',
                     'url' => $seo_base_raw . '/',
+                    'image' => SeoMeta::default_image(),
                     'description' => 'A creator platform: one public page at your handle with content, memberships, pay-per-view posts, content bundles, events, services, and tracked links. Publish, schedule, or automate posts; fans pay with credits; creators cash earnings out to their bank.',
                     'offers' => PagesController::plan_offers(),
                 ],

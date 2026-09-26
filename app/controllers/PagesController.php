@@ -235,8 +235,7 @@ class PagesController extends Controller {
             array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
         );
         $jsonld = array(
-            // Google's product snippets need offers (or a review/rating, which we don't have): the plan prices, same as /pricing.
-            array('@type' => 'Product', 'name' => Main::site_name(), 'description' => 'Creator platform with memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/features', 'offers' => self::product_offers()),
+            self::software_app('/features', Main::site_name(), 'Creator platform with memberships, pay-per-view, events, services, links, cross-posting and payouts.'),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
@@ -287,11 +286,8 @@ class PagesController extends Controller {
         $faq = array_merge($faq, array(
             array('q' => 'Are there payment processing fees on top?', 'a' => 'Card processing fees apply to card payments as with any platform; they are separate from the take rate.'),
         ));
-        $offers = self::product_offers();
-        $product = array('@type' => 'Product', 'name' => Main::site_name() . ' plans', 'brand' => SeoMeta::org(), 'url' => SeoMeta::base() . '/pricing');
-        if (!empty($offers)) { $product['offers'] = $offers; }
         $jsonld = array(
-            $product,
+            self::software_app('/pricing', Main::site_name() . ' plans', self::pricing_meta()),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Pricing', 'url' => '/pricing'))),
         );
@@ -313,13 +309,21 @@ class PagesController extends Controller {
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
-    public static function product_offers(): array {
-        $offers = array();
-        foreach (self::plan_offers() as $o) { $offers[] = $o + array('availability' => 'https://schema.org/InStock'); }
-        return $offers;
+    /**
+     * The platform as a SoftwareApplication with the plan prices. Not Product: Google treats a Product with offers
+     * as a merchant listing and asks for shipping, returns and a Brand, none of which fit a subscription service.
+     * No review/aggregateRating until there are real ones to show.
+     */
+    public static function software_app(string $path, string $name, string $description): array {
+        $app = array('@type' => 'SoftwareApplication', 'name' => $name, 'description' => $description,
+            'applicationCategory' => 'BusinessApplication', 'operatingSystem' => 'Web',
+            'url' => SeoMeta::base() . $path, 'image' => SeoMeta::default_image(), 'publisher' => SeoMeta::org());
+        $offers = self::plan_offers();
+        if (!empty($offers)) { $app['offers'] = $offers; }
+        return $app;
     }
 
-    /** schema.org Offer rows for every plan and add-on (home SoftwareApplication + /pricing Product). */
+    /** schema.org Offer rows for every plan and add-on (home, /features and /pricing SoftwareApplication). */
     public static function plan_offers(): array {
         $offers = array();
         foreach (self::pricing_rows() as $r) {
