@@ -68,11 +68,11 @@ class AutoPostService {
         $media->set_ready($creator_id, $asset_id, $r);
         }
 
-        // 3) Caption: AI, written from the scene line and held to the creator's caption rules, then cleaned in code
-        // (lowercase, no em dashes, one emoji at most) so the house style never depends on the model obeying.
+        // 3) Caption: AI, written from the scene line. When the creator wrote caption instructions, those are the only
+        // instructions, and the formatting rules they state are also enforced in code after the model answers.
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
-        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption']))
+        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption']), $parts['caption'])
                                 : $fixed;
         if ($caption === '') { $caption = $fixed; }   // never publish the saved prompt as a caption
 

@@ -41,14 +41,22 @@ class BrandService {
         if (!empty($cb['brand_name'])) { $brand[] = 'Brand: ' . $cb['brand_name'] . '.'; }
         if (!empty($cb['voice']))      { $brand[] = 'Voice/tone: ' . $cb['voice']; }
         if (!empty($cb['keywords']))   { $brand[] = 'Themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 6)) . '.'; }
-        $prompt = "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
-            . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
-            . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
-            . "no hashtags unless they feel natural. " . ($style === 'tease'
-                ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
-                : '')
-            . (empty($rules) ? '' : "The creator's own caption rules follow. They override every rule above; obey them exactly:\n" . implode("\n", $rules) . "\n")
-            . "Respond with ONLY the caption text: no quotes, no preamble.";
+        if (!empty($rules)) {
+            // The creator wrote how their captions should read: those instructions are the only ones. No house tone,
+            // length, emoji or hashtag defaults are added on top of them.
+            $prompt = "Write the caption for a social media post. The photo shows: " . trim((string) $topic) . "\n"
+                . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
+                . "The creator's caption instructions, to follow exactly:\n" . implode("\n", $rules) . "\n"
+                . "Respond with ONLY the caption text: no quotes, no preamble.";
+        } else {
+            $prompt = "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
+                . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
+                . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
+                . "no hashtags unless they feel natural. " . ($style === 'tease'
+                    ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
+                    : '')
+                . "Respond with ONLY the caption text: no quotes, no preamble.";
+        }
         error_log('[caption] prompt: ' . $prompt);
 
         // Shared client: it returns the first TEXT block, so a leading thinking block on

@@ -56,16 +56,28 @@ class AutomationPrompt {
         return array($line, json_encode(array_slice($used, -self::HISTORY)));
     }
 
-    /** The saved caption house style, enforced in code: all lowercase, no em dashes, at most one emoji. */
-    public static function clean_caption($caption): string {
-        $s = mb_strtolower(trim((string) $caption), 'UTF-8');
-        $s = preg_replace('/\s*(—|\s–\s)\s*/u', ', ', $s);          // em dash (and a spaced en dash standing in for one)
-        $s = preg_replace('/,\s*([,.!?])/u', '$1', $s);               // "word, ." → "word."
-        $seen = false;
-        $s = preg_replace_callback(self::EMOJI, function ($m) use (&$seen) {
-            if ($seen) { return ''; }
-            $seen = true; return $m[0];
-        }, $s);
+    /**
+     * Enforce, in code, the formatting rules the creator's own caption instructions state, so they hold even when the
+     * model slips: lowercase, no em dashes, an emoji limit, no hashtags, no links. A rule nobody wrote is never applied.
+     */
+    public static function clean_caption($caption, array $rules = array()): string {
+        $s = trim((string) $caption);
+        $r = implode("\n", $rules);
+        if ($s === '' || trim($r) === '') { return $s; }
+        if (preg_match('/lower\s*-?\s*case/i', $r)) { $s = mb_strtolower($s, 'UTF-8'); }
+        if (preg_match('/em[\s-]?dash/i', $r)) {
+            $s = preg_replace('/\s*(—|\s–\s)\s*/u', ', ', $s);          // em dash (and a spaced en dash standing in for one)
+            $s = preg_replace('/,\s*([,.!?])/u', '$1', $s);
+        }
+        $max = null;
+        if (preg_match('/\bno\s+emojis?\b/i', $r)) { $max = 0; }
+        elseif (preg_match('/\b(one|1|single)\s+emoji|emojis?\s*(max|maximum|limit)\D{0,12}(one|1)\b|at\s+most\s+(one|1)\s+emoji/i', $r)) { $max = 1; }
+        if ($max !== null) {
+            $n = 0;
+            $s = preg_replace_callback(self::EMOJI, function ($m) use (&$n, $max) { return (++$n <= $max) ? $m[0] : ''; }, $s);
+        }
+        if (preg_match('/\bno\s+hashtags?\b/i', $r)) { $s = preg_replace('/(^|\s)#[\p{L}\p{N}_]+/u', '$1', $s); }
+        if (preg_match('/\bno\s+links?\b/i', $r))    { $s = preg_replace('#(https?://|www\.)\S+#iu', '', $s); }
         $s = preg_replace('/[ \t]{2,}/u', ' ', $s);
         $s = preg_replace('/ +([,.!?])/u', '$1', $s);
         return trim($s, " \t\n,");
