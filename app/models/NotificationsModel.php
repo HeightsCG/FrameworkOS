@@ -68,7 +68,7 @@ class NotificationsModel extends Model {
             $body_html .= $to !== '' ? '<a href="' . htmlspecialchars($to, ENT_QUOTES, 'UTF-8') . '" style="text-decoration:none;">' . $img . '</a>' : $img;
         }
         if (trim((string) $body) !== '') {
-            $body_html = '<p style="' . self::P . '">' . nl2br(htmlspecialchars((string) $body, ENT_QUOTES, 'UTF-8')) . '</p>';
+            $body_html .= '<p style="' . self::P . '">' . nl2br(htmlspecialchars((string) $body, ENT_QUOTES, 'UTF-8')) . '</p>';
         }
         $url       = self::absolute_url($link);
         $cta_label = $url !== '' ? 'View on ' . Main::site_name() : '';
