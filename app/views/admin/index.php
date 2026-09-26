@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/_rowmenu.php'; ?>
 <link rel="stylesheet" href="/css/admin.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/admin.css'); ?>">
 <?php
 $e   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
@@ -191,13 +192,11 @@ $last12 = array_slice($this->series, -12);
                     </div>
                     <div class="adm-ucell adm-ucell--muted">@<?php echo $e($rp['reporter_handle']); ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($rp['created_at'], true)); ?></div>
-                    <div class="adm-ucell adm-ucell--act">
-                        <button type="button" class="adm-btn" data-report-action="dismiss">Dismiss</button>
-                        <?php if ($rp['target_type'] === 'post'): ?>
-                        <button type="button" class="adm-btn adm-btn--danger" data-report-action="remove">Remove</button>
-                        <?php endif; ?>
-                        <button type="button" class="adm-btn adm-btn--danger" data-report-action="suspend">Suspend</button>
-                    </div>
+                    <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Report actions', array(
+                        array('text' => 'Dismiss', 'attrs' => 'data-report-action="dismiss"'),
+                        $rp['target_type'] === 'post' ? array('text' => 'Remove post…', 'attrs' => 'data-report-action="remove"', 'danger' => true) : null,
+                        array('text' => 'Suspend account…', 'attrs' => 'data-report-action="suspend"', 'danger' => true),
+                    )); ?></div>
                 </div>
                 <?php endforeach; ?>
                 <p class="adm__none" id="admReportsNone" hidden>All reports resolved.</p>
@@ -231,10 +230,10 @@ $last12 = array_slice($this->series, -12);
                     <div class="adm-ucell"><?php echo $e($v['full_name'] !== '' ? $v['full_name'] : '—'); ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $v['note'] !== '' ? $e(mb_substr((string) $v['note'], 0, 80)) : '—'; ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($v['created_at'])); ?></div>
-                    <div class="adm-ucell adm-ucell--act">
-                        <button type="button" class="adm-btn adm-btn--ok" data-verif-action="approve">Approve</button>
-                        <button type="button" class="adm-btn adm-btn--danger" data-verif-action="reject">Reject</button>
-                    </div>
+                    <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Verification actions', array(
+                        array('text' => 'Approve', 'attrs' => 'data-verif-action="approve"'),
+                        array('text' => 'Reject…', 'attrs' => 'data-verif-action="reject"', 'danger' => true),
+                    )); ?></div>
                 </div>
                 <?php endforeach; ?>
                 <p class="adm__none" id="admVerifNone" hidden>No pending requests.</p>
@@ -269,9 +268,7 @@ $last12 = array_slice($this->series, -12);
                     <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $sale['kind']; ?>"><?php echo $sale['kind'] === 'bundle' ? 'Bundle' : ($sale['kind'] === 'message' ? 'Message' : 'PPV'); ?></span></div>
                     <div class="adm-ucell adm-r adm-scell--amt">$<?php echo number_format(((int) $sale['credits']) / 10, 2); ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($sale['created_at'], true)); ?></div>
-                    <div class="adm-ucell adm-ucell--act">
-                        <button type="button" class="adm-btn adm-btn--danger" data-refund>Refund</button>
-                    </div>
+                    <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Sale actions', array(array('text' => 'Refund…', 'attrs' => 'data-refund', 'danger' => true))); ?></div>
                 </div>
                 <?php endforeach; ?>
                 <p class="adm__none" id="admSalesNone" hidden>All matching sales refunded.</p>
@@ -326,7 +323,7 @@ $last12 = array_slice($this->series, -12);
                 <div class="adm-ucell"><span class="adm-status adm-status--<?php echo $bst === 'past_due' ? 'off' : 'on'; ?>"><span class="adm-status__dot"></span><?php echo $e($bst === 'past_due' ? 'Past due' : ucfirst($bst)); ?></span></div>
                 <div class="adm-ucell adm-ucell--muted"><?php $bnx = BillingService::next_charge($b); echo $bnx ? $e(BillingService::money($bnx['total']) . ' · ' . $fmt($bnx['at'])) : '—'; ?><?php if ($bst === 'past_due' && !empty($b['next_retry_at'])): ?><br>Retry <?php echo $e($fmt($b['next_retry_at'])); ?><?php endif; ?></div>
                 <div class="adm-ucell adm-ucell--muted" <?php echo !empty($b['last_failure']) ? 'title="' . $e($b['last_failure']) . '"' : ''; ?>><?php echo !empty($b['last_charge_at']) ? $e(ucfirst(str_replace('_', ' ', (string) $b['last_charge_status'])) . ' · ' . BillingService::money((int) $b['last_amount_cents'])) : '—'; ?></div>
-                <div class="adm-ucell adm-ucell--act"><?php if ($bst === 'past_due'): ?><button type="button" class="adm-btn adm-btn--ok" data-billing-retry>Retry Now</button><?php endif; ?></div>
+                <div class="adm-ucell adm-ucell--act"><?php echo $bst === 'past_due' ? adm_row_menu('Billing actions', array(array('text' => 'Retry charge now', 'attrs' => 'data-billing-retry'))) : ''; ?></div>
             </div>
             <?php endforeach; ?>
             </div>
@@ -370,16 +367,14 @@ $last12 = array_slice($this->series, -12);
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($u['created_at'])); ?></div>
                     <div class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($u['last_active_at'], true)); ?></div>
                     <div class="adm-ucell adm-ucell--act">
-                        <?php if ($isMe || $isAdm): ?>
-                            <span class="adm-ucell--muted" style="font-size:.78rem;">—</span>
-                        <?php else: ?>
-                            <button type="button" class="adm-btn" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>" title="Sign in as @<?php echo $e($u['u_name']); ?>"><i class="fa-solid fa-user-secret"></i> Sign In As</button>
-                        <?php endif; ?>
-                        <?php if ($isMe || $isAdm): ?>
-                        <?php elseif ($dis): ?>
-                            <button type="button" class="adm-btn adm-btn--ok" data-status="Active">Reactivate</button>
-                        <?php else: ?>
-                            <button type="button" class="adm-btn adm-btn--danger" data-status="Disabled">Suspend</button>
+                        <?php if (!$isMe && !$isAdm): ?>
+                        <div class="dropdown">
+                            <button type="button" class="adm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Actions for @<?php echo $e($u['u_name']); ?>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                            <ul class="dropdown-menu dropdown-menu-end adm-menu">
+                                <li><button type="button" class="dropdown-item" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>">Sign in as user</button></li>
+                                <li><button type="button" class="dropdown-item<?php echo $dis ? '' : ' adm-menu__danger'; ?>" data-status="<?php echo $dis ? 'Active' : 'Disabled'; ?>"><?php echo $dis ? 'Reactivate' : 'Suspend…'; ?></button></li>
+                            </ul>
+                        </div>
                         <?php endif; ?>
                     </div>
                 </div>

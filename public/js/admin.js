@@ -244,10 +244,10 @@
                     var disabled = (o.status === 'Disabled');
                     var statusCell = row.children[2];
                     statusCell.innerHTML = '<span class="adm-status adm-status--' + (disabled ? 'off' : 'on') + '"><span class="adm-status__dot"></span>' + (disabled ? 'Suspended' : 'Active') + '</span>';
-                    var actCell = row.children[5];
-                    actCell.innerHTML = disabled
-                        ? '<button type="button" class="adm-btn adm-btn--ok" data-status="Active">Reactivate</button>'
-                        : '<button type="button" class="adm-btn adm-btn--danger" data-status="Disabled">Suspend</button>';
+                    btn.disabled = false;   // the same menu item now does the opposite
+                    btn.setAttribute('data-status', disabled ? 'Active' : 'Disabled');
+                    btn.textContent = disabled ? 'Reactivate' : 'Suspend…';
+                    btn.classList.toggle('adm-menu__danger', !disabled);
                     if (window.toastr) { toastr.success(disabled ? 'Account suspended' : 'Account reactivated'); }
                 });
             });

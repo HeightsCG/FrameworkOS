@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/_rowmenu.php'; ?>
 <link rel="stylesheet" href="/css/admin.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/admin.css'); ?>">
 <?php
 /* /admin/user/<id>: one account and the tools to fix its problem. Actions: public/js/admin-user.js → ApiAdminController. */
@@ -185,7 +186,7 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                     <span class="adm-ucell adm-ucell--muted">@<?php echo $e($p['creator_handle']); ?></span>
                     <span class="adm-ucell adm-r"><?php echo $money($p['price_credits']); ?></span>
                     <span class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($p['created_at'])); ?></span>
-                    <span class="adm-ucell adm-ucell--act"><button type="button" class="adm-btn adm-btn--danger" data-act="refund">Refund</button></span>
+                    <span class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Purchase actions', array(array('text' => 'Refund…', 'attrs' => 'data-act="refund"', 'danger' => true))); ?></span>
                 </div>
                 <?php endforeach; ?>
                 <?php if (empty($this->purchases)): ?><p class="adm__none">No purchases to refund.</p><?php endif; ?>
@@ -216,7 +217,7 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                     <span class="adm-ucell adm-r"><?php echo !empty($m['is_free']) ? 'Free' : '$' . number_format(((int) $m['price_cents']) / 100, 2) . '/' . $e($m['billing_interval'] ?: 'month'); ?></span>
                     <span class="adm-ucell"><?php echo $e(ucfirst((string) $m['status'])); ?><?php if ($active && !empty($m['cancel_at_period_end'])): ?> <span class="adm-pill adm-pill--warn">Ends at period end</span><?php endif; ?></span>
                     <span class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($m['current_period_end'], false)); ?></span>
-                    <span class="adm-ucell adm-ucell--act"><?php if ($active && empty($m['cancel_at_period_end'])): ?><button type="button" class="adm-btn adm-btn--danger" data-act="membership">Cancel</button><?php endif; ?></span>
+                    <span class="adm-ucell adm-ucell--act"><?php echo ($active && empty($m['cancel_at_period_end'])) ? adm_row_menu('Membership actions', array(array('text' => 'Cancel membership…', 'attrs' => 'data-act="membership"', 'danger' => true))) : ''; ?></span>
                 </div>
                 <?php endforeach; ?>
                 <?php if (empty($this->memberships)): ?><p class="adm__none">No memberships.</p><?php endif; ?>

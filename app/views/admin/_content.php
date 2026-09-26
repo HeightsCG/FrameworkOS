@@ -1,3 +1,4 @@
+<?php require_once __DIR__ . '/_rowmenu.php'; ?>
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
 <section class="adm-sec adm-panel" data-panel="content">
     <div class="adm-subtabs" role="tablist" aria-label="Content">
@@ -20,7 +21,7 @@
                 <div class="adm-ucell"><a class="adm-crow__title" href="/admin/article/<?php echo (int) $a['id']; ?>"><?php echo $e($a['title']); ?></a><span class="adm-crow__sub">/blog/<?php echo $e($a['slug']); ?> · <?php echo (int) $a['reading_minutes']; ?> min</span></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e($a['target_keyword']); ?></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e(date('M j, H:i', strtotime($a['updated_at'] . ' UTC'))); ?></div>
-                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Edit</a></div>
+                <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Article actions', array(array('text' => 'Edit', 'href' => '/admin/article/' . (int) $a['id']))); ?></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -49,11 +50,10 @@
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e(ucfirst($k['difficulty'])); ?></div>
                 <div class="adm-ucell"><input class="adm-kprio" type="number" value="<?php echo (int) $k['priority']; ?>" min="1" aria-label="Priority"></div>
                 <div class="adm-ucell"><span class="adm-tag adm-tag--<?php echo $e($k['status']); ?>"><?php echo $e(ucfirst($k['status'])); ?></span></div>
-                <div class="adm-ucell adm-ucell--act">
-                    <?php if ($k['status'] === 'queued'): ?><button type="button" class="adm-btn" data-kw-action="draft">Draft Now</button><button type="button" class="adm-btn" data-kw-action="skip">Skip</button>
-                    <?php elseif ($k['status'] === 'skipped'): ?><button type="button" class="adm-btn" data-kw-action="requeue">Requeue</button>
-                    <?php elseif ($k['status'] === 'drafting'): ?><span class="adm-crow__sub">Drafting…</span><button type="button" class="adm-btn" data-kw-action="requeue">Requeue</button><?php endif; ?>
-                </div>
+                <div class="adm-ucell adm-ucell--act"><?php
+                    $kw_items = $k['status'] === 'queued' ? array(array('text' => 'Draft now', 'attrs' => 'data-kw-action="draft"'), array('text' => 'Skip', 'attrs' => 'data-kw-action="skip"'))
+                              : (in_array($k['status'], array('skipped', 'drafting'), true) ? array(array('text' => 'Requeue', 'attrs' => 'data-kw-action="requeue"')) : array());
+                    echo adm_row_menu('Keyword actions', $kw_items); ?></div>
             </div>
             <?php endforeach; ?>
         </div>
@@ -72,7 +72,7 @@
                 <div class="adm-ucell"><a class="adm-crow__title" href="/blog/<?php echo $e($a['slug']); ?>" target="_blank" rel="noopener"><?php echo $e($a['title']); ?></a><span class="adm-crow__sub"><?php echo $e(date('M j, Y', strtotime($a['published_at'] . ' UTC'))); ?></span></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo $e($a['target_keyword']); ?></div>
                 <div class="adm-ucell adm-ucell--muted"><?php echo number_format((int) $a['views']); ?></div>
-                <div class="adm-ucell adm-ucell--act"><a class="adm-btn" href="/admin/article/<?php echo (int) $a['id']; ?>">Edit</a><button type="button" class="adm-btn" data-art-action="unpublish">Unpublish</button></div>
+                <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Article actions', array(array('text' => 'Edit', 'href' => '/admin/article/' . (int) $a['id']), array('text' => 'Unpublish…', 'attrs' => 'data-art-action="unpublish"'))); ?></div>
             </div>
             <?php endforeach; ?>
             <?php if (empty($this->seo_published)): ?><p class="adm__none">Nothing published yet.</p><?php endif; ?>
