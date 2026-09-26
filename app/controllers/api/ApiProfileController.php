@@ -75,8 +75,10 @@ class ApiProfileController extends BaseApiController {
         $ext_map = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
         if ($info === false || !isset($ext_map[$info['mime']])) { $this->jsonError('Unsupported image type (use JPG, PNG, WebP, or GIF)'); }
         if (!S3Service::configured()) { $this->jsonError('Image uploads are not available right now'); }
+        $img = ProfileImage::prepare($file['tmp_name'], $info['mime']);   // no EXIF/GPS, and moderated
+        if (!$img['ok']) { $this->jsonError($img['error']); }
         $key = 'creator/u' . $user_id . '_avatar_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$info['mime']];
-        $url = S3Service::upload_file($key, $file['tmp_name'], $info['mime']);
+        $url = S3Service::upload_file($key, $img['path'], $info['mime']);
         if ($url === '') { $this->jsonError('Could not save the image'); }
         (new CreatorProfileModel())->set_image($user_id, 'avatar_url', $url);
         $this->jsonSuccess(['url' => $url, 'message' => 'Profile photo updated']);

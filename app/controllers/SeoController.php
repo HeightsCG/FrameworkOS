@@ -143,6 +143,13 @@ class SeoController extends Controller {
     /** Every public page's text, concatenated, for LLM ingestion. Rendered pages are fetched internally and stripped to text. */
     public function llmsFullAction(){
         $base = Main::get_base_domain(); $site = Main::site_name();
+        // Rendering every public page + article is heavy: serve a cached copy for an hour (per host).
+        $cache = sys_get_temp_dir() . '/cls_llms_full_' . md5($base) . '.txt';
+        if (is_file($cache) && filemtime($cache) > time() - 3600) {
+            header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: public, max-age=3600');
+            readfile($cache);
+            return;
+        }
         $out = array('# ' . $site . ' — full text', '', 'Source: ' . $base . '/llms.txt', '');
         foreach (self::public_pages() as $p) {
             $html = self::render_public_html($p['path']);
@@ -167,7 +174,8 @@ class SeoController extends Controller {
         // Set after the render loop, immediately before output: a rendered page's own
         // constructor/action may have sent headers of its own (see render_public_html), so
         // ours must be the last ones sent to win.
-        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: private, max-age=3600');
+        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: public, max-age=3600');
+        @file_put_contents($cache, $text . "\n", LOCK_EX);
         echo $text, "\n";
     }
 

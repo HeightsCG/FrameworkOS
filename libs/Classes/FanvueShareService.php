@@ -43,11 +43,14 @@ class FanvueShareService {
                 $key = (string) ($a['original_key'] ?? '');
                 if ($key === '') { $key = (string) ($a['display_key'] ?? ''); }
                 if ($key === '') { continue; }
-                $src   = S3Service::presigned_get_url($key, 600);
-                $bytes = ($src !== '') ? @file_get_contents($src) : false;
-                if ($bytes === false || $bytes === '') { continue; }
-                $type  = ($a['type'] === 'video') ? 'video' : 'image';
-                $uuids[] = FanvueService::upload_media($token, $bytes, basename($key), $type);
+                $src  = S3Service::presigned_get_url($key, 600);
+                $file = ($src !== '') ? self::download($src) : '';   // streamed to a temp file, never held in memory
+                if ($file === '') { continue; }
+                try {
+                    $uuids[] = FanvueService::upload_media($token, $file, basename($key), ($a['type'] === 'video') ? 'video' : 'image');
+                } finally {
+                    @unlink($file);
+                }
             }
 
             $audience = (($post['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'followers-and-subscribers';
@@ -64,6 +67,26 @@ class FanvueShareService {
             try { (new FanvueAccountsModel())->set_error((int) $user['user_id'], $e->getMessage()); } catch (\Throwable $ignored) {}
             return self::fail($e->getMessage());
         }
+    }
+
+    /** Video posts go through the job queue (uploading a long video must not hold up publishing); images mirror inline. */
+    public static function has_video(array $post): bool {
+        foreach ((new PostsModel())->get_assets((int) $post['id']) as $a) { if (($a['type'] ?? '') === 'video' && empty($a['deleted_at'])) { return true; } }
+        return false;
+    }
+
+    /** Download a URL to a temp file (streamed); '' on failure. */
+    private static function download(string $url): string {
+        $tmp = tempnam(sys_get_temp_dir(), 'fvup');
+        $fh  = fopen($tmp, 'wb');
+        $ch  = curl_init($url);
+        curl_setopt_array($ch, array(CURLOPT_FILE => $fh, CURLOPT_FOLLOWLOCATION => false, CURLOPT_TIMEOUT => 600, CURLOPT_CONNECTTIMEOUT => 20));
+        $ok   = curl_exec($ch);
+        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        fclose($fh);
+        if ($ok === false || $code < 200 || $code >= 300 || (int) filesize($tmp) <= 0) { @unlink($tmp); return ''; }
+        return $tmp;
     }
 
     private static function fail($msg){

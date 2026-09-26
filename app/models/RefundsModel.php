@@ -94,6 +94,10 @@ class RefundsModel extends Model {
         if ($pi !== '') {
             $u = parent::select("SELECT user_id FROM credit_transactions WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => $pi));
             if (is_array($u) && count($u)) { $user_id = (int) $u[0]['user_id']; }
+            if (!$user_id) {   // not a credit purchase: a creator plan charge (app-managed billing)
+                $b = parent::select("SELECT user_id FROM billing_charges WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => $pi));
+                if (is_array($b) && count($b)) { $user_id = (int) $b[0]['user_id']; }
+            }
         }
         $suspended = 0;
         if ($user_id) {

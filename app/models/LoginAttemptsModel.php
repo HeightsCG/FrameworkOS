@@ -14,6 +14,14 @@ class LoginAttemptsModel extends Model {
         ));
     }
 
+    /** Recent attempts for one account (login name / user id), whatever the IP: the per-account limit. */
+    public function count_recent_for($identifier, $action, $minutes){
+        $rows = parent::select(
+            "SELECT COUNT(*) AS cnt FROM login_attempts WHERE LOWER(identifier) = LOWER(:i) AND action = :a AND created_at > :since",
+            array('i' => (string) $identifier, 'a' => (string) $action, 'since' => date('Y-m-d H:i:s', strtotime('-' . (int) $minutes . ' minutes'))));
+        return isset($rows[0]['cnt']) ? (int) $rows[0]['cnt'] : 0;
+    }
+
     public function count_recent($ip_address, $action, $minutes){
         $since = date('Y-m-d H:i:s', strtotime('-' . (int) $minutes . ' minutes'));
         $rows = parent::select(

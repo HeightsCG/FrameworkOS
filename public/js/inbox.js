@@ -327,11 +327,17 @@
     }
 
     /* compose */
+    var sending = false;   // one message in flight at a time (a held Enter key must not send it twice)
+    // A failed request never reaches the api() callback; release the composer when any message_send finishes.
+    $(document).ajaxComplete(function (e, xhr, s) { if (s && /\/api\/message_send/.test(s.url || '') && (xhr.status < 200 || xhr.status >= 300)) { sending = false; $('#ibxSend').prop('disabled', false); } });
     $('#ibxCompose').on('submit', function (e) {
         e.preventDefault();
+        if (sending) { return; }
         var body = ($input.val() || '').trim(); if ((body === '' && !attachD.list.length) || !active) { return; }
+        sending = true;
         $('#ibxSend').prop('disabled', true);
         api('message_send', { conversation_id: active, body: body, asset_ids: attachD.ids(), price: attachD.price }, function (o) {
+            sending = false;
             $('#ibxSend').prop('disabled', false);
             if (!o || !o.success) { toastErr(o ? o.message : 'Could not send'); return; }
             $input.val('').css('height', 'auto'); attachD.clear(); if (o.sent) { addMsg(o.sent); }
@@ -340,7 +346,7 @@
             $input.trigger('focus');
         });
     });
-    $input.on('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); $('#ibxCompose').trigger('submit'); } })
+    $input.on('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!e.originalEvent || !e.originalEvent.repeat) { $('#ibxCompose').trigger('submit'); } } })
           .on('input', function () { this.style.height = 'auto'; this.style.height = Math.min(this.scrollHeight, 160) + 'px'; });
 
     /* ---- about this fan (creator side) ---- */

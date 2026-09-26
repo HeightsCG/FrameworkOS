@@ -61,76 +61,8 @@ class ApiSocialIntegrationsController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Account disconnected']);
     }
 
-    public function upload_media_urlAction(){
-        $this->social_user();
-        $res = PostForMeService::create_upload_url();
-        if (!$res) {
-            $this->jsonError('Could not prepare the upload');
-        }
-        $this->jsonSuccess(['media_url' => $res[0], 'upload_url' => $res[1]]);
-    }
-
-    public function create_postAction(){
-        $user     = $this->social_user();
-        $caption  = $this->post['caption'] ?? '';
-        $ids      = $this->post['social_account_ids'] ?? [];
-        $media    = $this->post['media_url'] ?? '';
-        $schedule = $this->post['schedule'] ?? 'now';
-        $when     = $this->post['scheduled_at'] ?? '';
-
-        if (!is_array($ids) || count($ids) === 0) {
-            $this->jsonError('Select at least one connected account');
-        }
-        if (trim($caption) === '' && $media === '') {
-            $this->jsonError('Add a caption or media');
-        }
-
-        // Only allow this user's currently-connected accounts.
-        $accountsModel = new SocialAccountsModel();
-        $valid = [];
-        foreach ($accountsModel->get_connected_for_user((int) $user['user_id']) as $c) {
-            $valid[$c['post_for_me_social_account_id']] = true;
-        }
-        $target = [];
-        foreach ($ids as $id) {
-            if (isset($valid[$id])) { $target[] = $id; }
-        }
-        if (count($target) === 0) {
-            $this->jsonError('No connected accounts selected');
-        }
-
-        $sched = null;
-        if ($schedule === 'later' && $when !== '') {
-            $ts = strtotime($when);
-            if ($ts) { $sched = date('c', $ts); }
-        }
-        $media_urls = ($media !== '') ? [$media] : [];
-
-        $post = PostForMeService::create_post($target, $caption, $media_urls, $sched);
-        if (!$post || empty($post['id'])) {
-            $this->jsonError('Could not create the post. Please try again.');
-        }
-
-        $postsModel = new SocialPostsModel();
-        $postsModel->create((int) $user['user_id'], $post['id'], $caption, $post['status'] ?? 'processing', $sched, $target);
-
-        $this->jsonSuccess(['post_id' => $post['id'], 'status' => $post['status'] ?? 'processing', 'message' => $sched ? 'Post scheduled' : 'Post submitted']);
-    }
-
-    public function post_statusAction(){
-        $this->social_user();
-        $pfm_post_id = $this->post['post_id'] ?? '';
-        if ($pfm_post_id === '') {
-            $this->jsonError('Post id is required');
-        }
-        $post = PostForMeService::get_post($pfm_post_id);
-        if (!$post) {
-            $this->jsonError('Post not found');
-        }
-        $status = $post['status'] ?? '';
-        (new SocialPostsModel())->update_status($pfm_post_id, $status);
-        $this->jsonSuccess(['status' => $status]);
-    }
+    // (upload_media_url / create_post / post_status were removed 2026-09-26: nothing called them; posts go out through
+    //  SocialShareService from the post editor and the Claude connector.)
 
     /* ---------- Notification preferences ---------- */
 

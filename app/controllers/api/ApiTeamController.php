@@ -34,7 +34,7 @@ class ApiTeamController extends BaseApiController {
         if ($member_id <= 0) { $this->jsonError('Could not create the account.'); }
         $team->mark_as_member($member_id, $role);
 
-        $token = $this->userModel->set_reset_token($member_id);
+        $token = $this->userModel->set_reset_token($member_id, '+7 days');   // an invite, not a reset: a week to accept
         $link  = Main::get_base_domain() . '/account/reset?token=' . urlencode($token);
         if (!empty($email)) { $this->notificationsModel->send_password_reset_email($email, $name, $link); }
 

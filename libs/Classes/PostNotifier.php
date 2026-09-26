@@ -43,6 +43,9 @@ class PostNotifier {
         $title  = $name . ' posted' . ($aud === 'ppv' ? ' pay-per-view content' : ($aud === 'subscribers' ? ' for subscribers' : ''));
         $body   = $cap !== '' ? mb_substr($cap, 0, 140) : 'New post';
         $link   = $handle !== '' ? '/@' . $handle : '/';
-        return Notify::many($ids, 'creator_activity', $title, $body, $link, 'fa-photo-film');
+        // Only people not told yet: a retried job (or a second publish) never repeats the notice.
+        $posts = new PostsModel();
+        $fresh = array_values(array_filter($ids, function ($uid) use ($posts, $post_id) { return $posts->claim_post_notice((int) $post_id, (int) $uid); }));
+        return empty($fresh) ? 0 : Notify::many($fresh, 'creator_activity', $title, $body, $link, 'fa-photo-film');
     }
 }

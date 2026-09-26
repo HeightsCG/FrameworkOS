@@ -22,7 +22,12 @@ class SocialShareService {
         $account_ids = array_values(array_diff($account_ids, array(FanvueShareService::ACCOUNT_ID)));
 
         $res = self::share_social($user, $post, $account_ids, $scheduled_iso);
-        if ($fanvue) {
+        if ($fanvue && class_exists('DatabaseJobQueue') && FanvueShareService::has_video($post)) {
+            // Videos upload in the background so publishing doesn't wait on them; a failure arrives as a notification.
+            (new DatabaseJobQueue())->dispatch('fanvue_share', array('user_id' => (int) $user['user_id'], 'post_id' => (int) $post['id'], 'scheduled_iso' => $scheduled_iso), 'fanvue_share:' . (int) $post['id']);
+            $res['ok']     = empty($account_ids) ? true : $res['ok'];
+            $res['shared'] = (int) $res['shared'] + 1;
+        } elseif ($fanvue) {
             $fv = FanvueShareService::share($user, $post, $scheduled_iso);
             if (!empty($fv['ok'])) {
                 $res['ok']     = empty($account_ids) ? true : $res['ok'];

@@ -118,6 +118,12 @@ class ContentBundlesModel extends Model {
         );
     }
 
+    /** Has anyone bought this bundle? (Once sold, its contents can grow but not shrink, and it can't be deleted.) */
+    public function has_sales($bundle_id){
+        $r = parent::select("SELECT id FROM bundle_unlocks WHERE bundle_id = :b LIMIT 1", array('b' => (int) $bundle_id));
+        return is_array($r) && count($r) >= 1;
+    }
+
     // ---- fan side ----
 
     public function has_unlocked($bundle_id, $fan_id){

@@ -42,7 +42,7 @@ class ApiRoutes {
             'post_delete', 'post_share', 'posts_list', 'posts_calendar', 'posts_bulk',
         ],
         'ApiSocialIntegrationsController' => [
-            'connect_account', 'disconnect_account', 'upload_media_url', 'create_post', 'post_status', 'fanvue_connect',
+            'connect_account', 'disconnect_account', 'fanvue_connect',
             'fanvue_disconnect',
         ],
         'ApiSupportController' => [

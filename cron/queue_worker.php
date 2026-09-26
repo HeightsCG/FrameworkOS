@@ -38,6 +38,7 @@ $handlers = [
     'data_export'    => 'DataExportJob',
     'directory_recheck' => 'DirectoryRecheckJob',
     'event_message'  => 'EventMessageJob',
+    'fanvue_share'   => 'FanvueShareJob',
 ];
 
 $queue     = new DatabaseJobQueue();

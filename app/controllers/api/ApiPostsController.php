@@ -292,8 +292,10 @@ class ApiPostsController extends BaseApiController {
         $charge = $price;
         $promo_code = (string) ($this->post['code'] ?? '');
         if ($promo_code !== '') {
+            $this->promo_guard();
             $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $promo_code, 'ppv');
             if (!$promo) {
+                $this->promo_miss();
                 $this->jsonError("That discount code isn't valid.");
             }
             $charge = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
@@ -310,16 +312,22 @@ class ApiPostsController extends BaseApiController {
             $this->jsonError('You need ' . ($charge - $balance) . ' more credits to unlock this.', ['need_credits' => true, 'balance' => $balance, 'price' => $charge, 'shortfall' => $charge - $balance]);
         }
 
+        // A code's last redemption goes to one buyer: take the slot first, give it back if the unlock doesn't happen.
+        $promos = new CreatorPromoCodesModel();
+        if ($promo && !$promos->redeem((int) $promo['id'])) {
+            $this->jsonError('That discount code has been fully used.');
+        }
         // Record first: the UNIQUE(post_id, fan_id) key is the mutex that prevents a
         // double charge from concurrent clicks. Then debit; roll the row back if it fails.
         if (!$unlocks->record($post_id, $creator_id, $viewer, $charge)) {
+            if ($promo) { $promos->unredeem((int) $promo['id']); }
             $this->jsonSuccess(['already' => true, 'assets' => $this->ppv_reveal_assets($post)]);
         }
         if ($credits->apply_delta($viewer, -$charge, 'ppv_unlock', 'Unlocked a post') === false) {
             $unlocks->remove($post_id, $viewer);
+            if ($promo) { $promos->unredeem((int) $promo['id']); }
             $this->jsonError('Not enough credits.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $charge]);
         }
-        if ($promo) { (new CreatorPromoCodesModel())->redeem((int) $promo['id']); }
 
         // Pay the creator their share (net of the platform fee — tiered by the creator's
         // plan) and record per-post revenue.
@@ -499,8 +507,10 @@ class ApiPostsController extends BaseApiController {
         $promo_id  = 0;
         $code = trim((string) ($this->post['code'] ?? ''));
         if ($code !== '') {
+            $this->promo_guard();
             $promo = (new CreatorPromoCodesModel())->get_redeemable($creator_id, $code, 'subscription');
             if (!$promo) {
+                $this->promo_miss();
                 $this->jsonError("That discount code isn't valid.");
             }
             $promo_id  = (int) $promo['id'];

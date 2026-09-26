@@ -1005,9 +1005,12 @@ $in_app     = !empty($viewer_logged_in);
             }
             function doComment() {
                 var input = document.getElementById('pfLbCinput'); if (!input || !plbPost) { return; }
-                var body = input.value.trim(); if (body === '') { return; }
+                var body = input.value.trim(); if (body === '' || input.dataset.busy === '1') { return; }   // a double click posts once
+                input.dataset.busy = '1'; var release = setTimeout(function () { input.dataset.busy = ''; }, 15000);
                 ApiDataSvc.apiCall('post', 'post_comment_add', { id: plbPost.id, body: body }, function (resp) {
-                    var o = JSON.parse(resp);
+                    input.dataset.busy = ''; clearTimeout(release);
+                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                    if (!o) { pfToast('Could not post'); return; }
                     if (o.need_login) { window.location = '/'; return; }
                     if (!o.success) { pfToast(o.message || 'Could not post'); return; }
                     input.value = ''; plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost);

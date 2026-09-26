@@ -49,6 +49,19 @@ try {
     error_log('[scheduler] publish_due failed: ' . $e->getMessage());
 }
 
+// Abandoned chunked uploads: once an hour, abort S3 multipart uploads nobody touched for a day (frees their parts).
+if (date('i') === '15') {
+    try {
+        $ups = new UploadSessionsModel();
+        foreach ($ups->stale_active(24) as $u) {
+            S3Service::abort_multipart((string) $u['storage_key'], (string) $u['s3_upload_id']);
+            $ups->mark_aborted((int) $u['creator_id'], (int) $u['id']);
+        }
+    } catch (\Throwable $e) {
+        error_log('[scheduler] upload cleanup failed: ' . $e->getMessage());
+    }
+}
+
 // Event reminders: one email per attendee about 24 hours before the start (the meeting link only travels by email).
 try {
     $n = EventReminders::run(200);

@@ -291,13 +291,14 @@ class UsersModel extends Model {
         );
     }
 
-    public function set_reset_token($user_id){
+    /** $ttl: '+1 hour' for a forgotten password; team invites get '+7 days' so the invitee has time to open it. */
+    public function set_reset_token($user_id, $ttl = '+1 hour'){
         $token = bin2hex(random_bytes(32));
         parent::update(
             'user_accounts',
             array(
                 'reset_token'         => $token,
-                'reset_token_expires' => date('Y-m-d H:i:s', strtotime('+1 hour')),
+                'reset_token_expires' => date('Y-m-d H:i:s', strtotime((string) $ttl)),
                 'updated_at'          => date('Y-m-d H:i:s'),
             ),
             'user_id = :user_id',

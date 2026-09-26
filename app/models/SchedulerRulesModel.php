@@ -84,6 +84,15 @@ class SchedulerRulesModel extends Model {
         return $out;
     }
 
+    /** A weekly automation needs at least one day. $f = the fields being saved, $current = the saved rule (for partial updates). */
+    public static function weekly_without_days(array $f, array $current = array()): bool {
+        $cadence = array_key_exists('cadence', $f) ? (string) $f['cadence'] : (string) ($current['cadence'] ?? 'daily');
+        if ($cadence !== 'weekly') { return false; }
+        $days = array_key_exists('days_of_week', $f) ? $f['days_of_week'] : ($current['days_of_week'] ?? '');
+        if (is_string($days)) { $days = array_filter(array_map('trim', explode(',', $days)), 'strlen'); }
+        return count(array_filter(array_map('intval', (array) $days), function ($d) { return $d >= 0 && $d <= 6; })) === 0;
+    }
+
     public function get_one($creator_id, $id){
         $r = parent::select("SELECT * FROM scheduler_rules WHERE id = :id AND creator_id = :c",
             array('id' => (int) $id, 'c' => (int) $creator_id));

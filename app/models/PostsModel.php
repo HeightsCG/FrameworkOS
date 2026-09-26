@@ -416,4 +416,12 @@ class PostsModel extends Model {
         return parent::delete('posts', 'id = :id AND creator_id = :c', 1,
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
+
+    /** Claim the new-post notice for one follower; true only the first time (PRIMARY KEY is the mutex). */
+    public function claim_post_notice($post_id, $user_id){
+        try {
+            parent::insert('post_notify_sent', array('post_id' => (int) $post_id, 'user_id' => (int) $user_id, 'sent_at' => gmdate('Y-m-d H:i:s')));
+            return true;
+        } catch (\Throwable $e) { return false; }   // already told
+    }
 }

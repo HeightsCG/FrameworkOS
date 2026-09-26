@@ -204,11 +204,15 @@ class WebhookController extends Controller {
             'customer_id'        => $customer,
             'current_period_end' => $period,
         ));
-        // The fan closed the tab before the success page: tell both sides here instead.
-        $chandle = Notify::handle_of($creator);
-        Notify::send($subscriber, 'subscriptions', 'You\'re subscribed to ' . (Notify::name_of($creator) ?: $plan['name']), $plan['name'] . ' is active. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
-        Notify::send($creator, 'subscriptions', 'New subscriber', (Notify::name_of($subscriber) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
-        InboxAutomationService::trigger($creator, $subscriber, 'new_subscriber');
+        // The fan closed the tab before the success page: tell both sides here instead. The success page and this webhook
+        // share one claim, so whichever runs first sends the notices (and counts the discount code) and the other doesn't.
+        if ($subs->claim_checkout_recorded((string) $obj->id)) {
+            $chandle = Notify::handle_of($creator);
+            Notify::send($subscriber, 'subscriptions', 'You\'re subscribed to ' . (Notify::name_of($creator) ?: $plan['name']), $plan['name'] . ' is active. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
+            Notify::send($creator, 'subscriptions', 'New subscriber', (Notify::name_of($subscriber) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
+            InboxAutomationService::trigger($creator, $subscriber, 'new_subscriber');
+            if (!empty($meta['promo_id'])) { (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']); }
+        }
         if ($status !== 'active' || $cape) {
             $subs->update_by_stripe_id((string) $obj->id, $status, $period, $cape);
         }

@@ -95,9 +95,11 @@ class MediaAssetsModel extends Model {
             "SELECT id, creator_id, type, display_key, original_key, thumb_key, poster_key
              FROM media_assets
              WHERE type IN ('image', 'video') AND status = 'ready' AND deleted_at IS NULL
-               AND moderation_status IN ('pending', 'error')
-             ORDER BY created_at DESC
-             LIMIT $limit"
+               AND (moderation_status = 'pending'
+                    OR (moderation_status = 'error' AND (moderated_at IS NULL OR moderated_at < :retry)))   -- errors retry every 30 min, never ahead of new work
+             ORDER BY (moderation_status = 'error') ASC, created_at DESC
+             LIMIT $limit",
+            array('retry' => date('Y-m-d H:i:s', time() - 1800))
         );
     }
 

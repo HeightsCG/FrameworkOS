@@ -251,6 +251,29 @@ class MediaService {
         return '';
     }
 
+    /**
+     * Run a shell command, but kill it after $seconds (a stalled download or a malformed file must not hang the
+     * worker; macOS has no `timeout`). Returns stdout ('' on timeout/failure).
+     */
+    private static function run_with_timeout(string $cmd, int $seconds): string
+    {
+        $proc = @proc_open($cmd, array(1 => array('pipe', 'w'), 2 => array('file', '/dev/null', 'w')), $pipes);
+        if (!is_resource($proc)) { return ''; }
+        stream_set_blocking($pipes[1], false);
+        $out = ''; $deadline = microtime(true) + $seconds;
+        while (true) {
+            $chunk = stream_get_contents($pipes[1]);
+            if ($chunk !== false && $chunk !== '') { $out .= $chunk; }
+            $st = proc_get_status($proc);
+            if (!$st['running']) { $out .= (string) stream_get_contents($pipes[1]); break; }
+            if (microtime(true) > $deadline) { proc_terminate($proc, 9); error_log('[media] command timed out after ' . $seconds . 's'); $out = ''; break; }
+            usleep(100000);
+        }
+        fclose($pipes[1]);
+        proc_close($proc);
+        return $out;
+    }
+
     public static function ffmpeg_available(): bool
     {
         return self::bin('ffmpeg') !== '' && self::bin('ffprobe') !== '';
@@ -268,10 +291,10 @@ class MediaService {
         $ffprobe = self::bin('ffprobe');
         if ($ffprobe === '' || (string) $src === '') { return $out; }
         $cmd = escapeshellarg($ffprobe)
-             . ' -v error -select_streams v:0'
+             . ' -v error -rw_timeout 20000000 -select_streams v:0'
              . ' -show_entries format=duration:stream=width,height'
-             . ' -of json ' . escapeshellarg($src) . ' 2>/dev/null';
-        $json = @shell_exec($cmd);
+             . ' -of json ' . escapeshellarg($src);
+        $json = self::run_with_timeout($cmd, 45);
         $data = is_string($json) ? json_decode($json, true) : null;
         if (is_array($data)) {
             $out['duration'] = (int) round((float) ($data['format']['duration'] ?? 0));
@@ -291,19 +314,20 @@ class MediaService {
     {
         $ffmpeg = self::bin('ffmpeg');
         if ($ffmpeg === '' || (string) $src === '') { return ''; }
-        $dest = tempnam(sys_get_temp_dir(), 'poster') . '.jpg';
+        $base = tempnam(sys_get_temp_dir(), 'poster');
+        @unlink($base);                      // tempnam() creates the file; we only want its unique name + .jpg
+        $dest = $base . '.jpg';
+        $net  = ' -rw_timeout 20000000';      // give up on a stalled download after 20s
         // -ss before -i = fast input seek (only fetches the needed bytes over http).
-        $cmd = escapeshellarg($ffmpeg)
-             . ' -y -ss 1 -i ' . escapeshellarg($src)
-             . ' -frames:v 1 -q:v 3 ' . escapeshellarg($dest) . ' 2>/dev/null';
-        @shell_exec($cmd);
+        self::run_with_timeout(escapeshellarg($ffmpeg) . ' -y' . $net . ' -ss 1 -i ' . escapeshellarg($src)
+             . ' -frames:v 1 -q:v 3 ' . escapeshellarg($dest), 90);
         if (is_file($dest) && filesize($dest) > 0) { return $dest; }
         // Fallback: some very short clips have no frame at 1s — grab the first frame.
-        $cmd = escapeshellarg($ffmpeg)
-             . ' -y -i ' . escapeshellarg($src)
-             . ' -frames:v 1 -q:v 3 ' . escapeshellarg($dest) . ' 2>/dev/null';
-        @shell_exec($cmd);
-        return (is_file($dest) && filesize($dest) > 0) ? $dest : '';
+        self::run_with_timeout(escapeshellarg($ffmpeg) . ' -y' . $net . ' -i ' . escapeshellarg($src)
+             . ' -frames:v 1 -q:v 3 ' . escapeshellarg($dest), 90);
+        if (is_file($dest) && filesize($dest) > 0) { return $dest; }
+        @unlink($dest);                      // nothing usable: don't leave an empty file behind
+        return '';
     }
 
     /**

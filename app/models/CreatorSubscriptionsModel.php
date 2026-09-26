@@ -77,7 +77,7 @@ class CreatorSubscriptionsModel extends Model {
     public function join_free($subscriber_id, $creator_id, $plan){
         $now = date('Y-m-d H:i:s');
         $existing = parent::select(
-            "SELECT id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
+            "SELECT id, stripe_subscription_id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
             array('s' => (int) $subscriber_id, 'p' => (int) $plan['id'])
         );
         if (is_array($existing) && count($existing) === 1) {
@@ -132,6 +132,8 @@ class CreatorSubscriptionsModel extends Model {
             'updated_at'             => $now,
         );
         if (is_array($existing) && count($existing) === 1) {
+            // A new Stripe subscription (they came back) gets its own welcome notices: reset the once-only claim.
+            if ((string) $existing[0]['stripe_subscription_id'] !== $data['stripe_subscription_id']) { $data['checkout_recorded'] = 0; }
             return parent::update('creator_subscriptions', $data, 'id = :id', array('id' => (int) $existing[0]['id']));
         }
         $data['subscriber_id'] = (int) $subscriber_id;

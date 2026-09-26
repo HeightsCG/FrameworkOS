@@ -15,6 +15,14 @@ class CSRF {
         return $token;
     }
 
+    /** A fresh token (at sign-in): a token planted before login is useless after it. */
+    public static function rotate(): string
+    {
+        $token = bin2hex(random_bytes(32));
+        Session::set(self::SESSION_KEY, $token);
+        return $token;
+    }
+
     public static function field(): string
     {
         return '<input type="hidden" name="' . self::FIELD . '" value="'

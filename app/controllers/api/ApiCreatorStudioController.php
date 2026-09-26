@@ -108,7 +108,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $user_id = Permissions::creator_id();
         $key     = 'creator/u' . $user_id . '_' . $kind . '_' . bin2hex(random_bytes(8)) . '.' . $ext_map[$info['mime']];
 
-        $url = S3Service::upload_file($key, $file['tmp_name'], $info['mime']);
+        $img = ProfileImage::prepare($file['tmp_name'], $info['mime']);   // no EXIF/GPS, and moderated
+        if (!$img['ok']) { $this->jsonError($img['error']); }
+        $url = S3Service::upload_file($key, $img['path'], $info['mime']);
         if ($url === '') {
             $this->jsonError('Could not save the image');
         }
@@ -359,11 +361,13 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Fan-side: preview a discount code against a PPV post — returns the discounted price. */
     public function promo_previewAction(){
+        if ((int) Session::get('user_id') <= 0) { $this->jsonError('Sign in to use a discount code.', ['need_login' => true]); }
+        $this->promo_guard();
         $post = (new PostsModel())->get_by_id((int) ($this->post['post_id'] ?? 0));
         if (!$post || ($post['audience'] ?? '') !== 'ppv') { $this->jsonError('Not a pay-per-view post.'); }
         $price = (int) $post['ppv_price_credits'];
         $promo = (new CreatorPromoCodesModel())->get_redeemable((int) $post['creator_id'], (string) ($this->post['code'] ?? ''), 'ppv');
-        if (!$promo) { $this->jsonError("That code isn't valid."); }
+        if (!$promo) { $this->promo_miss(); $this->jsonError("That code isn't valid."); }
         $new_price = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
         $this->jsonSuccess(['percent_off' => (int) $promo['percent_off'], 'original_price' => $price, 'new_price' => $new_price]);
     }
@@ -405,6 +409,10 @@ class ApiCreatorStudioController extends BaseApiController {
         $model = new ContentBundlesModel();
         if ($id > 0) {
             if (!$model->get_owned($user_id, $id)) { $this->jsonError('Bundle not found'); }
+            // Buyers get what's in the bundle: once it has sold, content can be added but not taken out.
+            if ($model->has_sales($id) && array_diff($model->get_item_asset_ids($id), $asset_ids)) {
+                $this->jsonError('This bundle has sold, so its content can’t be removed. You can still add more.');
+            }
             $model->update_bundle($user_id, $id, ['name' => $name, 'description' => $description, 'price_credits' => $price]);
         } else {
             $id = (int) $model->add($user_id, $name, $description, $price);
@@ -425,7 +433,12 @@ class ApiCreatorStudioController extends BaseApiController {
         $user = $this->require_creator('manage');
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Bundle is required'); }
-        (new ContentBundlesModel())->delete_bundle((int) $user['user_id'], $id);
+        $model = new ContentBundlesModel();
+        if ($model->get_owned((int) $user['user_id'], $id) && $model->has_sales($id)) {   // buyers keep it: take it off sale instead
+            $model->set_active((int) $user['user_id'], $id, 0);
+            $this->jsonSuccess(['message' => 'This bundle has sold, so it was taken off sale instead of deleted. Buyers keep it.', 'archived' => true]);
+        }
+        $model->delete_bundle((int) $user['user_id'], $id);
         $this->jsonSuccess(['message' => 'Bundle removed']);
     }
 
@@ -497,6 +510,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'run_time'         => (string) ($this->post['run_time'] ?? '09:00'),
             'timezone'         => $this->valid_tz($this->post['timezone'] ?? '') ?: (string) ($user['content_timezone'] ?? 'UTC'),
         ];
+        if (SchedulerRulesModel::weekly_without_days($fields)) { $this->jsonError('Pick at least one day for a weekly automation.'); }
         $model = new SchedulerRulesModel();
         if ($id > 0 && $model->get_one($creator_id, $id)) {
             $model->update_rule($creator_id, $id, $fields);

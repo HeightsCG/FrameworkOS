@@ -350,4 +350,23 @@ $(document).ready(function() {
         $loadbar.removeClass('is-active').addClass('is-done');
     });
 
+
+    // Safety net for every /api/ call started from a button: if the server answers with an error or a non-JSON page,
+    // the page's own callback may never re-enable the button (or throws parsing it). Put the button back.
+    $(document).ajaxSend(function (e, xhr, s) {
+        if (!s || !/\/api\//.test(s.url || '')) { return; }
+        var b = document.activeElement;
+        if (b && (b.tagName === 'BUTTON' || (b.tagName === 'INPUT' && /submit|button/i.test(b.type)))) { xhr._clsBtn = b; xhr._clsHtml = b.innerHTML; }
+    });
+    $(document).ajaxComplete(function (e, xhr) {
+        var b = xhr._clsBtn; if (!b) { return; }
+        var ok = xhr.status >= 200 && xhr.status < 300, json = true;
+        try { JSON.parse(xhr.responseText); } catch (x) { json = false; }
+        if (ok && json) { return; }
+        setTimeout(function () {   // after the page's own handler ran (or threw)
+            if (b.disabled) { b.disabled = false; if (b.tagName === 'BUTTON') { b.innerHTML = xhr._clsHtml; } }
+            if (ok && window.toastr && !document.querySelector('#toast-container .toast-error')) { toastr.error('Something went wrong. Please try again.'); }   // unless the page already said so
+        }, 0);
+    });
+
 });

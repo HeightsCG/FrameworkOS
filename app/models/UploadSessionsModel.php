@@ -86,4 +86,12 @@ class UploadSessionsModel extends Model {
             'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
+
+    /** Uploads started but untouched for $hours (the browser was closed): their S3 parts cost storage until aborted. */
+    public function stale_active($hours = 24, $limit = 100){
+        $limit = max(1, min(500, (int) $limit));
+        return (array) parent::select(
+            "SELECT * FROM upload_sessions WHERE status = 'active' AND updated_at < :cut ORDER BY id LIMIT $limit",
+            array('cut' => date('Y-m-d H:i:s', time() - (int) $hours * 3600)));
+    }
 }

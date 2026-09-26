@@ -199,8 +199,9 @@ class FanvueService {
      * Returns the media uuid, or throws with a readable message. Waits (≤ $wait_sec)
      * for Fanvue to finish processing so the uuid can be attached to a post.
      */
-    public static function upload_media($access_token, $bytes, $filename, $media_type, $wait_sec = 60): string {
-        $size = strlen($bytes);
+    /** $file: a local file path; parts are read from disk one at a time (a long video never sits in memory whole). */
+    public static function upload_media($access_token, $file, $filename, $media_type, $wait_sec = 60): string {
+        $size = is_file($file) ? (int) filesize($file) : 0;
         if ($size <= 0) { throw new RuntimeException('Fanvue upload: empty file'); }
         $name = pathinfo($filename, PATHINFO_FILENAME) ?: 'upload';
 
@@ -220,12 +221,15 @@ class FanvueService {
         if ($total <= 0) { $total = (int) ceil($size / $part_size); }
 
         $parts = array();
+        $fh = fopen($file, 'rb');
+        if (!$fh) { throw new RuntimeException('Fanvue upload: could not read the file'); }
         for ($n = 1; $n <= $total; $n++) {
             list($ucode, $url_body, $raw) = self::request($access_token, 'GET', '/media/uploads/' . rawurlencode($upload_id) . '/parts/' . $n . '/url');
             $url = is_string($url_body) ? $url_body : (is_array($url_body) ? (string) ($url_body['url'] ?? '') : trim($raw, "\" \n"));
             if ($ucode !== 200 || $url === '') { throw new RuntimeException('Fanvue upload: could not get part URL'); }
 
-            $chunk = substr($bytes, ($n - 1) * $part_size, $part_size);
+            fseek($fh, ($n - 1) * $part_size);
+            $chunk = (string) fread($fh, $part_size);
             $ch = curl_init($url);
             curl_setopt_array($ch, array(
                 CURLOPT_CUSTOMREQUEST  => 'PUT',
@@ -238,7 +242,9 @@ class FanvueService {
             $resp  = curl_exec($ch);
             $pcode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
             curl_close($ch);
+            unset($chunk);
             if ($resp === false || $pcode < 200 || $pcode >= 300) {
+                fclose($fh);
                 throw new RuntimeException('Fanvue upload: part ' . $n . ' failed (HTTP ' . $pcode . ')');
             }
             $etag = '';
@@ -248,6 +254,7 @@ class FanvueService {
             $parts[] = $part;
         }
 
+        fclose($fh);
         list($ccode, $done) = self::request($access_token, 'PATCH', '/media/uploads/' . rawurlencode($upload_id), array('parts' => $parts));
         if ($ccode !== 200 || !is_array($done)) { throw new RuntimeException(self::error_text($ccode, $done)); }
         if (($done['status'] ?? '') === 'error') { throw new RuntimeException('Fanvue rejected the media upload'); }

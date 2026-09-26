@@ -95,6 +95,20 @@ class BaseApiController extends Controller {
      * push() self-gates the in-platform pref; email is gated here (fail-closed on an
      * unknown category). Email send is best-effort and never blocks the response path.
      */
+    /** Discount codes can't be guessed: 10 wrong codes per 10 minutes, per IP and per account. Call before checking a code. */
+    protected function promo_guard(): void{
+        $ip = $this->get_ip_address(); $uid = (int) Session::get('user_id');
+        if ($this->loginAttemptsModel->count_recent($ip, 'promo', 10) >= 10
+            || ($uid > 0 && $this->loginAttemptsModel->count_recent_for('uid:' . $uid, 'promo', 10) >= 10)) {
+            $this->jsonError('Too many codes tried. Wait a few minutes and try again.');
+        }
+    }
+
+    /** Count a wrong discount code toward promo_guard. */
+    protected function promo_miss(): void{
+        $this->loginAttemptsModel->record($this->get_ip_address(), 'uid:' . (int) Session::get('user_id'), 'promo');
+    }
+
     protected function notify(int $user_id, string $category, string $title, string $body = '', string $link = '', string $icon = '', bool $email_if_offline = false, bool $force_email = false): void{
         Notify::send($user_id, $category, $title, $body, $link, $icon, $email_if_offline, $force_email);
     }

@@ -454,8 +454,10 @@
     }
     function do_comment() {
         var input = document.getElementById('feed_lb_cinput'); if (!input || !plb_post) { return; }
-        var body = input.value.trim(); if (body === '') { return; }
+        var body = input.value.trim(); if (body === '' || input.dataset.busy === '1') { return; }   // a double click posts once
+        input.dataset.busy = '1'; var release = setTimeout(function () { input.dataset.busy = ''; }, 15000);
         ApiDataSvc.apiCall('post', 'post_comment_add', { id: plb_post.id, body: body }, function (resp) {
+            input.dataset.busy = ''; clearTimeout(release);
             var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
             if (!o) { toast('Could not post'); return; }
             if (o.need_login) { window.location = '/'; return; }

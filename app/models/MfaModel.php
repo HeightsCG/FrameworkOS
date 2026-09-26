@@ -157,4 +157,10 @@ class MfaModel extends Model {
         }
         return false;
     }
+
+    /** Accept a TOTP step once: true only if it's newer than the last one accepted for this user (replay guard). */
+    public function claim_totp_step($user_id, $step){
+        return parent::update('user_accounts', array('mfa_totp_last_step' => (int) $step),
+            'user_id = :u AND (mfa_totp_last_step IS NULL OR mfa_totp_last_step < :s)', array('u' => (int) $user_id, 's' => (int) $step)) > 0;
+    }
 }

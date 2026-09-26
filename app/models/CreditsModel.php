@@ -168,15 +168,14 @@ class CreditsModel extends Model {
     }
 
     /** True when an auto top-up was attempted in the last $minutes (guards against charging twice). */
-    public function recent_autoreplenish_attempt($user_id, $minutes){
-        $rows = parent::select("SELECT autoreplenish_last_attempt_at AS t FROM user_accounts WHERE user_id = :u", array('u' => (int) $user_id));
-        $t = (is_array($rows) && count($rows)) ? $rows[0]['t'] : null;
-        return $t !== null && strtotime((string) $t . ' UTC') >= time() - (int) $minutes * 60;
+
+    /** Take the auto-replenish slot: true only for the one request that gets it within $minutes (the conditional update is the mutex). */
+    public function claim_autoreplenish_attempt($user_id, $minutes){
+        $cut = gmdate('Y-m-d H:i:s', time() - (int) $minutes * 60);
+        return parent::update('user_accounts', array('autoreplenish_last_attempt_at' => gmdate('Y-m-d H:i:s')),
+            'user_id = :u AND (autoreplenish_last_attempt_at IS NULL OR autoreplenish_last_attempt_at < :cut)', array('u' => (int) $user_id, 'cut' => $cut)) > 0;
     }
 
-    public function mark_autoreplenish_attempt($user_id){
-        return parent::update('user_accounts', array('autoreplenish_last_attempt_at' => gmdate('Y-m-d H:i:s')), 'user_id = :u', array('u' => (int) $user_id));
-    }
 
     public function get_autoreplenishment($user_id){
         $rows = parent::select(

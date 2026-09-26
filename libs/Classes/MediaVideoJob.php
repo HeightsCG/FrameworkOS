@@ -59,6 +59,10 @@ class MediaVideoJob {
         $out = null;
         foreach ((array) ($res['outputs'] ?? array()) as $o) { if (($o['kind'] ?? '') === 'video') { $out = $o; break; } }
         if (empty($res['ok']) || !$out) { return $fail('The video came back empty. Try again.'); }
+        if (!FalProvider::output_url_allowed((string) ($out['url'] ?? ''))) {   // only ever download from fal's own hosts
+            error_log('[media_video] asset ' . $aid . ': unexpected output host ' . parse_url((string) ($out['url'] ?? ''), PHP_URL_HOST));
+            return $fail('The video came back from an unexpected address. Try again.');
+        }
         $user = BillingService::user($cid);
         try {
             $v = MediaIngestService::fetch_video($out['url'], (int) InfluencerConfig::get('output_max_video_bytes', 1073741824), 540);

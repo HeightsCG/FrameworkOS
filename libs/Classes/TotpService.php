@@ -56,6 +56,23 @@ class TotpService {
         return false;
     }
 
+    /** The 30-second step a valid code belongs to (±$window for clock skew), or null. Callers store it so a code works once. */
+    public static function matched_step(string $secret, string $code, int $window = 1): ?int
+    {
+        $code = preg_replace('/\s+/', '', $code);
+        if ($secret === '' || !preg_match('/^\d{' . self::DIGITS . '}$/', $code)) {
+            return null;
+        }
+        $now = time();
+        for ($i = -$window; $i <= $window; $i++) {
+            $t = $now + ($i * self::PERIOD);
+            if (hash_equals(self::code_at($secret, $t), $code)) {
+                return (int) floor($t / self::PERIOD);
+            }
+        }
+        return null;
+    }
+
     /** otpauth:// URI for enrollment (encode into a QR client-side). */
     public static function otpauth_uri(string $secret, string $label, string $issuer): string
     {

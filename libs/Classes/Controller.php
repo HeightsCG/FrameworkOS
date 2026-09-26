@@ -16,6 +16,26 @@ class Controller {
         $this->post = self::clean_post_data();
         $this->touch_presence();
         $this->enforce_team_seat();
+        $this->enforce_forced_reset();
+    }
+
+    /**
+     * An account flagged reset_pw (admin-created or invited with a temporary password) must set its own password
+     * before anything else: pages go to /account/force_reset; the API only allows change_password and logout.
+     */
+    private function enforce_forced_reset(){
+        if ((int) Session::get('user_id') <= 0 || (int) Session::get('reset_pw') !== 1) { return; }
+        $url = Main::get_url();
+        $first = strtolower((string) ($url[0] ?? '')); $second = strtolower((string) ($url[1] ?? ''));
+        if ($first === 'api') {
+            if (in_array($second, array('change_password', 'logout'), true)) { return; }
+            header('Content-Type: application/json');
+            echo json_encode(array('success' => false, 'message' => 'Set a new password first.', 'reset_pw' => 1));
+            exit;
+        }
+        if ($first === 'account' && $second === 'force_reset') { return; }
+        header('Location: /account/force_reset');
+        exit;
     }
 
     /**
@@ -36,7 +56,8 @@ class Controller {
         $message = '';
         if (!$row || (string) ($row['user_status'] ?? '') !== 'Active') {
             $message = 'Your session has ended. Please sign in again.';
-        } elseif ((string) Session::get('p_word') !== '' && !hash_equals((string) Session::get('p_word'), (string) ($row['p_word'] ?? ''))) {
+        } elseif (((string) Session::get('pw_fp') !== '' && !hash_equals((string) Session::get('pw_fp'), hash('sha256', (string) ($row['p_word'] ?? ''))))
+               || ((string) Session::get('p_word') !== '' && !hash_equals((string) Session::get('p_word'), (string) ($row['p_word'] ?? '')))) {   // pw_fp: fingerprint set at login; p_word: sessions from before it
             $message = 'Your password was changed. Please sign in again.';
         } elseif ((string) Session::get('team_role') !== '' && Plan::team_member_locked($row)) {
             $message = Plan::SEAT_LOCKED_MESSAGE;

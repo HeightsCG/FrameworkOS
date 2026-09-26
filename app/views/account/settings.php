@@ -1255,7 +1255,7 @@
                         <select class="form-select" id="ar_package">
                             <?php foreach ($this->credit_packages as $pkg): ?>
                             <option value="<?php echo (int) $pkg['dollars']; ?>" data-credits="<?php echo (int) $pkg['credits']; ?>" <?php echo ((int) $ar['amount_cents'] === (int) $pkg['dollars'] * 100) ? 'selected' : ''; ?>>
-                                <?php echo number_format((int) $pkg['credits']); ?> credits &mdash; $<?php echo number_format((int) $pkg['dollars']); ?>
+                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo number_format((int) $pkg['credits']); ?> credits &mdash; $<?php echo number_format((int) $pkg['dollars']); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -2521,6 +2521,11 @@ $(function () {
         ApiDataSvc.apiCall('post', 'delete_bundle', { id: $row.data('id') }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
+            if (o.archived) {   // it has sold: taken off sale, buyers keep it
+                $row.addClass('is-inactive').find('.bundle-toggle').prop('checked', false);
+                toastr.info(o.message);
+                return;
+            }
             $row.remove();
             if (!$('#bundles_list .plan-row').length) { $('#bundles_empty').attr('hidden', false); }
             toastr.success('Bundle removed');

@@ -556,11 +556,16 @@ class McpTools {
                 if (trim((string) ($a['name'] ?? '')) === '' || trim((string) ($a['topic'] ?? '')) === '') {
                     throw new InvalidArgumentException('name and topic are required');
                 }
+                if (SchedulerRulesModel::weekly_without_days($a)) { throw new InvalidArgumentException('A weekly automation needs days_of_week (0 = Sunday … 6 = Saturday).'); }
                 $cap = Plan::check_count(self::user($cid), 'automations', (new SchedulerRulesModel())->count_for_creator($cid));
                 if (empty($cap['ok'])) { throw new RuntimeException($cap['message'] . ' Upgrade at /account/billing.'); }
                 return array('id' => (int) (new SchedulerRulesModel())->create($cid, $a));
             }
-            case 'update_automation':     return $ok((new SchedulerRulesModel())->update_rule($cid, $iid, $a));
+            case 'update_automation': {
+                $srm = new SchedulerRulesModel();
+                if (SchedulerRulesModel::weekly_without_days($a, (array) $srm->get_one($cid, $iid))) { throw new InvalidArgumentException('A weekly automation needs days_of_week (0 = Sunday … 6 = Saturday).'); }
+                return $ok($srm->update_rule($cid, $iid, $a));
+            }
             case 'set_automation_active':
                 if (!empty($a['active']) && Plan::is_locked(self::user($cid), 'automations', $iid)) { throw new RuntimeException(Plan::locked_message(self::user($cid), 'automations')); }
                 return $ok((new SchedulerRulesModel())->set_active($cid, $iid, !empty($a['active']) ? 1 : 0));

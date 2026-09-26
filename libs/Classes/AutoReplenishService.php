@@ -15,26 +15,30 @@ class AutoReplenishService {
             if (empty($cfg['enabled']) || (int) $new_balance >= (int) $cfg['threshold'] || (string) ($cfg['pm_id'] ?? '') === '') { return; }
             $pkg = CreditsModel::package_for_dollars((int) round(((int) $cfg['amount_cents']) / 100));
             if (!$pkg) { return; }
-            if ($credits->recent_autoreplenish_attempt($user_id, 10)) { return; }
 
             $rows = (new UsersModel())->get_user_by_id($user_id);
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
             $customer = $user ? (string) ($user['stripe_customer_id'] ?? '') : '';
             if (!$user || $customer === '') { return; }
 
-            $credits->mark_autoreplenish_attempt($user_id);
+            if (!$credits->claim_autoreplenish_attempt($user_id, 10)) { return; }   // one attempt per 10 minutes, even with concurrent debits
+            // Same price as Buy Credits: the package plus the processing fee.
+            $base_cents  = (int) $pkg['dollars'] * 100;
+            $fee_cents   = (int) round($base_cents * Main::credit_fee_percent() / 100);
+            $total_cents = $base_cents + $fee_cents;
             $stripe = StripeService::client();
             try {
                 $intent = $stripe->paymentIntents->create(array(
-                    'amount'         => (int) $cfg['amount_cents'],
+                    'amount'         => $total_cents,
                     'currency'       => 'usd',
                     'customer'       => $customer,
                     'payment_method' => (string) $cfg['pm_id'],
                     'off_session'    => true,
                     'confirm'        => true,
                     'description'    => 'Auto-replenishment: ' . (int) $pkg['credits'] . ' credits',
-                    'metadata'       => array('type' => 'credit_purchase', 'user_id' => $user_id, 'credits' => (int) $pkg['credits'], 'auto' => 1),
-                ));
+                    'metadata'       => array('type' => 'credit_purchase', 'user_id' => $user_id, 'credits' => (int) $pkg['credits'], 'auto' => 1,
+                                              'base_cents' => $base_cents, 'fee_cents' => $fee_cents),
+                ), array('idempotency_key' => 'autoreplenish-' . $user_id . '-' . (int) floor(time() / 600)));
             } catch (\Throwable $e) {
                 error_log('[autoreplenish] user ' . $user_id . ': ' . $e->getMessage());
                 self::report_failure($user_id, $pkg, $e->getMessage());
@@ -43,7 +47,9 @@ class AutoReplenishService {
             if ((string) $intent->status !== 'succeeded') { self::report_failure($user_id, $pkg, 'Payment did not complete (' . $intent->status . ')'); return; }
             $balance = $credits->credit_purchase($user_id, (int) $pkg['credits'], (string) $intent->id, 'Auto-replenishment: ' . (int) $pkg['credits'] . ' credits');
             Notify::send($user_id, 'auto_replenishment', 'Wallet topped up automatically',
-                Notify::credits((int) $pkg['credits']) . ' added for $' . number_format($cfg['amount_cents'] / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.',
+                Notify::credits((int) $pkg['credits']) . ' added for $' . number_format($total_cents / 100, 2)
+                . ($fee_cents > 0 ? ' ($' . number_format($base_cents / 100, 2) . ' + $' . number_format($fee_cents / 100, 2) . ' processing fee)' : '')
+                . '. Balance: ' . Notify::credits((int) $balance) . '.',
                 '/account/settings?section=wallet', 'fa-rotate');
         } catch (\Throwable $e) {
             error_log('[autoreplenish] ' . $e->getMessage());

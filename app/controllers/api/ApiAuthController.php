@@ -80,7 +80,8 @@ class ApiAuthController extends BaseApiController {
         }
 
         $ip = $this->get_ip_address();
-        if ($this->loginAttemptsModel->count_recent($ip, 'login', 15) >= 5) {
+        if ($this->loginAttemptsModel->count_recent($ip, 'login', 15) >= 5
+            || $this->loginAttemptsModel->count_recent_for((string) $this->post['u_name'], 'login', 15) >= 10) {   // per IP and per account
             $this->jsonError('Too many attempts. Please try again later.');
         }
 
@@ -122,11 +123,23 @@ class ApiAuthController extends BaseApiController {
             $this->jsonSuccess(['message' => 'Verification required', 'mfa_required' => true, 'methods' => ['totp' => $has_totp, 'email' => !empty($user['mfa_email_enabled'])]]);
         }
 
-        foreach ($user as $key => $value) {
-            Session::set($key, $value);
-        }
+        $this->start_user_session($user);
 
         $this->jsonSuccess(['message' => 'Login successful', 'reset_pw' => (int) ($user['reset_pw'] ?? 0)]);
+    }
+
+    /**
+     * Signed in: copy the account into the session minus its secrets (TOTP secret, reset / verify tokens). The password
+     * hash is kept only as a fingerprint, which is enough to end other sessions when the password changes. Fresh CSRF token.
+     */
+    private function start_user_session(array $user): void{
+        foreach ($user as $key => $value) {
+            if (in_array($key, array('p_word', 'mfa_totp_secret', 'mfa_totp_last_step', 'reset_token', 'reset_token_expires', 'email_verify_token'), true)) { continue; }
+            Session::set($key, $value);
+        }
+        Session::set('p_word', null);
+        Session::set('pw_fp', hash('sha256', (string) ($user['p_word'] ?? '')));
+        CSRF::rotate();
     }
 
     public function logoutAction(){
@@ -303,7 +316,8 @@ class ApiAuthController extends BaseApiController {
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
         $this->userModel->change_password(Session::get('user_id'), $enc_p_word, Session::get('user_id'));
         Session::set('reset_pw', 0);
-        Session::set('p_word', $enc_p_word);   // keep THIS session; every other session is signed out on its next check
+        Session::set('p_word', null);
+        Session::set('pw_fp', hash('sha256', $enc_p_word));   // keep THIS session; every other session is signed out on its next check
 
         $this->jsonSuccess(['message' => 'Your password has been updated']);
     }
@@ -444,7 +458,8 @@ class ApiAuthController extends BaseApiController {
         }
 
         $ip = $this->get_ip_address();
-        if ($this->loginAttemptsModel->count_recent($ip, 'mfa', 15) >= 8) {
+        if ($this->loginAttemptsModel->count_recent($ip, 'mfa', 15) >= 8
+            || $this->loginAttemptsModel->count_recent_for('uid:' . $pending, 'mfa', 15) >= 8) {   // per IP and per account
             $this->jsonError('Too many attempts. Please try again later.');
         }
 
@@ -460,7 +475,8 @@ class ApiAuthController extends BaseApiController {
         $ok     = false;
 
         if ($method === 'totp' && !empty($user['mfa_totp_enabled'])) {
-            $ok = TotpService::verify((string) $user['mfa_totp_secret'], $code);
+            $step = TotpService::matched_step((string) $user['mfa_totp_secret'], $code);
+            $ok = $step !== null && $mfa->claim_totp_step($pending, $step);   // each code works once
         } elseif ($method === 'email' && !empty($user['mfa_email_enabled'])) {
             $ok = $mfa->verify_email_code($pending, $code, 'login');
         } elseif ($method === 'backup') {
@@ -468,15 +484,13 @@ class ApiAuthController extends BaseApiController {
         }
 
         if (!$ok) {
-            $this->loginAttemptsModel->record($ip, $user['u_name'], 'mfa');
+            $this->loginAttemptsModel->record($ip, 'uid:' . $pending, 'mfa');
             $this->jsonError('That code is incorrect or expired');
         }
 
         Session::set('mfa_pending_user_id', null);
         session_regenerate_id(true);
-        foreach ($user as $key => $value) {
-            Session::set($key, $value);
-        }
+        $this->start_user_session($user);
 
         $this->jsonSuccess(['message' => 'Login successful', 'reset_pw' => (int) ($user['reset_pw'] ?? 0)]);
     }
@@ -498,6 +512,12 @@ class ApiAuthController extends BaseApiController {
         if (empty($user['mfa_email_enabled'])) {
             $this->jsonError('Email verification is not enabled for this account');
         }
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent_for('uid:' . $pending, 'mfa_send', 15) >= 5
+            || $this->loginAttemptsModel->count_recent($ip, 'mfa_send', 15) >= 10) {
+            $this->jsonError('Too many codes sent. Wait a few minutes and try again.');
+        }
+        $this->loginAttemptsModel->record($ip, 'uid:' . $pending, 'mfa_send');
 
         $this->issue_and_send_login_code($user);
         $this->jsonSuccess(['message' => 'We sent a code to your email']);

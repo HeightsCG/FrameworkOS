@@ -95,13 +95,19 @@ class CreatorPromoCodesModel extends Model {
     }
 
     /** Count a redemption, respecting max_redemptions (the WHERE is the guard). */
+    /** Use one redemption; true only when a slot was left (the conditional update is the mutex against max_redemptions). */
     public function redeem($id){
-        return parent::sql(
+        $sth = $this->db->prepare(
             "UPDATE creator_promo_codes
              SET redemptions = redemptions + 1, updated_at = :now
-             WHERE id = :id AND (max_redemptions IS NULL OR redemptions < max_redemptions)",
-            array(':id' => (int) $id, ':now' => date('Y-m-d H:i:s'))
-        );
+             WHERE id = :id AND (max_redemptions IS NULL OR redemptions < max_redemptions)");
+        $sth->execute(array(':id' => (int) $id, ':now' => date('Y-m-d H:i:s')));
+        return $sth->rowCount() > 0;
+    }
+
+    /** Give a redemption back (the purchase it was taken for didn't go through). */
+    public function unredeem($id){
+        return parent::sql("UPDATE creator_promo_codes SET redemptions = redemptions - 1 WHERE id = :id AND redemptions > 0", array(':id' => (int) $id));
     }
 
     public function set_stripe_coupon($id, $coupon_id){
