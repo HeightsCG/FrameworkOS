@@ -562,3 +562,6 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
     .pel__meta{ flex-direction:column; align-items:flex-start; gap:2px; }
     .pel__sep{ display:none; }
 }
+.pel__d--ic, .pe-hero__d--ic{ display:flex; align-items:center; justify-content:center; }
+.pel__d--ic i, .pel__d--ic svg{ width:20px; height:20px; font-size:20px; color:#C2410C; }
+.pe-hero__d--ic i, .pe-hero__d--ic svg{ width:30px; height:30px; font-size:30px; color:#C2410C; }

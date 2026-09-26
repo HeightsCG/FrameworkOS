@@ -239,13 +239,12 @@ class ProfileController extends Controller {
             $event_cards[] = $make_event_card($ev);
         }
 
-        // Published services this creator sells (PRD §22). Booking + delivery details
-        // are revealed ONLY to a buyer (or the creator).
+        // Published services this creator sells (PRD §22). The instructions are revealed ONLY to a buyer; the creator
+        // sees their own service exactly as a fan does.
         $servicesModel = new ServicesModel();
-        $service_cards = array();
-        foreach ($servicesModel->list_public_for_creator($user['user_id']) as $sv) {
+        $make_service_card = function (array $sv) use ($servicesModel, $is_self, $viewer_logged_in, $viewer_id) {
             $purchased = (!$is_self && $viewer_logged_in) ? $servicesModel->has_purchased((int) $sv['id'], $viewer_id) : false;
-            $purchases = (int) $sv['purchases'];
+            $purchases = (int) ($sv['purchases'] ?? $servicesModel->purchase_count((int) $sv['id']));
             $capacity  = (int) $sv['capacity'];
             $card = array(
                 'id'            => (int) $sv['id'],
@@ -262,15 +261,23 @@ class ProfileController extends Controller {
                 'is_full'       => ($capacity > 0 && $purchases >= $capacity),
                 'purchased'     => $purchased,
                 'is_self'       => $is_self,
+                'is_live'       => ((string) $sv['status'] === 'published'),
             );
-            if ($purchased || $is_self) {
-                $card['access'] = array(
-                    'method'         => (string) $sv['delivery_method'],
-                    'scheduling_url' => (string) $sv['scheduling_url'],
-                    'details'        => (string) $sv['delivery_details'],
-                );
+            if ($purchased) {
+                $card['access'] = array('method' => (string) $sv['delivery_method'], 'details' => (string) $sv['delivery_details']);
             }
-            $service_cards[] = $card;
+            return $card;
+        };
+        // /@handle/services/<id>: one service's own page (the link a creator shares). A draft is visible only to its creator.
+        $focus_service = null;
+        if (($url_parts[1] ?? '') === 'services' && ctype_digit((string) ($url_parts[2] ?? ''))) {
+            $row = $servicesModel->get_one((int) $user['user_id'], (int) $url_parts[2]);
+            if (!$row || ((string) $row['status'] !== 'published' && !$is_self)) { Errors::page_not_found(); return; }
+            $focus_service = $make_service_card($row);
+        }
+        $service_cards = array();
+        foreach ($servicesModel->list_public_for_creator($user['user_id']) as $sv) {
+            $service_cards[] = $make_service_card($sv);
         }
 
         // Published Content Studio posts, gated per audience. Entitlement is decided

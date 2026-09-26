@@ -1,132 +1,118 @@
-/* Creator service management: click a row to edit it in the section editor; delete from the editor. */
+/* Services: ServiceEditor wires the service form (services/_form.php) inside the Create / Edit modal and turns it into
+   the service_save payload; the preview updates from the same fields. Live is outside the form (opts.status()). */
 (function () {
-    var root = document.querySelector('.sv');
-    if (!root) { return; }
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
     function el(id) { return document.getElementById(id); }
+    var METHODS = { zoom: 'Zoom', teams: 'Microsoft Teams', meet: 'Google Meet', webex: 'Webex', discord: 'Discord', phone: 'Phone', in_person: 'In person', custom: 'Other' };
 
-    var modalEl = el('serviceModal');
-    var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;
-    var ed = window.SectionEditor(modalEl);
-    var opener = null;
+    window.ServiceEditor = function (container, opts) {
+        opts = opts || {};
+        var ed = window.SectionEditor(container);   // approved shell: left nav, one section at a time
+        var status = 'draft';
+        function price() { var v = parseFloat(el('sv_price').value); return isNaN(v) ? 0 : v; }   // empty = free
 
-    var setStatus = ed.seg(el('svStatusSeg'), el('sv_status'), 'data-status', function () { refresh(); });
-    el('sv_group').addEventListener('change', function () { ed.reveal(el('sv_capacity_wrap'), this.checked); refresh(); });
+        /* Narrow screens: the preview replaces the form while it's open (never stacked below it). */
+        var pv_toggle = el('svPvToggle');
+        function set_preview(on) {
+            container.classList.toggle('is-previewing', on);
+            pv_toggle.setAttribute('aria-expanded', on ? 'true' : 'false');
+            pv_toggle.textContent = on ? 'Back to Editing' : 'Preview';
+        }
+        pv_toggle.addEventListener('click', function () { set_preview(!container.classList.contains('is-previewing')); });
+        container.querySelectorAll('.cs-ae__navitem').forEach(function (b) { b.addEventListener('click', function () { set_preview(false); }); });
+        el('svNavSelect').addEventListener('change', function () { set_preview(false); });
 
-    function refresh() {
-        var name = (el('sv_name').value || '').trim();
-        el('svModalTitle').textContent = name !== '' ? name : (el('sv_id').value ? 'Untitled Service' : 'New Service');
-        ed.summary('details', name !== '' ? name : 'Untitled');
-        var price = parseFloat(el('sv_price').value), mins = parseInt(el('sv_duration').value, 10), parts = [];
-        parts.push(price > 0 ? '$' + price.toFixed(2) : 'Free');
-        if (mins > 0) { parts.push(mins + ' min'); }
-        if (el('sv_group').checked && parseInt(el('sv_capacity').value, 10) > 0) { parts.push(parseInt(el('sv_capacity').value, 10) + ' seats'); }
-        ed.summary('pricing', parts.join(' · '));
-        var m = el('sv_method').selectedOptions[0];
-        ed.summary('delivery', (m ? m.textContent : 'Other') + ((el('sv_url').value || '').trim() !== '' ? ' · Booking link' : ''));
-        var st = el('sv_status').value;
-        ed.summary('publishing', st === 'published' ? 'Published' : 'Draft');
-        var badge = el('svStatus');
-        badge.hidden = !el('sv_id').value;
-        badge.classList.toggle('is-active', st === 'published');
-        el('svStatusText').textContent = st === 'published' ? 'Published' : 'Draft';
-    }
-    ['sv_name', 'sv_price', 'sv_duration', 'sv_capacity', 'sv_url'].forEach(function (id) { el(id).addEventListener('input', refresh); });
-    el('sv_method').addEventListener('change', refresh);
+        ['sv_name', 'sv_desc', 'sv_category', 'sv_price', 'sv_duration', 'sv_capacity', 'sv_refund', 'sv_details'].forEach(function (id) { el(id).addEventListener('input', refresh); });
+        el('sv_method').addEventListener('change', refresh);
 
-    function openModal(d) {
-        ed.clearErrors();
-        el('sv_id').value        = d && d.id ? d.id : '';
-        el('sv_name').value      = d ? (d.name || '') : '';
-        el('sv_desc').value      = d ? (d.description || '') : '';
-        el('sv_category').value  = d ? (d.category || '') : '';
-        el('sv_price').value     = d ? (d.price || '') : '';
-        el('sv_duration').value  = d && parseInt(d.duration_min, 10) > 0 ? d.duration_min : '';
-        el('sv_refund').value    = d ? (d.refund_policy || '') : '';
-        var cap = d ? parseInt(d.capacity || 0, 10) : 0;
-        el('sv_group').checked   = cap > 0;
-        el('sv_capacity').value  = cap > 0 ? cap : '';
-        ed.reveal(el('sv_capacity_wrap'), cap > 0);
-        el('sv_method').value    = d ? (d.delivery_method || 'custom') : 'custom';
-        el('sv_url').value       = d ? (d.scheduling_url || '') : '';
-        el('sv_details').value   = d ? (d.delivery_details || '') : '';
-        setStatus(d ? (d.status === 'published' ? 'published' : 'draft') : 'draft');
-        el('sv_delete').hidden = !(d && d.id);
-        el('sv_save').textContent = (d && d.id) ? 'Save Changes' : 'Create Service';
-        ed.show(ed.first, false);
-        refresh();
-        if (modal) { modal.show(); }
-    }
-    modalEl.addEventListener('shown.bs.modal', function () { el('sv_name').focus(); });
-    modalEl.addEventListener('hidden.bs.modal', function () { if (opener && document.body.contains(opener)) { opener.focus(); } opener = null; });
+        function session_line() {
+            var mins = parseInt(el('sv_duration').value, 10);
+            return (mins > 0 ? mins + ' minutes · ' : '') + (METHODS[el('sv_method').value] || 'Other');
+        }
+        function refresh() {
+            var name = el('sv_name').value.trim(), cat = el('sv_category').value.trim(), cap = parseInt(el('sv_capacity').value, 10);
+            if (opts.onTitle) { opts.onTitle(name); }
+            ed.summary('details', name !== '' ? name : 'Untitled');
+            ed.summary('pricing', (price() >= 1 ? '$' + price().toFixed(2) : 'Free') + (parseInt(el('sv_duration').value, 10) > 0 ? ' · ' + parseInt(el('sv_duration').value, 10) + ' min' : '') + (cap > 0 ? ' · ' + cap + ' spots' : ''));
+            ed.summary('delivery', METHODS[el('sv_method').value] || 'Other');
+            // preview
+            el('svPv_title').textContent = name !== '' ? name : 'Untitled service';
+            el('svPv_desc').textContent = el('sv_desc').value.trim();
+            el('svPv_session').textContent = session_line() + (cat !== '' ? ' · ' + cat : '');
+            var refund = el('sv_refund').value.trim();
+            el('svPv_refund').textContent = refund; el('svPv_refund_row').hidden = refund === '';
+            el('svPv_price').textContent = price() >= 1 ? '$' + price().toFixed(2) : 'Free';
+            el('svPv_per').textContent = price() >= 1 ? 'per booking' : '';
+            el('svPv_spots').textContent = cap > 0 ? cap + (cap === 1 ? ' spot' : ' spots') : 'No spot limit';
+        }
 
-    if (el('svCreate')) { el('svCreate').addEventListener('click', function () { opener = this; openModal(null); }); }
+        function load(d) {
+            ed.clearErrors();
+            el('sv_id').value       = d && d.id ? d.id : '';
+            el('sv_name').value     = d ? (d.name || '') : '';
+            el('sv_desc').value     = d ? (d.description || '') : '';
+            el('sv_category').value = d ? (d.category || '') : '';
+            var p = d ? parseFloat(d.price) : 0;
+            el('sv_price').value    = p > 0 ? p.toFixed(2) : '';
+            el('sv_duration').value = d && parseInt(d.duration_min, 10) > 0 ? parseInt(d.duration_min, 10) : '';
+            el('sv_capacity').value = d && parseInt(d.capacity, 10) > 0 ? parseInt(d.capacity, 10) : '';
+            el('sv_refund').value   = d ? (d.refund_policy || '') : '';
+            el('sv_method').value   = d && d.delivery_method && el('sv_method').querySelector('option[value="' + d.delivery_method + '"]') ? d.delivery_method : 'zoom';
+            el('sv_details').value  = d ? (d.delivery_details || '') : '';
+            status = d && d.status ? d.status : 'draft';
+            set_preview(false);
+            ed.show(ed.first, false);
+            refresh();
+        }
 
-    var body = el('svBody');
-    function openRow(row) {
-        var data = null; try { data = JSON.parse(row.getAttribute('data-sv')); } catch (x) {}
-        if (data) { opener = row; openModal(data); }
-    }
-    if (body) {
-        body.addEventListener('click', function (e) { var row = e.target.closest('.sv-row'); if (row) { openRow(row); } });
-        body.addEventListener('keydown', function (e) {
-            var row = e.target.closest('.sv-row');
-            if (row && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRow(row); }
-        });
-    }
+        function validate() {
+            var errs = [];
+            if (el('sv_name').value.trim() === '') { errs.push({ section: 'details', input: 'sv_name', err: 'svErr_name', msg: 'Give the service a name.' }); }
+            if (el('sv_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Paid services start at $1.00. Leave it empty for a free one.' }); }
+            var cap = el('sv_capacity').value.trim();
+            if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'pricing', input: 'sv_capacity', err: 'svErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
+            ed.showErrors(errs);
+            return errs.length === 0;
+        }
 
-    function validate() {
-        var errs = [], price = el('sv_price').value, url = (el('sv_url').value || '').trim();
-        if ((el('sv_name').value || '').trim() === '') { errs.push({ section: 'details', input: 'sv_name', err: 'svErr_name', msg: 'Enter a name.' }); }
-        if (price !== '' && !(parseFloat(price) >= 0)) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Enter a price, or 0 for free.' }); }
-        if (el('sv_group').checked && !(parseInt(el('sv_capacity').value, 10) >= 2)) { errs.push({ section: 'pricing', input: 'sv_capacity', err: 'svErr_capacity', msg: 'A group session needs at least 2 seats.' }); }
-        if (url !== '' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'delivery', input: 'sv_url', err: 'svErr_url', msg: 'Enter a link that starts with https://' }); }
-        ed.showErrors(errs);
-        return errs.length === 0;
-    }
-
-    el('sv_save').addEventListener('click', function () {
-        if (!validate()) { return; }
-        var btn = this; if (btn.disabled) { return; } btn.disabled = true;
-        ApiDataSvc.apiCall('post', 'service_save', {
-            id: el('sv_id').value || 0,
-            name: el('sv_name').value.trim(),
-            description: el('sv_desc').value,
-            price: el('sv_price').value || 0,
-            duration_min: el('sv_duration').value || 0,
-            delivery_method: el('sv_method').value,
-            scheduling_url: el('sv_url').value.trim(),
-            delivery_details: el('sv_details').value,
-            capacity: el('sv_group').checked ? (el('sv_capacity').value || 0) : 0,
-            category: el('sv_category').value,
-            refund_policy: el('sv_refund').value,
-            status: el('sv_status').value
-        }, function (r) {
-            btn.disabled = false;
-            var o = parse(r);
-            if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not save the service'); } return; }
-            if (modal) { modal.hide(); }
-            if (window.toastr) { toastr.success(el('sv_id').value ? 'Changes saved' : 'Service created'); }
-            setTimeout(function () { location.reload(); }, 500);
-        });
-    });
-
-    el('sv_delete').addEventListener('click', function () {
-        var id = el('sv_id').value;
-        if (!id) { return; }
-        var btn = this;
-        var proceed = window.Swal
-            ? Swal.fire({ title: 'Delete this service?', text: "Buyers keep their booking details, but the listing is removed. This can't be undone.", icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete Service', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' }).then(function (r) { return r.isConfirmed; })
-            : Promise.resolve(window.confirm('Delete this service?'));
-        proceed.then(function (ok) {
-            if (!ok) { return; }
-            btn.disabled = true;
-            ApiDataSvc.apiCall('post', 'service_delete', { id: id }, function (r) {
-                btn.disabled = false;
+        function save(btn) {
+            if (btn.disabled || !validate()) { return; }
+            var label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
+            ApiDataSvc.apiCall('post', 'service_save', {
+                id: el('sv_id').value || 0,
+                name: el('sv_name').value.trim(),
+                description: el('sv_desc').value,
+                category: el('sv_category').value.trim(),
+                price: price() >= 1 ? price().toFixed(2) : 0,
+                duration_min: el('sv_duration').value.trim() !== '' ? el('sv_duration').value : 0,
+                capacity: el('sv_capacity').value.trim() !== '' ? el('sv_capacity').value : 0,
+                refund_policy: el('sv_refund').value.trim(),
+                delivery_method: el('sv_method').value,
+                delivery_details: el('sv_details').value,
+                status: opts.status ? opts.status() : status
+            }, function (r) {
+                btn.disabled = false; btn.textContent = label;
                 var o = parse(r);
-                if (o && o.success) { if (modal) { modal.hide(); } if (window.toastr) { toastr.success('Service deleted'); } setTimeout(function () { location.reload(); }, 500); }
-                else if (window.toastr) { toastr.error((o && o.message) || 'Could not delete the service'); }
+                if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not save the service'); } return; }
+                if (opts.onSaved) { opts.onSaved(o); }
             });
-        });
+        }
+
+        return { load: load, save: save };
+    };
+
+    /* ---- /services list: Create modal ---- */
+    var modalEl = el('serviceModal');
+    if (!modalEl || !document.querySelector('.ev') || !el('svCreate')) { return; }
+    var modal = window.bootstrap ? new bootstrap.Modal(modalEl) : null;
+    var editor = window.ServiceEditor(modalEl, {
+        onTitle: function (t) { el('svModalTitle').textContent = t !== '' ? t : 'New Service'; },
+        status: function () { return el('svCreateLive').checked ? 'published' : 'draft'; },
+        onSaved: function (o) { window.location.href = '/services/manage/' + o.id; }
     });
+    var opener = null;
+    modalEl.addEventListener('shown.bs.modal', function () { el('sv_name').focus(); });
+    modalEl.addEventListener('hidden.bs.modal', function () { if (opener) { opener.focus(); } opener = null; });
+    el('svCreate').addEventListener('click', function () { opener = this; editor.load(null); if (modal) { modal.show(); } });
+    el('sv_save').addEventListener('click', function () { editor.save(this); });
 })();

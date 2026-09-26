@@ -170,7 +170,9 @@ class McpTools {
             'properties' => array(
                 'name' => array('type' => 'string'), 'description' => array('type' => 'string'),
                 'price_credits' => array('type' => 'integer'), 'duration_min' => array('type' => 'integer'),
-                'delivery_method' => array('type' => 'string'), 'capacity' => array('type' => 'integer'),
+                'delivery_method' => array('type' => 'string', 'enum' => array('zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom')),
+                'delivery_details' => array('type' => 'string', 'description' => 'Instructions shown to buyers after they book'),
+                'capacity' => array('type' => 'integer'), 'category' => array('type' => 'string'), 'refund_policy' => array('type' => 'string'),
                 'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
             )));
         $t[] = array('name' => 'update_service', 'description' => 'Update a service (send id plus only the fields to change).', 'inputSchema' => array(
@@ -179,8 +181,8 @@ class McpTools {
                 'id' => array('type' => 'integer'),
                 'name' => array('type' => 'string'), 'description' => array('type' => 'string'),
                 'price_credits' => array('type' => 'integer'), 'duration_min' => array('type' => 'integer'),
-                'delivery_method' => array('type' => 'string'), 'scheduling_url' => array('type' => 'string'),
-                'delivery_details' => array('type' => 'string'), 'capacity' => array('type' => 'integer'),
+                'delivery_method' => array('type' => 'string', 'enum' => array('zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom')),
+                'delivery_details' => array('type' => 'string', 'description' => 'Instructions shown to buyers after they book'), 'capacity' => array('type' => 'integer'),
                 'category' => array('type' => 'string'), 'refund_policy' => array('type' => 'string'),
                 'status' => array('type' => 'string', 'enum' => array('draft', 'published')),
             )));
@@ -544,10 +546,15 @@ class McpTools {
             case 'create_service': {
                 if (trim((string) ($a['name'] ?? '')) === '') { throw new InvalidArgumentException('name is required'); }
                 $a += array('delivery_method' => 'custom', 'status' => 'draft'); // fields the model reads unguarded
+                unset($a['scheduling_url']);   // no booking link (for now)
                 return array('id' => (int) (new ServicesModel())->create($cid, $a));
             }
-            case 'update_service': return $ok((new ServicesModel())->update_service($cid, $iid, $a));
-            case 'delete_service': return $ok((new ServicesModel())->delete_service($cid, $iid));
+            case 'update_service': { unset($a['scheduling_url']); return $ok((new ServicesModel())->update_service($cid, $iid, $a)); }
+            case 'delete_service': {
+                $svm = new ServicesModel();
+                if ($svm->get_one($cid, $iid) && $svm->stats($iid)['rows'] > 0) { throw new RuntimeException('This service has bookings, so it can\'t be deleted. Set status to draft to stop new bookings.'); }
+                return $ok($svm->delete_service($cid, $iid));
+            }
 
             // Automations
             case 'list_automations':    return array('automations' => (array) (new SchedulerRulesModel())->list_for_creator($cid));

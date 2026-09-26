@@ -23,7 +23,7 @@ $in_app     = !empty($viewer_logged_in);
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
-<div class="pf pf--app<?php echo !empty($focus_event) ? ' pf--event' : ''; ?>">
+<div class="pf pf--app<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
 <?php else: ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -86,7 +86,7 @@ $in_app     = !empty($viewer_logged_in);
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
 </head>
-<body class="pf<?php echo !empty($focus_event) ? ' pf--event' : ''; ?>">
+<body class="pf<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
 <?php endif; ?>
 
     <!-- Signature: identity + primary action dock in on scroll -->
@@ -266,6 +266,98 @@ $in_app     = !empty($viewer_logged_in);
                         </aside>
                     </div>
                 </article>
+                <?php elseif (!empty($focus_service)): $fs = $focus_service;
+                    $h_     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+                    $dx     = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
+                    $fs_url = '/@' . rawurlencode((string) $user['u_name']);
+                    $fs_paid = (int) $fs['price_credits'] > 0;
+                    $fs_left = (int) $fs['capacity'] > 0 ? max(0, (int) $fs['capacity'] - (int) $fs['purchases']) : null;
+                    $fs_methods = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other');
+                    $fs_method = $fs_methods[$fs['delivery_method']] ?? 'Other';
+                    $fs_icon = $fs['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($fs['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video');
+                    $fs_state = !empty($fs['purchased']) ? 'booked' : (!empty($fs['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : 'open'));   // the creator sees what a fan sees
+                    $fs_title = $dx($fs['name']);
+                ?>
+                <article class="pe pf-ev" data-sv-card="<?php echo (int) $fs['id']; ?>">
+                    <div class="pe-bar">
+                        <a class="pe-back" href="<?php echo $h_($fs_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
+                        <?php if (!empty($fs['is_self'])): ?><a class="pe-manage" href="/services/manage/<?php echo (int) $fs['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Service</a><?php endif; ?>
+                    </div>
+                    <div class="pe-grid">
+                        <div class="pe-main">
+                            <header class="pe-hero">
+                                <div class="pe-hero__date" aria-hidden="true">
+                                    <span class="pe-hero__m">Session</span>
+                                    <?php if ((int) $fs['duration_min'] > 0): ?>
+                                    <span class="pe-hero__d"><?php echo (int) $fs['duration_min']; ?></span>
+                                    <span class="pe-hero__w">min</span>
+                                    <?php else: ?>
+                                    <span class="pe-hero__d pe-hero__d--ic"><i class="fa-solid <?php echo $fs_icon; ?>"></i></span>
+                                    <span class="pe-hero__w"><?php echo $h_($fs_method); ?></span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="pe-hero__text">
+                                    <h1 class="pe-title<?php echo mb_strlen($fs_title) > 60 ? ' pe-title--long' : ''; ?>"><?php echo $h_($fs_title); ?></h1>
+                                    <div class="pe-meta">
+                                    <a class="pe-host" href="<?php echo $h_($fs_url); ?>">
+                                        <span class="pe-host__av"<?php echo $has_avatar ? ' style="background-image:url(\'' . $h_($profile['avatar_url']) . '\')"' : ''; ?>><?php echo $has_avatar ? '' : $h_($initial); ?></span>
+                                        <span class="pe-host__text"><span class="pe-host__by">Offered by</span><span class="pe-host__name"><?php echo $h_($display_name); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></span></span>
+                                    </a>
+                                    </div>
+                                </div>
+                            </header>
+                            <div class="pe-tiles">
+                                <section class="pe-tile">
+                                    <h2 class="pe-tile__h"><i class="fa-solid <?php echo $fs_icon; ?>" aria-hidden="true"></i> Session</h2>
+                                    <p class="pe-tile__main"><?php echo (int) $fs['duration_min'] > 0 ? (int) $fs['duration_min'] . ' minutes' : 'Flexible length'; ?> · <?php echo $h_($fs_method); ?></p>
+                                    <?php if (trim($dx($fs['category'])) !== ''): ?><p class="pe-tile__sub"><?php echo $h_($dx($fs['category'])); ?></p><?php endif; ?>
+                                </section>
+                                <?php if (trim($dx($fs['refund_policy'])) !== ''): ?>
+                                <section class="pe-tile">
+                                    <h2 class="pe-tile__h"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i> Refund Policy</h2>
+                                    <p class="pe-tile__sub"><?php echo $h_($dx($fs['refund_policy'])); ?></p>
+                                </section>
+                                <?php endif; ?>
+                            </div>
+                            <?php if (trim($dx($fs['description'])) !== ''): ?>
+                            <section class="pe-about">
+                                <h2 class="pe-about__h">About This Service</h2>
+                                <p class="pe-desc"><?php echo nl2br($h_($dx($fs['description']))); ?></p>
+                            </section>
+                            <?php endif; ?>
+                            <?php if (!empty($fs['access']) && trim($dx($fs['access']['details'])) !== ''): ?>
+                            <section class="pe-about pe-about--instr">
+                                <h2 class="pe-about__h">Your Booking Details</h2>
+                                <p class="pe-desc"><?php echo nl2br($h_($dx($fs['access']['details']))); ?></p>
+                            </section>
+                            <?php endif; ?>
+                        </div>
+
+                        <aside class="pe-ticket" aria-label="Booking">
+                            <div class="pe-ticket__top">
+                                <p class="pe-ticket__label">Booking</p>
+                                <p class="pe-ticket__price"><?php echo $fs_paid ? '$' . $h_($fs['price_dollars']) . ' <span>per booking</span>' : 'Free'; ?></p>
+                                <p class="pe-ticket__row"><i class="fa-solid <?php echo $fs_icon; ?>" aria-hidden="true"></i> <?php echo (int) $fs['duration_min'] > 0 ? (int) $fs['duration_min'] . ' min · ' : ''; ?><?php echo $h_($fs_method); ?></p>
+                                <?php if ($fs_left !== null && in_array($fs_state, array('open', 'signin'), true)): ?>
+                                <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fs_left; ?> of <?php echo (int) $fs['capacity']; ?> <?php echo (int) $fs['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
+                                <?php endif; ?>
+                            </div>
+                            <div class="pe-ticket__tear" aria-hidden="true"></div>
+                            <div class="pf-ev__cta pe-ticket__bottom">
+                                <?php if ($fs_state === 'booked'): ?>
+                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re booked</p>
+                                <p class="pe-card__sub">Your booking details are on this page.</p>
+                                <?php elseif ($fs_state === 'full'): ?>
+                                <p class="pe-status">This service is fully booked.</p>
+                                <?php elseif ($fs_state === 'signin'): ?>
+                                <a class="pe-btn" href="/">Sign In to Book</a>
+                                <?php else: ?>
+                                <button type="button" class="pe-btn" data-sv-purchase="<?php echo (int) $fs['id']; ?>">Book Now</button>
+                                <?php endif; ?>
+                            </div>
+                        </aside>
+                    </div>
+                </article>
                 <?php else: ?>
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
@@ -397,45 +489,29 @@ $in_app     = !empty($viewer_logged_in);
                 </section>
 
                 <?php if (!empty($service_cards)): ?>
-                <?php $svm = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Custom'); ?>
+                <?php $svm = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other'); ?>
                 <section class="pf-panel" data-panel="services">
-                    <div class="pf-events">
-                        <?php foreach ($service_cards as $sc): ?>
-                        <article class="pf-ev" data-sv-card="<?php echo (int) $sc['id']; ?>">
-                            <div class="pf-ev__main">
-                                <?php if (trim((string) $sc['category']) !== ''): ?><div class="pf-ev__when"><i class="fa-solid fa-briefcase"></i> <?php echo htmlspecialchars((string) $sc['category'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
-                                <h3 class="pf-ev__title"><?php echo htmlspecialchars((string) $sc['name'], ENT_QUOTES, 'UTF-8'); ?></h3>
-                                <?php if (trim((string) $sc['description']) !== ''): ?><p class="pf-ev__desc"><?php echo nl2br(htmlspecialchars((string) $sc['description'], ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
-                                <div class="pf-ev__meta">
-                                    <span class="pf-ev__tag pf-ev__tag--<?php echo ((int) $sc['price_credits'] > 0) ? 'paid' : ''; ?>"><?php echo ((int) $sc['price_credits'] > 0) ? '$' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?></span>
-                                    <?php if ((int) $sc['duration_min'] > 0): ?><span class="pf-ev__where"><i class="fa-regular fa-clock"></i> <?php echo (int) $sc['duration_min']; ?> min</span><?php endif; ?>
-                                    <span class="pf-ev__where"><i class="fa-solid fa-video"></i> <?php echo htmlspecialchars($svm[$sc['delivery_method']] ?? 'Custom', ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <?php if ((int) $sc['capacity'] > 0): ?><span class="pf-ev__seats"><i class="fa-solid fa-user-group"></i> <?php echo max(0, (int) $sc['capacity'] - (int) $sc['purchases']); ?> spots left</span><?php endif; ?>
-                                </div>
-                                <?php if (trim((string) $sc['refund_policy']) !== ''): ?><p class="pf-ev__refund"><i class="fa-solid fa-rotate-left"></i> <?php echo htmlspecialchars((string) $sc['refund_policy'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
-                                <?php if (!empty($sc['access'])): $ax = $sc['access']; ?>
-                                <div class="pf-ev__access">
-                                    <span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your booking details</span>
-                                    <?php if (trim((string) $ax['scheduling_url']) !== ''): ?><span class="pf-ev__access-row"><i class="fa-regular fa-calendar-check"></i> <a href="<?php echo htmlspecialchars((string) $ax['scheduling_url'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener noreferrer nofollow">Schedule your session</a></span><?php endif; ?>
-                                    <?php if (trim((string) $ax['details']) !== ''): ?><span class="pf-ev__access-row pf-ev__access-instr"><?php echo nl2br(htmlspecialchars((string) $ax['details'], ENT_QUOTES, 'UTF-8')); ?></span><?php endif; ?>
-                                </div>
-                                <?php endif; ?>
-                            </div>
-                            <div class="pf-ev__cta">
-                                <?php if ($sc['is_self']): ?>
-                                <span class="pf-ev__status pf-ev__status--own"><i class="fa-solid fa-user-pen"></i> Your service</span>
-                                <?php elseif (!empty($sc['purchased'])): ?>
-                                <span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Booked</span>
-                                <?php elseif (!empty($sc['is_full'])): ?>
-                                <span class="pf-ev__status pf-ev__status--full">Fully booked</span>
-                                <?php else: ?>
-                                <button type="button" class="pf-btn pf-btn--subscribe pf-ev__register" data-sv-purchase="<?php echo (int) $sc['id']; ?>">
-                                    <i class="fa-solid fa-calendar-check"></i>
-                                    <?php echo ((int) $sc['price_credits'] > 0) ? 'Book · $' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Book'; ?>
-                                </button>
-                                <?php endif; ?>
-                            </div>
-                        </article>
+                    <div class="pel-list">
+                        <?php foreach ($service_cards as $sc):   // one row per service; the row opens the service page, where people book
+                            $sc_h = function ($x) { return htmlspecialchars(html_entity_decode((string) $x, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); };
+                            $sc_icon = $sc['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($sc['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video');
+                            $sc_left = (int) $sc['capacity'] > 0 ? max(0, (int) $sc['capacity'] - (int) $sc['purchases']) : null;
+                            $sc_flag = !empty($sc['purchased']) ? array('Booked', 'ok') : (!empty($sc['is_full']) ? array('Fully booked', 'off') : null);
+                        ?>
+                        <a class="pel" href="/@<?php echo htmlspecialchars(rawurlencode((string) $user['u_name']), ENT_QUOTES, 'UTF-8'); ?>/services/<?php echo (int) $sc['id']; ?>" data-sv-card="<?php echo (int) $sc['id']; ?>">
+                            <span class="pel__date" aria-hidden="true"><?php if ((int) $sc['duration_min'] > 0): ?><span class="pel__m">Min</span><span class="pel__d"><?php echo (int) $sc['duration_min']; ?></span><?php else: ?><span class="pel__d pel__d--ic"><i class="fa-solid <?php echo $sc_icon; ?>"></i></span><?php endif; ?></span>
+                            <span class="pel__body">
+                                <span class="pel__title"><?php echo $sc_h($sc['name']); ?><?php if ($sc_flag): ?> <span class="pel__flag pel__flag--<?php echo $sc_flag[1]; ?>"><?php echo $sc_flag[0]; ?></span><?php endif; ?></span>
+                                <span class="pel__meta">
+                                    <span class="pel__where"><i class="fa-solid <?php echo $sc_icon; ?>" aria-hidden="true"></i> <?php echo htmlspecialchars($svm[$sc['delivery_method']] ?? 'Other', ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <?php if (trim((string) $sc['category']) !== ''): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $sc_h($sc['category']); ?></span><?php endif; ?>
+                                    <?php if ($sc_left !== null && !$sc_flag): ?><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $sc_left; ?> <?php echo $sc_left === 1 ? 'spot' : 'spots'; ?> left</span><?php endif; ?>
+                                </span>
+                                <?php if (trim((string) $sc['description']) !== ''): ?><span class="pel__desc"><?php echo $sc_h($sc['description']); ?></span><?php endif; ?>
+                            </span>
+                            <span class="pel__price"><span class="pel__amount"><?php echo (int) $sc['price_credits'] > 0 ? '$' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?></span><span class="pel__req">per booking</span></span>
+                            <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
+                        </a>
                         <?php endforeach; ?>
                     </div>
                 </section>
@@ -701,25 +777,11 @@ $in_app     = !empty($viewer_logged_in);
                         return;
                     }
                     if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not book'); return; }
-                    revealServiceAccess(b, o.access || {});
-                    pfToast('Booked! Schedule your session next.');
+                    pfToast('You\'re booked!');
+                    setTimeout(function () { window.location.reload(); }, 700);   // the service page re-renders with the booking details
                 });
             };
         });
-        function revealServiceAccess(btn, ax) {
-            var card = btn.closest('.pf-ev');
-            if (!card) { return; }
-            var cta = btn.closest('.pf-ev__cta');
-            if (cta) { cta.innerHTML = '<span class="pf-ev__status pf-ev__status--reg"><i class="fa-solid fa-circle-check"></i> Booked</span>'; }
-            var main = card.querySelector('.pf-ev__main');
-            if (!main || main.querySelector('.pf-ev__access')) { return; }
-            function e(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
-            var rows = '<span class="pf-ev__access-h"><i class="fa-solid fa-circle-check"></i> Your booking details</span>';
-            if (ax.scheduling_url) { rows += '<span class="pf-ev__access-row"><i class="fa-regular fa-calendar-check"></i> <a href="' + e(ax.scheduling_url) + '" target="_blank" rel="noopener noreferrer nofollow">Schedule your session</a></span>'; }
-            if (ax.details) { rows += '<span class="pf-ev__access-row pf-ev__access-instr">' + e(ax.details).replace(/\n/g, '<br>') + '</span>'; }
-            var wrap = document.createElement('div'); wrap.className = 'pf-ev__access'; wrap.innerHTML = rows;
-            main.appendChild(wrap);
-        }
 
         // Content locked-state CTAs.
         document.querySelectorAll('[data-content-login]').forEach(function (b) {

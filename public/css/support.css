@@ -1,4 +1,4 @@
-/* Support (/support, /support/ticket/<id>). Built on the Services page pattern (public/css/services.css):
+/* Support (/support, /support/ticket/<id>). Built on the list-page pattern:
    same header, buttons, table, empty state and modal fields. */
 .sup{ max-width:1000px; margin:0 auto; padding-bottom:2.5rem; }
 .sup__head{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }

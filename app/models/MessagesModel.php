@@ -129,10 +129,17 @@ class MessagesModel extends Model {
              UNION
              SELECT 1 AS ok FROM message_unlocks
                WHERE (fan_id = :a9 AND creator_id = :b9) OR (fan_id = :b10 AND creator_id = :a10)
+             UNION
+             SELECT 1 AS ok FROM service_purchases sp JOIN services s ON s.id = sp.service_id
+               WHERE (sp.buyer_id = :a11 AND s.creator_id = :b11) OR (sp.buyer_id = :b12 AND s.creator_id = :a12)
+             UNION
+             SELECT 1 AS ok FROM event_registrations er JOIN events e ON e.id = er.event_id
+               WHERE (er.user_id = :a13 AND e.creator_id = :b13) OR (er.user_id = :b14 AND e.creator_id = :a14)
              LIMIT 1",
             array('a1' => $v, 'b1' => $o, 'b2' => $o, 'a2' => $v, 'a3' => $v, 'b3' => $o, 'b4' => $o, 'a4' => $v,
                   'a5' => $v, 'b5' => $o, 'b6' => $o, 'a6' => $v, 'a7' => $v, 'b7' => $o, 'b8' => $o, 'a8' => $v,
-                  'a9' => $v, 'b9' => $o, 'b10' => $o, 'a10' => $v));
+                  'a9' => $v, 'b9' => $o, 'b10' => $o, 'a10' => $v, 'a11' => $v, 'b11' => $o, 'b12' => $o, 'a12' => $v,
+                  'a13' => $v, 'b13' => $o, 'b14' => $o, 'a14' => $v));
         return is_array($rows) && count($rows) > 0;
     }
 

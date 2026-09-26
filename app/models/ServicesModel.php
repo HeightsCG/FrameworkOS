@@ -99,8 +99,10 @@ class ServicesModel extends Model {
         return is_array($r) && count($r) >= 1;
     }
 
-    /** Record a paid purchase. Returns the new row id. */
-    /** Insert the purchase row; returns its id, or 0 if this buyer already has one (UNIQUE service_id+buyer_id). */
+    /**
+     * Take the booking row; returns its id, or 0 if this buyer already has a live one. UNIQUE(service_id, buyer_id) is the
+     * mutex against a double charge; a refunded buyer booking again gets their old row back (conditional update).
+     */
     public function record_purchase($service_id, $buyer_id, $price_credits = 0){
         try {
             return (int) parent::insert('service_purchases', array(
@@ -111,9 +113,73 @@ class ServicesModel extends Model {
                 'created_at'    => date('Y-m-d H:i:s'),
             ));
         } catch (\PDOException $e) {
-            if ((string) $e->getCode() === '23000') { return 0; }   // duplicate: a concurrent request won
-            throw $e;
+            if ((string) $e->getCode() !== '23000') { throw $e; }
+            $back = parent::update('service_purchases',
+                array('status' => 'paid', 'price_credits' => max(0, (int) $price_credits), 'net_credits' => 0, 'created_at' => date('Y-m-d H:i:s')),
+                'service_id = :s AND buyer_id = :b AND status <> :paid', array('s' => (int) $service_id, 'b' => (int) $buyer_id, 'paid' => 'paid'));
+            if ($back <= 0) { return 0; }   // already booked (or a concurrent request won)
+            $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :b", array('s' => (int) $service_id, 'b' => (int) $buyer_id));
+            return (is_array($r) && count($r)) ? (int) $r[0]['id'] : 0;
         }
+    }
+
+    public function set_net($purchase_id, $net_credits){
+        return parent::update('service_purchases', array('net_credits' => max(0, (int) $net_credits)), 'id = :id', array('id' => (int) $purchase_id));
+    }
+
+    /** Sold / earned / refunded for one service. */
+    public function stats($service_id){
+        $r = parent::select("SELECT COALESCE(SUM(status = 'paid'), 0) AS sold,
+                COALESCE(SUM(CASE WHEN status = 'paid' THEN net_credits END), 0) AS net,
+                COALESCE(SUM(status = 'refunded'), 0) AS refunded_n, COUNT(*) AS rows_n
+             FROM service_purchases WHERE service_id = :s", array('s' => (int) $service_id));
+        $x = (is_array($r) && count($r)) ? $r[0] : array();
+        return array('sold' => (int) ($x['sold'] ?? 0), 'net' => (int) ($x['net'] ?? 0), 'refunded_n' => (int) ($x['refunded_n'] ?? 0), 'rows' => (int) ($x['rows_n'] ?? 0));
+    }
+
+    /** One page of paid buyers (the manage page's Buyers table): search by name, handle or email. */
+    public function buyers_page($service_id, $q, $limit, $offset){
+        $limit = max(1, min(50, (int) $limit)); $offset = max(0, (int) $offset);
+        $where = "p.service_id = :s AND p.status = 'paid'";
+        $args  = array('s' => (int) $service_id);
+        if ((string) $q !== '') {
+            $where .= " AND (cp.display_name LIKE :q1 OR CONCAT(u.first_name, ' ', u.last_name) LIKE :q2 OR u.u_name LIKE :q3 OR u.user_email LIKE :q4)";
+            $like = '%' . addcslashes((string) $q, '%_\\') . '%';
+            $args += array('q1' => $like, 'q2' => $like, 'q3' => $like, 'q4' => $like);
+        }
+        $from = "FROM service_purchases p JOIN user_accounts u ON u.user_id = p.buyer_id LEFT JOIN creator_profiles cp ON cp.user_id = p.buyer_id WHERE $where";
+        $n = parent::select("SELECT COUNT(*) AS n $from", $args);
+        $rows = parent::select(
+            "SELECT p.id, p.buyer_id, p.status, p.price_credits, p.net_credits, p.created_at,
+                    COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.u_name) AS name,
+                    u.u_name AS handle, cp.avatar_url
+             $from ORDER BY p.created_at DESC, p.id DESC LIMIT $limit OFFSET $offset", $args);
+        return array('rows' => (array) $rows, 'total' => (int) ((is_array($n) && count($n)) ? $n[0]['n'] : 0));
+    }
+
+    /** Everyone who ever booked (CSV export), newest first. */
+    public function all_buyers($service_id){
+        return (array) parent::select(
+            "SELECT p.*, COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.u_name) AS name,
+                    u.u_name AS handle, u.user_email AS email
+             FROM service_purchases p JOIN user_accounts u ON u.user_id = p.buyer_id LEFT JOIN creator_profiles cp ON cp.user_id = p.buyer_id
+             WHERE p.service_id = :s ORDER BY p.created_at DESC", array('s' => (int) $service_id));
+    }
+
+    public function purchase($service_id, $purchase_id){
+        $r = parent::select("SELECT * FROM service_purchases WHERE id = :id AND service_id = :s", array('id' => (int) $purchase_id, 's' => (int) $service_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** Move a booking from one status to another; true only for the request that moved it (the mutex). */
+    public function set_purchase_status($purchase_id, $from, $to){
+        return parent::update('service_purchases', array('status' => (string) $to), 'id = :id AND status = :f',
+            array('id' => (int) $purchase_id, 'f' => (string) $from)) > 0;
+    }
+
+    public function set_status($creator_id, $id, $status){
+        return parent::update('services', array('status' => (string) $status, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
     /** Undo a purchase row whose payment did not go through. */
