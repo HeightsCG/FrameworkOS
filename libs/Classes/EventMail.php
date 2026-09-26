@@ -13,9 +13,13 @@ class EventMail {
             'Registration confirmed', '"' . EventRefunds::title($ev) . '" on ' . EventRefunds::when($ev, $user_id) . '.', 'fa-calendar-check');
     }
 
-    public static function reminder(array $ev, $user_id): void {
-        self::send($ev, $user_id, 'Tomorrow: ' . EventRefunds::title($ev), 'Your event is coming up', 'A quick reminder with everything you need.',
-            'Event reminder', '"' . EventRefunds::title($ev) . '" starts ' . EventRefunds::when($ev, $user_id) . '.', 'fa-calendar-day');
+    /** $offset: minutes before the start this reminder was scheduled for (EventsModel::REMINDERS). */
+    public static function reminder(array $ev, $user_id, $offset = 1440): void {
+        $offset = (int) $offset;
+        $when = $offset >= 10080 ? 'next week' : ($offset >= 1440 ? 'tomorrow' : 'in ' . (EventsModel::REMINDERS[$offset] ?? $offset . ' minutes'));
+        $t = EventRefunds::title($ev);
+        self::send($ev, $user_id, 'Starts ' . $when . ': ' . $t, 'Your event starts ' . $when, 'A quick reminder with everything you need.',
+            'Event reminder', '"' . $t . '" starts ' . EventRefunds::when($ev, $user_id) . '.', 'fa-calendar-day');
     }
 
     /** The data the email template needs, built from an events row. */

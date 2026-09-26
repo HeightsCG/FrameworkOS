@@ -19,7 +19,7 @@ $dollars   = function ($credits) { return '$' . number_format(((int) $credits) /
 $public_link = Main::get_base_domain() . '/@' . rawurlencode((string) $this->handle) . '/events/' . (int) $ev['id'];
 $editor_data = array(
     'id' => (int) $ev['id'], 'title' => $d($ev['title']), 'description' => $d($ev['description']),
-    'start_at' => $local($ev['start_at'], 'Y-m-d\TH:i'), 'end_at' => $local($ev['end_at'], 'Y-m-d\TH:i'), 'timezone' => $ev_tz,
+    'start_at' => $local($ev['start_at'], 'Y-m-d\TH:i'), 'end_at' => $local($ev['end_at'], 'Y-m-d\TH:i'), 'timezone' => $ev_tz, 'reminders' => (string) ($ev['reminders'] ?? '1440'),
     'format' => $ev['format'] ?? 'virtual', 'external_url' => (string) $ev['external_url'], 'location' => $d($ev['location']),
     'venue_name' => $d($ev['venue_name'] ?? ''), 'street' => $d($ev['street'] ?? ''), 'city' => $d($ev['city'] ?? ''),
     'region' => $d($ev['region'] ?? ''), 'postal_code' => $d($ev['postal_code'] ?? ''),
@@ -90,6 +90,8 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
             <dt>Date and Time</dt>
             <dd class="evm-band__main"><?php echo $e($local($ev['start_at'], 'D, M j, Y')); ?></dd>
             <dd class="evm-band__sub"><?php echo $e($local($ev['start_at'], 'g:i A')); ?><?php echo !empty($ev['end_at']) ? ' – ' . $e($local($ev['end_at'], 'g:i A')) : ''; ?> <?php echo $e($local($ev['start_at'], 'T')); ?></dd>
+            <?php $rem = EventsModel::reminders_label($ev['reminders'] ?? ''); ?>
+            <dd class="evm-band__sub evm-band__rem"><i class="fa-regular fa-bell" aria-hidden="true"></i> <?php echo $rem !== '' ? 'Reminders ' . $e($rem) : 'No reminder emails'; ?></dd>
         </div>
         <div class="evm-band__cell">
             <dt>Location</dt>

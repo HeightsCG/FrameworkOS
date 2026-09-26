@@ -18,6 +18,26 @@ class EventsModel extends Model {
         'Asia/Tokyo', 'Asia/Seoul', 'Australia/Perth', 'Australia/Sydney', 'Pacific/Auckland', 'UTC',
     );
 
+    /** Reminder emails a creator can schedule: minutes before the start => label. */
+    const REMINDERS = array(10080 => '1 week', 1440 => '1 day', 180 => '3 hours', 60 => '1 hour', 15 => '15 minutes');
+
+    /** '10080,60' (or an array) → [10080, 60]: known offsets only, largest first, no duplicates. */
+    public static function clean_reminders($v){
+        $in = is_array($v) ? $v : explode(',', (string) $v);
+        $out = array();
+        foreach ($in as $x) { $x = (int) trim((string) $x); if (isset(self::REMINDERS[$x])) { $out[$x] = $x; } }
+        krsort($out);
+        return array_values($out);
+    }
+
+    /** '1 day and 1 hour before' — for the event page summary; '' when none are scheduled. */
+    public static function reminders_label($v){
+        $labels = array_map(function ($m) { return self::REMINDERS[$m]; }, self::clean_reminders($v));
+        if (empty($labels)) { return ''; }
+        $last = array_pop($labels);
+        return (empty($labels) ? $last : implode(', ', $labels) . ' and ' . $last) . ' before';
+    }
+
     /** A valid IANA zone, else $fallback. */
     public static function clean_timezone($tz, $fallback = 'UTC'){
         $tz = trim((string) $tz);
@@ -52,6 +72,7 @@ class EventsModel extends Model {
             'start_at'            => (string) $f['start_at'],
             'end_at'              => !empty($f['end_at']) ? (string) $f['end_at'] : null,
             'timezone'            => (string) ($f['timezone'] ?? 'UTC'),
+            'reminders'           => implode(',', self::clean_reminders($f['reminders'] ?? '1440')),
             'access_type'         => in_array($f['access_type'] ?? 'free', self::access_types(), true) ? $f['access_type'] : 'free',
             'price_credits'       => max(0, (int) ($f['price_credits'] ?? 0)),
             'tier_id'             => !empty($f['tier_id']) ? (int) $f['tier_id'] : null,
@@ -92,11 +113,12 @@ class EventsModel extends Model {
     public function update_event($creator_id, $id, array $f){
         if (!$this->get_one($creator_id, $id)) { return false; }
         $data = array('updated_at' => date('Y-m-d H:i:s'));
-        foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'access_type', 'price_credits',
+        foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'reminders', 'access_type', 'price_credits',
                        'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'status') as $k) {
             if (!array_key_exists($k, $f)) { continue; }
             if ($k === 'access_type' && !in_array($f[$k], self::access_types(), true)) { continue; }
             if ($k === 'format') { $data[$k] = self::format($f[$k]); continue; }
+            if ($k === 'reminders') { $data[$k] = implode(',', self::clean_reminders($f[$k])); continue; }
             if ($k === 'status' && !in_array($f[$k], array('draft', 'published', 'canceled'), true)) { continue; }
             if (in_array($k, array('end_at', 'tier_id'), true)) { $data[$k] = !empty($f[$k]) ? $f[$k] : null; }
             elseif (in_array($k, array('price_credits', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
@@ -243,22 +265,40 @@ class EventsModel extends Model {
         return (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0);
     }
 
-    /** Registrations to remind now: the event is live and starts within 24 hours, never reminded, registered over an hour ago. */
-    public function due_reminders($limit = 200){
-        $limit = max(1, min(500, (int) $limit));
+    /** Live events that start within the longest reminder window and have reminders scheduled. */
+    public function events_with_reminders_soon(){
+        $max = max(array_keys(self::REMINDERS));
         return (array) parent::select(
-            "SELECT r.id AS reg_id, r.user_id, e.*
-             FROM event_registrations r
-             JOIN events e ON e.id = r.event_id
-             WHERE r.status = 'registered' AND r.reminded_at IS NULL AND e.status = 'published'
-               AND e.start_at > UTC_TIMESTAMP() AND e.start_at <= UTC_TIMESTAMP() + INTERVAL 24 HOUR
-               AND r.created_at <= UTC_TIMESTAMP() - INTERVAL 1 HOUR
-             ORDER BY e.start_at ASC LIMIT $limit");
+            "SELECT * FROM events WHERE status = 'published' AND reminders <> ''
+               AND start_at > UTC_TIMESTAMP() AND start_at <= UTC_TIMESTAMP() + INTERVAL $max MINUTE");
     }
 
-    /** Mark a registration reminded; true only for the call that did it (the mutex against a double send). */
-    public function claim_reminder($reg_id){
-        return parent::update('event_registrations', array('reminded_at' => gmdate('Y-m-d H:i:s')), 'id = :id AND reminded_at IS NULL', array('id' => (int) $reg_id)) > 0;
+    /** People going to an event who registered before $before (UTC) and haven't had the $offset reminder yet. */
+    public function reminder_recipients($event_id, $offset, $before, $limit = 500){
+        $limit = max(1, min(1000, (int) $limit));
+        return (array) parent::select(
+            "SELECT r.id AS reg_id, r.user_id FROM event_registrations r
+             LEFT JOIN event_reminder_sends s ON s.registration_id = r.id AND s.offset_minutes = :o
+             WHERE r.event_id = :e AND r.status = 'registered' AND r.created_at <= :b AND s.id IS NULL
+             ORDER BY r.id LIMIT $limit",
+            array('e' => (int) $event_id, 'o' => (int) $offset, 'b' => (string) $before));
+    }
+
+    /** Record one reminder for one registration; true only for the call that recorded it (the mutex against a double send). */
+    public function claim_reminder($reg_id, $offset){
+        try {
+            return (int) parent::insert('event_reminder_sends', array('registration_id' => (int) $reg_id, 'offset_minutes' => (int) $offset,
+                'sent_at' => gmdate('Y-m-d H:i:s'))) > 0;
+        } catch (\Throwable $e) { return false; }   // UNIQUE(registration_id, offset_minutes): someone else got it
+    }
+
+    /** How many attendees got each reminder: [offset => count]. */
+    public function reminder_counts($event_id){
+        $rows = parent::select("SELECT s.offset_minutes AS o, COUNT(*) AS n FROM event_reminder_sends s
+            JOIN event_registrations r ON r.id = s.registration_id WHERE r.event_id = :e GROUP BY s.offset_minutes", array('e' => (int) $event_id));
+        $out = array();
+        foreach ((array) $rows as $r) { $out[(int) $r['o']] = (int) $r['n']; }
+        return $out;
     }
 
     public function registration($event_id, $reg_id){

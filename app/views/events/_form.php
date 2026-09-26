@@ -78,6 +78,12 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
                 </select>
             </div>
         </div>
+        <div class="cs-ae__field">
+            <span class="cs-ae__label" id="evRemLabel">Reminder Emails Before the Start</span>
+            <div class="ev-chips" id="evReminders" role="group" aria-labelledby="evRemLabel">
+                <?php foreach (EventsModel::REMINDERS as $mins => $label): ?><button type="button" class="ev-chip" data-rem="<?php echo (int) $mins; ?>" aria-pressed="false"><i class="fa-solid fa-check" aria-hidden="true"></i><span><?php echo $e($label); ?></span></button><?php endforeach; ?>
+            </div>
+        </div>
     </section>
 
     <section class="cs-ae__section" data-section="where" aria-labelledby="evH_where" hidden>

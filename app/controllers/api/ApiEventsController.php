@@ -53,6 +53,7 @@ class ApiEventsController extends BaseApiController {
             'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
+        if (array_key_exists('reminders', $this->post)) { $fields['reminders'] = EventsModel::clean_reminders($this->post['reminders']); }   // e.g. '1440,60'; '' = none
         $model = new EventsModel();
         if ($id > 0) {
             $cur = $model->get_one($creator_id, $id);

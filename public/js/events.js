@@ -19,6 +19,13 @@
         ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
         el('ev_who').addEventListener('change', refresh);
         el('ev_tz').addEventListener('change', refresh);
+        var rem_btns = container.querySelectorAll('#evReminders .ev-chip');
+        function set_reminders(csv) {
+            var on = String(csv == null ? '' : csv).split(',');
+            rem_btns.forEach(function (b) { b.setAttribute('aria-pressed', on.indexOf(b.getAttribute('data-rem')) >= 0 ? 'true' : 'false'); });
+        }
+        function reminders() { return [].filter.call(rem_btns, function (b) { return b.getAttribute('aria-pressed') === 'true'; }).map(function (b) { return b.getAttribute('data-rem'); }).join(','); }
+        rem_btns.forEach(function (b) { b.addEventListener('click', function () { b.setAttribute('aria-pressed', b.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); refresh(); }); });
 
         /* Narrow screens: the preview replaces the form while it's open (never stacked below it). */
         var pv_toggle = el('evPvToggle');
@@ -73,7 +80,8 @@
             var name = el('ev_title').value.trim();
             if (opts.onTitle) { opts.onTitle(name); }
             ed.summary('details', name !== '' ? name : 'Untitled');
-            ed.summary('when', fmt_when());
+            var rn = reminders() === '' ? 0 : reminders().split(',').length;
+            ed.summary('when', fmt_when() + (rn ? ' · ' + rn + (rn === 1 ? ' reminder' : ' reminders') : ''));
             if (el('ev_format').value === 'in_person') { var c = el('ev_city').value.trim(), v = el('ev_venue').value.trim(); ed.summary('where', 'In person' + (v || c ? ' · ' + (v || c) : '')); }
             else { ed.summary('where', 'Online'); }
             var who = el('ev_who'), label = who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Subscribers' : who.selectedOptions[0].textContent);
@@ -93,6 +101,7 @@
             el('ev_time_end').value = end ? end.slice(11, 16) : '';
             var tz = d && d.timezone ? d.timezone : el('ev_tz').getAttribute('data-default');
             el('ev_tz').value = el('ev_tz').querySelector('option[value="' + tz + '"]') ? tz : el('ev_tz').getAttribute('data-default');
+            set_reminders(d && d.reminders != null ? d.reminders : '1440');   // new events: a reminder the day before
             el('ev_url').value      = d ? (d.external_url || '') : '';
             el('ev_venue').value    = d ? (d.venue_name || '') : '';
             el('ev_street').value   = d ? (d.street || (d.venue_name ? '' : (d.location || ''))) : '';   // older events only have the one-line location
@@ -142,6 +151,7 @@
                 start_at: date + 'T' + el('ev_time').value,
                 end_at: el('ev_time_end').value !== '' ? date + 'T' + el('ev_time_end').value : '',
                 timezone: el('ev_tz').value,
+                reminders: reminders(),
                 format: el('ev_format').value === 'in_person' ? 'in_person' : 'virtual',
                 external_url: el('ev_url').value.trim(),
                 venue_name: el('ev_venue').value.trim(),
