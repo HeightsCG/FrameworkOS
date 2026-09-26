@@ -302,3 +302,4 @@ button.inf-photo--pick{ padding:0; }
 .inf-upgrade{ padding:2.5rem 1.5rem 2rem; }
 .inf-gal-grid:has(.is-on) .inf-photo--pick:not(.is-on){ opacity:1; }   /* keep every image easy to judge while picking */
 .inf-sec__err{ max-width:none; margin-bottom:1rem; }
+.inf-card.inf-card--static{ animation:none; opacity:1; transform:none; }   /* a card updated in place does not replay the entrance */

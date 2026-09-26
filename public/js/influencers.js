@@ -116,8 +116,31 @@ jQuery(function ($) {
             api('influencer_list', {}, function (o) {
                 $('#inf_loading').prop('hidden', true);
                 if (!o || !o.success) { if (!quiet) { $('#inf_error').prop('hidden', false); } return; }
-                render(o.influencers || []);
+                if (quiet) { patch(o.influencers || []); } else { render(o.influencers || []); }
                 schedule(o.influencers || []);
+            });
+        }
+        /* What a card shows, minus the signed image URL (its signature changes on every request even when the image does not). */
+        var seen = {};
+        function sig(inf) {
+            return JSON.stringify([inf.name, inf.status, inf.pending_model_id, inf.active_model_id, inf.locked, inf.last_error, String(inf.cover_url || '').split('?')[0]]);
+        }
+        function remember(list) { seen = {}; list.forEach(function (inf) { seen[inf.id] = { sig: sig(inf), inf: inf }; }); }
+        /* A background check: touch only the cards whose state changed, and say when a retrain finished. */
+        function patch(list) {
+            var same_set = list.length === Object.keys(seen).length && list.every(function (inf) { return seen[inf.id]; });
+            if (!same_set) { render(list); return; }
+            list.forEach(function (inf) {
+                var was = seen[inf.id];
+                if (was.sig === sig(inf)) { return; }
+                var $old = $cards.find('.inf-card[data-id="' + inf.id + '"]');
+                if ($old.find('[aria-expanded="true"]').length) { return; }   // leave an open menu alone; the next check catches up
+                $old.replaceWith(card(inf, 0).addClass('inf-card--static'));
+                if (was.inf.pending_model_id > 0 && !(inf.pending_model_id > 0)) {
+                    if (inf.last_error) { toastr.error(inf.name + ' could not be retrained and still uses the previous model.'); }
+                    else { toastr.success(inf.name + ' is retrained and now uses the new model'); }
+                } else if (was.inf.status === 'training' && inf.status === 'ready') { toastr.success(inf.name + ' is trained'); }
+                seen[inf.id] = { sig: sig(inf), inf: inf };
             });
         }
         function schedule(list) {
@@ -156,6 +179,7 @@ jQuery(function ($) {
             list.forEach(function (inf, i) { $cards.append(card(inf, first ? i : 0)); });
             if (LIM.included !== false) { $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New Influencer</span></a>'); }
             first = false;
+            remember(list);
         }
         function target_for(inf) {
             if (inf.status === 'ready' && inf.active_model_id > 0) { return '/influencers/images/' + inf.id; }
