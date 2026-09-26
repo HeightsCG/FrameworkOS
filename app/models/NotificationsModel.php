@@ -53,14 +53,20 @@ class NotificationsModel extends Model {
      * (BaseApiController::notify) makes that decision. Mirrors the notification's
      * title/body and links back to the on-site destination.
      */
-    public function send_notification_email($to_email, $to_name, $title, $body = '', $link = ''){
+    public function send_notification_email($to_email, $to_name, $title, $body = '', $link = '', $image = ''){
         if ((string) $to_email === '' || (string) $title === '') { return false; }
-        return $this->deliver($to_email, $to_name, (string) $title, self::build_notification_email($title, $body, $link));
+        return $this->deliver($to_email, $to_name, (string) $title, self::build_notification_email($title, $body, $link, $image));
     }
 
     /** Build the branded notification email HTML (pure — no send). */
-    public static function build_notification_email($title, $body = '', $link = ''){
+    public static function build_notification_email($title, $body = '', $link = '', $image = ''){
         $body_html = '';
+        if ((string) $image !== '') {   // the post's picture (new-post emails), linked to the post
+            $img = '<img src="' . htmlspecialchars((string) $image, ENT_QUOTES, 'UTF-8') . '" width="520" alt="' . htmlspecialchars((string) $title, ENT_QUOTES, 'UTF-8') . '"'
+                 . ' style="display:block; width:100%; max-width:520px; height:auto; border:0; border-radius:8px; margin:0 0 16px;">';
+            $to  = self::absolute_url($link);
+            $body_html .= $to !== '' ? '<a href="' . htmlspecialchars($to, ENT_QUOTES, 'UTF-8') . '" style="text-decoration:none;">' . $img . '</a>' : $img;
+        }
         if (trim((string) $body) !== '') {
             $body_html = '<p style="' . self::P . '">' . nl2br(htmlspecialchars((string) $body, ENT_QUOTES, 'UTF-8')) . '</p>';
         }

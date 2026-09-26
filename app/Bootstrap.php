@@ -96,6 +96,13 @@ class Bootstrap
             return;
         }
 
+        // Picture in a "new post" email: /mail-image/<post_id> (public; decides what may be shown on every open).
+        if (isset($url[0]) && $url[0] === 'mail-image') {
+            header('X-Robots-Tag: noindex');
+            (new MailImageController())->indexAction();
+            return;
+        }
+
         // Remote MCP connector: /mcp and /mcp/<token> both dispatch to the same
         // handler (the trailing segment is an auth-token fallback, not a method).
         if (isset($url[0]) && $url[0] === 'mcp') {

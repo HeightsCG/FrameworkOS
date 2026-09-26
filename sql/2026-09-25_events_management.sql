@@ -3,7 +3,7 @@
 --
 -- Apply by hand (before deploying the code):
 --   mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos < sql/2026-09-25_events_management.sql
--- Already applied on dev (2026-09-25). Not yet on prod.
+-- Applied on dev (2026-09-25) and prod (2026-09-26; the address columns went in on their own after `format` already existed).
 
 ALTER TABLE events ADD COLUMN format VARCHAR(16) NOT NULL DEFAULT 'virtual';
 

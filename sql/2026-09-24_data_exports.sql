@@ -7,7 +7,7 @@
 -- Apply by hand (before deploying the code):
 --   mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos < sql/2026-09-24_data_exports.sql
 -- No new cron lines: the existing queue worker runs it.
--- Already applied on dev (2026-09-24). Not yet on prod.
+-- Applied on dev (2026-09-24) and prod (2026-09-26).
 
 CREATE TABLE IF NOT EXISTS data_exports (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,

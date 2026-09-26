@@ -4,7 +4,7 @@
 --
 -- Apply by hand (before deploying the code):
 --   mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos < sql/2026-09-25_signup_attribution.sql
--- Already applied on dev (2026-09-25). Not yet on prod.
+-- Already applied on dev (2026-09-25). On prod (confirmed 2026-09-26).
 
 ALTER TABLE user_accounts
     ADD COLUMN acq_source   VARCHAR(100) NULL,

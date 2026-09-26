@@ -46,6 +46,7 @@ class PostNotifier {
         // Only people not told yet: a retried job (or a second publish) never repeats the notice.
         $posts = new PostsModel();
         $fresh = array_values(array_filter($ids, function ($uid) use ($posts, $post_id) { return $posts->claim_post_notice((int) $post_id, (int) $uid); }));
-        return empty($fresh) ? 0 : Notify::many($fresh, 'creator_activity', $title, $body, $link, 'fa-photo-film');
+        $image = PostEmailImage::url($post);   // the post's photo or video frame (blurred when it is gated or adult)
+        return empty($fresh) ? 0 : Notify::many($fresh, 'creator_activity', $title, $body, $link, 'fa-photo-film', false, $image);
     }
 }

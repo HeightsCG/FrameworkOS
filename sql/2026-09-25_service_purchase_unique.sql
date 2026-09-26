@@ -7,7 +7,7 @@
 --
 -- Apply by hand (before deploying the code):
 --   mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos < sql/2026-09-25_service_purchase_unique.sql
--- Already applied on dev (2026-09-25). Not yet on prod.
+-- Applied on dev (2026-09-25) and prod (confirmed 2026-09-26).
 
 ALTER TABLE service_purchases
     ADD UNIQUE KEY uq_service_buyer (service_id, buyer_id);

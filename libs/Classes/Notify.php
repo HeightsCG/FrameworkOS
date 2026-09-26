@@ -13,7 +13,7 @@ class Notify {
      * @param bool   $email_if_offline  only email when the recipient is not active right now (DMs)
      * @param bool   $force_email       ignore the email preference (account safety notices)
      */
-    public static function send($user_id, $category, $title, $body = '', $link = '', $icon = '', $email_if_offline = false, $force_email = false): void {
+    public static function send($user_id, $category, $title, $body = '', $link = '', $icon = '', $email_if_offline = false, $force_email = false, $image = ''): void {
         try {
             $user_id = (int) $user_id;
             if ($user_id <= 0 || (string) $title === '') { return; }
@@ -32,17 +32,17 @@ class Notify {
             (new NotificationsModel())->send_notification_email(
                 (string) $u['user_email'],
                 trim((string) ($u['first_name'] ?? '') . ' ' . (string) ($u['last_name'] ?? '')),
-                (string) $title, (string) $body, (string) $link);
+                (string) $title, (string) $body, (string) $link, (string) $image);
         } catch (\Throwable $e) {
             error_log('[notify] ' . $category . ': ' . $e->getMessage());
         }
     }
 
     /** Same notice to many people (broadcast recipients, followers). */
-    public static function many(array $user_ids, $category, $title, $body = '', $link = '', $icon = '', $email_if_offline = false): int {
+    public static function many(array $user_ids, $category, $title, $body = '', $link = '', $icon = '', $email_if_offline = false, $image = ''): int {
         $n = 0;
         foreach (array_values(array_unique(array_filter(array_map('intval', $user_ids)))) as $uid) {
-            self::send($uid, $category, $title, $body, $link, $icon, $email_if_offline);
+            self::send($uid, $category, $title, $body, $link, $icon, $email_if_offline, false, $image);
             $n++;
         }
         return $n;
