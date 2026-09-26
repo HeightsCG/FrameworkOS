@@ -73,6 +73,9 @@
 .adm-ucell--muted{ color:#8a8797; font-size:.8rem; }
 .adm-ucell--user{ display:flex; align-items:center; gap:.6rem; }
 .adm-ucell--act{ display:flex; justify-content:flex-end; }
+.adm-table--users{ --adm-cols:minmax(220px,1fr) 92px 110px 116px 150px 220px; }   /* room for Sign In As + Suspend */
+.adm-table--users .adm-ucell--act{ gap:6px; }
+.adm-table--users .adm-ucell--act .adm-btn{ white-space:nowrap; }
 .adm-uav{ flex:none; width:36px; height:36px; border-radius:50%; background:#EEEEEE; display:inline-flex; align-items:center; justify-content:center; color:var(--acc-ink); font-weight:700; font-size:.85rem; }
 .adm-uinfo{ display:flex; flex-direction:column; min-width:0; }
 .adm-uinfo__name{ font-size:.88rem; font-weight:600; color:#242424; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }

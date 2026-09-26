@@ -4,7 +4,28 @@ class ApiAdminController extends BaseApiController {
 
     use AuditTrail;
     /** User-facing actions in this controller: not staff actions, so not audited. */
-    protected $audit_skip = array('report_submit', 'verification_request');
+    protected $audit_skip = array('report_submit', 'verification_request', 'admin_impersonate');   // impersonation logs itself (the session changes hands)
+
+    /**
+     * "Sign in as": the admin continues as this user until "Return to Admin" (impersonate_stop). Never into an admin,
+     * a deleted account, or yourself. Logged to the audit trail under the admin's id before the session changes hands.
+     */
+    public function admin_impersonateAction(){
+        $this->admin_guard();
+        $me  = (int) Session::get('user_id');
+        $uid = (int) ($this->post['user_id'] ?? 0);
+        if ($uid <= 0 || $uid === $me) { $this->jsonError('Pick another user.'); }
+        if (UserSession::impersonating()) { $this->jsonError('Return to your admin account first.'); }
+        $rows = $this->userModel->get_user_by_id($uid);
+        $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u || (int) ($u['deleted'] ?? 0) === 1) { $this->jsonError('User not found'); }
+        if (!empty($u['is_admin'])) { $this->jsonError('You can\'t sign in as another admin.'); }
+        $arows = $this->userModel->get_user_by_id($me);
+        $admin = (is_array($arows) && count($arows) === 1) ? $arows[0] : array('user_id' => $me, 'u_name' => '');
+        (new AuditModel())->record($me, 'admin_impersonate', array('user_id' => $uid), array('message' => 'Signed in as @' . $u['u_name']), $this->get_ip_address());
+        UserSession::begin_impersonation($u, $admin, '/admin/user/' . $uid);
+        $this->jsonSuccess(['redirect' => '/', 'message' => 'Signed in as @' . $u['u_name']]);
+    }
 
     /** Suspend or reactivate a user account. */
     public function admin_set_user_statusAction(){

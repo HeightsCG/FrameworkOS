@@ -17,6 +17,18 @@ class Controller {
         $this->touch_presence();
         $this->enforce_team_seat();
         $this->enforce_forced_reset();
+        $this->enforce_impersonation_limits();
+    }
+
+    /** An admin signed in as someone can look and help, but not touch their credentials, money or identity. */
+    private function enforce_impersonation_limits(){
+        if (!UserSession::impersonating()) { return; }
+        $url = Main::get_url();
+        if (strtolower((string) ($url[0] ?? '')) !== 'api') { return; }
+        if (!in_array(strtolower((string) ($url[1] ?? '')), UserSession::IMPERSONATION_BLOCKED, true)) { return; }
+        header('Content-Type: application/json');
+        echo json_encode(array('success' => false, 'message' => 'Not available while you\'re signed in as this user.'));
+        exit;
     }
 
     /**
@@ -24,7 +36,7 @@ class Controller {
      * before anything else: pages go to /account/force_reset; the API only allows change_password and logout.
      */
     private function enforce_forced_reset(){
-        if ((int) Session::get('user_id') <= 0 || (int) Session::get('reset_pw') !== 1) { return; }
+        if ((int) Session::get('user_id') <= 0 || (int) Session::get('reset_pw') !== 1 || UserSession::impersonating()) { return; }
         $url = Main::get_url();
         $first = strtolower((string) ($url[0] ?? '')); $second = strtolower((string) ($url[1] ?? ''));
         if ($first === 'api') {
@@ -80,7 +92,7 @@ class Controller {
      */
     private function touch_presence(){
         $uid = (int) Session::get('user_id');
-        if ($uid <= 0) { return; }
+        if ($uid <= 0 || UserSession::impersonating()) { return; }   // an admin viewing as someone never makes them look online
         $now  = time();
         $last = (int) Session::get('presence_touch_at');
         if ($now - $last >= 45) {

@@ -27,7 +27,22 @@
     <script src="/js/api.data.js"></script>
     <script src="/js/site.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/site.js'); ?>"></script>
 </head>
-<body class="app-shell">
+<body class="app-shell<?php echo UserSession::impersonating() ? ' is-impersonating' : ''; ?>">
+<?php if (UserSession::impersonating()): $imp_h = htmlspecialchars((string) Session::get('u_name'), ENT_QUOTES, 'UTF-8'); ?>
+    <div class="imp-bar" role="status">
+        <span class="imp-bar__text"><i class="fa-solid fa-user-secret" aria-hidden="true"></i> You&rsquo;re signed in as <b>@<?php echo $imp_h; ?></b>. Password, payment and payout changes are turned off.</span>
+        <button type="button" class="imp-bar__btn" id="impReturn">Return to Admin</button>
+    </div>
+    <script>
+    document.getElementById('impReturn').addEventListener('click', function () {
+        var b = this; b.disabled = true; b.textContent = 'Returning…';
+        ApiDataSvc.apiCall('post', 'impersonate_stop', {}, function (r) {
+            var o = null; try { o = JSON.parse(r); } catch (e) {}
+            window.location.href = (o && o.redirect) ? o.redirect : '/admin';
+        });
+    });
+    </script>
+<?php endif; ?>
 
     <aside class="app-sidebar">
         <a href="/" class="app-brand">

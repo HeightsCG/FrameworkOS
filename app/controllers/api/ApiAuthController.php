@@ -128,18 +128,19 @@ class ApiAuthController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Login successful', 'reset_pw' => (int) ($user['reset_pw'] ?? 0)]);
     }
 
-    /**
-     * Signed in: copy the account into the session minus its secrets (TOTP secret, reset / verify tokens). The password
-     * hash is kept only as a fingerprint, which is enough to end other sessions when the password changes. Fresh CSRF token.
-     */
     private function start_user_session(array $user): void{
-        foreach ($user as $key => $value) {
-            if (in_array($key, array('p_word', 'mfa_totp_secret', 'mfa_totp_last_step', 'reset_token', 'reset_token_expires', 'email_verify_token'), true)) { continue; }
-            Session::set($key, $value);
-        }
-        Session::set('p_word', null);
-        Session::set('pw_fp', hash('sha256', (string) ($user['p_word'] ?? '')));
-        CSRF::rotate();
+        UserSession::start($user);
+    }
+
+    /** "Return to Admin": leave the account an admin signed in as, back to the admin's own session. */
+    public function impersonate_stopAction(){
+        $imp = UserSession::end_impersonation();
+        if (!$imp) { $this->jsonError('You are not signed in as another user.'); }
+        try {
+            (new AuditModel())->record((int) $imp['id'], 'admin_impersonate_end', array('user_id' => (int) $imp['target_id']),
+                array('message' => 'Returned to admin after ' . max(1, (int) round((time() - (int) $imp['since']) / 60)) . ' min'), $this->get_ip_address());
+        } catch (\Throwable $e) { error_log('[impersonate] audit: ' . $e->getMessage()); }
+        $this->jsonSuccess(['redirect' => (string) ($imp['return'] ?? '/admin')]);
     }
 
     public function logoutAction(){

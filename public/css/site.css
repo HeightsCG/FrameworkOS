@@ -425,3 +425,17 @@ body .modal-backdrop.tut-backdrop{ z-index:1750; }
 .cs-ae-modal.cs-ae-inline .cs-ae__main{ overflow:visible; }
 .cs-ae-modal.cs-ae-inline.is-readonly .cs-ae__main{ opacity:.7; }
 .cs-ae-modal .cs-ae__seg .cs-seg__opt{ display:inline-flex; align-items:center; }   /* icon + label side by side outside the Studio too */
+
+/* Admin "Sign in as": a fixed bar on every page while an admin is viewing as someone else. */
+.imp-bar{ position:fixed; top:0; left:0; right:0; z-index:2000; display:flex; align-items:center; justify-content:center; gap:16px; min-height:44px; padding:6px 16px;
+    background:#1d1d1f; color:#fff; font-size:14px; line-height:1.35; box-shadow:0 2px 8px rgba(0,0,0,.18); }
+.imp-bar__text{ display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.imp-bar__text i, .imp-bar__text svg{ color:#FF8A3D; }
+.imp-bar__text b{ color:#fff; }
+.imp-bar__btn{ flex:none; height:32px; padding:0 14px; border:0; border-radius:4px; background:#CD4C00; color:#fff; font-size:13px; font-weight:700; cursor:pointer; }
+.imp-bar__btn:hover{ background:#B04100; }
+.imp-bar__btn:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+body.is-impersonating{ padding-top:44px; }
+body.is-impersonating .app-sidebar, body.is-impersonating .app-topbar{ top:44px; }
+body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
+@media (max-width:640px){ .imp-bar{ font-size:12px; gap:10px; } body.is-impersonating{ padding-top:64px; } body.is-impersonating .app-sidebar, body.is-impersonating .app-topbar{ top:64px; } }

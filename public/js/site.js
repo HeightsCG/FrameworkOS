@@ -369,4 +369,22 @@ $(document).ready(function() {
         }, 0);
     });
 
+
+    // Admin "Sign in as" (Admin → Users, and a user's admin page): confirm, switch, land on their home page.
+    $(document).on('click', '[data-impersonate]', function () {
+        var b = this, id = b.getAttribute('data-impersonate'), handle = b.getAttribute('data-handle') || '';
+        var go = function () {
+            b.disabled = true;
+            ApiDataSvc.apiCall('post', 'admin_impersonate', { user_id: id }, function (r) {
+                var o = null; try { o = JSON.parse(r); } catch (e) {}
+                if (!o || !o.success) { b.disabled = false; if (window.toastr) { toastr.error((o && o.message) || 'Could not sign in as this user'); } return; }
+                window.location.href = o.redirect || '/';
+            });
+        };
+        if (!window.Swal) { if (window.confirm('Sign in as @' + handle + '?')) { go(); } return; }
+        Swal.fire({ title: 'Sign in as @' + handle + '?', text: 'You\'ll see their account exactly as they do. Password, payment and payout changes stay off, and this is logged. Use Return to Admin when you\'re done.',
+            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Sign In as User', cancelButtonText: 'Cancel', confirmButtonColor: '#CD4C00' })
+            .then(function (x) { if (x.isConfirmed) { go(); } });
+    });
+
 });

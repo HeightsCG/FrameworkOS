@@ -342,7 +342,7 @@ $last12 = array_slice($this->series, -12);
                 <input type="text" id="admUserSearch" placeholder="Search name, @handle, or email" autocomplete="off" maxlength="80">
             </div>
         </div>
-        <div class="adm-table">
+        <div class="adm-table adm-table--users">
             <div class="adm-table__head">
                 <span>User</span><span>Role</span><span>Status</span><span>Joined</span><span>Last active</span><span></span>
             </div>
@@ -372,6 +372,10 @@ $last12 = array_slice($this->series, -12);
                     <div class="adm-ucell adm-ucell--act">
                         <?php if ($isMe || $isAdm): ?>
                             <span class="adm-ucell--muted" style="font-size:.78rem;">—</span>
+                        <?php else: ?>
+                            <button type="button" class="adm-btn" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>" title="Sign in as @<?php echo $e($u['u_name']); ?>"><i class="fa-solid fa-user-secret"></i> Sign In As</button>
+                        <?php endif; ?>
+                        <?php if ($isMe || $isAdm): ?>
                         <?php elseif ($dis): ?>
                             <button type="button" class="adm-btn adm-btn--ok" data-status="Active">Reactivate</button>
                         <?php else: ?>

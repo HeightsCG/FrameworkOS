@@ -83,7 +83,7 @@ class BaseApiController extends Controller {
         }
         // Refresh the ACTING user's presence (throttled ~once/45s).
         $last = $acting['last_active_at'] ?? null;
-        if ($last === null || strtotime((string) $last . ' UTC') < time() - 45) {
+        if (($last === null || strtotime((string) $last . ' UTC') < time() - 45) && !UserSession::impersonating()) {   // an admin viewing as them doesn't count
             $this->userModel->touch_last_active((int) $acting['user_id']);
         }
         return $user;   // the creator/owner row — so downstream creator_id = owner
