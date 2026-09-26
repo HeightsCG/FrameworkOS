@@ -119,6 +119,13 @@ class ApiInfluencersController extends BaseApiController {
         $this->answer(InfluencerActions::attach_photo($cid, $user, $infl, $bytes, $types[$mime], $mime, (string) ($this->post['role'] ?? 'upload')));
     }
 
+    /** Copy one of her gallery images into her training photos (retrain from the gallery). */
+    public function influencer_photo_from_galleryAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $this->answer(InfluencerActions::attach_from_gallery($cid, $user, $this->usable($user, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
+    }
+
     public function influencer_image_removeAction(){
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];

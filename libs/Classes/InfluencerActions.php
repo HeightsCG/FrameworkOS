@@ -130,6 +130,27 @@ class InfluencerActions {
         return self::okr(array('image' => $mine, 'count' => count($images)));
     }
 
+    /**
+     * Add one of her own gallery images (generated, enhanced, reference) as a training photo. An asset belongs to one
+     * influencer role only, so the unwatermarked original is copied into a new upload; the gallery keeps its image.
+     */
+    public static function attach_from_gallery($cid, array $user, array $infl, $aid){
+        $aid  = (int) $aid;
+        $link = (new InfluencerImagesModel())->get_link($cid, $infl['id'], $aid);
+        if (!$link || !in_array((string) $link['role'], array('generated', 'enhanced', 'reference'), true)) { return self::fail('That image is not in her gallery.'); }
+        $a = (new MediaAssetsModel())->get_one($cid, $aid);
+        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { return self::fail('That image is not ready.'); }
+        $key = (string) ($a['original_key'] ?: $a['display_key']);
+        $tmp = tempnam(sys_get_temp_dir(), 'infg');
+        if ($tmp === false || !S3Service::get_private_to_file($key, $tmp)) { if ($tmp) { @unlink($tmp); } return self::fail('Could not read that image. Try again.'); }
+        $bytes = (string) @file_get_contents($tmp);
+        $mime  = (string) (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        @unlink($tmp);
+        $types = array('image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp');
+        if ($bytes === '' || !isset($types[$mime])) { return self::fail('That image cannot be used for training.'); }
+        return self::attach_photo($cid, $user, $infl, $bytes, $types[$mime], $mime, 'upload');
+    }
+
     /** Detach an uploaded image (training-set slots are excluded, keeping job history). */
     public static function remove_image($cid, array $infl, $aid){
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress. Wait for it to finish before changing the photos.'); }

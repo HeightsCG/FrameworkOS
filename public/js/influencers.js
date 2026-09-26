@@ -319,17 +319,41 @@ jQuery(function ($) {
                     '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back</a><button type="button" class="btn btn-primary" id="inf_retry_train"><i class="fa-solid fa-rotate"></i> Try Again</button></div>' +
                     '</div>';
             } else {
-                html = '<div class="inf-progress">' +
-                    '<div class="inf-progress__ic inf-progress__ic--ok"><i class="fa-solid fa-check"></i></div>' +
-                    '<h2 class="inf-progress__t">' + esc(inf.name) + ' is trained</h2>' +
-                    '<p class="inf-progress__x">Pick ' + esc(inf.name) + ' on the Generate pages and describe the scene.</p>' +
-                    '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Your influencers</a><a href="/influencers/images/' + inf.id + '" class="btn btn-primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a></div>' +
-                    '</div>';
+                html = '';
             }
             $('#inf_panel').html(html);
             $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'review'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
-            if (!failed) { render_settings(); }
+            if (!failed) { render_training(); render_settings(); }
+        }
+
+        /* --- Trained: the photos her model learned from, and retraining from them --- */
+        function render_training() {
+            var busy = inf.pending_model_id > 0, photos_path = path === 'photos';
+            var html = '<section class="inf-sec">' +
+                '<div class="inf-sec__head"><h2 class="inf-sec__h">Training Photos</h2>' + (busy ? state_pill(inf) : '') + '</div>';
+            if (busy) {
+                html += '<p class="inf-wiz__meta">' + esc(inf.name) + ' keeps generating with the current model until the new one is ready.</p>' +
+                        '<div class="inf-photos inf-photos--sm" id="inf_photos"></div></section>';
+                $('#inf_panel').append(html);
+                photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); }); });
+                return;
+            }
+            if (!photos_path) {   // built from a reference: its training set is managed on the review step
+                html += '<div class="inf-photos inf-photos--sm" id="inf_set_view"></div>' +
+                        '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+                $('#inf_panel').append(html);
+                api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
+                    ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
+                });
+                $('#inf_ref_retrain').on('click', function () { show('review'); });
+                return;
+            }
+            html += photo_manager_html() +
+                '<div class="inf-wiz__foot"><span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
+                '<button type="button" class="btn btn-primary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+            $('#inf_panel').append(html);
+            photo_manager_bind();
         }
 
         /* --- Trained: her defaults, share targets and automations (kept separate per influencer) --- */
@@ -339,16 +363,16 @@ jQuery(function ($) {
             var chips = (soc.accounts || []).map(function (a) {
                 return '<label class="inf-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (sel.has(String(a.id)) ? ' checked' : '') + '> <span>' + esc(a.username || a.platform) + '</span></label>';
             }).join('');
-            var html = '<div class="inf-settings">' +
+            var html = '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Settings</h2></div>' +
                 '<div class="inf-grid">' +
                 '<div class="inf-field inf-field--full"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_defaults">Prompt defaults</label><input type="text" class="form-control" id="inf_set_defaults" maxlength="2000" placeholder="film grain, natural light" value="' + esc(inf.prompt_defaults) + '"></div>' +
-                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_negative">Negative prompt</label><input type="text" class="form-control" id="inf_set_negative" maxlength="2000" placeholder="blurry, extra fingers" value="' + esc(inf.negative_prompt) + '"></div>' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Share to</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
+                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_defaults">Prompt Defaults</label><input type="text" class="form-control" id="inf_set_defaults" maxlength="2000" placeholder="film grain, natural light" value="' + esc(inf.prompt_defaults) + '"></div>' +
+                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_negative">Negative Prompt</label><input type="text" class="form-control" id="inf_set_negative" maxlength="2000" placeholder="blurry, extra fingers" value="' + esc(inf.negative_prompt) + '"></div>' +
+                '<div class="inf-field inf-field--full"><div class="inf-label">Share To</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
                 '</div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
-                '<div class="inf-autos"><div class="inf-field__row"><div class="inf-label">Automations</div><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New Automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></div>' +
-                '</div>';
+                '</section>' +
+                '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Automations</h2><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New Automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></section>';
             $('#inf_panel').append(html);
             seg_bind('inf_set_gender');
             $('#inf_set_save').on('click', function () {
@@ -435,26 +459,24 @@ jQuery(function ($) {
                 .fail(function () { $t.addClass('is-failed').find('.inf-photo__st').text('Upload failed'); $t.on('click', function () { $t.remove(); }); })
                 .always(function () { upload_active--; photos_counter(); upload_pump(); });
         }
-        function render_photos() {
-            var retrain = inf.active_model_id > 0;
-            var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' + esc(inf.name) : 'Add Photos') + '</h2>' +
-                '<p class="inf-wiz__p">Different angles, expressions and lighting, sharp and well lit, only this person in frame.</p>' +
-                '<div class="inf-drop" id="inf_drop"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Drop photos here</strong> or <button type="button" class="inf-link" id="inf_pick">choose files</button></span><small>JPG, PNG or WebP, up to 15 MB each</small></div>' +
+        /* Drop zone + counter + grid, shared by the wizard's photos step and the trained view. */
+        function photo_manager_html() {
+            var gallery = inf.active_model_id > 0;   // a trained influencer has a gallery to pick from
+            return '<div class="inf-drop" id="inf_drop"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Drop photos here</strong> or <button type="button" class="inf-link" id="inf_pick">choose files</button>' +
+                (gallery ? ' or <button type="button" class="inf-link" id="inf_gal_open">choose from the gallery</button>' : '') + '</span><small>JPG, PNG or WebP, up to 15 MB each</small></div>' +
                 '<input type="file" id="inf_files" accept="image/jpeg,image/png,image/webp" multiple hidden>' +
                 '<div class="inf-counter"><div class="inf-counter__row"><span class="inf-counter__n" id="inf_count">0</span><span class="inf-counter__t" id="inf_count_txt"></span></div><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_count_bar"></div></div></div>' +
-                '<div class="inf-photos" id="inf_photos"></div>' +
-                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_photos_back">Back</button>' +
-                '<span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
-                '<button type="button" class="btn btn-primary" id="inf_photos_train" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
-            $('#inf_panel').html(html);
+                '<div class="inf-photos" id="inf_photos"></div>';
+        }
+        function photo_manager_bind() {
             photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append(photo_tile(img)); }); photos_counter(); });
             $('#inf_pick').on('click', function () { $('#inf_files').trigger('click'); });
             $('#inf_files').on('change', function () { Array.prototype.slice.call(this.files).forEach(upload_start); this.value = ''; });
+            $('#inf_gal_open').on('click', gallery_pick);
             var $drop = $('#inf_drop');
             $drop.on('dragover', function (e) { e.preventDefault(); $drop.addClass('is-dragover'); })
                  .on('dragleave drop', function () { $drop.removeClass('is-dragover'); })
                  .on('drop', function (e) { e.preventDefault(); var f = e.originalEvent.dataTransfer.files; Array.prototype.slice.call(f).forEach(upload_start); });
-            $('#inf_photos_back').on('click', function () { if (retrain) { window.location = '/influencers'; } else { go_back('photos'); } });
             $('#inf_photos_train').on('click', function () {
                 var $b = $(this).prop('disabled', true);
                 api('influencer_train', { id: inf.id }, function (o) {
@@ -463,7 +485,62 @@ jQuery(function ($) {
                 });
             });
         }
-
+        /* Choose From Gallery: her generated images, copied into her training photos one at a time. */
+        function gallery_pick() {
+            var $m = $('#inf_gal_modal');
+            if (!$m.length) {
+                $m = $('<div class="modal fade" id="inf_gal_modal" tabindex="-1" aria-labelledby="inf_gal_title" aria-hidden="true">' +
+                    '<div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">' +
+                    '<div class="modal-header"><h5 class="modal-title" id="inf_gal_title">Choose From Gallery</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+                    '<div class="modal-body"><div class="inf-photos inf-stills" id="inf_gal_grid"></div></div>' +
+                    '<div class="modal-footer"><span class="inf-wiz__meta" id="inf_gal_n"></span><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button><button type="button" class="btn btn-primary" id="inf_gal_add" disabled>Add Photos</button></div>' +
+                    '</div></div></div>').appendTo('body');
+                $m.on('click', '.inf-photo--pick', function () {
+                    var room = LIM.max_photos - photos.length - upload_queue.length - upload_active;
+                    if (!$(this).hasClass('is-on') && $m.find('.inf-photo--pick.is-on').length >= room) { toastr.info('Up to ' + LIM.max_photos + ' photos'); return; }
+                    $(this).toggleClass('is-on').attr('aria-pressed', $(this).hasClass('is-on'));
+                    var n = $m.find('.inf-photo--pick.is-on').length;
+                    $('#inf_gal_n').text(n ? n + ' selected' : '');
+                    $('#inf_gal_add').prop('disabled', n === 0).text(n > 1 ? 'Add ' + n + ' Photos' : 'Add Photo');
+                });
+                $m.on('click', '#inf_gal_add', function () {
+                    var ids = $m.find('.inf-photo--pick.is-on').map(function () { return $(this).data('id'); }).get();
+                    bootstrap.Modal.getOrCreateInstance($m[0]).hide();
+                    ids.forEach(gallery_add);
+                });
+            }
+            $('#inf_gal_n').text(''); $('#inf_gal_add').prop('disabled', true).text('Add Photos');
+            $('#inf_gal_grid').html('<span class="inf-wiz__meta">Loading…</span>');
+            bootstrap.Modal.getOrCreateInstance($m[0]).show();
+            api('influencer_images', { id: inf.id, role: '' }, function (o) {
+                var imgs = ((o && o.success) ? (o.images || []) : []).filter(function (x) { return x.type === 'image' && x.status === 'ready' && ['generated', 'enhanced', 'reference'].indexOf(x.role) >= 0; });
+                if (!imgs.length) { $('#inf_gal_grid').html('<span class="inf-wiz__meta">No images in ' + esc(inf.name) + '\'s gallery yet.</span>'); return; }
+                $('#inf_gal_grid').html(imgs.map(function (x) {
+                    return '<button type="button" class="inf-photo inf-photo--pick" data-id="' + x.id + '" aria-pressed="false"><img src="' + esc(x.thumb_url) + '" alt="" loading="lazy"></button>';
+                }).join(''));
+            });
+        }
+        function gallery_add(asset_id) {
+            var $t = $('<div class="inf-photo inf-photo--up">').append('<div class="inf-photo__bar"><div class="inf-photo__fill" style="width:50%"></div></div><span class="inf-photo__st">Adding</span>');
+            $('#inf_photos').append($t);
+            upload_active++; photos_counter();
+            api('influencer_photo_from_gallery', { id: inf.id, asset_id: asset_id }, function (o) {
+                if (o && o.success && o.image) { photos.push(o.image); $t.replaceWith(photo_tile(o.image)); }
+                else { $t.addClass('is-failed').find('.inf-photo__st').text((o && o.message) || 'Failed'); $t.on('click', function () { $t.remove(); }); }
+                upload_active--; photos_counter();
+            });
+        }
+        function render_photos() {
+            var html = '<h2 class="inf-wiz__h">Add Photos</h2>' +
+                '<p class="inf-wiz__p">Different angles, expressions and lighting, sharp and well lit, only this person in frame.</p>' +
+                photo_manager_html() +
+                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_photos_back">Back</button>' +
+                '<span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
+                '<button type="button" class="btn btn-primary" id="inf_photos_train" disabled><i class="fa-solid fa-bolt"></i> Train</button></div>';
+            $('#inf_panel').html(html);
+            photo_manager_bind();
+            $('#inf_photos_back').on('click', function () { go_back('photos'); });
+        }
         /* --- shared: option cards for a picker purpose --- */
         function opts_html(id, options, selected) {
             return '<div class="inf-opts" id="' + id + '">' + options.map(function (o, i) {
@@ -687,6 +764,7 @@ jQuery(function ($) {
         function show(step) {
             clearTimeout(poll_timer);
             render_steps(path, step);
+            $('#inf_steps').prop('hidden', step === 'done');
             (RENDER[step] || function () { render_pending(step); })();
         }
 
@@ -702,7 +780,7 @@ jQuery(function ($) {
                         .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
                 });
             }
-            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'photos' : 'review'); return; }
+            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'done' : 'review'); return; }
             show(inf.wizard_step || 'name');
         }
     }

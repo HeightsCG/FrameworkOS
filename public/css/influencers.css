@@ -87,6 +87,12 @@
 .inf-wiz__panel{ background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm); padding:1.5rem 1.6rem; }
 .inf-wiz__h{ font-size:1.15rem; font-weight:700; margin:0 0 .3rem; letter-spacing:-.01em; }
 .inf-wiz__p{ color:var(--muted); font-size:.9rem; margin:0 0 1.2rem; line-height:1.5; }
+/* Trained influencer: plain sections divided by rules, no stacked cards */
+.inf-sec + .inf-sec{ margin-top:1.6rem; padding-top:1.4rem; border-top:1px solid var(--line); }
+.inf-sec__head{ display:flex; align-items:center; justify-content:space-between; gap:.75rem; margin-bottom:.9rem; }
+.inf-sec__h{ font-size:1rem; font-weight:700; margin:0; letter-spacing:-.01em; }
+.inf-sec .inf-wiz__foot{ margin-top:1rem; padding-top:0; border-top:0; }
+button.inf-photo--pick{ padding:0; }
 .inf-wiz__foot{ display:flex; align-items:center; justify-content:space-between; gap:.6rem; margin-top:1.4rem; padding-top:1.1rem; border-top:1px solid var(--line); }
 .inf-wiz__foot .btn{ display:inline-flex; align-items:center; gap:.45rem; }
 .inf-wiz__foot--end{ justify-content:flex-end; }
