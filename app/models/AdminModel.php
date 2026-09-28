@@ -119,8 +119,8 @@ class AdminModel extends Model {
             'credit_orders'  => $ledger['purchase']['n'] ?? 0,
             'ai_sold'        => $ai_cents,
             'ai_orders'      => $ai_n,
-            'payouts'        => abs($ledger['payout']['cr'] ?? 0) * 10,
-            'payout_count'   => $ledger['payout']['n'] ?? 0,
+            'payouts'        => max(0, abs($ledger['payout']['cr'] ?? 0) - ($ledger['payout_refund']['cr'] ?? 0)) * 10,   // failed payouts came back
+            'payout_count'   => max(0, ($ledger['payout']['n'] ?? 0) - ($ledger['payout_refund']['n'] ?? 0)),
             'credits_held'   => $held,
             'held_creators'  => $held_creators,
             'held_fans'      => max(0, $held - $held_creators),
@@ -161,6 +161,7 @@ class AdminModel extends Model {
             $cr = (int) $r['cr']; $n = (int) $r['n']; $m = &$keys[$r['b']];
             if ($r['type'] === 'purchase') { $m['credits'] += $cr * 10; }
             elseif ($r['type'] === 'payout') { $m['payouts'] += -$cr * 10; }
+            elseif ($r['type'] === 'payout_refund') { $m['payouts'] -= $cr * 10; }   // a failed payout returned to the creator
             foreach ($types as $tk => $td) {
                 if ($r['type'] === $td[0]) { $m['types'][$tk]['sales'] += $n; $m['types'][$tk]['gross'] += -$cr * 10; }
                 if ($r['type'] === $td[1]) { $m['types'][$tk]['creator'] += $cr * 10; }
