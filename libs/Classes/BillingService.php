@@ -643,9 +643,13 @@ class BillingService {
     {
         $acct = self::account($user_id);
         $paid = self::is_paid($acct);
+        $fee_before = Plan::fee_percent(self::user($user_id));
         (new BillingModel())->save_plan_mirror((int) $user_id, $paid ? (string) $acct['plan_key'] : null,
             $paid ? ((string) $acct['status'] === 'past_due' ? 'past_due' : 'active') : null,
             $acct['current_period_end'] ?: null, (int) $acct['cancel_at_period_end']);
+        if (Plan::fee_percent(self::user($user_id)) !== $fee_before) {   // new plan, new fee: existing fan memberships follow
+            (new DatabaseJobQueue())->dispatch('membership_fee', array('user_id' => (int) $user_id), 'membership_fee:' . (int) $user_id);
+        }
     }
 
     private static function money_lines(array $items): array

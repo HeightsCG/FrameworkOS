@@ -73,6 +73,19 @@ class CreatorSubscriptionsModel extends Model {
             array('a' => (int) $user_id, 'b' => (int) $user_id));
     }
 
+    /** Active paid memberships fans hold with this creator. */
+    public function active_paid_for_creator($creator_id){
+        return (array) parent::select(
+            "SELECT id, subscriber_id, stripe_subscription_id FROM creator_subscriptions WHERE creator_id = :c AND status = 'active' AND is_free = 0",
+            array('c' => (int) $creator_id));
+    }
+
+    /** Creators with at least one active paid member (the one-off fee sync). */
+    public function creators_with_paid_members(){
+        return array_map('intval', array_column((array) parent::select(
+            "SELECT DISTINCT creator_id FROM creator_subscriptions WHERE status = 'active' AND is_free = 0 AND stripe_subscription_id <> ''"), 'creator_id'));
+    }
+
     /** End a membership now (either side's account closed). */
     public function close($id){
         return parent::update('creator_subscriptions',

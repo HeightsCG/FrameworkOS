@@ -37,6 +37,7 @@ $handlers = [
     'post_notify'    => 'PostNotifyJob',
     'data_export'    => 'DataExportJob',
     'directory_recheck' => 'DirectoryRecheckJob',
+    'membership_fee' => 'MembershipFeeJob',
     'event_message'  => 'EventMessageJob',
     'fanvue_share'   => 'FanvueShareJob',
 ];

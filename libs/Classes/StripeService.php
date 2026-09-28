@@ -771,6 +771,18 @@ class StripeService {
         }
     }
 
+    /** Set the platform's cut on an existing membership (a creator changed plan). Applies from the next invoice. */
+    public static function set_subscription_fee($account_id, $subscription_id, $fee_percent): bool
+    {
+        try {
+            self::client()->subscriptions->update($subscription_id, array('application_fee_percent' => (float) $fee_percent), array('stripe_account' => $account_id));
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[stripe] set_subscription_fee ' . $subscription_id . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /** Pause (no invoices; 'void' skips the periods) or resume a membership on the connected account. */
     public static function pause_subscription($account_id, $subscription_id, $pause): bool
     {

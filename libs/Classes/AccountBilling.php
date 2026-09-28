@@ -26,6 +26,29 @@ class AccountBilling {
         BillingService::end_plan_now($uid);
     }
 
+    /**
+     * Put the creator's current platform fee on every paid membership their fans hold. Stripe keeps the fee a
+     * subscription was created with, so without this a plan change (Free 20%, Creator 10%, Studio 3%) would never
+     * reach existing members. Re-reads the fee at the end in case the plan changed again while this ran.
+     */
+    public static function sync_membership_fees($creator_id): string
+    {
+        $uid  = (int) $creator_id;
+        $acct = self::connect_account($uid);
+        if ($acct === '') { return 'no payout account'; }
+        $subs = new CreatorSubscriptionsModel();
+        for ($pass = 0; $pass < 3; $pass++) {
+            $fee = Plan::fee_percent(BillingService::user($uid));
+            $ok = 0; $bad = 0;
+            foreach ($subs->active_paid_for_creator($uid) as $row) {
+                if ((string) $row['stripe_subscription_id'] === '') { continue; }
+                StripeService::set_subscription_fee($acct, (string) $row['stripe_subscription_id'], $fee) ? $ok++ : $bad++;
+            }
+            if (Plan::fee_percent(BillingService::user($uid)) === $fee) { return $fee . '% on ' . $ok . ' memberships' . ($bad ? ', ' . $bad . ' failed' : ''); }
+        }
+        return 'fee kept changing; will sync on the next plan change';
+    }
+
     public static function on_suspend($user_id): void   { self::pause_all((int) $user_id, true); }
     public static function on_reactivate($user_id): void { self::pause_all((int) $user_id, false); }
 
