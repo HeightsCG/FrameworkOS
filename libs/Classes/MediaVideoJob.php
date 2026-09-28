@@ -68,7 +68,16 @@ class MediaVideoJob {
                 'endpoint' => InfluencerConfig::endpoint_for($model, 'fal'), 'prompt' => (string) ($payload['prompt'] ?? ''),
                 'duration' => (string) ($payload['duration'] ?? '5'), 'image_url' => $url, 'params' => (array) ($model['params'] ?? array()),
             ));
-            if (empty($r['ok'])) { return $fail('The video could not be started: ' . ($r['error'] ?? 'unknown error')); }
+            if (empty($r['ok'])) {
+                // fal briefly refusing the account: try again in 1, 2, then 3 minutes before giving up.
+                $tries = (int) ($payload['unavailable'] ?? 0);
+                if (($r['error_code'] ?? '') === 'unavailable' && $tries < 3) {
+                    $payload['unavailable'] = $tries + 1;
+                    (new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + 60 * ($tries + 1)));
+                    return 'RETRY unavailable ' . ($tries + 1);
+                }
+                return $fail(($r['error_code'] ?? '') === 'unavailable' ? FalProvider::UNAVAILABLE : 'The video could not be started: ' . ($r['error'] ?? 'unknown error'));
+            }
             $payload['handle'] = $r['handle']; $payload['polls'] = 0;
             (new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + self::POLL_SECONDS));
             return 'SUBMITTED ' . $r['handle']['provider_job_id'];

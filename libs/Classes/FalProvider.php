@@ -11,6 +11,10 @@
  */
 class FalProvider implements InfluencerProvider {
 
+    /** What creators see while fal refuses requests for a moment ('unavailable'): callers retry before showing it. */
+    const UNAVAILABLE = 'Generation is temporarily unavailable. Please try again in a few minutes.';
+
+
     const QUEUE = 'https://queue.fal.run/';
 
     public static function key(): string { return 'fal'; }
@@ -269,6 +273,12 @@ class FalProvider implements InfluencerProvider {
         $msg = 'fal.ai' . ($code > 0 ? ' HTTP ' . $code : '') . ': ' . $detail;
         $lc = strtolower($detail . ' ' . (string) $r['raw']);
 
+        // "User is locked. Reason: Exhausted balance" has come back with credit on the account and cleared on its own a
+        // few minutes later (2026-09-28). Treat it as temporary so callers retry, and never show fal's billing text.
+        if (($code === 402 || $code === 403) && (strpos($lc, 'locked') !== false || strpos($lc, 'balance') !== false)) {
+            error_log('[fal] account refused (treated as temporary): ' . $msg);
+            return self::fail(self::UNAVAILABLE, 'unavailable', true, $code);
+        }
         if ($code === 401 || $code === 403) { return self::fail($msg, 'auth', false, $code); }
         if ($code === 422 || $code === 400) {
             $policy = (strpos($lc, 'content_policy') !== false || strpos($lc, 'nsfw') !== false || strpos($lc, 'safety') !== false || strpos($lc, 'policy') !== false);

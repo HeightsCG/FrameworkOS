@@ -239,6 +239,15 @@ class InfluencerJobService {
             $last = array('error' => (string) $r['error'], 'error_code' => (string) $r['error_code']);
             if (empty($r['retryable'])) { break; }   // content policy / validation / auth: do not shop it around
         }
+        // fal briefly refusing the account: wait and submit again (30 s, 60 s, 90 s: inside the scheduler's inline budget).
+        if ($last['error_code'] === 'unavailable') {
+            $tries = count(array_filter($attempts, function ($a) { return ($a['error_code'] ?? '') === 'unavailable'; }));
+            if ($tries <= 3) {
+                $n = $m->transition($job['id'], 'submitting', array('status' => 'queued', 'provider_index' => 0, 'attempts_json' => json_encode($attempts),
+                    'error' => $last['error'], 'error_code' => 'unavailable'));
+                if ($n === 1) { return self::out('queued', false, 30 * $tries, 'provider unavailable, retry ' . $tries); }
+            }
+        }
         $m->transition($job['id'], 'submitting', array('attempts_json' => json_encode($attempts), 'provider_index' => min($idx, max(0, count($providers) - 1))));
         return self::fail_job($m->get_by_id($job['id']), $m, 'submitting', $last['error_code'], $last['error']);
     }

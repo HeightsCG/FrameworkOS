@@ -47,6 +47,11 @@ class ImageGenService {
             'aspect_ratio'    => '1:1',
         );
         $sub = $class::generate_image($req);
+        // fal briefly refusing the account: a scheduled run (CLI) waits and tries again; a click in the Studio doesn't hang.
+        for ($try = 1; empty($sub['ok']) && ($sub['error_code'] ?? '') === 'unavailable' && php_sapi_name() === 'cli' && $try <= 3; $try++) {
+            sleep(30 * $try);
+            $sub = $class::generate_image($req);
+        }
         if (empty($sub['ok'])) { return array('ok' => false, 'error' => self::friendly($sub)); }
         $handle = (array) $sub['handle'];
 
@@ -87,6 +92,7 @@ class ImageGenService {
         $msg  = (string) ($r['error'] ?? '');
         if ($msg !== '') { error_log('[imagegen] fal ' . $code . ': ' . $msg); }
         if ($code === 'content_policy') { return 'That prompt was rejected by the safety filter. Try describing something different.'; }
+        if ($code === 'unavailable')    { return FalProvider::UNAVAILABLE; }
         if ($code === 'auth')           { return 'Image generation is not configured (fal.ai key rejected).'; }
         if ($code === 'validation' && $msg !== '') { return 'The image model rejected the request: ' . mb_substr($msg, 0, 200); }
         if (!empty($r['retryable']))    { return 'The image service is busy. Try again in a moment.'; }
