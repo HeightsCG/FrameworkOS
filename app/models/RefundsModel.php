@@ -1,8 +1,8 @@
 <?php
 /**
  * Refunds (PRD §20) and chargebacks (PRD §21). A refund reverses a credit-based
- * purchase end-to-end: credit the buyer, claw the creator's net earning back (best
- * effort — capped at their balance), reverse the post's recorded earnings, and revoke
+ * purchase end-to-end: credit the buyer, claw the creator's net earning back in full
+ * (their balance can go below zero; that debt comes out of future earnings), reverse the post's recorded earnings, and revoke
  * the unlock so access is removed. Chargebacks are logged from Stripe dispute webhooks
  * and suspend the associated account pending review.
  */
@@ -53,7 +53,8 @@ class RefundsModel extends Model {
             error_log("[refund] access revoked but buyer credit FAILED: kind=$kind ref=$ref_id fan=$fan_id credits=$charge");
             return array('ok' => false, 'message' => 'Access was revoked but the buyer could not be credited. Credit ' . $charge . ' credits by hand.');
         }
-        // 3) Claw the creator's net earning back, capped at what they still hold (never negative).
+        // 3) Claw the creator's net earning back in full. If they already spent or cashed it out, their balance goes
+        //    negative and future earnings repay it (withdrawable() stays at zero until then).
         $creator_row = (new UsersModel())->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
         // Reverse what they actually earned at sale time; legacy rows (0) fall back to today's rate.
@@ -61,11 +62,10 @@ class RefundsModel extends Model {
         if ($net <= 0) { $net = (int) round($charge * (100 - Plan::fee_percent($creator_row)) / 100); }
         $clawback_ok = 1; $clawback = 0;
         if ($net > 0) {
-            $take = min($net, (int) $credits->get_balance($creator_id));
-            if ($take > 0 && $credits->apply_delta($creator_id, -$take, 'refund_reversal', 'Refund reversal: ' . $this->label($kind)) !== false) {
-                $clawback = $take;
+            if ($credits->apply_delta($creator_id, -$net, 'refund_reversal', 'Refund reversal: ' . $this->label($kind)) !== false) {
+                $clawback = $net;
             }
-            if ($clawback < $net) { $clawback_ok = 0; }   // creator already spent some; platform absorbs the shortfall
+            if ($clawback < $net) { $clawback_ok = 0; }   // no wallet row for the creator: logged for a manual fix
         }
         // 4) Reverse the post's recorded earnings so revenue reporting stays correct.
         if ($kind === 'ppv' && $net > 0) { (new PostsModel())->add_earnings($ref_id, -$net * 10); }

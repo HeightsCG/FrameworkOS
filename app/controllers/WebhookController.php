@@ -198,6 +198,14 @@ class WebhookController extends Controller {
             return;
         }
 
+        // A second paid membership with the same creator: cancel it in Stripe, never record it over the first.
+        if ($subs->has_other_active_paid($subscriber, $creator, (string) $obj->id)) {
+            $cu = (new UsersModel())->get_user_by_id($creator);
+            $acct = (is_array($cu) && count($cu) === 1) ? (string) ($cu[0]['stripe_connect_account_id'] ?? '') : '';
+            if ($acct !== '') { StripeService::cancel_subscription_now($acct, (string) $obj->id); }
+            error_log('[membership] duplicate canceled: fan=' . $subscriber . ' creator=' . $creator . ' sub=' . (string) $obj->id);
+            return;
+        }
         $customer = is_string($obj->customer) ? $obj->customer : (isset($obj->customer->id) ? (string) $obj->customer->id : '');
         $subs->record_paid($subscriber, $creator, $plan, array(
             'subscription_id'    => (string) $obj->id,

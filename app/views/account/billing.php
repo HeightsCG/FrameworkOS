@@ -99,6 +99,7 @@ $(function () {
             : q.today_zero
             ? 'Nothing is charged today. Then ' + q.recurring + ', charged to your card on ' + q.next_at + ' and monthly after that. Cancel anytime from Billing before then and you won\u2019t be charged.'
             : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
+        if (quote_body && quote_body.pack) { $('#disc_terms').text($('#disc_terms').text() + ' AI credits are non-refundable.'); }
         show_card(q);
     }
     /* Card section: the saved card, a card form, or nothing when this change never charges (card_needed === false). */
@@ -669,7 +670,7 @@ $(function () {
                     <button type="button" class="pack" data-dollars="<?php echo (int) $d; ?>"><span class="pack__n"><?php echo number_format(PlanTiers::pack_credits($d)); ?></span><span class="pack__l">credits</span><span class="pack__p">$<?php echo (int) $d; ?></span></button>
                     <?php endforeach; ?>
                 </div>
-                <p class="packs__note">One-time purchase. Bought credits never expire.</p>
+                <p class="packs__note">One-time purchase. Bought credits never expire and are non-refundable.</p>
                 <div id="credit_payment_element"></div>
             </div>
             <div class="modal-footer">

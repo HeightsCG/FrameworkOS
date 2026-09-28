@@ -23,6 +23,8 @@ class UserSession {
         'subscribe_plan', 'cancel_creator_subscription', 'ppv_unlock', 'bundle_unlock', 'message_unlock', 'event_register', 'service_purchase',
         'request_payout', 'start_payout_onboarding', 'payout_login_link', 'disconnect_payout_account',
         'team_invite', 'team_remove', 'team_set_role', 'team_set_status', 'data_export_request', 'data_export_download',
+        'buy_ai_credits', 'leave_creator', 'reactivate_creator_subscription', 'event_cancel', 'event_refund_attendee', 'event_cancel_all',
+        'service_refund_buyer', 'block_user',
     );
 
     public static function start(array $user): void {

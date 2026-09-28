@@ -50,6 +50,33 @@ class CreatorSubscriptionsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /**
+     * Another active paid membership with this creator under a different Stripe subscription: the new one is a
+     * duplicate (two checkouts paid at once) and must be canceled, not recorded over the first.
+     */
+    public function has_other_active_paid($subscriber_id, $creator_id, $stripe_subscription_id){
+        $rows = parent::select(
+            "SELECT id FROM creator_subscriptions
+             WHERE subscriber_id = :s AND creator_id = :c AND status = 'active' AND is_free = 0
+               AND stripe_subscription_id <> :sid AND stripe_subscription_id <> ''
+             LIMIT 1",
+            array('s' => (int) $subscriber_id, 'c' => (int) $creator_id, 'sid' => (string) $stripe_subscription_id)
+        );
+        return is_array($rows) && count($rows) === 1;
+    }
+
+    /** The fan's last membership checkout with this creator (a Stripe session id), or ''. */
+    public function open_checkout($subscriber_id, $creator_id){
+        $rows = parent::select("SELECT stripe_session_id FROM membership_checkouts WHERE subscriber_id = :s AND creator_id = :c",
+            array('s' => (int) $subscriber_id, 'c' => (int) $creator_id));
+        return (is_array($rows) && count($rows) === 1) ? (string) $rows[0]['stripe_session_id'] : '';
+    }
+
+    public function set_open_checkout($subscriber_id, $creator_id, $session_id){
+        return parent::sql("REPLACE INTO membership_checkouts (subscriber_id, creator_id, stripe_session_id, created_at) VALUES (:s, :c, :sid, :now)",
+            array('s' => (int) $subscriber_id, 'c' => (int) $creator_id, 'sid' => (string) $session_id, 'now' => date('Y-m-d H:i:s')));
+    }
+
     /** Active membership rows (free or paid) a fan holds with one creator — closed out when either blocks the other. */
     public function active_between($subscriber_id, $creator_id){
         return (array) parent::select(

@@ -389,18 +389,23 @@ class ApiBillingController extends BaseApiController {
         }
 
         $credits = new CreditsModel();
-        $balance = (int) $credits->withdrawable($creator_id);     // earned credits only — purchased credits can't be cashed out
         $min     = 100;                                           // $10.00 minimum ($1 = 10 credits)
+        // Earned credits past the hold only (purchased credits can't be cashed out). Taken under a lock, so a
+        // double-click or two tabs can't pay the same balance twice. Rolled back below if the transfer fails.
+        $balance = $credits->debit_for_payout($creator_id, $min);
+        if ($balance === false) {
+            $this->jsonError('Could not start the payout. Please try again.');
+        }
         if ($balance < $min) {
-            $this->jsonError('You need at least ' . $min . ' earned credits ($' . number_format($min / 10, 2) . ') to cash out.');
+            $held = $credits->held_earnings($creator_id);
+            $msg  = 'You need at least ' . Price::fmt($min) . ' available to cash out.';
+            if ($held['credits'] > 0) {
+                $msg .= ' ' . Price::fmt($held['credits']) . ' from recent sales becomes available ' . CreditsModel::HOLD_DAYS . ' days after each sale.';
+            }
+            $this->jsonError($msg);
         }
         $cents = $balance * 10;                                   // 1 credit = 10 cents
 
-        // Deduct first (this also prevents a double-payout from a double-click: the second
-        // request sees a zero balance). Roll the credits back if the Stripe transfer fails.
-        if ($credits->apply_delta($creator_id, -$balance, 'payout', 'Cash out to bank') === false) {
-            $this->jsonError('Could not start the payout. Please try again.');
-        }
         $idem = 'payout_' . $creator_id . '_' . $balance . '_' . bin2hex(random_bytes(8));
         $res  = StripeService::create_transfer($account_id, $cents, 'usd', $idem);
         if (empty($res['ok']) && !empty($res['unknown'])) {   // network blip: same key, so Stripe can't pay twice

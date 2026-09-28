@@ -748,6 +748,24 @@ class StripeService {
         }
     }
 
+    /**
+     * Close a Checkout session so it can no longer be paid. Returns its final status: 'expired' (closed now or before),
+     * 'complete' (already paid), or '' when Stripe couldn't be reached.
+     */
+    public static function expire_checkout_session($account_id, $session_id): string
+    {
+        try {
+            $opt = array('stripe_account' => $account_id);
+            $s = self::client()->checkout->sessions->retrieve($session_id, array(), $opt);
+            if ((string) $s->status === 'open') { $s = self::client()->checkout->sessions->expire($session_id, array(), $opt); }
+            return (string) $s->status;
+        } catch (\Throwable $e) {
+            if (stripos($e->getMessage(), 'No such checkout') !== false) { return 'expired'; }
+            error_log('[stripe] expire_checkout_session: ' . $e->getMessage());
+            return '';
+        }
+    }
+
     /** Retrieve a completed Checkout session (with its subscription) from the connected account. */
     public static function retrieve_checkout_session($account_id, $session_id): array
     {

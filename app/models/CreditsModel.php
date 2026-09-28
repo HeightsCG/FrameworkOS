@@ -1,6 +1,19 @@
 <?php
 class CreditsModel extends Model {
 
+    /** Days a sale's earning is held before it can be cashed out, so a credit refund can still be taken back. */
+    const HOLD_DAYS = 7;
+
+    /**
+     * Ledger types allowed to take a wallet below zero. A refund's clawback is owed in full even when the credits were
+     * already spent or cashed out; the negative balance is a debt that future earnings or top-ups repay.
+     */
+    const DEBT_TYPES = array('refund_reversal');
+
+    /** Debits that must never trigger an automatic top-up of the user's card. */
+    const NO_AUTO_TOPUP = array('payout', 'refund_reversal', 'admin_adjust');
+
+
     /**
      * Fixed credit packages (PRD 18.2): $1 = 10 credits. No bonus credits in V1.
      * Admin-configurable packages are a separate admin concern; this is the V1 set.
@@ -45,13 +58,43 @@ class CreditsModel extends Model {
      * Purchased credits are spendable but never withdrawable (card-to-bank laundering).
      */
     public function withdrawable($user_id){
+        // Earnings count once they are older than HOLD_DAYS (so a refund can still be taken back);
+        // reversals, payouts and returned payouts always count. Capped at the balance, never below zero.
         $rows = parent::select(
-            "SELECT COALESCE(SUM(credits), 0) AS net FROM credit_transactions
+            "SELECT COALESCE(SUM(CASE WHEN type LIKE '%\\_earning' AND created_at > :cut THEN 0 ELSE credits END), 0) AS net
+             FROM credit_transactions
              WHERE user_id = :u AND (type LIKE '%\\_earning' OR type IN ('refund_reversal', 'payout', 'payout_refund'))",
-            array('u' => (int) $user_id)
+            array('u' => (int) $user_id, 'cut' => date('Y-m-d H:i:s', time() - self::HOLD_DAYS * 86400))
         );
         $net = (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['net'] : 0;
         return max(0, min($net, (int) $this->get_balance($user_id)));
+    }
+
+    /**
+     * Take the whole withdrawable balance off the wallet for a cash out, under a per-user lock so two requests at once
+     * can't both read the same balance and pay it twice. Returns the credits taken, 0 if below $min, false on failure.
+     */
+    public function debit_for_payout($user_id, $min){
+        $lock = 'payout:' . (int) $user_id;
+        $got  = parent::select("SELECT GET_LOCK(:k, 10) AS l", array('k' => $lock));
+        if (empty($got[0]['l'])) { return false; }
+        try {
+            $amount = (int) $this->withdrawable($user_id);
+            if ($amount < (int) $min) { return 0; }
+            return $this->apply_delta($user_id, -$amount, 'payout', 'Cash out to bank') === false ? false : $amount;
+        } finally {
+            parent::select("SELECT RELEASE_LOCK(:k) AS r", array('k' => $lock));
+        }
+    }
+
+    /** Earnings still inside the hold (credits), and when the oldest of them becomes available. */
+    public function held_earnings($user_id): array{
+        $rows = parent::select(
+            "SELECT COALESCE(SUM(credits), 0) AS n, MIN(created_at) AS oldest FROM credit_transactions
+             WHERE user_id = :u AND type LIKE '%\\_earning' AND created_at > :cut",
+            array('u' => (int) $user_id, 'cut' => date('Y-m-d H:i:s', time() - self::HOLD_DAYS * 86400)));
+        $r = (is_array($rows) && count($rows) === 1) ? $rows[0] : array('n' => 0, 'oldest' => null);
+        return array('credits' => (int) $r['n'], 'next_at' => $r['oldest'] ? date('Y-m-d H:i:s', strtotime((string) $r['oldest']) + self::HOLD_DAYS * 86400) : null);
     }
 
     /** Cash-out history (the 'payout' ledger rows), shaped for the Payouts view. */
@@ -124,10 +167,11 @@ class CreditsModel extends Model {
             $sth->bindValue(':user_id', $user_id, PDO::PARAM_INT);
             $sth->execute();
             $row = $sth->fetch(PDO::FETCH_ASSOC);
-            $current = $row ? (int) $row['credit_balance'] : 0;
+            if (!$row) { $this->db->rollBack(); return false; }   // no account: never write a ledger row without a balance
+            $current = (int) $row['credit_balance'];
 
             $new_balance = $current + $credits;
-            if ($new_balance < 0) {
+            if ($new_balance < 0 && !in_array((string) $type, self::DEBT_TYPES, true)) {
                 $this->db->rollBack();
                 return false;
             }
@@ -161,7 +205,7 @@ class CreditsModel extends Model {
             return false;
         }
         // A spend that leaves the wallet under the user's threshold tops it up from their saved card.
-        if ($credits < 0 && !in_array((string) $type, array('payout', 'refund_reversal'), true) && class_exists('AutoReplenishService')) {
+        if ($credits < 0 && !in_array((string) $type, self::NO_AUTO_TOPUP, true) && class_exists('AutoReplenishService')) {
             AutoReplenishService::after_debit($user_id, $new_balance);
         }
         return $new_balance;

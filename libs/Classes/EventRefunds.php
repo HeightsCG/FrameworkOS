@@ -22,7 +22,7 @@ class EventRefunds {
         $fan = (int) $reg['user_id']; $creator = (int) $ev['creator_id'];
         $credits = new CreditsModel();
         $credits->apply_delta($fan, $paid, 'refund', 'Refund: event ticket');
-        $take = min((int) $reg['net_credits'], (int) $credits->get_balance($creator));   // never below zero
+        $take = (int) $reg['net_credits'];   // in full; the creator's balance may go negative (repaid from future earnings)
         if ($take > 0) { $credits->apply_delta($creator, -$take, 'refund_reversal', 'Refund reversal: event ticket'); }
         (new RefundsModel())->log('event', (int) $reg['id'], $creator, $fan, $paid, $take, $take >= (int) $reg['net_credits'],
             (int) Session::get('user_id'), $why === 'fan' ? 'Attendee canceled before the start' : ($why === 'event_canceled' ? 'Event canceled' : 'Refunded by the creator'));

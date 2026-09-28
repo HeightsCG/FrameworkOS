@@ -535,12 +535,22 @@ class ApiPostsController extends BaseApiController {
             $tu = in_array(($plan['trial_unit'] ?? 'day'), ['day', 'week', 'month'], true) ? $plan['trial_unit'] : 'day';
             $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
         }
+        // One open checkout per fan per creator: close the last one first, so a second tab can't pay a second time.
+        $prev = $subsModel->open_checkout($user_id, $creator_id);
+        if ($prev !== '') {
+            $was = StripeService::expire_checkout_session($connect_id, $prev);
+            if ($was === 'complete') {   // paid, not recorded yet (the success page or webhook is still on its way)
+                $this->jsonError('Your membership with this creator is already paid and is being set up. Refresh the page in a moment.');
+            }
+            if ($was === '') { $this->jsonError('Could not start checkout. Please try again.'); }
+        }
         $session = StripeService::create_subscription_checkout(
             $connect_id, $price_id, Plan::fee_percent($creator), $success, $cancel, $meta, (string) Session::get('user_email'), $trial_end, $coupon_id
         );
         if (empty($session['url'])) {
             $this->jsonError('Could not start checkout. Please try again.');
         }
+        $subsModel->set_open_checkout($user_id, $creator_id, (string) $session['id']);
 
         $this->jsonSuccess(['url' => $session['url']]);
     }

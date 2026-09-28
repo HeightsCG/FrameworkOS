@@ -441,6 +441,13 @@ class ProfileController extends Controller {
         }
 
         $subs = new CreatorSubscriptionsModel();
+        // A second paid checkout with the same creator (it slipped past the one-open-checkout rule): cancel it in
+        // Stripe instead of recording it over the first membership, which would leave that one billing unseen.
+        if ($subs->has_other_active_paid($viewer_id, (int) $creator['user_id'], (string) ($session['subscription_id'] ?? ''))) {
+            StripeService::cancel_subscription_now($connect_id, (string) $session['subscription_id']);
+            error_log('[membership] duplicate canceled: fan=' . (int) $viewer_id . ' creator=' . (int) $creator['user_id'] . ' sub=' . (string) $session['subscription_id']);
+            return false;
+        }
         $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
         // Reloading the success URL must not re-count the discount code or re-send the notices.
         if (!$subs->claim_checkout_recorded((string) ($session['subscription_id'] ?? ''))) { return true; }

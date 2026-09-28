@@ -17,7 +17,7 @@ class ServiceRefunds {
         $buyer = (int) $p['buyer_id']; $creator = (int) $sv['creator_id'];
         $credits = new CreditsModel();
         $credits->apply_delta($buyer, $paid, 'refund', 'Refund: service booking');
-        $take = min((int) $p['net_credits'], (int) $credits->get_balance($creator));
+        $take = (int) $p['net_credits'];   // in full; the creator's balance may go negative (repaid from future earnings)
         if ($take > 0) { $credits->apply_delta($creator, -$take, 'refund_reversal', 'Refund reversal: service booking'); }
         (new RefundsModel())->log('service', (int) $p['id'], $creator, $buyer, $paid, $take, $take >= (int) $p['net_credits'], (int) Session::get('user_id'), 'Refunded by the creator');
 

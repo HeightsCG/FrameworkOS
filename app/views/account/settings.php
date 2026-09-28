@@ -1305,7 +1305,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="wallet__note">Automatically add funds when your balance runs low.</p>
+                <p class="wallet__note">Automatically add funds when your balance runs low. Funds added to your wallet are non-refundable.</p>
 
                 <div class="wallet__ar-modal-toggle">
                     <label class="notif__switch wallet__ar-switch">
@@ -1376,6 +1376,7 @@
             <div class="modal-body">
                 <p class="wallet__pay-summary" id="credit_pay_summary"></p>
                 <div id="credit_payment_element"></div>
+                <p class="wallet__note">Funds added to your wallet are non-refundable.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
