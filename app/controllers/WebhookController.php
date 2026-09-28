@@ -121,6 +121,16 @@ class WebhookController extends Controller {
             exit;
         }
 
+        // Wallet top-ups and AI credit packs: the backup for a buyer who paid and closed the tab before the page
+        // confirmed. Same idempotent path as the page, so the credits are added exactly once.
+        if (empty($event->account) && $event->type === 'payment_intent.succeeded'
+            && in_array((string) ($obj->metadata['type'] ?? ''), TopUps::TYPES, true)) {
+            TopUps::fulfill($obj);
+            http_response_code(200);
+            echo 'ok';
+            exit;
+        }
+
         switch ($event->type) {
             case 'customer.subscription.created':
             case 'customer.subscription.updated':

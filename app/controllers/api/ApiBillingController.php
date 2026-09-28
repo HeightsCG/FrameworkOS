@@ -199,10 +199,9 @@ class ApiBillingController extends BaseApiController {
                 $this->jsonError('Payment has not completed yet');
             }
 
-            $credits = (int) ($intent->metadata['credits'] ?? 0);
-            $balance = (new AiCreditsModel())->credit_purchase($user_id, $credits, $intent->id, 'Bought ' . $credits . ' AI credits');
-            $this->notify($user_id, 'credits', 'AI credits added', number_format($credits) . ' AI credits for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . number_format((int) $balance) . ' AI credits.', '/account/billing?tab=credits', 'fa-wand-magic-sparkles');
-            $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' AI credits added']);
+            $r = TopUps::fulfill($intent);   // the webhook may have added them already; either way they are added once
+            if (!$r['ok']) { $this->jsonError('Could not confirm the purchase'); }
+            $this->jsonSuccess(['balance' => $r['balance'], 'message' => number_format($r['credits']) . ' AI credits added']);
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_ai_credit_purchase: ' . $e->getMessage());
@@ -282,12 +281,10 @@ class ApiBillingController extends BaseApiController {
                 $this->jsonError('Payment has not completed yet');
             }
 
-            $credits     = (int) ($intent->metadata['credits'] ?? 0);
-            $creditsModel = new CreditsModel();
-            $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Added ' . Price::fmt($credits) . ' to your wallet');
-            $this->notify($user_id, 'credits', 'Funds added', Notify::credits($credits) . ' added to your wallet for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.', '/account/settings?section=wallet', 'fa-coins');
+            $r = TopUps::fulfill($intent);   // the webhook may have added them already; either way they are added once
+            if (!$r['ok']) { $this->jsonError('Could not confirm the purchase'); }
 
-            $this->jsonSuccess(['balance' => (int) $balance, 'message' => Price::fmt($credits) . ' added to your wallet', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
+            $this->jsonSuccess(['balance' => $r['balance'], 'message' => Price::fmt($r['credits']) . ' added to your wallet', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_credit_purchase: ' . $e->getMessage());

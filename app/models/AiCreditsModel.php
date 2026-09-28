@@ -43,6 +43,11 @@ class AiCreditsModel extends Model {
     }
 
     /** Credit a completed purchase, idempotent by Stripe PaymentIntent id. Returns the new balance. */
+    public function has_payment_intent($payment_intent_id){
+        $r = parent::select("SELECT id FROM ai_credit_transactions WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => (string) $payment_intent_id));
+        return is_array($r) && count($r) === 1;
+    }
+
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'AI credit purchase'){
         $existing = parent::select(
             "SELECT id FROM ai_credit_transactions WHERE stripe_payment_intent_id = :pi",

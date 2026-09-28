@@ -45,12 +45,7 @@ class AutoReplenishService {
                 return;
             }
             if ((string) $intent->status !== 'succeeded') { self::report_failure($user_id, $pkg, 'Payment did not complete (' . $intent->status . ')'); return; }
-            $balance = $credits->credit_purchase($user_id, (int) $pkg['credits'], (string) $intent->id, 'Auto-replenishment: ' . (int) $pkg['credits'] . ' credits');
-            Notify::send($user_id, 'auto_replenishment', 'Wallet topped up automatically',
-                Notify::credits((int) $pkg['credits']) . ' added for $' . number_format($total_cents / 100, 2)
-                . ($fee_cents > 0 ? ' ($' . number_format($base_cents / 100, 2) . ' + $' . number_format($fee_cents / 100, 2) . ' processing fee)' : '')
-                . '. Balance: ' . Notify::credits((int) $balance) . '.',
-                '/account/settings?section=wallet', 'fa-rotate');
+            TopUps::fulfill($intent);   // adds the credits and sends the notice once (the webhook is the backup)
         } catch (\Throwable $e) {
             error_log('[autoreplenish] ' . $e->getMessage());
         }

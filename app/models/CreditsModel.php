@@ -135,6 +135,11 @@ class CreditsModel extends Model {
      * Returns the new balance. If the PaymentIntent was already recorded, this is
      * a no-op and returns the current balance.
      */
+    public function has_payment_intent($payment_intent_id){
+        $r = parent::select("SELECT id FROM credit_transactions WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => (string) $payment_intent_id));
+        return is_array($r) && count($r) === 1;
+    }
+
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'Credit purchase'){
         $user_id = (int) $user_id;
         $credits = (int) $credits;
