@@ -78,7 +78,7 @@ class PlanTiers {
      *   retired: closed to new subscribers; existing subscribers keep it.
      */
     const TIERS = array(
-        'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Your account. No card needed.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
+        'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Follow, subscribe and buy. No card needed.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
             'ai_credits_grant' => 'once', 'features' => array('inbox_ai' => false),
             'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 0, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),   // Free includes no AI credits, ever: it buys them
         'creator' => array('key' => 'creator', 'rank' => 1, 'name' => 'Creator', 'tagline' => 'Go solo, get paid.',             'price' => 49,  'stripe_price_id' => '', 'match' => array('creator'), 'recommended' => true,
