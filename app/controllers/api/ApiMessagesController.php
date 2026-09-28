@@ -22,7 +22,7 @@ class ApiMessagesController extends BaseApiController {
             $assets = (new MediaAssetsModel())->get_owned_ready($me, array_slice(array_map('intval', $wanted), 0, self::MAX_ATTACH));
             foreach ($assets as $a) { $asset_ids[] = (int) $a['id']; }
             if (!empty($wanted) && empty($asset_ids)) { $this->jsonError('Those files are not ready to send.'); }
-            if ((int) ($this->post['price'] ?? 0) > 0) { $price = $this->ppv_credits_from_dollars($this->post['price']); }
+            if ($this->price_given($this->post['price'] ?? '')) { $price = $this->price_credits($this->post['price']); }
         }
         if ($body === '' && empty($asset_ids)) { $this->jsonError('Type a message.'); }
 
@@ -198,7 +198,7 @@ class ApiMessagesController extends BaseApiController {
         }
         $balance = $credits->get_balance($viewer);
         if ($balance < $price) {
-            $this->jsonError('You need ' . ($price - $balance) . ' more credits to unlock this.',
+            $this->jsonError('You need ' . Price::fmt($price - $balance) . ' more in your wallet to unlock this.',
                 ['need_credits' => true, 'balance' => $balance, 'price' => $price, 'shortfall' => $price - $balance]);
         }
         // Record first: UNIQUE(message_id, fan_id) is the mutex against a double charge. Then debit.
@@ -207,7 +207,7 @@ class ApiMessagesController extends BaseApiController {
         }
         if ($credits->apply_delta($viewer, -$price, 'message_unlock', 'Unlocked a message') === false) {
             $unlocks->remove($mid, $viewer);
-            $this->jsonError('Not enough credits.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
+            $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
         $creator_row = $this->userModel->get_user_by_id($creator_id);
         $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
@@ -324,7 +324,7 @@ class ApiMessagesController extends BaseApiController {
             }
             $out[] = [
                 'id' => $mid, 'mine' => $mine, 'body' => (string) $m['body'], 'created_at' => (string) $m['created_at'],
-                'price_credits' => $price, 'price_dollars' => $price > 0 ? (int) round($price / 10) : 0,
+                'price_credits' => $price, 'price_dollars' => $price > 0 ? Price::input($price) : 0,
                 'locked' => $locked, 'unlocked' => ($price > 0 && !$mine && !empty($unlocked[$mid])),
                 'media_count' => (int) ($m['media_count'] ?? 0), 'assets' => $items,
                 'unlocks' => (int) ($counts[$mid] ?? 0), 'auto' => !empty($m['trigger_key']),

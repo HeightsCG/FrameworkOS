@@ -284,10 +284,10 @@ class ApiBillingController extends BaseApiController {
 
             $credits     = (int) ($intent->metadata['credits'] ?? 0);
             $creditsModel = new CreditsModel();
-            $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Purchased ' . $credits . ' credits');
-            $this->notify($user_id, 'credits', 'Credits added', Notify::credits($credits) . ' for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.', '/account/settings?section=wallet', 'fa-coins');
+            $balance = $creditsModel->credit_purchase($user_id, $credits, $intent->id, 'Added ' . Price::fmt($credits) . ' to your wallet');
+            $this->notify($user_id, 'credits', 'Funds added', Notify::credits($credits) . ' added to your wallet for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . Notify::credits((int) $balance) . '.', '/account/settings?section=wallet', 'fa-coins');
 
-            $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' credits added', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
+            $this->jsonSuccess(['balance' => (int) $balance, 'message' => Price::fmt($credits) . ' added to your wallet', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_credit_purchase: ' . $e->getMessage());
@@ -414,10 +414,10 @@ class ApiBillingController extends BaseApiController {
         }
         if (empty($res['ok'])) {
             $credits->apply_delta($creator_id, $balance, 'payout_refund', 'Payout failed — credits returned');
-            $this->notify($creator_id, 'credits', 'Payout failed', 'The transfer of $' . number_format($cents / 100, 2) . ' did not go through and your ' . Notify::credits($balance) . ' are back in your balance. Check your bank connection and try again.', '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
+            $this->notify($creator_id, 'credits', 'Payout failed', 'The transfer of $' . number_format($cents / 100, 2) . ' did not go through, so it is back in your balance. Check your bank connection and try again.', '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
             $this->jsonError('Could not send the payout. Make sure your bank account is connected.');
         }
-        $this->notify($creator_id, 'credits', 'Payout on its way', '$' . number_format($cents / 100, 2) . ' (' . Notify::credits($balance) . ') is being sent to your bank.', '/account/settings?section=wallet&tab=cashout', 'fa-building-columns');
+        $this->notify($creator_id, 'credits', 'Payout on its way', '$' . number_format($cents / 100, 2) . ' is being sent to your bank.', '/account/settings?section=wallet&tab=cashout', 'fa-building-columns');
 
         $this->jsonSuccess(['message' => 'Payout of $' . number_format($cents / 100, 2) . ' is on its way to your bank.', 'balance' => (int) $credits->get_balance($creator_id)]);
     }

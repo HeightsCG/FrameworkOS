@@ -48,8 +48,9 @@ class PurchasesController extends Controller {
     }
 
     /**
-     * Everything this user bought one-time, newest first: PPV unlocks, content bundles and paid
-     * message unlocks. Each has 'key' (type:id, for downloads) and 'assets' (ready media rows).
+     * Everything this user bought one-time, newest first: PPV unlocks, content bundles, paid message unlocks,
+     * event tickets and service bookings. Each has 'key' (type:id, for downloads), 'price' (credits) and 'assets'
+     * (ready media rows); tickets and bookings have no media, only a 'link' to their page.
      */
     private function purchases_for($user_id){
         $purchases  = array();
@@ -94,6 +95,22 @@ class PurchasesController extends Controller {
                 'price'        => (int) $u['price_credits'],
                 'purchased_at' => (string) $u['purchased_at'],
                 'assets'       => $ready($messagesModel->assets_for_messages(array((int) $u['message_id']))[(int) $u['message_id']] ?? array()),
+            );
+        }
+        foreach ((new EventsModel())->paid_tickets_for_user($user_id) as $t) {
+            $purchases[] = array(
+                'key' => 'event:' . (int) $t['id'], 'type' => 'event', 'title' => html_entity_decode((string) $t['title'], ENT_QUOTES, 'UTF-8'),
+                'creator' => (string) $t['creator_name'], 'handle' => (string) $t['creator_handle'], 'price' => (int) $t['price_credits'],
+                'purchased_at' => (string) $t['purchased_at'], 'assets' => array(),
+                'link' => '/@' . rawurlencode((string) $t['creator_handle']) . '/events/' . (int) $t['event_id'], 'link_label' => 'View Event',
+            );
+        }
+        foreach ((new ServicesModel())->paid_bookings_for_user($user_id) as $b) {
+            $purchases[] = array(
+                'key' => 'service:' . (int) $b['id'], 'type' => 'service', 'title' => html_entity_decode((string) $b['name'], ENT_QUOTES, 'UTF-8'),
+                'creator' => (string) $b['creator_name'], 'handle' => (string) $b['creator_handle'], 'price' => (int) $b['price_credits'],
+                'purchased_at' => (string) $b['purchased_at'], 'assets' => array(),
+                'link' => '/@' . rawurlencode((string) $b['creator_handle']) . '/services/' . (int) $b['service_id'], 'link_label' => 'View Booking',
             );
         }
         usort($purchases, function ($a, $b) { return strcmp((string) $b['purchased_at'], (string) $a['purchased_at']); });

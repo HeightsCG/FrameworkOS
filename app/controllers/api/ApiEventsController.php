@@ -20,8 +20,8 @@ class ApiEventsController extends BaseApiController {
         $access = (string) ($this->post['access_type'] ?? 'free');
         if (!in_array($access, EventsModel::access_types(), true)) { $access = 'free'; }
         // A ticket price can apply to any audience (a subscribers-only event can still be paid); 'free' is anyone, no charge.
-        $price_credits = ($access === 'free') ? 0 : max(0, (int) round(((float) ($this->post['price'] ?? 0)) * 10));   // $1 = 10 credits
-        if ($access === 'paid' && $price_credits < 10) { $this->jsonError('Enter a ticket price of at least $1.00'); }
+        // Free events have no price; a paid event needs one; a members event may be free or paid (Price rules).
+        $price_credits = ($access === 'free') ? 0 : $this->price_credits($this->post['price'] ?? '', $access !== 'paid');
         $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
 
         $format   = EventsModel::format($this->post['format'] ?? 'virtual');
@@ -108,7 +108,7 @@ class ApiEventsController extends BaseApiController {
         if ($price > 0) {
             $credits = new CreditsModel();
             if ($credits->get_balance($me) < $price) {
-                $this->jsonError('Not enough credits.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
+                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
         }
         // Take the seat first (UNIQUE event_id+user_id is the mutex against a double charge), then charge.
@@ -118,7 +118,7 @@ class ApiEventsController extends BaseApiController {
         if ($price > 0 && (int) $claim['prior_paid'] <= 0) {
             if ($credits->apply_delta($me, -$price, 'event_ticket', 'Event registration') === false) {
                 $model->release_registration($claim);
-                $this->jsonError('Not enough credits.', ['need_credits' => true]);
+                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
             }
             $crow = $this->userModel->get_user_by_id($creator_id);
             $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;

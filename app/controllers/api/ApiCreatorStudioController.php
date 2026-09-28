@@ -448,9 +448,13 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($name === '' || mb_strlen($name) > 120) {
             $this->jsonError('Give the bundle a name (up to 120 characters).');
         }
-        $price = (int) ($this->post['price_credits'] ?? 0);
-        if ($price < 1) {
-            $this->jsonError('Set a bundle price of at least 1 credit.');
+        // The editor sends dollars ('price'); API callers may still send credits ('price_credits'). Same limits either way.
+        if (isset($this->post['price'])) {
+            $price = $this->price_credits($this->post['price']);
+        } else {
+            $chk = Price::check_credits((int) ($this->post['price_credits'] ?? 0));
+            if (!$chk['ok']) { $this->jsonError($chk['message']); }
+            $price = (int) $chk['credits'];
         }
         $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES));
         if (mb_strlen($description) > 500) { $description = mb_substr($description, 0, 500); }
@@ -700,7 +704,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $audience   = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
         $tier_id    = 0;   // legacy single tier; multi-tier targeting is tier_ids → post_tiers
         $tier_ids   = ($audience === 'subscribers') ? array_values(array_filter(array_map('intval', (array) ($this->post['tier_ids'] ?? [])))) : [];
-        $ppv_credits = ($audience === 'ppv') ? $this->ppv_credits_from_dollars($this->post['ppv_price'] ?? 0) : 0;
+        $ppv_credits = ($audience === 'ppv' && $this->price_given($this->post['ppv_price'] ?? '')) ? $this->price_credits($this->post['ppv_price']) : 0;
         $comments   = (((string) ($this->post['comments_enabled'] ?? '1')) === '1') ? 1 : 0;
         $on_cls     = (((string) ($this->post['on_cls'] ?? '1')) === '0') ? 0 : 1;   // publish on Creator Link Studio itself
         $asset_ids  = $this->post['asset_ids'] ?? [];
@@ -1121,7 +1125,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'tier_ids'          => $model->tiers_for_posts([(int) $post['id']])[(int) $post['id']] ?? [],
             'moderation'        => (string) ((new PostsModel())->studio_moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
-            'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? (int) round($post['ppv_price_credits'] / 10) : null,
+            'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? Price::input((int) $post['ppv_price_credits']) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
             'on_cls'            => (int) ($post['on_cls'] ?? 1),
             'state'             => $post['state'],
@@ -1224,7 +1228,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'likes'          => (int) $p['likes'],
             'comments'       => (int) $p['comments'],
             'earnings_cents' => (int) $p['earnings_cents'],
-            'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) round($p['ppv_price_credits'] / 10) : null,
+            'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? Price::input((int) $p['ppv_price_credits']) : null,
             'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
             'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'blocked'|'pending'|'adult'|'ok'
             'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']) + (!empty($p['fanvue_post_uuid']) ? 1 : 0),

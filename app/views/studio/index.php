@@ -368,10 +368,8 @@
                             <label class="cs-pe__label" for="csCompPpvPrice">Unlock price</label>
                             <div class="cs-pe__price">
                                 <span class="cs-pe__cur" aria-hidden="true">$</span>
-                                <input type="number" class="form-control" id="csCompPpvPrice" min="3" max="500" step="1" value="5" inputmode="numeric" aria-describedby="csCompPpvCredits csPeErr_price">
-                                <span class="cs-pe__credits" id="csCompPpvCredits">= 50 credits</span>
+                                <input type="number" class="form-control" id="csCompPpvPrice" min="1" max="500" step="0.10" value="5.00" inputmode="decimal" aria-describedby="csPeErr_price">
                             </div>
-                            <p class="cs-pe__hint">Fans spend credits to unlock this post. $3 to $500.</p>
                             <p class="cs-pe__error" id="csPeErr_price" role="alert" hidden></p>
                         </div>
                     </section>

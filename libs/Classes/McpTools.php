@@ -14,7 +14,20 @@
 class McpTools {
 
     /** Event tool input → model fields: a valid time zone, reminders as the stored CSV, and the one-line location kept in step with the address. */
+    /**
+     * A price argument in credits, held to the same rule as the app (Price: $1-$500, i.e. 10-5000 credits; 0 = free
+     * where allowed). Missing leaves $a unchanged; a bad value is refused with the reason, never adjusted.
+     */
+    private static function priced(array $a, $key, $allow_free = true): array {
+        if (!array_key_exists($key, $a) || $a[$key] === null || $a[$key] === '') { return $a; }
+        $chk = Price::check_credits((int) $a[$key], $allow_free);
+        if (!$chk['ok']) { throw new InvalidArgumentException($key . ': ' . $chk['message'] . ' (credits: $1 = 10)'); }
+        $a[$key] = (int) $chk['credits'];
+        return $a;
+    }
+
     private static function event_fields(array $a, array $current = array()): array {
+        $a = self::priced($a, 'price_credits');
         if (array_key_exists('timezone', $a)) { $a['timezone'] = EventsModel::clean_timezone($a['timezone'], 'UTC'); }
         if (array_key_exists('reminders', $a)) { $a['reminders'] = implode(',', EventsModel::clean_reminders($a['reminders'])); }
         $keys = array('venue_name', 'street', 'city', 'region', 'postal_code');
@@ -56,7 +69,7 @@ class McpTools {
             'properties' => array(
                 'caption'  => array('type' => 'string'),
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers', 'ppv')),
-                'ppv_price_credits' => array('type' => 'integer', 'description' => 'Required credits when audience=ppv.'),
+                'ppv_price_credits' => array('type' => 'integer', 'description' => 'Required when audience=ppv. Credits, $1 = 10: 10 to 5000 ($1 to $500).'),
             )));
         $t[] = array('name' => 'update_post', 'description' => 'Update a post\'s caption/audience/pricing/comments.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
@@ -274,7 +287,7 @@ class McpTools {
         $t[] = array('name' => 'create_bundle', 'description' => 'Create a content bundle from owned media (Pro/Studio plans).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'price_credits', 'asset_ids'),
             'properties' => array('name' => array('type' => 'string'), 'description' => array('type' => 'string'),
-                'price_credits' => array('type' => 'integer', 'description' => '>= 1'),
+                'price_credits' => array('type' => 'integer', 'description' => 'Credits, $1 = 10: 10 to 5000 ($1 to $500)'),
                 'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
         $t[] = array('name' => 'update_bundle', 'description' => 'Update a content bundle.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
@@ -442,10 +455,12 @@ class McpTools {
                 $p = new PostsModel();
                 $pid = (int) $p->create_draft($cid, $caption, $aud);
                 if ($pid <= 0) { throw new RuntimeException('Could not create the post'); }
+                $a = self::priced($a, 'ppv_price_credits');
                 $p->update_fields($cid, $pid, array('caption' => $caption, 'audience' => $aud, 'ppv_price_credits' => (int) ($a['ppv_price_credits'] ?? 0)));
                 return array('post_id' => $pid, 'state' => 'draft');
             }
             case 'update_post': {
+                $a = self::priced($a, 'ppv_price_credits');
                 $f = array_intersect_key($a, array_flip(array('caption', 'audience', 'ppv_price_credits', 'tier_id', 'tier_ids', 'comments_enabled')));
                 if (isset($f['tier_id']) && !isset($f['tier_ids'])) { $f['tier_ids'] = array((int) $f['tier_id']); $f['tier_id'] = 0; }
                 return $ok((new PostsModel())->update_fields($cid, $iid, $f));
@@ -547,9 +562,10 @@ class McpTools {
                 if (trim((string) ($a['name'] ?? '')) === '') { throw new InvalidArgumentException('name is required'); }
                 $a += array('delivery_method' => 'custom', 'status' => 'draft'); // fields the model reads unguarded
                 unset($a['scheduling_url']);   // no booking link (for now)
+                $a = self::priced($a, 'price_credits');
                 return array('id' => (int) (new ServicesModel())->create($cid, $a));
             }
-            case 'update_service': { unset($a['scheduling_url']); return $ok((new ServicesModel())->update_service($cid, $iid, $a)); }
+            case 'update_service': { unset($a['scheduling_url']); $a = self::priced($a, 'price_credits'); return $ok((new ServicesModel())->update_service($cid, $iid, $a)); }
             case 'delete_service': {
                 $svm = new ServicesModel();
                 if ($svm->get_one($cid, $iid) && $svm->stats($iid)['rows'] > 0) { throw new RuntimeException('This service has bookings, so it can\'t be deleted. Set status to draft to stop new bookings.'); }
@@ -615,9 +631,10 @@ class McpTools {
             // Bundles
             case 'create_bundle': {
                 self::requirePlan($cid, 'bundles', 'Content bundles require an active plan');
-                $name = trim((string) ($a['name'] ?? '')); $price = (int) ($a['price_credits'] ?? 0);
+                $name = trim((string) ($a['name'] ?? ''));
                 if ($name === '') { throw new InvalidArgumentException('name is required'); }
-                if ($price < 1) { throw new InvalidArgumentException('price_credits must be >= 1'); }
+                if (!isset($a['price_credits'])) { throw new InvalidArgumentException('price_credits is required'); }
+                $price = (int) self::priced($a, 'price_credits', false)['price_credits'];
                 $ids = self::ownedReadyAssetIds($cid, $a['asset_ids'] ?? array());
                 if (!$ids) { throw new InvalidArgumentException('Provide at least one owned, ready media asset_id'); }
                 $m = new ContentBundlesModel();
@@ -631,7 +648,7 @@ class McpTools {
                 $f = array(
                     'name'          => array_key_exists('name', $a) ? (string) $a['name'] : (string) $row['name'],
                     'description'   => array_key_exists('description', $a) ? (string) $a['description'] : (string) ($row['description'] ?? ''),
-                    'price_credits' => array_key_exists('price_credits', $a) ? max(1, (int) $a['price_credits']) : (int) $row['price_credits'],
+                    'price_credits' => array_key_exists('price_credits', $a) ? (int) self::priced($a, 'price_credits', false)['price_credits'] : (int) $row['price_credits'],
                 );
                 $m->update_bundle($cid, $iid, $f);
                 if (array_key_exists('asset_ids', $a)) { $m->set_items($iid, self::ownedReadyAssetIds($cid, $a['asset_ids'])); }
@@ -714,7 +731,7 @@ class McpTools {
                     $r = $rows[$k] ?? null;
                     $out[] = array('trigger' => $k, 'label' => $meta[0], 'when' => $meta[1], 'enabled' => $r ? !empty($r['enabled']) : false,
                         'text' => $r ? (string) $r['text'] : '', 'asset_ids' => $r ? (array) $r['asset_ids'] : array(),
-                        'price' => $r ? (int) round(((int) $r['price_credits']) / 10) : 0);
+                        'price' => $r ? (float) Price::input((int) $r['price_credits']) : 0);
                 }
                 return array('auto_messages' => $out);
             }
@@ -913,7 +930,11 @@ class McpTools {
             if (empty($asset_ids)) { throw new InvalidArgumentException('asset_ids must be ready media in your library'); }
         }
         $price = 0;
-        if (!empty($asset_ids) && (int) ($a['price'] ?? 0) > 0) { $price = max(3, min(500, (int) $a['price'])) * 10; }
+        if (!empty($asset_ids) && isset($a['price']) && (float) $a['price'] > 0) {   // dollars, same rule as the app
+            $pr = Price::from_dollars($a['price']);
+            if (!$pr['ok']) { throw new InvalidArgumentException('price: ' . $pr['message']); }
+            $price = (int) $pr['credits'];
+        }
         return array($asset_ids, $price);
     }
 

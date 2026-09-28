@@ -16,7 +16,7 @@ class ApiServicesController extends BaseApiController {
         $fields = [
             'name'             => $name,
             'description'      => trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES, 'UTF-8')),
-            'price_credits'    => (int) round(((float) ($this->post['price'] ?? 0)) * 10),   // $1 = 10 credits
+            'price_credits'    => $this->price_given($this->post['price'] ?? '') ? $this->price_credits($this->post['price']) : 0,   // empty = free
             'duration_min'     => (int) ($this->post['duration_min'] ?? 0),
             'delivery_method'  => $method,
             'delivery_details' => trim(html_entity_decode((string) ($this->post['delivery_details'] ?? ''), ENT_QUOTES, 'UTF-8')),
@@ -25,7 +25,6 @@ class ApiServicesController extends BaseApiController {
             'refund_policy'    => trim(html_entity_decode((string) ($this->post['refund_policy'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'status'           => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
-        if ($fields['price_credits'] > 0 && $fields['price_credits'] < 10) { $this->jsonError('Paid services start at $1.00. Leave the price empty for a free one.'); }
         $model = new ServicesModel();
         if ($id > 0) {
             if (!$model->get_one($creator_id, $id)) { $this->jsonError('Service not found'); }
@@ -143,7 +142,7 @@ class ApiServicesController extends BaseApiController {
         if ($price > 0) {
             $credits = new CreditsModel();
             if ($credits->get_balance($me) < $price) {
-                $this->jsonError('Not enough credits.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
+                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
         }
         // Record first: UNIQUE(service_id, buyer_id) is the mutex against a double charge. Then debit.
@@ -152,7 +151,7 @@ class ApiServicesController extends BaseApiController {
         if ($price > 0) {
             if ($credits->apply_delta($me, -$price, 'service_purchase', 'Service purchase') === false) {
                 $model->remove_purchase($purchase_id);
-                $this->jsonError('Not enough credits.', ['need_credits' => true]);
+                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
             }
             $crow = $this->userModel->get_user_by_id($creator_id);
             $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;

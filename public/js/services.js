@@ -69,6 +69,7 @@
             var errs = [];
             if (el('sv_name').value.trim() === '') { errs.push({ section: 'details', input: 'sv_name', err: 'svErr_name', msg: 'Give the service a name.' }); }
             if (el('sv_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Paid services start at $1.00. Leave it empty for a free one.' }); }
+            else if (price() > 500 || Math.round(price() * 100) % 10 !== 0) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Enter a price up to $500.00, in 10¢ steps.' }); }
             var cap = el('sv_capacity').value.trim();
             if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'pricing', input: 'sv_capacity', err: 'svErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
             ed.showErrors(errs);

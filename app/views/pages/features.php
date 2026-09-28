@@ -12,7 +12,7 @@ $groups = array(
     )),
     array('id' => 'earn', 'jump' => 'Ways to get paid', 'jump_icon' => 'wallet', 'title' => 'Ways to get paid', 'lead' => 'Memberships for your regulars, single sales for everyone else.', 'items' => array(
         array('users', 'Membership tiers', 'As many tiers as you want, each with its own price, billing interval, trial, perks and promo codes.'),
-        array('lock', 'Pay-per-view posts', 'Put a price on any post. Fans unlock it in one tap from their credit wallet.'),
+        array('lock', 'Pay-per-view posts', 'Put a price on any post. Fans unlock it in one tap from their wallet.'),
         array('package', 'Bundles', 'Group media from your library into a set. Buyers find it in their purchases.'),
         array('calendar', 'Services', 'Take bookings. Access details are shared after purchase.'),
         array('ticket', 'Events', 'Sell seats to live sessions. Details are shared after purchase.'),
@@ -41,8 +41,8 @@ $groups = array(
         array('link', 'Link clicks', 'Clicks on every link on your page.'),
     )),
     array('id' => 'payouts', 'jump' => 'Payouts and team', 'jump_icon' => 'bank', 'title' => 'Payouts, team and tools', 'lead' => 'Your money and your audience stay yours.', 'image' => SiteImages::url('features_payouts'), 'items' => array(
-        array('bank', 'Payouts to your bank', 'Earnings collect as credits. Cash out to your own bank account.'),
-        array('wallet', 'Fan credit wallet', 'Fans top up once and pay in one tap, with optional automatic top-ups.'),
+        array('bank', 'Payouts to your bank', 'Earnings collect in your wallet. Cash out to your own bank account.'),
+        array('wallet', 'Fan wallet', 'Fans top up once and pay in one tap, with optional automatic top-ups.'),
         array('user-plus', 'Team seats', 'Invite collaborators to work on your account.'),
         array('plug', 'Claude connector', 'Run your account from Claude: posts, messages, analytics and more.'),
         array('download', 'Export everything', 'Export your subscribers, content and brand any time.'),

@@ -198,4 +198,18 @@ class ServicesModel extends Model {
              GROUP BY s.id ORDER BY purchased_at DESC",
             array('u' => (int) $user_id));
     }
+
+    /** Paid bookings this user made and wasn't refunded for (their Purchases page), newest first. */
+    public function paid_bookings_for_user($user_id){
+        return (array) parent::select(
+            "SELECT p.id, p.service_id, p.price_credits, p.created_at AS purchased_at, s.name,
+                    u.u_name AS creator_handle, COALESCE(cp.display_name, CONCAT(u.first_name, ' ', u.last_name)) AS creator_name
+             FROM service_purchases p
+             JOIN services s ON s.id = p.service_id
+             JOIN user_accounts u ON u.user_id = s.creator_id AND u.deleted = 0
+             LEFT JOIN creator_profiles cp ON cp.user_id = s.creator_id
+             WHERE p.buyer_id = :u AND p.price_credits > 0 AND p.status = 'paid'
+             ORDER BY p.created_at DESC",
+            array('u' => (int) $user_id));
+    }
 }

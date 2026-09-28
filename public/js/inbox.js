@@ -19,9 +19,10 @@
     function fdate(iso) { var d = utc(iso); return d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
     function ini(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
     function av(a, n) { return a ? '<span class="ibx__av" style="background-image:url(\'' + esc(a) + '\')"></span>' : '<span class="ibx__av">' + esc(ini(n)) + '</span>'; }
-    function money(credits) { var d = (credits || 0) / 10; return '$' + (d % 1 === 0 ? d.toFixed(0) : d.toFixed(2)); }
-    function cr(credits) { credits = credits || 0; return credits + (credits === 1 ? ' credit' : ' credits'); }
-    function crT(credits) { credits = credits || 0; return credits + (credits === 1 ? ' Credit' : ' Credits'); }   // button text is Title Case
+    // Fans and creators see dollars: the wallet holds credits ($1 = 10), shown as money.
+    function money(credits) { return '$' + ((credits || 0) / 10).toFixed(2); }
+    function cr(credits) { return money(credits); }
+    function crT(credits) { return money(credits); }
     function toastErr(m) { if (window.toastr) { toastr.error(m); } }
     function api(action, data, cb) { ApiDataSvc.apiCall('post', action, data, function (r) { var o = null; try { o = JSON.parse(r); } catch (e) { o = null; } if (o && o.need_login) { window.location = '/'; return; } cb(o); }); }
     function modal(id) { var el = document.getElementById(id); return el ? bootstrap.Modal.getOrCreateInstance(el) : null; }
@@ -37,7 +38,7 @@
             h += '</div><div class="ibx__pricing" role="group" aria-label="Pricing">'
                + '<button type="button" class="ibx__pill' + (paid ? '' : ' is-on') + '" data-mode="free" aria-pressed="' + (paid ? 'false' : 'true') + '">Free</button>'
                + '<button type="button" class="ibx__pill' + (paid ? ' is-on' : '') + '" data-mode="paid" aria-pressed="' + (paid ? 'true' : 'false') + '">Paid</button>'
-               + '<label class="ibx__price"' + (paid ? '' : ' hidden') + '><input type="number" class="ibx__price-in" min="3" max="500" step="1" placeholder="5" value="' + (paid ? a.price : '') + '" aria-label="Price in dollars"></label></div>';
+               + '<label class="ibx__price"' + (paid ? '' : ' hidden') + '><input type="number" class="ibx__price-in" min="1" max="500" step="0.10" placeholder="5.00" value="' + (paid ? a.price : '') + '" aria-label="Price in dollars"></label></div>';
             $wrap.html(h).prop('hidden', false);
             if (a.onchange) { a.onchange(); }
         };
@@ -50,19 +51,19 @@
             $wrap.find('.ibx__pill').each(function () { var on = ($(this).data('mode') === 'paid') === paid; $(this).toggleClass('is-on', on).attr('aria-pressed', on ? 'true' : 'false'); });
             var $in = $wrap.find('.ibx__price-in');
             $wrap.find('.ibx__price').prop('hidden', !paid);
-            if (paid) { if (!(parseInt($in.val(), 10) > 0)) { $in.val(5); } a.price = Math.min(500, Math.max(3, parseInt($in.val(), 10) || 5)); $in.trigger('focus').trigger('select'); }
+            if (paid) { if (!(parseFloat($in.val()) > 0)) { $in.val('5.00'); } a.price = parseFloat($in.val()) || 5; $in.trigger('focus').trigger('select'); }
             else { a.price = 0; }
             if (a.onchange) { a.onchange(); }
         });
         $wrap.on('input change', '.ibx__price-in', function (e) {
-            var v = parseInt(this.value, 10); a.price = isNaN(v) || v <= 0 ? 0 : Math.min(500, v);
-            if (e.type === 'change') { if (this.value === '' || a.price < 3) { a.price = 3; this.value = 3; } if (a.price > 500) { this.value = 500; } }
+            // Never adjusted here: the server checks $1-$500 in 10¢ steps and says what to fix.
+            var v = parseFloat(this.value); a.price = isNaN(v) || v <= 0 ? 0 : v;
             if (a.onchange) { a.onchange(); }
         });
         return a;
     }
     var attachD = makeAttach($('#ibxAttach')), attachB = makeAttach($('#ibxBcastAttach'));
-    function updateSendLabel() { $('#ibxSendLabel').text(attachD.price > 0 ? 'Send for ' + cr(attachD.price * 10).replace('credits', 'Credits').replace('credit', 'Credit') : 'Send'); }
+    function updateSendLabel() { $('#ibxSendLabel').text(attachD.price > 0 ? 'Send for ' + money(Math.round(attachD.price * 10)) : 'Send'); }
     attachD.onchange = updateSendLabel;
 
     /* ---- library picker (creators) ---- */
@@ -210,7 +211,7 @@
                 var cover = m.assets[0].locked_url || '';
                 h += '<div class="ibx-lock" style="background-image:url(\'' + esc(cover) + '\')"><i class="fa-solid fa-lock ibx-lock__ico"></i><span class="ibx-lock__meta">' + esc(mediaLabel(m)) + '</span>'
                    + '<button type="button" class="ibx-lock__btn" data-unlock="' + m.id + '">Unlock for ' + crT(m.price_credits) + '</button>'
-                   + (viewerCredits < m.price_credits ? '<span class="ibx-lock__note">You have ' + cr(viewerCredits) + '</span><a class="ibx-lock__btn ibx-lock__btn--buy" href="' + esc(WALLET) + '">Buy Credits</a>' : '')
+                   + (viewerCredits < m.price_credits ? '<span class="ibx-lock__note">You have ' + cr(viewerCredits) + '</span><a class="ibx-lock__btn ibx-lock__btn--buy" href="' + esc(WALLET) + '">Add Funds</a>' : '')
                    + '</div>';
             } else {
                 var n = m.assets.length, show = m.assets.slice(0, 4);
@@ -290,12 +291,12 @@
     $('#ibxLightbox').on('click', function (e) { if (e.target === this) { closeLightbox(); } });
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && !$('#ibxLightbox').prop('hidden')) { closeLightbox(); } });
 
-    /* confirm before any charge. Short balance → offer to buy credits instead. */
+    /* confirm before any charge. Short balance → offer to add funds instead. */
     function confirmUnlock(m, balance, onYes) {
         var price = m.price_credits;
         if (typeof Swal === 'undefined') { onYes(); return; }
         if (balance < price) {
-            Swal.fire({ title: 'Not enough credits', html: 'This unlock is <b>' + cr(price) + '</b>. You have ' + cr(balance) + ', so you need ' + cr(price - balance) + ' more.', showCancelButton: true, confirmButtonText: 'Buy Credits', cancelButtonText: 'Not Now', customClass: { popup: 'ibx-swal' } })
+            Swal.fire({ title: 'Not enough funds', html: 'This unlock is <b>' + cr(price) + '</b>. You have ' + cr(balance) + ', so you need ' + cr(price - balance) + ' more.', showCancelButton: true, confirmButtonText: 'Add Funds', cancelButtonText: 'Not Now', customClass: { popup: 'ibx-swal' } })
                 .then(function (r) { if (r.isConfirmed) { window.location.href = WALLET; } });
             return;
         }
@@ -317,7 +318,7 @@
             unlocking--;
             if (!o || !o.success) {
                 var mm = $b.closest('.ibx-bubble').data('msg'); $b.prop('disabled', false).text('Unlock for ' + crT(mm ? mm.price_credits : 0));
-                if (o && o.need_credits) { viewerCredits = o.balance || 0; toastErr(o.message || 'Not enough credits'); var m = $b.closest('.ibx-bubble').data('msg'); if (m) { replaceBubble(m); } return; }
+                if (o && o.need_credits) { viewerCredits = o.balance || 0; toastErr(o.message || 'Not enough funds in your wallet.'); var m = $b.closest('.ibx-bubble').data('msg'); if (m) { replaceBubble(m); } return; }
                 toastErr(o ? o.message : 'Could not unlock'); return;
             }
             if (o.balance != null) { viewerCredits = o.balance; }
@@ -411,7 +412,7 @@
         var segs = segList(), n = 0; segs.forEach(function (k) { n += (bcounts[k] || 0); });
         var has = ($('#ibxBcastBody').val() || '').trim() !== '' || attachB.list.length > 0;
         var label = segs.length === 1 && bcounts[segs[0]] != null ? 'Send to ' + bcounts[segs[0]] : 'Send';
-        if (attachB.price > 0) { label += ' for ' + crT(attachB.price * 10) + ' Each'; }
+        if (attachB.price > 0) { label += ' for ' + money(Math.round(attachB.price * 10)) + ' Each'; }
         $('#ibxBcastSend').text(label).prop('disabled', !segs.length || n <= 0 || !has);
     }
     attachB.onchange = updateBcastSend;

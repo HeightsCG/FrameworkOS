@@ -149,7 +149,7 @@ class ApiPostsController extends BaseApiController {
         ];
         if ($audience === 'ppv') {
             $out['ppv_price_credits'] = (int) $post['ppv_price_credits'];
-            $out['ppv_price_dollars'] = (int) round(((int) $post['ppv_price_credits']) / 10);
+            $out['ppv_price_dollars'] = Price::input((int) $post['ppv_price_credits']);
             $out['unlocked']          = $unlocked;
         }
         if ($entitled) {
@@ -309,7 +309,7 @@ class ApiPostsController extends BaseApiController {
         }
         $balance = $credits->get_balance($viewer);
         if ($balance < $charge) {
-            $this->jsonError('You need ' . ($charge - $balance) . ' more credits to unlock this.', ['need_credits' => true, 'balance' => $balance, 'price' => $charge, 'shortfall' => $charge - $balance]);
+            $this->jsonError('You need ' . Price::fmt($charge - $balance) . ' more in your wallet to unlock this.', ['need_credits' => true, 'balance' => $balance, 'price' => $charge, 'shortfall' => $charge - $balance]);
         }
 
         // A code's last redemption goes to one buyer: take the slot first, give it back if the unlock doesn't happen.
@@ -326,7 +326,7 @@ class ApiPostsController extends BaseApiController {
         if ($credits->apply_delta($viewer, -$charge, 'ppv_unlock', 'Unlocked a post') === false) {
             $unlocks->remove($post_id, $viewer);
             if ($promo) { $promos->unredeem((int) $promo['id']); }
-            $this->jsonError('Not enough credits.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $charge]);
+            $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $charge]);
         }
 
         // Pay the creator their share (net of the platform fee — tiered by the creator's
@@ -392,7 +392,7 @@ class ApiPostsController extends BaseApiController {
         }
         $balance = $credits->get_balance($viewer);
         if ($balance < $price) {
-            $this->jsonError('You need ' . ($price - $balance) . ' more credits to unlock this bundle.', ['need_credits' => true, 'balance' => $balance, 'price' => $price]);
+            $this->jsonError('You need ' . Price::fmt($price - $balance) . ' more in your wallet to unlock this bundle.', ['need_credits' => true, 'balance' => $balance, 'price' => $price]);
         }
 
         // Record the bundle unlock first (UNIQUE(bundle_id,fan_id) is the mutex), then
@@ -402,7 +402,7 @@ class ApiPostsController extends BaseApiController {
         }
         if ($credits->apply_delta($viewer, -$price, 'bundle_unlock', 'Unlocked a content bundle') === false) {
             $model->remove_unlock($bundle_id, $viewer);
-            $this->jsonError('Not enough credits.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
+            $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
 
         // The bundle_unlocks row is the grant — the media now appears in the fan's

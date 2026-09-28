@@ -34,6 +34,7 @@
 
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmt(n) { n = +n || 0; return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
+    function money(credits) { return '$' + ((parseInt(credits, 10) || 0) / 10).toFixed(2); }   // fans see dollars ($1 = 10 credits)
     function toast(msg) { if (window.toastr) { toastr.info(msg); } }
 
     // ------------------------------------------------------------------ feed
@@ -122,7 +123,7 @@
             : ((c.media_count || 0) > 1 ? '<span class="feed-card__glyph"><i class="fa-solid fa-layer-group"></i></span>' : '');
         var lock = '';
         if (locked) {
-            var tag = c.audience === 'ppv' ? ('Unlock &middot; ' + fmt(c.ppv_price_credits) + ' cr') : 'Subscribers only';
+            var tag = c.audience === 'ppv' ? ('Unlock &middot; ' + money(c.ppv_price_credits)) : 'Subscribers only';
             lock = '<div class="feed-card__lock"><span class="feed-card__lock-icon"><i class="fa-solid fa-lock"></i></span>' +
                 '<span class="feed-card__lock-tag">' + tag + '</span></div>';
         }
@@ -244,7 +245,7 @@
             h += '</div>';
         } else if (p.audience === 'ppv') {
             h += locked_block(p, 'Pay-per-view post',
-                (LOGGED_IN ? ('Unlock — ' + p.ppv_price_credits + ' credits · $' + p.ppv_price_dollars) : 'Log in to Unlock'), 'ppv');
+                (LOGGED_IN ? ('Unlock for ' + money(p.ppv_price_credits)) : 'Log in to Unlock'), 'ppv');
             if (p.caption) { h += '<div class="feed-plb__body"><p>' + esc(p.caption).replace(/\n/g, '<br>') + '</p></div>'; }
         } else {
             h += locked_block(p, 'Subscribers-only post',
@@ -289,18 +290,16 @@
             return;
         }
         var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
-        var dollars = Math.round(price / 10);
-        var bal     = '<div class="feed-plb__bal">Your balance: ' + VIEWER_CREDITS + ' credit' + (VIEWER_CREDITS === 1 ? '' : 's') + '</div>';
+        var bal     = '<div class="feed-plb__bal">Your balance: ' + money(VIEWER_CREDITS) + '</div>';
         if (VIEWER_CREDITS >= price) {
-            wrap.innerHTML = bal + '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Unlock — ' + price + ' credits · $' + dollars + '</button>';
+            wrap.innerHTML = bal + '<button type="button" class="feed-plb__unlock" id="feed_lb_ppv">Unlock for ' + money(price) + '</button>';
             var b = document.getElementById('feed_lb_ppv');
             b.onclick = function () { unlock_ppv(p, b); };
         } else {
-            var need = price - VIEWER_CREDITS;
             wrap.innerHTML = bal +
-                '<div class="feed-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
-                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add Credits</button>';
-            document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings'; };
+                '<div class="feed-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
+                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add Funds</button>';
+            document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings?section=wallet'; };
         }
     }
 
@@ -333,8 +332,8 @@
             if (o.need_login) { window.location = '/'; return; }
             if (o.need_credits) {
                 btn.disabled = false; btn.textContent = orig;
-                toast(o.message || 'Not enough credits — add some to your wallet.');
-                setTimeout(function () { window.location = '/account/settings'; }, 1400);
+                toast(o.message || 'Not enough funds in your wallet.');
+                setTimeout(function () { window.location = '/account/settings?section=wallet'; }, 1400);
                 return;
             }
             if (!o.success) { btn.disabled = false; btn.textContent = orig; toast(o.message || 'Could not unlock'); return; }

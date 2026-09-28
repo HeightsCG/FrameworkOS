@@ -172,7 +172,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                         <span class="dash__row-title"><?php echo $item !== '' ? htmlspecialchars(mb_substr($item, 0, 60), ENT_QUOTES, 'UTF-8') : 'Untitled'; ?></span>
                         <span class="dash__row-meta"><span class="dash__tag dash__tag--sub"><?php echo htmlspecialchars($sale_tag[$u['kind']] ?? 'Sale', ENT_QUOTES, 'UTF-8'); ?></span> <?php echo htmlspecialchars($fmt_when((string) $u['created_at']), ENT_QUOTES, 'UTF-8'); ?></span>
                     </span>
-                    <span class="dash__amount">+<?php echo $fmt_num($u['credits']); ?> cr</span>
+                    <span class="dash__amount">+<?php echo Price::fmt((int) $u['credits']); ?></span>
                 </div>
                 <?php endforeach; ?>
             </div>

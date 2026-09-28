@@ -374,4 +374,18 @@ class EventsModel extends Model {
              ORDER BY e.start_at ASC",
             array('u' => (int) $user_id));
     }
+
+    /** Paid tickets this user bought and wasn't refunded for (their Purchases page), newest first. */
+    public function paid_tickets_for_user($user_id){
+        return (array) parent::select(
+            "SELECT r.id, r.event_id, r.price_credits, r.status, r.created_at AS purchased_at, e.title, e.start_at, e.timezone,
+                    u.u_name AS creator_handle, COALESCE(cp.display_name, CONCAT(u.first_name, ' ', u.last_name)) AS creator_name
+             FROM event_registrations r
+             JOIN events e ON e.id = r.event_id
+             JOIN user_accounts u ON u.user_id = e.creator_id AND u.deleted = 0
+             LEFT JOIN creator_profiles cp ON cp.user_id = e.creator_id
+             WHERE r.user_id = :u AND r.price_credits > 0 AND r.status <> 'refunded'
+             ORDER BY r.created_at DESC",
+            array('u' => (int) $user_id));
+    }
 }

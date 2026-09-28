@@ -110,7 +110,7 @@ class ApiInboxController extends BaseApiController {
                 'enabled' => $r ? !empty($r['enabled']) : false,
                 'is_default' => $r ? !empty($r['is_default']) : true,
                 'text'    => $r ? (string) $r['text'] : '',
-                'price'   => $r ? (int) round(((int) $r['price_credits']) / 10) : 0,
+                'price'   => $r ? Price::input((int) $r['price_credits']) : 0,
                 'assets'  => $assets,
                 'sent'    => (int) ($sent[$t] ?? 0),
             ];
@@ -142,7 +142,7 @@ class ApiInboxController extends BaseApiController {
             $asset_ids[] = (int) $a['id'];
         }
         if ($text === '' && empty($asset_ids)) { $this->jsonError('Write the message first.'); }
-        $price = (!empty($asset_ids) && (int) ($this->post['price'] ?? 0) > 0) ? $this->ppv_credits_from_dollars($this->post['price']) : 0;
+        $price = (!empty($asset_ids) && $this->price_given($this->post['price'] ?? '')) ? $this->price_credits($this->post['price']) : 0;
         (new AutoMessagesModel())->save($cid, $trigger, $text, true, $asset_ids, $price);
         $this->jsonSuccess(['message' => 'Saved']);
     }

@@ -473,7 +473,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             <div class="pf-bundle__body">
                                 <div class="pf-bundle__head">
                                     <span class="pf-bundle__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <span class="pf-bundle__price">$<?php echo (int) $bd['price_dollars']; ?></span>
+                                    <span class="pf-bundle__price">$<?php echo htmlspecialchars((string) $bd['price_dollars'], ENT_QUOTES, 'UTF-8'); ?></span>
                                 </div>
                                 <span class="pf-bundle__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span>
                                 <?php if (trim((string) $bd['description']) !== ''): ?><p class="pf-bundle__desc"><?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
@@ -483,9 +483,9 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             <?php elseif (!$viewer_logged_in): ?>
                             <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to Unlock</button>
                             <?php elseif ($viewer_credit_balance >= (int) $bd['price_credits']): ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock &mdash; <?php echo (int) $bd['price_credits']; ?> credits &middot; $<?php echo (int) $bd['price_dollars']; ?></button>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock for $<?php echo htmlspecialchars((string) $bd['price_dollars'], ENT_QUOTES, 'UTF-8'); ?></button>
                             <?php else: ?>
-                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings"><i class="fa-solid fa-plus"></i> Add Credits to Unlock</a>
+                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings?section=wallet"><i class="fa-solid fa-plus"></i> Add Funds to Unlock</a>
                             <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
@@ -586,6 +586,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
         var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
+        function money(credits) { return '$' + ((parseInt(credits, 10) || 0) / 10).toFixed(2); }   // $1 = 10 credits
         var PF_LOGIN   = <?php echo json_encode($login_href, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
         var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
@@ -695,7 +696,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits.');
+                        pfToast(o.message || 'Not enough funds in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -722,7 +723,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits.');
+                        pfToast(o.message || 'Not enough funds in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -779,7 +780,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough credits.');
+                        pfToast(o.message || 'Not enough funds in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -804,7 +805,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                 ApiDataSvc.apiCall('post', 'unlock_content', { content_id: b.getAttribute('data-unlock-content') }, function (resp) {
                     var o = JSON.parse(resp);
                     if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) { b.disabled = false; pfToast('Not enough credits'); return; }
+                    if (o.need_credits) { b.disabled = false; pfToast('Not enough funds in your wallet.'); return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message || 'Could not unlock'); return; }
                     revealPost(b, o);
                     pfToast('Unlocked');
@@ -919,19 +920,18 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     document.getElementById('pfLbPpv').onclick = function () { window.location = PF_LOGIN; };
                     return;
                 }
+                // Fans see dollars: the wallet holds credits ($1 = 10), shown as money.
                 var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
-                var dollars = Math.round(price / 10);
-                var bal     = '<div class="pf-plb__bal">Your balance: ' + VIEWER_CREDITS + ' credit' + (VIEWER_CREDITS === 1 ? '' : 's') + '</div>';
+                var bal     = '<div class="pf-plb__bal">Your balance: ' + money(VIEWER_CREDITS) + '</div>';
                 if (VIEWER_CREDITS >= price) {
-                    wrap.innerHTML = bal + '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Unlock — ' + price + ' credits · $' + dollars + '</button>';
+                    wrap.innerHTML = bal + '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Unlock for ' + money(price) + '</button>';
                     var b = document.getElementById('pfLbPpv');
                     b.onclick = function () { unlockPpv(p, b); };
                 } else {
-                    var need = price - VIEWER_CREDITS;
                     wrap.innerHTML = bal +
-                        '<div class="pf-plb__short">You need ' + need + ' more credit' + (need === 1 ? '' : 's') + ' to unlock this.</div>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add Credits</button>';
-                    document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings'; };
+                        '<div class="pf-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add Funds</button>';
+                    document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings?section=wallet'; };
                 }
             }
             function applyPpvPromo(p) {
@@ -960,7 +960,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         btn.disabled = false; btn.textContent = orig;
-                        pfToast(o.message || 'Not enough credits — add some to your wallet.');
+                        pfToast(o.message || 'Not enough funds in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }

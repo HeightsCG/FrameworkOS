@@ -2,14 +2,14 @@
 <div class="pur">
     <header class="pur__head">
         <h1 class="pur__title">Purchases</h1>
-        <p class="pur__sub">Content you&rsquo;ve bought &mdash; pay-per-view unlocks, bundles and messages. One-time purchases, separate from your subscriptions.</p>
+        <p class="pur__sub">What you&rsquo;ve bought: pay-per-view posts, bundles, messages, event tickets and bookings. One-time purchases, separate from your subscriptions.</p>
     </header>
 
     <?php if (empty($this->purchases)): ?>
     <div class="pur__empty">
         <i class="fa-solid fa-bag-shopping pur__empty-icon"></i>
         <p class="pur__empty-title">No Purchases Yet</p>
-        <p class="pur__empty-text">Unlock a pay-per-view post, a bundle or a message and it&rsquo;ll show up here.</p>
+        <p class="pur__empty-text">Unlock a post, bundle or message, or buy a ticket or booking, and it&rsquo;ll show up here.</p>
     </div>
     <?php else: ?>
     <div class="pur__list">
@@ -17,8 +17,9 @@
         <div class="pur-card">
             <div class="pur-card__head">
                 <div class="pur-card__meta">
-                    <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo $pur['type'] === 'bundle' ? 'Bundle' : ($pur['type'] === 'message' ? 'Message' : 'Pay-per-view'); ?></span>
+                    <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo array('bundle' => 'Bundle', 'message' => 'Message', 'event' => 'Event', 'service' => 'Service')[$pur['type']] ?? 'Pay-per-view'; ?></span>
                     <span class="pur-card__title"><?php echo htmlspecialchars((string) $pur['title'], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="pur-card__price"><?php echo Price::fmt((int) $pur['price']); ?> &middot; <?php echo htmlspecialchars(date('M j, Y', strtotime((string) $pur['purchased_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <div class="pur-card__side">
                     <a class="pur-card__creator" href="/@<?php echo htmlspecialchars(rawurlencode((string) $pur['handle']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $pur['creator'], ENT_QUOTES, 'UTF-8'); ?></a>
@@ -37,6 +38,8 @@
                 </button>
                 <?php endforeach; ?>
             </div>
+            <?php elseif (!empty($pur['link'])): ?>
+            <a class="pur-card__link" href="<?php echo htmlspecialchars((string) $pur['link'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo htmlspecialchars((string) $pur['link_label'], ENT_QUOTES, 'UTF-8'); ?> <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
             <?php else: ?>
             <p class="pur-card__gone">This content is no longer available.</p>
             <?php endif; ?>

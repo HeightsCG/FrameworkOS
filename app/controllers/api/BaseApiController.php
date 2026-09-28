@@ -146,11 +146,17 @@ class BaseApiController extends Controller {
     }
 
     /** Clamp a dollar price ($3–$500) to credits ($1 = 10 credits). Used for pay-per-view posts and priced messages. */
-    protected function ppv_credits_from_dollars($dollars): int{
-        $d = (int) $dollars;
-        if ($d < 3) { $d = 3; }
-        if ($d > 500) { $d = 500; }
-        return $d * 10;
+    /** A fan price typed in dollars, as credits (Price: $1-$500 in 10-cent steps); a bad price answers with the reason. */
+    protected function price_credits($dollars, $allow_free = false): int{
+        $p = Price::from_dollars($dollars, $allow_free);
+        if (!$p['ok']) { $this->jsonError($p['message']); }
+        return (int) $p['credits'];
+    }
+
+    /** Is a price field filled in at all? (Empty or 0 means the item is free; anything else must be a valid price.) */
+    protected function price_given($raw): bool{
+        $s = trim(str_replace('$', '', (string) $raw));
+        return $s !== '' && (!is_numeric($s) || (float) $s != 0.0);
     }
 
     /** Answer a Plan::check_count() refusal: message + need_plan/need_upgrade so the UI can link to billing. */

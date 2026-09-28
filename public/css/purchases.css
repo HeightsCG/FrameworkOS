@@ -44,3 +44,9 @@
 .pur-lb__dl:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
 .pur-lb__dl[hidden]{ display:none; }
 @media (max-width:640px){ .pur-card__head{ flex-wrap:wrap; } .pur-card__side{ width:100%; justify-content:space-between; } }
+.pur-card__badge--event{ background:#eef2ff; color:#3b4bb3; }
+.pur-card__badge--service{ background:#eaf6f6; color:#136e6e; }
+.pur-card__price{ font-size:.8rem; color:var(--muted); white-space:nowrap; }
+.pur-card__link{ display:inline-flex; align-items:center; gap:6px; font-size:.86rem; font-weight:600; color:var(--acc-ink); text-decoration:none; }
+.pur-card__link:hover{ text-decoration:underline; }
+.pur-card__link:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; border-radius:2px; }

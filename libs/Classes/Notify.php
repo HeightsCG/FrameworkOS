@@ -69,5 +69,6 @@ class Notify {
         } catch (\Throwable $e) { return ''; }
     }
 
-    public static function credits($n): string { $n = (int) $n; return $n . ($n === 1 ? ' credit' : ' credits'); }
+    /** A wallet amount in a notification: fans and creators see dollars ("$2.90"), never credits. */
+    public static function credits($n): string { return Price::fmt((int) $n); }
 }

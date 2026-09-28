@@ -133,6 +133,7 @@
                 errs.push({ section: 'where', input: el('ev_street').value.trim() === '' ? 'ev_street' : 'ev_city', err: 'evErr_location', msg: 'Add the street address and city.' });
             }
             if (el('ev_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Paid tickets start at $1.00. Leave it empty for a free event.' }); }
+            else if (price() > 500 || Math.round(price() * 100) % 10 !== 0) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Enter a price up to $500.00, in 10¢ steps.' }); }
             var cap = el('ev_capacity').value.trim();
             if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'tickets', input: 'ev_capacity', err: 'evErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
             ed.showErrors(errs);

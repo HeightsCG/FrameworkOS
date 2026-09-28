@@ -112,7 +112,7 @@
                 <?php $dx = $this->data_export; ?>
                 <div class="acct-card" id="dx_card" data-export='<?php echo htmlspecialchars(json_encode($dx), ENT_QUOTES, 'UTF-8'); ?>'>
                     <h3 class="acct-card__title">Download Your Data</h3>
-                    <p class="acct-card__desc">A zip of your account details, posts, messages, purchases, subscriptions and credit history, plus the original files in your Library. We&rsquo;ll notify you when it&rsquo;s ready, and it stays available for 7 days.</p>
+                    <p class="acct-card__desc">A zip of your account details, posts, messages, purchases, subscriptions and wallet history, plus the original files in your Library. We&rsquo;ll notify you when it&rsquo;s ready, and it stays available for 7 days.</p>
                     <p class="dx__status" id="dx_status" hidden></p>
                     <div class="acct-card__actions">
                         <button type="button" class="btn btn-secondary" id="dx_request"><i class="fa-solid fa-file-zipper"></i> Request Export</button>
@@ -477,7 +477,7 @@
                              data-assets="<?php echo htmlspecialchars(implode(',', array_map('intval', (array) $bd['asset_ids'])), ENT_QUOTES, 'UTF-8'); ?>">
                             <div class="plan-row__info">
                                 <span class="plan-row__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price">$<?php echo (int) round($bd['price_credits'] / 10); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['price_credits']; ?> cr &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
+                                <span class="plan-row__price"><?php echo Price::fmt((int) $bd['price_credits']); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
                             </div>
                             <label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle" <?php echo !empty($bd['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
                             <button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>
@@ -545,18 +545,18 @@
                         if ((int) $pkg['dollars'] === $ar_dollars) { $ar_credits = (int) $pkg['credits']; }
                     }
                     $ar_status = $ar_on
-                        ? 'Buy ' . number_format($ar_credits) . ' credits when balance drops below ' . number_format((int) $ar['threshold'])
+                        ? 'Add ' . Price::fmt($ar_credits) . ' when your balance drops below ' . Price::fmt((int) $ar['threshold'])
                         : 'Automatically top up when your balance runs low.';
                 ?>
                 <div class="wallet">
                     <!-- Balance is always pinned at the top of the Wallet. -->
                     <div class="wallet__balance">
                         <span class="wallet__balance-label">Current Balance</span>
-                        <span class="wallet__balance-value"><i class="fa-solid fa-coins"></i> <span id="credit_balance"><?php echo number_format((int) $this->credit_balance); ?></span> credits</span>
+                        <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo Price::fmt((int) $this->credit_balance); ?></span></span>
                     </div>
 
                     <div class="wallet-tabs" role="tablist">
-                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Buy Credits</button>
+                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Add Funds</button>
                         <?php if ($this->is_owner_creator): ?><button type="button" class="wallet-tab" data-wtab="cashout">Cash Out</button><?php endif; ?>
                         <button type="button" class="wallet-tab" data-wtab="history">History</button>
                         <button type="button" class="wallet-tab" data-wtab="auto">Auto-Replenishment</button>
@@ -566,14 +566,13 @@
                         <div class="credit-packs">
                             <?php foreach ($this->credit_packages as $pkg): $pkg_fee = (int) $pkg['dollars'] * Main::credit_fee_percent() / 100; ?>
                             <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
-                                <span class="credit-pack__credits"><?php echo number_format((int) $pkg['credits']); ?></span>
-                                <span class="credit-pack__label">credits</span>
-                                <span class="credit-pack__price">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
-                                <span class="credit-pack__fee">+ $<?php echo number_format($pkg_fee, 2); ?> fee · $<?php echo number_format((int) $pkg['dollars'] + $pkg_fee, 2); ?> total</span>
+                                <span class="credit-pack__credits">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
+                                <span class="credit-pack__label">to your wallet</span>
+                                <span class="credit-pack__fee">+ $<?php echo number_format(round($pkg_fee, 2), 2); ?> fee · $<?php echo number_format((int) $pkg['dollars'] + round($pkg_fee, 2), 2); ?> total</span>
                             </button>
                             <?php endforeach; ?>
                         </div>
-                        <p class="wallet__fee-note">A <?php echo (int) Main::credit_fee_percent(); ?>% processing fee is added at checkout.</p>
+                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout.</p>
                     </div>
 
                     <?php if ($this->is_owner_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>
@@ -582,7 +581,7 @@
                         <div class="payout-setup">
                             <div class="payout-setup__info">
                                 <span class="payout-setup__title"><?php echo !empty($ps['details_submitted']) ? 'Finish setting up payouts' : 'Set up payouts'; ?></span>
-                                <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash your credits out to your bank.'; ?></span>
+                                <span class="payout-setup__desc"><?php echo !empty($ps['details_submitted']) ? 'Stripe needs a little more information before you can cash out.' : 'Connect a Stripe account to cash out to your bank.'; ?></span>
                             </div>
                             <button type="button" class="btn btn-primary" id="payout_setup_btn"><?php echo !empty($ps['details_submitted']) ? 'Continue setup' : 'Set up payouts'; ?></button>
                         </div>
@@ -594,7 +593,7 @@
                             <div class="payout-balance__cell">
                                 <span class="payout-balance__label">Available to cash out</span>
                                 <span class="payout-balance__value">$<?php echo number_format($pb['available'] / 100, 2); ?></span>
-                                <span class="payout-balance__sub"><?php echo number_format($avail_credits); ?> credits</span>
+                                <span class="payout-balance__sub">ready now</span>
                             </div>
                             <div class="payout-balance__cell">
                                 <span class="payout-balance__label">In transit</span>
@@ -604,7 +603,7 @@
                         </div>
                         <div class="payout-actions">
                             <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash Out</button>
-                            <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo $min_credits; ?> credits ($<?php echo number_format($min_credits / 10, 2); ?>) to cash out.</span><?php endif; ?>
+                            <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo Price::fmt($min_credits); ?> to cash out.</span><?php endif; ?>
                         </div>
                         <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
                         <?php endif; ?>
@@ -614,9 +613,8 @@
                     <div class="wallet-panel" data-wpanel="history">
                         <div id="credit_history">
                         <?php if (empty($this->credit_transactions)): ?>
-                            <p class="settings__empty">No credit activity yet.</p>
+                            <p class="settings__empty">No wallet activity yet.</p>
                         <?php else: ?>
-                        <?php $stripe_payment_url = (strpos((string) $this->stripe_pk, 'pk_test') === 0) ? 'https://dashboard.stripe.com/test/payments/' : 'https://dashboard.stripe.com/payments/'; ?>
                         <table class="ledger">
                             <thead><tr><th>Date</th><th>Activity</th><th class="ledger__num">Amount</th></tr></thead>
                             <tbody>
@@ -624,20 +622,11 @@
                                 <tr>
                                     <td><?php echo htmlspecialchars(date('M j, Y', strtotime($t['created_at'])), ENT_QUOTES, 'UTF-8'); ?></td>
                                     <td>
-                                        <?php if (!empty($t['stripe_payment_intent_id'])): ?>
-                                            <a href="<?php echo htmlspecialchars($stripe_payment_url . $t['stripe_payment_intent_id'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?></a>
-                                        <?php else: ?>
-                                            <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
-                                        <?php endif; ?>
+                                        <?php echo htmlspecialchars((string) $t['description'], ENT_QUOTES, 'UTF-8'); ?>
                                     </td>
                                     <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php
                                         $c = (int) $t['credits'];
-                                        // A cash-out leaves the credit economy as real money — show it in dollars.
-                                        if (($t['type'] ?? '') === 'payout') {
-                                            echo '-$' . number_format(abs($c) / 10, 2);
-                                        } else {
-                                            echo ($c >= 0 ? '+' : '') . number_format($c) . ' cr';
-                                        }
+                                        echo ($c >= 0 ? '+' : '') . Price::fmt($c);   // wallet amounts are shown as money
                                     ?></td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -847,7 +836,7 @@
                             <div class="inbox-trigger__media" data-role="media">
                                 <div class="inbox-trigger__thumbs" data-role="thumbs"></div>
                                 <button type="button" class="inbox-trigger__attach" data-role="attach"><i class="fa-solid fa-image"></i> Attach Media</button>
-                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="500" step="1" placeholder="Free" data-role="price" aria-label="Price in dollars, leave empty for free"></label>
+                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="500" step="0.10" placeholder="Free" data-role="price" inputmode="decimal" aria-label="Price in dollars, leave empty for free"></label>
                             </div>
                             <div class="inbox-trigger__actions">
                                 <span class="inbox-trigger__sent" data-role="sent"></span>
@@ -1217,8 +1206,7 @@
                     <label for="bundle_price">Price</label>
                     <div class="bundle-price-row">
                         <span class="bundle-price-cur">$</span>
-                        <input type="number" class="form-control" id="bundle_price" min="1" placeholder="15">
-                        <span class="bundle-price-hint" id="bundle_price_credits">= 150 credits</span>
+                        <input type="number" class="form-control" id="bundle_price" min="1" max="500" step="0.10" placeholder="15.00" inputmode="decimal">
                     </div>
                 </div>
                 <div class="link-field">
@@ -1317,7 +1305,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="wallet__note">Automatically buy more credits when your balance runs low.</p>
+                <p class="wallet__note">Automatically add funds when your balance runs low.</p>
 
                 <div class="wallet__ar-modal-toggle">
                     <label class="notif__switch wallet__ar-switch">
@@ -1329,18 +1317,18 @@
 
                 <div class="wallet__ar-body<?php echo $ar_on ? '' : ' is-hidden'; ?>" id="ar_fields">
                     <div class="wallet__ar-field">
-                        <label for="ar_threshold">When My Credits Drop Below</label>
+                        <label for="ar_threshold">When My Balance Drops Below</label>
                         <div class="wallet__ar-input">
-                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" value="<?php echo (int) $ar['threshold'] > 0 ? (int) $ar['threshold'] : 100; ?>">
-                            <span class="wallet__ar-unit">Credits</span>
+                            <span class="wallet__ar-unit">$</span>
+                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" inputmode="decimal" value="<?php echo (int) $ar['threshold'] > 0 ? Price::input((int) $ar['threshold']) : '10.00'; ?>">
                         </div>
                     </div>
                     <div class="wallet__ar-field">
-                        <label for="ar_package">Automatically Buy</label>
+                        <label for="ar_package">Automatically Add</label>
                         <select class="form-select" id="ar_package">
                             <?php foreach ($this->credit_packages as $pkg): ?>
                             <option value="<?php echo (int) $pkg['dollars']; ?>" data-credits="<?php echo (int) $pkg['credits']; ?>" <?php echo ((int) $ar['amount_cents'] === (int) $pkg['dollars'] * 100) ? 'selected' : ''; ?>>
-                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo number_format((int) $pkg['credits']); ?> credits &mdash; $<?php echo number_format((int) $pkg['dollars']); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
+                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo '$' . number_format((int) $pkg['dollars'], 2); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
@@ -1348,7 +1336,7 @@
                     <div class="wallet__ar-field">
                         <label for="ar_pm">Charge To</label>
                         <?php if (empty($this->cards)): ?>
-                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then buy credits once to save a card.</p>
+                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then add funds once to save a card.</p>
                         <?php else: ?>
                         <select class="form-select" id="ar_pm">
                             <?php foreach ($this->cards as $card): ?>
@@ -1382,7 +1370,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Buy Credits</h5>
+                <h5 class="modal-title">Add Funds</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -2045,7 +2033,7 @@ $(function () {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             $('#credit_pay_summary').html(
-                '<span class="pay-line pay-line--head">' + Number(o.credits).toLocaleString() + ' credits</span>' +
+                '<span class="pay-line pay-line--head">$' + (o.base_cents / 100).toFixed(2) + ' to your wallet</span>' +
                 '<span class="pay-line"><span>Subtotal</span><span>$' + (o.base_cents / 100).toFixed(2) + '</span></span>' +
                 '<span class="pay-line"><span>Processing fee (' + o.fee_percent + '%)</span><span>$' + (o.fee_cents / 100).toFixed(2) + '</span></span>' +
                 '<span class="pay-line pay-line--total"><span>Total</span><span>$' + (o.total_cents / 100).toFixed(2) + '</span></span>'
@@ -2087,15 +2075,15 @@ $(function () {
 
     function arStatusText() {
         if (!$('#ar_enabled').is(':checked')) { return 'Automatically top up when your balance runs low.'; }
-        var credits = Number($('#ar_package option:selected').data('credits')) || 0;
-        var thr = parseInt($('#ar_threshold').val(), 10) || 0;
-        return 'Buy ' + credits.toLocaleString() + ' credits when credits drop below ' + thr.toLocaleString();
+        var add = parseInt($('#ar_package').val(), 10) || 0;
+        var thr = parseFloat($('#ar_threshold').val()) || 0;
+        return 'Add $' + add.toFixed(2) + ' when your balance drops below $' + thr.toFixed(2);
     }
 
     $('#ar_save').on('click', function () {
         ApiDataSvc.apiCall('post', 'save_autoreplenishment', {
             enabled: $('#ar_enabled').is(':checked') ? 1 : 0,
-            threshold: parseInt($('#ar_threshold').val(), 10) || 0,
+            threshold: Math.round((parseFloat($('#ar_threshold').val()) || 0) * 10),   // the field is dollars; stored as credits ($1 = 10)
             dollars: parseInt($('#ar_package').val(), 10) || 0,
             payment_method_id: $('#ar_pm').val() || ''
         }, function (data) {
@@ -2536,21 +2524,19 @@ $(function () {
 
     // ---- Content bundles ----
     function renderBundleRow(b) {
-        var dollars = Math.round((parseInt(b.price, 10) || 0) / 10);
+        var dollars = ((parseInt(b.price, 10) || 0) / 10).toFixed(2);   // b.price is credits ($1 = 10)
         var n = String(b.asset_ids || '').split(',').filter(function (x) { return x !== ''; }).length;
         return '<div class="plan-row' + (b.active ? '' : ' is-inactive') + '" data-id="' + b.id + '"'
             + ' data-name="' + escapeHtml(b.name) + '" data-description="' + escapeHtml(b.description || '') + '"'
             + ' data-price="' + (parseInt(b.price, 10) || 0) + '" data-assets="' + escapeHtml(String(b.asset_ids || '')) + '">'
             + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(b.name) + '</span>'
-            + '<span class="plan-row__price">$' + dollars + '<span class="plan-row__unit"> · ' + (parseInt(b.price, 10) || 0) + ' cr · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
+            + '<span class="plan-row__price">$' + dollars + '<span class="plan-row__unit"> · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
             + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle"' + (b.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
             + '<button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>'
             + '<button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>'
             + '</div>';
     }
     function bundleUpdateHints() {
-        var dollars = parseInt($('#bundle_price').val(), 10) || 0;
-        $('#bundle_price_credits').text('= ' + (dollars * 10) + ' credits');
         var n = $('#bundle_picker .bundle-pick__cb:checked').length;
         $('#bundle_sum').text(n + ' item' + (n === 1 ? '' : 's') + ' selected');
     }
@@ -2578,7 +2564,8 @@ $(function () {
         $('#bundle_id').val($row.data('id'));
         $('#bundle_name').val($row.data('name'));
         $('#bundle_description').val($row.data('description') || '');
-        $('#bundle_price').val(parseInt($row.data('price'), 10) || '');
+        var credits = parseInt($row.data('price'), 10) || 0;   // data-price is credits; the field is dollars
+        $('#bundle_price').val(credits > 0 ? (credits / 10).toFixed(2) : '');
         var assets = String($row.data('assets') || '').split(',').filter(function (x) { return x !== ''; });
         bundleSetAssets(assets); bundleUpdateHints();
         $('#bundle_modal_title').text('Edit bundle');
@@ -2587,17 +2574,17 @@ $(function () {
     $('#bundle_save').on('click', function () {
         var id = $('#bundle_id').val();
         var name = ($('#bundle_name').val() || '').trim();
-        var dollars = parseInt($('#bundle_price').val(), 10) || 0;
+        var dollars = ($('#bundle_price').val() || '').trim();
         if (name === '') { toastr.error('Give the bundle a name'); return; }
-        if (dollars < 1) { toastr.error('Set a price of at least $1'); return; }
+        if (dollars == '') { toastr.error('Set a price'); return; }
         var assets = $('#bundle_picker .bundle-pick__cb:checked').map(function () { return String($(this).data('asset')); }).get();
         if (!assets.length) { toastr.error('Add at least one piece of content to the bundle'); return; }
         var desc = ($('#bundle_description').val() || '').trim();
-        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price_credits: dollars * 10, description: desc, asset_ids: assets }, function (data) {
+        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price: dollars, description: desc, asset_ids: assets }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
-            var b = { id: o.id, name: name, description: desc, price: dollars * 10, asset_ids: assets.join(','), active: true };
+            var b = { id: o.id, name: name, description: desc, price: Math.round(parseFloat(dollars) * 10), asset_ids: assets.join(','), active: true };
             var $existing = $('#bundles_list .plan-row[data-id="' + o.id + '"]');
             if ($existing.length) { b.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderBundleRow(b)); }
             else { $('#bundles_list').append(renderBundleRow(b)); $('#bundles_empty').attr('hidden', true); }
@@ -2956,7 +2943,7 @@ $(function () {
     $('#inboxTriggers').on('click', '[data-role="save"]', function () {
         var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger'); var $btns = $row.find('button').prop('disabled', true);
         var ids = (inbox_trigger_media[t] || []).map(function (a) { return a.id; });
-        var price = parseInt($row.find('[data-role="price"]').val(), 10); if (isNaN(price) || price < 0) { price = 0; }
+        var price = ($row.find('[data-role="price"]').val() || '').trim();   // dollars; the server checks $1-$500 in 10¢ steps
         ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: t, text: $row.find('[data-role="text"]').val(), asset_ids: ids, price: price }, function (data) {
             var o = JSON.parse(data); $btns.prop('disabled', false);
             if (o.success) { toastr.success(o.message); inbox_trigger_state($row, true); } else { toastr.error(o.message); }

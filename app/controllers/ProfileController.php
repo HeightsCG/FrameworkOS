@@ -142,7 +142,7 @@ class ProfileController extends Controller {
                 'name'          => (string) $b['name'],
                 'description'   => (string) $b['description'],
                 'price_credits' => (int) $b['price_credits'],
-                'price_dollars' => (int) round(((int) $b['price_credits']) / 10),
+                'price_dollars' => Price::input((int) $b['price_credits']),
                 'item_count'    => (int) $b['item_count'],
                 'owned'         => isset($bundle_unlocked[(int) $b['id']]),
             );
@@ -372,7 +372,7 @@ class ProfileController extends Controller {
             );
             if ($audience === 'ppv') {
                 $card['ppv_price_credits'] = (int) $p['ppv_price_credits'];
-                $card['ppv_price_dollars'] = (int) round(((int) $p['ppv_price_credits']) / 10);
+                $card['ppv_price_dollars'] = Price::input((int) $p['ppv_price_credits']);
                 $card['unlocked']          = isset($unlocked_map[(int) $p['id']]);
             }
 

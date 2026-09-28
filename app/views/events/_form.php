@@ -140,7 +140,7 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
                 <label class="cs-ae__label" for="ev_price">Price</label>
                 <div class="ev-money">
                     <span class="ev-money__sym" aria-hidden="true">$</span>
-                    <input type="number" class="form-control" id="ev_price" min="0" step="0.01" placeholder="Free" aria-describedby="evErr_price">
+                    <input type="number" class="form-control" id="ev_price" min="0" max="500" step="0.10" inputmode="decimal" placeholder="Free" aria-describedby="evErr_price">
                 </div>
                 <p class="cs-ae__error" id="evErr_price" role="alert" hidden></p>
             </div>

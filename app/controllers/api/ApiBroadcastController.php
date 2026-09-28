@@ -24,7 +24,7 @@ class ApiBroadcastController extends BaseApiController {
         if (!empty($wanted)) {
             foreach ((new MediaAssetsModel())->get_owned_ready($me, $wanted) as $a) { $asset_ids[] = (int) $a['id']; }
             if (empty($asset_ids)) { $this->jsonError('Those files are not ready to send.'); }
-            if ((int) ($this->post['price'] ?? 0) > 0) { $price = $this->ppv_credits_from_dollars($this->post['price']); }
+            if ($this->price_given($this->post['price'] ?? '')) { $price = $this->price_credits($this->post['price']); }
         }
         if ($body === '' && empty($asset_ids)) { $this->jsonError('Type a message.'); }
         $ip = $this->get_ip_address();
