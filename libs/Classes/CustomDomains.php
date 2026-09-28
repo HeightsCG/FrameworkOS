@@ -7,10 +7,10 @@
  *
  * DNS a creator adds (see records()):
  *   TXT   _cls-verify.<root or subdomain>  = token            ownership
- *   ALIAS lexivaughn.com                   = domain_gateway      routing, bare domain (ANAME / CNAME flattening)
- *   CNAME www.lexivaughn.com / sub.x.com   = domain_gateway      routing, subdomains
- * Like VIP, no IP is ever published: domain_gateway (gateway.creatorlinkstudio.com) CNAMEs to the Caddy gateway.
- * A bare domain is added together with its www twin; the one the creator picks is primary, the other 301s to it.
+ *   A     lexivaughn.com                   = gateway's IP        routing, bare domain (a bare domain can't CNAME;
+ *                                                                 the IP is looked up from domain_gateway, never stored)
+ *   CNAME www.lexivaughn.com / sub.x.com   = domain_gateway      routing
+ * A bare domain is added together with its www twin; the one the creator typed is primary, the other 301s to it.
  */
 class CustomDomains {
 
@@ -76,6 +76,13 @@ class CustomDomains {
         return false;
     }
 
+    /** The gateway's address for a bare domain's A record, looked up live from domain_gateway ('' if it doesn't resolve). */
+    public static function gateway_ip(): string {
+        $gw = self::gateway_host();
+        $ip = ($gw !== '') ? gethostbyname($gw) : '';
+        return ($ip !== '' && $ip !== $gw) ? $ip : '';
+    }
+
     /** Where creators point a CNAME (config [global] domain_gateway). */
     public static function gateway_host(): string {
         $cfg = Main::get_config();
@@ -108,7 +115,7 @@ class CustomDomains {
             $txt  = self::txt_name($row);
             $out[$txt] = array('type' => 'TXT', 'host' => self::relative($txt, $root), 'value' => (string) $row['verification_token'], 'done' => $done);
             if ($row['host_type'] === 'apex') {
-                $out[$host] = array('type' => 'ALIAS', 'host' => '@', 'value' => self::gateway_host(), 'done' => $row['status'] === 'active');
+                $out[$host] = array('type' => 'A', 'host' => '@', 'value' => self::gateway_ip(), 'done' => $row['status'] === 'active');
             } else {
                 $out[$host] = array('type' => 'CNAME', 'host' => self::relative($host, $root), 'value' => self::gateway_host(), 'done' => $row['status'] === 'active');
             }
@@ -133,7 +140,7 @@ class CustomDomains {
         foreach ((array) @dns_get_record($host, DNS_CNAME) as $rec) {
             if ($gw_host !== '' && strtolower(rtrim((string) ($rec['target'] ?? ''), '.')) === $gw_host) { return array('status' => 'active', 'error' => null); }
         }
-        // A bare domain's ALIAS / flattened CNAME shows up as A records: they must be the gateway's addresses.
+        // A bare domain's A record must be the gateway's address.
         $want = ($gw_host !== '') ? (array) @gethostbynamel($gw_host) : array();
         foreach ((array) @dns_get_record($host, DNS_A) as $rec) {
             if (in_array((string) ($rec['ip'] ?? ''), $want, true)) { return array('status' => 'active', 'error' => null); }
