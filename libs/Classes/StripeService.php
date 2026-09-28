@@ -771,6 +771,27 @@ class StripeService {
         }
     }
 
+    /**
+     * The platform's fee on fan memberships, from Stripe's application fees (net of any refunded part), bucketed by
+     * month ('Y-m' => cents) plus 'all'. Fees are only taken on connected-account charges, i.e. memberships.
+     */
+    public static function application_fee_buckets($since_ts): array
+    {
+        $out = array('month' => array(), 'all' => 0);
+        try {
+            $list = self::client()->applicationFees->all(array('created' => array('gte' => (int) $since_ts), 'limit' => 100));
+            foreach ($list->autoPagingIterator() as $fee) {
+                $net = (int) $fee->amount - (int) $fee->amount_refunded;
+                $m = gmdate('Y-m', (int) $fee->created);
+                $out['month'][$m] = ($out['month'][$m] ?? 0) + $net;
+                $out['all'] += $net;
+            }
+        } catch (\Throwable $e) {
+            error_log('[stripe] application_fee_buckets: ' . $e->getMessage());
+        }
+        return $out;
+    }
+
     /** Set the platform's cut on an existing membership (a creator changed plan). Applies from the next invoice. */
     public static function set_subscription_fee($account_id, $subscription_id, $fee_percent): bool
     {

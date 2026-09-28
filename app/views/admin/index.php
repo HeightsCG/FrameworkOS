@@ -70,7 +70,7 @@ $last12 = array_slice($this->series, -12);
                 <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-sack-dollar"></i></span><span class="fz-card__label">Platform Revenue</span></header>
                 <div class="fz-card__val" data-v>—</div>
                 <span class="fz-delta" data-d></span>
-                <dl class="fz-foot"><div><dt>Plan payments</dt><dd data-f="plans">—</dd></div><div><dt>Our fee on sales</dt><dd data-f="fee">—</dd></div></dl>
+                <dl class="fz-foot fz-foot--3"><div><dt>Plan payments</dt><dd data-f="plans">—</dd></div><div><dt>Fee on sales</dt><dd data-f="fee">—</dd></div><div><dt>Fee on memberships</dt><dd data-f="members">—</dd></div></dl>
             </article>
             <article class="fz-card fz-card--blue" data-m="cash_in">
                 <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-arrow-down"></i></span><span class="fz-card__label">Money In From Credits</span></header>
@@ -88,7 +88,7 @@ $last12 = array_slice($this->series, -12);
 
         <section class="fz-rev" id="fzRev">
             <header class="fz-rev__head">
-                <div><h2 class="adm-sec__title">Revenue by Month</h2><p class="fz-rev__sub">Plan payments plus our fee on sales, last 12 months</p></div>
+                <div><h2 class="adm-sec__title">Revenue by Month</h2><p class="fz-rev__sub">Plan payments plus our fee on sales and memberships, last 12 months</p></div>
                 <div class="fz-rev__total"><span>12-month total</span><b id="fzRevTotal">—</b></div>
             </header>
             <div class="fz-rev__plot"><svg class="fz-rev__svg" role="img" aria-label="Platform revenue by month"></svg><div class="fz-tip" hidden></div></div>
@@ -113,9 +113,9 @@ $last12 = array_slice($this->series, -12);
 
         <div class="adm-sec__head" style="margin-top:1.6rem;"><h2 class="adm-sec__title">Monthly Breakdown</h2></div>
         <div class="adm-table adm-table--months">
-            <div class="adm-table__head"><span>Month</span><span class="adm-r">Plan payments</span><span class="adm-r">Our fee on sales</span><span class="adm-r">Platform revenue</span><span class="adm-r">Credits bought</span><span class="adm-r">AI credits bought</span><span class="adm-r">Refunds</span><span class="adm-r">Paid out</span></div>
+            <div class="adm-table__head"><span>Month</span><span class="adm-r">Plan payments</span><span class="adm-r">Our fee on sales</span><span class="adm-r">Our fee on memberships</span><span class="adm-r">Platform revenue</span><span class="adm-r">Credits bought</span><span class="adm-r">AI credits bought</span><span class="adm-r">Refunds</span><span class="adm-r">Paid out</span></div>
             <div class="adm-table__body">
-                <?php $mt = array('plans' => 0, 'fee' => 0, 'revenue' => 0, 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0);
+                <?php $mt = array('plans' => 0, 'fee' => 0, 'members' => 0, 'revenue' => 0, 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0);
                 foreach (array_reverse($last12) as $m): foreach ($mt as $mk => $mv) { $mt[$mk] += (int) $m[$mk]; } ?>
                 <div class="adm-mrow"><span class="adm-ucell"><?php echo $e(gmdate('F Y', strtotime($m['k'] . '-01'))); ?></span><?php foreach (array_keys($mt) as $col): ?><span class="adm-ucell adm-r<?php echo $col === 'revenue' ? ' adm-mrow__rev' : ''; ?><?php echo (int) $m[$col] === 0 ? ' adm-ucell--muted' : ''; ?>"><?php echo $usd($m[$col]); ?></span><?php endforeach; ?></div>
                 <?php endforeach; ?>

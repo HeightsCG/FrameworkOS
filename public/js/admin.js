@@ -332,7 +332,7 @@
             if (chg) { svg.appendChild(el('text', { 'class': cls, x: cx, y: H - 8, 'text-anchor': 'middle' }, chg)); }
             var hit = el('rect', { 'class': 'hit', x: L + slot * i, y: T - 20, width: slot, height: ph + 20 });
             hit.addEventListener('mouseenter', function () {
-                tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>Our fee on sales <em>' + money(m.fee || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
+                tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>Our fee on sales <em>' + money(m.fee || 0) + '</em></span><span>Our fee on memberships <em>' + money(m.members || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
                 tip.style.left = Math.min(88, Math.max(12, cx / W * 100)) + '%'; tip.hidden = false;
             });
             hit.addEventListener('mouseleave', function () { tip.hidden = true; });

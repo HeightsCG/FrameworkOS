@@ -56,7 +56,7 @@ class AdminController extends Controller {
             $this->view->fin['plans']      = $live['plans'];
         }
         $plan_inv = self::plan_invoice_buckets($model);
-        $this->view->series       = $model->money_series($plan_inv['month']);
+        $this->view->series       = $model->money_series($plan_inv['month'], self::membership_fee_buckets());
         $this->view->plan_all     = $plan_inv['all'];
         $this->view->queue        = $queue;
         $this->view->billing      = array();
@@ -176,6 +176,18 @@ class AdminController extends Controller {
         }
         @file_put_contents($cache, json_encode($out), LOCK_EX);
         return $out;
+    }
+
+    /** Our fee on fan memberships by month (Stripe application fees), cached for 10 minutes like the plan invoices. */
+    private static function membership_fee_buckets(): array {
+        $cache = sys_get_temp_dir() . '/cls_admin_membership_fees.json';
+        if (is_file($cache) && filemtime($cache) > time() - 600) {
+            $c = json_decode((string) file_get_contents($cache), true);
+            if (is_array($c)) { return (array) ($c['month'] ?? array()); }
+        }
+        $out = StripeService::application_fee_buckets(strtotime('first day of -23 months 00:00 UTC'));
+        @file_put_contents($cache, json_encode($out), LOCK_EX);
+        return $out['month'];
     }
 
     /**

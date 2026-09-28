@@ -242,6 +242,7 @@ a.adm-crow__sub:hover{ color:var(--acc-ink); }
 .fz-delta--down{ background:#fdecec; color:#c23434; }
 .fz-delta--flat{ background:#F4F4F4; color:#747474; }
 .fz-foot{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin:.3rem 0 0; padding-top:.7rem; border-top:1px solid #F2F2F2; }
+.fz-foot--3{ grid-template-columns:repeat(3, 1fr); }
 .fz-foot dt{ font-size:.72rem; color:#939393; }
 .fz-foot dd{ margin:0; font-size:.9rem; font-weight:700; color:#222222; font-variant-numeric:tabular-nums; }
 .fz-split{ display:flex; gap:3px; height:8px; margin-top:.2rem; border-radius:999px; overflow:hidden; background:#F4F4F4; }
@@ -289,7 +290,7 @@ a.adm-crow__sub:hover{ color:var(--acc-ink); }
 .fz-chip.is-on{ color:#222222; border-color:#DFDFDF; background:#FBFBFB; }
 .fz-chip.is-on i{ opacity:1; }
 .fz-chip:focus-visible{ outline:2px solid #FF6A13; outline-offset:1px; }
-.adm-table--months .adm-table__head, .adm-mrow{ display:grid; grid-template-columns:1.2fr repeat(7, 1fr); gap:1rem; align-items:center; }
+.adm-table--months .adm-table__head, .adm-mrow{ display:grid; grid-template-columns:1.2fr repeat(8, 1fr); gap:1rem; align-items:center; }
 .adm-mrow{ padding:.7rem 1rem; border-top:1px solid #F1F1F1; font-size:.875rem; font-variant-numeric:tabular-nums; }
 .adm-mrow__rev{ font-weight:700; color:#C2410C; }
 .fz-tip span em:last-child{ font-style:normal; font-weight:600; }

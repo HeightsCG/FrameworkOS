@@ -138,9 +138,9 @@ class AdminModel extends Model {
      * Money per calendar month for the last 24 months, from the ledgers (cents). Each month has platform totals
      * (plans, fee, revenue, credits, ai, cash_in, refunds, payouts, sales) and a per-type sales breakdown
      * (gross, refunded, creator, platform, sales). A refund lands in the month it happened. $plan_buckets:
-     * 'Y-m' => paid creator-plan invoice cents (from Stripe).
+     * 'Y-m' => paid creator-plan invoice cents (from Stripe). $member_buckets: 'Y-m' => our fee on fan memberships (cents).
      */
-    public function money_series(array $plan_buckets = array()){
+    public function money_series(array $plan_buckets = array(), array $member_buckets = array()){
         $types = array(
             'ppv'     => array('ppv_unlock', 'ppv_earning'),
             'bundle'  => array('bundle_unlock', 'bundle_earning'),
@@ -153,7 +153,7 @@ class AdminModel extends Model {
         for ($i = 23; $i >= 0; $i--) {
             $k = gmdate('Y-m', strtotime("first day of -$i months"));
             $t = array(); foreach ($types as $tk => $td) { $t[$tk] = array('sales' => 0, 'gross' => 0, 'refunded' => 0, 'creator' => 0); }
-            $keys[$k] = array('plans' => (int) ($plan_buckets[$k] ?? 0), 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0, 'types' => $t);
+            $keys[$k] = array('plans' => (int) ($plan_buckets[$k] ?? 0), 'members' => (int) ($member_buckets[$k] ?? 0), 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0, 'types' => $t);
         }
         $rows = parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, type, COUNT(*) AS n, SUM(credits) AS cr FROM credit_transactions WHERE created_at >= :s GROUP BY b, type", array('s' => $since));
         foreach ((array) $rows as $r) {
@@ -180,7 +180,7 @@ class AdminModel extends Model {
         foreach ($keys as $k => $v) {
             $fee = 0; $sales = 0;
             foreach ($v['types'] as $tk => $t) { $v['types'][$tk]['platform'] = $t['gross'] - $t['refunded'] - $t['creator']; $fee += $v['types'][$tk]['platform']; $sales += $t['sales']; }
-            $out[] = array('k' => $k, 'label' => gmdate('M', strtotime($k . '-01')), 'plans' => $v['plans'], 'fee' => $fee, 'revenue' => $v['plans'] + $fee,
+            $out[] = array('k' => $k, 'label' => gmdate('M', strtotime($k . '-01')), 'plans' => $v['plans'], 'fee' => $fee, 'members' => $v['members'], 'revenue' => $v['plans'] + $fee + $v['members'],
                            'credits' => $v['credits'], 'ai' => $v['ai'], 'cash_in' => $v['credits'] + $v['ai'], 'refunds' => $v['refunds'], 'payouts' => $v['payouts'],
                            'sales' => $sales, 'types' => $v['types']);
         }
