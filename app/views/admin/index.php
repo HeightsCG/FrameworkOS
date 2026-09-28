@@ -82,7 +82,7 @@ $last12 = array_slice($this->series, -12);
                 <header class="fz-card__head"><span class="fz-card__ic"><i class="fa-solid fa-building-columns"></i></span><span class="fz-card__label">Paid Out to Creators</span></header>
                 <div class="fz-card__val" data-v>—</div>
                 <span class="fz-delta" data-d></span>
-                <dl class="fz-foot"><div><dt>Refunds</dt><dd data-f="refunds">—</dd></div><div><dt>Owed now</dt><dd><?php echo $usd($f['held_creators']); ?></dd></div></dl>
+                <dl class="fz-foot"><div><dt>Refunds</dt><dd data-f="refunds">—</dd></div><div><dt>Owed now</dt><dd><?php echo $usd($f['owed_creators']); ?></dd></div></dl>
             </article>
         </div>
 

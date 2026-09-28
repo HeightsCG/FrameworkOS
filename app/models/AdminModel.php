@@ -110,6 +110,13 @@ class AdminModel extends Model {
         $ai_cents = (int) $this->scalar("SELECT COALESCE(SUM(credits),0) * (100 / " . (int) PlanTiers::AI_CREDITS_PER_DOLLAR . ") AS n FROM ai_credit_transactions WHERE type = 'purchase'");
         $held  = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0");
         $held_creators = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0 AND role_id = :r", array('r' => $this->creator_role_id()));
+        // Owed to creators: earnings not yet paid out (sales, less clawbacks, payouts and returned payouts), capped at
+        // each wallet's balance and never below zero. Includes earnings still in the hold; excludes credits they bought.
+        $owed = (int) $this->scalar(
+            "SELECT COALESCE(SUM(GREATEST(0, LEAST(e.net, u.credit_balance))),0)*10 AS n
+             FROM (SELECT user_id, SUM(credits) AS net FROM credit_transactions
+                   WHERE type LIKE '%\\_earning' OR type IN ('refund_reversal', 'payout', 'payout_refund') GROUP BY user_id) e
+             JOIN user_accounts u ON u.user_id = e.user_id AND u.deleted = 0");
         $cb    = parent::select("SELECT COUNT(*) AS n, COALESCE(SUM(amount_cents),0) AS amt FROM chargebacks");
 
         return array(
@@ -123,6 +130,7 @@ class AdminModel extends Model {
             'payout_count'   => max(0, ($ledger['payout']['n'] ?? 0) - ($ledger['payout_refund']['n'] ?? 0)),
             'credits_held'   => $held,
             'held_creators'  => $held_creators,
+            'owed_creators'  => $owed,
             'held_fans'      => max(0, $held - $held_creators),
             'plan_mrr'       => $plan_mrr,
             'plan_count'     => $plan_n,
