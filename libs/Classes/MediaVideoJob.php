@@ -22,7 +22,7 @@ class MediaVideoJob {
         $durs = array_values(array_map('strval', (array) ($model['durations'] ?? array())));
         $dur  = (string) $duration;
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = $durs[0]; }
-        $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key']));
+        $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key'], 'duration' => $dur));
         if (empty($pay['ok'])) { return array('ok' => false, 'message' => $pay['message'], 'need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']); }
         $media = new MediaAssetsModel();
         $aid = (int) $media->add($cid, 'video', 'Generated · ' . mb_substr((string) $prompt, 0, 40) . '.mp4', 'video/mp4', 'processing');

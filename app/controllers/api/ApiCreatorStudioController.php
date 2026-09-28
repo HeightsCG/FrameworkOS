@@ -637,7 +637,9 @@ class ApiCreatorStudioController extends BaseApiController {
         $since = (int) ($this->post['since'] ?? 0);
         $latest = (new SchedulerRunsModel())->recent_for_rule((int) $rule['id'], 1);
         $run = (is_array($latest) && !empty($latest) && (int) $latest[0]['id'] > $since) ? $latest[0] : null;
-        $this->jsonSuccess(['done' => $run !== null, 'ok' => $run ? ($run['status'] === 'success') : null, 'message' => $run ? (string) $run['message'] : '', 'post_id' => $run ? ($run['post_id'] !== null ? (int) $run['post_id'] : null) : null]);
+        // A video automation's run ends 'rendering' (the post publishes when the video lands): that's a successful start.
+        $this->jsonSuccess(['done' => $run !== null, 'ok' => $run ? in_array($run['status'], ['success', 'rendering'], true) : null,
+            'rendering' => $run !== null && $run['status'] === 'rendering', 'message' => $run ? (string) $run['message'] : '', 'post_id' => $run ? ($run['post_id'] !== null ? (int) $run['post_id'] : null) : null]);
     }
 
     /** Create or update a draft (also powers autosave). */

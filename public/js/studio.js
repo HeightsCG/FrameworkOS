@@ -669,10 +669,16 @@ jQuery(function ($) {
         var key = $('#csVidModel').val();
         return (CFG.ai.video_models || []).filter(function (m) { return m.key === key; })[0] || (CFG.ai.video_models || [])[0] || { credits: 0, durations: [] };
     }
+    /* AI credits for a video model at a length (its price follows the length; server table in credits_by_duration). */
+    function videoPrice(m, dur) {
+        var t = (m && m.credits_by_duration) || null;
+        return (t && t[String(dur)] !== undefined) ? (parseInt(t[String(dur)], 10) || 0) : (parseInt(m && m.credits, 10) || 0);
+    }
+    function vidPrice() { return videoPrice(vidModelSel(), $('#csVidLength').val()); }
     function vidCost() {
-        var m = vidModelSel(), out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(m.credits, 10) || 0);
-        $('#csVidCost').text(fmtNum(m.credits) + ' credits · ' + fmtNum(CFG.ai.balance) + ' left');
-        $('#csVidPriceEmpty').text(fmtNum(m.credits));
+        var price = vidPrice(), out = (parseInt(CFG.ai.balance, 10) || 0) < price;
+        $('#csVidCost').text(fmtNum(price) + ' AI credits · ' + fmtNum(CFG.ai.balance) + ' left');
+        $('#csVidPriceEmpty').text(fmtNum(price));
         $('#csVidEmpty').prop('hidden', !out);
         $('#csVidInputs').prop('hidden', out || !!vidAsset);
         $('#csVidBuy').prop('hidden', !out || !!vidAsset);
@@ -681,12 +687,13 @@ jQuery(function ($) {
     }
     function vidModels() {
         var $m = $('#csVidModel').empty();
-        (CFG.ai.video_models || []).forEach(function (m) { $m.append($('<option>').val(m.key).text(m.label + ' · ' + fmtNum(m.credits) + ' credits')); });
+        (CFG.ai.video_models || []).forEach(function (m) { $m.append($('<option>').val(m.key).text(m.label)); });
         vidLengths();
     }
     function vidLengths() {
         var $l = $('#csVidLength').empty();
-        (vidModelSel().durations || []).forEach(function (d) { $l.append($('<option>').val(d).text(d + ' seconds')); });
+        var m = vidModelSel();
+        (m.durations || []).forEach(function (d) { $l.append($('<option>').val(d).text(d + ' seconds · ' + fmtNum(videoPrice(m, d)) + ' AI credits')); });
     }
     function vidImages() {
         var $g = $('#csVidImages').html('<div class="cs-loading"><span class="spinner-border spinner-border-sm text-primary"></span></div>');
@@ -718,6 +725,7 @@ jQuery(function ($) {
     }
     $('#csGenVideoBtn').on('click', function () { openVideo(0); });
     $('#csVidModel').on('change', function () { vidLengths(); vidCost(); });
+    $('#csVidLength').on('change', vidCost);
     $('#csVidWho').on('change', function () { vidPick = 0; vidImages(); });
     $('#csVidImages').on('click', '.cs-vid__img', function () {
         $('#csVidImages .cs-vid__img').removeClass('is-on').attr('aria-checked', 'false');
@@ -740,7 +748,7 @@ jQuery(function ($) {
                 $('#csVidInputs :input').prop('disabled', false);
                 if (o && o.need_credits) { CFG.ai.balance = o.balance; $('#csVidStatus').prop('hidden', true); vidCost(); return; }
                 if (!o || !o.success || !o.job_id) { $('#csVidRun').prop('disabled', false); vidStatus(esc((o && o.message) || 'The video could not be started. Try again.'), true); return; }
-                CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - (parseInt(vidModelSel().credits, 10) || 0));
+                CFG.ai.balance = Math.max(0, (parseInt(CFG.ai.balance, 10) || 0) - vidPrice());
                 genCost(); vidCost();
                 followInfluencerJob(o.job_id, function (asset) {
                     vidAsset = asset; injectAsset(asset); $('#csVidStatus').prop('hidden', true);
@@ -2174,7 +2182,7 @@ jQuery(function ($) {
     function schedVideoCredits() {
         if (!schedIsVideo()) { return 0; }
         var m = schedVideoModels().filter(function (x) { return x.key === $('#csSchedVideoModel').val(); })[0];
-        return m ? (parseInt(m.credits, 10) || 0) : 0;
+        return m ? videoPrice(m, $('#csSchedVideoDur').val()) : 0;
     }
     // Style and Length are segmented buttons like every other choice here; their values live in hidden inputs.
     function schedTitleCase(t) { return String(t).replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
@@ -2186,7 +2194,7 @@ jQuery(function ($) {
         models.forEach(function (m) {
             $m.append($('<button type="button" class="cs-seg__opt">').attr('data-vmodel', m.key).attr('title', m.purpose || '')
                 .toggleClass('is-on', m.key === key)
-                .append($('<span>').text(schedTitleCase(m.label)), $('<span class="cs-seg__meta">').text(fmtNum(m.credits) + ' credits')));
+                .append($('<span>').text(schedTitleCase(m.label))));
         });
         syncPressed('#csSchedVideoModels');
         renderSchedVideoDurations(dur);
@@ -2198,8 +2206,10 @@ jQuery(function ($) {
         if (durs.indexOf(dur) < 0) { dur = durs.length ? durs[0] : ''; }
         $('#csSchedVideoDur').val(dur);
         var $d = $('#csSchedVideoDurs').empty();
-        durs.forEach(function (s) { $d.append($('<button type="button" class="cs-seg__opt">').attr('data-vdur', s).toggleClass('is-on', s === dur).append($('<span>').text(s + ' seconds'))); });
+        durs.forEach(function (s) { $d.append($('<button type="button" class="cs-seg__opt">').attr('data-vdur', s).toggleClass('is-on', s === dur)
+            .append($('<span>').text(s + ' seconds'), $('<span class="cs-seg__meta">').text(fmtNum(videoPrice(m, s)) + ' AI credits'))); });
         syncPressed('#csSchedVideoDurs');
+        updateSchedSummaries();
     }
     $('#csSchedVideoModels').on('click', '.cs-seg__opt', function () { renderSchedVideoModels($(this).attr('data-vmodel'), $('#csSchedVideoDur').val()); updateSchedSummaries(); });
     $('#csSchedVideoDurs').on('click', '.cs-seg__opt', function () { renderSchedVideoDurations($(this).attr('data-vdur')); });
@@ -2548,9 +2558,10 @@ jQuery(function ($) {
         renderSchedRules();                            // show the generating state immediately
         // The request keeps running even if the creator switches tabs; schedRunning keeps
         // the card in its "Generating…" state across re-renders until it completes.
-        function finish(ok, m) {
+        function finish(ok, m, rendering) {
             delete schedRunning[id];
-            if (ok) { if (/failed/i.test(m)) { toastr.warning(m); } else { toastr.success(m || 'Published a new post.'); } }
+            if (rendering) { toastr.info(m); }
+            else if (ok) { if (/failed/i.test(m)) { toastr.warning(m); } else { toastr.success(m || 'Published a new post.'); } }
             else { toastr.error(m || 'Run failed.'); }
             loadScheduler();
         }
@@ -2567,7 +2578,7 @@ jQuery(function ($) {
                 ApiDataSvc.apiCall('post', 'scheduler_run_status', { id: id, since: since }, function (d2) {
                     clearTimeout(watchdog);
                     var r = null; try { r = JSON.parse(d2); } catch (e) {}
-                    if (r && r.success && r.done) { finish(!!r.ok, r.message); return; }
+                    if (r && r.success && r.done) { finish(!!r.ok, r.message, !!r.rendering); return; }
                     if (tries >= 60) { finish(false, 'Still running in the background. Refresh in a minute to see the result.'); return; }
                     setTimeout(poll, 4000);
                 });

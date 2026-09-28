@@ -67,11 +67,11 @@ class InfluencerConfig {
         'hailuo_02' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/minimax/hailuo-02/standard/image-to-video'),
             'label' => 'Natural motion', 'purpose' => 'Smooth, budget friendly',
             'price_usd' => 0.045, 'price_unit' => 'second',
-            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => 200),
+            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => array('6' => 200, '10' => 340)),
         'kling_v3' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/image-to-video'),
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
             'price_usd' => 0.084, 'price_unit' => 'second',
-            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => 300),
+            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => array('5' => 300, '10' => 600)),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
@@ -225,6 +225,18 @@ class InfluencerConfig {
     }
 
     /** Public picker payload for the UI: key, label, purpose, price hint, durations. */
+    /**
+     * AI credits a model charges per run, or null when it uses its type's default (PlanTiers::AI_PRICES).
+     * A video model prices each length ('credits' => ['6' => 200, '10' => 340]: in proportion to its length);
+     * an unknown or empty $duration means the model's first (default) length.
+     */
+    public static function credits_for(array $m, $duration){
+        if (!isset($m['credits'])) { return null; }
+        if (!is_array($m['credits'])) { return (int) $m['credits']; }
+        $d = (string) $duration;
+        return isset($m['credits'][$d]) ? (int) $m['credits'][$d] : (int) reset($m['credits']);
+    }
+
     public static function picker_options($purpose){
         $out = array();
         foreach (self::picker($purpose) as $m) {
@@ -235,7 +247,8 @@ class InfluencerConfig {
                 'price_usd' => (float) $m['price_usd'],
                 'price_unit'=> $m['price_unit'],
                 'durations' => array_values((array) ($m['durations'] ?? array())),
-                'credits'   => isset($m['credits']) ? (int) $m['credits'] : null,   // AI credits per run when it differs from the type's default
+                'credits'   => isset($m['credits']) ? self::credits_for($m, '') : null,   // AI credits per run at the default length
+                'credits_by_duration' => (isset($m['credits']) && is_array($m['credits'])) ? array_map('intval', $m['credits']) : null,   // video: price per length
             );
         }
         return $out;

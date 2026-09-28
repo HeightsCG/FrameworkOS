@@ -308,8 +308,10 @@ class Plan {
     {
         $unit = (int) (PlanTiers::AI_PRICES[(string) $type] ?? 0);
         if ($unit <= 0) { return 0; }
-        $model = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;   // e.g. the cinematic video model costs more
-        if ($model && isset($model['credits']) && (int) $model['credits'] > 0) { $unit = (int) $model['credits']; }
+        // A model can set its own price (the cinematic video model costs more; a video's price follows its length).
+        $model = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;
+        $own   = $model ? InfluencerConfig::credits_for($model, (string) ($f['duration'] ?? ($f['params']['duration'] ?? ''))) : null;
+        if ($own !== null && $own > 0) { $unit = $own; }
         $n = ((string) $type === 'image') ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
         return $unit * $n;
     }
@@ -410,7 +412,7 @@ class Plan {
     {
         $per = ((string) ($rule['kind'] ?? 'post') === 'message') ? 0 : self::ai_price('image', array('params' => array('num_images' => 1)));
         if ($per > 0 && (string) ($rule['media_type'] ?? 'image') === 'video') {   // the still, then animating it
-            $per += self::ai_price('video', array('model_key' => (string) ($rule['video_model_key'] ?? '')));
+            $per += self::ai_price('video', array('model_key' => (string) ($rule['video_model_key'] ?? ''), 'duration' => (string) ($rule['video_duration'] ?? '')));
         }
         if ((string) ($rule['cadence'] ?? 'daily') === 'weekly') {
             $days = array_filter(array_map('intval', explode(',', (string) ($rule['days_of_week'] ?? ''))), function ($d) { return $d >= 0 && $d <= 6; });

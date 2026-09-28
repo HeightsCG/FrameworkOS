@@ -1006,7 +1006,12 @@ jQuery(function ($) {
             $('#inf_vdur .inf-seg__opt.is-on').attr('aria-pressed', 'true');
             cost();
         }
-        function vprice() { var m = model_opt(model_key()); return (m && m.credits) ? m.credits : price_of('video', 1); }
+        // A video's price follows its length (server table credits_by_duration); fall back to the model, then the type default.
+        function vprice() {
+            var m = model_opt(model_key()), d = String(seg_val('inf_vdur') || ''), t = m && m.credits_by_duration;
+            if (t && t[d] !== undefined) { return parseInt(t[d], 10) || 0; }
+            return (m && m.credits) ? m.credits : price_of('video', 1);
+        }
         function cost() { $('#inf_vcost').html(credits_html(vprice())); }
         $('#inf_who').on('change', function () { window.location = '/influencers/videos/' + this.value; });
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
