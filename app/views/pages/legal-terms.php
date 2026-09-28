@@ -33,7 +33,7 @@ $doc = array(
         )),
         array('Creator plans', array(
             'Creator plans are monthly subscriptions. Current plans, prices and platform fees are shown on our pricing page at /pricing. Plans renew each month until you cancel. When you cancel, your plan stays active until the end of the paid period and does not renew.',
-            'Each plan includes a monthly allowance of AI credits for AI features. Unused plan allowances do not carry over. Additional AI credits can be bought separately.',
+            'Paid plans include a monthly allowance of AI credits for AI features; unused monthly allowances do not carry over. The Free plan includes a one-time starter amount of AI credits. Additional AI credits can be bought separately and do not expire.',
             'We take a platform fee from each sale a creator makes. The fee depends on the creator\'s plan and is shown on the pricing page. Creators are paid their net earnings to their bank account after completing payout setup. Payout details, holds and reserves are covered in the Creator Terms.',
             'We may change plan prices or fees with at least 30 days\' notice. A change takes effect at your next renewal after the notice period.',
         )),

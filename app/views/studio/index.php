@@ -481,8 +481,8 @@
                 <div class="cs-gen">
                     <div class="cs-gen__empty" id="csVidEmpty" hidden>
                         <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
-                        <h3 class="cs-gen__empty-title">You're out of AI credits</h3>
-                        <p class="cs-gen__empty-text">A video uses <span id="csVidPriceEmpty"></span> credits. Buy credits to start generating.</p>
+                        <h3 class="cs-gen__empty-title">Not enough AI credits</h3>
+                        <p class="cs-gen__empty-text">This video uses <span id="csVidPriceEmpty"></span> AI credits. Buy more to start generating.</p>
                     </div>
                     <div id="csVidInputs">
                         <div class="cs-gen__field">
@@ -516,7 +516,7 @@
             <div class="modal-footer">
                 <span class="cs-gen__cost" id="csVidCost"></span>
                 <button type="button" class="btn btn-primary" id="csVidRun"><i class="fa-solid fa-film"></i> Generate</button>
-                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csVidBuy" hidden>Buy Credits</a>
+                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csVidBuy" hidden>Buy AI Credits</a>
                 <button type="button" class="btn btn-primary" id="csVidUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
             </div>
         </div>
@@ -535,8 +535,8 @@
                 <div class="cs-gen">
                     <div class="cs-gen__empty" id="csGenEmpty" hidden>
                         <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
-                        <h3 class="cs-gen__empty-title">You're out of AI credits</h3>
-                        <p class="cs-gen__empty-text">Each image uses <span id="csGenPrice"></span> credits. Buy credits to start generating.</p>
+                        <h3 class="cs-gen__empty-title">Not enough AI credits</h3>
+                        <p class="cs-gen__empty-text">Each image uses <span id="csGenPrice"></span> AI credits. Buy more to start generating.</p>
                     </div>
                     <div id="csGenInputs">
                         <div class="cs-gen__field">
@@ -572,7 +572,7 @@
             <div class="modal-footer">
                 <span class="cs-gen__cost" id="csGenCost"></span>
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
-                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy Credits</a>
+                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy AI Credits</a>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
                 <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
             </div>

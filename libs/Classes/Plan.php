@@ -429,7 +429,26 @@ class Plan {
         $unit = max(1, (int) (PlanTiers::AI_PRICES[(string) $type] ?? 1));
         $n    = max(1, intdiv((int) $price, $unit));
         $what = ($type === 'video') ? 'a video' : (($type === 'enhance') ? 'an enhancement' : ($n > 1 ? $n . ' images' : 'an image'));
-        return 'You need ' . (int) $price . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . (int) $balance . '. Buy credits to keep going.';
+        return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. Buy more AI credits to keep going.';
+    }
+
+    /**
+     * What AI credits buy, for Billing and the pricing page: [['label' => 'Image', 'credits' => 50], ...]. Built from
+     * ai_price, so it always matches what is charged. Captions, prompts and training are included (free).
+     */
+    public static function ai_price_list(): array
+    {
+        $rows = array(
+            array('label' => 'Image', 'credits' => self::ai_price('image')),
+            array('label' => 'Enhance an image', 'credits' => self::ai_price('enhance')),
+        );
+        foreach (InfluencerConfig::picker_options('video') as $m) {
+            foreach ((array) $m['durations'] as $d) {
+                $rows[] = array('label' => 'Video, ' . strtolower((string) $m['label']) . ', ' . $d . ' seconds',
+                    'credits' => self::ai_price('video', array('model_key' => $m['key'], 'duration' => (string) $d)));
+            }
+        }
+        return $rows;
     }
 
     /* =====================================================================

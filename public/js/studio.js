@@ -521,8 +521,14 @@ jQuery(function ($) {
     CFG.ai = CFG.ai || { balance: 0, image_price: 0 };
     function fmtNum(n) { return (parseInt(n, 10) || 0).toLocaleString('en-US'); }
     /* "50 credits · 3,750 left" beside Generate; updates after every image. */
+    /* "50 AI credits · 3,750 left", plus a Buy AI Credits link once two more runs would empty the balance. */
+    function aiCostHtml(price) {
+        var bal = parseInt(CFG.ai.balance, 10) || 0;
+        var low = bal >= price && bal < price * 2;
+        return esc(fmtNum(price) + ' AI credits · ' + fmtNum(bal) + ' left') + (low ? ' · <a href="/account/billing?tab=credits">Running low. Buy AI Credits</a>' : '');
+    }
     function genCost() {
-        $('#csGenCost').text(fmtNum(CFG.ai.image_price) + ' credits · ' + fmtNum(CFG.ai.balance) + ' left');
+        $('#csGenCost').html(aiCostHtml(parseInt(CFG.ai.image_price, 10) || 0));
     }
     /* "Who's in it": no influencer, or one of the creator's trained influencers (CFG.influencers.ready). */
     function whoOptions($sel, noneLabel) {
@@ -554,7 +560,7 @@ jQuery(function ($) {
     function genCredits() {
         genCost();
         var out = (parseInt(CFG.ai.balance, 10) || 0) < (parseInt(CFG.ai.image_price, 10) || 0);
-        $('#csGenPrice').text(CFG.ai.image_price);
+        $('#csGenPrice').text(fmtNum(CFG.ai.image_price));
         $('#csGenEmpty').prop('hidden', !out);
         $('#csGenBuy').prop('hidden', !out);
         if (out) { $('#csGenInputs, #csGenPreview, #csGenResult, #csGenStatus, #csGenRun, #csGenEdit, #csGenUse').prop('hidden', true); }
@@ -677,7 +683,7 @@ jQuery(function ($) {
     function vidPrice() { return videoPrice(vidModelSel(), $('#csVidLength').val()); }
     function vidCost() {
         var price = vidPrice(), out = (parseInt(CFG.ai.balance, 10) || 0) < price;
-        $('#csVidCost').text(fmtNum(price) + ' AI credits · ' + fmtNum(CFG.ai.balance) + ' left');
+        $('#csVidCost').html(aiCostHtml(price));
         $('#csVidPriceEmpty').text(fmtNum(price));
         $('#csVidEmpty').prop('hidden', !out);
         $('#csVidInputs').prop('hidden', out || !!vidAsset);
@@ -2094,7 +2100,7 @@ jQuery(function ($) {
                 '<p class="cs-sched__topic">' + (isMsg ? '<i class="fa-solid fa-paper-plane cs-sched__kind" title="Scheduled message"></i> ' : '') + esc(body) + '</p>' +
                 '<div class="cs-sched__meta">' +
                     '<span class="cs-sched__metaitem"><i class="fa-regular fa-clock"></i>' + esc(r.cadence_summary) + '</span>' +
-                    (r.credits_per_run > 0 ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-coins"></i>' + fmtNum(r.credits_per_run) + ' credits per post · about ' + fmtNum(r.credits_per_month) + ' a month</span>' : '') +
+                    (r.credits_per_run > 0 ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-wand-magic-sparkles"></i>' + fmtNum(r.credits_per_run) + ' AI credits per post · about ' + fmtNum(r.credits_per_month) + ' a month</span>' : '') +
                     '<span class="cs-sched__metaitem"><i class="fa-solid fa-' + (isMsg ? 'users' : (r.audience === 'subscribers' ? 'lock' : 'globe')) + '"></i>' + esc(aud) + '</span>' +
                     (r.next_run ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-forward"></i>Next ' + esc(r.next_run) + '</span>' : '') +
                     lastRun +

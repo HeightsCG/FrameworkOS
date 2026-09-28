@@ -246,3 +246,11 @@
 .pay-total__label{font-size:.85rem; color:var(--muted);}
 .pay-total__amount{font-size:1.05rem; font-weight:600; color:var(--text);}
 .pay-note{margin:.6rem 0 0; font-size:.8rem; color:var(--muted);}
+/* AI credits: price list and recent activity */
+.ai-prices{width:100%; border-collapse:collapse; font-size:.86rem;}
+.ai-prices td{padding:.5rem 0; border-top:1px solid var(--line2); color:var(--t2);}
+.ai-prices tr:first-child td{border-top:0;}
+.ai-prices__n{text-align:right; font-weight:600; color:var(--text); white-space:nowrap; padding-left:1rem;}
+.ai-prices__n.is-neg{color:var(--t2);}
+.ai-prices__n.is-pos{color:var(--success);}
+.ai-prices__date{color:var(--muted); margin-right:.4rem;}

@@ -59,7 +59,7 @@ class FeaturePages {
                 array('q' => 'How long does training take?', 'a' => 'A few minutes, once per character. After that, images generate in about a minute and no retraining is needed.'),
                 array('q' => 'Will every image look like the same person?', 'a' => 'That is the point of training. The character keeps the same face across scenes, outfits and lighting.'),
                 array('q' => 'Can I make video as well?', 'a' => 'Yes. Any generated still can be turned into a short clip with a motion prompt.'),
-                array('q' => 'What does it cost?', 'a' => 'Generation uses the AI credits included with your plan, and you can top up at any time. Training costs a few credits once per character.'),
+                array('q' => 'What does it cost?', 'a' => 'Generation uses the AI credits included with your plan, and you can top up at any time. Training is included with your plan.'),
             ),
             'cta' => array('title' => 'Build your character today', 'text' => 'Train once, then generate and sell from one page.'),
         ),

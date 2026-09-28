@@ -314,7 +314,7 @@ $last12 = array_slice($this->series, -12);
                 $bst = (string) $b['status'];
                 $adds = array();
                 if ((int) $b['influencer_slots'] > 0) { $adds[] = (int) $b['influencer_slots'] . ' extra influencer' . ((int) $b['influencer_slots'] === 1 ? '' : 's'); }
-                if ((int) $b['pack_dollars'] > 0) { $adds[] = (int) $b['pack_dollars'] . '-credit pack'; }
+                if ((int) $b['pack_dollars'] > 0) { $adds[] = '$' . (int) $b['pack_dollars'] . ' AI credit pack (' . number_format(PlanTiers::pack_credits((int) $b['pack_dollars'])) . ' AI credits)'; }
             ?>
             <div class="adm-urow" data-uid="<?php echo (int) $b['user_id']; ?>">
                 <div class="adm-ucell adm-ucell--user"><span class="adm-uinfo"><a class="adm-uinfo__name" href="/admin/user/<?php echo (int) $b['user_id']; ?>"><?php echo $e($bn); ?></a><span class="adm-uinfo__meta"><?php echo $e($b['user_email']); ?></span></span></div>

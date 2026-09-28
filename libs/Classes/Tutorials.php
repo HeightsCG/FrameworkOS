@@ -27,8 +27,8 @@ class Tutorials {
             'Your plan sets your platform fee and which AI tools you get. Here\'s how to pick one.',
             'Click your name, then Billing.',
             'Free has no monthly cost and a 20 percent platform fee.',
-            'Creator is 49 dollars a month. Your fee drops to 10 percent and you get an AI influencer, 50 AI credits a month and scheduled automations.',
-            'Studio is 199 dollars a month. Your fee drops to 3 percent, with 10 AI influencers, 300 AI credits a month, unlimited automations and 10 team seats.',
+            'Creator is 49 dollars a month. Your fee drops to 10 percent and you get an AI influencer, 500 AI credits a month and scheduled automations.',
+            'Studio is 199 dollars a month. Your fee drops to 3 percent, with 10 AI influencers, 3,000 AI credits a month, unlimited automations and 10 team seats.',
             'Every plan includes unlimited social connections, membership tiers, bundles, promo codes and analytics.',
             'Pick the plan that fits and click Choose. If you have a promo code, enter it at checkout.',
             'Your current plan always shows at the top of this page.',
@@ -99,12 +99,12 @@ class Tutorials {
             'Each row is a type of update: messages, creator activity, broadcasts, purchases, subscriptions, events, services, credits and auto top-ups.',
             'Use the toggles to get each one in the app, by email, both or neither.',
         )),
-        '11' => array('section' => 'start', 'title' => 'Wallet and Credits', 'secs' => 22, 'steps' => array(
-            'Credits power AI tools and unlocks. In Settings, open Wallet.',
+        '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 22, 'steps' => array(
+            'Your wallet pays for unlocks, tickets and bookings. In Settings, open Wallet.',
             'Your current balance is at the top.',
-            'Under Buy Credits, pick a pack. A small processing fee is added at checkout.',
-            'History shows every credit you\'ve bought and spent.',
-            'Auto-Replenishment tops up your balance automatically when it runs low. Click Manage to turn it on.',
+            'Under Add Funds, pick an amount. A small processing fee is added at checkout.',
+            'History shows everything you\'ve added and spent.',
+            'Auto-Replenishment adds funds automatically when your balance runs low. Click Manage to turn it on.',
         )),
         '12' => array('section' => 'start', 'title' => 'Restricted Content and Blocked Users', 'secs' => 19, 'steps' => array(
             'Two quick settings for what you see and who can reach you.',

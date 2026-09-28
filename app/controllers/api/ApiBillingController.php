@@ -201,8 +201,8 @@ class ApiBillingController extends BaseApiController {
 
             $credits = (int) ($intent->metadata['credits'] ?? 0);
             $balance = (new AiCreditsModel())->credit_purchase($user_id, $credits, $intent->id, 'Bought ' . $credits . ' AI credits');
-            $this->notify($user_id, 'credits', 'AI credits added', $credits . ' AI credits for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . (int) $balance . ' AI credits.', '/account/billing', 'fa-wand-magic-sparkles');
-            $this->jsonSuccess(['balance' => (int) $balance, 'message' => $credits . ' AI credits added']);
+            $this->notify($user_id, 'credits', 'AI credits added', number_format($credits) . ' AI credits for $' . number_format(((int) $intent->amount) / 100, 2) . '. Balance: ' . number_format((int) $balance) . ' AI credits.', '/account/billing?tab=credits', 'fa-wand-magic-sparkles');
+            $this->jsonSuccess(['balance' => (int) $balance, 'message' => number_format($credits) . ' AI credits added']);
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_ai_credit_purchase: ' . $e->getMessage());

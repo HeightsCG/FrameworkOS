@@ -32,7 +32,7 @@
                 <div class="inf-label">Model</div>
                 <div class="inf-opts" id="inf_vmodel">
                     <?php foreach ((array) ($cfg['pickers']['video'] ?? array()) as $i => $o): ?>
-                    <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>" data-durations="<?php echo $e(implode(',', (array) $o['durations'])); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?></span></button>
+                    <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>" data-durations="<?php echo $e(implode(',', (array) $o['durations'])); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?> · <?php $vp = array_values((array) ($o['credits_by_duration'] ?? array())); echo $vp ? 'from ' . number_format((int) min($vp)) . ' AI credits' : ''; ?></span></button>
                     <?php endforeach; ?>
                 </div>
             </div>

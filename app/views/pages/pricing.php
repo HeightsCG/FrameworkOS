@@ -20,7 +20,11 @@ $e = function ($s) { return Sections::e($s); };
     </article>
 <?php endforeach; ?>
 </div>
-<p class="sx-note">AI credits can be bought on every plan. Card-processing fees are separate from the platform take rate.</p>
+<?php
+    // What AI credits buy, from the same price list Billing shows (Plan::ai_price_list), so the page can't go stale.
+    $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
+?>
+<p class="sx-note">AI credits can be bought on every plan: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
 

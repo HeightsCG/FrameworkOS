@@ -212,8 +212,8 @@ $(function () {
         var repeat = $('#credit_repeat').is(':checked');
         var cur = parseInt($('#credit_repeat').data('current'), 10) || 0;
         var n = (parseInt($('.copt.is-on').data('credits'), 10) || 0).toLocaleString('en-US');
-        var txt = !repeat ? 'Buy ' + n + ' Credits for $' + credit_pick
-                : (cur > 0 ? (cur === credit_pick ? 'Already Monthly' : 'Switch to ' + n + ' Credits a Month') : 'Get ' + n + ' Credits Every Month');
+        var txt = !repeat ? 'Buy ' + n + ' AI Credits for $' + credit_pick
+                : (cur > 0 ? (cur === credit_pick ? 'Already Monthly' : 'Switch to ' + n + ' AI Credits a Month') : 'Get ' + n + ' AI Credits Every Month');
         $('#credit_go').text(txt).prop('disabled', repeat && cur === credit_pick);
     }
     $('.copts').on('click', '.copt', function () {
@@ -294,7 +294,7 @@ $(function () {
             $('#credit_payment_element').html('');
             credit_elements = stripe.elements({ clientSecret: o.client_secret });
             credit_elements.create('payment').mount('#credit_payment_element');
-            $('#credit_pay_button').prop('disabled', false).text('Pay $' + (o.total_cents / 100).toFixed(0) + ' for ' + o.credits + ' credits');
+            $('#credit_pay_button').prop('disabled', false).text('Pay $' + (o.total_cents / 100).toFixed(0) + ' for ' + Number(o.credits).toLocaleString('en-US') + ' AI credits');
         });
     });
     $('#credit_pay_button').on('click', function () {
@@ -512,26 +512,49 @@ $(function () {
             $pick = $monthly ?: ($packs[1] ?? $packs[0]);
         ?>
         <div class="ccard">
-            <div class="ccard__big"><?php echo number_format((int) $b['total']); ?> <span>credits</span></div>
+            <div class="ccard__big"><?php echo number_format((int) $b['total']); ?> <span>AI credits</span></div>
+            <?php if ($grant_n > 0): ?><p class="ccard__text"><?php echo $grants_once ? 'Your plan came with ' . number_format($grant_n) . ' starter AI credits.' : 'Your plan includes ' . number_format($grant_n) . ' AI credits every month.'; ?></p><?php endif; ?>
             <?php if ((int) $b['plan'] > 0): ?><p class="ccard__text"><?php echo number_format((int) $b['plan']); ?> of these come with your plan and reset on <?php echo $e(date('M j', $reset)); ?>. Credits you buy never expire.</p><?php endif; ?>
 
             <?php if ($pack > 0): ?>
             <div class="ccard__monthly">
-                <span>You get <b><?php echo number_format(PlanTiers::pack_credits($pack)); ?> credits every month</b> for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?><?php echo $next_ts ? ', next on ' . $e(date('M j', $next_ts)) : ''; ?>.<?php if ($pack_next === 0): ?> Stops after that.<?php elseif ($pack_next !== null): ?> Changes to <?php echo number_format(PlanTiers::pack_credits($pack_next)); ?> then.<?php endif; ?></span>
+                <span>You get <b><?php echo number_format(PlanTiers::pack_credits($pack)); ?> AI credits every month</b> for <?php echo $e($money((int) ($acct['pack_price_cents'] ?? $pack * 100))); ?><?php echo $next_ts ? ', next on ' . $e(date('M j', $next_ts)) : ''; ?>.<?php if ($pack_next === 0): ?> Stops after that.<?php elseif ($pack_next !== null): ?> Changes to <?php echo number_format(PlanTiers::pack_credits($pack_next)); ?> then.<?php endif; ?></span>
                 <?php if ($pack_next !== 0): ?><button type="button" class="ccard__stop pack-change" data-dollars="0" <?php echo $past_due ? 'disabled' : ''; ?>>Stop</button><?php endif; ?>
             </div>
             <?php endif; ?>
 
-            <h2 class="ccard__title">Buy credits</h2>
-            <div class="copts" role="radiogroup" aria-label="How many credits">
+            <h2 class="ccard__title">Buy AI Credits</h2>
+            <div class="copts" role="radiogroup" aria-label="How many AI credits">
                 <?php foreach ($packs as $d): ?>
                 <button type="button" class="copt<?php echo $d === $pick ? ' is-on' : ''; ?>" role="radio" aria-checked="<?php echo $d === $pick ? 'true' : 'false'; ?>" data-dollars="<?php echo $d; ?>" data-credits="<?php echo PlanTiers::pack_credits($d); ?>">
-                    <span class="copt__n"><?php echo number_format(PlanTiers::pack_credits($d)); ?> credits</span><span class="copt__p">$<?php echo $d; ?></span>
+                    <span class="copt__n"><?php echo number_format(PlanTiers::pack_credits($d)); ?> AI credits</span><span class="copt__p">$<?php echo $d; ?></span>
                 </button>
                 <?php endforeach; ?>
             </div>
             <label class="ccard__repeat"><input type="checkbox" class="form-check-input" id="credit_repeat" data-current="<?php echo (int) $monthly; ?>" <?php echo $past_due ? 'disabled' : ''; ?>> Repeat every month</label>
-            <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo number_format(PlanTiers::pack_credits($pick)); ?> Credits for $<?php echo $pick; ?></button>
+            <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo number_format(PlanTiers::pack_credits($pick)); ?> AI Credits for $<?php echo $pick; ?></button>
+
+            <h2 class="ccard__title">What AI Credits Buy</h2>
+            <table class="ai-prices">
+                <tbody>
+                    <?php foreach (Plan::ai_price_list() as $row): ?>
+                    <tr><td><?php echo $e($row['label']); ?></td><td class="ai-prices__n"><?php echo number_format((int) $row['credits']); ?></td></tr>
+                    <?php endforeach; ?>
+                    <tr><td>Captions, prompts, brand identity, inbox replies, training</td><td class="ai-prices__n">Included</td></tr>
+                </tbody>
+            </table>
+
+            <?php if (!empty($this->ai_history)): ?>
+            <h2 class="ccard__title">Recent Activity</h2>
+            <table class="ai-prices">
+                <tbody>
+                    <?php foreach ($this->ai_history as $h): $hc = (int) $h['credits']; ?>
+                    <tr><td><span class="ai-prices__date"><?php echo $e(date('M j', strtotime((string) $h['created_at']))); ?></span> <?php echo $e((string) $h['description']); ?></td>
+                        <td class="ai-prices__n <?php echo $hc < 0 ? 'is-neg' : 'is-pos'; ?>"><?php echo ($hc >= 0 ? '+' : '') . number_format($hc); ?></td></tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
         </div>
     </section>
 

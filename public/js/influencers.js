@@ -25,7 +25,7 @@ jQuery(function ($) {
     function err(o, fallback) {
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {   // plan / credit refusals link to Billing
             toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
-                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = '/account/billing'; } });
+                { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : '/account/billing'; } });
             return;
         }
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
@@ -37,16 +37,16 @@ jQuery(function ($) {
         });
     }
     function money(n) { return '$' + (Math.round((n || 0) * 100) / 100).toFixed(2); }
-    /* "3 credits · 27 left" for a run that costs n credits; the balance comes from the page config and is kept current after each run */
+    /* "50 AI credits · 3,750 left" for a run that costs n; the balance comes from the page config and is kept current after each run */
     function credits_text(n) {
         var left = parseInt(C.ai_credits, 10) || 0;
-        return n + ' credit' + (n === 1 ? '' : 's') + ' \u00b7 ' + left + ' left';
+        return Number(n).toLocaleString() + ' AI credits \u00b7 ' + left.toLocaleString() + ' left';
     }
-    /* The cost line, plus a Buy Credits link once the balance can't cover two more runs. */
+    /* The cost line, plus a Buy AI Credits link once the balance can't cover two more runs (same rule as the Studio). */
     function credits_html(n) {
         var left = parseInt(C.ai_credits, 10) || 0;
         var low  = left < n * 2;
-        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?buy=credits">' + (left < n ? 'Buy credits to generate' : 'Running low. Buy credits') + '</a>' : '');
+        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?tab=credits">' + (left < n ? 'Buy AI Credits to Generate' : 'Running low. Buy AI Credits') + '</a>' : '');
     }
     function spend_credits(n) { C.ai_credits = Math.max(0, (parseInt(C.ai_credits, 10) || 0) - n); }
     function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }
