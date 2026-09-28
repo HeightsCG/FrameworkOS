@@ -21,7 +21,7 @@ class AnalyticsModel extends Model {
         $p = (is_array($p) && count($p)) ? $p[0] : array();
 
         $subs = parent::select(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(price_cents),0) AS mrr_cents
+            "SELECT COUNT(*) AS n, COALESCE(SUM(" . CreatorSubscriptionsModel::MONTHLY_CENTS_SQL . "),0) AS mrr_cents
              FROM creator_subscriptions WHERE creator_id = :c AND status = 'active'",
             array('c' => $c));
         $subs = (is_array($subs) && count($subs)) ? $subs[0] : array('n' => 0, 'mrr_cents' => 0);

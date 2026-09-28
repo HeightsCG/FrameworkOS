@@ -7,6 +7,10 @@
  */
 class CreatorSubscriptionsModel extends Model {
 
+    /** A membership's price as a monthly amount (cents), for "per month" totals: yearly / 12, weekly * 52 / 12. */
+    const MONTHLY_CENTS_SQL = "ROUND(CASE billing_interval WHEN 'year' THEN price_cents / 12 WHEN 'week' THEN price_cents * 52 / 12 ELSE price_cents END)";
+
+
     public function __construct(){
         parent::__construct();
     }

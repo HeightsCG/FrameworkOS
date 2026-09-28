@@ -20,7 +20,7 @@ class AdminModel extends Model {
     /** Platform KPIs for the overview strip. */
     public function overview(){
         $crole = $this->creator_role_id();
-        $subs  = parent::select("SELECT COUNT(*) AS n, COALESCE(SUM(price_cents),0) AS mrr FROM creator_subscriptions WHERE status = 'active'");
+        $subs  = parent::select("SELECT COUNT(*) AS n, COALESCE(SUM(" . CreatorSubscriptionsModel::MONTHLY_CENTS_SQL . "),0) AS mrr FROM creator_subscriptions WHERE status = 'active'");
         $subs  = (is_array($subs) && count($subs)) ? $subs[0] : array('n' => 0, 'mrr' => 0);
         $mod   = parent::select(
             "SELECT COALESCE(SUM(moderation_status='pending'),0) AS pend,
@@ -45,7 +45,7 @@ class AdminModel extends Model {
         // Membership fees go to the creator minus their plan's application fee.
         $sub_fee = 0;
         $users = new UsersModel();
-        foreach ((array) parent::select("SELECT creator_id, COALESCE(SUM(price_cents),0) AS c FROM creator_subscriptions WHERE status = 'active' GROUP BY creator_id") as $r) {
+        foreach ((array) parent::select("SELECT creator_id, COALESCE(SUM(" . CreatorSubscriptionsModel::MONTHLY_CENTS_SQL . "),0) AS c FROM creator_subscriptions WHERE status = 'active' GROUP BY creator_id") as $r) {
             $u = $users->get_user_by_id((int) $r['creator_id']);
             $sub_fee += (int) round((int) $r['c'] * ((is_array($u) && count($u) === 1) ? Plan::fee_percent($u[0]) : $fee) / 100);
         }
