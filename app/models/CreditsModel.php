@@ -165,7 +165,8 @@ class CreditsModel extends Model {
 
         $this->db->beginTransaction();
         try {
-            // Lock the row and never let the balance go negative.
+            // Lock the row. A debit may not take the balance below zero (a refund clawback excepted); money coming in is
+            // always accepted, even when the wallet is still negative afterwards (it repays the debt).
             $sth = $this->db->prepare(
                 "SELECT credit_balance FROM user_accounts WHERE user_id = :user_id FOR UPDATE"
             );
@@ -176,7 +177,7 @@ class CreditsModel extends Model {
             $current = (int) $row['credit_balance'];
 
             $new_balance = $current + $credits;
-            if ($new_balance < 0 && !in_array((string) $type, self::DEBT_TYPES, true)) {
+            if ($credits < 0 && $new_balance < 0 && !in_array((string) $type, self::DEBT_TYPES, true)) {
                 $this->db->rollBack();
                 return false;
             }
