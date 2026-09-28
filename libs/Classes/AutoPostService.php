@@ -84,7 +84,11 @@ class AutoPostService {
             $motion = trim((string) ($rule['video_prompt'] ?? ''));
             $v = MediaVideoJob::start($user, $asset_id, (string) ($rule['video_model_key'] ?? ''), $motion !== '' ? $motion : $scene,
                 (string) ($rule['video_duration'] ?? ''), array('auto_post' => array('rule_id' => (int) ($rule['id'] ?? 0), 'caption' => $caption)));
-            if (empty($v['ok'])) { return self::fail(null, 'Video failed: ' . (string) $v['message']); }
+            if (empty($v['ok'])) {
+                // No video, no post: give back the still's credits too (it stays in the Library).
+                (new AiCreditsModel())->refund_once($creator_id, Plan::ai_price('image', array('params' => array('num_images' => 1))), 'automation still #' . (int) $asset_id);
+                return self::fail(null, 'Video failed: ' . (string) $v['message'] . ' The image credits were returned.');
+            }
             return array('ok' => true, 'post_id' => null, 'status' => 'rendering', 'message' => 'The video is rendering. The post publishes when it is ready.');
         }
 

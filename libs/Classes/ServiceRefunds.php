@@ -19,6 +19,7 @@ class ServiceRefunds {
         $credits->apply_delta($buyer, $paid, 'refund', 'Refund: service booking');
         $take = min((int) $p['net_credits'], (int) $credits->get_balance($creator));
         if ($take > 0) { $credits->apply_delta($creator, -$take, 'refund_reversal', 'Refund reversal: service booking'); }
+        (new RefundsModel())->log('service', (int) $p['id'], $creator, $buyer, $paid, $take, $take >= (int) $p['net_credits'], (int) Session::get('user_id'), 'Refunded by the creator');
 
         $t = mb_substr(html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8'), 0, 60);
         Notify::send($buyer, 'refunds', 'Booking refunded', '"' . $t . '": ' . Notify::credits($paid) . ' returned to your wallet.',

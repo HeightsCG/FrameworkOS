@@ -73,13 +73,22 @@ class RefundsModel extends Model {
         Notify::send($fan_id, 'refunds', 'Refund issued', Notify::credits($charge) . ' returned to your wallet for a ' . $this->label($kind) . '.', '/account/settings?section=wallet', 'fa-rotate-left');
         Notify::send($creator_id, 'refunds', 'Refund issued to a buyer', Notify::credits($charge) . ' were refunded for a ' . $this->label($kind) . ($clawback > 0 ? '; ' . Notify::credits($clawback) . ' came out of your balance.' : '.'), '/dashboard', 'fa-rotate-left');
         // 6) Audit log.
+        $this->log($kind, $ref_id, $creator_id, $fan_id, $charge, $clawback, $clawback_ok, $admin_id, $reason);
+        return array('ok' => true, 'amount' => $charge, 'clawback_ok' => (bool) $clawback_ok);
+    }
+
+    /**
+     * Record a refund (credits back to the fan, the creator's earning clawed back). Every refund path writes here
+     * (unlocks above, EventRefunds, ServiceRefunds) so admin financials and reports see all of them.
+     * $by: who issued it (admin, the creator, or the fan canceling their own ticket).
+     */
+    public function log($kind, $ref_id, $creator_id, $fan_id, $amount, $clawback, $clawback_ok, $by, $reason){
         parent::insert('refunds', array(
-            'kind' => $kind, 'ref_id' => $ref_id, 'creator_id' => $creator_id, 'fan_id' => $fan_id,
-            'amount_credits' => $charge, 'clawback_credits' => $clawback, 'clawback_ok' => $clawback_ok,
-            'admin_id' => (int) $admin_id, 'reason' => mb_substr((string) $reason, 0, 255),
+            'kind' => (string) $kind, 'ref_id' => (int) $ref_id, 'creator_id' => (int) $creator_id, 'fan_id' => (int) $fan_id,
+            'amount_credits' => (int) $amount, 'clawback_credits' => (int) $clawback, 'clawback_ok' => $clawback_ok ? 1 : 0,
+            'admin_id' => (int) $by, 'reason' => mb_substr((string) $reason, 0, 255),
             'created_at' => date('Y-m-d H:i:s'),
         ));
-        return array('ok' => true, 'amount' => $charge, 'clawback_ok' => (bool) $clawback_ok);
     }
 
     /** Record a Stripe dispute (chargeback) and suspend the associated account. Idempotent. Returns the suspended user id, or 0. */

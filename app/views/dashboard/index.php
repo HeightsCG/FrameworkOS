@@ -124,10 +124,11 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
     $offerings = array(
         array('Pay-per-view', (int) $rev['ppv_cents'],     'fa-unlock'),
         array('Bundles',      (int) $rev['bundle_cents'],  'fa-layer-group'),
+        array('Messages',     (int) $rev['message_cents'], 'fa-envelope'),
         array('Events',       (int) $rev['event_cents'],   'fa-calendar-days'),
         array('Services',     (int) $rev['service_cents'], 'fa-briefcase'),
     );
-    $rev_max = max(1, (int) $rev['ppv_cents'], (int) $rev['bundle_cents'], (int) $rev['event_cents'], (int) $rev['service_cents']);
+    $rev_max = max(1, (int) $rev['ppv_cents'], (int) $rev['bundle_cents'], (int) $rev['message_cents'], (int) $rev['event_cents'], (int) $rev['service_cents']);
     $sale_tag = array('ppv' => 'PPV', 'bundle' => 'Bundle', 'event' => 'Event', 'service' => 'Service');
     ?>
     <section class="dash__tab-panel is-active" data-panel="revenue">

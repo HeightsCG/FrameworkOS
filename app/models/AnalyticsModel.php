@@ -51,27 +51,42 @@ class AnalyticsModel extends Model {
     }
 
     /**
-     * Net revenue split by offering (PRD §41.1 "revenue by offering"), from the credit
-     * ledger's creator-earning rows. Every earning is already net of the platform fee.
+     * The creator's revenue rows in the credit ledger: every sale's earning (already net of the platform fee) and every
+     * refund's clawback (a negative refund_reversal). Revenue = their sum, so refunds come off what was earned.
+     */
+    const REVENUE_TYPES = "('ppv_earning','bundle_earning','message_earning','event_earning','service_earning','refund_reversal')";
+
+    /**
+     * Which offering a revenue row belongs to. A clawback carries no reference, but its description is written by the
+     * refund code and names the item ("Refund reversal: event ticket"), so it comes off the right offering.
+     */
+    const REVENUE_OFFERING = "CASE type
+            WHEN 'ppv_earning' THEN 'ppv' WHEN 'bundle_earning' THEN 'bundle' WHEN 'message_earning' THEN 'message'
+            WHEN 'event_earning' THEN 'event' WHEN 'service_earning' THEN 'service'
+            ELSE CASE WHEN description LIKE '%pay-per-view%' THEN 'ppv' WHEN description LIKE '%bundle%' THEN 'bundle'
+                      WHEN description LIKE '%message%' THEN 'message' WHEN description LIKE '%event%' THEN 'event'
+                      WHEN description LIKE '%service%' THEN 'service' ELSE 'other' END END";
+
+    /**
+     * Net revenue split by offering (PRD §41.1 "revenue by offering"): earnings net of the platform fee, minus refunds.
      * 1 credit = 10 cents ($1 = 10 credits). Pass $start_utc to scope to a date range.
      */
     public function revenue_breakdown($creator_id, $start_utc = null){
         $params = array('c' => (int) $creator_id);
-        $where  = "user_id = :c AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')";
+        $where  = "user_id = :c AND type IN " . self::REVENUE_TYPES;
         if ($start_utc !== null) { $where .= " AND created_at >= :start"; $params['start'] = $start_utc; }
         $rows = parent::select(
-            "SELECT type, COALESCE(SUM(credits),0) AS credits FROM credit_transactions WHERE $where GROUP BY type",
+            "SELECT " . self::REVENUE_OFFERING . " AS k, COALESCE(SUM(credits),0) AS credits FROM credit_transactions WHERE $where GROUP BY k",
             $params);
-        $m = array('ppv_earning' => 0, 'bundle_earning' => 0, 'event_earning' => 0, 'service_earning' => 0);
-        foreach ((array) $rows as $r) { if (isset($m[$r['type']])) { $m[$r['type']] = (int) $r['credits']; } }
-        $ppv = $m['ppv_earning'] * 10; $bundle = $m['bundle_earning'] * 10;
-        $event = $m['event_earning'] * 10; $service = $m['service_earning'] * 10;
+        $m = array('ppv' => 0, 'bundle' => 0, 'message' => 0, 'event' => 0, 'service' => 0, 'other' => 0);
+        foreach ((array) $rows as $r) { if (isset($m[$r['k']])) { $m[$r['k']] = (int) $r['credits'] * 10; } }
         return array(
-            'ppv_cents'     => $ppv,
-            'bundle_cents'  => $bundle,
-            'event_cents'   => $event,
-            'service_cents' => $service,
-            'total_cents'   => $ppv + $bundle + $event + $service,
+            'ppv_cents'     => $m['ppv'],
+            'bundle_cents'  => $m['bundle'],
+            'message_cents' => $m['message'],
+            'event_cents'   => $m['event'],
+            'service_cents' => $m['service'],
+            'total_cents'   => array_sum($m),
         );
     }
 
@@ -98,7 +113,7 @@ class AnalyticsModel extends Model {
             "SELECT DATE(CONVERT_TZ(created_at, '+00:00', :off)) AS d, COALESCE(SUM(credits),0) * 10 AS n
              FROM credit_transactions
              WHERE user_id = :c AND created_at >= :start
-               AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')
+               AND type IN " . self::REVENUE_TYPES . "
              GROUP BY d",
             array('c' => (int) $creator_id, 'off' => $off, 'start' => $start_utc));
         return $this->fill_days($rows, $start, $days);
@@ -229,7 +244,7 @@ class AnalyticsModel extends Model {
         $p = array('c' => $c, 's' => $start_utc, 'e' => $end_utc);
         $rev = parent::select(
             "SELECT COALESCE(SUM(credits),0) * 10 AS n FROM credit_transactions
-             WHERE user_id = :c AND type IN ('ppv_earning','bundle_earning','event_earning','service_earning')
+             WHERE user_id = :c AND type IN " . self::REVENUE_TYPES . "
                AND created_at >= :s AND created_at < :e", $p);
         $views = parent::select(
             "SELECT COUNT(*) AS n FROM post_views pv JOIN posts po ON po.id = pv.post_id
@@ -464,7 +479,7 @@ class AnalyticsModel extends Model {
                 SELECT pu.price_credits AS credits FROM ppv_unlocks pu WHERE pu.creator_id = :c1 AND pu.created_at >= :s1
                 UNION ALL SELECT bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.created_at >= :s2
                 UNION ALL SELECT mu.price_credits FROM message_unlocks mu WHERE mu.creator_id = :c3 AND mu.created_at >= :s3
-                UNION ALL SELECT er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c4 AND er.status = 'registered' AND er.created_at >= :s4
+                UNION ALL SELECT er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c4 AND er.status <> 'refunded' AND er.created_at >= :s4
                 UNION ALL SELECT sp.price_credits FROM service_purchases sp JOIN services sv ON sv.id = sp.service_id WHERE sv.creator_id = :c5 AND sp.status = 'paid' AND sp.created_at >= :s5
              ) x",
             array('c1' => $c, 's1' => $s, 'c2' => $c, 's2' => $s, 'c3' => $c, 's3' => $s, 'c4' => $c, 's4' => $s, 'c5' => $c, 's5' => $s));
@@ -491,7 +506,7 @@ class AnalyticsModel extends Model {
                 UNION ALL
                 SELECT 'event', er.price_credits, er.created_at, e.title COLLATE utf8mb4_unicode_ci
                   FROM event_registrations er JOIN events e ON e.id = er.event_id
-                  WHERE e.creator_id = :c3 AND er.status = 'registered' AND er.price_credits > 0
+                  WHERE e.creator_id = :c3 AND er.status <> 'refunded' AND er.price_credits > 0
                 UNION ALL
                 SELECT 'service', sp.price_credits, sp.created_at, s.name COLLATE utf8mb4_unicode_ci
                   FROM service_purchases sp JOIN services s ON s.id = sp.service_id
@@ -509,7 +524,7 @@ class AnalyticsModel extends Model {
                 UNION ALL
                 SELECT bu.fan_id, bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.price_credits > 0
                 UNION ALL
-                SELECT er.user_id, er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c3 AND er.status = 'registered' AND er.price_credits > 0
+                SELECT er.user_id, er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c3 AND er.status <> 'refunded' AND er.price_credits > 0
                 UNION ALL
                 SELECT sp.buyer_id, sp.price_credits FROM service_purchases sp JOIN services s ON s.id = sp.service_id WHERE s.creator_id = :c4 AND sp.status = 'paid' AND sp.price_credits > 0
              ) x GROUP BY buyer",

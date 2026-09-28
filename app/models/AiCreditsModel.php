@@ -189,9 +189,16 @@ class AiCreditsModel extends Model {
     /** Give back the credits a failed run took, once per $key (a job or asset can fail more than once). */
     public function refund_once($user_id, $credits, $key){
         $desc = 'Refund: ' . (string) $key;
-        $r = parent::select("SELECT id FROM ai_credit_transactions WHERE user_id = :u AND type = 'refund' AND description = :d LIMIT 1", array('u' => (int) $user_id, 'd' => $desc));
-        if (is_array($r) && count($r)) { return false; }
-        return $this->apply_delta($user_id, (int) $credits, 'refund', $desc);
+        // A named lock makes check-then-refund atomic: two workers failing the same job can't both refund it.
+        $lock = 'ai_refund:' . (int) $user_id . ':' . substr(md5($desc), 0, 16);
+        $got  = parent::select("SELECT GET_LOCK(:k, 5) AS l", array('k' => $lock));
+        try {
+            $r = parent::select("SELECT id FROM ai_credit_transactions WHERE user_id = :u AND type = 'refund' AND description = :d LIMIT 1", array('u' => (int) $user_id, 'd' => $desc));
+            if (is_array($r) && count($r)) { return false; }
+            return $this->apply_delta($user_id, (int) $credits, 'refund', $desc);
+        } finally {
+            if (!empty($got[0]['l'])) { parent::select("SELECT RELEASE_LOCK(:k) AS r", array('k' => $lock)); }
+        }
     }
 
     /** The two buckets and the rest, for the billing page. */

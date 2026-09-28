@@ -212,12 +212,15 @@ class EventsModel extends Model {
             'id = :id', array('id' => (int) $claim['id']));
     }
 
-    /** Sales for the event page: going count, gross + net of going tickets, refunds. Credits. */
+    /**
+     * Sales for the event page: going count, gross + net of sold tickets, refunds. Credits. A ticket is a sale unless it
+     * was refunded: someone who canceled after the start (or was removed) doesn't come, but the creator keeps the money.
+     */
     public function stats($event_id){
         $r = parent::select("SELECT
                 COALESCE(SUM(status = 'registered'), 0) AS going,
-                COALESCE(SUM(CASE WHEN status = 'registered' THEN price_credits END), 0) AS gross,
-                COALESCE(SUM(CASE WHEN status = 'registered' THEN net_credits END), 0) AS net,
+                COALESCE(SUM(CASE WHEN status <> 'refunded' THEN price_credits END), 0) AS gross,
+                COALESCE(SUM(CASE WHEN status <> 'refunded' THEN net_credits END), 0) AS net,
                 COALESCE(SUM(status = 'refunded'), 0) AS refunded_n,
                 COALESCE(SUM(CASE WHEN status = 'refunded' THEN price_credits END), 0) AS refunded_credits
              FROM event_registrations WHERE event_id = :e", array('e' => (int) $event_id));

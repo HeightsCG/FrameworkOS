@@ -29,15 +29,26 @@ class AdminModel extends Model {
              FROM media_assets WHERE deleted_at IS NULL AND type IN ('image', 'video')");
         $mod   = (is_array($mod) && count($mod)) ? $mod[0] : array('pend' => 0, 'flag' => 0, 'blocked' => 0);
 
-        // Money. Credits are $0.10 each, so gross cents = price_credits * 10.
-        // Platform take on PPV is exact (gross − creator net, which is stored per post);
-        // for bundles we apply the default platform fee (no per-row net is recorded).
-        $fee          = Main::platform_fee_percent();
-        $ppv_gross    = (int) $this->scalar("SELECT COALESCE(SUM(price_credits),0)*10 AS n FROM ppv_unlocks");
-        $ppv_net      = (int) $this->scalar("SELECT COALESCE(SUM(earnings_cents),0) AS n FROM posts");
-        $bundle_gross = (int) $this->scalar("SELECT COALESCE(SUM(price_credits),0)*10 AS n FROM bundle_unlocks");
-        $mrr          = (int) $subs['mrr'];
-        $platform_cents = max(0, $ppv_gross - $ppv_net) + (int) round($bundle_gross * $fee / 100);
+        // Money. Credits are $0.10 each, so gross cents = price_credits * 10. Every sale row stores the creator's cut
+        // (net_credits, at their plan's rate), so the platform take is exact; rows from before that column existed
+        // (net 0 on a paid sale) fall back to the default fee.
+        $fee   = Main::platform_fee_percent();
+        $gross = 0; $platform_cents = 0;
+        foreach (array('ppv_unlocks', 'bundle_unlocks', 'message_unlocks', 'event_registrations', 'service_purchases') as $tbl) {
+            $r = parent::select("SELECT COALESCE(SUM(price_credits),0) AS g,
+                    COALESCE(SUM(price_credits - IF(net_credits > 0, net_credits, ROUND(price_credits * (100 - :f) / 100))),0) AS p
+                 FROM $tbl WHERE price_credits > 0", array('f' => $fee));
+            $gross += (int) ($r[0]['g'] ?? 0) * 10;
+            $platform_cents += max(0, (int) ($r[0]['p'] ?? 0)) * 10;
+        }
+        $mrr = (int) $subs['mrr'];
+        // Membership fees go to the creator minus their plan's application fee.
+        $sub_fee = 0;
+        $users = new UsersModel();
+        foreach ((array) parent::select("SELECT creator_id, COALESCE(SUM(price_cents),0) AS c FROM creator_subscriptions WHERE status = 'active' GROUP BY creator_id") as $r) {
+            $u = $users->get_user_by_id((int) $r['creator_id']);
+            $sub_fee += (int) round((int) $r['c'] * ((is_array($u) && count($u) === 1) ? Plan::fee_percent($u[0]) : $fee) / 100);
+        }
 
         return array(
             'users'          => (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0"),
@@ -45,8 +56,8 @@ class AdminModel extends Model {
             'active_subs'    => (int) $subs['n'],
             'mrr_cents'      => $mrr,
             'platform_cents' => $platform_cents,                          // all-time platform take on one-time sales
-            'gross_cents'    => $ppv_gross + $bundle_gross,               // gross transaction volume (PPV + bundles)
-            'sub_fee_cents'  => (int) round($mrr * $fee / 100),           // platform's recurring cut of subscriptions (monthly)
+            'gross_cents'    => $gross,                                   // gross one-time sales (PPV, bundles, messages, events, services)
+            'sub_fee_cents'  => $sub_fee,                                 // platform's recurring cut of subscriptions (monthly, per creator's plan)
             'mod_pending'    => (int) $mod['pend'],
             'mod_flagged'    => (int) $mod['flag'],
             'mod_blocked'    => (int) $mod['blocked'],
@@ -55,7 +66,7 @@ class AdminModel extends Model {
 
     /**
      * Platform financials from the source ledgers (not per-post totals, which go stale when posts are deleted).
-     * Credits are $0.10 each (10 cents); AI credits are $1 each. $plan_prices: tier key => monthly price in cents.
+     * Wallet credits and AI credits are both $0.10 each (10 cents). $plan_prices: tier key => monthly price in cents.
      * Returns cents throughout.
      */
     public function financials(array $plan_prices){
@@ -96,7 +107,7 @@ class AdminModel extends Model {
         }
 
         $ai_n  = (int) $this->scalar("SELECT COUNT(*) AS n FROM ai_credit_transactions WHERE type = 'purchase'");
-        $ai_cents = (int) $this->scalar("SELECT COALESCE(SUM(credits),0)*100 AS n FROM ai_credit_transactions WHERE type = 'purchase'");
+        $ai_cents = (int) $this->scalar("SELECT COALESCE(SUM(credits),0) * (100 / " . (int) PlanTiers::AI_CREDITS_PER_DOLLAR . ") AS n FROM ai_credit_transactions WHERE type = 'purchase'");
         $held  = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0");
         $held_creators = (int) $this->scalar("SELECT COALESCE(SUM(credit_balance),0)*10 AS n FROM user_accounts WHERE deleted = 0 AND role_id = :r", array('r' => $this->creator_role_id()));
         $cb    = parent::select("SELECT COUNT(*) AS n, COALESCE(SUM(amount_cents),0) AS amt FROM chargebacks");
@@ -163,7 +174,7 @@ class AdminModel extends Model {
             $keys[$r['b']]['refunds'] += (int) $r['amt'] * 10;
         }
         foreach ((array) parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, SUM(credits) AS c FROM ai_credit_transactions WHERE type = 'purchase' AND created_at >= :s GROUP BY b", array('s' => $since)) as $r) {
-            if (isset($keys[$r['b']])) { $keys[$r['b']]['ai'] += (int) $r['c'] * 100; }
+            if (isset($keys[$r['b']])) { $keys[$r['b']]['ai'] += (int) $r['c'] * (int) (100 / PlanTiers::AI_CREDITS_PER_DOLLAR); }
         }
         $out = array();
         foreach ($keys as $k => $v) {

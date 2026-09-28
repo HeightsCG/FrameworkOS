@@ -52,8 +52,22 @@ class MediaVideoJob {
             if (!empty($payload['auto_post'])) { AutoPostService::finish_video($cid, (array) $payload['auto_post'], 0, $why); }
             return 'FAIL ' . $why;
         };
+        // Anything unexpected (fal, S3, the database) fails the video once, with its credits back, instead of bubbling to
+        // the queue, which would retry and then drop the job with the credits kept and the tile stuck on 'processing'.
+        try {
+            return self::run($payload, $cid, $aid, $media, $fail);
+        } catch (\Throwable $e) {
+            error_log('[media_video] asset ' . $aid . ': ' . $e->getMessage());
+            return $fail('The video failed. Your AI credits were returned.');
+        }
+    }
+
+    private static function run(array $payload, $cid, $aid, MediaAssetsModel $media, $fail): string {
         $asset = $media->get_one($cid, $aid);
-        if (!$asset) { return 'SKIP asset gone'; }
+        if (!$asset) {   // deleted while it rendered: nothing to fill, but the credits go back
+            if ((int) ($payload['credits'] ?? 0) > 0) { (new AiCreditsModel())->refund_once($cid, (int) $payload['credits'], 'video #' . $aid); }
+            return 'SKIP asset gone (refunded)';
+        }
         if ((string) $asset['status'] === 'ready') { return 'OK already landed'; }
         $model = InfluencerConfig::resolve_model('video', (string) ($payload['model_key'] ?? ''));
         if (!$model) { return $fail('No video model is configured.'); }
@@ -73,13 +87,17 @@ class MediaVideoJob {
                 $tries = (int) ($payload['unavailable'] ?? 0);
                 if (($r['error_code'] ?? '') === 'unavailable' && $tries < 3) {
                     $payload['unavailable'] = $tries + 1;
-                    (new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + 60 * ($tries + 1)));
-                    return 'RETRY unavailable ' . ($tries + 1);
+                    if ((new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + 60 * ($tries + 1))) > 0) {
+                        return 'RETRY unavailable ' . ($tries + 1);
+                    }
                 }
                 return $fail(($r['error_code'] ?? '') === 'unavailable' ? FalProvider::UNAVAILABLE : 'The video could not be started: ' . ($r['error'] ?? 'unknown error'));
             }
             $payload['handle'] = $r['handle']; $payload['polls'] = 0;
-            (new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + self::POLL_SECONDS));
+            if ((new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + self::POLL_SECONDS)) <= 0) {
+                FalProvider::cancel((array) $payload['handle']);
+                return $fail('The video could not be tracked. Try again.');
+            }
             return 'SUBMITTED ' . $r['handle']['provider_job_id'];
         }
 
@@ -89,7 +107,10 @@ class MediaVideoJob {
         if ($st['state'] !== 'completed') {
             $payload['polls'] = (int) ($payload['polls'] ?? 0) + 1;
             if ($payload['polls'] > self::MAX_POLLS) { FalProvider::cancel((array) $payload['handle']); return $fail('The video took too long. Try again.'); }
-            (new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + self::POLL_SECONDS));
+            if ((new DatabaseJobQueue())->dispatch('media_video', $payload, null, gmdate('Y-m-d H:i:s', time() + self::POLL_SECONDS)) <= 0) {
+                FalProvider::cancel((array) $payload['handle']);
+                return $fail('The video could not be tracked. Try again.');
+            }
             return 'WAITING ' . $payload['polls'];
         }
 
