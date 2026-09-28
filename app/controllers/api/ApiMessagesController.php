@@ -205,14 +205,12 @@ class ApiMessagesController extends BaseApiController {
         if (!$unlocks->record($mid, $creator_id, $viewer, $price)) {
             $this->jsonSuccess(['already' => true, 'message' => $this->shape([$msg], $viewer, $conv)[0], 'balance' => $balance]);
         }
-        if ($credits->apply_delta($viewer, -$price, 'message_unlock', 'Unlocked a message') === false) {
+        $net = $this->creator_net($creator_id, $price);   // charged and paid in one transaction
+        if ($credits->pay($viewer, $price, 'message_unlock', 'Unlocked a message', $creator_id, $net, 'message_earning', 'Message unlock') === false) {
             $unlocks->remove($mid, $viewer);
             $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
-        $creator_row = $this->userModel->get_user_by_id($creator_id);
-        $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
-        $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
-        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'message_earning', 'Message unlock'); $unlocks->set_net($mid, $viewer, $net); }
+        if ($net > 0) { $unlocks->set_net($mid, $viewer, $net); }
         $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];
         $this->notify($creator_id, 'purchases', 'New message unlock',
             $who['name'] . ' unlocked your message for ' . Notify::credits($price) . '.', '/inbox/thread/' . (int) $conv['id'], 'fa-coins');

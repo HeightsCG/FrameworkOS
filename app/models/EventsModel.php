@@ -190,25 +190,26 @@ class EventsModel extends Model {
         } catch (\PDOException $ex) {
             if ((string) $ex->getCode() !== '23000') { throw $ex; }
         }
-        $row = parent::select("SELECT id, status, price_credits, net_credits FROM event_registrations WHERE event_id = :e AND user_id = :u", array('e' => $e, 'u' => $u));
+        $row = parent::select("SELECT id, status, price_credits, net_credits, earning_released_at FROM event_registrations WHERE event_id = :e AND user_id = :u", array('e' => $e, 'u' => $u));
         if (!is_array($row) || count($row) !== 1) { return null; }
         $prev = (string) $row[0]['status'];
         if (!in_array($prev, array('canceled', 'refunded', 'removed'), true)) { return null; }   // already registered
         // Only a self-canceled paid seat is still paid for; a refunded or removed one is charged fresh.
         $data = array('status' => 'registered');
-        if ($prev !== 'canceled') { $data += array('price_credits' => 0, 'net_credits' => 0); }
+        if ($prev !== 'canceled') { $data += array('price_credits' => 0, 'net_credits' => 0, 'earning_released_at' => null); }   // a new sale, paid out after the event
         $n = parent::update('event_registrations', $data, 'id = :id AND status = :prev', array('id' => (int) $row[0]['id'], 'prev' => $prev));
         if ($n < 1) { return null; }   // a concurrent request won
         return array('id' => (int) $row[0]['id'], 'fresh' => false, 'prev' => $prev,
                      'prior_paid' => $prev === 'canceled' ? (int) $row[0]['price_credits'] : 0,
-                     'prev_paid' => (int) $row[0]['price_credits'], 'prev_net' => (int) $row[0]['net_credits']);
+                     'prev_paid' => (int) $row[0]['price_credits'], 'prev_net' => (int) $row[0]['net_credits'], 'prev_released' => $row[0]['earning_released_at']);
     }
 
     /** Undo a claim whose payment failed: drop a fresh row, or put a reactivated one back as it was. */
     public function release_registration(array $claim){
         if (!empty($claim['fresh'])) { return parent::delete('event_registrations', 'id = :id', 1, array('id' => (int) $claim['id'])); }
         return parent::update('event_registrations',
-            array('status' => (string) ($claim['prev'] ?? 'canceled'), 'price_credits' => (int) ($claim['prev_paid'] ?? 0), 'net_credits' => (int) ($claim['prev_net'] ?? 0)),
+            array('status' => (string) ($claim['prev'] ?? 'canceled'), 'price_credits' => (int) ($claim['prev_paid'] ?? 0), 'net_credits' => (int) ($claim['prev_net'] ?? 0),
+                  'earning_released_at' => $claim['prev_released'] ?? null),
             'id = :id', array('id' => (int) $claim['id']));
     }
 
@@ -356,6 +357,22 @@ class EventsModel extends Model {
     public function message_count($event_id){
         $r = parent::select("SELECT COUNT(*) AS n FROM event_messages WHERE event_id = :e", array('e' => (int) $event_id));
         return (int) ((is_array($r) && count($r)) ? $r[0]['n'] : 0);
+    }
+
+    /** Paid tickets for events that have ended whose creator share hasn't been paid out yet (EventEarnings). */
+    public function earnings_due($limit = 500){
+        return (array) parent::select(
+            "SELECT r.id, r.event_id, e.creator_id, e.title, r.net_credits FROM event_registrations r JOIN events e ON e.id = r.event_id
+             WHERE r.status <> 'refunded' AND r.net_credits > 0 AND r.earning_released_at IS NULL
+               AND COALESCE(e.end_at, e.start_at) <= UTC_TIMESTAMP()
+             ORDER BY r.id LIMIT " . max(1, (int) $limit));
+    }
+
+    /** A creator's ticket earnings still waiting for their events to end (credits), for the Cash Out tab. */
+    public function pending_earnings($creator_id){
+        $r = parent::select("SELECT COALESCE(SUM(r.net_credits), 0) AS n FROM event_registrations r JOIN events e ON e.id = r.event_id
+             WHERE e.creator_id = :c AND r.status <> 'refunded' AND r.net_credits > 0 AND r.earning_released_at IS NULL", array('c' => (int) $creator_id));
+        return (int) ($r[0]['n'] ?? 0);
     }
 
     public function set_paid($registration_id, $price_credits, $net_credits = 0){

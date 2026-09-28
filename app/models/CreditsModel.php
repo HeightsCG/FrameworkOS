@@ -1,9 +1,6 @@
 <?php
 class CreditsModel extends Model {
 
-    /** Days a sale's earning is held before it can be cashed out, so a credit refund can still be taken back. */
-    const HOLD_DAYS = 7;
-
     /**
      * Ledger types allowed to take a wallet below zero. A refund's clawback is owed in full even when the credits were
      * already spent or cashed out; the negative balance is a debt that future earnings or top-ups repay.
@@ -58,13 +55,12 @@ class CreditsModel extends Model {
      * Purchased credits are spendable but never withdrawable (card-to-bank laundering).
      */
     public function withdrawable($user_id){
-        // Earnings count once they are older than HOLD_DAYS (so a refund can still be taken back);
-        // reversals, payouts and returned payouts always count. Capped at the balance, never below zero.
+        // Earned credits (sales, less clawbacks, payouts and returned payouts), capped at the balance, never below zero.
+        // Content sales are final, and event earnings only arrive after the event, so nothing needs holding back.
         $rows = parent::select(
-            "SELECT COALESCE(SUM(CASE WHEN type LIKE '%\\_earning' AND created_at > :cut THEN 0 ELSE credits END), 0) AS net
-             FROM credit_transactions
+            "SELECT COALESCE(SUM(credits), 0) AS net FROM credit_transactions
              WHERE user_id = :u AND (type LIKE '%\\_earning' OR type IN ('refund_reversal', 'payout', 'payout_refund'))",
-            array('u' => (int) $user_id, 'cut' => date('Y-m-d H:i:s', time() - self::HOLD_DAYS * 86400))
+            array('u' => (int) $user_id)
         );
         $net = (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['net'] : 0;
         return max(0, min($net, (int) $this->get_balance($user_id)));
@@ -85,16 +81,6 @@ class CreditsModel extends Model {
         } finally {
             parent::select("SELECT RELEASE_LOCK(:k) AS r", array('k' => $lock));
         }
-    }
-
-    /** Earnings still inside the hold (credits), and when the oldest of them becomes available. */
-    public function held_earnings($user_id): array{
-        $rows = parent::select(
-            "SELECT COALESCE(SUM(credits), 0) AS n, MIN(created_at) AS oldest FROM credit_transactions
-             WHERE user_id = :u AND type LIKE '%\\_earning' AND created_at > :cut",
-            array('u' => (int) $user_id, 'cut' => date('Y-m-d H:i:s', time() - self::HOLD_DAYS * 86400)));
-        $r = (is_array($rows) && count($rows) === 1) ? $rows[0] : array('n' => 0, 'oldest' => null);
-        return array('credits' => (int) $r['n'], 'next_at' => $r['oldest'] ? date('Y-m-d H:i:s', strtotime((string) $r['oldest']) + self::HOLD_DAYS * 86400) : null);
     }
 
     /** Cash-out history (the 'payout' ledger rows), shaped for the Payouts view. */
@@ -130,11 +116,6 @@ class CreditsModel extends Model {
         );
     }
 
-    /**
-     * Credit a completed purchase, idempotent by Stripe PaymentIntent id.
-     * Returns the new balance. If the PaymentIntent was already recorded, this is
-     * a no-op and returns the current balance.
-     */
     public function has_payment_intent($payment_intent_id){
         $r = parent::select("SELECT id FROM credit_transactions WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => (string) $payment_intent_id));
         return is_array($r) && count($r) === 1;
@@ -146,6 +127,11 @@ class CreditsModel extends Model {
             'stripe_payment_intent_id = :pi AND paid_cents IS NULL', array('pi' => (string) $payment_intent_id));
     }
 
+    /**
+     * Credit a completed purchase, idempotent by Stripe PaymentIntent id.
+     * Returns the new balance. If the PaymentIntent was already recorded, this is
+     * a no-op and returns the current balance.
+     */
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'Credit purchase'){
         $user_id = (int) $user_id;
         $credits = (int) $credits;
@@ -221,6 +207,80 @@ class CreditsModel extends Model {
             AutoReplenishService::after_debit($user_id, $new_balance);
         }
         return $new_balance;
+    }
+
+    /**
+     * A sale in one transaction: take $charge from the buyer and give the creator their $net share, so the buyer is
+     * never charged without the creator being paid (or the reverse). Both wallets are locked in user-id order, so two
+     * sales at once can't deadlock. Returns the buyer's new balance, or false (not enough funds, or nothing written).
+     */
+    public function pay($buyer_id, $charge, $spend_type, $spend_desc, $creator_id, $net, $earn_type, $earn_desc){
+        $buyer_id = (int) $buyer_id; $creator_id = (int) $creator_id; $charge = (int) $charge; $net = max(0, (int) $net);
+        if ($charge <= 0 || $buyer_id === $creator_id) { return false; }
+        $this->db->beginTransaction();
+        try {
+            $ids = array_unique(array($buyer_id, $creator_id)); sort($ids);
+            $bal = array();
+            $sel = $this->db->prepare("SELECT credit_balance FROM user_accounts WHERE user_id = :u FOR UPDATE");
+            foreach ($ids as $id) {
+                $sel->bindValue(':u', $id, PDO::PARAM_INT); $sel->execute();
+                $row = $sel->fetch(PDO::FETCH_ASSOC);
+                if (!$row) { $this->db->rollBack(); return false; }
+                $bal[$id] = (int) $row['credit_balance'];
+            }
+            if ($bal[$buyer_id] < $charge) { $this->db->rollBack(); return false; }
+            $buyer_after = $bal[$buyer_id] - $charge;
+            $this->write_row($buyer_id, -$charge, $buyer_after, $spend_type, $spend_desc);
+            if ($net > 0) { $this->write_row($creator_id, $net, $bal[$creator_id] + $net, $earn_type, $earn_desc); }
+            $this->db->commit();
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
+            error_log('[credits] pay failed: ' . $e->getMessage());
+            return false;
+        }
+        if (class_exists('AutoReplenishService')) { AutoReplenishService::after_debit($buyer_id, $buyer_after); }
+        return $buyer_after;
+    }
+
+    /**
+     * Pay the creator their share of one event ticket, once the event is over. One transaction: the registration row
+     * is locked and must be a paid, unreleased ticket that wasn't refunded (someone who canceled after the start or was
+     * removed doesn't get their money back, so the creator is paid for it), so a refund at the same moment and a second
+     * run can't both happen. Returns the credits paid (0 when there was nothing to pay).
+     */
+    public function release_event_earning($registration_id){
+        $this->db->beginTransaction();
+        try {
+            $sel = $this->db->prepare("SELECT r.id, r.net_credits, e.creator_id FROM event_registrations r JOIN events e ON e.id = r.event_id
+                WHERE r.id = :id AND r.status <> 'refunded' AND r.earning_released_at IS NULL AND r.net_credits > 0 FOR UPDATE");
+            $sel->execute(array(':id' => (int) $registration_id));
+            $reg = $sel->fetch(PDO::FETCH_ASSOC);
+            if (!$reg) { $this->db->rollBack(); return 0; }
+            $u = $this->db->prepare("SELECT credit_balance FROM user_accounts WHERE user_id = :u FOR UPDATE");
+            $u->execute(array(':u' => (int) $reg['creator_id']));
+            $row = $u->fetch(PDO::FETCH_ASSOC);
+            if (!$row) { $this->db->rollBack(); return 0; }
+            $net = (int) $reg['net_credits'];
+            $this->write_row((int) $reg['creator_id'], $net, (int) $row['credit_balance'] + $net, 'event_earning', 'Event ticket');
+            $this->db->prepare("UPDATE event_registrations SET earning_released_at = :now WHERE id = :id")->execute(array(':now' => date('Y-m-d H:i:s'), ':id' => (int) $reg['id']));
+            $this->db->commit();
+            return $net;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
+            error_log('[credits] release_event_earning ' . (int) $registration_id . ': ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /** Inside an open transaction: set a wallet's balance and write its ledger row. */
+    private function write_row($user_id, $credits, $balance_after, $type, $description){
+        $now = date('Y-m-d H:i:s');
+        $upd = $this->db->prepare("UPDATE user_accounts SET credit_balance = :bal, updated_at = :now WHERE user_id = :u");
+        $upd->execute(array(':bal' => (int) $balance_after, ':now' => $now, ':u' => (int) $user_id));
+        $ins = $this->db->prepare("INSERT INTO credit_transactions (user_id, type, credits, balance_after, description, created_at)
+                                   VALUES (:u, :type, :credits, :bal, :description, :now)");
+        $ins->execute(array(':u' => (int) $user_id, ':type' => (string) $type, ':credits' => (int) $credits, ':bal' => (int) $balance_after,
+                            ':description' => (string) $description, ':now' => $now));
     }
 
     /** True when an auto top-up was attempted in the last $minutes (guards against charging twice). */

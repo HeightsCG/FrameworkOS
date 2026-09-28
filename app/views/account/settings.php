@@ -600,6 +600,13 @@
                                 <span class="payout-balance__value">$<?php echo number_format($pb['pending'] / 100, 2); ?></span>
                                 <span class="payout-balance__sub">on the way to your bank</span>
                             </div>
+                            <?php if ((int) ($pb['events_pending'] ?? 0) > 0): ?>
+                            <div class="payout-balance__cell">
+                                <span class="payout-balance__label">From upcoming events</span>
+                                <span class="payout-balance__value">$<?php echo number_format($pb['events_pending'] / 100, 2); ?></span>
+                                <span class="payout-balance__sub">added after each event</span>
+                            </div>
+                            <?php endif; ?>
                         </div>
                         <div class="payout-actions">
                             <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash Out</button>

@@ -70,6 +70,14 @@ try {
     error_log('[scheduler] event reminders failed: ' . $e->getMessage());
 }
 
+// Event ticket earnings: paid to the creator once the event has ended.
+try {
+    $n = EventEarnings::run(500);
+    if ($n > 0) { fwrite(STDOUT, date('c') . " event earnings paid for {$n} event(s)\n"); }
+} catch (\Throwable $e) {
+    error_log('[scheduler] event earnings failed: ' . $e->getMessage());
+}
+
 $now = gmdate('Y-m-d H:i:s');
 $due = $rulesM->due_rules($now);
 if (empty($due)) { exit(0); }

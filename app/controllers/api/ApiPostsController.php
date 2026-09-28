@@ -323,19 +323,14 @@ class ApiPostsController extends BaseApiController {
             if ($promo) { $promos->unredeem((int) $promo['id']); }
             $this->jsonSuccess(['already' => true, 'assets' => $this->ppv_reveal_assets($post)]);
         }
-        if ($credits->apply_delta($viewer, -$charge, 'ppv_unlock', 'Unlocked a post') === false) {
+        // Charge the fan and pay the creator their share (net of their plan's platform fee) in one transaction.
+        $net = $this->creator_net($creator_id, $charge);
+        if ($credits->pay($viewer, $charge, 'ppv_unlock', 'Unlocked a post', $creator_id, $net, 'ppv_earning', 'Pay-per-view unlock') === false) {
             $unlocks->remove($post_id, $viewer);
             if ($promo) { $promos->unredeem((int) $promo['id']); }
             $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $charge]);
         }
-
-        // Pay the creator their share (net of the platform fee — tiered by the creator's
-        // plan) and record per-post revenue.
-        $creator_row = $this->userModel->get_user_by_id($creator_id);
-        $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
-        $net = (int) round($charge * (100 - Plan::fee_percent($creator_row)) / 100);
         if ($net > 0) {
-            $credits->apply_delta($creator_id, $net, 'ppv_earning', 'Pay-per-view unlock');
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
             $unlocks->set_net($post_id, $viewer, $net);
         }
@@ -400,19 +395,15 @@ class ApiPostsController extends BaseApiController {
         if (!$model->record_unlock($bundle_id, $creator_id, $viewer, $price)) {
             $this->jsonSuccess(['already' => true, 'message' => 'You already own this bundle.']);
         }
-        if ($credits->apply_delta($viewer, -$price, 'bundle_unlock', 'Unlocked a content bundle') === false) {
+        // Charge the fan and pay the creator net of the tiered platform fee, in one transaction.
+        $net = $this->creator_net($creator_id, $price);
+        if ($credits->pay($viewer, $price, 'bundle_unlock', 'Unlocked a content bundle', $creator_id, $net, 'bundle_earning', 'Content bundle purchase') === false) {
             $model->remove_unlock($bundle_id, $viewer);
             $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
-
         // The bundle_unlocks row is the grant — the media now appears in the fan's
         // Purchases (which reads bundle_unlocks). No post unlocking involved.
-
-        // Pay the creator net of the tiered platform fee.
-        $creator_row = $this->userModel->get_user_by_id($creator_id);
-        $creator_row = (is_array($creator_row) && count($creator_row) === 1) ? $creator_row[0] : null;
-        $net = (int) round($price * (100 - Plan::fee_percent($creator_row)) / 100);
-        if ($net > 0) { $credits->apply_delta($creator_id, $net, 'bundle_earning', 'Content bundle purchase'); $model->set_unlock_net($bundle_id, $viewer, $net); }
+        if ($net > 0) { $model->set_unlock_net($bundle_id, $viewer, $net); }
         $this->notify($creator_id, 'purchases', 'New bundle sale',
             'Someone purchased your bundle for ' . Notify::credits($price) . '.', '/dashboard', 'fa-coins');
         $this->notify($viewer, 'purchases', 'Bundle purchased',

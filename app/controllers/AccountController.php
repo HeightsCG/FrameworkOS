@@ -108,6 +108,7 @@ class AccountController extends Controller {
             $payout_credits = (int) $creditsModel->withdrawable($user['user_id']);   // earned credits only
             $payout_balance['available']         = $payout_credits * 10;
             $payout_balance['available_credits'] = $payout_credits;
+            $payout_balance['events_pending'] = (new EventsModel())->pending_earnings($user['user_id']) * 10;   // paid after each event
             $payouts = $creditsModel->get_payout_history($user['user_id']);
         }
 

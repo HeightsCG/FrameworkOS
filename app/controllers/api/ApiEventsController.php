@@ -116,15 +116,13 @@ class ApiEventsController extends BaseApiController {
         if ($claim === null) { $this->jsonSuccess(['already' => true, 'access' => $this->event_access($ev)]); }
         // Coming back after canceling a ticket already paid for: no second charge.
         if ($price > 0 && (int) $claim['prior_paid'] <= 0) {
+            // The fan pays now; the creator's share is stored on the ticket and paid to them after the event
+            // (EventEarnings), so canceling before the event never has to take anything back from the creator.
             if ($credits->apply_delta($me, -$price, 'event_ticket', 'Event registration') === false) {
                 $model->release_registration($claim);
                 $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
             }
-            $crow = $this->userModel->get_user_by_id($creator_id);
-            $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;
-            $net = (int) round($price * (100 - Plan::fee_percent($crow)) / 100);
-            $model->set_paid((int) $claim['id'], $price, $net);
-            if ($net > 0) { $credits->apply_delta($creator_id, $net, 'event_earning', 'Event ticket'); }
+            $model->set_paid((int) $claim['id'], $price, $this->creator_net($creator_id, $price));
         }
 
         $t = mb_substr(html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 0, 60);

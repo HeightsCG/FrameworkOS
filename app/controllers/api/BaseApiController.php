@@ -43,6 +43,13 @@ class BaseApiController extends Controller {
      * True when nothing of this seller's may be bought: the account is suspended or gone, or it has no paid plan
      * (selling needs Creator or Studio; a lapsed plan pauses sales until they pick one again).
      */
+    /** The creator's share of a sale in credits: the price less their plan's platform fee. */
+    protected function creator_net($creator_id, $credits): int {
+        $row = $this->userModel->get_user_by_id((int) $creator_id);
+        $row = (is_array($row) && count($row) === 1) ? $row[0] : null;
+        return (int) round((int) $credits * (100 - Plan::fee_percent($row)) / 100);
+    }
+
     protected function seller_suspended(int $creator_id): bool{
         $rows = $this->userModel->get_user_by_id($creator_id);
         if (!is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled') { return true; }

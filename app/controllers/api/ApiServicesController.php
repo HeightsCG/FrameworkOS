@@ -149,14 +149,11 @@ class ApiServicesController extends BaseApiController {
         $purchase_id = $model->record_purchase($id, $me, max(0, $price));
         if ($purchase_id <= 0) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }
         if ($price > 0) {
-            if ($credits->apply_delta($me, -$price, 'service_purchase', 'Service purchase') === false) {
+            $net = $this->creator_net($creator_id, $price);   // charged and paid in one transaction
+            if ($credits->pay($me, $price, 'service_purchase', 'Service purchase', $creator_id, $net, 'service_earning', 'Service sale') === false) {
                 $model->remove_purchase($purchase_id);
                 $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
             }
-            $crow = $this->userModel->get_user_by_id($creator_id);
-            $crow = (is_array($crow) && count($crow) === 1) ? $crow[0] : null;
-            $net = (int) round($price * (100 - Plan::fee_percent($crow)) / 100);
-            if ($net > 0) { $credits->apply_delta($creator_id, $net, 'service_earning', 'Service sale'); }
             $model->set_net($purchase_id, $net);   // what a refund claws back
         }
 

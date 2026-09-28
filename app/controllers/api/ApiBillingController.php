@@ -387,19 +387,14 @@ class ApiBillingController extends BaseApiController {
 
         $credits = new CreditsModel();
         $min     = 100;                                           // $10.00 minimum ($1 = 10 credits)
-        // Earned credits past the hold only (purchased credits can't be cashed out). Taken under a lock, so a
+        // Earned credits only (purchased credits can't be cashed out). Taken under a lock, so a
         // double-click or two tabs can't pay the same balance twice. Rolled back below if the transfer fails.
         $balance = $credits->debit_for_payout($creator_id, $min);
         if ($balance === false) {
             $this->jsonError('Could not start the payout. Please try again.');
         }
         if ($balance < $min) {
-            $held = $credits->held_earnings($creator_id);
-            $msg  = 'You need at least ' . Price::fmt($min) . ' available to cash out.';
-            if ($held['credits'] > 0) {
-                $msg .= ' ' . Price::fmt($held['credits']) . ' from recent sales becomes available ' . CreditsModel::HOLD_DAYS . ' days after each sale.';
-            }
-            $this->jsonError($msg);
+            $this->jsonError('You need at least ' . Price::fmt($min) . ' available to cash out.');
         }
         $cents = $balance * 10;                                   // 1 credit = 10 cents
 

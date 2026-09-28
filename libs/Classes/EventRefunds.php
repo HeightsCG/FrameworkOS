@@ -22,9 +22,13 @@ class EventRefunds {
         $fan = (int) $reg['user_id']; $creator = (int) $ev['creator_id'];
         $credits = new CreditsModel();
         $credits->apply_delta($fan, $paid, 'refund', 'Refund: event ticket');
-        $take = (int) $reg['net_credits'];   // in full; the creator's balance may go negative (repaid from future earnings)
+        // The creator is paid for a ticket after the event (EventEarnings). Re-read now that the ticket is marked refunded:
+        // if their share was already paid out, take it back in full (their balance may go negative, repaid from future
+        // earnings); if not, they never had it and it simply won't be paid.
+        $now_reg = $events->registration((int) $ev['id'], (int) $reg['id']);
+        $take = ($now_reg && $now_reg['earning_released_at'] !== null) ? (int) $reg['net_credits'] : 0;
         if ($take > 0) { $credits->apply_delta($creator, -$take, 'refund_reversal', 'Refund reversal: event ticket'); }
-        (new RefundsModel())->log('event', (int) $reg['id'], $creator, $fan, $paid, $take, $take >= (int) $reg['net_credits'],
+        (new RefundsModel())->log('event', (int) $reg['id'], $creator, $fan, $paid, $take, true,
             (int) Session::get('user_id'), $why === 'fan' ? 'Attendee canceled before the start' : ($why === 'event_canceled' ? 'Event canceled' : 'Refunded by the creator'));
 
         $t = self::title($ev);
