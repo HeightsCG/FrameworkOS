@@ -627,18 +627,26 @@ class StripeService {
 
     /**
      * Charge a saved card off-session: one PaymentIntent, confirm=true, with an idempotency key.
-     * Returns ['status' => succeeded|requires_action|failed, 'payment_intent_id', 'client_secret', 'reason'].
+     * Returns ['status' => succeeded|requires_action|processing|failed|unknown, 'payment_intent_id', 'client_secret', 'reason'].
      * requires_action: the bank wants the cardholder to authenticate; the page confirms it with client_secret.
+     * unknown: Stripe couldn't be reached, so the card may or may not have been charged. Never treat it as failed
+     * (a new attempt would charge twice); BillingService::resolve() finds the real outcome later.
      */
     public static function charge_saved_card($customer_id, $payment_method_id, $amount_cents, $description, array $metadata, $idempotency_key): array
     {
+        $params = array(
+            'amount' => (int) $amount_cents, 'currency' => (string) PlanTiers::BILLING['currency'],
+            'customer' => (string) $customer_id, 'payment_method' => (string) $payment_method_id,
+            'payment_method_types' => self::RECURRING_METHODS, 'off_session' => true, 'confirm' => true,
+            'description' => (string) $description, 'metadata' => $metadata,
+        );
+        $opts = array('idempotency_key' => (string) $idempotency_key);
         try {
-            $pi = self::client()->paymentIntents->create(array(
-                'amount' => (int) $amount_cents, 'currency' => (string) PlanTiers::BILLING['currency'],
-                'customer' => (string) $customer_id, 'payment_method' => (string) $payment_method_id,
-                'payment_method_types' => self::RECURRING_METHODS, 'off_session' => true, 'confirm' => true,
-                'description' => (string) $description, 'metadata' => $metadata,
-            ), array('idempotency_key' => (string) $idempotency_key));
+            try {
+                $pi = self::client()->paymentIntents->create($params, $opts);
+            } catch (\Stripe\Exception\ApiConnectionException | \Stripe\Exception\RateLimitException $e) {
+                $pi = self::client()->paymentIntents->create($params, $opts);   // same key: Stripe returns the first result, never a second charge
+            }
             return self::pi_result($pi, '');
         } catch (\Stripe\Exception\CardException $e) {
             $err = $e->getError();
@@ -647,9 +655,24 @@ class StripeService {
                 return array('status' => 'requires_action', 'payment_intent_id' => (string) $pi->id, 'client_secret' => (string) $pi->client_secret, 'reason' => 'Your bank needs you to confirm this payment.');
             }
             return array('status' => 'failed', 'payment_intent_id' => $pi ? (string) $pi->id : '', 'client_secret' => '', 'reason' => (string) ($err->message ?? $e->getMessage()));
-        } catch (\Throwable $e) {
+        } catch (\Stripe\Exception\InvalidRequestException $e) {   // rejected before any charge (bad card id, etc.)
             error_log('[stripe] charge_saved_card: ' . $e->getMessage());
             return array('status' => 'failed', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'The payment could not be processed.');
+        } catch (\Throwable $e) {
+            error_log('[stripe] charge_saved_card outcome unknown: ' . $e->getMessage());
+            return array('status' => 'unknown', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'Waiting for the bank to confirm.');
+        }
+    }
+
+    /** The PaymentIntent a plan charge created, found by its charge id (when the create call's reply was lost), or null. */
+    public static function find_billing_payment($charge_id): ?array
+    {
+        try {
+            $res = self::client()->paymentIntents->search(array('query' => "metadata['charge_id']:'" . (int) $charge_id . "' AND metadata['type']:'platform_billing'", 'limit' => 1));
+            return count($res->data) ? self::pi_result($res->data[0], '') : null;
+        } catch (\Throwable $e) {
+            error_log('[stripe] find_billing_payment: ' . $e->getMessage());
+            return array('status' => 'unknown', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => '');
         }
     }
 

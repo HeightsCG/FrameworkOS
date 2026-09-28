@@ -52,6 +52,20 @@ class BillingChargesModel extends Model {
      * the same period, or any earlier plan subscribe/upgrade. Left open, the customer could confirm
      * both links and pay twice.
      */
+    /**
+     * Earlier charges of the same kind whose outcome isn't known yet ('pending': the call to Stripe is in flight or
+     * its reply was lost; 'processing': the bank hasn't finished). A new attempt must wait for them, or it could charge twice.
+     */
+    public function unresolved($user_id, $kind, $period_start){
+        if ($kind === 'renewal') {
+            return (array) parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND kind = 'renewal' AND period_start = :p AND status IN ('pending', 'processing')",
+                array('u' => (int) $user_id, 'p' => (string) $period_start));
+        }
+        $kinds = in_array($kind, array('subscribe', 'upgrade'), true) ? "'subscribe', 'upgrade'" : "'" . preg_replace('/[^a-z]/', '', (string) $kind) . "'";
+        return (array) parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND kind IN ($kinds) AND status IN ('pending', 'processing')",
+            array('u' => (int) $user_id));
+    }
+
     public function open_action_charges($user_id, $kind, $period_start){
         if ($kind === 'renewal') {
             return (array) parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND kind = 'renewal' AND period_start = :p AND status = 'requires_action'",

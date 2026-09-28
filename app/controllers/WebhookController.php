@@ -110,7 +110,14 @@ class WebhookController extends Controller {
         // settle() is idempotent with the job and the page, so nothing is charged or granted twice.
         if (empty($event->account) && in_array($event->type, array('payment_intent.succeeded', 'payment_intent.payment_failed', 'payment_intent.requires_action'), true)
             && (string) ($obj->metadata['type'] ?? '') === 'platform_billing') {
-            $row = (new BillingChargesModel())->by_payment_intent((string) $obj->id);
+            $bc  = new BillingChargesModel();
+            $row = $bc->by_payment_intent((string) $obj->id);
+            if (!$row && (int) ($obj->metadata['charge_id'] ?? 0) > 0) {   // the create call's reply was lost: match by charge id
+                $row = $bc->get((int) $obj->metadata['charge_id']);
+                if ($row && (string) $row['stripe_payment_intent_id'] === '' && (int) $row['user_id'] === (int) ($obj->metadata['user_id'] ?? 0)) {
+                    $bc->set((int) $row['id'], array('stripe_payment_intent_id' => (string) $obj->id));
+                } else { $row = null; }
+            }
             if ($row) {
                 $st = $event->type === 'payment_intent.succeeded' ? 'succeeded' : ($event->type === 'payment_intent.requires_action' ? 'requires_action' : 'failed');
                 BillingService::settle((int) $row['id'], array('status' => $st, 'payment_intent_id' => (string) $obj->id, 'client_secret' => '',

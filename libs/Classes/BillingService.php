@@ -165,6 +165,15 @@ class BillingService {
     {
         $user_id = (int) $user_id;
         $charges = new BillingChargesModel();
+        // An earlier attempt whose outcome isn't known yet: find out first. Charging again now could charge twice.
+        foreach ($charges->unresolved($user_id, (string) $kind, $period_start) as $old) {
+            $r = self::resolve($old);
+            if ($r['status'] === 'processing') {
+                return array('status' => 'processing', 'charge_id' => (int) $old['id'], 'client_secret' => '', 'message' => 'A previous payment is still being processed. We will update your plan as soon as it clears.');
+            }
+            if ($r['status'] === 'succeeded') { return $r; }   // it went through: nothing more to charge
+            if ($r['status'] === 'requires_action') { continue; }   // handled just below with the other authentication waits
+        }
         // A new attempt replaces any older one still waiting for authentication: cancel its payment so
         // the customer can't confirm both emailed links and pay for the same thing twice.
         foreach ($charges->open_action_charges($user_id, (string) $kind, $period_start) as $old) {
@@ -222,7 +231,9 @@ class BillingService {
         if ((int) $row['applied'] === 1) {   // already succeeded through another path
             return array('status' => 'succeeded', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Payment received');
         }
-        if ($r['status'] === 'processing') {
+        if ($r['status'] === 'processing' || $r['status'] === 'unknown') {
+            // Not failed: the money may have moved. Park it until resolve() (next attempt, billing run or webhook) knows.
+            $charges->set((int) $row['id'], array('status' => 'processing', 'failure_reason' => $r['status'] === 'unknown' ? 'Waiting for the bank to confirm' : null));
             return array('status' => 'processing', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Your payment is processing.');
         }
         if ($r['status'] === 'requires_action') {
@@ -235,6 +246,27 @@ class BillingService {
         $charges->set((int) $row['id'], array('status' => 'failed', 'failure_reason' => mb_substr((string) ($r['reason'] ?: 'The card was declined.'), 0, 255)));
         if ($was !== 'failed') { self::after_failure((int) $row['id']); }
         return array('status' => 'failed', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => (string) ($r['reason'] ?: 'The card was declined.'));
+    }
+
+    /**
+     * Find the real outcome of a charge left pending or processing and settle it. A charge that never reached Stripe
+     * (no PaymentIntent an hour later) is failed, which schedules the normal retry. Returns settle()'s shape.
+     */
+    public static function resolve(array $row): array
+    {
+        $pi = (string) ($row['stripe_payment_intent_id'] ?? '');
+        $r  = $pi !== '' ? StripeService::payment_intent_result($pi) : StripeService::find_billing_payment((int) $row['id']);
+        if ($r === null) {   // Stripe has no payment for this charge
+            if (strtotime((string) $row['created_at'] . ' UTC') > time() - 3600) {
+                return array('status' => 'processing', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Still checking');
+            }
+            $r = array('status' => 'failed', 'payment_intent_id' => '', 'client_secret' => '', 'reason' => 'The payment could not be processed.');
+        }
+        if ($r['status'] === 'unknown' || ($pi !== '' && $r['reason'] === 'The payment could not be checked.')) {   // Stripe unreachable again
+            return array('status' => 'processing', 'charge_id' => (int) $row['id'], 'client_secret' => '', 'message' => 'Still checking');
+        }
+        if ($pi === '' && $r['payment_intent_id'] !== '') { (new BillingChargesModel())->set((int) $row['id'], array('stripe_payment_intent_id' => $r['payment_intent_id'])); }
+        return self::settle((int) $row['id'], $r);
     }
 
     /** Apply a succeeded charge's effects exactly once: plan/period/add-ons, credits, receipt. */
