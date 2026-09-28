@@ -276,7 +276,7 @@ class PagesController extends Controller {
         $faq  = array(
             array('q' => 'Is there a free plan?', 'a' => 'Yes. Free costs nothing and needs no card. It includes your page, memberships, pay-per-view, publishing and payouts. The platform takes ' . (int) $free['limits']['fee_percent'] . '% of what you earn. Paid plans lower that rate and add AI influencers, automations and AI inbox replies.'),
             array('q' => 'What is the platform take rate?', 'a' => 'A flat percentage of what fans pay you, set by your plan and shown on this page. It falls as you move up.'),
-            array('q' => 'Can I buy AI credits on any plan?', 'a' => 'Yes, including Free. Free starts with ' . (int) $free['limits']['ai_credits'] . ' AI credits, and paid plans add credits every month. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
+            array('q' => 'Can I buy AI credits on any plan?', 'a' => 'Yes, including Free. Paid plans include AI credits every month; on Free you buy them as you need them. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
         foreach (PlanTiers::addons() as $ad) {

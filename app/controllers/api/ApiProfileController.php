@@ -286,7 +286,7 @@ class ApiProfileController extends BaseApiController {
         $creator_role_id = $this->userModel->get_role_id_by_name('Creator');
         Session::set('role_id', $creator_role_id);
         Session::set('creator_since', date('Y-m-d H:i:s'));
-        // New creators start on Free: its one-time starter AI credits land now.
+        // New creators start on Free, which includes no AI credits (grant_monthly is a no-op for it).
         $fresh = $this->userModel->get_user_by_id($user_id);
         if (is_array($fresh) && count($fresh) === 1) { Plan::grant_monthly($fresh[0]); }
 
