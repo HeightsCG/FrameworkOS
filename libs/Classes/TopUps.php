@@ -31,15 +31,11 @@ class TopUps {
             return array('ok' => $model->has_payment_intent($pi), 'new' => false, 'credits' => $credits, 'balance' => $balance);
         }
 
-        $paid = '$' . number_format(((int) $intent->amount) / 100, 2);
         if ($ai) {
-            Notify::send($user_id, 'credits', 'AI credits added', number_format($credits) . ' AI credits for ' . $paid . '. Balance: ' . number_format($balance) . ' AI credits.', '/account/billing?tab=credits', 'fa-wand-magic-sparkles');
+            Notify::send($user_id, 'credits', 'AI credits added', number_format($credits) . ' AI credits added. Balance: ' . number_format($balance) . ' AI credits.', '/account/billing?tab=credits', 'fa-wand-magic-sparkles');
         } elseif ($auto) {
-            $base = (int) ($intent->metadata['base_cents'] ?? 0); $fee = (int) ($intent->metadata['fee_cents'] ?? 0);
             Notify::send($user_id, 'auto_replenishment', 'Wallet topped up automatically',
-                Notify::credits($credits) . ' added for ' . $paid
-                . ($fee > 0 ? ' ($' . number_format($base / 100, 2) . ' + $' . number_format($fee / 100, 2) . ' processing fee)' : '')
-                . '. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-rotate');
+                Notify::credits($credits) . ' added to your wallet. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-rotate');
         } else {
             Notify::send($user_id, 'credits', 'Funds added', Notify::credits($credits) . ' added to your wallet. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-coins');
         }
