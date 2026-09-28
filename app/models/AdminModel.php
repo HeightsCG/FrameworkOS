@@ -344,9 +344,11 @@ class AdminModel extends Model {
     /** Suspend / reactivate an account. */
     public function set_user_status($user_id, $status){
         if (!in_array($status, array('Active', 'Disabled'), true)) { return false; }
-        return parent::update('user_accounts',
+        $ok = parent::update('user_accounts',
             array('user_status' => $status),
             'user_id = :id', array('id' => (int) $user_id));
+        if ($ok) { $status === 'Disabled' ? AccountBilling::on_suspend($user_id) : AccountBilling::on_reactivate($user_id); }   // memberships stop billing while suspended
+        return $ok;
     }
 
     /** Set an asset's moderation decision. */

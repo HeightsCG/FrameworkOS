@@ -332,6 +332,7 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Not authorized');
         }
 
+        AccountBilling::on_delete((int) Session::get('user_id'));   // stop every recurring charge first
         $this->userModel->delete_account((int) Session::get('user_id'), (int) Session::get('user_id'));
         Main::do_logout();
 

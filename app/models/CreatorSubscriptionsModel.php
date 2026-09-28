@@ -65,6 +65,21 @@ class CreatorSubscriptionsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /** Active paid memberships where the user is the fan or the creator (account delete / suspend). */
+    public function active_paid_involving($user_id){
+        return (array) parent::select(
+            "SELECT id, subscriber_id, creator_id, stripe_subscription_id FROM creator_subscriptions
+             WHERE (subscriber_id = :a OR creator_id = :b) AND status = 'active' AND is_free = 0",
+            array('a' => (int) $user_id, 'b' => (int) $user_id));
+    }
+
+    /** End a membership now (either side's account closed). */
+    public function close($id){
+        return parent::update('creator_subscriptions',
+            array('status' => 'canceled', 'canceled_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id', array('id' => (int) $id));
+    }
+
     /** The fan's last membership checkout with this creator (a Stripe session id), or ''. */
     public function open_checkout($subscriber_id, $creator_id){
         $rows = parent::select("SELECT stripe_session_id FROM membership_checkouts WHERE subscriber_id = :s AND creator_id = :c",

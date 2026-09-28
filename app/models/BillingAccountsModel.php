@@ -32,16 +32,18 @@ class BillingAccountsModel extends Model {
     public function due($now, $limit = 50){
         $limit = max(1, (int) $limit);
         return (array) parent::select(
-            "SELECT * FROM billing_accounts WHERE status = 'active' AND next_charge_at IS NOT NULL AND next_charge_at <= :n
-             ORDER BY next_charge_at ASC LIMIT $limit", array('n' => (string) $now));
+            "SELECT b.* FROM billing_accounts b JOIN user_accounts u ON u.user_id = b.user_id AND u.deleted = 0 AND COALESCE(u.user_status, '') <> 'Disabled'
+             WHERE b.status = 'active' AND b.next_charge_at IS NOT NULL AND b.next_charge_at <= :n
+             ORDER BY b.next_charge_at ASC LIMIT $limit", array('n' => (string) $now));   // suspended/deleted: never charged
     }
 
     /** Past-due accounts whose next retry is due. */
     public function retries_due($now, $limit = 50){
         $limit = max(1, (int) $limit);
         return (array) parent::select(
-            "SELECT * FROM billing_accounts WHERE status = 'past_due' AND next_retry_at IS NOT NULL AND next_retry_at <= :n
-             ORDER BY next_retry_at ASC LIMIT $limit", array('n' => (string) $now));
+            "SELECT b.* FROM billing_accounts b JOIN user_accounts u ON u.user_id = b.user_id AND u.deleted = 0 AND COALESCE(u.user_status, '') <> 'Disabled'
+             WHERE b.status = 'past_due' AND b.next_retry_at IS NOT NULL AND b.next_retry_at <= :n
+             ORDER BY b.next_retry_at ASC LIMIT $limit", array('n' => (string) $now));
     }
 
     /** Every billed account for the admin Billing tab, with the owner's name and the last charge. */

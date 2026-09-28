@@ -111,6 +111,7 @@ class RefundsModel extends Model {
         $suspended = 0;
         if ($user_id) {
             $suspended = parent::update('user_accounts', array('user_status' => 'Disabled'), 'user_id = :id AND is_admin = 0', array('id' => $user_id)) ? 1 : 0;
+            if ($suspended) { AccountBilling::on_suspend($user_id); }   // no membership charges while suspended
         }
         parent::insert('chargebacks', array(
             'stripe_dispute_id' => $did,

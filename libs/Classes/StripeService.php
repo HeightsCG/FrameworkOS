@@ -748,6 +748,19 @@ class StripeService {
         }
     }
 
+    /** Pause (no invoices; 'void' skips the periods) or resume a membership on the connected account. */
+    public static function pause_subscription($account_id, $subscription_id, $pause): bool
+    {
+        try {
+            self::client()->subscriptions->update($subscription_id,
+                array('pause_collection' => $pause ? array('behavior' => 'void') : ''), array('stripe_account' => $account_id));
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[stripe] pause_subscription ' . $subscription_id . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /**
      * Close a Checkout session so it can no longer be paid. Returns its final status: 'expired' (closed now or before),
      * 'complete' (already paid), or '' when Stripe couldn't be reached.
