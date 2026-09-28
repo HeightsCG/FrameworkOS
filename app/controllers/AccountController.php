@@ -173,6 +173,11 @@ class AccountController extends Controller {
         $this->view->connected           = $connected;
         $this->view->mcp_connected       = $can_manage && (new ApiTokensModel())->has_active_for_user($owner['user_id']);
         $this->view->mcp_url             = Main::get_base_domain() . '/mcp';
+        // Custom domain (Studio plan): the owner's domains + the DNS records to add.
+        $this->view->domain_allowed      = $can_manage && CustomDomains::allowed($owner);
+        $this->view->domain_upgrade      = (string) ((PlanTiers::lowest_with_feature('custom_domain') ?? array())['name'] ?? '');
+        $this->view->domains             = $can_manage ? (new CreatorDomainsModel())->list_for_user($owner['user_id']) : array();
+        $this->view->domain_records      = CustomDomains::records($this->view->domains);
         $this->view->notification_prefs  = $prefsModel->get_prefs_map($user['user_id']);
         $this->view->blocked_users       = $blocksModel->get_for_user($user['user_id']);
         $this->view->data_export         = DataExportService::state_json((new DataExportsModel())->latest_for_user($user['user_id']), (string) ($user['content_timezone'] ?? 'UTC'));
@@ -381,6 +386,24 @@ class AccountController extends Controller {
         }
         if ($done['reset_pw'] === 1) { Header('Location: /account/force_reset'); exit; }
         Header('Location: /?signed_in=google' . ($new ? '&new=1' : ''));
+        exit;
+    }
+
+    /**
+     * /account/domain_login?host=lexivaughn.com&path=/events/5: Sign In pressed on a creator's own domain.
+     * Signed in here already: straight back, signed in there. Otherwise sign in here first (password, Google,
+     * second factor all as usual); Bootstrap::return_to_custom_domain carries them back afterwards.
+     */
+    public function domain_loginAction(){
+        $host = CustomDomains::normalize($_GET['host'] ?? '');
+        $path = CustomDomains::safe_path($_GET['path'] ?? '/');
+        if (CustomDomains::live($host) === null) { Header('Location: /'); exit; }
+        if ((int) Session::get('user_id') > 0 && !UserSession::impersonating()) {
+            Header('Location: ' . CustomDomains::handoff_url((int) Session::get('user_id'), $host, 'https://' . $host, $path));
+            exit;
+        }
+        Session::set('domain_return', array('host' => $host, 'path' => $path, 'at' => time()));
+        Header('Location: /?auth=login');
         exit;
     }
 

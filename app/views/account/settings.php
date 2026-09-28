@@ -30,6 +30,7 @@
             <?php if ($this->can_manage): ?>
             <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span><span class="settings__nav-badge" id="inboxNavBadge" <?php echo $this->inbox_pending > 0 ? '' : 'hidden'; ?>><?php echo (int) $this->inbox_pending; ?></span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
+            <button type="button" class="settings__nav-item" data-section="domain"><i class="fa-solid fa-globe"></i><span>Custom Domain</span></button>
             <?php endif; ?>
         </nav>
 
@@ -276,10 +277,6 @@
                         <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars((string) $cp['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
                     </div>
 
-                    <div class="cprofile__actions">
-                        <button type="button" class="btn btn-primary" id="cp_save">Save Changes</button>
-                    </div>
-
                     <div class="cprofile__divider"></div>
 
                     <div class="cprofile__subhead">
@@ -317,6 +314,10 @@
                             <option value="">Choose a category</option>
                             <?php foreach (DirectoryService::CATEGORIES as $dk => $dl): ?><option value="<?php echo $dk; ?>"<?php echo ((string) ($cp['directory_category'] ?? '')) === $dk ? ' selected' : ''; ?>><?php echo htmlspecialchars($dl, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?>
                         </select>
+                    </div>
+
+                    <div class="cprofile__actions cprofile__actions--end">
+                        <button type="button" class="btn btn-primary" id="cp_save">Save Changes</button>
                     </div>
                 </div>
 
@@ -859,6 +860,90 @@
                     </div>
                 </div>
                 </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="settings__section" data-section="domain">
+                <div class="settings__section-head">
+                    <h2 class="settings__section-title">Custom Domain</h2>
+                    <p class="settings__section-desc">Show your page at your own address, like yourname.com.</p>
+                </div>
+                <?php if (!$this->domain_allowed): ?>
+                    <div class="settings__upgrade">
+                        <i class="fa-solid fa-globe settings__upgrade-icon"></i>
+                        <div>
+                            <div class="settings__upgrade-title">Custom domains are on the <?php echo htmlspecialchars($this->domain_upgrade !== '' ? $this->domain_upgrade : 'Studio', ENT_QUOTES, 'UTF-8'); ?> plan</div>
+                            <p class="settings__upgrade-text">Upgrade to show your page, memberships, events and services at your own domain.</p>
+                        </div>
+                        <a href="/account/billing" class="btn btn-primary">View Plans</a>
+                    </div>
+                <?php elseif (empty($this->domains)): ?>
+                    <div class="integ">
+                        <div class="integ__row">
+                            <span class="integ__icon"><i class="fa-solid fa-globe"></i></span>
+                            <div class="integ__main">
+                                <div class="integ__name">Connect a domain</div>
+                                <div class="integ__inline">
+                                    <input type="text" class="form-control form-control-sm" id="domain_host" placeholder="yourname.com" autocomplete="off" spellcheck="false">
+                                    <button type="button" class="btn btn-primary btn-sm" id="domain_add">Add Domain</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <?php
+                        $dom_status = array('active' => 'Connected', 'verified' => 'Waiting for the address record', 'pending' => 'Waiting for DNS records', 'failed' => 'DNS records not found yet', 'disabled' => 'Off');
+                        $dom_pair   = count($this->domains) > 1;
+                        $dom_prev_error = null;   // a pair shares one TXT record: show its error once
+                    ?>
+                    <div class="integ">
+                        <?php foreach ($this->domains as $d): $d_live = in_array($d['status'], array('active', 'verified'), true); ?>
+                        <div class="integ__row">
+                            <span class="integ__icon"><i class="fa-solid fa-globe"></i></span>
+                            <div class="integ__main">
+                                <div class="integ__name"><?php echo htmlspecialchars($d['hostname'], ENT_QUOTES, 'UTF-8'); ?></div>
+                                <div class="integ__meta">
+                                    <span class="integ__dot <?php echo $d['status'] === 'active' ? 'is-on' : ''; ?>"></span><?php echo $dom_status[$d['status']] ?? ''; ?>
+                                    <?php if ($dom_pair): ?><span class="integ__sep">·</span><?php echo !empty($d['is_primary']) ? 'Main address' : 'Redirects to your main address'; ?><?php endif; ?>
+                                    <?php if ($d_live): ?><span class="integ__sep">·</span><a class="integ__link" href="https://<?php echo htmlspecialchars($d['hostname'], ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener">Open</a><?php endif; ?>
+                                </div>
+                                <?php if ($d['status'] !== 'active' && (string) $d['last_error'] !== '' && $d['last_error'] !== $dom_prev_error): ?><div class="integ__error"><?php echo htmlspecialchars($d['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; $dom_prev_error = (string) $d['last_error']; ?>
+                            </div>
+                            <?php if ($dom_pair && empty($d['is_primary'])): ?>
+                            <div class="integ__actions"><button type="button" class="btn btn-secondary btn-sm" data-domain-primary="<?php echo (int) $d['id']; ?>">Make Main Address</button></div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <h3 class="integ__group dns-group">DNS Records</h3>
+                    <div class="integ">
+                        <table class="dns-records">
+                            <thead><tr><th>Type</th><th>Host</th><th>Value</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($this->domain_records as $r): ?>
+                                <tr>
+                                    <td class="dns-records__type"><?php echo $r['type']; ?></td>
+                                    <td class="dns-records__mono"><?php echo htmlspecialchars($r['host'], ENT_QUOTES, 'UTF-8'); ?></td>
+                                    <td>
+                                        <?php if ($r['value'] === ''): ?><span class="dns-records__missing">Not available yet</span>
+                                        <?php else: ?>
+                                        <span class="dns-records__value">
+                                            <span class="dns-records__mono"><?php echo htmlspecialchars($r['value'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                            <button type="button" class="dns-records__copy" data-copy="<?php echo htmlspecialchars($r['value'], ENT_QUOTES, 'UTF-8'); ?>" aria-label="Copy value"><i class="fa-regular fa-copy"></i></button>
+                                        </span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td><span class="dns-records__state <?php echo $r['done'] ? 'is-done' : ''; ?>"><?php echo $r['done'] ? '<i class="fa-solid fa-check"></i> Found' : 'Waiting'; ?></span></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="dns-actions">
+                        <button type="button" class="btn btn-primary" id="domain_verify">Check DNS</button>
+                        <button type="button" class="btn btn-secondary" id="domain_remove">Remove Domain</button>
+                    </div>
                 <?php endif; ?>
             </section>
 
@@ -1652,22 +1737,19 @@ $(function () {
         send();
     });
 
-    /* ---- Creator Directory: saves on toggle or category change; turning on checks the photos (a few seconds) ---- */
-    function dir_save() {
+    /* ---- Creator Directory: saved by the profile's Save Changes; turning on checks the photos (a few seconds) ---- */
+    var dir_saved = { on: $('#dir_listed').is(':checked'), cat: $('#dir_category').val() || '' };
+    function dir_save(done) {
         var on = $('#dir_listed').is(':checked'), cat = $('#dir_category').val() || '';
-        if (on && cat === '') { $('#dir_listed').prop('checked', false); toastr.info('Choose a category to be listed'); $('#dir_category').trigger('focus'); return; }
-        $('#dir_listed, #dir_category').prop('disabled', true);
         ApiDataSvc.apiCall('post', 'save_directory_listing', { listed: on ? 1 : 0, category: cat }, function (data) {
             var o = null; try { o = JSON.parse(data); } catch (e) {}
-            $('#dir_listed, #dir_category').prop('disabled', false);
-            if (!o || !o.success) { $('#dir_listed').prop('checked', !on); toastr.error((o && o.message) || 'Could not save'); return; }
-            toastr.success(o.message);
+            if (!o || !o.success) { done(false, (o && o.message) || 'Could not save your directory listing'); return; }
+            dir_saved = { on: on, cat: cat };
             var listed = on && /listed in the Creator Directory/.test(o.message);
             $('#dir_status').prop('hidden', !on).text(listed ? 'Listed' : 'Not showing yet').attr('class', 'dir-status dir-status--' + (!on ? 'off' : (listed ? 'listed' : 'waiting')));
+            done(true, o.message);
         });
     }
-    $('#dir_listed').on('change', dir_save);
-    $('#dir_category').on('change', function () { if ($('#dir_listed').is(':checked')) { dir_save(); } });
 
     /* ---- Download Your Data: request, then poll until the export is ready ---- */
     var dx_timer = null;
@@ -2159,13 +2241,26 @@ $(function () {
             $('#cp_display_name').focus();
             return;
         }
+        if ($('#dir_listed').is(':checked') && $('#dir_category').val() == '') {
+            toastr.error('Choose a category to be listed in the Creator Directory');
+            $('#dir_category').focus();
+            return;
+        }
+        var btn = $(this).prop('disabled', true);
+        var dir_changed = $('#dir_listed').is(':checked') !== dir_saved.on || ($('#dir_category').val() || '') !== dir_saved.cat;
         ApiDataSvc.apiCall('post', 'save_creator_profile', {
             display_name: $('#cp_display_name').val(),
             bio:          $('#cp_bio').val(),
             location:     $('#cp_location').val()
         }, function (data) {
             var o = JSON.parse(data);
-            if (o.success) { toastr.success(o.message); } else { toastr.error(o.message); }
+            if (!o.success) { btn.prop('disabled', false); toastr.error(o.message); return; }
+            if (!dir_changed) { btn.prop('disabled', false); toastr.success(o.message); return; }
+            btn.html('Saving...');
+            dir_save(function (ok, message) {
+                btn.prop('disabled', false).html('Save Changes');
+                if (ok) { toastr.success(message); } else { toastr.error(message); }
+            });
         });
     });
 
@@ -3014,6 +3109,54 @@ $(function () {
                 toastr.error(o.message);
             }
         });
+    });
+
+    // Custom domain
+    function domain_reload() {
+        window.location.href = '/account/settings?section=domain';
+    }
+    function domain_call(action, payload, btn) {
+        var label = btn.html();
+        btn.prop('disabled', true);
+        ApiDataSvc.apiCall('post', action, payload, function (data) {
+            var o = JSON.parse(data);
+            btn.prop('disabled', false).html(label);
+            if (o.success) {
+                toastr.success(o.message);
+                setTimeout(domain_reload, 800);
+            } else {
+                if (o.need_plan) { window.location.href = '/account/billing'; return; }
+                toastr.error(o.message);
+                if (action === 'domain_verify') { setTimeout(domain_reload, 1600); }
+            }
+        });
+    }
+    $('#domain_add').on('click', function () {
+        if ($('#domain_host').val() == '') {
+            toastr.error('Domain is required');
+            return;
+        }
+        domain_call('domain_add', { hostname: $('#domain_host').val() }, $(this));
+    });
+    $('#domain_host').keyup(function (e) {
+        if (e.key === 'Enter') { $('#domain_add').trigger('click'); }
+    });
+    $('#domain_verify').on('click', function () {
+        $(this).html('Checking...');
+        domain_call('domain_verify', {}, $(this));
+    });
+    $('[data-domain-primary]').on('click', function () {
+        domain_call('domain_set_primary', { id: $(this).attr('data-domain-primary') }, $(this));
+    });
+    $('#domain_remove').on('click', function () {
+        var btn = $(this);
+        Swal.fire({ title: 'Remove your domain?', text: 'Your page will only be at its ' + <?php echo json_encode(Main::public_domain(), JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT); ?> + ' address.',
+            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Remove Domain', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
+            .then(function (r) { if (r.isConfirmed) { domain_call('domain_remove', {}, btn); } });
+    });
+    $('.dns-records__copy').on('click', function () {
+        var value = $(this).attr('data-copy');
+        if (navigator.clipboard) { navigator.clipboard.writeText(value).then(function () { toastr.success('Copied'); }); }
     });
 
 });

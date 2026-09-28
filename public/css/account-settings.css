@@ -581,3 +581,32 @@
 .dir-status--listed{ background:var(--success-bg); color:var(--success); }
 .dir-status--waiting{ background:var(--warning-bg); color:var(--warning); }
 @media (max-width:640px){ .dir-row__cat{ margin-left:0; width:100%; } }
+
+/* Custom domain: DNS records to add */
+.dns-records{ width:100%; border-collapse:collapse; font-size:.84rem; }
+.dns-records th{ text-align:left; font-size:.72rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; color:var(--muted); padding:.7rem 1rem; border-bottom:1px solid var(--line); }
+.dns-records td{ padding:.75rem 1rem; border-top:1px solid var(--line2); color:var(--text); vertical-align:middle; }
+.dns-records tbody tr:first-child td{ border-top:0; }
+.dns-records__type{ font-weight:600; width:72px; }
+.dns-records__mono{ font-family:ui-monospace, SFMono-Regular, Menlo, monospace; font-size:.8rem; word-break:break-all; }
+.dns-records__value{ display:inline-flex; align-items:center; gap:.4rem; }
+.dns-records__copy{ border:0; background:none; color:var(--muted); padding:.2rem .3rem; border-radius:2px; cursor:pointer; }
+.dns-records__copy:hover{ color:var(--text); background:var(--line2); }
+.dns-records__copy:focus-visible{ outline:2px solid var(--acc); outline-offset:1px; }
+.dns-records__state{ font-size:.78rem; font-weight:600; color:var(--muted); white-space:nowrap; }
+.dns-records__state.is-done{ color:var(--success); }
+.dns-actions{ display:flex; gap:.5rem; margin-top:1rem; }
+.dns-actions .btn{ width:auto; }
+@media (max-width:640px){
+    .dns-records thead{ display:none; }
+    .dns-records tr{ display:grid; grid-template-columns:72px 1fr; padding:.6rem 0; border-top:1px solid var(--line2); }
+    .dns-records tbody tr:first-child{ border-top:0; }
+    .dns-records td{ border:0; padding:.2rem 1rem; }
+    .dns-records td:nth-child(n+3){ grid-column:1 / -1; }
+}
+.integ__group.dns-group{ margin-top:1.6rem; }
+.dns-records__missing{ font-size:.8rem; color:var(--muted2); }
+.settings__section[data-section="domain"] .btn:focus-visible,
+.settings__section[data-section="domain"] .form-control:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; box-shadow:none; }
+.dir-row .notif__switch{ margin:0; flex:none; }
+.cprofile__actions--end{ margin-top:1.5rem; }

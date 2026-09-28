@@ -40,6 +40,7 @@ class ApiRoutes {
             'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get', 'post_caption_auto',
             'post_open_draft', 'post_publish', 'post_schedule', 'post_save_draft', 'post_archive', 'post_duplicate',
             'post_delete', 'post_share', 'posts_list', 'posts_calendar', 'posts_bulk',
+            'domain_add', 'domain_verify', 'domain_set_primary', 'domain_remove',
         ],
         'ApiSocialIntegrationsController' => [
             'connect_account', 'disconnect_account', 'fanvue_connect',

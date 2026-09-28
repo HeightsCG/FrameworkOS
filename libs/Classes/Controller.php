@@ -153,7 +153,7 @@ class Controller {
         return $remote;
     }
 
-    private static function trusted_proxies(): array
+    public static function trusted_proxies(): array
     {
         $config = Main::get_config();
         $raw = $config['global']['trusted_proxies'] ?? null;
@@ -169,7 +169,7 @@ class Controller {
     }
 
     /** Exact IP or CIDR match, IPv4 and IPv6 (binary compare via inet_pton). */
-    private static function ip_in_list(string $ip, array $list): bool
+    public static function ip_in_list(string $ip, array $list): bool
     {
         $bin = @inet_pton($ip);
         if ($bin === false) { return false; }

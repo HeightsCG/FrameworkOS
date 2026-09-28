@@ -16,7 +16,13 @@ $page_title = $display_name . ' (@' . $handle . ') · ' . $site_name;
 $initial    = strtoupper(mb_substr($display_name, 0, 1));
 $followers  = number_format((int) $follower_count);
 $follow_word = ((int) $follower_count === 1) ? 'follower' : 'followers';
-$in_app     = !empty($viewer_logged_in);
+// On the creator's own domain (lexivaughn.com) the page is always the standalone one, its links drop the
+// /@handle prefix, and Sign In goes through the platform (CustomDomains::login_url) and comes back here.
+$on_own_domain = CustomDomains::is_home_of($handle);
+$in_app     = !empty($viewer_logged_in) && !$on_own_domain;
+$pf_base    = CustomDomains::profile_path($handle);
+$pf_home    = ($pf_base === '') ? '/' : $pf_base;
+$login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/')) : '/';
 ?>
 <?php if ($in_app): $this->view->site_header(); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -37,7 +43,7 @@ $in_app     = !empty($viewer_logged_in);
     <?php echo CSRF::meta(); ?>
     <?php
         $seo_base   = Main::get_base_domain();
-        $seo_url    = $seo_base . '/@' . rawurlencode($handle);
+        $seo_url    = CustomDomains::canonical_profile_url($user);
         $seo_image  = $has_avatar ? (string) $profile['avatar_url'] : SeoMeta::default_image();
         $seo_about  = $display_name . ' (@' . $handle . ') on ' . $site_name . ': content, memberships, services, events, and links.';
         // A bio too short to describe the page gets the standard line after it.
@@ -126,7 +132,7 @@ $in_app     = !empty($viewer_logged_in);
 
         <div class="pf-grid">
             <div class="pf-main">
-<?php $render_ev_card = function (array $ec) use ($user, $display_name) {
+<?php $render_ev_card = function (array $ec) use ($user, $display_name, $pf_base) {
     // One row per event in the Events tab; the whole row opens the event page, where people register.
     $h_   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
     $paid = ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0);
@@ -135,7 +141,7 @@ $in_app     = !empty($viewer_logged_in);
     $flag = !empty($ec['is_canceled']) ? array('Canceled', 'off') : (!empty($ec['is_past']) ? array('Ended', 'off') : (!empty($ec['registered']) ? array('Registered', 'ok') : (!empty($ec['is_full']) ? array('Sold out', 'off') : null)));
     $where = $ec['is_inperson'] ? ($ec['place']['short'] !== '' ? $ec['place']['short'] : 'In person') : 'Online';
 ?>
-                        <a class="pel" href="/@<?php echo $h_(rawurlencode((string) $user['u_name'])); ?>/events/<?php echo (int) $ec['id']; ?>" data-ev-card="<?php echo (int) $ec['id']; ?>">
+                        <a class="pel" href="<?php echo $h_($pf_base); ?>/events/<?php echo (int) $ec['id']; ?>" data-ev-card="<?php echo (int) $ec['id']; ?>">
                             <span class="pel__date" aria-hidden="true"><span class="pel__m"><?php echo $h_($ec['tile_month']); ?></span><span class="pel__d"><?php echo $h_($ec['tile_day']); ?></span></span>
                             <span class="pel__body">
                                 <span class="pel__title"><?php echo $h_($ec['title']); ?><?php if ($flag): ?> <span class="pel__flag pel__flag--<?php echo $flag[1]; ?>"><?php echo $flag[0]; ?></span><?php endif; ?></span>
@@ -156,7 +162,7 @@ $in_app     = !empty($viewer_logged_in);
 <?php }; ?>
                 <?php if (!empty($focus_event)): $fe = $focus_event;
                     $h_       = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
-                    $fe_url   = '/@' . rawurlencode((string) $user['u_name']);
+                    $fe_url   = $pf_home;
                     $fe_paid  = ($fe['access_type'] !== 'free' && (int) $fe['price_credits'] > 0);
                     $fe_left  = (int) $fe['capacity'] > 0 ? max(0, (int) $fe['capacity'] - (int) $fe['attendees']) : null;
                     $fe_members = in_array($fe['access_type'], array('subscribers', 'tier'), true);
@@ -255,7 +261,7 @@ $in_app     = !empty($viewer_logged_in);
                                 <?php elseif ($fe_state === 'full'): ?>
                                 <p class="pe-status">This event is full.</p>
                                 <?php elseif ($fe_state === 'signin'): ?>
-                                <a class="pe-btn" href="/">Sign In to Register</a>
+                                <a class="pe-btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Register</a>
                                 <?php elseif ($fe_state === 'ineligible'): ?>
                                 <a class="pe-btn" href="<?php echo $h_($fe_url); ?>#plans">View Membership Plans</a>
                                 <p class="pe-card__sub"><?php echo $fe['access_type'] === 'tier' && $fe['tier_name'] !== '' ? 'Subscribe to ' . $h_($fe['tier_name']) . ' to register.' : 'Subscribe to ' . $h_($display_name) . ' to register.'; ?></p>
@@ -269,7 +275,7 @@ $in_app     = !empty($viewer_logged_in);
                 <?php elseif (!empty($focus_service)): $fs = $focus_service;
                     $h_     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
                     $dx     = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
-                    $fs_url = '/@' . rawurlencode((string) $user['u_name']);
+                    $fs_url = $pf_home;
                     $fs_paid = (int) $fs['price_credits'] > 0;
                     $fs_left = (int) $fs['capacity'] > 0 ? max(0, (int) $fs['capacity'] - (int) $fs['purchases']) : null;
                     $fs_methods = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other');
@@ -350,7 +356,7 @@ $in_app     = !empty($viewer_logged_in);
                                 <?php elseif ($fs_state === 'full'): ?>
                                 <p class="pe-status">This service is fully booked.</p>
                                 <?php elseif ($fs_state === 'signin'): ?>
-                                <a class="pe-btn" href="/">Sign In to Book</a>
+                                <a class="pe-btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Book</a>
                                 <?php else: ?>
                                 <button type="button" class="pe-btn" data-sv-purchase="<?php echo (int) $fs['id']; ?>">Book Now</button>
                                 <?php endif; ?>
@@ -498,7 +504,7 @@ $in_app     = !empty($viewer_logged_in);
                             $sc_left = (int) $sc['capacity'] > 0 ? max(0, (int) $sc['capacity'] - (int) $sc['purchases']) : null;
                             $sc_flag = !empty($sc['purchased']) ? array('Booked', 'ok') : (!empty($sc['is_full']) ? array('Fully booked', 'off') : null);
                         ?>
-                        <a class="pel" href="/@<?php echo htmlspecialchars(rawurlencode((string) $user['u_name']), ENT_QUOTES, 'UTF-8'); ?>/services/<?php echo (int) $sc['id']; ?>" data-sv-card="<?php echo (int) $sc['id']; ?>">
+                        <a class="pel" href="<?php echo htmlspecialchars($pf_base, ENT_QUOTES, 'UTF-8'); ?>/services/<?php echo (int) $sc['id']; ?>" data-sv-card="<?php echo (int) $sc['id']; ?>">
                             <span class="pel__date" aria-hidden="true"><?php if ((int) $sc['duration_min'] > 0): ?><span class="pel__m">Min</span><span class="pel__d"><?php echo (int) $sc['duration_min']; ?></span><?php else: ?><span class="pel__d pel__d--ic"><i class="fa-solid <?php echo $sc_icon; ?>"></i></span><?php endif; ?></span>
                             <span class="pel__body">
                                 <span class="pel__title"><?php echo $sc_h($sc['name']); ?><?php if ($sc_flag): ?> <span class="pel__flag pel__flag--<?php echo $sc_flag[1]; ?>"><?php echo $sc_flag[0]; ?></span><?php endif; ?></span>
@@ -580,6 +586,7 @@ $in_app     = !empty($viewer_logged_in);
         var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
+        var PF_LOGIN   = <?php echo json_encode($login_href, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
         var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
         var SUB_NOTICE = '<?php echo $sub_notice; ?>';
@@ -611,11 +618,11 @@ $in_app     = !empty($viewer_logged_in);
         }
 
         function toggleFollow() {
-            if (!LOGGED_IN) { window.location = '/'; return; }
+            if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
             var action = following ? 'unfollow_creator' : 'follow_creator';
             ApiDataSvc.apiCall('post', action, { creator_id: CREATOR_ID }, function (resp) {
                 var o = JSON.parse(resp);
-                if (o.need_login) { window.location = '/'; return; }
+                if (o.need_login) { window.location = PF_LOGIN; return; }
                 if (!o.success) { return; }
                 following = !!o.following;
                 var n = o.follower_count;
@@ -644,12 +651,12 @@ $in_app     = !empty($viewer_logged_in);
         }
         document.querySelectorAll('[data-subscribe-plan]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 b.disabled = true;
                 var promoEl = document.getElementById('pf_promo_code');
                 ApiDataSvc.apiCall('post', 'subscribe_plan', { plan_id: b.getAttribute('data-subscribe-plan'), code: (promoEl ? promoEl.value.trim() : '') }, function (resp) {
                     var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.success && o.url) { window.location = o.url; return; }
                     b.disabled = false;
                     pfToast(o.message || 'Could not start checkout.');
@@ -659,11 +666,11 @@ $in_app     = !empty($viewer_logged_in);
 
         document.querySelectorAll('[data-join-free]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 b.disabled = true;
                 ApiDataSvc.apiCall('post', 'join_free_plan', { plan_id: b.getAttribute('data-join-free') }, function (resp) {
                     var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message); return; }
                     var member = document.createElement('div');
                     member.className = 'pf-plan__cta pf-plan__member';
@@ -676,16 +683,16 @@ $in_app     = !empty($viewer_logged_in);
 
         // Content bundle unlock.
         document.querySelectorAll('[data-bundle-login]').forEach(function (b) {
-            b.onclick = function () { window.location = '/'; };
+            b.onclick = function () { window.location = PF_LOGIN; };
         });
         document.querySelectorAll('[data-bundle-unlock]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 var orig = b.innerHTML; b.disabled = true; b.textContent = 'Unlocking…';
                 ApiDataSvc.apiCall('post', 'bundle_unlock', { bundle_id: b.getAttribute('data-bundle-unlock') }, function (resp) {
                     var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                     if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not unlock'); return; }
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
                         pfToast(o.message || 'Not enough credits.');
@@ -702,15 +709,15 @@ $in_app     = !empty($viewer_logged_in);
         // Event registration (free / paid-with-credits / subscribers / tier).
         document.querySelectorAll('[data-ev-register]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registering…';
                 ApiDataSvc.apiCall('post', 'event_register', { event_id: b.getAttribute('data-ev-register') }, function (resp) {
                     var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                     if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not register'); return; }
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_subscription) {
                         b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'This event is for subscribers.');
-                        if (document.querySelector('.pf-tabs')) { goToPlans(); } else { window.location = '/@' + encodeURIComponent(<?php echo json_encode((string) $user['u_name'], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>) + '#plans'; }
+                        if (document.querySelector('.pf-tabs')) { goToPlans(); } else { window.location = <?php echo json_encode($pf_home, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?> + '#plans'; }
                         return;
                     }
                     if (o.need_credits) {
@@ -764,12 +771,12 @@ $in_app     = !empty($viewer_logged_in);
         // Service purchase (one-time, credits) → reveals booking details on success.
         document.querySelectorAll('[data-sv-purchase]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 var orig = b.innerHTML; b.disabled = true; b.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Booking…';
                 ApiDataSvc.apiCall('post', 'service_purchase', { service_id: b.getAttribute('data-sv-purchase') }, function (resp) {
                     var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                     if (!o) { b.disabled = false; b.innerHTML = orig; pfToast('Could not book'); return; }
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
                         pfToast(o.message || 'Not enough credits.');
@@ -785,18 +792,18 @@ $in_app     = !empty($viewer_logged_in);
 
         // Content locked-state CTAs.
         document.querySelectorAll('[data-content-login]').forEach(function (b) {
-            b.onclick = function () { window.location = '/'; };
+            b.onclick = function () { window.location = PF_LOGIN; };
         });
         document.querySelectorAll('[data-content-subscribe]').forEach(function (b) {
             b.onclick = goToPlans;
         });
         document.querySelectorAll('[data-unlock-content]').forEach(function (b) {
             b.onclick = function () {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 b.disabled = true;
                 ApiDataSvc.apiCall('post', 'unlock_content', { content_id: b.getAttribute('data-unlock-content') }, function (resp) {
                     var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) { b.disabled = false; pfToast('Not enough credits'); return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message || 'Could not unlock'); return; }
                     revealPost(b, o);
@@ -894,7 +901,7 @@ $in_app     = !empty($viewer_logged_in);
                 inner.innerHTML = h;
                 lb.hidden = false; document.body.style.overflow = 'hidden';
                 var act = document.getElementById('pfLbAct');
-                if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = '/'; } else { closePlb(); goToPlans(); } }; }
+                if (act) { act.onclick = function () { if (!LOGGED_IN) { window.location = PF_LOGIN; } else { closePlb(); goToPlans(); } }; }
                 if (p.audience === 'ppv') { renderPpvAction(p); }
                 var promoApply = document.getElementById('pfLbPromoApply');
                 if (promoApply) { promoApply.onclick = function () { applyPpvPromo(p); }; }
@@ -909,7 +916,7 @@ $in_app     = !empty($viewer_logged_in);
                 if (!wrap) { return; }
                 if (!LOGGED_IN) {
                     wrap.innerHTML = '<button type="button" class="pf-btn pf-btn--follow" id="pfLbPpv">Log in to Unlock</button>';
-                    document.getElementById('pfLbPpv').onclick = function () { window.location = '/'; };
+                    document.getElementById('pfLbPpv').onclick = function () { window.location = PF_LOGIN; };
                     return;
                 }
                 var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
@@ -946,11 +953,11 @@ $in_app     = !empty($viewer_logged_in);
                 });
             }
             function unlockPpv(p, btn) {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 var orig = btn.textContent; btn.disabled = true; btn.textContent = 'Unlocking…';
                 ApiDataSvc.apiCall('post', 'ppv_unlock', { post_id: p.id, code: (p.applied_code || '') }, function (resp) {
                     var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         btn.disabled = false; btn.textContent = orig;
                         pfToast(o.message || 'Not enough credits — add some to your wallet.');
@@ -1014,11 +1021,11 @@ $in_app     = !empty($viewer_logged_in);
                     '<span class="pf-plb__estat pf-plb__estat--views"><i class="fa-regular fa-eye"></i> ' + (p.views || 0) + '</span>';
             }
             function doLike() {
-                if (!LOGGED_IN) { window.location = '/'; return; }
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
                 if (!plbPost) { return; }
                 ApiDataSvc.apiCall('post', 'post_like', { id: plbPost.id }, function (resp) {
                     var o = JSON.parse(resp);
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (!o.success) { pfToast(o.message || 'Could not like'); return; }
                     plbPost.liked = o.liked; plbPost.likes = o.likes; renderEngage(plbPost);
                 });
@@ -1057,7 +1064,7 @@ $in_app     = !empty($viewer_logged_in);
                 if (o.can_comment) {
                     html += '<form class="pf-plb__cform" id="pfLbCform"><input type="text" class="pf-plb__cinput" id="pfLbCinput" placeholder="Add a comment…" maxlength="2000" autocomplete="off"><button type="submit" class="pf-btn pf-btn--follow pf-plb__csend">Post</button></form>';
                 } else if (!LOGGED_IN && o.comments_enabled) {
-                    html += '<p class="pf-plb__cnote"><a href="/">Log in</a> to comment.</p>';
+                    html += '<p class="pf-plb__cnote"><a href="' + PF_LOGIN + '">Log in</a> to comment.</p>';
                 } else if (!o.comments_enabled) {
                     html += '<p class="pf-plb__cnote">Comments are turned off for this post.</p>';
                 }
@@ -1073,7 +1080,7 @@ $in_app     = !empty($viewer_logged_in);
                     input.dataset.busy = ''; clearTimeout(release);
                     var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                     if (!o) { pfToast('Could not post'); return; }
-                    if (o.need_login) { window.location = '/'; return; }
+                    if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (!o.success) { pfToast(o.message || 'Could not post'); return; }
                     input.value = ''; plbPost.comments = o.count; renderEngage(plbPost); loadComments(plbPost);
                 });

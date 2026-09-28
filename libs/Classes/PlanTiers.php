@@ -33,7 +33,8 @@ class PlanTiers {
 
     /** Switches that differ by plan (TIERS 'features'), with the label shown on plan cards. */
     const FEATURES = array(
-        'inbox_ai' => 'Inbox automation &amp; AI replies',
+        'inbox_ai'      => 'Inbox automation &amp; AI replies',
+        'custom_domain' => 'Custom domains',
     );
 
     /** What each AI job type costs in AI credits (per output). Training is free: the influencer count gates it. */
@@ -87,7 +88,7 @@ class PlanTiers {
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
             'limits' => array('fee_percent' => 5,  'seats' => 3,  'influencers' => 3,  'ai_credits' => 1500, 'automations' => 20, 'storage_gb' => 100, 'socials' => 0, 'sub_tiers' => 0)),
         'studio'  => array('key' => 'studio',  'rank' => 3, 'name' => 'Studio',  'tagline' => 'Run a team or agency.',          'price' => 199, 'stripe_price_id' => '', 'match' => array('studio'),  'recommended' => false,
-            'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
+            'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true, 'custom_domain' => true),
             'limits' => array('fee_percent' => 3,  'seats' => 10, 'influencers' => 10, 'ai_credits' => 3000, 'automations' => 0,  'storage_gb' => 500, 'socials' => 0, 'sub_tiers' => 0)),
     );
 

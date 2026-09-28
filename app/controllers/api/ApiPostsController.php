@@ -521,10 +521,9 @@ class ApiPostsController extends BaseApiController {
             }
         }
 
-        $base    = Main::get_base_domain();
-        $handle  = rawurlencode((string) $creator['u_name']);
-        $success = $base . '/@' . $handle . '?sub=success&session_id={CHECKOUT_SESSION_ID}';
-        $cancel  = $base . '/@' . $handle . '?sub=cancel';
+        $back    = CustomDomains::profile_url_here((string) $creator['u_name']);   // their own domain when the fan is on it
+        $success = $back . '?sub=success&session_id={CHECKOUT_SESSION_ID}';
+        $cancel  = $back . '?sub=cancel';
         $meta    = ['subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']];
         if ($promo_id > 0) { $meta['promo_id'] = (string) $promo_id; }
 

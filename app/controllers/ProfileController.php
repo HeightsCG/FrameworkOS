@@ -54,6 +54,19 @@ class ProfileController extends Controller {
             return;
         }
 
+        // A creator with their own domain: logged-out visitors (and crawlers) go there, so the page has one address.
+        // Signed-in fans stay here, where their session is. 302 (the canonical tag carries the SEO): a cached 301
+        // would keep sending people to the domain after the creator removes it.
+        if ((int) Session::get('user_id') <= 0 && !CustomDomains::is_home_of($handle)) {
+            $canonical = CustomDomains::canonical_profile_url($user);
+            if (strpos($canonical, '/@') === false) {
+                $rest  = implode('/', array_slice($url, 1));
+                $query = (string) parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_QUERY);
+                header('Location: ' . $canonical . $rest . ($query !== '' ? '?' . $query : ''), true, 302);
+                exit;
+            }
+        }
+
         $profile = (new CreatorProfileModel())->get_for_user($user['user_id']);
 
         $links = array();
