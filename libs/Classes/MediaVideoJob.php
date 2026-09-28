@@ -6,9 +6,38 @@
  * when the video was requested; any failure gives them back once (refund keyed by the asset).
  *
  * payload: creator_id, asset_id (placeholder video), source_asset_id (the image), model_key,
- *          prompt, duration, credits; later also handle (fal request) and polls.
+ *          prompt, duration, credits; later also handle (fal request) and polls. An automation's video also
+ *          carries auto_post (rule_id, caption): AutoPostService::finish_video publishes it when it lands.
  */
 class MediaVideoJob {
+
+    /**
+     * Charge the credits, make the placeholder video asset and queue the job. Used by the Studio's
+     * "Generate a video" and by video automations. Returns ['ok', 'asset_id', 'message', 'price', 'balance'].
+     */
+    public static function start(array $user, $source_asset_id, $model_key, $prompt, $duration, array $extra = array()): array {
+        $cid   = (int) $user['user_id'];
+        $model = InfluencerConfig::resolve_model('video', (string) $model_key);
+        if (!$model) { return array('ok' => false, 'message' => 'No video model is configured.'); }
+        $durs = array_values(array_map('strval', (array) ($model['durations'] ?? array())));
+        $dur  = (string) $duration;
+        if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = $durs[0]; }
+        $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key']));
+        if (empty($pay['ok'])) { return array('ok' => false, 'message' => $pay['message'], 'need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']); }
+        $media = new MediaAssetsModel();
+        $aid = (int) $media->add($cid, 'video', 'Generated · ' . mb_substr((string) $prompt, 0, 40) . '.mp4', 'video/mp4', 'processing');
+        if ($aid <= 0) { (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: video not started'); return array('ok' => false, 'message' => 'Could not save the video. Try again.'); }
+        $job_id = (new DatabaseJobQueue())->dispatch('media_video', array(
+            'creator_id' => $cid, 'asset_id' => $aid, 'source_asset_id' => (int) $source_asset_id, 'model_key' => (string) $model['key'],
+            'prompt' => (string) $prompt, 'duration' => $dur, 'credits' => (int) $pay['price'],
+        ) + $extra);
+        if ($job_id <= 0) {
+            (new AiCreditsModel())->refund_once($cid, (int) $pay['price'], 'video #' . $aid);
+            $media->set_failed($cid, $aid, 'Could not queue the video.');
+            return array('ok' => false, 'message' => 'Could not start the video. Try again.');
+        }
+        return array('ok' => true, 'asset_id' => $aid, 'price' => (int) $pay['price'], 'message' => '');
+    }
 
     const POLL_SECONDS = 15;
     const MAX_POLLS    = 60;   // ~15 minutes
@@ -20,6 +49,7 @@ class MediaVideoJob {
         $fail  = function ($why) use ($cid, $aid, $payload, $media) {
             if ((int) ($payload['credits'] ?? 0) > 0) { (new AiCreditsModel())->refund_once($cid, (int) $payload['credits'], 'video #' . $aid); }
             $media->set_failed($cid, $aid, $why);
+            if (!empty($payload['auto_post'])) { AutoPostService::finish_video($cid, (array) $payload['auto_post'], 0, $why); }
             return 'FAIL ' . $why;
         };
         $asset = $media->get_one($cid, $aid);
@@ -70,6 +100,7 @@ class MediaVideoJob {
         } catch (\Throwable $e) {
             return $fail($e->getMessage());
         }
+        if (!empty($payload['auto_post'])) { AutoPostService::finish_video($cid, (array) $payload['auto_post'], $aid, ''); }
         return 'OK asset ' . $aid;
     }
 }

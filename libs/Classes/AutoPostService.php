@@ -3,7 +3,9 @@
  * Executes one Scheduler automation: generate an on-brand image, write a caption,
  * create a post, publish it, and (best-effort) cross-post to social. Shared by the
  * CLI worker (cron/scheduler.php) and the "Run now" endpoint. Never throws — returns
- * ['ok'=>bool, 'post_id'=>int|null, 'message'=>string].
+ * ['ok'=>bool, 'post_id'=>int|null, 'message'=>string, 'status'?=>'rendering'].
+ * A video automation animates the still: the run ends 'rendering', and finish_video() publishes the post
+ * when the video job lands (a video takes minutes, longer than a run should hold the worker).
  */
 class AutoPostService {
 
@@ -75,6 +77,46 @@ class AutoPostService {
         $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption']), $parts['caption'])
                                 : $fixed;
         if ($caption === '') { $caption = $fixed; }   // never publish the saved prompt as a caption
+
+        // 3b) Video: animate the still (Studio's image-to-video job, either image source). The post is made when the
+        // video lands (finish_video), so a failed render leaves no half-made post behind; the still stays in the Library.
+        if ((string) ($rule['media_type'] ?? 'image') === 'video') {
+            $motion = trim((string) ($rule['video_prompt'] ?? ''));
+            $v = MediaVideoJob::start($user, $asset_id, (string) ($rule['video_model_key'] ?? ''), $motion !== '' ? $motion : $scene,
+                (string) ($rule['video_duration'] ?? ''), array('auto_post' => array('rule_id' => (int) ($rule['id'] ?? 0), 'caption' => $caption)));
+            if (empty($v['ok'])) { return self::fail(null, 'Video failed: ' . (string) $v['message']); }
+            return array('ok' => true, 'post_id' => null, 'status' => 'rendering', 'message' => 'The video is rendering. The post publishes when it is ready.');
+        }
+
+        return self::publish($user, $rule, $asset_id, $caption);
+    }
+
+    /**
+     * An automation's video finished (MediaVideoJob): publish the post with it ($asset_id > 0), or record why it
+     * failed. Recorded as a run of the automation either way.
+     */
+    public static function finish_video($cid, array $auto, $asset_id, $error){
+        $cid     = (int) $cid;
+        $rule_id = (int) ($auto['rule_id'] ?? 0);
+        $rule    = (new SchedulerRulesModel())->get_one($cid, $rule_id);
+        if (!$rule) { return; }   // the automation was deleted while its video rendered; the video stays in the Library
+        if ((int) $asset_id > 0) {
+            $rows = (new UsersModel())->get_user_by_id($cid);
+            $res  = (is_array($rows) && count($rows) === 1)
+                ? self::publish($rows[0], $rule, (int) $asset_id, (string) ($auto['caption'] ?? ''))
+                : self::fail(null, 'Missing creator.');
+        } else {
+            $res = self::fail(null, 'Video failed: ' . ((string) $error !== '' ? (string) $error : 'the render did not finish'));
+        }
+        (new SchedulerRunsModel())->add($rule_id, $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+        (new SchedulerRulesModel())->set_last_run($rule_id, $res['ok'] ? 'success' : 'failed');
+    }
+
+    /** Create the post around $asset_id, publish it and cross-post it (steps 4-6 of a run). */
+    private static function publish(array $user, array $rule, $asset_id, $caption){
+        $creator_id = (int) $user['user_id'];
+        $asset_id   = (int) $asset_id;
+        $caption    = (string) $caption;
 
         // 4) Create the post.
         $audience = (($rule['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';

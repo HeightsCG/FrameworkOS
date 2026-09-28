@@ -668,11 +668,11 @@
                         </div>
 
                         <div class="cs-ae__row" data-kind="post">
-                            <div class="cs-ae__field">
-                                <span class="cs-ae__label" id="csSchedImageSourceLabel">Image source</span>
-                                <div class="cs-seg cs-ae__seg" id="csSchedImageSource" role="group" aria-labelledby="csSchedImageSourceLabel">
-                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><span>Brand photo</span></button>
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"<?php echo empty($this->influencers['ready']) ? ' disabled title="Train an influencer first"' : ''; ?>><span>Influencer</span></button>
+                            <div class="cs-ae__field" id="csSchedMediaWrap">
+                                <span class="cs-ae__label" id="csSchedMediaLabel">Post As</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedMedia" role="group" aria-labelledby="csSchedMediaLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-media="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Image</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-media="video"><i class="fa-solid fa-film" aria-hidden="true"></i><span>Video</span></button>
                                 </div>
                             </div>
                             <div class="cs-ae__field">
@@ -685,14 +685,43 @@
                             </div>
                         </div>
 
-                        <div class="cs-ae__field cs-ae__reveal" id="csSchedInfluencerWrap" data-kind="post" hidden>
-                            <label class="cs-ae__label" for="csSchedInfluencer">Influencer</label>
-                            <select id="csSchedInfluencer" class="form-select" aria-describedby="csSchedErr_influencer">
-                                <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
-                                <option value="<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                            <p class="cs-ae__error" id="csSchedErr_influencer" role="alert" hidden></p>
+                        <div class="cs-ae__row" data-kind="post">
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedImageSourceLabel">Source</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedImageSource" role="group" aria-labelledby="csSchedImageSourceLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-src="brand"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i><span>Brand Photo</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-src="influencer"<?php echo empty($this->influencers['ready']) ? ' disabled title="Train an influencer first"' : ''; ?>><i class="fa-regular fa-user" aria-hidden="true"></i><span>Influencer</span></button>
+                                </div>
+                            </div>
+                            <div class="cs-ae__field cs-ae__reveal" id="csSchedInfluencerWrap" hidden>
+                                <label class="cs-ae__label" for="csSchedInfluencer">Influencer</label>
+                                <select id="csSchedInfluencer" class="form-select" aria-describedby="csSchedErr_influencer">
+                                    <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
+                                    <option value="<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p class="cs-ae__error" id="csSchedErr_influencer" role="alert" hidden></p>
+                            </div>
+                        </div>
+
+                        <div class="cs-ae__group cs-ae__reveal" id="csSchedVideoWrap" data-kind="post" hidden>
+                            <span class="cs-ae__grouptitle">Video</span>
+                            <div class="cs-ae__field">
+                                <label class="cs-ae__label" for="csSchedVideoPrompt">Motion</label>
+                                <textarea class="form-control cs-ae__textarea" id="csSchedVideoPrompt" rows="2" maxlength="2000" placeholder="She turns toward the camera and smiles, slow push in"></textarea>
+                            </div>
+                            <input type="hidden" id="csSchedVideoModel" value="">
+                            <input type="hidden" id="csSchedVideoDur" value="">
+                            <div class="cs-ae__row">
+                                <div class="cs-ae__field">
+                                    <span class="cs-ae__label" id="csSchedVideoModelLabel">Style</span>
+                                    <div class="cs-seg cs-ae__seg" id="csSchedVideoModels" role="group" aria-labelledby="csSchedVideoModelLabel"></div>
+                                </div>
+                                <div class="cs-ae__field">
+                                    <span class="cs-ae__label" id="csSchedVideoDurLabel">Length</span>
+                                    <div class="cs-seg cs-ae__seg" id="csSchedVideoDurs" role="group" aria-labelledby="csSchedVideoDurLabel"></div>
+                                </div>
+                            </div>
                         </div>
                     </section>
 

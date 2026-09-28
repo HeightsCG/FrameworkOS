@@ -439,3 +439,11 @@ body.is-impersonating{ padding-top:44px; }
 body.is-impersonating .app-sidebar, body.is-impersonating .app-topbar{ top:44px; }
 body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 @media (max-width:640px){ .imp-bar{ font-size:12px; gap:10px; } body.is-impersonating{ padding-top:64px; } body.is-impersonating .app-sidebar, body.is-impersonating .app-topbar{ top:64px; } }
+/* Automation editor: a titled group of fields (the Video settings) under a hairline, and a muted note inside a segment (credits). */
+.cs-ae-modal .cs-ae__group{ border-top:1px solid var(--line); padding-top:16px; margin-top:4px; }
+.cs-ae-modal .cs-ae__group[hidden]{ display:none; }
+.cs-ae-modal .cs-ae__grouptitle{ display:block; font-size:12px; font-weight:600; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+.cs-ae-modal .cs-ae__seg .cs-seg__opt .cs-seg__meta{ font-size:12px; font-weight:500; color:var(--muted); }
+.cs-ae-modal .cs-ae__seg .cs-seg__opt.is-on .cs-seg__meta{ color:var(--acc-ink); opacity:.75; }
+#csSchedulerModal .cs-ae__field .form-select{ min-height:46px; }   /* the Influencer picker lines up with the 44px segments beside it */
+#csSchedulerModal #csSchedVideoPrompt{ min-height:72px; }   /* a one-line motion note, not a paragraph */

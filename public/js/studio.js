@@ -2062,6 +2062,8 @@ jQuery(function ($) {
         var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : r.topic);
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
+            : r.last_status === 'rendering'
+            ? '<span class="cs-sched__metaitem"><i class="fa-solid fa-film"></i>Rendering video…</span>'
             : (r.last_status === 'failed'
                 ? '<span class="cs-sched__metaitem cs-sched__metaitem--fail" title="' + esc(r.last_message || '') + '"><i class="fa-solid fa-circle-exclamation"></i>Last run failed' + (r.last_message ? ': ' + esc(r.last_message) : '') + '</span>'
                 : '');
@@ -2109,8 +2111,9 @@ jQuery(function ($) {
     }
     $('#csSchedNew, #csSchedEmptyNew').on('click', function () { if (!schedPlan.can_create) { schedLimitPrompt(); return; } openSchedForm(null, 'post'); });
     // Deep links from the Influencers pages: #automation-new-<id> opens a preset automation,
-    // #library-influencer-<id> shows her media in the Library.
-    (function () {
+    // #library-influencer-<id> shows her media in the Library. Deferred: the editor's helpers further down
+    // this file (SCHED_ERR_SECTION etc.) aren't defined yet at this point.
+    setTimeout(function () {
         var m = /^#automation-new-(\d+)$/.exec(window.location.hash || '');
         if (m) {
             var tab = document.querySelector('#csTabScheduler'); if (tab && window.bootstrap) { bootstrap.Tab.getOrCreateInstance(tab).show(); }
@@ -2120,7 +2123,7 @@ jQuery(function ($) {
         }
         m = /^#library-influencer-(\d+)$/.exec(window.location.hash || '');
         if (m && $('#csFilterInfluencer').length) { gotoLibraryTab(); $('#csFilterInfluencer').val(m[1]); state.filters.influencer = m[1]; loadLibrary(); }
-    })();
+    }, 0);
     $('#csSchedNewMsg').on('click', function () { if (!schedPlan.can_create) { schedLimitPrompt(); return; } openSchedForm(null, 'message'); });
     $('#csSchedList').on('click', '[data-sched-edit]', function () {
         var id = $(this).closest('.cs-sched__card').data('id');
@@ -2158,20 +2161,65 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         var $c = $('#csSchedCredits');
         if (kind !== 'post') { $c.removeClass('is-low').text('Scheduled messages don\'t use AI credits.'); return; }
-        var per = parseInt(CFG.ai.image_price, 10) || 0;
+        var per = (parseInt(CFG.ai.image_price, 10) || 0) + schedVideoCredits();
         var runs = (schedForm.cadence === 'weekly') ? Math.round($('#csSchedDays .cs-ae__day.is-on').length * 52 / 12) : 30;
         var bal = parseInt(CFG.ai.balance, 10) || 0;
         var low = bal < per * runs;
         $c.toggleClass('is-low', low).html('Uses <b>' + fmtNum(per) + ' AI credits</b> per post, about <b>' + fmtNum(per * runs) + '</b> a month. You have ' + fmtNum(bal) + '.'
             + (low ? ' <a href="/account/billing?tab=credits">Buy credits</a>' : ''));
     }
+    /* Video automations: the still, then animating it with the chosen style (credits per CFG.ai.video_models). */
+    function schedVideoModels() { return (CFG.ai && CFG.ai.video_models) || []; }
+    function schedIsVideo() { return schedForm.media_type === 'video'; }
+    function schedVideoCredits() {
+        if (!schedIsVideo()) { return 0; }
+        var m = schedVideoModels().filter(function (x) { return x.key === $('#csSchedVideoModel').val(); })[0];
+        return m ? (parseInt(m.credits, 10) || 0) : 0;
+    }
+    // Style and Length are segmented buttons like every other choice here; their values live in hidden inputs.
+    function schedTitleCase(t) { return String(t).replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
+    function renderSchedVideoModels(key, dur) {
+        var models = schedVideoModels();
+        if (!models.some(function (m) { return m.key === key; })) { key = models.length ? models[0].key : ''; }
+        $('#csSchedVideoModel').val(key);
+        var $m = $('#csSchedVideoModels').empty();
+        models.forEach(function (m) {
+            $m.append($('<button type="button" class="cs-seg__opt">').attr('data-vmodel', m.key).attr('title', m.purpose || '')
+                .toggleClass('is-on', m.key === key)
+                .append($('<span>').text(schedTitleCase(m.label)), $('<span class="cs-seg__meta">').text(fmtNum(m.credits) + ' credits')));
+        });
+        syncPressed('#csSchedVideoModels');
+        renderSchedVideoDurations(dur);
+    }
+    function renderSchedVideoDurations(dur) {
+        var m = schedVideoModels().filter(function (x) { return x.key === $('#csSchedVideoModel').val(); })[0];
+        var durs = ((m && m.durations) || []).map(String);
+        dur = String(dur || '');
+        if (durs.indexOf(dur) < 0) { dur = durs.length ? durs[0] : ''; }
+        $('#csSchedVideoDur').val(dur);
+        var $d = $('#csSchedVideoDurs').empty();
+        durs.forEach(function (s) { $d.append($('<button type="button" class="cs-seg__opt">').attr('data-vdur', s).toggleClass('is-on', s === dur).append($('<span>').text(s + ' seconds'))); });
+        syncPressed('#csSchedVideoDurs');
+    }
+    $('#csSchedVideoModels').on('click', '.cs-seg__opt', function () { renderSchedVideoModels($(this).attr('data-vmodel'), $('#csSchedVideoDur').val()); updateSchedSummaries(); });
+    $('#csSchedVideoDurs').on('click', '.cs-seg__opt', function () { renderSchedVideoDurations($(this).attr('data-vdur')); });
+    function setSchedMedia(media) {
+        schedForm.media_type = (media === 'video' && schedVideoModels().length) ? 'video' : 'image';
+        $('#csSchedMedia .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('media') === schedForm.media_type); });
+        syncPressed('#csSchedMedia');
+        $('#csSchedVideoWrap').prop('hidden', !schedIsVideo());
+        $('#csSchedMediaWrap').prop('hidden', !schedVideoModels().length);   // no video model configured: images only
+        updateSchedSummaries();
+    }
+    $('#csSchedMedia').on('click', '.cs-seg__opt', function () { setSchedMedia($(this).data('media')); });
+
     function updateSchedSummaries() {
         schedCredits();
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
             var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer') : 'Brand photo';
             var size = $('#csSchedSize').val() || 'square';
-            schedSum('content', src + ' · ' + size.charAt(0).toUpperCase() + size.slice(1));
+            schedSum('content', src + ' · ' + size.charAt(0).toUpperCase() + size.slice(1) + (schedIsVideo() ? ' · Video' : ''));
             var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
             var tier = schedForm.audience === 'subscribers' ? ($('#csSchedTierSel option:selected').text() || 'All tiers') : ($('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
             schedSum('publishing', aud + ' · ' + tier);
@@ -2317,6 +2365,10 @@ jQuery(function ($) {
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.cadence = rule ? rule.cadence : 'daily';
         schedForm.influencer_id = rule ? String(rule.influencer_id || '') : '';
+        schedForm.media_type = rule ? (rule.media_type || 'image') : 'image';
+        $('#csSchedVideoPrompt').val(rule ? (rule.video_prompt || '') : '');
+        renderSchedVideoModels(rule ? rule.video_model_key : '', rule ? rule.video_duration : '');
+        setSchedMedia(schedForm.media_type);
         setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? rule.influencer_id : '');
         setSchedAudience(rule ? rule.audience : 'free', rule ? rule.tier_id : '');
         setSchedCadence(schedForm.cadence);
@@ -2354,6 +2406,7 @@ jQuery(function ($) {
         syncPressed('#csSchedImageSource');
         var isInf = schedForm.image_source === 'influencer';
         $('#csSchedInfluencerWrap').prop('hidden', !isInf);
+
         $('#csSchedTopic').attr('placeholder', '');
         if (isInf) {
             var want = selectedId ? String(selectedId) : (schedForm.influencer_id || '');
@@ -2441,6 +2494,8 @@ jQuery(function ($) {
             id: $('#csSchedId').val(), name: name, topic: topic,
             kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
             image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: 'safe',
+            media_type: (kind === 'post' && schedIsVideo()) ? 'video' : 'image', video_prompt: $('#csSchedVideoPrompt').val() || '',
+            video_model_key: $('#csSchedVideoModel').val() || '', video_duration: $('#csSchedVideoDur').val() || '',
             size: $('#csSchedSize').val(), audience: schedForm.audience,
             tier_id: schedForm.audience === 'subscribers' ? (schedForm.tier_id || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',

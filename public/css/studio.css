@@ -585,7 +585,6 @@
 }
 
 /* ---- Automation editor (#csSchedulerModal): shell + fields come from the shared .cs-ae-modal component in site.css; only automation-specific parts here. ---- */
-#csSchedulerModal #csSchedInfluencerWrap{ border-top:1px solid var(--line); padding-top:20px; }
 #csSchedulerModal.modal{ z-index:1600; }   /* above the floating messenger toggle (1500) so the footer is never covered */
 /* destinations */
 #csSchedulerModal .cs-ae__desttools{ display:flex; align-items:center; gap:16px; margin-bottom:12px; }

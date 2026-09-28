@@ -409,6 +409,9 @@ class Plan {
     public static function automation_credits(array $rule): array
     {
         $per = ((string) ($rule['kind'] ?? 'post') === 'message') ? 0 : self::ai_price('image', array('params' => array('num_images' => 1)));
+        if ($per > 0 && (string) ($rule['media_type'] ?? 'image') === 'video') {   // the still, then animating it
+            $per += self::ai_price('video', array('model_key' => (string) ($rule['video_model_key'] ?? '')));
+        }
         if ((string) ($rule['cadence'] ?? 'daily') === 'weekly') {
             $days = array_filter(array_map('intval', explode(',', (string) ($rule['days_of_week'] ?? ''))), function ($d) { return $d >= 0 && $d <= 6; });
             $runs = (int) round(count($days) * 52 / 12);

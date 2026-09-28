@@ -118,23 +118,12 @@ class ApiMediaController extends BaseApiController {
             $this->jsonError("You've reached your plan's storage limit. Upgrade or remove files to free up space.", ['need_upgrade' => true]);
         }
 
-        $pay = Plan::charge_ai($user, 'video', 'Studio video: ' . mb_substr($prompt, 0, 60), array('model_key' => (string) $model['key']));
-        if (empty($pay['ok'])) { $this->jsonError($pay['message'], ['need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']]); }
-
-        $model_assets = new MediaAssetsModel();
-        $asset_id = (int) $model_assets->add($creator_id, 'video', 'Generated · ' . mb_substr($prompt, 0, 40) . '.mp4', 'video/mp4', 'processing');
-        if ($asset_id <= 0) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: video not started'); $this->jsonError('Could not save the video. Try again.'); }
-        $job_id = (new DatabaseJobQueue())->dispatch('media_video', [
-            'creator_id' => $creator_id, 'asset_id' => $asset_id, 'source_asset_id' => (int) $src['id'], 'model_key' => (string) $model['key'],
-            'prompt' => $prompt, 'duration' => $dur, 'credits' => (int) $pay['price'],
-        ]);
-        if ($job_id <= 0) {
-            (new AiCreditsModel())->refund_once($creator_id, (int) $pay['price'], 'video #' . $asset_id);
-            $model_assets->set_failed($creator_id, $asset_id, 'Could not queue the video.');
-            $this->jsonError('Could not start the video. Try again.');
+        $v = MediaVideoJob::start($user, (int) $src['id'], (string) $model['key'], $prompt, $dur);
+        if (empty($v['ok'])) {
+            $this->jsonError($v['message'], !empty($v['need_credits']) ? ['need_credits' => true, 'price' => $v['price'], 'balance' => $v['balance']] : []);
         }
-        $a = $model_assets->get_one($creator_id, $asset_id);
-        $this->jsonSuccess(['queued' => true, 'price' => (int) $pay['price'], 'asset' => $this->studio_asset_json($a, $creator_id)]);
+        $a = (new MediaAssetsModel())->get_one($creator_id, (int) $v['asset_id']);
+        $this->jsonSuccess(['queued' => true, 'price' => (int) $v['price'], 'asset' => $this->studio_asset_json($a, $creator_id)]);
     }
 
     /** Begin (or resume) a resumable multipart video upload. */

@@ -9,7 +9,7 @@ class SchedulerRulesModel extends Model {
 
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
-        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'content_level', 'audience', 'tier_id', 'comments_enabled',
+        'size', 'image_source', 'influencer_id', 'influencer_model_key', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'audience', 'tier_id', 'comments_enabled',
         'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
@@ -62,6 +62,13 @@ class SchedulerRulesModel extends Model {
         $out['image_source']     = ($src === 'influencer') ? 'influencer' : 'brand';
         $out['influencer_id']    = ($out['image_source'] === 'influencer' && (int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null;
         $out['influencer_model_key'] = ($out['image_source'] === 'influencer') ? (mb_substr(trim((string) ($f['influencer_model_key'] ?? '')), 0, 64) ?: null) : null;
+        // Video: the run's still (either image source) is animated. The model and length must be ones that model offers.
+        $vm = (($f['media_type'] ?? '') === 'video') ? InfluencerConfig::resolve_model('video', (string) ($f['video_model_key'] ?? '')) : null;
+        $out['media_type']       = $vm ? 'video' : 'image';
+        $out['video_prompt']     = $vm ? mb_substr(trim((string) ($f['video_prompt'] ?? '')), 0, 2000) : null;
+        $out['video_model_key']  = $vm ? (string) $vm['key'] : null;
+        $durs = $vm ? array_values(array_map('strval', (array) ($vm['durations'] ?? array()))) : array();
+        $out['video_duration']   = $vm ? (in_array((string) ($f['video_duration'] ?? ''), $durs, true) ? (string) $f['video_duration'] : ($durs[0] ?? '5')) : null;
         $out['content_level']    = 'safe';   // legacy column, always 'safe'; nothing reads it
         $out['audience']         = (($f['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'free';
         $out['tier_id']          = ((int) ($f['tier_id'] ?? 0) > 0) ? (int) $f['tier_id'] : null;
