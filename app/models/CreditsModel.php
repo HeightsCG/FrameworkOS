@@ -140,6 +140,12 @@ class CreditsModel extends Model {
         return is_array($r) && count($r) === 1;
     }
 
+    /** Record what the card paid for a top-up (credits + processing fee), for admin Money In. */
+    public function set_paid_cents($payment_intent_id, $cents){
+        return parent::update('credit_transactions', array('paid_cents' => (int) $cents),
+            'stripe_payment_intent_id = :pi AND paid_cents IS NULL', array('pi' => (string) $payment_intent_id));
+    }
+
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'Credit purchase'){
         $user_id = (int) $user_id;
         $credits = (int) $credits;

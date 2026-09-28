@@ -115,7 +115,7 @@ class AdminModel extends Model {
         return array(
             'sales'          => $rows,
             'sales_total'    => $t,
-            'credits_sold'   => max(0, $ledger['purchase']['cr'] ?? 0) * 10,
+            'credits_sold'   => (int) $this->scalar("SELECT COALESCE(SUM(COALESCE(paid_cents, credits * 10)),0) AS n FROM credit_transactions WHERE type = 'purchase'"),   // what cards paid, incl. processing fee
             'credit_orders'  => $ledger['purchase']['n'] ?? 0,
             'ai_sold'        => $ai_cents,
             'ai_orders'      => $ai_n,
@@ -155,11 +155,11 @@ class AdminModel extends Model {
             $t = array(); foreach ($types as $tk => $td) { $t[$tk] = array('sales' => 0, 'gross' => 0, 'refunded' => 0, 'creator' => 0); }
             $keys[$k] = array('plans' => (int) ($plan_buckets[$k] ?? 0), 'members' => (int) ($member_buckets[$k] ?? 0), 'credits' => 0, 'ai' => 0, 'refunds' => 0, 'payouts' => 0, 'types' => $t);
         }
-        $rows = parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, type, COUNT(*) AS n, SUM(credits) AS cr FROM credit_transactions WHERE created_at >= :s GROUP BY b, type", array('s' => $since));
+        $rows = parent::select("SELECT DATE_FORMAT(created_at, '%Y-%m') AS b, type, COUNT(*) AS n, SUM(credits) AS cr, SUM(COALESCE(paid_cents, credits * 10)) AS paid FROM credit_transactions WHERE created_at >= :s GROUP BY b, type", array('s' => $since));
         foreach ((array) $rows as $r) {
             if (!isset($keys[$r['b']])) { continue; }
             $cr = (int) $r['cr']; $n = (int) $r['n']; $m = &$keys[$r['b']];
-            if ($r['type'] === 'purchase') { $m['credits'] += $cr * 10; }
+            if ($r['type'] === 'purchase') { $m['credits'] += (int) $r['paid']; }   // what cards paid, incl. processing fee
             elseif ($r['type'] === 'payout') { $m['payouts'] += -$cr * 10; }
             elseif ($r['type'] === 'payout_refund') { $m['payouts'] -= $cr * 10; }   // a failed payout returned to the creator
             foreach ($types as $tk => $td) {

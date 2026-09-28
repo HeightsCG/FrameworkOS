@@ -27,6 +27,7 @@ class TopUps {
         $new = !$model->has_payment_intent($pi) && $model->credit_purchase($user_id, $credits, $pi, $desc) !== false
             && $model->has_payment_intent($pi);
         $balance = (int) $model->get_balance($user_id);
+        if (!$ai) { $model->set_paid_cents($pi, (int) $intent->amount); }   // what the card paid, incl. the processing fee
         if (!$new) {   // already added (by the page, the webhook or auto top-up), or lost the race to one of them
             return array('ok' => $model->has_payment_intent($pi), 'new' => false, 'credits' => $credits, 'balance' => $balance);
         }
