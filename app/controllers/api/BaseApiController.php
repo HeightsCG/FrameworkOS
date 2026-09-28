@@ -39,10 +39,14 @@ class BaseApiController extends Controller {
      * (Editor: content; Manager: content+manage; Viewer: none; owner-only for 'owner').
      * Returns the OWNER's user array, or exits with a JSON error.
      */
-    /** True when the seller's account is suspended or gone: nothing of theirs may be bought. */
+    /**
+     * True when nothing of this seller's may be bought: the account is suspended or gone, or it has no paid plan
+     * (selling needs Creator or Studio; a lapsed plan pauses sales until they pick one again).
+     */
     protected function seller_suspended(int $creator_id): bool{
         $rows = $this->userModel->get_user_by_id($creator_id);
-        return !is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled';
+        if (!is_array($rows) || count($rows) !== 1 || (string) ($rows[0]['user_status'] ?? '') === 'Disabled') { return true; }
+        return !Plan::can_use_creator_features($rows[0]);
     }
 
     protected function require_creator(string $capability = 'content'): array{

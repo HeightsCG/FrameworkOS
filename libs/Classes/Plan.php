@@ -12,17 +12,17 @@
 class Plan {
 
     /**
-     * Using ANY creator feature (Studio, publishing, scheduling, analytics, profile/branding)
-     * requires a creator account. Since 2026-09-23 every creator has at least the Free plan,
-     * so what a paid plan buys is a lower take rate and higher limits, not access.
+     * Using ANY creator feature (Studio, publishing, selling, AI, scheduling, analytics, payouts) requires a
+     * creator account on a paid plan (Creator or Studio). Free is the account everyone signs up with: it can
+     * follow, subscribe, unlock, buy and message, but never gets creator tools (Daniel, 2026-09-28).
      */
     public static function can_use_creator_features($user): bool
     {
         if (!is_array($user)) {
             return false;
         }
-        // Only creator accounts have plans: a fan row with leftover plan data (left creator mode) has none.
-        return self::is_creator_row($user);   // every creator is at least on Free
+        // Everyone signs up on Free; creator tools (Studio, selling, AI, payouts) need a paid plan, Creator or Studio.
+        return self::is_creator_row($user) && self::has_paid_plan($user);
     }
 
     /**

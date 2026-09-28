@@ -2,8 +2,8 @@
 $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
-    <h1 class="sx-hero__title">Start free. The fee falls as you grow.</h1>
-    <p class="sx-hero__lead">Free forever, no card needed. Every plan includes your page, memberships, pay-per-view, publishing and payouts, with unlimited fans, tiers and social connections. Paid plans lower the fee and add AI influencers, automations and AI inbox replies. Fans join free; plans are for creators.</p>
+    <h1 class="sx-hero__title">Join Free. Sell When You're Ready.</h1>
+    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts, and the fee falls as you grow.</p>
 <?php
 ?>
 <div class="sx-plans">
@@ -13,8 +13,13 @@ $e = function ($s) { return Sections::e($s); };
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?></h2>
         <p class="sx-plan__line"><?php echo $e($t['tagline']); ?></p>
         <div class="sx-plan__price"><?php if ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
+        <?php if ($t['key'] === PlanTiers::FREE_KEY): ?>
+        <p class="sx-plan__keep">Upgrade to Creator or Studio to sell</p>
+        <dl><?php foreach (PlanTiers::FREE_INCLUDES as $inc): ?><div><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?></dl>
+        <?php else: ?>
         <p class="sx-plan__keep">Keep <?php echo 100 - (int) $t['limits']['fee_percent']; ?>% of every sale</p>
         <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($t, $row['key'])); ?></dd></div><?php endforeach; ?><?php foreach (PlanTiers::FEATURES as $fk => $fl): ?><div><dt><?php echo $fl; ?></dt><dd><?php echo PlanTiers::has_feature($t, $fk) ? 'Included' : '&mdash;'; ?></dd></div><?php endforeach; ?></dl>
+        <?php endif; ?>
         <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
         <div class="sx-plan__cta"><a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="/?auth=register" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
     </article>
@@ -24,7 +29,7 @@ $e = function ($s) { return Sections::e($s); };
     // What AI credits buy, from the same price list Billing shows (Plan::ai_price_list), so the page can't go stale.
     $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
 ?>
-<p class="sx-note">AI credits can be bought on every plan: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
+<p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
 
@@ -39,7 +44,7 @@ foreach ($rows as $r) { $price_row[] = $r['amount'] !== null ? '$' . $e(number_f
 $trows[] = $price_row;
 foreach (PlanTiers::ROWS as $row) {
     $tr = array($e($row['label']));
-    foreach ($rows as $r) { $tr[] = $e(PlanTiers::fmt_tier_limit($r['tier'], $row['key'])); }
+    foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $e(PlanTiers::fmt_tier_limit($r['tier'], $row['key'])); }   // Free sells nothing
     $trows[] = $tr;
 }
 foreach (PlanTiers::FEATURES as $fk => $fl) {   // per-plan switches (inbox AI replies)
@@ -55,12 +60,12 @@ foreach (PlanTiers::addons() as $ad) {
 $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-per-view posts', 'Bundles', 'Services and events', 'Paid messages', 'Promo codes and free trials',
     'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
     'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
-foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = $check; } $trows[] = $tr; }
-echo Sections::open('white', 'Compare plans', 'Plans differ in fee, limits and the AI tools they include. Everything below the limits is on every plan.');
+foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
+echo Sections::open('white', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
 echo Sections::close();
 
 echo Sections::faq($faq, 'white');
-$cta_title = 'Start on Free.';
-$cta_text = 'Create your account and start selling. Upgrade from Billing when a lower fee pays for itself.';
+$cta_title = 'Start with Free.';
+$cta_text = 'Create your free account. When you want to sell, pick Creator or Studio in Billing.';
 $cta_no_pricing = true;

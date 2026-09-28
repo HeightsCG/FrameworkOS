@@ -176,7 +176,7 @@ $(function () {
     $('.plan-cancel, #cancel_plan').on('click', function () {
         Swal.fire({
             title: 'Cancel your plan?',
-            html: 'Your plan stays on until <?php echo $end_ts ? $e($day($end_ts)) : 'the end of the period'; ?>. Then you move to Free and no more plan charges are made. Everything you made is kept; anything over the Free limits is locked until you upgrade.',
+            html: 'Your plan stays on until <?php echo $end_ts ? $e($day($end_ts)) : 'the end of the period'; ?>. Then your account moves to Free: your creator tools pause and new sales stop, and no more plan charges are made. Everything you made is kept, and it all comes back when you pick a plan again.',
             showCancelButton: true, reverseButtons: true, confirmButtonText: 'Cancel Plan', cancelButtonText: 'Keep Plan',
             customClass: { confirmButton: 'btn btn-danger', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
         }).then(function (r) {
@@ -406,10 +406,9 @@ $(function () {
     <?php if (!empty($_GET['welcome']) && !$has_plan): ?>
     <div class="billing__welcome">
         <div>
-            <div class="billing__welcome-title">You're a creator. Choose your plan.</div>
-            <div class="billing__welcome-text">Paid plans lower your fee and add AI influencers, automations and AI replies. Or start on Free, no card needed.</div>
+            <div class="billing__welcome-title">One more step: choose Creator or Studio.</div>
+            <div class="billing__welcome-text">Your Studio, selling and payouts open as soon as you pick a plan.</div>
         </div>
-        <a href="/account/settings?section=creator" class="btn btn-secondary">Continue on Free</a>
     </div>
     <?php endif; ?>
     <div class="plans" style="--plans:<?php echo count($ordered); ?>">
@@ -429,12 +428,16 @@ $(function () {
                 <span class="plan__interval">/ month</span>
             </div>
             <dl class="plan__rows">
+                <?php if ($is_free_row): ?>
+                <?php foreach (PlanTiers::FREE_INCLUDES as $inc): ?><div class="plan__row"><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?>
+                <?php else: ?>
                 <?php foreach (PlanTiers::ROWS as $r): ?>
                 <div class="plan__row"><dt><?php echo $e($r['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($tier, $r['key'])); ?></dd></div>
                 <?php endforeach; ?>
                 <?php foreach (PlanTiers::FEATURES as $fk => $flabel): ?>
                 <div class="plan__row"><dt><?php echo $flabel; ?></dt><dd><?php echo PlanTiers::has_feature($tier, $fk) ? 'Included' : '&mdash;'; ?></dd></div>
                 <?php endforeach; ?>
+                <?php endif; ?>
             </dl>
             <?php foreach ((array) ($row['addons'] ?? array()) as $ad): ?>
             <p class="plan__addon">Add more AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?>.</p>
@@ -445,7 +448,7 @@ $(function () {
                 <?php if ($past_due): ?>
                     <p class="plan__mine-line plan__mine-line--bad">Payment failed. Update your card in Payments.</p>
                 <?php elseif ($has_plan && $canceling): ?>
-                    <p class="plan__mine-line">Ends <?php echo $e($day($end_ts)); ?>. Then you're on Free.</p>
+                    <p class="plan__mine-line">Ends <?php echo $e($day($end_ts)); ?>. Then your creator tools pause.</p>
                 <?php elseif ($has_plan && $pending): ?>
                     <p class="plan__mine-line">Changes to <?php echo $e($pending['name']); ?> on <?php echo $e($day($end_ts)); ?>.</p>
                 <?php elseif ($next): ?>
@@ -454,7 +457,7 @@ $(function () {
                     <ul class="plan__mine-items"><?php foreach ($next['lines'] as $l): ?><li><span><?php echo $e($l[0]); ?></span><span><?php echo $e($money($l[1])); ?></span></li><?php endforeach; ?></ul>
                     <?php endif; ?>
                 <?php else: ?>
-                    <p class="plan__mine-line">Free forever. No card needed.</p>
+                    <p class="plan__mine-line">Pick Creator or Studio to start selling.</p>
                 <?php endif; ?>
             </div>
             <?php if ($has_plan && ($canceling || $pending)): ?>

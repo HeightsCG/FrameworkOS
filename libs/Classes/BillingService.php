@@ -316,7 +316,7 @@ class BillingService {
         $next = isset($retries[$n - 1]) ? strtotime($since . ' UTC') + (int) $retries[$n - 1] * 86400 : null;
         if ($next === null || $next > $grace_end || time() >= $grace_end) {
             self::to_free($uid, true, 'payment_failed');
-            self::email($uid, 'Your plan has ended', 'We couldn\'t collect your payment after several tries, so your account is now on Free. Everything you made is saved; anything over the Free limits is locked until you upgrade again.', array(), '', 'Choose a Plan', '/account/billing');
+            self::email($uid, 'Your plan has ended', 'We couldn\'t collect your payment after several tries, so your account is now on Free and your creator tools are paused. Everything you made is saved and comes back when you pick a plan again.', array(), '', 'Choose a Plan', '/account/billing');
             return;
         }
         $accts->save($uid, array('status' => 'past_due', 'past_due_since' => $since, 'retry_count' => $n, 'next_retry_at' => gmdate('Y-m-d H:i:s', $next)));
@@ -355,7 +355,7 @@ class BillingService {
             $plan = self::PLAN_FREE;
             $f += array('plan_key' => $plan, 'cancel_at_period_end' => 0, 'pending_plan_key' => null, 'influencer_slots' => 0, 'influencer_slots_next' => null) + self::promo_fields(null);
             (new AiCreditsModel())->set_bucket($uid, 'plan', 0, '');
-            self::email($uid, 'Your plan has ended', 'Your paid plan ended as you asked, and your account is now on Free. Everything you made is saved; anything over the Free limits is locked until you upgrade.', array(), '', 'See Plans', '/account/billing');
+            self::email($uid, 'Your plan has ended', 'Your paid plan ended as you asked, so your account is now on Free and your creator tools are paused. Everything you made is saved and comes back when you pick a plan again.', array(), '', 'See Plans', '/account/billing');
         } elseif ((string) ($acct['pending_plan_key'] ?? '') !== '') {
             $plan = (string) $acct['pending_plan_key'];
             $f += array('plan_key' => $plan, 'pending_plan_key' => null);

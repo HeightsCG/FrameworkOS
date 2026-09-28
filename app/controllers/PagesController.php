@@ -271,12 +271,11 @@ class PagesController extends Controller {
     public function pricingAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $rows = self::pricing_rows();
-        $free = PlanTiers::get(PlanTiers::FREE_KEY);
         $ai_first = PlanTiers::lowest_including('influencers');
         $faq  = array(
-            array('q' => 'Is there a free plan?', 'a' => 'Yes. Free costs nothing and needs no card. It includes your page, memberships, pay-per-view, publishing and payouts. The platform takes ' . (int) $free['limits']['fee_percent'] . '% of what you earn. Paid plans lower that rate and add AI influencers, automations and AI inbox replies.'),
+            array('q' => 'Is there a free plan?', 'a' => 'Yes. Everyone starts with a Free account: it costs nothing, needs no card, and lets you follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio, which include your page, memberships, pay-per-view, publishing and payouts.'),
             array('q' => 'What is the platform take rate?', 'a' => 'A flat percentage of what fans pay you, set by your plan and shown on this page. It falls as you move up.'),
-            array('q' => 'Can I buy AI credits on any plan?', 'a' => 'Yes, including Free. Paid plans include AI credits every month; on Free you buy them as you need them. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
+            array('q' => 'Can I buy AI credits on any plan?', 'a' => 'AI tools are part of Creator and Studio, which include AI credits every month. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
         foreach (PlanTiers::addons() as $ad) {
@@ -304,8 +303,7 @@ class PagesController extends Controller {
 
     /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        $free = PlanTiers::get(PlanTiers::FREE_KEY);
-        return trim(self::plan_price_sentence() . ' Free needs no card and takes ' . (int) ($free['limits']['fee_percent'] ?? 0) . '% of what you earn; the paid plans lower the take rate, raise the limits and add AI influencers, automations and AI inbox replies. ' . self::addon_sentence());
+        return trim(self::plan_price_sentence() . ' Free needs no card and is the account everyone starts with, to follow, subscribe and buy. Selling starts on Creator; Studio lowers the take rate further and adds more AI influencers and team seats. ' . self::addon_sentence());
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
@@ -355,8 +353,7 @@ class PagesController extends Controller {
         foreach (self::pricing_rows() as $r) {
             $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100) . '/mo';
         }
-        $free = PlanTiers::get(PlanTiers::FREE_KEY);
-        return 'Plans: ' . implode(', ', $bits) . '. Free forever with a ' . (int) ($free['limits']['fee_percent'] ?? 0) . '% take rate; paid plans lower it and raise the limits.';
+        return 'Plans: ' . implode(', ', $bits) . '. Everyone starts with a Free account to follow, subscribe and buy; selling starts on Creator, and Studio lowers the take rate further.';
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */

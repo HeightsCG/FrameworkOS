@@ -26,7 +26,7 @@ class Tutorials {
         '02' => array('section' => 'start', 'title' => 'Choose Your Plan', 'secs' => 65, 'steps' => array(
             'Your plan sets your platform fee and which AI tools you get. Here\'s how to pick one.',
             'Click your name, then Billing.',
-            'Free has no monthly cost and a 20 percent platform fee.',
+            'Free is the account everyone starts with. It costs nothing and lets you follow, subscribe and buy. To sell, pick Creator or Studio.',
             'Creator is 49 dollars a month. Your fee drops to 10 percent and you get an AI influencer, 500 AI credits a month and scheduled automations.',
             'Studio is 199 dollars a month. Your fee drops to 3 percent, with 10 AI influencers, 3,000 AI credits a month, unlimited automations and 10 team seats.',
             'Every plan includes unlimited social connections, membership tiers, bundles, promo codes and analytics.',
