@@ -40,7 +40,7 @@ class ApiLiveController extends BaseApiController {
         }
         $this->jsonSuccess([
             'url'   => LiveKit::url(),
-            'token' => LiveKit::token($r['room'], $identity, $name, (bool) $r['host'], $me > 0 ? ['uid' => $me] : ['guest' => true]),
+            'token' => LiveKit::token($r['room'], $identity, $name, (bool) $r['host'], $me > 0 ? ['uid' => $me] : ['guest' => true], $me > 0),   // guests: no screen sharing
             'host'  => (bool) $r['host'],
             'title' => $r['title'],
             'me'    => $identity,

@@ -1,4 +1,4 @@
-<?php /* CLS Video for a visitor without an account (a free event open to everyone): the site banner, then the call. $c = the call. */ ?>
+<?php /* CLS Video standalone page: a visitor without an account (site banner + the call), or anyone on a creator's own domain (the call only). $c = the call. */ ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -18,10 +18,10 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/api.data.js"></script>
-    <style>body.lv-guest{ background:var(--bg); } .lv-guest__main{ padding:1.5rem 16px 2rem; } .lv-guest .lv{ height:calc(100vh - 64px - 3.5rem); max-width:1152px; }</style>
+    <style>body.lv-guest{ background:var(--bg); } .lv-guest__main{ padding:1.5rem 16px 2rem; } .lv-guest .lv{ height:calc(100vh - 64px - 3.5rem); max-width:1152px; } .lv-guest--own .lv{ height:calc(100vh - 3.5rem); }</style>
 </head>
-<body class="lv-guest">
-<?php include Main::app_path() . '/libs/Layout/guest_bar.php'; ?>
+<body class="lv-guest<?php echo !empty($c['own_domain']) ? ' lv-guest--own' : ''; ?>">
+<?php if (empty($c['own_domain'])) { include Main::app_path() . '/libs/Layout/guest_bar.php'; } /* not on a creator's own domain: their brand */ ?>
 <main class="lv-guest__main">
 <?php require __DIR__ . '/_room.php'; ?>
 </main>

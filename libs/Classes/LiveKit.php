@@ -34,11 +34,19 @@ class LiveKit {
 
     /**
      * A pass into one room. $identity must be unique per person in the room (we use "u<user id>"); $name is shown
-     * under their video. $host adds room admin rights (remove people, mute everyone).
+     * under their video. $host adds room admin rights (remove people, mute everyone). $can_share_screen false = camera
+     * and microphone only (visitors without an account).
      */
-    public static function token($room, $identity, $name, $host = false, array $metadata = array()): string
+    public static function token($room, $identity, $name, $host = false, array $metadata = array(), $can_share_screen = true): string
     {
         $now = time();
+        $video = array(
+            'room' => (string) $room, 'roomJoin' => true,
+            'canPublish' => true, 'canSubscribe' => true, 'canPublishData' => true,
+            'roomAdmin' => (bool) $host,
+        );
+        // The server enforces this: without it, the pass can't publish a screen share even from a tampered page.
+        if (!$can_share_screen) { $video['canPublishSources'] = array('camera', 'microphone'); }
         return self::jwt(array(
             'iss'  => self::cfg('livekit_api_key'),
             'sub'  => (string) $identity,
@@ -46,11 +54,7 @@ class LiveKit {
             'nbf'  => $now - 10,
             'exp'  => $now + self::TTL,
             'metadata' => json_encode($metadata + array('host' => (bool) $host)),
-            'video' => array(
-                'room' => (string) $room, 'roomJoin' => true,
-                'canPublish' => true, 'canSubscribe' => true, 'canPublishData' => true,
-                'roomAdmin' => (bool) $host,
-            ),
+            'video' => $video,
         ));
     }
 

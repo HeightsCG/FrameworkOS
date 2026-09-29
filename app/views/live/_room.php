@@ -77,7 +77,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
             <div class="lv-bar" role="toolbar" aria-label="Call controls">
                 <button type="button" class="lv-ctl" id="lvMic" aria-pressed="true" aria-label="Microphone" title="Microphone"><i class="fa-solid fa-microphone" aria-hidden="true"></i></button>
                 <button type="button" class="lv-ctl" id="lvCam" aria-pressed="true" aria-label="Camera" title="Camera"><i class="fa-solid fa-video" aria-hidden="true"></i></button>
-                <button type="button" class="lv-ctl lv-ctl--wide-hide" id="lvShare" aria-pressed="false" aria-label="Share Screen" title="Share Screen"><i class="fa-solid fa-display" aria-hidden="true"></i></button>
+                <?php if (empty($c['guest'])): /* visitors without an account can't share their screen */ ?><button type="button" class="lv-ctl lv-ctl--wide-hide" id="lvShare" aria-pressed="false" aria-label="Share Screen" title="Share Screen"><i class="fa-solid fa-display" aria-hidden="true"></i></button><?php endif; ?>
                 <?php if ($c['is_host']): ?>
                 <button type="button" class="lv-ctl" id="lvPeople" aria-pressed="false" aria-label="People" title="People"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span class="lv-ctl__count" id="lvCount">1</span></button>
                 <button type="button" class="lv-ctl" id="lvMuteAll" aria-label="Mute Everyone" title="Mute Everyone"><i class="fa-solid fa-microphone-lines-slash" aria-hidden="true"></i></button>

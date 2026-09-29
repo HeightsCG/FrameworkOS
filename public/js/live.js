@@ -255,13 +255,13 @@
         var lp = room.localParticipant;
         set_toggle(el('lvMic'), lp.isMicrophoneEnabled, 'fa-microphone', 'fa-microphone-slash');
         set_toggle(el('lvCam'), lp.isCameraEnabled, 'fa-video', 'fa-video-slash');
-        el('lvShare').setAttribute('aria-pressed', lp.isScreenShareEnabled ? 'true' : 'false');
+        if (el('lvShare')) { el('lvShare').setAttribute('aria-pressed', lp.isScreenShareEnabled ? 'true' : 'false'); }   // no button for guests
         if (is_host) { el('lvCount').textContent = n; render_people(people); }
     }
 
     el('lvMic').addEventListener('click', function () { var lp = room.localParticipant; lp.setMicrophoneEnabled(!lp.isMicrophoneEnabled).then(render).catch(device_error); });
     el('lvCam').addEventListener('click', function () { var lp = room.localParticipant; lp.setCameraEnabled(!lp.isCameraEnabled).then(render).catch(device_error); });
-    el('lvShare').addEventListener('click', function () { var lp = room.localParticipant; lp.setScreenShareEnabled(!lp.isScreenShareEnabled).then(render).catch(function () { render(); }); });
+    if (el('lvShare')) el('lvShare').addEventListener('click', function () { var lp = room.localParticipant; lp.setScreenShareEnabled(!lp.isScreenShareEnabled).then(render).catch(function () { render(); }); });
     el('lvLeave').addEventListener('click', function () { leaving = true; if (room) { room.disconnect(); } });
     function device_error() { toastr.error('Your browser blocked the camera or microphone. Allow it in the address bar and try again.'); render(); }
     window.addEventListener('beforeunload', function () { if (room) { room.disconnect(); } });

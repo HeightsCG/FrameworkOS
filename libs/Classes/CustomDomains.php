@@ -20,7 +20,7 @@ class CustomDomains {
     const PROFILE_PATHS = array('events', 'services');
 
     /** Routes that work on a custom domain as-is (AJAX, link clicks, email images, crawlers, the handoff). */
-    const PASSTHROUGH = array('api', 'go', 'mail-image', 'robots.txt', 'sitemap.xml', '_handoff');
+    const PASSTHROUGH = array('api', 'go', 'mail-image', 'robots.txt', 'sitemap.xml', '_handoff', 'live');   // live: CLS Video calls (LiveController keeps them to this creator's own)
 
     private static $current = false;   // memo: false = not resolved yet, null = not a custom domain
 
