@@ -7,7 +7,7 @@ $stats = $this->stats;
 $live  = ($sv['status'] === 'published');
 $dollars = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
 $methods = ServicesModel::method_labels() + array('cls_video' => 'CLS Video');
-$public_link = Main::get_base_domain() . '/@' . rawurlencode((string) $this->handle) . '/services/' . (int) $sv['id'];
+$public_link = (string) $this->share_link;   // Copy Link: the creator's own domain when they have one
 $editor_data = array(
     'id' => (int) $sv['id'], 'name' => $d($sv['name']), 'description' => $d($sv['description']), 'category' => $d($sv['category']),
     'price' => number_format(((int) $sv['price_credits']) / 10, 2, '.', ''), 'duration_min' => (int) $sv['duration_min'],

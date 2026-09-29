@@ -45,6 +45,7 @@ class EventsController extends Controller {
         $this->view->tiers     = (new CreatorPlansModel())->get_for_user($creator_id);
         $this->view->timezone  = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->handle    = (string) ($owner['u_name'] ?? '');
+        $this->view->share_link = $owner ? CustomDomains::share_url($owner, 'events/' . (int) $id) : '';   // their own domain when they have one
         $this->view->tab       = in_array($tab, array('attendees', 'messages'), true) ? $tab : 'attendees';
         $this->view->render();
     }

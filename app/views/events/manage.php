@@ -16,7 +16,7 @@ $canceled  = ($ev['status'] === 'canceled');
 $live      = ($ev['status'] === 'published');
 $in_person = (($ev['format'] ?? 'virtual') === 'in_person');
 $dollars   = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
-$public_link = Main::get_base_domain() . '/@' . rawurlencode((string) $this->handle) . '/events/' . (int) $ev['id'];
+$public_link = (string) $this->share_link;   // Copy Link / View public page: the creator's own domain when they have one
 $editor_data = array(
     'id' => (int) $ev['id'], 'title' => $d($ev['title']), 'description' => $d($ev['description']),
     'start_at' => $local($ev['start_at'], 'Y-m-d\TH:i'), 'end_at' => $local($ev['end_at'], 'Y-m-d\TH:i'), 'timezone' => $ev_tz, 'reminders' => (string) ($ev['reminders'] ?? '1440'),

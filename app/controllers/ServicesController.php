@@ -34,6 +34,7 @@ class ServicesController extends Controller {
         $this->view->service = $sv;
         $this->view->stats   = $model->stats($id);
         $this->view->handle  = (string) ($owner['u_name'] ?? '');
+        $this->view->share_link = $owner ? CustomDomains::share_url($owner, 'services/' . (int) $id) : '';   // their own domain when they have one
         $this->view->render();
     }
 }

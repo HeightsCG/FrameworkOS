@@ -236,6 +236,14 @@ class CustomDomains {
         return $d ? 'https://' . $d['hostname'] . '/' : Main::get_base_domain() . '/@' . rawurlencode((string) $user['u_name']);
     }
 
+    /**
+     * A creator's public link for sharing ('events/2' -> https://lexivaughn.com/events/2): their own primary domain
+     * when they have an active one on their plan, else https://www.creatorlinkstudio.com/@handle/events/2.
+     */
+    public static function share_url(array $user, $path = ''): string {
+        return rtrim(self::canonical_profile_url($user), '/') . ($path !== '' ? '/' . ltrim((string) $path, '/') : '');
+    }
+
     /** Sign-in link on a custom domain: the platform signs them in, then hands the session back to $path here. */
     public static function login_url($path = '/'): string {
         $d = self::current();
