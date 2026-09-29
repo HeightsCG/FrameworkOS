@@ -281,8 +281,9 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
     .ev-cityrow > .cs-ae__field:first-child{ grid-column:1 / -1; }
 }
 
-/* CLS Video: who is in the call, a pill next to the event title */
-.evm-callstat::before{ content:""; width:7px; height:7px; border-radius:50%; background:#b4b2bd; }
-.evm-callstat.is-active{ background:rgba(31,157,107,.1); color:#1a8a5d; }
-.evm-callstat.is-active::before{ background:#1f9d6b; }
+/* CLS Video: who is in the call, a slim banner between the header and the panels */
+.evm-callstat{ flex:none; display:flex; align-items:center; gap:10px; margin:0 0 16px; padding:10px 14px; border-radius:var(--r-sm); background:#F4F3F6; color:#5c5968; font-size:.875rem; font-weight:500; }
+.evm-callstat::before{ content:""; flex:none; width:8px; height:8px; border-radius:50%; background:#b4b2bd; }
+.evm-callstat.is-active{ background:rgba(31,157,107,.09); color:#17744f; }
+.evm-callstat.is-active::before{ background:#1f9d6b; box-shadow:0 0 0 3px rgba(31,157,107,.18); }
 .evm-callstat[hidden]{ display:none; }

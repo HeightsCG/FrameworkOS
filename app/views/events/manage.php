@@ -58,9 +58,6 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                     <?php if ($canceled): ?><span class="evm-flag evm-flag--off">Canceled</span>
                     <?php elseif ($ended): ?><span class="evm-flag">Ended</span>
                     <?php elseif (!$live): ?><span class="evm-flag">Not live</span><?php endif; ?>
-                    <?php if ($live && !$canceled && ($ev['format'] ?? '') === 'cls_video' && LiveKit::enabled() && LiveAccess::event_phase($ev) !== 'closed'): /* who is in the CLS Video call (event-page.js) */ ?>
-                    <span class="evm-flag evm-callstat" id="evmCallStat" data-call="<?php echo (int) $ev['id']; ?>" role="status" hidden></span>
-                    <?php endif; ?>
                 </div>
                 <?php if (trim($d($ev['description'])) !== ''): ?><p class="evm-top__desc"><?php echo $e($d($ev['description'])); ?></p><?php endif; ?>
             </div>
@@ -89,6 +86,10 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
         </div>
     </header>
 
+    <?php if ($live && !$canceled && ($ev['format'] ?? '') === 'cls_video' && LiveKit::enabled() && LiveAccess::event_phase($ev) !== 'closed'): /* who is in the CLS Video call (event-page.js) */ ?>
+    <div class="evm-callstat" id="evmCallStat" data-call="<?php echo (int) $ev['id']; ?>" role="status" hidden></div>
+    <?php endif; ?>
+
     <dl class="evm-band">
         <div class="evm-band__cell">
             <dt>Date and Time</dt>
@@ -104,8 +105,13 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
             <?php if ($street !== ''): ?><dd class="evm-band__sub"><?php echo $e($street); ?></dd><?php endif; ?>
             <?php if ($city_line !== ''): ?><dd class="evm-band__sub"><?php echo $e($city_line); ?></dd><?php endif; ?>
             <?php else: ?>
+            <?php if (($ev['format'] ?? '') === 'cls_video'): ?>
+            <dd class="evm-band__main">CLS Video</dd>
+            <dd class="evm-band__sub"><?php echo EventsModel::open_call($ev) ? 'Anyone can join from the event page' : 'Attendees join from the event page'; ?><?php echo trim((string) ($ev['call_password'] ?? '')) !== '' ? ' · Password: ' . $e($ev['call_password']) : ''; ?></dd>
+            <?php else: ?>
             <dd class="evm-band__main">Online</dd>
             <dd class="evm-band__sub">Link emailed to attendees</dd>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
         <div class="evm-band__cell">
