@@ -69,6 +69,13 @@ class CreatorSubscriptionsModel extends Model {
         return is_array($rows) && count($rows) === 1;
     }
 
+    /** Has this fan ever had a paid membership with this creator (any plan, any status)? One free trial per fan per creator. */
+    public function had_paid_with($subscriber_id, $creator_id): bool {
+        $r = parent::select("SELECT id FROM creator_subscriptions WHERE subscriber_id = :s AND creator_id = :c AND is_free = 0 LIMIT 1",
+            array('s' => (int) $subscriber_id, 'c' => (int) $creator_id));
+        return is_array($r) && count($r) === 1;
+    }
+
     /** Active paid memberships where the user is the fan or the creator (account delete / suspend). */
     public function active_paid_involving($user_id){
         return (array) parent::select(
@@ -168,7 +175,9 @@ class CreatorSubscriptionsModel extends Model {
         // Free trial: the end date is the signup date plus the plan's value + unit
         // (e.g. "+7 day", "+2 week", "+1 month") — calculated once, here, and stored.
         $trial_ends_at = null;
-        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0) {
+        // Only when Stripe actually started a trial: a fan who already used this creator's trial pays from day one.
+        $trialing = !isset($stripe['sub_status']) || (string) $stripe['sub_status'] === 'trialing';   // the Stripe subscription's status
+        if ($trialing && !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0) {
             $tu = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
             $trial_ends_at = date('Y-m-d H:i:s', strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu));
         }

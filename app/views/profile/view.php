@@ -470,7 +470,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 </div>
                                 <?php
                                     $tunit2 = in_array(($plan['trial_unit'] ?? 'day'), array('day', 'week', 'month'), true) ? $plan['trial_unit'] : 'day';
-                                    $has_trial = !$is_free && !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0;
+                                    $has_trial = !$is_free && !empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && empty($trial_used);   // one trial per fan per creator
                                     $trial_label = $has_trial ? ((int) $plan['trial_value'] . '-' . $tunit2) : '';
                                 ?>
                                 <?php if ($has_trial): ?><span class="pf-plan__trial"><i class="fa-solid fa-gift"></i> <?php echo $trial_label; ?> free trial</span><?php endif; ?>

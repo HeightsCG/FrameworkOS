@@ -522,7 +522,8 @@ class ApiPostsController extends BaseApiController {
         // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day
         // conversion. Only while enabled.
         $trial_end = 0;
-        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0) {
+        // One free trial per fan per creator: anyone who has had a paid membership with them before pays from day one.
+        if (!empty($plan['trial_enabled']) && (int) ($plan['trial_value'] ?? 0) > 0 && !$subsModel->had_paid_with($user_id, $creator_id)) {
             $tu = in_array(($plan['trial_unit'] ?? 'day'), ['day', 'week', 'month'], true) ? $plan['trial_unit'] : 'day';
             $trial_end = strtotime('+' . (int) $plan['trial_value'] . ' ' . $tu, time());
         }

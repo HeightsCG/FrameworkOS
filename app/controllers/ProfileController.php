@@ -417,6 +417,8 @@ class ProfileController extends Controller {
         }
 
         $viewer_credit_balance = $viewer_logged_in ? (new CreditsModel())->get_balance($viewer_id) : 0;
+        // One free trial per fan per creator: someone who has had a paid membership here doesn't see trial offers.
+        $trial_used = $viewer_logged_in && !$is_self && (new CreatorSubscriptionsModel())->had_paid_with($viewer_id, (int) $user['user_id']);
 
         require Main::app_path() . '/app/views/profile/view.php';
     }
@@ -461,7 +463,7 @@ class ProfileController extends Controller {
             error_log('[membership] duplicate canceled: fan=' . (int) $viewer_id . ' creator=' . (int) $creator['user_id'] . ' sub=' . (string) $session['subscription_id']);
             return false;
         }
-        $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session);
+        $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session + array('sub_status' => (string) ($session['subscription_status'] ?? '')));
         // Reloading the success URL must not re-count the discount code or re-send the notices.
         if (!$subs->claim_checkout_recorded((string) ($session['subscription_id'] ?? ''))) { return true; }
         $cname = Notify::name_of((int) $creator['user_id']); $chandle = Notify::handle_of((int) $creator['user_id']);

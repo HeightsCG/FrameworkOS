@@ -228,6 +228,7 @@ class WebhookController extends Controller {
             'subscription_id'    => (string) $obj->id,
             'customer_id'        => $customer,
             'current_period_end' => $period,
+            'sub_status'         => (string) $obj->status,   // 'trialing' only when Stripe really gave a trial
         ));
         // The fan closed the tab before the success page: tell both sides here instead. The success page and this webhook
         // share one claim, so whichever runs first sends the notices (and counts the discount code) and the other doesn't.
