@@ -264,7 +264,7 @@ $(function () {
 
     /* ---- tabs: ?tab=, links that need a tab (?buy=credits, ?add=slot), else the last one used ---- */
     function show_tab(name) {
-        if (!$('.btabs__tab[data-tab="' + name + '"]').length) { name = 'usage'; }
+        if (!$('.btabs__tab[data-tab="' + name + '"]').length) { name = 'plan'; }
         $('.btabs__tab').each(function () { var on = $(this).data('tab') === name; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false').attr('tabindex', on ? '0' : '-1'); });
         $('.bpanel').each(function () { $(this).prop('hidden', $(this).data('tab') !== name); });
         try { localStorage.setItem('cls_billing_tab', name); } catch (e) {}
@@ -276,7 +276,7 @@ $(function () {
         var $n = $t.eq((i + $t.length) % $t.length); show_tab($n.data('tab')); $n.trigger('focus');
     });
     var first = qs.get('tab') || (qs.get('buy') ? 'credits' : (qs.get('add') ? 'plan' : ''));
-    if (!first) { try { first = localStorage.getItem('cls_billing_tab') || 'usage'; } catch (e) { first = 'usage'; } }
+    if (!first) { try { first = localStorage.getItem('cls_billing_tab') || 'plan'; } catch (e) { first = 'plan'; } }
     show_tab(first);
     if (qs.get('pay')) { pay_pending(qs.get('pay')); }
     if (qs.get('add') === 'slot' && $('#slots_add').length && !$('#slots_add').prop('disabled')) { add_slot(); }
@@ -366,10 +366,10 @@ $(function () {
 
 
     <nav class="btabs" role="tablist" aria-label="Billing">
-        <button type="button" class="btabs__tab" role="tab" data-tab="usage" id="btab-usage" aria-controls="bpanel-usage">Usage</button>
         <button type="button" class="btabs__tab" role="tab" data-tab="plan" id="btab-plan" aria-controls="bpanel-plan">Plan</button>
         <button type="button" class="btabs__tab" role="tab" data-tab="credits" id="btab-credits" aria-controls="bpanel-credits">AI Credits</button>
         <button type="button" class="btabs__tab" role="tab" data-tab="payments" id="btab-payments" aria-controls="bpanel-payments">Payments<?php if ($past_due || $this->awaiting): ?> <span class="btabs__dot" aria-label="Needs attention"></span><?php endif; ?></button>
+        <button type="button" class="btabs__tab" role="tab" data-tab="usage" id="btab-usage" aria-controls="bpanel-usage">Usage</button>
     </nav>
 
     <section class="bpanel" id="bpanel-usage" role="tabpanel" aria-labelledby="btab-usage" data-tab="usage" hidden>
