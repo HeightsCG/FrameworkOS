@@ -88,13 +88,18 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
 
     <section class="cs-ae__section" data-section="where" aria-labelledby="evH_where" hidden>
         <h3 class="cs-ae__h" id="evH_where" tabindex="-1">Where</h3>
-        <p class="cs-ae__sub">The address shows on the event page. Meeting links are emailed to attendees when they register and in a reminder the day before.</p>
+        <p class="cs-ae__sub">The address shows on the event page. Meeting links are emailed to attendees when they register and in a reminder the day before.<?php if (LiveKit::enabled()): ?> CLS Video calls are joined from the event page.<?php endif; ?></p>
         <div class="cs-ae__field ev-formatrow">
             <span class="cs-ae__label" id="evFormatLabel">Format</span>
             <div class="cs-seg cs-ae__seg" id="evFormat" role="group" aria-labelledby="evFormatLabel">
-                <button type="button" class="cs-seg__opt" aria-pressed="false" data-format="virtual"><i class="fa-solid fa-video" aria-hidden="true"></i><span>Online</span></button>
+                <button type="button" class="cs-seg__opt" aria-pressed="false" data-format="virtual"><i class="fa-solid fa-link" aria-hidden="true"></i><span>Online Link</span></button>
+                <?php if (LiveKit::enabled()): ?><button type="button" class="cs-seg__opt" aria-pressed="false" data-format="cls_video"><i class="fa-solid fa-video" aria-hidden="true"></i><span>CLS Video</span></button><?php endif; ?>
                 <button type="button" class="cs-seg__opt" aria-pressed="false" data-format="in_person"><i class="fa-solid fa-location-dot" aria-hidden="true"></i><span>In person</span></button>
             </div>
+        </div>
+        <div class="cs-ae__field cs-ae__reveal" id="ev_pw_wrap" hidden>
+            <label class="cs-ae__label" for="ev_pw">Call Password</label>
+            <input type="text" class="form-control" id="ev_pw" maxlength="64" autocomplete="off" placeholder="No password">
         </div>
         <div class="cs-ae__field cs-ae__reveal" id="ev_url_wrap">
             <label class="cs-ae__label" for="ev_url">Meeting Link</label>

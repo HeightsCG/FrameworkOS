@@ -93,6 +93,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
 </head>
 <body class="pf<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
+<?php if (!empty($focus_event) && !$on_own_domain) { include Main::app_path() . '/libs/Layout/guest_bar.php'; } /* signed-out event page: brand + Log In / Register */ ?>
 <?php endif; ?>
 
     <!-- Signature: identity + primary action dock in on scroll -->
@@ -220,9 +221,14 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                         <a class="pe-tile__link" href="https://www.google.com/maps/search/?api=1&amp;query=<?php echo $h_(rawurlencode($maps_q)); ?>" target="_blank" rel="noopener noreferrer">Open in Maps <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
                                         <?php endif; ?>
                                     <?php else: ?>
+                                        <?php if (!empty($fe['is_video'])): ?>
+                                        <p class="pe-tile__main">CLS Video</p>
+                                        <p class="pe-tile__sub"><?php echo !empty($fe['open_call']) ? 'Anyone can join the call on this page. No registration needed.' : ($fe_state === 'registered' ? 'Join the call on this page.' : 'Join the call on this page after you register.'); ?></p>
+                                        <?php else: ?>
                                         <p class="pe-tile__main">Online</p>
                                         <?php if ($fe_state === 'registered'): ?><p class="pe-tile__sub">Your meeting link was sent to your email.</p>
                                         <?php elseif (in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?><p class="pe-tile__sub">The meeting link is emailed when you register.</p><?php endif; ?>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                 </section>
                             </div>
@@ -251,22 +257,42 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             </div>
                             <div class="pe-ticket__tear" aria-hidden="true"></div>
                             <div class="pf-ev__cta pe-ticket__bottom">
+                                <?php
+                                // CLS Video: a free event open to everyone can be joined by anyone while the call is open, registered or
+                                // not (no account needed). Paid / members events: ticket holders only. Registering works as before.
+                                $fe_video_now = !empty($fe['is_video']) && ($fe['video_phase'] ?? '') === 'open';
+                                $fe_can_join  = $fe_video_now && (!empty($fe['open_call']) || !empty($fe['registered']));
+                                $fe_pw_note   = !empty($fe['has_password']) ? '<p class="pe-card__sub"><i class="fa-solid fa-lock" aria-hidden="true"></i> You&rsquo;ll need the call password from the host.</p>' : '';
+                                ?>
                                 <?php if ($fe_state === 'canceled'): ?>
                                 <p class="pe-status">This event was canceled.</p>
+                                <?php elseif ($fe_can_join): ?>
+                                <a class="pe-btn" href="<?php echo $h_($fe['video_url']); ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Join Video</a>
+                                <?php echo $fe_pw_note; ?>
+                                <?php if ($fe_state === 'registered'): ?>
+                                <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
+                                <?php elseif ($fe_state === 'open'): ?>
+                                <button type="button" class="pe-btn pe-btn--secondary" data-ev-register="<?php echo (int) $fe['id']; ?>">Register for Event</button>
+                                <?php endif; ?>
+                                <?php if (!empty($fe['open_call']) && $fe_state !== 'registered'): ?><p class="pe-card__sub">Anyone can join. Registering is optional.</p><?php endif; ?>
                                 <?php elseif ($fe_state === 'ended'): ?>
                                 <p class="pe-status">This event has ended.</p>
                                 <?php elseif ($fe_state === 'registered'): ?>
                                 <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
+                                <?php if (!empty($fe['is_video'])): ?><p class="pe-card__sub">The call opens here at <?php echo $h_($fe['video_opens']); ?>.</p><?php echo $fe_pw_note; ?><?php endif; ?>
                                 <button type="button" class="pe-cancel" data-ev-cancel="<?php echo (int) $fe['id']; ?>" data-paid="<?php echo (int) ($fe['my_paid'] ?? 0); ?>">Cancel Registration</button>
                                 <?php elseif ($fe_state === 'full'): ?>
                                 <p class="pe-status">This event is full.</p>
+                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">The call is still open to everyone. It opens here at <?php echo $h_($fe['video_opens']); ?>.</p><?php endif; ?>
                                 <?php elseif ($fe_state === 'signin'): ?>
                                 <a class="pe-btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Register</a>
+                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">Anyone can join the call here at <?php echo $h_($fe['video_opens']); ?>, registered or not.</p><?php echo $fe_pw_note; ?><?php endif; ?>
                                 <?php elseif ($fe_state === 'ineligible'): ?>
                                 <a class="pe-btn" href="<?php echo $h_($fe_url); ?>#plans">View Membership Plans</a>
                                 <p class="pe-card__sub"><?php echo $fe['access_type'] === 'tier' && $fe['tier_name'] !== '' ? 'Subscribe to ' . $h_($fe['tier_name']) . ' to register.' : 'Subscribe to ' . $h_($display_name) . ' to register.'; ?></p>
                                 <?php else: ?>
                                 <button type="button" class="pe-btn" data-ev-register="<?php echo (int) $fe['id']; ?>">Register for Event</button>
+                                <?php if (!empty($fe['open_call'])): ?><p class="pe-card__sub">Anyone can join the call here at <?php echo $h_($fe['video_opens']); ?>, registered or not.</p><?php echo $fe_pw_note; ?><?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </aside>
@@ -278,8 +304,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     $fs_url = $pf_home;
                     $fs_paid = (int) $fs['price_credits'] > 0;
                     $fs_left = (int) $fs['capacity'] > 0 ? max(0, (int) $fs['capacity'] - (int) $fs['purchases']) : null;
-                    $fs_methods = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other');
-                    $fs_method = $fs_methods[$fs['delivery_method']] ?? 'Other';
+                    $fs_method = ServicesModel::method_label($fs['delivery_method']);
                     $fs_icon = $fs['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($fs['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video');
                     $fs_state = !empty($fs['purchased']) ? 'booked' : (!empty($fs['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : 'open'));   // the creator sees what a fan sees
                     $fs_title = $dx($fs['name']);
@@ -351,6 +376,9 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             <div class="pe-ticket__tear" aria-hidden="true"></div>
                             <div class="pf-ev__cta pe-ticket__bottom">
                                 <?php if ($fs_state === 'booked'): ?>
+                                <?php if (!empty($fs['video_url'])): ?>
+                                <a class="pe-btn" href="<?php echo $h_($fs['video_url']); ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Join Call</a>
+                                <?php endif; ?>
                                 <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re booked</p>
                                 <p class="pe-card__sub">Your booking details are on this page.</p>
                                 <?php elseif ($fs_state === 'full'): ?>
@@ -495,7 +523,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                 </section>
 
                 <?php if (!empty($service_cards)): ?>
-                <?php $svm = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other'); ?>
+                <?php $svm = ServicesModel::method_labels() + array('cls_video' => 'CLS Video'); ?>
                 <section class="pf-panel" data-panel="services">
                     <div class="pel-list">
                         <?php foreach ($service_cards as $sc):   // one row per service; the row opens the service page, where people book

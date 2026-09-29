@@ -565,3 +565,7 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
 .pel__d--ic, .pe-hero__d--ic{ display:flex; align-items:center; justify-content:center; }
 .pel__d--ic i, .pel__d--ic svg{ width:20px; height:20px; font-size:20px; color:#C2410C; }
 .pe-hero__d--ic i, .pe-hero__d--ic svg{ width:30px; height:30px; font-size:30px; color:#C2410C; }
+
+/* Secondary action under the main button on an event ticket (e.g. Register when Join Video is the main action). */
+.pe-btn--secondary{ margin-top:10px; background:#fff; color:#1d1d1f; border:1px solid rgba(29,29,29,.14); box-shadow:none; }
+.pe-btn--secondary:hover{ background:#f6f6f6; color:#1d1d1f; }

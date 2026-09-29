@@ -220,6 +220,16 @@ class ProfileController extends Controller {
             if ($registered) {
                 $card['access'] = array('instructions' => (string) $ev['access_instructions']);
             }
+            // CLS Video: attendees join on this page. The call opens a little before the start and stays open a little after.
+            $card['is_video'] = ((string) ($ev['format'] ?? '') === 'cls_video') && LiveKit::enabled();
+            if ($card['is_video']) {
+                list($v_open, $v_close) = LiveAccess::window($ev);
+                $card['video_phase'] = LiveAccess::event_phase($ev);
+                $card['video_opens'] = isset($sd) ? (clone $sd)->setTimestamp($v_open)->format('g:i A T') : '';
+                $card['video_url']   = '/live/event/' . (int) $ev['id'];
+                $card['open_call']    = EventsModel::open_call($ev);
+                $card['has_password'] = trim((string) ($ev['call_password'] ?? '')) !== '';
+            }
             return $card;
         };
 
@@ -278,6 +288,9 @@ class ProfileController extends Controller {
             );
             if ($purchased) {
                 $card['access'] = array('method' => (string) $sv['delivery_method'], 'details' => (string) $sv['delivery_details']);
+                if ((string) $sv['delivery_method'] === 'cls_video' && LiveKit::enabled()) {   // their private call room
+                    $card['video_url'] = '/live/booking/' . $servicesModel->paid_purchase_id((int) $sv['id'], $viewer_id);
+                }
             }
             return $card;
         };

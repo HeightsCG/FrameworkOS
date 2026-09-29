@@ -12,11 +12,14 @@
         function price() { var v = parseFloat(el('ev_price').value); return isNaN(v) ? 0 : v; }   // empty = free
 
         var setFormat = ed.seg(el('evFormat'), el('ev_format'), 'data-format', function (v) {
-            ed.reveal(el('ev_url_wrap'), v !== 'in_person');
+            ed.reveal(el('ev_url_wrap'), v === 'virtual');   // CLS Video needs no link: people join on the event page
+            ed.reveal(el('ev_pw_wrap'), v === 'cls_video');
+            el('ev_instructions').placeholder = v === 'in_person' ? 'Parking, entry code, what to bring'
+                : (v === 'cls_video' ? 'What to prepare before the call' : 'Dial-in number, what to prepare');
             ed.reveal(el('ev_location_wrap'), v === 'in_person');
             refresh();
         });
-        ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
+        ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_pw', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
         el('ev_who').addEventListener('change', refresh);
         el('ev_tz').addEventListener('change', refresh);
         var rem_btns = container.querySelectorAll('#evReminders .ev-chip');
@@ -54,6 +57,8 @@
                 var city = [el('ev_city').value.trim(), (el('ev_region').value.trim() + ' ' + el('ev_postal').value.trim()).trim()].filter(function (x) { return x !== ''; }).join(', ');
                 var lines = [el('ev_venue').value.trim(), el('ev_street').value.trim(), city];
                 text_lines(el('evPv_where'), lines.join('') !== '' ? lines : ['In person']);
+            } else if (el('ev_format').value === 'cls_video') {
+                text_lines(el('evPv_where'), ['CLS Video', 'Join from the event page']);
             } else {
                 text_lines(el('evPv_where'), ['Online', 'Link shared after registration']);
             }
@@ -83,7 +88,7 @@
             var rn = reminders() === '' ? 0 : reminders().split(',').length;
             ed.summary('when', fmt_when() + (rn ? ' · ' + rn + (rn === 1 ? ' reminder' : ' reminders') : ''));
             if (el('ev_format').value === 'in_person') { var c = el('ev_city').value.trim(), v = el('ev_venue').value.trim(); ed.summary('where', 'In person' + (v || c ? ' · ' + (v || c) : '')); }
-            else { ed.summary('where', 'Online'); }
+            else { ed.summary('where', el('ev_format').value === 'cls_video' ? 'CLS Video' + (el('ev_pw').value.trim() ? ' · Password' : '') : 'Online'); }
             var who = el('ev_who'), label = who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Subscribers' : who.selectedOptions[0].textContent);
             var cap = parseInt(el('ev_capacity').value, 10);
             ed.summary('tickets', (price() >= 1 ? '$' + price().toFixed(2) : 'Free') + ' · ' + label + (cap > 0 ? ' · ' + cap + ' spots' : ''));
@@ -103,6 +108,7 @@
             el('ev_tz').value = el('ev_tz').querySelector('option[value="' + tz + '"]') ? tz : el('ev_tz').getAttribute('data-default');
             set_reminders(d && d.reminders != null ? d.reminders : '1440');   // new events: a reminder the day before
             el('ev_url').value      = d ? (d.external_url || '') : '';
+            el('ev_pw').value       = d ? (d.call_password || '') : '';
             el('ev_venue').value    = d ? (d.venue_name || '') : '';
             el('ev_street').value   = d ? (d.street || (d.venue_name ? '' : (d.location || ''))) : '';   // older events only have the one-line location
             el('ev_city').value     = d ? (d.city || '') : '';
@@ -117,7 +123,7 @@
             el('ev_who').value = el('ev_who').querySelector('option[value="' + who + '"]') ? who : 'anyone';
             el('ev_capacity').value = d && parseInt(d.capacity, 10) > 0 ? parseInt(d.capacity, 10) : '';
             status = d && d.status ? d.status : 'draft';
-            setFormat(d && d.format === 'in_person' ? 'in_person' : 'virtual');
+            setFormat(d && (d.format === 'in_person' || d.format === 'cls_video') ? d.format : 'virtual');
             set_preview(false);
             ed.show(ed.first, false);
             refresh();
@@ -128,7 +134,7 @@
             if (el('ev_title').value.trim() === '') { errs.push({ section: 'details', input: 'ev_title', err: 'evErr_title', msg: 'Give the event a name.' }); }
             if (date === '' || t1 === '') { errs.push({ section: 'when', input: date === '' ? 'ev_date' : 'ev_time', err: 'evErr_date', msg: 'Pick the date and start time.' }); }
             else if (t2 !== '' && t2 <= t1) { errs.push({ section: 'when', input: 'ev_time_end', err: 'evErr_date', msg: 'The end time must be after the start time.' }); }
-            if (el('ev_format').value !== 'in_person' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'where', input: 'ev_url', err: 'evErr_url', msg: 'Add the meeting link (it starts with https://).' }); }
+            if (el('ev_format').value === 'virtual' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'where', input: 'ev_url', err: 'evErr_url', msg: 'Add the meeting link (it starts with https://).' }); }
             if (el('ev_format').value === 'in_person' && (el('ev_street').value.trim() === '' || el('ev_city').value.trim() === '')) {
                 errs.push({ section: 'where', input: el('ev_street').value.trim() === '' ? 'ev_street' : 'ev_city', err: 'evErr_location', msg: 'Add the street address and city.' });
             }
@@ -153,8 +159,9 @@
                 end_at: el('ev_time_end').value !== '' ? date + 'T' + el('ev_time_end').value : '',
                 timezone: el('ev_tz').value,
                 reminders: reminders(),
-                format: el('ev_format').value === 'in_person' ? 'in_person' : 'virtual',
+                format: el('ev_format').value,
                 external_url: el('ev_url').value.trim(),
+                call_password: el('ev_pw').value.trim(),
                 venue_name: el('ev_venue').value.trim(),
                 street: el('ev_street').value.trim(),
                 city: el('ev_city').value.trim(),

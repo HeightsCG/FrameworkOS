@@ -1,0 +1,17 @@
+/* Signed-out top banner (libs/Layout/guest_bar.php): brand left, Log In / Register right. */
+.gbar{ position:sticky; top:0; z-index:20; display:flex; align-items:center; justify-content:space-between; gap:1rem;
+       height:64px; padding:0 max(16px, calc((100vw - 1152px) / 2)); background:#fff; border-bottom:1px solid rgba(29,29,29,.08);
+       font-family:-apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+.gbar__brand{ display:inline-flex; align-items:center; gap:.6rem; text-decoration:none; color:#1d1d1f; min-width:0; }
+.gbar__mark{ position:relative; width:30px; height:30px; border-radius:8px; background:linear-gradient(140deg, #FF8A45, #FF6A13); flex:none; }
+.gbar__mark::before{ content:""; position:absolute; inset:7px; border-radius:50%; border:2px solid #fff; border-right-color:transparent; transform:rotate(-42deg); }
+.gbar__name{ font-size:1.05rem; font-weight:700; letter-spacing:-.01em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.gbar__actions{ display:flex; align-items:center; gap:.5rem; flex:none; }
+.gbar__btn{ display:inline-flex; align-items:center; height:38px; padding:0 1rem; border-radius:8px; border:1px solid rgba(29,29,29,.12); background:#fff;
+            color:#1d1d1f; font-size:.9rem; font-weight:600; text-decoration:none; transition:background .12s, border-color .12s; }
+.gbar__btn:hover{ background:#f6f6f6; color:#1d1d1f; }
+.gbar__btn:focus-visible{ outline:none; box-shadow:0 0 0 3px rgba(255,106,19,.25); }
+/* Dark, not the orange accent: the page's own main action (Join Video, Register for Event) keeps the one accent. */
+.gbar__btn--primary{ background:#1d1d1f; border-color:#1d1d1f; color:#fff; }
+.gbar__btn--primary:hover{ background:#3a3a3f; border-color:#3a3a3f; color:#fff; }
+@media (max-width:480px){ .gbar__name{ display:none; } .gbar__btn{ padding:0 .8rem; } }

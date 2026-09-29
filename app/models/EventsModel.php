@@ -86,6 +86,7 @@ class EventsModel extends Model {
             'postal_code'         => mb_substr((string) ($f['postal_code'] ?? ''), 0, 20),
             'external_url'        => self::web_link($f['external_url'] ?? ''),
             'access_instructions' => (string) ($f['access_instructions'] ?? ''),
+            'call_password'       => self::call_password($f['call_password'] ?? ''),
             'status'              => in_array($f['status'] ?? 'draft', array('draft', 'published', 'canceled'), true) ? $f['status'] : 'draft',
             'created_at'          => $now,
             'updated_at'          => $now,
@@ -99,9 +100,22 @@ class EventsModel extends Model {
         return implode(', ', $parts);
     }
 
-    /** 'virtual' (video link) or 'in_person' (address). */
+    /** 'virtual' (an outside video link), 'cls_video' (our own video call) or 'in_person' (address). */
     public static function format($v){
-        return ((string) $v === 'in_person') ? 'in_person' : 'virtual';
+        $v = (string) $v;
+        if ($v === 'cls_video') { return 'cls_video'; }
+        return ($v === 'in_person') ? 'in_person' : 'virtual';
+    }
+
+    /** CLS Video call password: trimmed, up to 64 characters; empty = no password (NULL). */
+    public static function call_password($v){
+        $v = trim((string) $v);
+        return $v === '' ? null : mb_substr($v, 0, 64);
+    }
+
+    /** A free event anyone can come to: its CLS Video call is open to everyone, registered or not (no account needed). */
+    public static function open_call(array $ev): bool {
+        return (string) ($ev['format'] ?? '') === 'cls_video' && (string) ($ev['access_type'] ?? '') === 'free' && (int) ($ev['price_credits'] ?? 0) === 0;
     }
 
     /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
@@ -114,7 +128,7 @@ class EventsModel extends Model {
         if (!$this->get_one($creator_id, $id)) { return false; }
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'reminders', 'access_type', 'price_credits',
-                       'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'status') as $k) {
+                       'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'call_password', 'status') as $k) {
             if (!array_key_exists($k, $f)) { continue; }
             if ($k === 'access_type' && !in_array($f[$k], self::access_types(), true)) { continue; }
             if ($k === 'format') { $data[$k] = self::format($f[$k]); continue; }
@@ -123,6 +137,7 @@ class EventsModel extends Model {
             if (in_array($k, array('end_at', 'tier_id'), true)) { $data[$k] = !empty($f[$k]) ? $f[$k] : null; }
             elseif (in_array($k, array('price_credits', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
             elseif ($k === 'external_url') { $data[$k] = self::web_link($f[$k]); }
+            elseif ($k === 'call_password') { $data[$k] = self::call_password($f[$k]); }
             else { $data[$k] = $f[$k]; }
         }
         return parent::update('events', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));

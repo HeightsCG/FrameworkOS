@@ -25,6 +25,7 @@ class ApiEventsController extends BaseApiController {
         $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
 
         $format   = EventsModel::format($this->post['format'] ?? 'virtual');
+        if ($format === 'cls_video' && !LiveKit::enabled()) { $this->jsonError('CLS Video is not available yet.'); }
         $link     = trim((string) ($this->post['external_url'] ?? ''));
         $dec = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
         $addr = array('venue_name' => $dec('venue_name'), 'street' => $dec('street'), 'city' => $dec('city'), 'region' => $dec('region'), 'postal_code' => $dec('postal_code'));
@@ -51,6 +52,7 @@ class ApiEventsController extends BaseApiController {
             'postal_code'         => $format === 'in_person' ? $addr['postal_code'] : '',
             'external_url'        => $format === 'virtual' ? $link : '',
             'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
+            'call_password'       => $format === 'cls_video' ? html_entity_decode((string) ($this->post['call_password'] ?? ''), ENT_QUOTES, 'UTF-8') : '',
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
         if (array_key_exists('reminders', $this->post)) { $fields['reminders'] = EventsModel::clean_reminders($this->post['reminders']); }   // e.g. '1440,60'; '' = none
@@ -158,11 +160,14 @@ class ApiEventsController extends BaseApiController {
         return EventRefunds::when($ev, $reader_id);
     }
 
-    /** The actual joining details, as the attendee will need them (empty when the event has none). */
-    /** What the page may show a new attendee. Never the meeting link: that only travels by email (confirmation + reminder). */
+    /**
+     * What the page may show a new attendee. Never an outside meeting link: that only travels by email (confirmation +
+     * reminder). A CLS Video event is joined on the event page itself, gated by the ticket.
+     */
     private function event_access(array $ev){
         return [
             'instructions' => html_entity_decode((string) ($ev['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8'),
+            'video'        => (string) ($ev['format'] ?? '') === 'cls_video',
         ];
     }
 

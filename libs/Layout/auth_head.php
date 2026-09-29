@@ -7,6 +7,11 @@
     <script defer src="https://cdn.jsdelivr.net/npm/toastr@2.1.4/build/toastr.min.js"></script>
     <script defer src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path().'/public/js/api.data.js'); ?>"></script>
     <script>
+    /* Where to go after signing in: back to the page that sent them (?next=/@handle/events/12), same site only. */
+    function cls_after_login() {
+        var n = new URLSearchParams(location.search).get('next') || '';
+        return (n.charAt(0) === '/' && n.charAt(1) !== '/' && n.charAt(1) !== '\\') ? n : '/';
+    }
     document.addEventListener('DOMContentLoaded', function () {
     $(document).ready(function() {
 
@@ -40,7 +45,7 @@
                 if (obj.success && obj.mfa_required) {
                     startMfa(obj.methods || {});
                 } else if (obj.success) {
-                    window.location = obj.reset_pw == 1 ? '/account/force_reset' : '/';
+                    window.location = obj.reset_pw == 1 ? '/account/force_reset' : cls_after_login();
                 } else if (obj.unverified) {
                     show_unverified($('#u_name').val());
                 } else {
@@ -104,7 +109,7 @@
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
-                    window.location = obj.reset_pw == 1 ? '/account/force_reset' : '/';
+                    window.location = obj.reset_pw == 1 ? '/account/force_reset' : cls_after_login();
                 } else {
                     toastr.error(obj.message);
                 }

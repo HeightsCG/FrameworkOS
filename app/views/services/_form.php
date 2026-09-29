@@ -4,7 +4,7 @@
  * left nav with live summaries, one section at a time — Details · Pricing · Delivery — and a live preview.
  * public/js/services.js (ServiceEditor) wires it and turns it into the service_save payload. Expects $e.
  */
-$methods  = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In Person', 'custom' => 'Other');
+$methods  = ServicesModel::method_labels();
 $sections = array('details' => 'Details', 'pricing' => 'Pricing', 'delivery' => 'Delivery');
 $icons    = array('details' => 'fa-regular fa-file-lines', 'pricing' => 'fa-solid fa-tag', 'delivery' => 'fa-solid fa-video');
 ?>

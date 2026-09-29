@@ -24,7 +24,7 @@ class UserSession {
         'request_payout', 'start_payout_onboarding', 'payout_login_link', 'disconnect_payout_account',
         'team_invite', 'team_remove', 'team_set_role', 'team_set_status', 'data_export_request', 'data_export_download',
         'buy_ai_credits', 'leave_creator', 'reactivate_creator_subscription', 'event_cancel', 'event_refund_attendee', 'event_cancel_all',
-        'service_refund_buyer', 'block_user',
+        'service_refund_buyer', 'block_user', 'live_join', 'live_remove', 'live_mute_all',
     );
 
     public static function start(array $user): void {

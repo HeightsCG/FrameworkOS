@@ -2,8 +2,7 @@
 <?php
 $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $d = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
-$method_label = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex',
-    'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other');
+$method_label = ServicesModel::method_labels() + array('cls_video' => 'CLS Video');
 $services = $this->services;
 ?>
 <div class="ev">

@@ -23,7 +23,7 @@ $editor_data = array(
     'format' => $ev['format'] ?? 'virtual', 'external_url' => (string) $ev['external_url'], 'location' => $d($ev['location']),
     'venue_name' => $d($ev['venue_name'] ?? ''), 'street' => $d($ev['street'] ?? ''), 'city' => $d($ev['city'] ?? ''),
     'region' => $d($ev['region'] ?? ''), 'postal_code' => $d($ev['postal_code'] ?? ''),
-    'access_instructions' => $d($ev['access_instructions']),
+    'access_instructions' => $d($ev['access_instructions']), 'call_password' => (string) ($ev['call_password'] ?? ''),
     'access_type' => $ev['access_type'], 'tier_id' => (int) ($ev['tier_id'] ?? 0),
     'price' => number_format(((int) $ev['price_credits']) / 10, 2, '.', ''), 'capacity' => (int) $ev['capacity'], 'status' => $ev['status'],
 );
@@ -70,6 +70,7 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                 </label>
                 <?php endif; ?>
                 <?php if ($live && !$ended): ?><button type="button" class="ev-btn" data-copy-link><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy Link</button><?php endif; ?>
+                <?php if ($live && ($ev['format'] ?? '') === 'cls_video' && LiveKit::enabled() && LiveAccess::event_phase($ev) !== 'closed'): ?><a class="ev-btn" href="/live/event/<?php echo (int) $ev['id']; ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Start Video</a><?php endif; ?>
                 <button type="button" class="ev-btn ev-btn--primary" id="evmEdit"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Edit Event</button>
                 <?php endif; ?>
                 <div class="dropdown">

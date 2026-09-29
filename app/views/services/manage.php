@@ -6,7 +6,7 @@ $sv    = $this->service;
 $stats = $this->stats;
 $live  = ($sv['status'] === 'published');
 $dollars = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
-$methods = array('zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex', 'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In person', 'custom' => 'Other');
+$methods = ServicesModel::method_labels() + array('cls_video' => 'CLS Video');
 $public_link = Main::get_base_domain() . '/@' . rawurlencode((string) $this->handle) . '/services/' . (int) $sv['id'];
 $editor_data = array(
     'id' => (int) $sv['id'], 'name' => $d($sv['name']), 'description' => $d($sv['description']), 'category' => $d($sv['category']),
@@ -22,7 +22,7 @@ $session = trim(((int) $sv['duration_min'] > 0 ? (int) $sv['duration_min'] . ' m
 $refund = trim($d($sv['refund_policy']));
 $empty_note = $live ? 'People who book show up here. Share the service link to get started.' : 'Turn on Live to take bookings.';
 ?>
-<div class="evm" data-service-id="<?php echo (int) $sv['id']; ?>" data-link="<?php echo $e($public_link); ?>" data-sv='<?php echo $e(json_encode($editor_data)); ?>'>
+<div class="evm" data-video="<?php echo (($sv['delivery_method'] ?? '') === 'cls_video' && LiveKit::enabled()) ? 1 : 0; ?>" data-service-id="<?php echo (int) $sv['id']; ?>" data-link="<?php echo $e($public_link); ?>" data-sv='<?php echo $e(json_encode($editor_data)); ?>'>
     <header class="evm-top">
         <a class="evm-top__back" href="/services"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Services</a>
         <div class="evm-top__row">

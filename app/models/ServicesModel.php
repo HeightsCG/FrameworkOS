@@ -9,7 +9,19 @@
 class ServicesModel extends Model {
 
     public static function delivery_methods(){
-        return array('zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom');
+        return array('cls_video', 'zoom', 'teams', 'meet', 'webex', 'discord', 'phone', 'in_person', 'custom');
+    }
+
+    /** Method => label, in picker order. CLS Video (our own calls) only once the video server is set up. */
+    public static function method_labels(): array {
+        $all = array('cls_video' => 'CLS Video', 'zoom' => 'Zoom', 'teams' => 'Microsoft Teams', 'meet' => 'Google Meet', 'webex' => 'Webex',
+                     'discord' => 'Discord', 'phone' => 'Phone', 'in_person' => 'In Person', 'custom' => 'Other');
+        if (!LiveKit::enabled()) { unset($all['cls_video']); }
+        return $all;
+    }
+
+    public static function method_label($method): string {
+        return $method === 'cls_video' ? 'CLS Video' : (self::method_labels()[(string) $method] ?? 'Other');
     }
 
     /* ---------- Creator management ---------- */
@@ -93,6 +105,13 @@ class ServicesModel extends Model {
     }
 
     /** Has this user already bought this service (grants access to the booking details)? */
+    /** The buyer's paid booking id for a service, or 0 (CLS Video: the booking's call room). */
+    public function paid_purchase_id($service_id, $user_id): int {
+        $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' ORDER BY id DESC LIMIT 1",
+            array('s' => (int) $service_id, 'u' => (int) $user_id));
+        return (is_array($r) && count($r)) ? (int) $r[0]['id'] : 0;
+    }
+
     public function has_purchased($service_id, $user_id){
         $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :u AND status = 'paid' LIMIT 1",
             array('s' => (int) $service_id, 'u' => (int) $user_id));
@@ -168,6 +187,18 @@ class ServicesModel extends Model {
 
     public function purchase($service_id, $purchase_id){
         $r = parent::select("SELECT * FROM service_purchases WHERE id = :id AND service_id = :s", array('id' => (int) $purchase_id, 's' => (int) $service_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** One booking by its id (CLS Video: the booking's private room). */
+    public function purchase_by_id($purchase_id){
+        $r = parent::select("SELECT * FROM service_purchases WHERE id = :id", array('id' => (int) $purchase_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** A service by id whatever its status (a booked call still happens if the service was later unpublished). */
+    public function get_by_id($id){
+        $r = parent::select("SELECT * FROM services WHERE id = :id", array('id' => (int) $id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 

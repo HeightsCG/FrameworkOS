@@ -5,6 +5,7 @@
     var root = document.querySelector('.evm[data-service-id]');
     if (!root) { return; }
     var service_id = root.getAttribute('data-service-id');
+    var is_video = root.getAttribute('data-video') === '1';   // CLS Video: each booking has its own call
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
     function el(id) { return document.getElementById(id); }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -78,7 +79,9 @@
         var name = b.name || b.handle || 'Buyer', initial = esc(name.charAt(0).toUpperCase());
         var av = b.avatar ? '<img class="evm-person__av" src="' + esc(b.avatar) + '" alt="">' : '<span class="evm-person__av evm-person__av--init" aria-hidden="true">' + initial + '</span>';
         var acts = '<div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Actions for ' + esc(name) + '"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>'
-            + '<ul class="dropdown-menu dropdown-menu-end evm-menu"><li><a class="dropdown-item" href="/inbox/with/' + b.user_id + '">Message</a></li>'
+            + '<ul class="dropdown-menu dropdown-menu-end evm-menu">'
+            + (is_video ? '<li><a class="dropdown-item" href="/live/booking/' + b.id + '">Join Call</a></li>' : '')
+            + '<li><a class="dropdown-item" href="/inbox/with/' + b.user_id + '">Message</a></li>'
             + (b.paid_credits > 0 ? '<li><button type="button" class="dropdown-item" data-refund>Refund ' + esc(b.paid) + '…</button></li>' : '') + '</ul></div>';
         return '<tr class="evm-row" data-purchase="' + b.id + '" data-name="' + esc(name) + '" data-paid="' + b.paid_credits + '">'
             + '<td><div class="evm-person">' + av + '<span class="evm-person__text"><span class="evm-person__name">' + esc(name) + '</span>'

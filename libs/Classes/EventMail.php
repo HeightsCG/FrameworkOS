@@ -38,6 +38,8 @@ class EventMail {
         $city_line = implode(', ', array_filter(array($dec('city'), trim($dec('region') . ' ' . $dec('postal_code'))), 'strlen'));
         $place = ($dec('venue_name') !== '' || $dec('street') !== '' || $city_line !== '') ? array($dec('venue_name'), $dec('street'), $city_line) : array($dec('location'));
         $join  = $in_person ? '' : (preg_match('#^https?://#i', (string) ($ev['external_url'] ?? '')) ? trim((string) $ev['external_url']) : '');
+        // CLS Video: the button opens our call page, which checks the ticket (safe to forward: it needs the fan's login).
+        if ((string) ($ev['format'] ?? '') === 'cls_video') { $join = rtrim(Main::get_base_domain(), '/') . '/live/event/' . (int) $ev['id']; }
         $host  = ''; $handle = '';
         $rows  = (new UsersModel())->get_user_by_id((int) $ev['creator_id']);
         if (is_array($rows) && count($rows) === 1) {

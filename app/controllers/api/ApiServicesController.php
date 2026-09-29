@@ -12,6 +12,7 @@ class ApiServicesController extends BaseApiController {
 
         $method = (string) ($this->post['delivery_method'] ?? 'custom');
         if (!in_array($method, ServicesModel::delivery_methods(), true)) { $method = 'custom'; }
+        if ($method === 'cls_video' && !LiveKit::enabled()) { $this->jsonError('CLS Video is not available yet.'); }
 
         $fields = [
             'name'             => $name,
