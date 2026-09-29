@@ -58,6 +58,19 @@ class LiveKit {
         ));
     }
 
+    /** Who is in a room right now: ['people' => everyone but hosts, 'host_in' => a host is there]. Null if unreachable. */
+    public static function room_status($room): ?array
+    {
+        $list = self::room_api('ListParticipants', array('room' => (string) $room), $room);
+        if ($list === null) { return null; }
+        $people = 0; $host_in = false;
+        foreach ((array) ($list['participants'] ?? array()) as $p) {
+            $meta = json_decode((string) ($p['metadata'] ?? ''), true);
+            if (!empty($meta['host'])) { $host_in = true; } else { $people++; }
+        }
+        return array('people' => $people, 'host_in' => $host_in);
+    }
+
     /** Take someone out of a room now (host action). They can't come back with that pass's identity kicked. */
     public static function remove_participant($room, $identity): bool
     {

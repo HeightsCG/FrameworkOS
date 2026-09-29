@@ -280,3 +280,9 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
     .ev-cityrow{ grid-template-columns:1fr 1fr; }
     .ev-cityrow > .cs-ae__field:first-child{ grid-column:1 / -1; }
 }
+
+/* CLS Video: who is in the call, next to Start Video on the event page */
+.evm-callstat{ display:inline-flex; align-items:center; gap:7px; margin-right:8px; font-size:.84rem; font-weight:600; color:#6f6c7b; white-space:nowrap; }
+.evm-callstat::before{ content:""; width:8px; height:8px; border-radius:50%; background:#c9c7d1; }
+.evm-callstat.is-active{ color:#1f9d6b; }
+.evm-callstat.is-active::before{ background:#1f9d6b; box-shadow:0 0 0 3px rgba(31,157,107,.18); }

@@ -70,7 +70,7 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                 </label>
                 <?php endif; ?>
                 <?php if ($live && !$ended): ?><button type="button" class="ev-btn" data-copy-link><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy Link</button><?php endif; ?>
-                <?php if ($live && ($ev['format'] ?? '') === 'cls_video' && LiveKit::enabled() && LiveAccess::event_phase($ev) !== 'closed'): ?><a class="ev-btn" href="/live/event/<?php echo (int) $ev['id']; ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Start Video</a><?php endif; ?>
+                <?php if ($live && ($ev['format'] ?? '') === 'cls_video' && LiveKit::enabled() && LiveAccess::event_phase($ev) !== 'closed'): ?><span class="evm-callstat" id="evmCallStat" data-call="<?php echo (int) $ev['id']; ?>" role="status" hidden></span><a class="ev-btn" href="/live/event/<?php echo (int) $ev['id']; ?>"><i class="fa-solid fa-video" aria-hidden="true"></i> Start Video</a><?php endif; ?>
                 <button type="button" class="ev-btn ev-btn--primary" id="evmEdit"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Edit Event</button>
                 <?php endif; ?>
                 <div class="dropdown">

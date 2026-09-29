@@ -277,4 +277,23 @@
     sync_new_msg();
     var start = function () { fit(); att_resize(); if (current === 'attendees') { att_load(); } else { msg_load(1); } };
     if (document.fonts && document.fonts.ready) { document.fonts.ready.then(start); } else { start(); }
+
+    /* ---- CLS Video: who is in the call (every 15 s while it's open and the page is visible) ---- */
+    var stat = el('evmCallStat'), stat_timer = null;
+    function call_status() {
+        if (!stat || document.hidden) { return; }
+        ApiDataSvc.apiCall('post', 'live_status', { id: stat.getAttribute('data-call') }, function (r) {
+            var o = parse(r);
+            if (!o || !o.success) { stat.hidden = true; return; }
+            if (!o.open) { stat.hidden = true; clearInterval(stat_timer); return; }
+            var n = o.people || 0, word = n === 1 ? 'person' : 'people';
+            stat.hidden = false;
+            stat.classList.toggle('is-active', n > 0);
+            stat.textContent = n === 0 ? 'No one yet' : (o.host_in ? n + ' ' + word + ' in the call' : n + ' waiting');
+        });
+    }
+    if (stat) {
+        call_status(); stat_timer = setInterval(call_status, 15000);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) { call_status(); } });
+    }
 })();

@@ -47,6 +47,15 @@ class ApiLiveController extends BaseApiController {
         ]);
     }
 
+    /** Host: how many people are in an event's call and whether a host is there (the manage page polls this). {id} */
+    public function live_statusAction(){
+        $ev = (new EventsModel())->get_public((int) ($this->post['id'] ?? 0));
+        if (!$ev || (string) ($ev['format'] ?? '') !== 'cls_video' || !LiveAccess::is_host((int) $ev['creator_id'])) { $this->jsonError('Not available'); }
+        $s = LiveKit::room_status(LiveKit::room_for_event((int) $ev['id']));
+        if ($s === null) { $this->jsonError('Could not reach the video server'); }
+        $this->jsonSuccess($s + ['open' => LiveAccess::event_phase($ev) !== 'closed']);
+    }
+
     /** Host: take one person out of the call. {kind, id, identity} */
     public function live_removeAction(){
         $r = $this->host_room();
