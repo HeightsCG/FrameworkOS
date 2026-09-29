@@ -39,6 +39,9 @@ class UsernameModel extends Model {
         if (!preg_match('/^[a-z0-9_]+$/', $u_name)) {
             return 'Use only lowercase letters, numbers, and underscores';
         }
+        if (!preg_match('/[a-z]/', $u_name)) {
+            return 'Username must include at least one letter';
+        }
         if (in_array($u_name, self::$reserved_words, true)) {
             return 'That username is reserved';
         }

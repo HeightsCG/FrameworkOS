@@ -365,7 +365,8 @@ class AccountController extends Controller {
                 if ($users->email_exists($g['email'])) { $fail('google'); }   // several accounts share the address: never guess which
                 $first = $g['given_name'] !== '' ? $g['given_name'] : explode('@', $g['email'])[0];
                 $last  = $g['family_name'];
-                $uid = (int) $users->create_user($users->generate_unique_username($first, $last), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
+                $handle_from = preg_match('/\p{L}/u', $first . $last) ? array($first, $last) : array(explode('@', $g['email'])[0], '');   // a name with no letters ("000"): build the handle from the email
+                $uid = (int) $users->create_user($users->generate_unique_username($handle_from[0], $handle_from[1]), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
                 if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
                 $users->link_google($uid, $g['sub']);
                 $users->record_first_touch($uid);

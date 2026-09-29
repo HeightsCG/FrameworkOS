@@ -12,6 +12,10 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Last name is required');
         }
 
+        if (!preg_match('/\p{L}/u', (string) $this->post['first_name']) || !preg_match('/\p{L}/u', (string) $this->post['last_name'])) {
+            $this->jsonError('Enter your real first and last name');
+        }
+
         if (empty($this->post['user_email']) || !filter_var($this->post['user_email'], FILTER_VALIDATE_EMAIL)) {
             $this->jsonError('A valid email is required');
         }

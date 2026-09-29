@@ -36,14 +36,15 @@ class UsersModel extends Model {
     public function generate_unique_username($first_name, $last_name){
         $base = strtolower($first_name . $last_name);
         $base = preg_replace('/[^a-z0-9]/', '', $base);
+        if (!preg_match('/[a-z]/', $base)) { $base = ''; }   // a handle needs a letter: never "000"
         if (strlen($base) < 3) {
-            $base = ($base === '' ? 'user' : $base . 'user');
+            $base = ($base === '' ? 'member' : $base . 'user');
         }
         $base = substr($base, 0, 30);
 
         $candidate = $base;
         $suffix    = 1;
-        while ($this->username_exists($candidate)) {
+        while ($this->username_exists($candidate) || in_array($candidate, UsernameModel::$reserved_words, true)) {
             $suffix++;
             $tail      = (string) $suffix;
             $candidate = substr($base, 0, 30 - strlen($tail)) . $tail;
