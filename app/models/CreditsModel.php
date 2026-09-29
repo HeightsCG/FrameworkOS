@@ -272,6 +272,40 @@ class CreditsModel extends Model {
         }
     }
 
+    /**
+     * The creator marks a service booking delivered: the booking is stamped delivered and the creator is paid their
+     * share, in one transaction. The booking row is locked and must still be paid (not refunded) and not yet
+     * delivered, so a double click or a refund at the same moment can't pay twice. Free bookings are just marked.
+     * Returns the credits paid, or false when the booking can't be marked (already delivered, refunded, not theirs).
+     */
+    public function release_service_earning($purchase_id, $creator_id){
+        $this->db->beginTransaction();
+        try {
+            $sel = $this->db->prepare("SELECT p.id, p.net_credits FROM service_purchases p JOIN services s ON s.id = p.service_id
+                WHERE p.id = :id AND s.creator_id = :c AND p.status = 'paid' AND p.delivered_at IS NULL FOR UPDATE");
+            $sel->execute(array(':id' => (int) $purchase_id, ':c' => (int) $creator_id));
+            $p = $sel->fetch(PDO::FETCH_ASSOC);
+            if (!$p) { $this->db->rollBack(); return false; }
+            $net = max(0, (int) $p['net_credits']);
+            $now = date('Y-m-d H:i:s');
+            if ($net > 0) {
+                $u = $this->db->prepare("SELECT credit_balance FROM user_accounts WHERE user_id = :u FOR UPDATE");
+                $u->execute(array(':u' => (int) $creator_id));
+                $row = $u->fetch(PDO::FETCH_ASSOC);
+                if (!$row) { $this->db->rollBack(); return false; }
+                $this->write_row((int) $creator_id, $net, (int) $row['credit_balance'] + $net, 'service_earning', 'Service delivered');
+            }
+            $this->db->prepare("UPDATE service_purchases SET delivered_at = :now, earning_released_at = :now2 WHERE id = :id")
+                ->execute(array(':now' => $now, ':now2' => $net > 0 ? $now : null, ':id' => (int) $p['id']));
+            $this->db->commit();
+            return $net;
+        } catch (\Throwable $e) {
+            if ($this->db->inTransaction()) { $this->db->rollBack(); }
+            error_log('[credits] release_service_earning ' . (int) $purchase_id . ': ' . $e->getMessage());
+            return false;
+        }
+    }
+
     /** Inside an open transaction: set a wallet's balance and write its ledger row. */
     private function write_row($user_id, $credits, $balance_after, $type, $description){
         $now = date('Y-m-d H:i:s');

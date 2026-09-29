@@ -134,7 +134,9 @@ class ServicesModel extends Model {
         } catch (\PDOException $e) {
             if ((string) $e->getCode() !== '23000') { throw $e; }
             $back = parent::update('service_purchases',
-                array('status' => 'paid', 'price_credits' => max(0, (int) $price_credits), 'net_credits' => 0, 'created_at' => date('Y-m-d H:i:s')),
+                // A new booking reusing an old refunded row: not delivered and not paid out yet.
+                array('status' => 'paid', 'price_credits' => max(0, (int) $price_credits), 'net_credits' => 0, 'created_at' => date('Y-m-d H:i:s'),
+                      'delivered_at' => null, 'earning_released_at' => null),
                 'service_id = :s AND buyer_id = :b AND status <> :paid', array('s' => (int) $service_id, 'b' => (int) $buyer_id, 'paid' => 'paid'));
             if ($back <= 0) { return 0; }   // already booked (or a concurrent request won)
             $r = parent::select("SELECT id FROM service_purchases WHERE service_id = :s AND buyer_id = :b", array('s' => (int) $service_id, 'b' => (int) $buyer_id));
@@ -169,7 +171,7 @@ class ServicesModel extends Model {
         $from = "FROM service_purchases p JOIN user_accounts u ON u.user_id = p.buyer_id LEFT JOIN creator_profiles cp ON cp.user_id = p.buyer_id WHERE $where";
         $n = parent::select("SELECT COUNT(*) AS n $from", $args);
         $rows = parent::select(
-            "SELECT p.id, p.buyer_id, p.status, p.price_credits, p.net_credits, p.created_at,
+            "SELECT p.id, p.buyer_id, p.status, p.price_credits, p.net_credits, p.created_at, p.delivered_at,
                     COALESCE(NULLIF(TRIM(cp.display_name), ''), NULLIF(TRIM(CONCAT(u.first_name, ' ', u.last_name)), ''), u.u_name) AS name,
                     u.u_name AS handle, cp.avatar_url
              $from ORDER BY p.created_at DESC, p.id DESC LIMIT $limit OFFSET $offset", $args);
@@ -188,6 +190,13 @@ class ServicesModel extends Model {
     public function purchase($service_id, $purchase_id){
         $r = parent::select("SELECT * FROM service_purchases WHERE id = :id AND service_id = :s", array('id' => (int) $purchase_id, 's' => (int) $service_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** A creator's booking earnings waiting for them to mark the bookings delivered (credits), for the Cash Out tab. */
+    public function pending_earnings($creator_id){
+        $r = parent::select("SELECT COALESCE(SUM(p.net_credits), 0) AS n FROM service_purchases p JOIN services s ON s.id = p.service_id
+             WHERE s.creator_id = :c AND p.status = 'paid' AND p.net_credits > 0 AND p.earning_released_at IS NULL", array('c' => (int) $creator_id));
+        return (int) ($r[0]['n'] ?? 0);
     }
 
     /** One booking by its id (CLS Video: the booking's private room). */

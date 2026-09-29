@@ -102,7 +102,7 @@ class Tutorials {
         '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 22, 'steps' => array(
             'Your wallet pays for unlocks, tickets and bookings. In Settings, open Wallet.',
             'Your current balance is at the top.',
-            'Under Add Funds, pick an amount. A small processing fee is added at checkout.',
+            'Under Buy Credits, pick an amount. A small processing fee is added at checkout.',
             'History shows everything you\'ve added and spent.',
             'Auto-Replenishment adds funds automatically when your balance runs low. Click Manage to turn it on.',
         )),

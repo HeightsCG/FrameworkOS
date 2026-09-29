@@ -62,14 +62,24 @@ class ApiServicesController extends BaseApiController {
     }
 
     private function buyer_json(array $b, string $tz): array{
-        $label = ['paid' => 'Booked', 'refunded' => 'Refunded'];
+        $label = ['paid' => !empty($b['delivered_at']) ? 'Delivered' : 'Booked', 'refunded' => 'Refunded'];
         return [
             'id' => (int) $b['id'], 'user_id' => (int) $b['buyer_id'], 'name' => html_entity_decode((string) $b['name'], ENT_QUOTES, 'UTF-8'),
             'handle' => (string) $b['handle'], 'avatar' => (string) ($b['avatar_url'] ?? ''), 'booked' => $this->local_date((string) $b['created_at'], $tz),
             'paid' => (int) $b['price_credits'] > 0 ? '$' . number_format(((int) $b['price_credits']) / 10, 2) : 'Free',
-            'paid_credits' => (int) $b['price_credits'], 'status' => (string) $b['status'],
+            'paid_credits' => (int) $b['price_credits'], 'status' => (string) $b['status'], 'delivered' => !empty($b['delivered_at']),
             'status_label' => $label[(string) $b['status']] ?? ucfirst((string) $b['status']),
         ];
+    }
+
+    /** The creator marks a booking delivered: it's stamped Delivered and their share is paid to their balance. */
+    public function service_mark_deliveredAction(){
+        [$owner, $sv] = $this->owned_service();
+        $pid = (int) ($this->post['purchase_id'] ?? 0);
+        if (!(new ServicesModel())->purchase((int) $sv['id'], $pid)) { $this->jsonError('Booking not found'); }
+        $paid = (new CreditsModel())->release_service_earning($pid, (int) $sv['creator_id']);
+        if ($paid === false) { $this->jsonError('That booking is already delivered or was refunded.'); }
+        $this->jsonSuccess(['message' => $paid > 0 ? 'Marked delivered. ' . Price::credits($paid) . ' were added to your balance.' : 'Marked delivered.']);
     }
 
     /** One page of buyers (search + page); never the whole list. */
@@ -143,19 +153,20 @@ class ApiServicesController extends BaseApiController {
         if ($price > 0) {
             $credits = new CreditsModel();
             if ($credits->get_balance($me) < $price) {
-                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
+                $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
         }
         // Record first: UNIQUE(service_id, buyer_id) is the mutex against a double charge. Then debit.
         $purchase_id = $model->record_purchase($id, $me, max(0, $price));
         if ($purchase_id <= 0) { $this->jsonSuccess(['already' => true, 'access' => $this->service_access($sv)]); }
         if ($price > 0) {
-            $net = $this->creator_net($creator_id, $price);   // charged and paid in one transaction
-            if ($credits->pay($me, $price, 'service_purchase', 'Service purchase', $creator_id, $net, 'service_earning', 'Service sale') === false) {
+            // The fan pays now; the creator's share is stored on the booking and paid to them when they mark it
+            // delivered (service_mark_delivered), so refunding before that never takes anything back from them.
+            $model->set_net($purchase_id, $this->creator_net($creator_id, $price));
+            if ($credits->apply_delta($me, -$price, 'service_purchase', 'Service purchase') === false) {
                 $model->remove_purchase($purchase_id);
-                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
+                $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true]);
             }
-            $model->set_net($purchase_id, $net);   // what a refund claws back
         }
 
         $t = mb_substr(html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8'), 0, 60);

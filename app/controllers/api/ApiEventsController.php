@@ -110,7 +110,7 @@ class ApiEventsController extends BaseApiController {
         if ($price > 0) {
             $credits = new CreditsModel();
             if ($credits->get_balance($me) < $price) {
-                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
+                $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'price' => $price, 'balance' => $credits->get_balance($me)]);
             }
         }
         // Take the seat first (UNIQUE event_id+user_id is the mutex against a double charge), then charge.
@@ -122,7 +122,7 @@ class ApiEventsController extends BaseApiController {
             // (EventEarnings), so canceling before the event never has to take anything back from the creator.
             if ($credits->apply_delta($me, -$price, 'event_ticket', 'Event registration') === false) {
                 $model->release_registration($claim);
-                $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true]);
+                $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true]);
             }
             $model->set_paid((int) $claim['id'], $price, $this->creator_net($creator_id, $price));
         }

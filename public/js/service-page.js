@@ -80,6 +80,7 @@
         var av = b.avatar ? '<img class="evm-person__av" src="' + esc(b.avatar) + '" alt="">' : '<span class="evm-person__av evm-person__av--init" aria-hidden="true">' + initial + '</span>';
         var acts = '<div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Actions for ' + esc(name) + '"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>'
             + '<ul class="dropdown-menu dropdown-menu-end evm-menu">'
+            + (!b.delivered ? '<li><button type="button" class="dropdown-item" data-deliver>Mark Delivered</button></li>' : '')
             + (is_video ? '<li><a class="dropdown-item" href="/live/booking/' + b.id + '">Join Call</a></li>' : '')
             + '<li><a class="dropdown-item" href="/inbox/with/' + b.user_id + '">Message</a></li>'
             + (b.paid_credits > 0 ? '<li><button type="button" class="dropdown-item" data-refund>Refund ' + esc(b.paid) + '…</button></li>' : '') + '</ul></div>';
@@ -114,6 +115,16 @@
         rows_el.addEventListener('click', function (e) {
             if (e.target.closest('[data-clear-search]')) { search.value = ''; st.q = ''; st.page = 1; load(); search.focus(); return; }
             if (e.target.closest('[data-retry]')) { load(true); return; }
+            var del = e.target.closest('[data-deliver]');
+            if (del) {   // pays the creator their share of this booking
+                var dr = del.closest('.evm-row');
+                confirm_action({ title: 'Mark ' + dr.getAttribute('data-name') + '’s booking delivered?', text: 'Your share of this booking is added to your balance.', button: 'Mark Delivered', color: '#CD4C00', cancel: 'Not Yet' })
+                    .then(function (ok) {
+                        if (!ok) { return; }
+                        call('service_mark_delivered', { purchase_id: dr.getAttribute('data-purchase') }, function (o) { if (o) { toast(true, o.message); load(true); } });
+                    });
+                return;
+            }
             var btn = e.target.closest('[data-refund]'); if (!btn) { return; }
             var r = btn.closest('.evm-row'), name = r.getAttribute('data-name'), paid = (parseInt(r.getAttribute('data-paid'), 10) / 10).toFixed(2);
             confirm_action({ title: 'Refund ' + name + '?', text: '$' + paid + ' goes back to their wallet and the booking is canceled.', button: 'Refund $' + paid })

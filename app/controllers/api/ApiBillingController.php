@@ -284,7 +284,7 @@ class ApiBillingController extends BaseApiController {
             $r = TopUps::fulfill($intent);   // the webhook may have added them already; either way they are added once
             if (!$r['ok']) { $this->jsonError('Could not confirm the purchase'); }
 
-            $this->jsonSuccess(['balance' => $r['balance'], 'message' => Price::fmt($r['credits']) . ' added to your wallet', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
+            $this->jsonSuccess(['balance' => $r['balance'], 'message' => Price::credits($r['credits']) . ' added to your wallet', 'value_cents' => (int) $intent->amount]);   // value_cents: GA purchase event
 
         } catch (\Throwable $e) {
             error_log('[stripe] confirm_credit_purchase: ' . $e->getMessage());

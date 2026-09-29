@@ -33,15 +33,15 @@ class EventRefunds {
 
         $t = self::title($ev);
         if ($why !== 'event_canceled') {
-            Notify::send($fan, 'refunds', 'Ticket refunded', '"' . $t . '" on ' . self::when($ev, $fan) . '. ' . Notify::credits($paid) . ' returned to your wallet.',
+            Notify::send($fan, 'refunds', 'Ticket refunded', '"' . $t . '" on ' . self::when($ev, $fan) . '. ' . Notify::credit_count($paid) . ($paid === 1 ? ' was' : ' were') . ' returned to your wallet.',
                 '/account/settings?section=wallet', 'fa-rotate-left');
         }
         if ($why === 'fan') {
             Notify::send($creator, 'refunds', 'Event ticket canceled',
                 (Notify::name_of($fan) ?: 'An attendee') . ' canceled their spot for "' . $t . '" (' . self::when($ev, $creator) . ') and was refunded '
-                . Notify::credits($paid) . ($take > 0 ? '; ' . Notify::credits($take) . ' came out of your balance.' : '.'), '/events/' . (int) $ev['id'], 'fa-rotate-left');
+                . Notify::credit_count($paid) . ($take > 0 ? '; ' . Notify::credit_count($take) . ' came out of your balance.' : '.'), '/events/' . (int) $ev['id'], 'fa-rotate-left');
         }
-        return array('ok' => true, 'refunded' => $paid, 'clawback' => $take, 'message' => Notify::credits($paid) . ' refunded');
+        return array('ok' => true, 'refunded' => $paid, 'clawback' => $take, 'message' => Notify::credit_count($paid) . ' refunded');
     }
 
     /** Remove one going attendee without moving money (e.g. a free ticket); frees the seat. */
@@ -75,7 +75,7 @@ class EventRefunds {
             }
             $fan = (int) $a['user_id'];
             Notify::send($fan, 'events', 'Event canceled', '"' . $t . '" on ' . self::when($ev, $fan) . ' was canceled.'
-                . ($paid > 0 ? ' ' . Notify::credits($paid) . ' returned to your wallet.' : ''), '', 'fa-calendar-xmark');
+                . ($paid > 0 ? ' ' . Notify::credit_count($paid) . ($paid === 1 ? ' was' : ' were') . ' returned to your wallet.' : ''), '', 'fa-calendar-xmark');
             $notified++;
         }
         return array('ok' => true, 'refunded_n' => $refunded_n, 'notified' => $notified);

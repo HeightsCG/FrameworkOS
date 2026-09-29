@@ -155,7 +155,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 <?php if (trim((string) $ec['description']) !== ''): ?><span class="pel__desc"><?php echo $h_($ec['description']); ?></span><?php endif; ?>
                             </span>
                             <span class="pel__price">
-                                <span class="pel__amount"><?php echo $paid ? '$' . $h_($ec['price_dollars']) : 'Free'; ?></span>
+                                <span class="pel__amount"><?php echo $paid ? $h_(Price::credits($ec['price_credits'])) : 'Free'; ?></span>
                                 <?php if ($req !== ''): ?><span class="pel__req"><?php echo $h_($req); ?></span><?php endif; ?>
                             </span>
                             <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
@@ -249,7 +249,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                         <aside class="pe-ticket" aria-label="Registration">
                             <div class="pe-ticket__top">
                                 <p class="pe-ticket__label">Admission</p>
-                                <p class="pe-ticket__price"><?php echo $fe_paid ? '$' . $h_($fe['price_dollars']) . ' <span>per person</span>' : 'Free'; ?></p>
+                                <p class="pe-ticket__price"><?php echo $fe_paid ? $h_(Price::credits($fe['price_credits'])) . ' <span>per person</span>' : 'Free'; ?></p>
                                 <p class="pe-ticket__row"><i class="fa-solid <?php echo $fe_members ? 'fa-user-group' : 'fa-globe'; ?>" aria-hidden="true"></i> <?php echo $h_($fe_req); ?></p>
                                 <?php if ($fe_left !== null && in_array($fe_state, array('open', 'signin', 'ineligible'), true)): ?>
                                 <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fe_left; ?> of <?php echo (int) $fe['capacity']; ?> <?php echo (int) $fe['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
@@ -367,7 +367,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                         <aside class="pe-ticket" aria-label="Booking">
                             <div class="pe-ticket__top">
                                 <p class="pe-ticket__label">Booking</p>
-                                <p class="pe-ticket__price"><?php echo $fs_paid ? '$' . $h_($fs['price_dollars']) . ' <span>per booking</span>' : 'Free'; ?></p>
+                                <p class="pe-ticket__price"><?php echo $fs_paid ? $h_(Price::credits($fs['price_credits'])) . ' <span>per booking</span>' : 'Free'; ?></p>
                                 <p class="pe-ticket__row"><i class="fa-solid <?php echo $fs_icon; ?>" aria-hidden="true"></i> <?php echo (int) $fs['duration_min'] > 0 ? (int) $fs['duration_min'] . ' min · ' : ''; ?><?php echo $h_($fs_method); ?></p>
                                 <?php if ($fs_left !== null && in_array($fs_state, array('open', 'signin'), true)): ?>
                                 <p class="pe-ticket__row"><i class="fa-solid fa-ticket" aria-hidden="true"></i> <?php echo $fs_left; ?> of <?php echo (int) $fs['capacity']; ?> <?php echo (int) $fs['capacity'] === 1 ? 'spot' : 'spots'; ?> left</p>
@@ -501,7 +501,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             <div class="pf-bundle__body">
                                 <div class="pf-bundle__head">
                                     <span class="pf-bundle__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                    <span class="pf-bundle__price">$<?php echo htmlspecialchars((string) $bd['price_dollars'], ENT_QUOTES, 'UTF-8'); ?></span>
+                                    <span class="pf-bundle__price"><?php echo htmlspecialchars(Price::credits($bd['price_credits']), ENT_QUOTES, 'UTF-8'); ?></span>
                                 </div>
                                 <span class="pf-bundle__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span>
                                 <?php if (trim((string) $bd['description']) !== ''): ?><p class="pf-bundle__desc"><?php echo htmlspecialchars((string) $bd['description'], ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
@@ -511,9 +511,9 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                             <?php elseif (!$viewer_logged_in): ?>
                             <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-login><i class="fa-solid fa-lock"></i> Log in to Unlock</button>
                             <?php elseif ($viewer_credit_balance >= (int) $bd['price_credits']): ?>
-                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock for $<?php echo htmlspecialchars((string) $bd['price_dollars'], ENT_QUOTES, 'UTF-8'); ?></button>
+                            <button class="pf-btn pf-btn--subscribe pf-plan__cta" data-bundle-unlock="<?php echo (int) $bd['id']; ?>"><i class="fa-solid fa-unlock"></i> Unlock for <?php echo htmlspecialchars(Price::credits($bd['price_credits']), ENT_QUOTES, 'UTF-8'); ?></button>
                             <?php else: ?>
-                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings?section=wallet"><i class="fa-solid fa-plus"></i> Add Funds to Unlock</a>
+                            <a class="pf-btn pf-btn--subscribe pf-plan__cta" href="/account/settings?section=wallet"><i class="fa-solid fa-plus"></i> Buy Credits to Unlock</a>
                             <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
@@ -543,7 +543,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 </span>
                                 <?php if (trim((string) $sc['description']) !== ''): ?><span class="pel__desc"><?php echo $sc_h($sc['description']); ?></span><?php endif; ?>
                             </span>
-                            <span class="pel__price"><span class="pel__amount"><?php echo (int) $sc['price_credits'] > 0 ? '$' . htmlspecialchars((string) $sc['price_dollars'], ENT_QUOTES, 'UTF-8') : 'Free'; ?></span><span class="pel__req">per booking</span></span>
+                            <span class="pel__price"><span class="pel__amount"><?php echo (int) $sc['price_credits'] > 0 ? htmlspecialchars(Price::credits($sc['price_credits']), ENT_QUOTES, 'UTF-8') : 'Free'; ?></span><span class="pel__req">per booking</span></span>
                             <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
                         </a>
                         <?php endforeach; ?>
@@ -614,7 +614,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
         var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;
         var LOGGED_IN  = <?php echo $viewer_logged_in ? 'true' : 'false'; ?>;
-        function money(credits) { return '$' + ((parseInt(credits, 10) || 0) / 10).toFixed(2); }   // $1 = 10 credits
+        function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside the platform is credits
         var PF_LOGIN   = <?php echo json_encode($login_href, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
         var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
@@ -724,7 +724,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough funds in your wallet.');
+                        pfToast(o.message || 'Not enough credits in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -751,7 +751,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough funds in your wallet.');
+                        pfToast(o.message || 'Not enough credits in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -766,13 +766,13 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
         document.querySelectorAll('[data-ev-cancel]').forEach(function (b) {
             b.onclick = function () {
                 var paid = parseInt(b.getAttribute('data-paid'), 10) || 0;
-                var text = paid > 0 ? '$' + (paid / 10).toFixed(2) + ' goes back to your wallet and your spot is released.' : 'Your spot is released for someone else.';
+                var text = paid > 0 ? money(paid) + ' go back to your wallet and your spot is released.' : 'Your spot is released for someone else.';
                 var go = function () {
                     b.disabled = true; b.textContent = 'Canceling…';
                     ApiDataSvc.apiCall('post', 'event_cancel', { event_id: b.getAttribute('data-ev-cancel') }, function (resp) {
                         var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
                         if (!o || !o.success) { b.disabled = false; b.textContent = 'Cancel Registration'; pfToast((o && o.message) || 'Could not cancel'); return; }
-                        pfToast(o.refunded > 0 ? 'Registration canceled. $' + (o.refunded / 10).toFixed(2) + ' refunded.' : 'Registration canceled.');
+                        pfToast(o.refunded > 0 ? 'Registration canceled. ' + money(o.refunded) + ' returned to your wallet.' : 'Registration canceled.');
                         setTimeout(function () { window.location.reload(); }, 900);
                     });
                 };
@@ -808,7 +808,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         b.disabled = false; b.innerHTML = orig;
-                        pfToast(o.message || 'Not enough funds in your wallet.');
+                        pfToast(o.message || 'Not enough credits in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }
@@ -833,7 +833,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                 ApiDataSvc.apiCall('post', 'unlock_content', { content_id: b.getAttribute('data-unlock-content') }, function (resp) {
                     var o = JSON.parse(resp);
                     if (o.need_login) { window.location = PF_LOGIN; return; }
-                    if (o.need_credits) { b.disabled = false; pfToast('Not enough funds in your wallet.'); return; }
+                    if (o.need_credits) { b.disabled = false; pfToast('Not enough credits in your wallet.'); return; }
                     if (!o.success) { b.disabled = false; pfToast(o.message || 'Could not unlock'); return; }
                     revealPost(b, o);
                     pfToast('Unlocked');
@@ -958,7 +958,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                 } else {
                     wrap.innerHTML = bal +
                         '<div class="pf-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
-                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Add Funds</button>';
+                        '<button type="button" class="pf-btn pf-btn--follow" id="pfLbAddCredits">Buy Credits</button>';
                     document.getElementById('pfLbAddCredits').onclick = function () { window.location = '/account/settings?section=wallet'; };
                 }
             }
@@ -988,7 +988,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (o.need_login) { window.location = PF_LOGIN; return; }
                     if (o.need_credits) {
                         btn.disabled = false; btn.textContent = orig;
-                        pfToast(o.message || 'Not enough funds in your wallet.');
+                        pfToast(o.message || 'Not enough credits in your wallet.');
                         setTimeout(function () { window.location = '/account/settings'; }, 1400);
                         return;
                     }

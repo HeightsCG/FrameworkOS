@@ -19,8 +19,8 @@
     function fdate(iso) { var d = utc(iso); return d ? d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }) : ''; }
     function ini(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
     function av(a, n) { return a ? '<span class="ibx__av" style="background-image:url(\'' + esc(a) + '\')"></span>' : '<span class="ibx__av">' + esc(ini(n)) + '</span>'; }
-    // Fans and creators see dollars: the wallet holds credits ($1 = 10), shown as money.
-    function money(credits) { return '$' + ((credits || 0) / 10).toFixed(2); }
+    // Everything inside the platform is credits: prices, balances, spend. Dollars only for buying credits and cashing out.
+    function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }
     function cr(credits) { return money(credits); }
     function crT(credits) { return money(credits); }
     function toastErr(m) { if (window.toastr) { toastr.error(m); } }
@@ -211,7 +211,7 @@
                 var cover = m.assets[0].locked_url || '';
                 h += '<div class="ibx-lock" style="background-image:url(\'' + esc(cover) + '\')"><i class="fa-solid fa-lock ibx-lock__ico"></i><span class="ibx-lock__meta">' + esc(mediaLabel(m)) + '</span>'
                    + '<button type="button" class="ibx-lock__btn" data-unlock="' + m.id + '">Unlock for ' + crT(m.price_credits) + '</button>'
-                   + (viewerCredits < m.price_credits ? '<span class="ibx-lock__note">You have ' + cr(viewerCredits) + '</span><a class="ibx-lock__btn ibx-lock__btn--buy" href="' + esc(WALLET) + '">Add Funds</a>' : '')
+                   + (viewerCredits < m.price_credits ? '<span class="ibx-lock__note">You have ' + cr(viewerCredits) + '</span><a class="ibx-lock__btn ibx-lock__btn--buy" href="' + esc(WALLET) + '">Buy Credits</a>' : '')
                    + '</div>';
             } else {
                 var n = m.assets.length, show = m.assets.slice(0, 4);
@@ -291,12 +291,12 @@
     $('#ibxLightbox').on('click', function (e) { if (e.target === this) { closeLightbox(); } });
     $(document).on('keydown', function (e) { if (e.key === 'Escape' && !$('#ibxLightbox').prop('hidden')) { closeLightbox(); } });
 
-    /* confirm before any charge. Short balance → offer to add funds instead. */
+    /* confirm before any charge. Short balance → offer to buy credits instead. */
     function confirmUnlock(m, balance, onYes) {
         var price = m.price_credits;
         if (typeof Swal === 'undefined') { onYes(); return; }
         if (balance < price) {
-            Swal.fire({ title: 'Not enough funds', html: 'This unlock is <b>' + cr(price) + '</b>. You have ' + cr(balance) + ', so you need ' + cr(price - balance) + ' more.', showCancelButton: true, confirmButtonText: 'Add Funds', cancelButtonText: 'Not Now', customClass: { popup: 'ibx-swal' } })
+            Swal.fire({ title: 'Not enough credits', html: 'This unlock is <b>' + cr(price) + '</b>. You have ' + cr(balance) + ', so you need ' + cr(price - balance) + ' more.', showCancelButton: true, confirmButtonText: 'Buy Credits', cancelButtonText: 'Not Now', customClass: { popup: 'ibx-swal' } })
                 .then(function (r) { if (r.isConfirmed) { window.location.href = WALLET; } });
             return;
         }
@@ -318,7 +318,7 @@
             unlocking--;
             if (!o || !o.success) {
                 var mm = $b.closest('.ibx-bubble').data('msg'); $b.prop('disabled', false).text('Unlock for ' + crT(mm ? mm.price_credits : 0));
-                if (o && o.need_credits) { viewerCredits = o.balance || 0; toastErr(o.message || 'Not enough funds in your wallet.'); var m = $b.closest('.ibx-bubble').data('msg'); if (m) { replaceBubble(m); } return; }
+                if (o && o.need_credits) { viewerCredits = o.balance || 0; toastErr(o.message || 'Not enough credits in your wallet.'); var m = $b.closest('.ibx-bubble').data('msg'); if (m) { replaceBubble(m); } return; }
                 toastErr(o ? o.message : 'Could not unlock'); return;
             }
             if (o.balance != null) { viewerCredits = o.balance; }

@@ -70,5 +70,9 @@ class Notify {
     }
 
     /** A wallet amount in a notification: fans and creators see dollars ("$2.90"), never credits. */
-    public static function credits($n): string { return Price::fmt((int) $n); }
+    /** Credits in a notice ("49 credits"). Everything inside the platform is credits; dollars only for card charges and cash-outs. */
+    public static function credits($n): string { return self::credit_count($n); }
+
+    /** A count of credits for refunds ("100 credits"): a refund goes back to the wallet as credits, never to a card. */
+    public static function credit_count($n): string { return Price::credits($n); }
 }

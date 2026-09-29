@@ -36,7 +36,13 @@ class Price {
         return array('ok' => true, 'credits' => $c, 'message' => '');
     }
 
-    /** "$4.90": how every price and balance is shown to fans. */
+    /** "49 credits": how every amount inside the platform is shown (prices, balances, purchases, earnings, refunds). */
+    public static function credits($credits): string {
+        $n = (int) $credits;
+        return number_format($n) . (abs($n) === 1 ? ' credit' : ' credits');
+    }
+
+    /** "$4.90": dollars, only where real money moves (buying credits with a card, cashing out to a bank). */
     public static function fmt($credits): string {
         return self::fmt_cents((int) $credits * (100 / self::CREDITS_PER_DOLLAR));
     }

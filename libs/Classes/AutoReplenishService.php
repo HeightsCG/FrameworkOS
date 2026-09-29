@@ -55,7 +55,7 @@ class AutoReplenishService {
         $recent = (new UserNotificationsModel())->recent_with_title((int) $user_id, 'Auto-replenishment failed', 6);
         if ($recent) { return; }
         Notify::send($user_id, 'auto_replenishment', 'Auto-replenishment failed',
-            'We could not charge your saved card for ' . Notify::credits((int) $pkg['credits']) . '. Update your payment method to keep auto top-ups working.',
+            'We could not charge your saved card for ' . Notify::credits((int) $pkg['credits']) . ' (' . Price::fmt((int) $pkg['credits']) . '). Update your payment method to keep auto top-ups working.',
             '/account/settings?section=wallet', 'fa-triangle-exclamation');
     }
 }

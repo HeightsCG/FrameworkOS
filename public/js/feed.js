@@ -34,7 +34,7 @@
 
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null ? '' : s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function fmt(n) { n = +n || 0; return n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(n); }
-    function money(credits) { return '$' + ((parseInt(credits, 10) || 0) / 10).toFixed(2); }   // fans see dollars ($1 = 10 credits)
+    function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside the platform is credits
     function toast(msg) { if (window.toastr) { toastr.info(msg); } }
 
     // ------------------------------------------------------------------ feed
@@ -298,7 +298,7 @@
         } else {
             wrap.innerHTML = bal +
                 '<div class="feed-plb__short">You need ' + money(price - VIEWER_CREDITS) + ' more to unlock this.</div>' +
-                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Add Funds</button>';
+                '<button type="button" class="feed-plb__unlock" id="feed_lb_add_credits">Buy Credits</button>';
             document.getElementById('feed_lb_add_credits').onclick = function () { window.location = '/account/settings?section=wallet'; };
         }
     }
@@ -332,7 +332,7 @@
             if (o.need_login) { window.location = '/'; return; }
             if (o.need_credits) {
                 btn.disabled = false; btn.textContent = orig;
-                toast(o.message || 'Not enough funds in your wallet.');
+                toast(o.message || 'Not enough credits in your wallet.');
                 setTimeout(function () { window.location = '/account/settings?section=wallet'; }, 1400);
                 return;
             }

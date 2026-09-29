@@ -19,7 +19,7 @@
                 <div class="pur-card__meta">
                     <span class="pur-card__badge pur-card__badge--<?php echo htmlspecialchars((string) $pur['type'], ENT_QUOTES, 'UTF-8'); ?>"><?php echo array('bundle' => 'Bundle', 'message' => 'Message', 'event' => 'Event', 'service' => 'Service')[$pur['type']] ?? 'Pay-per-view'; ?></span>
                     <span class="pur-card__title"><?php echo htmlspecialchars((string) $pur['title'], ENT_QUOTES, 'UTF-8'); ?></span>
-                    <span class="pur-card__price"><?php echo Price::fmt((int) $pur['price']); ?> &middot; <?php echo htmlspecialchars(date('M j, Y', strtotime((string) $pur['purchased_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="pur-card__price"><?php echo Price::credits((int) $pur['price']); ?> &middot; <?php echo htmlspecialchars(date('M j, Y', strtotime((string) $pur['purchased_at'])), ENT_QUOTES, 'UTF-8'); ?></span>
                 </div>
                 <div class="pur-card__side">
                     <a class="pur-card__creator" href="/@<?php echo htmlspecialchars(rawurlencode((string) $pur['handle']), ENT_QUOTES, 'UTF-8'); ?>" target="_blank" rel="noopener"><?php echo htmlspecialchars((string) $pur['creator'], ENT_QUOTES, 'UTF-8'); ?></a>

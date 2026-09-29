@@ -548,18 +548,18 @@
                         if ((int) $pkg['dollars'] === $ar_dollars) { $ar_credits = (int) $pkg['credits']; }
                     }
                     $ar_status = $ar_on
-                        ? 'Add ' . Price::fmt($ar_credits) . ' when your balance drops below ' . Price::fmt((int) $ar['threshold'])
+                        ? 'Add ' . Price::credits($ar_credits) . ' when your balance drops below ' . Price::credits((int) $ar['threshold'])
                         : 'Automatically top up when your balance runs low.';
                 ?>
                 <div class="wallet">
                     <!-- Balance is always pinned at the top of the Wallet. -->
                     <div class="wallet__balance">
                         <span class="wallet__balance-label">Current Balance</span>
-                        <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo Price::fmt((int) $this->credit_balance); ?></span></span>
+                        <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo Price::credits((int) $this->credit_balance); ?></span></span>
                     </div>
 
                     <div class="wallet-tabs" role="tablist">
-                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Add Funds</button>
+                        <button type="button" class="wallet-tab is-active" data-wtab="buy">Buy Credits</button>
                         <?php if ($this->is_owner_creator): ?><button type="button" class="wallet-tab" data-wtab="cashout">Cash Out</button><?php endif; ?>
                         <button type="button" class="wallet-tab" data-wtab="history">History</button>
                         <button type="button" class="wallet-tab" data-wtab="auto">Auto-Replenishment</button>
@@ -605,9 +605,9 @@
                             </div>
                             <?php if ((int) ($pb['events_pending'] ?? 0) > 0): ?>
                             <div class="payout-balance__cell">
-                                <span class="payout-balance__label">From upcoming events</span>
+                                <span class="payout-balance__label">Pending</span>
                                 <span class="payout-balance__value">$<?php echo number_format($pb['events_pending'] / 100, 2); ?></span>
-                                <span class="payout-balance__sub">added after each event</span>
+                                <span class="payout-balance__sub">after each event or delivered booking</span>
                             </div>
                             <?php endif; ?>
                         </div>
@@ -636,7 +636,7 @@
                                     </td>
                                     <td class="ledger__num <?php echo ((int) $t['credits'] >= 0) ? 'ledger__pos' : 'ledger__neg'; ?>"><?php
                                         $c = (int) $t['credits'];
-                                        echo ($c >= 0 ? '+' : '') . Price::fmt($c);   // wallet amounts are shown as money
+                                        echo ($c >= 0 ? '+' : '') . Price::credits($c);   // the wallet holds credits
                                     ?></td>
                                 </tr>
                                 <?php endforeach; ?>
@@ -1338,7 +1338,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="wallet__note">Automatically add funds when your balance runs low. Funds added to your wallet are non-refundable.</p>
+                <p class="wallet__note">Automatically buy credits when your balance runs low. Credits are non-refundable.</p>
 
                 <div class="wallet__ar-modal-toggle">
                     <label class="notif__switch wallet__ar-switch">
@@ -1352,8 +1352,8 @@
                     <div class="wallet__ar-field">
                         <label for="ar_threshold">When My Balance Drops Below</label>
                         <div class="wallet__ar-input">
-                            <span class="wallet__ar-unit">$</span>
-                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" inputmode="decimal" value="<?php echo (int) $ar['threshold'] > 0 ? Price::input((int) $ar['threshold']) : '10.00'; ?>">
+                            <input type="number" min="1" step="1" class="form-control" id="ar_threshold" inputmode="numeric" value="<?php echo (int) $ar['threshold'] > 0 ? (int) $ar['threshold'] : 100; ?>">
+                            <span class="wallet__ar-unit">credits</span>
                         </div>
                     </div>
                     <div class="wallet__ar-field">
@@ -1369,7 +1369,7 @@
                     <div class="wallet__ar-field">
                         <label for="ar_pm">Charge To</label>
                         <?php if (empty($this->cards)): ?>
-                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then add funds once to save a card.</p>
+                            <p class="wallet__note wallet__note--tight">No payment methods on file. <a href="/account/billing">Add one in billing</a>, then buy credits once to save a card.</p>
                         <?php else: ?>
                         <select class="form-select" id="ar_pm">
                             <?php foreach ($this->cards as $card): ?>
@@ -1403,13 +1403,13 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Add Funds</h5>
+                <h5 class="modal-title">Buy Credits</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <p class="wallet__pay-summary" id="credit_pay_summary"></p>
                 <div id="credit_payment_element"></div>
-                <p class="wallet__note">Funds added to your wallet are non-refundable.</p>
+                <p class="wallet__note">Credits are non-refundable.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -2109,15 +2109,16 @@ $(function () {
 
     function arStatusText() {
         if (!$('#ar_enabled').is(':checked')) { return 'Automatically top up when your balance runs low.'; }
-        var add = parseInt($('#ar_package').val(), 10) || 0;
-        var thr = parseFloat($('#ar_threshold').val()) || 0;
-        return 'Add $' + add.toFixed(2) + ' when your balance drops below $' + thr.toFixed(2);
+        var add = (parseInt($('#ar_package').val(), 10) || 0) * 10;   // the package is dollars charged; it adds $1 = 10 credits
+        var thr = parseInt($('#ar_threshold').val(), 10) || 0;
+        var c = function (n) { return n.toLocaleString('en-US') + (n === 1 ? ' credit' : ' credits'); };
+        return 'Add ' + c(add) + ' when your balance drops below ' + c(thr);
     }
 
     $('#ar_save').on('click', function () {
         ApiDataSvc.apiCall('post', 'save_autoreplenishment', {
             enabled: $('#ar_enabled').is(':checked') ? 1 : 0,
-            threshold: Math.round((parseFloat($('#ar_threshold').val()) || 0) * 10),   // the field is dollars; stored as credits ($1 = 10)
+            threshold: parseInt($('#ar_threshold').val(), 10) || 0,   // credits
             dollars: parseInt($('#ar_package').val(), 10) || 0,
             payment_method_id: $('#ar_pm').val() || ''
         }, function (data) {

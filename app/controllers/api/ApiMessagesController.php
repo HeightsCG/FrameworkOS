@@ -198,7 +198,7 @@ class ApiMessagesController extends BaseApiController {
         }
         $balance = $credits->get_balance($viewer);
         if ($balance < $price) {
-            $this->jsonError('You need ' . Price::fmt($price - $balance) . ' more in your wallet to unlock this.',
+            $this->jsonError('You need ' . Price::credits($price - $balance) . ' more in your wallet to unlock this.',
                 ['need_credits' => true, 'balance' => $balance, 'price' => $price, 'shortfall' => $price - $balance]);
         }
         // Record first: UNIQUE(message_id, fan_id) is the mutex against a double charge. Then debit.
@@ -208,7 +208,7 @@ class ApiMessagesController extends BaseApiController {
         $net = $this->creator_net($creator_id, $price);   // charged and paid in one transaction
         if ($credits->pay($viewer, $price, 'message_unlock', 'Unlocked a message', $creator_id, $net, 'message_earning', 'Message unlock') === false) {
             $unlocks->remove($mid, $viewer);
-            $this->jsonError('Not enough funds in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
+            $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
         if ($net > 0) { $unlocks->set_net($mid, $viewer, $net); }
         $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];

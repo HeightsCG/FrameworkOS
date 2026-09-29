@@ -22,7 +22,7 @@ class TopUps {
         $ai    = ($type === 'ai_credit_purchase');
         $model = $ai ? new AiCreditsModel() : new CreditsModel();
         $auto  = !$ai && !empty($intent->metadata['auto']);
-        $desc  = $ai ? 'Bought ' . $credits . ' AI credits' : ($auto ? 'Auto-replenishment: ' . $credits . ' credits' : 'Added ' . Price::fmt($credits) . ' to your wallet');
+        $desc  = $ai ? 'Bought ' . $credits . ' AI credits' : ($auto ? 'Auto-replenishment: ' . $credits . ' credits' : 'Added ' . Price::credits($credits) . ' to your wallet');
 
         $new = !$model->has_payment_intent($pi) && $model->credit_purchase($user_id, $credits, $pi, $desc) !== false
             && $model->has_payment_intent($pi);
@@ -38,7 +38,7 @@ class TopUps {
             Notify::send($user_id, 'auto_replenishment', 'Wallet topped up automatically',
                 Notify::credits($credits) . ' added to your wallet. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-rotate');
         } else {
-            Notify::send($user_id, 'credits', 'Funds added', Notify::credits($credits) . ' added to your wallet. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-coins');
+            Notify::send($user_id, 'credits', 'Credits added', Notify::credits($credits) . ' added to your wallet. Balance: ' . Notify::credits($balance) . '.', '/account/settings?section=wallet', 'fa-coins');
         }
         return array('ok' => true, 'new' => true, 'credits' => $credits, 'balance' => $balance);
     }

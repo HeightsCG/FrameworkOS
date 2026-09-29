@@ -206,7 +206,7 @@ class MessagesModel extends Model {
         if ($body !== '') { return mb_substr($body, 0, 280); }
         $n = (int) $media_count;
         if ($n <= 0) { return ''; }
-        if ((int) $price_credits > 0) { return 'Locked ' . ($n === 1 ? 'media' : $n . ' items') . ' · ' . Price::fmt((int) $price_credits); }
+        if ((int) $price_credits > 0) { return 'Locked ' . ($n === 1 ? 'media' : $n . ' items') . ' · ' . Price::credits((int) $price_credits); }
         return $n === 1 ? 'Sent media' : 'Sent ' . $n . ' items';
     }
 

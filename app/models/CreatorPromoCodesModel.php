@@ -119,7 +119,7 @@ class CreatorPromoCodesModel extends Model {
      */
     public static function rule_error(array $promo, $creator_id, $fan_id, $price_credits): string {
         $min = (int) ($promo['min_order_credits'] ?? 0);
-        if ($min > 0 && (int) $price_credits < $min) { return 'This code needs an order of at least ' . Price::fmt($min) . '.'; }
+        if ($min > 0 && (int) $price_credits < $min) { return 'This code needs an order of at least ' . Price::credits($min) . '.'; }
         if (!empty($promo['first_purchase_only'])) {
             $bought = (new FanSpendModel())->for_fan($creator_id, $fan_id)['purchases'] > 0
                 || (new CreatorSubscriptionsModel())->had_paid_with($fan_id, $creator_id);
@@ -130,7 +130,7 @@ class CreatorPromoCodesModel extends Model {
 
     /** Short description for lists: "20% off" or "$5.00 off". */
     public static function label(array $promo): string {
-        return (int) ($promo['amount_off_credits'] ?? 0) > 0 ? Price::fmt((int) $promo['amount_off_credits']) . ' off' : (int) $promo['percent_off'] . '% off';
+        return (int) ($promo['amount_off_credits'] ?? 0) > 0 ? Price::credits((int) $promo['amount_off_credits']) . ' off' : (int) $promo['percent_off'] . '% off';
     }
 
     /** Count a redemption, respecting max_redemptions (the WHERE is the guard). */

@@ -70,8 +70,8 @@ class RefundsModel extends Model {
         // 4) Reverse the post's recorded earnings so revenue reporting stays correct.
         if ($kind === 'ppv' && $net > 0) { (new PostsModel())->add_earnings($ref_id, -$net * 10); }
         // 5) Tell both sides.
-        Notify::send($fan_id, 'refunds', 'Refund issued', Notify::credits($charge) . ' returned to your wallet for a ' . $this->label($kind) . '.', '/account/settings?section=wallet', 'fa-rotate-left');
-        Notify::send($creator_id, 'refunds', 'Refund issued to a buyer', Notify::credits($charge) . ' was refunded for a ' . $this->label($kind) . ($clawback > 0 ? '; ' . Notify::credits($clawback) . ' came out of your balance.' : '.'), '/dashboard', 'fa-rotate-left');
+        Notify::send($fan_id, 'refunds', 'Refund issued', Notify::credit_count($charge) . ($charge === 1 ? ' was' : ' were') . ' returned to your wallet for a ' . $this->label($kind) . '.', '/account/settings?section=wallet', 'fa-rotate-left');
+        Notify::send($creator_id, 'refunds', 'Refund issued to a buyer', Notify::credit_count($charge) . ($charge === 1 ? ' was' : ' were') . ' refunded for a ' . $this->label($kind) . ($clawback > 0 ? '; ' . Notify::credit_count($clawback) . ' came out of your balance.' : '.'), '/dashboard', 'fa-rotate-left');
         // 6) Audit log.
         $this->log($kind, $ref_id, $creator_id, $fan_id, $charge, $clawback, $clawback_ok, $admin_id, $reason);
         return array('ok' => true, 'amount' => $charge, 'clawback_ok' => (bool) $clawback_ok);
