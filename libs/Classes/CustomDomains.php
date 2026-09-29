@@ -244,6 +244,15 @@ class CustomDomains {
         return rtrim(self::canonical_profile_url($user), '/') . ($path !== '' ? '/' . ltrim((string) $path, '/') : '');
     }
 
+    /**
+     * A page that isn't part of the profile (e.g. 'live/event/5'): on the creator's own domain when they have one,
+     * else at the platform root (not under /@handle).
+     */
+    public static function site_url(array $user, $path): string {
+        $d = self::allowed($user) ? (new CreatorDomainsModel())->primary_for_user((int) $user['user_id']) : null;
+        return ($d ? 'https://' . $d['hostname'] : rtrim(Main::get_base_domain(), '/')) . '/' . ltrim((string) $path, '/');
+    }
+
     /** Sign-in link on a custom domain: the platform signs them in, then hands the session back to $path here. */
     public static function login_url($path = '/'): string {
         $d = self::current();

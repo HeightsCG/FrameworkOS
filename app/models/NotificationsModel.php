@@ -160,10 +160,11 @@ class NotificationsModel extends Model {
         // actions: Join Meeting (online) is the primary button; calendar + event page are links
         $links = array();
         if (!empty($e['calendar_url'])) { $links[] = '<a href="' . $h($e['calendar_url']) . '" style="color:#C2410C; text-decoration:underline;">Add to Google Calendar</a>'; }
-        if (!empty($e['event_url']))    { $links[] = '<a href="' . $h(self::absolute_url($e['event_url'])) . '" style="color:#C2410C; text-decoration:underline;">View event page</a>'; }
+        $page = !empty($e['share_url']) ? (string) $e['share_url'] : (!empty($e['event_url']) ? self::absolute_url($e['event_url']) : '');   // the creator's own domain when they have one
+        if ($page !== '')               { $links[] = '<a href="' . $h($page) . '" style="color:#C2410C; text-decoration:underline;">View event page</a>'; }
         $after = !empty($links) ? '<p style="margin:14px 0 0; ' . $f . ' font-size:14px; color:#4b4863;">' . implode(' &nbsp;·&nbsp; ', $links) . '</p>' : '';
         $online = (($e['format'] ?? 'virtual') !== 'in_person') && !empty($e['join_url']);
-        return self::brand_wrap((string) $heading, $body, $online ? 'Join Meeting' : '', $online ? (string) $e['join_url'] : '',
+        return self::brand_wrap((string) $heading, $body, $online ? (string) ($e['join_label'] ?? 'Join Meeting') : '', $online ? (string) $e['join_url'] : '',
             'You’re receiving this because you registered for this event. Keep it — it’s your ticket.', $after);
     }
 

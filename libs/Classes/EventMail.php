@@ -38,11 +38,16 @@ class EventMail {
         $city_line = implode(', ', array_filter(array($dec('city'), trim($dec('region') . ' ' . $dec('postal_code'))), 'strlen'));
         $place = ($dec('venue_name') !== '' || $dec('street') !== '' || $city_line !== '') ? array($dec('venue_name'), $dec('street'), $city_line) : array($dec('location'));
         $join  = $in_person ? '' : (preg_match('#^https?://#i', (string) ($ev['external_url'] ?? '')) ? trim((string) $ev['external_url']) : '');
-        // CLS Video: the button opens our call page, which checks the ticket (safe to forward: it needs the fan's login).
-        if ((string) ($ev['format'] ?? '') === 'cls_video') { $join = rtrim(Main::get_base_domain(), '/') . '/live/event/' . (int) $ev['id']; }
         $host  = ''; $handle = '';
         $rows  = (new UsersModel())->get_user_by_id((int) $ev['creator_id']);
-        if (is_array($rows) && count($rows) === 1) {
+        $creator = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        // Links in the email use the creator's own domain when they have one (white label); else creatorlinkstudio.com.
+        $share = function ($path) use ($creator) { return $creator ? CustomDomains::share_url($creator, $path) : rtrim(Main::get_base_domain(), '/') . '/' . $path; };
+        // CLS Video: the button opens the call page, which checks the ticket (safe to forward: it needs the fan's login).
+        if ((string) ($ev['format'] ?? '') === 'cls_video') {
+            $join = $creator ? CustomDomains::site_url($creator, 'live/event/' . (int) $ev['id']) : rtrim(Main::get_base_domain(), '/') . '/live/event/' . (int) $ev['id'];
+        }
+        if ($creator) {
             $handle = (string) $rows[0]['u_name'];
             $prof = (new CreatorProfileModel())->get_for_user((int) $ev['creator_id']);
             $host = trim((string) ($prof['display_name'] ?? '')) !== '' ? trim((string) $prof['display_name']) : $handle;
@@ -60,7 +65,9 @@ class EventMail {
             'title' => $dec('title'), 'host' => $host, 'date_line' => $date_line, 'time_line' => $time_line,
             'format' => $in_person ? 'in_person' : 'virtual', 'place_lines' => $place, 'join_url' => $join,
             'instructions' => $dec('access_instructions'), 'calendar_url' => $cal,
-            'event_url' => $handle !== '' ? '/@' . rawurlencode($handle) . '/events/' . (int) $ev['id'] : '',
+            'event_url' => $handle !== '' ? '/@' . rawurlencode($handle) . '/events/' . (int) $ev['id'] : '',   // in-app notices: stays in the app
+            'share_url' => $creator ? $share('events/' . (int) $ev['id']) : '',                                   // the email's "View event page"
+            'join_label' => (string) ($ev['format'] ?? '') === 'cls_video' ? 'Join Video' : 'Join Meeting',
         );
     }
 
