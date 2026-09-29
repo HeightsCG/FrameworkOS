@@ -119,6 +119,7 @@ class ApiPostsController extends BaseApiController {
             $this->jsonError('Post not found');
         }
         if (empty($post['on_cls'])) { $this->jsonError('Post not found'); }   // socials-only post
+        if ($this->seller_suspended((int) $post['creator_id'])) { $this->jsonError('Post not found'); }   // suspended, or Free: no public presence
         if ($viewer > 0 && (new BlocksModel())->either_blocked($viewer, (int) $post['creator_id'])) { $this->jsonError('Post not found'); }
         $id = (int) $post['id'];
 

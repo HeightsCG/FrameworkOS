@@ -37,7 +37,7 @@ class FeedModel extends Model {
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled')$block_sql
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
         return parent::select($sql, $params);
@@ -58,8 +58,8 @@ class FeedModel extends Model {
         $params    = array('since' => $since_id);
         if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; }
         $sql = "SELECT COUNT(*) AS c FROM (
-                    SELECT p.id FROM posts p
-                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since$block_sql
+                    SELECT p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
+                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, $params);
@@ -82,7 +82,7 @@ class FeedModel extends Model {
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free'
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled')
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "
                   AND EXISTS (SELECT 1 FROM post_assets pa WHERE pa.post_id = p.id)
                   AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                                    WHERE pa.post_id = p.id AND ma.deleted_at IS NULL

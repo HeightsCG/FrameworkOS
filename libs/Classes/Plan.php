@@ -40,6 +40,18 @@ class Plan {
         return true;
     }
 
+    /**
+     * has_paid_plan() as SQL on a user_accounts alias, for every public list: a creator without a paid plan (Free,
+     * or a lapsed plan) has no public presence at all: no profile, no posts in the feed, search, directory or sitemap.
+     */
+    public static function paid_sql(string $alias = 'u'): string
+    {
+        $a = preg_replace('/[^a-z0-9_]/i', '', $alias);
+        return "($a.subscription_status IN ('active', 'trialing', 'past_due')"
+             . " AND NOT (COALESCE($a.subscription_cancel_at_period_end, 0) = 1 AND $a.subscription_current_period_end IS NOT NULL"
+             . " AND $a.subscription_current_period_end <= UTC_TIMESTAMP()))";
+    }
+
     /** Is this user row a Creator account? (Free is a creator plan, so this decides who gets it.) */
     public static function is_creator_row($user): bool
     {

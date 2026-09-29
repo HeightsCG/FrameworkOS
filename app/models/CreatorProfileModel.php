@@ -91,6 +91,7 @@ class CreatorProfileModel extends Model {
         return "cp.directory_listed = 1
             AND cp.directory_media_ok = SHA1(CONCAT(COALESCE(cp.avatar_url, ''), '|', COALESCE(cp.cover_url, '')))
             AND u.deleted = 0 AND u.user_status = 'Active' AND r.role_name = 'Creator' AND u.u_name <> ''
+            AND " . Plan::paid_sql('u') . "
             AND EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
                           AND ma.deleted_at IS NULL AND ma.type = 'image' AND ma.moderation_status = 'approved' AND ma.is_adult = 0

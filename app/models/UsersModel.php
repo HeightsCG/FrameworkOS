@@ -130,6 +130,7 @@ class UsersModel extends Model {
                 AND u.deleted = 0
                 AND u.user_status = 'Active'
                 AND u.email_verified = 1
+                AND " . Plan::paid_sql('u') . "
                 AND u.u_name <> ''
             ORDER BY
                 u.u_name"

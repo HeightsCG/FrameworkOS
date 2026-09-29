@@ -54,6 +54,12 @@ class ProfileController extends Controller {
             return;
         }
 
+        // Free never has a public profile: a creator page exists only while they have a paid plan.
+        if (!Plan::has_paid_plan($user)) {
+            Errors::page_not_found();
+            return;
+        }
+
         // A creator with their own domain: logged-out visitors (and crawlers) go there, so the page has one address.
         // Signed-in fans stay here, where their session is. 302 (the canonical tag carries the SEO): a cached 301
         // would keep sending people to the domain after the creator removes it.
