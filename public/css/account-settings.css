@@ -619,3 +619,13 @@
 .promo-first .form-check-input{ width:2.4em; height:1.3em; }
 .promo-first .form-check-input:checked{ background-color:var(--acc-btn); border-color:var(--acc-btn); }
 .promo-first .form-check-input:focus{ box-shadow:var(--ring); border-color:var(--acc-btn); }
+
+/* Creators: wallet credits and AI credits side by side (separate balances, different uses) */
+.wallet__pair{ display:grid; grid-template-columns:1fr 1fr; gap:.75rem; }
+.wallet__balance-label small{ display:block; font-size:.78rem; font-weight:500; color:var(--muted); margin-top:.15rem; }
+.wallet__balance--ai{ background:var(--surface); }
+.wallet__balance-side{ display:flex; flex-direction:column; align-items:flex-end; gap:.2rem; }
+.wallet__balance-value--ai, .wallet__balance-value--ai i{ color:var(--text); }
+.wallet__balance-link{ font-size:.8rem; font-weight:600; color:var(--acc-ink); text-decoration:underline; text-underline-offset:2px; }
+@media (max-width:760px){ .wallet__pair{ grid-template-columns:1fr; } }
+.wallet__pair .wallet__balance-value{ white-space:nowrap; }

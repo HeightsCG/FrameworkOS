@@ -517,6 +517,7 @@ $(function () {
         ?>
         <div class="ccard">
             <div class="ccard__big"><?php echo number_format((int) $b['total']); ?> <span>AI credits</span></div>
+            <p class="ccard__text ccard__text--sep">AI credits are for creating images and videos. They're separate from your <a href="/account/settings?section=wallet">wallet credits</a><?php echo ' (' . $e(number_format((int) ($this->user['credit_balance'] ?? 0))) . ')'; ?>, which buy content and hold your earnings.</p>
             <?php if ($grant_n > 0): ?><p class="ccard__text"><?php echo $grants_once ? 'Your plan came with ' . number_format($grant_n) . ' starter AI credits.' : 'Your plan includes ' . number_format($grant_n) . ' AI credits every month.'; ?></p><?php endif; ?>
             <?php if ((int) $b['plan'] > 0): ?><p class="ccard__text"><?php echo number_format((int) $b['plan']); ?> of these come with your plan and reset on <?php echo $e(date('M j', $reset)); ?>. Credits you buy never expire.</p><?php endif; ?>
 

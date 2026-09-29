@@ -191,9 +191,10 @@ class ApiAdminController extends BaseApiController {
             $bal = (new CreditsModel())->apply_delta((int) $u['user_id'], $amount, 'admin_adjust', $desc);
         }
         if ($bal === false) { $this->jsonError('That would take the balance below zero'); }
-        $label = $wallet === 'ai' ? 'AI credits' : 'credits';
-        Notify::send((int) $u['user_id'], 'credits', ($amount > 0 ? number_format($amount) . ' ' . $label . ' added' : number_format(abs($amount)) . ' ' . $label . ' removed') . ' by support', $reason, '/account/settings?section=wallet', 'fa-coins');
-        $this->jsonSuccess(['balance' => (int) $bal, 'message' => 'Balance updated']);
+        $label = $wallet === 'ai' ? 'AI credits' : 'wallet credits';
+        Notify::send((int) $u['user_id'], 'credits', ($amount > 0 ? number_format($amount) . ' ' . $label . ' added' : number_format(abs($amount)) . ' ' . $label . ' removed') . ' by support', $reason,
+            $wallet === 'ai' ? '/account/billing?tab=credits' : '/account/settings?section=wallet', $wallet === 'ai' ? 'fa-wand-magic-sparkles' : 'fa-coins');
+        $this->jsonSuccess(['balance' => (int) $bal, 'message' => number_format(abs($amount)) . ' ' . $label . ($amount > 0 ? ' added' : ' removed')]);
     }
 
     /** Email the user a password reset link (same link and email as "Forgot password"). */

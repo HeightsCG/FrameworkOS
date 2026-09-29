@@ -553,10 +553,26 @@
                 ?>
                 <div class="wallet">
                     <!-- Balance is always pinned at the top of the Wallet. -->
+                    <?php if ($this->is_owner_creator): /* creators hold two separate balances: say which is which */ ?>
+                    <div class="wallet__pair">
+                        <div class="wallet__balance">
+                            <span class="wallet__balance-label">Wallet credits<small>For buying content and your earnings</small></span>
+                            <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo number_format((int) $this->credit_balance); ?></span></span>
+                        </div>
+                        <div class="wallet__balance wallet__balance--ai">
+                            <span class="wallet__balance-label">AI credits<small>For creating images and videos</small></span>
+                            <span class="wallet__balance-side">
+                                <span class="wallet__balance-value wallet__balance-value--ai"><i class="fa-solid fa-wand-magic-sparkles"></i> <?php echo number_format((int) ($this->user['ai_credit_balance'] ?? 0)); ?></span>
+                                <a class="wallet__balance-link" href="/account/billing?tab=credits">Buy AI Credits</a>
+                            </span>
+                        </div>
+                    </div>
+                    <?php else: ?>
                     <div class="wallet__balance">
-                        <span class="wallet__balance-label">Current Balance</span>
+                        <span class="wallet__balance-label">Wallet credits</span>
                         <span class="wallet__balance-value"><i class="fa-solid fa-wallet"></i> <span id="credit_balance"><?php echo Price::credits((int) $this->credit_balance); ?></span></span>
                     </div>
+                    <?php endif; ?>
 
                     <div class="wallet-tabs" role="tablist">
                         <button type="button" class="wallet-tab is-active" data-wtab="buy">Buy Credits</button>
@@ -575,7 +591,7 @@
                             </button>
                             <?php endforeach; ?>
                         </div>
-                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout.</p>
+                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout.<?php if ($this->is_owner_creator): ?> These are wallet credits for buying content. To create images and videos, <a href="/account/billing?tab=credits">buy AI credits</a>.<?php endif; ?></p>
                     </div>
 
                     <?php if ($this->is_owner_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>

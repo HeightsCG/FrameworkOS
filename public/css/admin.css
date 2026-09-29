@@ -432,3 +432,15 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
 .adm-aurow__res{ display:block; font-size:.78rem; color:#8a8797; }
 .adm-aurow__det{ overflow-wrap:anywhere; }
 .adm-ausearch{ max-width:320px; height:36px; border-radius:2px; border:1px solid #E5E5E5; font-size:.86rem; }
+
+/* Adjust Balance: pick wallet credits or AI credits (they are separate balances with different uses) */
+.adm-field__label{ font-size:.74rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; color:#8a8797; }
+.adm-bal{ display:grid; grid-template-columns:1fr 1fr; gap:.6rem; }
+.adm-bal__opt{ text-transform:none; letter-spacing:normal; font-weight:400; position:relative; display:flex; gap:.6rem; align-items:flex-start; padding:.75rem .8rem; border:1px solid #e3e1e8; border-radius:8px; cursor:pointer; background:#fff; }
+.adm-bal__opt:has(input:checked){ border-color:var(--acc-btn, #CD4C00); box-shadow:0 0 0 1px var(--acc-btn, #CD4C00); }
+.adm-bal__opt input{ margin-top:.2rem; accent-color:var(--acc-btn, #CD4C00); }
+.adm-bal__body{ display:flex; flex-direction:column; gap:.2rem; font-size:.8rem; color:#6f6c7b; line-height:1.35; }
+.adm-bal__body b{ font-size:.9rem; color:#1d1d1f; }
+.adm-bal__body em{ font-style:normal; font-weight:600; color:#1d1d1f; font-variant-numeric:tabular-nums; }
+@media (max-width:520px){ .adm-bal{ grid-template-columns:1fr; } }
+.adm-field .adm-bal__opt{ text-transform:none; letter-spacing:normal; font-weight:400; font-size:inherit; color:inherit; }

@@ -44,7 +44,7 @@
         var reason = (document.getElementById('adj_reason').value || '').trim();
         if (!amount) { document.getElementById('adj_amount').classList.add('is-invalid'); toastr.error('Enter an amount, for example 100 or -100'); return; }
         if (reason === '') { document.getElementById('adj_reason').classList.add('is-invalid'); toastr.error('Add a reason'); return; }
-        call('admin_adjust_credits', { user_id: user_id, wallet: document.getElementById('adj_wallet').value, amount: amount, reason: reason }, this);
+        call('admin_adjust_credits', { user_id: user_id, wallet: (document.querySelector('input[name="adj_wallet"]:checked') || {}).value || 'credits', amount: amount, reason: reason }, this);
     });
     if (modalEl) modalEl.addEventListener('input', function (e) { e.target.classList.remove('is-invalid'); });
 

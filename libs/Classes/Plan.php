@@ -429,7 +429,7 @@ class Plan {
         $unit = max(1, (int) (PlanTiers::AI_PRICES[(string) $type] ?? 1));
         $n    = max(1, intdiv((int) $price, $unit));
         $what = ($type === 'video') ? 'a video' : (($type === 'enhance') ? 'an enhancement' : ($n > 1 ? $n . ' images' : 'an image'));
-        return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. Buy more AI credits to keep going.';
+        return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. AI credits are separate from your wallet credits: buy AI credits in Billing, AI Credits.';
     }
 
     /**
