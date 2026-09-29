@@ -95,6 +95,29 @@
             preview(name, who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Any subscriber' : label + ' subscribers'));
         }
 
+        /* New events: today, the next 5-minute mark (the time picker steps in 5 minutes), ending an hour later. The clock is
+           read in the event's time zone. An end earlier than the start is the next day (end_date). */
+        /* The end's date: the start's date, or the next day when the end time is earlier (11:30 PM to 12:30 AM). */
+        function end_date(date, t1, t2) {
+            if (!date || !t2 || t2 > t1) { return date; }
+            var d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + 1);
+            return d.getFullYear() + '-' + ('0' + (d.getMonth() + 1)).slice(-2) + '-' + ('0' + d.getDate()).slice(-2);
+        }
+        function default_when() {
+            var now = new Date(Date.now() + 5 * 60000 - (Date.now() % (5 * 60000)));
+            var p = {};
+            try {
+                new Intl.DateTimeFormat('en-CA', { timeZone: el('ev_tz').value, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+                    .formatToParts(now).forEach(function (x) { p[x.type] = x.value; });
+            } catch (e) {
+                p = { year: String(now.getFullYear()), month: ('0' + (now.getMonth() + 1)).slice(-2), day: ('0' + now.getDate()).slice(-2), hour: ('0' + now.getHours()).slice(-2), minute: ('0' + now.getMinutes()).slice(-2) };
+            }
+            var h = parseInt(p.hour, 10), m = parseInt(p.minute, 10);
+            el('ev_date').value = p.year + '-' + p.month + '-' + p.day;
+            el('ev_time').value = ('0' + h).slice(-2) + ':' + ('0' + m).slice(-2);
+            el('ev_time_end').value = ('0' + ((h + 1) % 24)).slice(-2) + ':' + ('0' + m).slice(-2);   // past midnight = the next day (see end_date)
+        }
+
         function load(d) {
             ed.clearErrors();
             var start = d && d.start_at ? String(d.start_at) : '', end = d && d.end_at ? String(d.end_at) : '';
@@ -106,6 +129,7 @@
             el('ev_time_end').value = end ? end.slice(11, 16) : '';
             var tz = d && d.timezone ? d.timezone : el('ev_tz').getAttribute('data-default');
             el('ev_tz').value = el('ev_tz').querySelector('option[value="' + tz + '"]') ? tz : el('ev_tz').getAttribute('data-default');
+            if (!start) { default_when(); }   // a new event starts now (next 5 minutes, in the event's time zone) and runs an hour
             set_reminders(d && d.reminders != null ? d.reminders : '1440');   // new events: a reminder the day before
             el('ev_url').value      = d ? (d.external_url || '') : '';
             el('ev_pw').value       = d ? (d.call_password || '') : '';
@@ -133,7 +157,7 @@
             var errs = [], url = el('ev_url').value.trim(), date = el('ev_date').value, t1 = el('ev_time').value, t2 = el('ev_time_end').value;
             if (el('ev_title').value.trim() === '') { errs.push({ section: 'details', input: 'ev_title', err: 'evErr_title', msg: 'Give the event a name.' }); }
             if (date === '' || t1 === '') { errs.push({ section: 'when', input: date === '' ? 'ev_date' : 'ev_time', err: 'evErr_date', msg: 'Pick the date and start time.' }); }
-            else if (t2 !== '' && t2 <= t1) { errs.push({ section: 'when', input: 'ev_time_end', err: 'evErr_date', msg: 'The end time must be after the start time.' }); }
+            else if (t2 !== '' && t2 === t1) { errs.push({ section: 'when', input: 'ev_time_end', err: 'evErr_date', msg: 'The end time must be after the start time.' }); }
             if (el('ev_format').value === 'virtual' && !/^https?:\/\//i.test(url)) { errs.push({ section: 'where', input: 'ev_url', err: 'evErr_url', msg: 'Add the meeting link (it starts with https://).' }); }
             if (el('ev_format').value === 'in_person' && (el('ev_street').value.trim() === '' || el('ev_city').value.trim() === '')) {
                 errs.push({ section: 'where', input: el('ev_street').value.trim() === '' ? 'ev_street' : 'ev_city', err: 'evErr_location', msg: 'Add the street address and city.' });
@@ -156,7 +180,7 @@
                 title: el('ev_title').value.trim(),
                 description: el('ev_desc').value,
                 start_at: date + 'T' + el('ev_time').value,
-                end_at: el('ev_time_end').value !== '' ? date + 'T' + el('ev_time_end').value : '',
+                end_at: el('ev_time_end').value !== '' ? end_date(date, el('ev_time').value, el('ev_time_end').value) + 'T' + el('ev_time_end').value : '',
                 timezone: el('ev_tz').value,
                 reminders: reminders(),
                 format: el('ev_format').value,
