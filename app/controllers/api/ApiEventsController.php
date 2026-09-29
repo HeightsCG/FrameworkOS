@@ -69,7 +69,7 @@ class ApiEventsController extends BaseApiController {
     }
 
     public function event_deleteAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Event required'); }
         $model = new EventsModel();
@@ -175,7 +175,7 @@ class ApiEventsController extends BaseApiController {
 
     /** [owner id, the owner's event, owner row] — or a JSON 'Event not found'. */
     private function owned_event(): array{
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false)  /* refunds, attendees, cancelling: still theirs to handle on Free */;
         $ev = (new EventsModel())->get_one((int) $user['user_id'], (int) ($this->post['event_id'] ?? 0));
         if (!$ev) { $this->jsonError('Event not found'); }
         return [(int) $user['user_id'], $ev, $user];
@@ -277,9 +277,10 @@ class ApiEventsController extends BaseApiController {
 
     /** Live = fans can see it on the profile and register; not live = hidden. */
     public function event_set_liveAction(){
-        [$owner, $ev] = $this->owned_event();
+        [$owner, $ev, $user] = $this->owned_event();
         if ((string) $ev['status'] === 'canceled') { $this->jsonError('This event was canceled.'); }
         $live = ((string) ($this->post['live'] ?? '0')) === '1';
+        $this->plan_to_turn_on($user, $live);
         (new EventsModel())->set_status($owner, (int) $ev['id'], $live ? 'published' : 'draft');
         $this->jsonSuccess(['live' => $live, 'message' => $live ? 'Event is live' : 'Event is hidden']);
     }

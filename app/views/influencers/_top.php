@@ -15,9 +15,15 @@ $nav = array(
 );
 ?>
 <div class="inf" id="inf" data-page="<?php echo $e($page); ?>">
+<?php if (!empty($this->needs_plan)): ?>
+    <div class="plan-bar" role="status">
+        <p class="plan-bar__text"><strong>You're on Free.</strong> Your influencers are still here to view or delete. Choose a plan to create, publish and sell.</p>
+        <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
+    </div>
+<?php endif; ?>
     <nav class="inf-nav" aria-label="Influencer sections">
         <?php foreach ($nav as $n):
-            $off = $n['needs'] && $target <= 0;
+            $off = $n['needs'] && ($target <= 0 || !empty($this->needs_plan));
             $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index'); ?>
             <?php if ($off): ?>
             <span class="inf-nav__item is-off" aria-disabled="true" title="Train an influencer first"><i class="fa-solid <?php echo $e($n['icon']); ?>"></i> <?php echo $e($n['label']); ?></span>

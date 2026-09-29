@@ -22,7 +22,10 @@ class ApiMessagesController extends BaseApiController {
             $assets = (new MediaAssetsModel())->get_owned_ready($me, array_slice(array_map('intval', $wanted), 0, self::MAX_ATTACH));
             foreach ($assets as $a) { $asset_ids[] = (int) $a['id']; }
             if (!empty($wanted) && empty($asset_ids)) { $this->jsonError('Those files are not ready to send.'); }
-            if ($this->price_given($this->post['price'] ?? '')) { $price = $this->price_credits($this->post['price']); }
+            if ($this->price_given($this->post['price'] ?? '')) {
+                $this->require_creator('content');   // a price is selling: needs a paid plan (a Free creator can still reply and share free)
+                $price = $this->price_credits($this->post['price']);
+            }
         }
         if ($body === '' && empty($asset_ids)) { $this->jsonError('Type a message.'); }
 

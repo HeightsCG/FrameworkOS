@@ -9,7 +9,7 @@
     </div>
 <?php else: ?>
 
-<div class="cs" id="cs" data-s3-ready="<?php echo !empty($this->s3_ready) ? '1' : '0'; ?>">
+<div class="cs<?php echo !empty($this->needs_plan) ? ' cs--free' : ''; ?>" id="cs" data-s3-ready="<?php echo !empty($this->s3_ready) ? '1' : '0'; ?>">
 
     <header class="cs-head">
         <div>
@@ -42,6 +42,12 @@
             </div>
         </div>
     </header>
+<?php if (!empty($this->needs_plan)): ?>
+    <div class="plan-bar" role="status">
+        <p class="plan-bar__text"><strong>You're on Free.</strong> Everything you made is still here to view, download or delete. Choose a plan to create, publish and sell.</p>
+        <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
+    </div>
+<?php endif; ?>
 
     <?php if (empty($this->s3_ready)): ?>
     <div class="alert alert-warning d-flex align-items-center gap-2 py-2" role="alert">
@@ -836,16 +842,5 @@ window.CS_CONFIG = <?php echo json_encode(array(
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
-<?php if (empty($this->needs_plan)): ?>
 <script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path().'/public/js/studio.js'); ?>"></script>
-<?php else: ?>
-<div class="plan-lock">
-    <div class="plan-lock__card">
-        <div class="plan-lock__icon"><i class="fa-solid fa-lock"></i></div>
-        <h2 class="plan-lock__title">Subscribe to a Plan</h2>
-        <p class="plan-lock__text">Unlock the Content Studio, publishing, scheduling, and analytics.</p>
-        <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
-    </div>
-</div>
-<?php endif; ?>
 <?php endif; ?>

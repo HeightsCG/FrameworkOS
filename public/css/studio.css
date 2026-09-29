@@ -865,3 +865,6 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
     filter:none; transform:none; transition-delay:.5s;
 }
 
+
+/* Free: nothing new can be made, so the Action menu is hidden (the plan bar offers the plan). */
+.cs--free .cs-create, .cs--free #csPostsEmptyNew, .cs--free #csSchedEmptyNew{ display:none; }

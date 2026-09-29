@@ -4,13 +4,13 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Presence heartbeat — pinged by the Studio so an open-but-idle creator stays "online". */
     public function heartbeatAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $this->jsonSuccess();
     }
 
     /** Persist the creator's real timezone (auto-detected from their browser). */
     public function set_timezoneAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('content', false);
         $tz   = $this->valid_tz($this->post['timezone'] ?? '');
         if ($tz === '') { $this->jsonError('Invalid timezone'); }
         (new UsersModel())->set_content_timezone((int) $user['user_id'], $tz);
@@ -240,7 +240,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Disconnect the creator's domain (both halves of a pair). Their page goes back to /@handle only. */
     public function domain_removeAction(){
-        $owner = $this->require_creator('manage');
+        $owner = $this->require_creator('manage', false);
         $model = new CreatorDomainsModel();
         foreach ($model->list_for_user((int) $owner['user_id']) as $row) {
             $model->remove((int) $owner['user_id'], (int) $row['id']);
@@ -334,7 +334,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function delete_creator_planAction(){
-        $this->require_creator('manage');
+        $this->require_creator('manage', false);
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             $this->jsonError('Plan is required');
@@ -344,7 +344,8 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function toggle_creator_planAction(){
-        $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
+        $this->plan_to_turn_on($user, !empty($this->post['active']));
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             $this->jsonError('Plan is required');
@@ -354,7 +355,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function reorder_creator_plansAction(){
-        $this->require_creator('manage');
+        $this->require_creator('manage', false);
         $ids = $this->post['ids'] ?? [];
         if (!is_array($ids)) {
             $this->jsonError('Invalid order');
@@ -425,7 +426,8 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function toggle_promo_codeAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
+        $this->plan_to_turn_on($user, !empty($this->post['active']));
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Code is required'); }
         (new CreatorPromoCodesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
@@ -433,7 +435,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function delete_promo_codeAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Code is required'); }
         (new CreatorPromoCodesModel())->delete_code((int) $user['user_id'], $id);
@@ -509,7 +511,8 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function toggle_bundleAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
+        $this->plan_to_turn_on($user, !empty($this->post['active']));
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Bundle is required'); }
         (new ContentBundlesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
@@ -517,7 +520,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function delete_bundleAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Bundle is required'); }
         $model = new ContentBundlesModel();
@@ -530,7 +533,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function scheduler_listAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $out        = [];
@@ -614,9 +617,10 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function scheduler_toggleAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $active     = ((string) ($this->post['active'] ?? '0')) === '1';
+        $this->plan_to_turn_on($user, $active);
         if ($active && Plan::is_locked($user, 'automations', (int) ($this->post['id'] ?? 0))) {
             $this->jsonError(Plan::locked_message($user, 'automations'), ['need_upgrade' => true]);
         }
@@ -625,7 +629,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function scheduler_deleteAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         (new SchedulerRulesModel())->delete_rule($creator_id, (int) ($this->post['id'] ?? 0));
         $this->jsonSuccess(['message' => 'Automation removed']);
@@ -773,7 +777,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Load a post (edit / reopen draft). */
     public function post_getAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $post       = (new PostsModel())->get_one($creator_id, $id);
@@ -848,7 +852,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Archive / unarchive a post. */
     public function post_archiveAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $unarchive  = ((string) ($this->post['unarchive'] ?? '0')) === '1';
@@ -868,7 +872,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_deleteAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         (new PostsModel())->delete_post($creator_id, $id);
@@ -897,7 +901,7 @@ class ApiCreatorStudioController extends BaseApiController {
     /* ---------- Content Studio: posts list ---------- */
 
     public function posts_listAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
         foreach ($model->publish_due($creator_id) as $pid => $cid) { PostNotifier::published($cid, $pid); }   // cron fallback: flip now-due scheduled posts
@@ -914,7 +918,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Scheduled + published posts placed on their local date, plus queue health. */
     public function posts_calendarAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();
@@ -992,7 +996,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function posts_bulkAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $action     = (string) ($this->post['bulk_action'] ?? '');
         $ids        = $this->post['ids'] ?? [];

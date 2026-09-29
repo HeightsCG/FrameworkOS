@@ -23,6 +23,12 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         <h1 class="dash__title">Analytics</h1>
         <p class="dash__sub"><?php echo $first_word !== '' ? 'Welcome back, ' . htmlspecialchars($first_word, ENT_QUOTES, 'UTF-8') . '.' : 'Welcome back.'; ?></p>
     </header>
+<?php if (!empty($this->needs_plan)): ?>
+    <div class="plan-bar" role="status">
+        <p class="plan-bar__text"><strong>You're on Free.</strong> Your earnings and history are still here. Choose a plan to create, publish and sell.</p>
+        <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
+    </div>
+<?php endif; ?>
 
 <?php if (empty($this->is_creator)): ?>
     <div class="dash__gate">
@@ -507,16 +513,6 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         </div>
     </section>
 
-    <?php if (!empty($this->needs_plan)): ?>
-    <div class="plan-lock">
-        <div class="plan-lock__card">
-            <div class="plan-lock__icon"><i class="fa-solid fa-lock"></i></div>
-            <h2 class="plan-lock__title">Subscribe to a Plan</h2>
-            <p class="plan-lock__text">Unlock the Content Studio, publishing, scheduling, and analytics.</p>
-            <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
-        </div>
-    </div>
-    <?php endif; ?>
 <?php endif; ?>
 </div>
 <script src="/js/dashboard.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/dashboard.js'); ?>"></script>

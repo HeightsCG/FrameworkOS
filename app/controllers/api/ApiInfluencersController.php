@@ -9,8 +9,8 @@ class ApiInfluencersController extends BaseApiController {
 
     /** Creator gate + ai_tools plan flag. */
     /** Owner row for influencer actions: content role + an active plan (require_creator checks both). */
-    private function ai_user(){
-        return $this->require_creator('content');
+    private function ai_user($need_plan = true){
+        return $this->require_creator('content', $need_plan);
     }
 
     private function text($key, $max = 5000){
@@ -44,7 +44,7 @@ class ApiInfluencersController extends BaseApiController {
     /* ---- gallery / wizard ---- */
 
     public function influencer_listAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $out  = array();
         foreach ((new InfluencersModel())->list_for_creator($cid) as $row) { $out[] = InfluencerService::influencer_json($cid, $row); }
@@ -52,7 +52,7 @@ class ApiInfluencersController extends BaseApiController {
     }
 
     public function influencer_getAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $this->jsonSuccess(['influencer' => InfluencerService::influencer_json($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)))]);
     }
@@ -78,7 +78,7 @@ class ApiInfluencersController extends BaseApiController {
     }
 
     public function influencer_deleteAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $this->answer(InfluencerActions::delete($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0))));
     }
@@ -90,7 +90,7 @@ class ApiInfluencersController extends BaseApiController {
 
     /** Images attached to an influencer (by role), signed for display. */
     public function influencer_imagesAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $infl = $this->owned($cid, (int) ($this->post['id'] ?? 0));
         $role = (string) ($this->post['role'] ?? '');
@@ -185,7 +185,7 @@ class ApiInfluencersController extends BaseApiController {
 
     /** One job with its landed assets (polling from the wizard / generate pages). */
     public function influencer_job_getAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $job  = (new InfluencerJobsModel())->get_one($cid, (int) ($this->post['job_id'] ?? 0));
         if (!$job) { $this->jsonError('Job not found.'); }
@@ -204,7 +204,7 @@ class ApiInfluencersController extends BaseApiController {
     }
 
     public function influencer_jobs_listAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $this->answer(InfluencerActions::jobs($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (string) ($this->post['type'] ?? ''), (int) ($this->post['limit'] ?? 24)));
     }
@@ -226,14 +226,14 @@ class ApiInfluencersController extends BaseApiController {
 
     /** Delete one of her generated/uploaded files from the library. */
     public function influencer_asset_deleteAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $this->answer(InfluencerActions::delete_asset($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
     }
 
     /** Short-lived download URL for one of her assets (original rendition). */
     public function influencer_asset_urlAction(){
-        $user = $this->ai_user();
+        $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
         $a = (new MediaAssetsModel())->get_one($cid, (int) ($this->post['asset_id'] ?? 0));
         if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That file is not ready.'); }

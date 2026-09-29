@@ -13,15 +13,4 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'limit'      => (array) ($this->limit ?? array()),
 ), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
-<?php if (!empty($this->needs_plan)): ?>
-<div class="plan-lock">
-    <div class="plan-lock__card">
-        <div class="plan-lock__icon"><i class="fa-solid fa-lock"></i></div>
-        <h2 class="plan-lock__title">Subscribe to a Plan</h2>
-        <p class="plan-lock__text">Unlock AI influencers, the Content Studio, publishing, scheduling, and analytics.</p>
-        <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
-    </div>
-</div>
-<?php else: ?>
 <script src="/js/influencers.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers.js'); ?>"></script>
-<?php endif; ?>

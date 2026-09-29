@@ -291,7 +291,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Library grid: the creator's media assets, optionally filtered by type/collection/usage/search. */
     public function media_listAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $filters = [
             'type'       => (string) ($this->post['type'] ?? ''),
@@ -309,7 +309,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Full detail for one asset: signed preview, metadata, usage, collections. */
     public function media_getAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new MediaAssetsModel();
@@ -354,7 +354,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Mint a fresh signed URL for a variant (used when a grid thumb URL expires). */
     public function media_signAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $variant    = (string) ($this->post['variant'] ?? 'thumb');
@@ -365,7 +365,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Download link for one Library file: the untouched original, saved under its Library name. */
     public function media_downloadAction(){
-        $user = $this->require_creator();
+        $user = $this->require_creator('content', false);
         $a    = (new MediaAssetsModel())->get_one((int) $user['user_id'], (int) ($this->post['id'] ?? 0));
         if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That file is not ready to download.'); }
         $url = MediaService::download_url($a, 'original');
@@ -420,7 +420,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Soft-delete an asset (recoverable). Removes it from all collections. */
     public function media_deleteAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new MediaAssetsModel();
@@ -434,7 +434,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Bulk actions over selected assets: add to collection, tag, or delete. */
     public function media_bulkAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $action     = (string) ($this->post['bulk_action'] ?? '');
         $ids        = $this->post['ids'] ?? [];
@@ -478,7 +478,7 @@ class ApiMediaController extends BaseApiController {
     /* ---------- Content Studio: collections ---------- */
 
     public function collections_listAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $rows = (new CollectionsModel())->get_for_creator($creator_id);
         $out = [];
@@ -509,7 +509,7 @@ class ApiMediaController extends BaseApiController {
     }
 
     public function collection_deleteAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         (new CollectionsModel())->delete_collection($creator_id, $id);

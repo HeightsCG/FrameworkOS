@@ -159,6 +159,13 @@ class BaseApiController extends Controller {
         return $this->require_creator('manage');
     }
 
+    /** On Free a creator can switch things off but not back on: turning on is selling, which needs a paid plan. */
+    protected function plan_to_turn_on(array $user, bool $on): void{
+        if ($on && !Plan::can_use_creator_features($user)) {
+            $this->jsonError('Choose a plan to turn this on.', ['need_plan' => true]);
+        }
+    }
+
     /** A price the creator typed in credits (10 to 5,000); a bad price answers with the reason. Everything inside is credits. */
     protected function price_credits($raw, $allow_free = false): int{
         $p = Price::from_credits($raw, $allow_free);

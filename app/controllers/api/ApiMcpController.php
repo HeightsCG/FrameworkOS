@@ -18,7 +18,7 @@ class ApiMcpController extends BaseApiController {
 
     /** Revoke the creator's MCP connector token(s). */
     public function mcp_token_revokeAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         (new ApiTokensModel())->revoke_for_user((int) $user['user_id']);
         $this->jsonSuccess(['message' => 'Connection revoked']);
     }

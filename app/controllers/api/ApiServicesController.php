@@ -38,7 +38,7 @@ class ApiServicesController extends BaseApiController {
 
     /** Delete a service nobody has booked. Once booked, buyers keep their details: turn Live off instead. */
     public function service_deleteAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Service required'); }
         $model = new ServicesModel();
@@ -50,7 +50,7 @@ class ApiServicesController extends BaseApiController {
 
     /** The creator's own service for the manage-page actions (owner check + the account's timezone). */
     private function owned_service(): array{
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false)  /* delivering, refunds, buyers: still theirs to handle on Free */;
         $sv = (new ServicesModel())->get_one((int) $user['user_id'], (int) ($this->post['service_id'] ?? 0));
         if (!$sv) { $this->jsonError('Service not found'); }
         return [(int) $user['user_id'], $sv, $user];
@@ -123,8 +123,9 @@ class ApiServicesController extends BaseApiController {
 
     /** Live = on the profile and bookable; not live = hidden. */
     public function service_set_liveAction(){
-        [$owner, $sv] = $this->owned_service();
+        [$owner, $sv, $user] = $this->owned_service();
         $live = ((string) ($this->post['live'] ?? '0')) === '1';
+        $this->plan_to_turn_on($user, $live);
         (new ServicesModel())->set_status($owner, (int) $sv['id'], $live ? 'published' : 'draft');
         $this->jsonSuccess(['live' => $live]);
     }

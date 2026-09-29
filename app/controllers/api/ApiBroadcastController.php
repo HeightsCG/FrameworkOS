@@ -15,6 +15,7 @@ class ApiBroadcastController extends BaseApiController {
         $me = (int) Session::get('user_id');
         if ($me <= 0) { $this->jsonError('Sign in first.', ['need_login' => true]); }
         if (!Permissions::has_role('Creator')) { $this->jsonError('Only creators can broadcast.'); }
+        $this->require_creator('content');   // broadcasting is a creator tool: needs a paid plan
         $segments = BroadcastsModel::clean_segments($this->post['segments'] ?? ($this->post['segment'] ?? 'all'));
         if (empty($segments)) { $this->jsonError('Pick who receives it.'); }
         $body = trim(html_entity_decode((string) ($this->post['body'] ?? ''), ENT_QUOTES, 'UTF-8'));

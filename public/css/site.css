@@ -447,3 +447,10 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 .cs-ae-modal .cs-ae__seg .cs-seg__opt.is-on .cs-seg__meta{ color:var(--acc-ink); opacity:.75; }
 #csSchedulerModal .cs-ae__field .form-select{ min-height:46px; }   /* the Influencer picker lines up with the 44px segments beside it */
 #csSchedulerModal #csSchedVideoPrompt{ min-height:72px; }   /* a one-line motion note, not a paragraph */
+
+/* Free creator on a creator page: what they made stays viewable; creating needs a plan. */
+.plan-bar{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin:0 0 24px; padding:12px 16px; background:#FFF7F1; border:1px solid #FBD5BD; border-radius:var(--r); }
+.plan-bar__text{ margin:0; font-size:14px; line-height:1.5; color:var(--text); }
+.plan-bar__text strong{ font-weight:600; }
+.plan-bar__btn{ flex:none; }
+@media (max-width:640px){ .plan-bar{ flex-direction:column; align-items:flex-start; } }
