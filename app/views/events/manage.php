@@ -15,7 +15,7 @@ $tiers     = $this->tiers;
 $canceled  = ($ev['status'] === 'canceled');
 $live      = ($ev['status'] === 'published');
 $in_person = (($ev['format'] ?? 'virtual') === 'in_person');
-$dollars   = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
+$dollars   = function ($credits) { return Price::credits((int) $credits); };   // everything inside is credits
 $public_link = (string) $this->share_link;   // Copy Link / View public page: the creator's own domain when they have one
 $editor_data = array(
     'id' => (int) $ev['id'], 'title' => $d($ev['title']), 'description' => $d($ev['description']),
@@ -25,7 +25,7 @@ $editor_data = array(
     'region' => $d($ev['region'] ?? ''), 'postal_code' => $d($ev['postal_code'] ?? ''),
     'access_instructions' => $d($ev['access_instructions']), 'call_password' => (string) ($ev['call_password'] ?? ''),
     'access_type' => $ev['access_type'], 'tier_id' => (int) ($ev['tier_id'] ?? 0),
-    'price' => number_format(((int) $ev['price_credits']) / 10, 2, '.', ''), 'capacity' => (int) $ev['capacity'], 'status' => $ev['status'],
+    'price' => (int) $ev['price_credits'],   // credits 'capacity' => (int) $ev['capacity'], 'status' => $ev['status'],
 );
 $going = (int) $stats['going'];
 $cap   = (int) $ev['capacity'];
@@ -118,7 +118,7 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
             <dt>Tickets</dt>
             <dd class="evm-band__main"><?php echo $e($price); ?></dd>
             <dd class="evm-band__sub"><?php echo $e($who); ?></dd>
-            <?php if ($price !== 'Free' || (int) $stats['net'] > 0): ?><dd class="evm-band__sub"><b class="evm-band__earned"><?php echo $e($dollars($stats['net'])); ?></b> earned<?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></dd><?php endif; ?>
+            <?php if ($price !== 'Free' || (int) $stats['net'] > 0): ?><dd class="evm-band__sub"><b class="evm-band__earned"><?php echo $e($dollars($stats['earned'])); ?></b> earned<?php echo (int) $stats['pending'] > 0 ? ' · ' . $e($dollars($stats['pending'])) . ' after the event' : ''; ?><?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></dd><?php endif; ?>
         </div>
         <div class="evm-band__cell">
             <dt>Registration</dt>

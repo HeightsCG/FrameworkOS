@@ -34,7 +34,7 @@ $status_label = array('published' => 'Live', 'draft' => 'Not live', 'canceled' =
                 $in_person = ($ev['format'] ?? 'virtual') === 'in_person';
                 $where = $in_person ? trim(explode(',', html_entity_decode((string) $ev['location'], ENT_QUOTES, 'UTF-8'))[0]) : 'Virtual';
                 $members = in_array($ev['access_type'], array('subscribers', 'tier'), true);
-                $price = ($ev['access_type'] !== 'free' && (int) $ev['price_credits'] > 0) ? '$' . number_format(((int) $ev['price_credits']) / 10, 2) : 'Free';
+                $price = ($ev['access_type'] !== 'free' && (int) $ev['price_credits'] > 0) ? Price::credits((int) $ev['price_credits']) : 'Free';
                 $st = in_array($ev['status'], array('published', 'draft', 'canceled'), true) ? $ev['status'] : 'draft';
             ?>
             <a class="ev-row" href="/events/manage/<?php echo (int) $ev['id']; ?>">

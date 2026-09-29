@@ -21,7 +21,7 @@ class McpTools {
     private static function priced(array $a, $key, $allow_free = true): array {
         if (!array_key_exists($key, $a) || $a[$key] === null || $a[$key] === '') { return $a; }
         $chk = Price::check_credits((int) $a[$key], $allow_free);
-        if (!$chk['ok']) { throw new InvalidArgumentException($key . ': ' . $chk['message'] . ' (credits: $1 = 10)'); }
+        if (!$chk['ok']) { throw new InvalidArgumentException($key . ': ' . $chk['message']); }
         $a[$key] = (int) $chk['credits'];
         return $a;
     }
@@ -316,10 +316,10 @@ class McpTools {
                 'name' => array('type' => 'string'))));
 
         // ---- Messaging ----
-        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa). Optionally attach library media (asset_ids, up to 10) and set a price in dollars ($3-$500) the fan pays to unlock it.', 'inputSchema' => array(
+        $t[] = array('name' => 'send_message', 'description' => 'Send a direct message to a user (must follow/subscribe to you or vice-versa). Optionally attach library media (asset_ids, up to 10) and set a price in credits (10-5000) the fan pays to unlock it.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('to_user_id'),
             'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'),
-                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer', 'description' => 'Dollars; 0 or omitted = free'))));
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer', 'description' => 'Credits, 10 to 5000 (everything on the platform is priced in credits); 0 or omitted = free'))));
         $t[] = array('name' => 'send_broadcast', 'description' => 'Send one message to every fan in one or more audience segments (each gets it as a private DM). Optionally attach media and a price.', 'inputSchema' => array(
             'type' => 'object', 'required' => array(),
             'properties' => array('body' => array('type' => 'string'),
@@ -735,7 +735,7 @@ class McpTools {
                     $r = $rows[$k] ?? null;
                     $out[] = array('trigger' => $k, 'label' => $meta[0], 'when' => $meta[1], 'enabled' => $r ? !empty($r['enabled']) : false,
                         'text' => $r ? (string) $r['text'] : '', 'asset_ids' => $r ? (array) $r['asset_ids'] : array(),
-                        'price' => $r ? (float) Price::input((int) $r['price_credits']) : 0);
+                        'price' => $r ? (int) $r['price_credits'] : 0);   // credits
                 }
                 return array('auto_messages' => $out);
             }
@@ -942,8 +942,8 @@ class McpTools {
             if (empty($asset_ids)) { throw new InvalidArgumentException('asset_ids must be ready media in your library'); }
         }
         $price = 0;
-        if (!empty($asset_ids) && isset($a['price']) && (float) $a['price'] > 0) {   // dollars, same rule as the app
-            $pr = Price::from_dollars($a['price']);
+        if (!empty($asset_ids) && isset($a['price']) && (float) $a['price'] > 0) {   // credits, same rule as the app
+            $pr = Price::from_credits($a['price']);
             if (!$pr['ok']) { throw new InvalidArgumentException('price: ' . $pr['message']); }
             $price = (int) $pr['credits'];
         }

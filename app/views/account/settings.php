@@ -444,15 +444,15 @@
                         <div class="plan-row<?php echo empty($pc['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $pc['id']; ?>"
                              data-code="<?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-percent="<?php echo (int) $pc['percent_off']; ?>"
-                             data-amount="<?php echo (int) ($pc['amount_off_credits'] ?? 0) > 0 ? Price::input((int) $pc['amount_off_credits']) : ''; ?>"
-                             data-min="<?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? Price::input((int) $pc['min_order_credits']) : ''; ?>"
+                             data-amount="<?php echo (int) ($pc['amount_off_credits'] ?? 0) > 0 ? (int) $pc['amount_off_credits'] : ''; ?>"
+                             data-min="<?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? (int) $pc['min_order_credits'] : ''; ?>"
                              data-first="<?php echo !empty($pc['first_purchase_only']) ? 1 : 0; ?>"
                              data-applies="<?php echo htmlspecialchars((string) $pc['applies_to'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-max="<?php echo $pc['max_redemptions'] === null ? '' : (int) $pc['max_redemptions']; ?>"
                              data-expires="<?php echo $pc['expires_at'] ? htmlspecialchars(date('Y-m-d', strtotime((string) $pc['expires_at'])), ENT_QUOTES, 'UTF-8') : ''; ?>">
                             <div class="plan-row__info">
                                 <span class="plan-row__name"><?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php echo htmlspecialchars(CreatorPromoCodesModel::label($pc), ENT_QUOTES, 'UTF-8'); ?><span class="plan-row__unit"> &middot; <?php echo $applies; ?><?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? ' &middot; Min ' . Price::fmt((int) $pc['min_order_credits']) : ''; ?><?php echo !empty($pc['first_purchase_only']) ? ' &middot; First purchase' : ''; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
+                                <span class="plan-row__price"><?php echo htmlspecialchars(CreatorPromoCodesModel::label($pc), ENT_QUOTES, 'UTF-8'); ?><span class="plan-row__unit"> &middot; <?php echo $applies; ?><?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? ' &middot; Min ' . Price::credits((int) $pc['min_order_credits']) : ''; ?><?php echo !empty($pc['first_purchase_only']) ? ' &middot; First purchase' : ''; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
                             </div>
                             <label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle" <?php echo !empty($pc['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
                             <button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>
@@ -480,7 +480,7 @@
                              data-assets="<?php echo htmlspecialchars(implode(',', array_map('intval', (array) $bd['asset_ids'])), ENT_QUOTES, 'UTF-8'); ?>">
                             <div class="plan-row__info">
                                 <span class="plan-row__name"><?php echo htmlspecialchars((string) $bd['name'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php echo Price::fmt((int) $bd['price_credits']); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
+                                <span class="plan-row__price"><?php echo Price::credits((int) $bd['price_credits']); ?><span class="plan-row__unit"> &middot; <?php echo (int) $bd['item_count']; ?> item<?php echo (int) $bd['item_count'] === 1 ? '' : 's'; ?></span></span>
                             </div>
                             <label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle" <?php echo !empty($bd['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
                             <button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>
@@ -846,7 +846,7 @@
                             <div class="inbox-trigger__media" data-role="media">
                                 <div class="inbox-trigger__thumbs" data-role="thumbs"></div>
                                 <button type="button" class="inbox-trigger__attach" data-role="attach"><i class="fa-solid fa-image"></i> Attach Media</button>
-                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="500" step="0.10" placeholder="Free" data-role="price" inputmode="decimal" aria-label="Price in dollars, leave empty for free"></label>
+                                <label class="inbox-trigger__price" data-role="pricewrap" hidden><span>Price</span><input type="number" class="form-control" min="0" max="5000" step="1" placeholder="Free" data-role="price" inputmode="numeric" aria-label="Price in credits, leave empty for free"><span>credits</span></label>
                             </div>
                             <div class="inbox-trigger__actions">
                                 <span class="inbox-trigger__sent" data-role="sent"></span>
@@ -1178,8 +1178,8 @@
                         <input type="number" class="form-control" id="promo_percent" min="1" max="100" placeholder="20">
                     </div>
                     <div class="link-field" id="promo_amount_wrap" hidden>
-                        <label for="promo_amount">Amount Off ($)</label>
-                        <input type="text" class="form-control" id="promo_amount" inputmode="decimal" placeholder="5.00">
+                        <label for="promo_amount">Amount Off (credits)</label>
+                        <input type="number" class="form-control" id="promo_amount" min="10" max="5000" step="1" inputmode="numeric" placeholder="50">
                     </div>
                 </div>
                 <div class="plan-field-row">
@@ -1192,8 +1192,8 @@
                         </select>
                     </div>
                     <div class="link-field">
-                        <label for="promo_min">Minimum Order ($) <span class="plan-optional">(optional)</span></label>
-                        <input type="text" class="form-control" id="promo_min" inputmode="decimal" placeholder="No minimum">
+                        <label for="promo_min">Minimum Order (credits) <span class="plan-optional">(optional)</span></label>
+                        <input type="number" class="form-control" id="promo_min" min="10" max="5000" step="1" inputmode="numeric" placeholder="No minimum">
                     </div>
                 </div>
                 <div class="plan-field-row">
@@ -1238,8 +1238,8 @@
                 <div class="link-field">
                     <label for="bundle_price">Price</label>
                     <div class="bundle-price-row">
-                        <span class="bundle-price-cur">$</span>
-                        <input type="number" class="form-control" id="bundle_price" min="1" max="500" step="0.10" placeholder="15.00" inputmode="decimal">
+                        <input type="number" class="form-control" id="bundle_price" min="10" max="5000" step="1" placeholder="150" inputmode="numeric">
+                        <span class="bundle-price-cur">credits</span>
                     </div>
                 </div>
                 <div class="link-field">
@@ -2493,8 +2493,9 @@ $(function () {
     // ---- Discount codes ----
     function renderPromoRow(p) {
         var applies = p.applies === 'ppv' ? 'Pay-per-view' : (p.applies === 'subscription' ? 'Subscriptions' : 'Subs & PPV');
-        var label = p.amount ? '$' + parseFloat(p.amount).toFixed(2) + ' off' : (parseInt(p.percent, 10) || 0) + '% off';
-        var extra = (p.min ? ' · Min $' + parseFloat(p.min).toFixed(2) : '') + (p.first ? ' · First purchase' : '');
+        var cr = function (n) { return (parseInt(n, 10) || 0).toLocaleString('en-US') + ' credits'; };
+        var label = p.amount ? cr(p.amount) + ' off' : (parseInt(p.percent, 10) || 0) + '% off';
+        var extra = (p.min ? ' · Min ' + cr(p.min) : '') + (p.first ? ' · First purchase' : '');
         return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
             + ' data-code="' + escapeHtml(p.code) + '" data-percent="' + (parseInt(p.percent, 10) || 0) + '"'
             + ' data-amount="' + escapeHtml(p.amount || '') + '" data-min="' + escapeHtml(p.min || '') + '" data-first="' + (p.first ? 1 : 0) + '"'
@@ -2542,7 +2543,7 @@ $(function () {
         var amount = ($('#promo_amount').val() || '').trim().replace('$', ''), min = ($('#promo_min').val() || '').trim().replace('$', ''), first = $('#promo_first').is(':checked');
         if (code.length < 3) { toastr.error('Enter a code of at least 3 characters'); return; }
         if (type === 'percent' && !(percent >= 1 && percent <= 100)) { toastr.error('Discount must be 1–100%'); return; }
-        if (type === 'amount' && !(parseFloat(amount) > 0)) { toastr.error('Enter the amount off, like 5.00'); return; }
+        if (type === 'amount' && !(parseInt(amount, 10) > 0)) { toastr.error('Enter the credits off, like 50'); return; }
         var applies = $('#promo_applies').val(), max = ($('#promo_max').val() || ''), expires = ($('#promo_expires').val() || '');
         ApiDataSvc.apiCall('post', 'save_promo_code', { id: id, code: code, discount_type: type, percent_off: type === 'percent' ? percent : 0, amount_off: type === 'amount' ? amount : '',
             min_order: min, first_purchase_only: first ? 1 : 0, applies_to: applies, max_redemptions: max, expires_at: expires }, function (data) {
@@ -2550,7 +2551,7 @@ $(function () {
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
             var $existing = $('#promos_list .plan-row[data-id="' + o.id + '"]');
-            var p = { id: o.id, code: o.code || code, percent: type === 'percent' ? percent : 0, amount: type === 'amount' ? parseFloat(amount).toFixed(2) : '', min: min ? parseFloat(min).toFixed(2) : '',
+            var p = { id: o.id, code: o.code || code, percent: type === 'percent' ? percent : 0, amount: type === 'amount' ? (parseInt(amount, 10) || 0) : '', min: min ? (parseInt(min, 10) || 0) : '',
                       first: first, applies: applies, max: max, expires: expires, active: true };
             if ($existing.length) { p.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderPromoRow(p)); }
             else { $('#promos_list').append(renderPromoRow(p)); $('#promos_empty').attr('hidden', true); }
@@ -2577,13 +2578,13 @@ $(function () {
 
     // ---- Content bundles ----
     function renderBundleRow(b) {
-        var dollars = ((parseInt(b.price, 10) || 0) / 10).toFixed(2);   // b.price is credits ($1 = 10)
+        var price = (parseInt(b.price, 10) || 0).toLocaleString('en-US') + ' credits';   // b.price is credits
         var n = String(b.asset_ids || '').split(',').filter(function (x) { return x !== ''; }).length;
         return '<div class="plan-row' + (b.active ? '' : ' is-inactive') + '" data-id="' + b.id + '"'
             + ' data-name="' + escapeHtml(b.name) + '" data-description="' + escapeHtml(b.description || '') + '"'
             + ' data-price="' + (parseInt(b.price, 10) || 0) + '" data-assets="' + escapeHtml(String(b.asset_ids || '')) + '">'
             + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(b.name) + '</span>'
-            + '<span class="plan-row__price">$' + dollars + '<span class="plan-row__unit"> · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
+            + '<span class="plan-row__price">' + price + '<span class="plan-row__unit"> · ' + n + ' item' + (n === 1 ? '' : 's') + '</span></span></div>'
             + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="bundle-toggle"' + (b.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
             + '<button type="button" class="link-row__btn bundle-edit" aria-label="Edit bundle"><i class="fa-solid fa-pen"></i></button>'
             + '<button type="button" class="link-row__btn bundle-delete" aria-label="Remove bundle"><i class="fa-solid fa-trash"></i></button>'
@@ -2618,7 +2619,7 @@ $(function () {
         $('#bundle_name').val($row.data('name'));
         $('#bundle_description').val($row.data('description') || '');
         var credits = parseInt($row.data('price'), 10) || 0;   // data-price is credits; the field is dollars
-        $('#bundle_price').val(credits > 0 ? (credits / 10).toFixed(2) : '');
+        $('#bundle_price').val(credits > 0 ? credits : '');
         var assets = String($row.data('assets') || '').split(',').filter(function (x) { return x !== ''; });
         bundleSetAssets(assets); bundleUpdateHints();
         $('#bundle_modal_title').text('Edit bundle');
@@ -2627,17 +2628,17 @@ $(function () {
     $('#bundle_save').on('click', function () {
         var id = $('#bundle_id').val();
         var name = ($('#bundle_name').val() || '').trim();
-        var dollars = ($('#bundle_price').val() || '').trim();
+        var bprice = ($('#bundle_price').val() || '').trim();   // credits
         if (name === '') { toastr.error('Give the bundle a name'); return; }
-        if (dollars == '') { toastr.error('Set a price'); return; }
+        if (bprice == '') { toastr.error('Set a price'); return; }
         var assets = $('#bundle_picker .bundle-pick__cb:checked').map(function () { return String($(this).data('asset')); }).get();
         if (!assets.length) { toastr.error('Add at least one piece of content to the bundle'); return; }
         var desc = ($('#bundle_description').val() || '').trim();
-        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price: dollars, description: desc, asset_ids: assets }, function (data) {
+        ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price: bprice, description: desc, asset_ids: assets }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
-            var b = { id: o.id, name: name, description: desc, price: Math.round(parseFloat(dollars) * 10), asset_ids: assets.join(','), active: true };
+            var b = { id: o.id, name: name, description: desc, price: parseInt(bprice, 10) || 0, asset_ids: assets.join(','), active: true };
             var $existing = $('#bundles_list .plan-row[data-id="' + o.id + '"]');
             if ($existing.length) { b.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderBundleRow(b)); }
             else { $('#bundles_list').append(renderBundleRow(b)); $('#bundles_empty').attr('hidden', true); }
@@ -2996,7 +2997,7 @@ $(function () {
     $('#inboxTriggers').on('click', '[data-role="save"]', function () {
         var $row = $(this).closest('.inbox-trigger'), t = $row.data('trigger'); var $btns = $row.find('button').prop('disabled', true);
         var ids = (inbox_trigger_media[t] || []).map(function (a) { return a.id; });
-        var price = ($row.find('[data-role="price"]').val() || '').trim();   // dollars; the server checks $1-$500 in 10¢ steps
+        var price = ($row.find('[data-role="price"]').val() || '').trim();   // credits; the server checks 10-5,000
         ApiDataSvc.apiCall('post', 'auto_message_save', { trigger: t, text: $row.find('[data-role="text"]').val(), asset_ids: ids, price: price }, function (data) {
             var o = JSON.parse(data); $btns.prop('disabled', false);
             if (o.success) { toastr.success(o.message); inbox_trigger_state($row, true); } else { toastr.error(o.message); }

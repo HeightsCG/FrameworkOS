@@ -11,7 +11,7 @@ $fmt_since = function ($utc) use ($aud_tz) {
 };
 $e   = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $ini = function ($n) { $n = trim((string) $n); return $n === '' ? '?' : mb_strtoupper(mb_substr($n, 0, 1)); };
-$dollars = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
+$dollars = function ($credits) { return Price::credits((int) $credits); };   // everything inside is credits
 $counts   = $this->counts;
 $audience = $this->audience;
 $revenue  = 0;

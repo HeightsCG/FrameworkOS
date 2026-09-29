@@ -5,12 +5,12 @@ $d  = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'
 $sv    = $this->service;
 $stats = $this->stats;
 $live  = ($sv['status'] === 'published');
-$dollars = function ($credits) { return '$' . number_format(((int) $credits) / 10, 2); };
+$dollars = function ($credits) { return Price::credits((int) $credits); };   // everything inside is credits
 $methods = ServicesModel::method_labels() + array('cls_video' => 'CLS Video');
 $public_link = (string) $this->share_link;   // Copy Link: the creator's own domain when they have one
 $editor_data = array(
     'id' => (int) $sv['id'], 'name' => $d($sv['name']), 'description' => $d($sv['description']), 'category' => $d($sv['category']),
-    'price' => number_format(((int) $sv['price_credits']) / 10, 2, '.', ''), 'duration_min' => (int) $sv['duration_min'],
+    'price' => (int) $sv['price_credits'],   // credits 'duration_min' => (int) $sv['duration_min'],
     'capacity' => (int) $sv['capacity'], 'refund_policy' => $d($sv['refund_policy']), 'delivery_method' => (string) $sv['delivery_method'],
     'delivery_details' => $d($sv['delivery_details']), 'status' => $sv['status'],
 );
@@ -56,7 +56,7 @@ $empty_note = $live ? 'People who book show up here. Share the service link to g
         <div class="evm-band__cell">
             <dt>Price</dt>
             <dd class="evm-band__main"><?php echo $e($price); ?></dd>
-            <?php if ((int) $sv['price_credits'] > 0 || (int) $stats['net'] > 0): ?><dd class="evm-band__sub"><b class="evm-band__earned"><?php echo $e($dollars($stats['net'])); ?></b> earned<?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></dd><?php endif; ?>
+            <?php if ((int) $sv['price_credits'] > 0 || (int) $stats['net'] > 0): ?><dd class="evm-band__sub"><b class="evm-band__earned"><?php echo $e($dollars($stats['earned'])); ?></b> earned<?php echo (int) $stats['pending'] > 0 ? ' · ' . $e($dollars($stats['pending'])) . ' pending delivery' : ''; ?><?php echo (int) $stats['refunded_n'] > 0 ? ' · ' . (int) $stats['refunded_n'] . ' refunded' : ''; ?></dd><?php endif; ?>
         </div>
         <div class="evm-band__cell">
             <dt>Session</dt>

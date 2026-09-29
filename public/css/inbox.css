@@ -115,7 +115,8 @@
 .ibx__attach-rm{ position:absolute; top:-6px; right:-6px; width:18px; height:18px; border:0; border-radius:50%; background:var(--text); color:#fff; font-size:.6rem; cursor:pointer; display:inline-flex; align-items:center; justify-content:center; }
 .ibx__price{ flex:none; display:flex; align-items:center; gap:.4rem; margin:0; }
 .ibx__price[hidden]{ display:none; }
-.ibx__price-in{ width:84px; height:34px; padding:0 .4rem 0 1.2rem; border:1px solid #D9D9D9; border-radius:var(--r-sm); font:inherit; font-size:.88rem; outline:none; background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='14' viewBox='0 0 10 14'%3E%3Ctext x='0' y='12' font-size='13' font-family='Inter,Arial' fill='%2374747d'%3E%24%3C/text%3E%3C/svg%3E") .5rem center no-repeat; }
+.ibx__price-in{ width:84px; height:34px; padding:0 .5rem; border:1px solid #D9D9D9; border-radius:var(--r-sm); font:inherit; font-size:.88rem; outline:none; background:#fff; }
+.ibx__price-unit{ font-size:.8rem; font-weight:600; color:var(--muted); }
 .ibx__price-in:focus{ border-color:var(--acc); box-shadow:var(--ring); }
 .ibx__price-in::placeholder{ color:var(--muted2); }
 .ibx__compose{ flex:none; display:flex; align-items:flex-end; gap:.4rem; padding:.7rem 18px; border-top:1px solid var(--line); background:var(--surface); }

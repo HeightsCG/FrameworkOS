@@ -322,7 +322,7 @@ class ApiMessagesController extends BaseApiController {
             }
             $out[] = [
                 'id' => $mid, 'mine' => $mine, 'body' => (string) $m['body'], 'created_at' => (string) $m['created_at'],
-                'price_credits' => $price, 'price_dollars' => $price > 0 ? Price::input($price) : 0,
+                'price_credits' => $price,
                 'locked' => $locked, 'unlocked' => ($price > 0 && !$mine && !empty($unlocked[$mid])),
                 'media_count' => (int) ($m['media_count'] ?? 0), 'assets' => $items,
                 'unlocks' => (int) ($counts[$mid] ?? 0), 'auto' => !empty($m['trigger_key']),

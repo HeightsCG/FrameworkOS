@@ -131,7 +131,7 @@ class Tutorials {
             'Write your caption, or click Write a caption to have AI draft one.',
             'The preview on the right shows exactly what fans will see.',
             'Next, Audience. Choose Everyone, Subscribers, or Pay-per-view.',
-            'For pay-per-view, set your unlock price, anywhere from 3 to 500 dollars.',
+            'For pay-per-view, set your unlock price, anywhere from 10 to 5,000 credits.',
             'Switch the preview to Public to see the locked version.',
             'Under Distribution, pick where it goes: your profile and any connected social accounts.',
             'Last, Publish. Choose Publish now and click Publish now.',

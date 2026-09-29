@@ -152,10 +152,13 @@ class ServicesModel extends Model {
     public function stats($service_id){
         $r = parent::select("SELECT COALESCE(SUM(status = 'paid'), 0) AS sold,
                 COALESCE(SUM(CASE WHEN status = 'paid' THEN net_credits END), 0) AS net,
+                COALESCE(SUM(CASE WHEN status = 'paid' AND earning_released_at IS NOT NULL THEN net_credits END), 0) AS earned,
                 COALESCE(SUM(status = 'refunded'), 0) AS refunded_n, COUNT(*) AS rows_n
              FROM service_purchases WHERE service_id = :s", array('s' => (int) $service_id));
         $x = (is_array($r) && count($r)) ? $r[0] : array();
-        return array('sold' => (int) ($x['sold'] ?? 0), 'net' => (int) ($x['net'] ?? 0), 'refunded_n' => (int) ($x['refunded_n'] ?? 0), 'rows' => (int) ($x['rows_n'] ?? 0));
+        // earned = paid to the creator (delivered); pending = booked, waiting for them to mark it delivered
+        return array('sold' => (int) ($x['sold'] ?? 0), 'net' => (int) ($x['net'] ?? 0), 'earned' => (int) ($x['earned'] ?? 0),
+                     'pending' => max(0, (int) ($x['net'] ?? 0) - (int) ($x['earned'] ?? 0)), 'refunded_n' => (int) ($x['refunded_n'] ?? 0), 'rows' => (int) ($x['rows_n'] ?? 0));
     }
 
     /** One page of paid buyers (the manage page's Buyers table): search by name, handle or email. */

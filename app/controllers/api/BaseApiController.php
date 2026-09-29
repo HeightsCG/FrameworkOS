@@ -156,17 +156,16 @@ class BaseApiController extends Controller {
         return $this->require_creator('manage');
     }
 
-    /** Clamp a dollar price ($3–$500) to credits ($1 = 10 credits). Used for pay-per-view posts and priced messages. */
-    /** A fan price typed in dollars, as credits (Price: $1-$500 in 10-cent steps); a bad price answers with the reason. */
-    protected function price_credits($dollars, $allow_free = false): int{
-        $p = Price::from_dollars($dollars, $allow_free);
+    /** A price the creator typed in credits (10 to 5,000); a bad price answers with the reason. Everything inside is credits. */
+    protected function price_credits($raw, $allow_free = false): int{
+        $p = Price::from_credits($raw, $allow_free);
         if (!$p['ok']) { $this->jsonError($p['message']); }
         return (int) $p['credits'];
     }
 
     /** Is a price field filled in at all? (Empty or 0 means the item is free; anything else must be a valid price.) */
     protected function price_given($raw): bool{
-        $s = trim(str_replace('$', '', (string) $raw));
+        $s = trim(str_replace(array('$', ','), '', (string) $raw));
         return $s !== '' && (!is_numeric($s) || (float) $s != 0.0);
     }
 

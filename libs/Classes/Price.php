@@ -27,12 +27,25 @@ class Price {
         return self::check_credits(intdiv($cents, 10), $allow_free);
     }
 
-    /** Validate a price already in credits (MCP tools, the bundle API). Same limits, same messages. */
+    /**
+     * Parse a price the creator typed in credits ("49", "1,200"). Whole credits only, 10 to 5,000 ($1 to $500).
+     * Returns ['ok', 'credits', 'message']; $allow_free: 0 means free (events and services).
+     */
+    public static function from_credits($raw, $allow_free = false): array {
+        $s = trim(str_replace(array(',', ' '), '', html_entity_decode((string) $raw, ENT_QUOTES, 'UTF-8')));
+        $s = preg_replace('/credits?$/i', '', $s);
+        if ($s === '' || !preg_match('/^\d+(\.0+)?$/', $s)) {
+            return self::no(is_numeric($s) ? 'Prices are whole credits, like 49.' : 'Enter a price in credits, like 49.');
+        }
+        return self::check_credits((int) $s, $allow_free);
+    }
+
+    /** Validate a price already in credits. The same limits and messages everywhere. */
     public static function check_credits($credits, $allow_free = false): array {
         $c = (int) $credits;
         if ($c === 0 && $allow_free) { return array('ok' => true, 'credits' => 0, 'message' => ''); }
-        if ($c < self::MIN_CREDITS) { return self::no('The lowest price is ' . self::fmt(self::MIN_CREDITS) . '.'); }
-        if ($c > self::MAX_CREDITS) { return self::no('The highest price is ' . self::fmt(self::MAX_CREDITS) . '.'); }
+        if ($c < self::MIN_CREDITS) { return self::no('The lowest price is ' . self::credits(self::MIN_CREDITS) . '.'); }
+        if ($c > self::MAX_CREDITS) { return self::no('The highest price is ' . self::credits(self::MAX_CREDITS) . '.'); }
         return array('ok' => true, 'credits' => $c, 'message' => '');
     }
 

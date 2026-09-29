@@ -132,7 +132,7 @@ class FeaturePages {
                     'text'   => 'The platform takes a percentage of what you earn, and the rate drops on the higher plans. Nothing is deducted twice, and there are no per-payout fees from us.',
                     'points' => array(
                         'The rate for your plan is shown on the pricing page',
-                        'Fans see prices in credits; you see what you earned',
+                        'Prices, balances and earnings are all in credits',
                     ),
                     'link' => array('See plans and rates', '/pricing'),
                 ),

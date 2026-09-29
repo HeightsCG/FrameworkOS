@@ -30,7 +30,7 @@ $services = $this->services;
             ?>
             <a class="ev-row" href="/services/manage/<?php echo (int) $s['id']; ?>">
                 <div class="ev-cell ev-cell--title"><span class="ev-cell__name"><?php echo $e($d($s['name'])); ?></span><span class="ev-cell__meta"><i class="fa-solid <?php echo $s['delivery_method'] === 'in_person' ? 'fa-location-dot' : ($s['delivery_method'] === 'phone' ? 'fa-phone' : 'fa-video'); ?>" aria-hidden="true"></i> <?php echo $e($meta . ($method_label[$s['delivery_method']] ?? 'Other')); ?></span></div>
-                <div class="ev-cell ev-cell--muted"><?php echo (int) $s['price_credits'] > 0 ? '$' . number_format(((int) $s['price_credits']) / 10, 2) : 'Free'; ?></div>
+                <div class="ev-cell ev-cell--muted"><?php echo (int) $s['price_credits'] > 0 ? Price::credits((int) $s['price_credits']) : 'Free'; ?></div>
                 <div class="ev-cell ev-cell--muted"><?php echo (int) $s['duration_min'] > 0 ? (int) $s['duration_min'] . ' min' : '—'; ?></div>
                 <div class="ev-cell ev-cell--muted"><?php echo (int) $s['purchases']; ?><?php echo (int) $s['capacity'] > 0 ? ' / ' . (int) $s['capacity'] : ''; ?></div>
                 <div class="ev-cell"><span class="ev-status ev-status--<?php echo $live ? 'on' : 'draft'; ?>"><span class="ev-status__dot"></span><?php echo $live ? 'Live' : 'Not live'; ?></span></div>

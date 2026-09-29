@@ -163,9 +163,9 @@
             var btn = e.target.closest('[data-refund], [data-remove]');
             if (!btn) { return; }
             var row = btn.closest('.evm-row'), name = row.getAttribute('data-name'), reg = row.getAttribute('data-reg');
-            var refund = btn.hasAttribute('data-refund'), paid = (parseInt(row.getAttribute('data-paid'), 10) / 10).toFixed(2);
+            var refund = btn.hasAttribute('data-refund'), paid = (parseInt(row.getAttribute('data-paid'), 10) || 0).toLocaleString('en-US') + ' credits';
             confirm_action(refund
-                ? { title: 'Refund ' + name + '?', text: '$' + paid + ' goes back to their wallet and they are no longer registered.', button: 'Refund $' + paid }
+                ? { title: 'Refund ' + name + '?', text: paid + ' go back to their wallet and they are no longer registered.', button: 'Refund ' + paid }
                 : { title: 'Remove ' + name + '?', text: 'Their spot is freed. No money moves.', button: 'Remove' })
             .then(function (ok) {
                 if (!ok) { return; }

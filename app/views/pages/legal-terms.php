@@ -21,7 +21,7 @@ $doc = array(
             'Fans pay creators in two ways:',
             array('list' => array(
                 'Memberships are recurring subscriptions to a creator, billed to your card at the price and interval shown when you join. A membership renews until you cancel it. You can cancel any time in your account settings, and you keep access until the end of the period you paid for.',
-                'Credits are bought in advance and used for single purchases: pay-per-view posts, content bundles, paid messages, services and event tickets. Ten credits cost one U.S. dollar. Credits can only be spent on the Platform, have no cash value for fans, and cannot be transferred to another account.',
+                'Credits are bought in advance and used for single purchases: pay-per-view posts, content bundles, paid messages, services and event tickets. Ten credits cost one U.S. dollar. Prices, balances and purchases on the Platform are shown in credits. Credits can only be spent on the Platform, have no cash value for fans, and cannot be transferred to another account.',
             )),
             'You can turn on automatic top-ups, which buy more credits with your saved card when your balance falls below the amount you choose. You can turn this off at any time.',
             'When you buy something, you get a personal, non-transferable right to view it on the Platform for as long as the creator keeps it available and your account is in good standing. You may not download, copy, share or resell content except where the Platform gives you a feature to do so.',

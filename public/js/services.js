@@ -9,7 +9,8 @@
         opts = opts || {};
         var ed = window.SectionEditor(container);   // approved shell: left nav, one section at a time
         var status = 'draft';
-        function price() { var v = parseFloat(el('sv_price').value); return isNaN(v) ? 0 : v; }   // empty = free
+        function price() { var v = parseFloat(el('sv_price').value); return isNaN(v) ? 0 : v; }   // credits; empty = free
+        function credits(n) { n = Math.round(Number(n) || 0); return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside is credits
 
         /* Narrow screens: the preview replaces the form while it's open (never stacked below it). */
         var pv_toggle = el('svPvToggle');
@@ -33,7 +34,7 @@
             var name = el('sv_name').value.trim(), cat = el('sv_category').value.trim(), cap = parseInt(el('sv_capacity').value, 10);
             if (opts.onTitle) { opts.onTitle(name); }
             ed.summary('details', name !== '' ? name : 'Untitled');
-            ed.summary('pricing', (price() >= 1 ? '$' + price().toFixed(2) : 'Free') + (parseInt(el('sv_duration').value, 10) > 0 ? ' · ' + parseInt(el('sv_duration').value, 10) + ' min' : '') + (cap > 0 ? ' · ' + cap + ' spots' : ''));
+            ed.summary('pricing', (price() >= 10 ? credits(price()) : 'Free') + (parseInt(el('sv_duration').value, 10) > 0 ? ' · ' + parseInt(el('sv_duration').value, 10) + ' min' : '') + (cap > 0 ? ' · ' + cap + ' spots' : ''));
             ed.summary('delivery', METHODS[el('sv_method').value] || 'Other');
             // preview
             el('svPv_title').textContent = name !== '' ? name : 'Untitled service';
@@ -41,7 +42,7 @@
             el('svPv_session').textContent = session_line() + (cat !== '' ? ' · ' + cat : '');
             var refund = el('sv_refund').value.trim();
             el('svPv_refund').textContent = refund; el('svPv_refund_row').hidden = refund === '';
-            el('svPv_price').textContent = price() >= 1 ? '$' + price().toFixed(2) : 'Free';
+            el('svPv_price').textContent = price() >= 10 ? credits(price()) : 'Free';
             el('svPv_per').textContent = price() >= 1 ? 'per booking' : '';
             el('svPv_spots').textContent = cap > 0 ? cap + (cap === 1 ? ' spot' : ' spots') : 'No spot limit';
         }
@@ -53,7 +54,7 @@
             el('sv_desc').value     = d ? (d.description || '') : '';
             el('sv_category').value = d ? (d.category || '') : '';
             var p = d ? parseFloat(d.price) : 0;
-            el('sv_price').value    = p > 0 ? p.toFixed(2) : '';
+            el('sv_price').value    = p > 0 ? Math.round(p) : '';
             el('sv_duration').value = d && parseInt(d.duration_min, 10) > 0 ? parseInt(d.duration_min, 10) : '';
             el('sv_capacity').value = d && parseInt(d.capacity, 10) > 0 ? parseInt(d.capacity, 10) : '';
             el('sv_refund').value   = d ? (d.refund_policy || '') : '';
@@ -68,8 +69,8 @@
         function validate() {
             var errs = [];
             if (el('sv_name').value.trim() === '') { errs.push({ section: 'details', input: 'sv_name', err: 'svErr_name', msg: 'Give the service a name.' }); }
-            if (el('sv_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Paid services start at $1.00. Leave it empty for a free one.' }); }
-            else if (price() > 500 || Math.round(price() * 100) % 10 !== 0) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Enter a price up to $500.00, in 10¢ steps.' }); }
+            if (el('sv_price').value.trim() !== '' && price() > 0 && price() < 10) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Paid services start at 10 credits. Leave it empty for a free service.' }); }
+            else if (price() > 5000 || Math.floor(price()) !== price()) { errs.push({ section: 'pricing', input: 'sv_price', err: 'svErr_price', msg: 'Enter whole credits, up to 5,000.' }); }
             var cap = el('sv_capacity').value.trim();
             if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'pricing', input: 'sv_capacity', err: 'svErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
             ed.showErrors(errs);
@@ -84,7 +85,7 @@
                 name: el('sv_name').value.trim(),
                 description: el('sv_desc').value,
                 category: el('sv_category').value.trim(),
-                price: price() >= 1 ? price().toFixed(2) : 0,
+                price: price() >= 10 ? Math.round(price()) : 0,   // credits
                 duration_min: el('sv_duration').value.trim() !== '' ? el('sv_duration').value : 0,
                 capacity: el('sv_capacity').value.trim() !== '' ? el('sv_capacity').value : 0,
                 refund_policy: el('sv_refund').value.trim(),

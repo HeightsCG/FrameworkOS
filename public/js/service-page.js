@@ -126,8 +126,8 @@
                 return;
             }
             var btn = e.target.closest('[data-refund]'); if (!btn) { return; }
-            var r = btn.closest('.evm-row'), name = r.getAttribute('data-name'), paid = (parseInt(r.getAttribute('data-paid'), 10) / 10).toFixed(2);
-            confirm_action({ title: 'Refund ' + name + '?', text: '$' + paid + ' goes back to their wallet and the booking is canceled.', button: 'Refund $' + paid })
+            var r = btn.closest('.evm-row'), name = r.getAttribute('data-name'), paid = (parseInt(r.getAttribute('data-paid'), 10) || 0).toLocaleString('en-US') + ' credits';
+            confirm_action({ title: 'Refund ' + name + '?', text: paid + ' go back to their wallet and the booking is canceled.', button: 'Refund ' + paid })
                 .then(function (ok) {
                     if (!ok) { return; }
                     call('service_refund_buyer', { purchase_id: r.getAttribute('data-purchase') }, function (o) { if (o) { toast(true, 'Refunded'); setTimeout(function () { location.reload(); }, 400); } });

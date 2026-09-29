@@ -110,7 +110,7 @@ class ApiInboxController extends BaseApiController {
                 'enabled' => $r ? !empty($r['enabled']) : false,
                 'is_default' => $r ? !empty($r['is_default']) : true,
                 'text'    => $r ? (string) $r['text'] : '',
-                'price'   => $r ? Price::input((int) $r['price_credits']) : 0,
+                'price'   => $r ? (int) $r['price_credits'] : 0,   // credits
                 'assets'  => $assets,
                 'sent'    => (int) ($sent[$t] ?? 0),
             ];

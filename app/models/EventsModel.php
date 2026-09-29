@@ -237,11 +237,14 @@ class EventsModel extends Model {
                 COALESCE(SUM(status = 'registered'), 0) AS going,
                 COALESCE(SUM(CASE WHEN status <> 'refunded' THEN price_credits END), 0) AS gross,
                 COALESCE(SUM(CASE WHEN status <> 'refunded' THEN net_credits END), 0) AS net,
+                COALESCE(SUM(CASE WHEN status <> 'refunded' AND earning_released_at IS NOT NULL THEN net_credits END), 0) AS earned,
                 COALESCE(SUM(status = 'refunded'), 0) AS refunded_n,
                 COALESCE(SUM(CASE WHEN status = 'refunded' THEN price_credits END), 0) AS refunded_credits
              FROM event_registrations WHERE event_id = :e", array('e' => (int) $event_id));
         $x = (is_array($r) && count($r)) ? $r[0] : array();
+        // earned = paid to the creator (after the event); pending = sold, paid out once the event has ended
         return array('going' => (int) ($x['going'] ?? 0), 'gross' => (int) ($x['gross'] ?? 0), 'net' => (int) ($x['net'] ?? 0),
+                     'earned' => (int) ($x['earned'] ?? 0), 'pending' => max(0, (int) ($x['net'] ?? 0) - (int) ($x['earned'] ?? 0)),
                      'refunded_n' => (int) ($x['refunded_n'] ?? 0), 'refunded_credits' => (int) ($x['refunded_credits'] ?? 0));
     }
 

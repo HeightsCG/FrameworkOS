@@ -69,7 +69,6 @@ class Notify {
         } catch (\Throwable $e) { return ''; }
     }
 
-    /** A wallet amount in a notification: fans and creators see dollars ("$2.90"), never credits. */
     /** Credits in a notice ("49 credits"). Everything inside the platform is credits; dollars only for card charges and cash-outs. */
     public static function credits($n): string { return self::credit_count($n); }
 

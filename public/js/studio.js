@@ -1,4 +1,6 @@
 jQuery(function ($) {
+    /* Everything inside the platform is credits: "49 credits". */
+    function credits(n) { n = Math.round(Number(n) || 0); return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }
     "use strict";
 
     if (!$('#cs').length) return;
@@ -1006,7 +1008,7 @@ jQuery(function ($) {
     // =====================================================================
     // Post composer
     // =====================================================================
-    var composer = { id: null, caption: '', audience: 'free', tier_ids: [], ppv_price: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
+    var composer = { id: null, caption: '', audience: 'free', tier_ids: [], ppv_price: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: true, reason: '' }, saveTimer: null };
     composer.share = new Set();
     function socialIcon(pl){ var m={x:'fa-x-twitter',twitter:'fa-x-twitter',facebook:'fa-facebook',youtube:'fa-youtube',tiktok:'fa-tiktok',pinterest:'fa-pinterest',linkedin:'fa-linkedin',instagram:'fa-instagram',bluesky:'fa-bluesky',threads:'fa-threads'}; return m[pl]||''; }
     function socialIconClass(pl){ if (pl === 'fanvue') return 'fa-solid fa-bolt'; var b = socialIcon(pl); return b ? 'fa-brands ' + b : 'fa-solid fa-share-nodes'; }
@@ -1157,7 +1159,7 @@ jQuery(function ($) {
         peSum('content', (n ? (n + ' media') : 'No media') + ' · ' + (composer.caption.trim() ? 'Caption added' : 'No caption'));
         var aud = 'Everyone';
         if (composer.audience === 'subscribers') { aud = 'Subscribers · ' + tierSummary(); }
-        else if (composer.audience === 'ppv') { aud = 'Pay-per-view · $' + (parseFloat(composer.ppv_price) || 0).toFixed(2); }
+        else if (composer.audience === 'ppv') { aud = 'Pay-per-view · ' + credits(composer.ppv_price); }
         peSum('audience', aud);
         peUpdateDestCount();
         if (composer.state === 'published') { peSum('publish', 'Published'); }
@@ -1214,10 +1216,10 @@ jQuery(function ($) {
         if (composer.audience === 'subscribers' && allTierIds().length && !composer.tier_ids.length) errors.push({ key: 'tier', msg: 'Pick at least one tier.', focus: '#csPeTierAll' });
         var priceBad = false;
         if (composer.audience === 'ppv') {
-            // Same rule as the server (Price): $1 to $500 in 10¢ steps.
-            var p = parseFloat(composer.ppv_price);
-            priceBad = isNaN(p) || p < 1 || p > 500 || Math.round(p * 100) % 10 !== 0;
-            if (priceBad) errors.push({ key: 'price', msg: 'Enter a price from $1.00 to $500.00, in 10¢ steps.', $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' });
+            // Same rule as the server (Price): whole credits, 10 to 5,000.
+            var p = Number(composer.ppv_price);
+            priceBad = !isFinite(p) || p < 10 || p > 5000 || Math.floor(p) !== p;
+            if (priceBad) errors.push({ key: 'price', msg: 'Enter a price from 10 to 5,000 credits, in whole credits.', $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' });
         }
         // The server's own verdict on the saved post (media processing, moderation, PPV rules), routed to its section.
         if (kind !== 'draft' && composer.validation && composer.validation.ok === false && (composer.caption.trim() || composer.assets.length)) {
@@ -1268,7 +1270,7 @@ jQuery(function ($) {
     function resetScheduleUI() { $('#csPeDate, #csPeTime, #csCompSchedAt').val(''); }
     function newComposer() {
         clearTimeout(composer.saveTimer);
-        composer = { id: null, caption: '', audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 5, lastPpv: 5, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        composer = { id: null, caption: '', audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 50, lastPpv: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         composer.share = new Set();
         composer.state = 'draft';
         resetScheduleUI();
@@ -1282,7 +1284,7 @@ jQuery(function ($) {
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
         composer.tier_ids = (p.tier_ids && p.tier_ids.length) ? p.tier_ids.map(String) : (p.tier_id ? [String(p.tier_id)] : allTierIds()); composer.lastTiers = composer.tier_ids.slice();
         composer.moderation = p.moderation || 'ok';
-        composer.ppv_price = p.ppv_price_dollars || '5.00'; composer.lastPpv = composer.ppv_price;
+        composer.ppv_price = p.ppv_price_credits || 50; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
@@ -1342,7 +1344,7 @@ jQuery(function ($) {
         $('#csCompTier').prop('hidden', composer.audience !== 'subscribers');
         peRenderTiers();
         $('#csCompPpv').prop('hidden', composer.audience !== 'ppv');
-        $('#csCompPpvPrice').val(composer.ppv_price || '5.00');
+        $('#csCompPpvPrice').val(composer.ppv_price || 50);
         $('#csCompComments').prop('checked', composer.comments_enabled != 0);
         $('#csPeMode .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('mode') === composer.mode ? 'true' : 'false'); });
         $('#csPeMode').prop('hidden', pub);
@@ -1500,7 +1502,7 @@ jQuery(function ($) {
                       '<button type="button" class="cs-pv__nav cs-pv__nav--next" data-pv="next" aria-label="Next"><i class="fa-solid fa-chevron-right"></i></button>' +
                       '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
             }
-            var lockLabel = isPpv ? ('Unlock for $' + (parseFloat(composer.ppv_price) || 0).toFixed(2)) : 'Subscribe to unlock';
+            var lockLabel = isPpv ? ('Unlock for ' + credits(composer.ppv_price)) : 'Subscribe to unlock';
             var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid ' + (isPpv ? 'fa-dollar-sign' : 'fa-lock') + '"></i><span>' + lockLabel + '</span></div>' : '';
             media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
         }
@@ -1564,10 +1566,10 @@ jQuery(function ($) {
         if (composer.audience === 'ppv') composer.lastPpv = composer.ppv_price;
         composer.audience = aud;
         composer.tier_ids = (aud === 'subscribers') ? ((composer.lastTiers && composer.lastTiers.length) ? composer.lastTiers.slice() : allTierIds()) : [];
-        if (aud === 'ppv') composer.ppv_price = composer.lastPpv || '5.00';
+        if (aud === 'ppv') composer.ppv_price = composer.lastPpv || 50;
         $('#csCompAudience .cs-pe__choice').each(function () { $(this).attr('aria-checked', $(this).data('aud') === aud ? 'true' : 'false'); });
         $('#csCompTier').prop('hidden', aud !== 'subscribers'); peRenderTiers();
-        $('#csCompPpv').prop('hidden', aud !== 'ppv'); $('#csCompPpvPrice').val(composer.ppv_price || '5.00');
+        $('#csCompPpv').prop('hidden', aud !== 'ppv'); $('#csCompPpvPrice').val(composer.ppv_price || 50);
         if (aud !== 'ppv') peClearError('price');
         renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     }
@@ -1579,7 +1581,7 @@ jQuery(function ($) {
     });
     $('#csCompPpvPrice').on('input', function () { composer.ppv_price = this.value; composer.lastPpv = this.value; peClearError('price'); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave(); });
     // On blur a valid number is shown with cents ("5" -> "5.00"); it is never changed to a different amount.
-    $('#csCompPpvPrice').on('blur', function () { var d = parseFloat(this.value); if (!isNaN(d)) { this.value = d.toFixed(2); composer.ppv_price = this.value; composer.lastPpv = this.value; } renderPreview(); peUpdateSummaries(); scheduleSave(); });
+    $('#csCompPpvPrice').on('blur', function () { var d = parseFloat(this.value); if (!isNaN(d)) { this.value = Math.round(d); composer.ppv_price = this.value; composer.lastPpv = this.value; } renderPreview(); peUpdateSummaries(); scheduleSave(); });
     $('#csCompComments').on('change', function () { composer.comments_enabled = this.checked ? 1 : 0; updatePreviewCaption(); peMarkDirty(); scheduleSave(); });
     function peSetMode(mode) {
         composer.mode = mode;
@@ -1729,7 +1731,7 @@ jQuery(function ($) {
     $('#csPostsRetry').on('click', loadPosts);
     $('#csPostsEmptyNew').on('click', function () { openComposer(null); });
 
-    function fmtMoney(c) { return (Math.max(0, c || 0) / 100).toFixed(2); }
+    function fmtMoney(c) { return credits(Math.round(Math.max(0, c || 0) / 10)); }   // earnings are stored in cents; shown as credits
     function sharePostDialog(id) {
         var soc = CFG.social || { accounts: [], can_post: false };
         if (!soc.accounts || !soc.accounts.length) { toastr.info('Connect social accounts in Settings first.'); return; }
@@ -1791,7 +1793,7 @@ jQuery(function ($) {
         var aud = p.audience === 'subscribers'
             ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
             : (p.audience === 'ppv'
-                ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-dollar-sign"></i> PPV · $' + (p.ppv_price_dollars || 0) + '</span>'
+                ? '<span class="cs-post__aud cs-post__aud--ppv"><i class="fa-solid fa-coins"></i> PPV · ' + credits(p.ppv_price_credits || 0) + '</span>'
                 : '<span class="cs-post__aud"><i class="fa-solid fa-globe"></i> Everyone</span>');
         var adult = (p.moderation === 'flagged' || p.moderation === 'adult') ? '<span class="cs-post__adult" title="Marked adult — shown only to fans with adult content on">18+</span>'
             : (p.moderation === 'pending') ? '<span class="cs-post__adult" title="Checking content — hidden from fans until the check finishes"><i class="fa-solid fa-shield-halved"></i> Checking</span>'
@@ -1803,7 +1805,7 @@ jQuery(function ($) {
             '<span class="cs-post__stat"><i class="fa-regular fa-eye"></i> ' + p.views + '</span>' +
             '<span class="cs-post__stat"><i class="fa-regular fa-comment"></i> ' + p.comments + '</span>' +
             (p.audience === 'ppv' ? '<span class="cs-post__stat" title="Unlocks"><i class="fa-solid fa-lock-open"></i> ' + p.ppv_unlocks + '</span>' : '') +
-            '<span class="cs-post__stat cs-post__earn">$' + fmtMoney(p.earnings_cents) + '</span>' +
+            '<span class="cs-post__stat cs-post__earn">' + fmtMoney(p.earnings_cents) + '</span>' +
             (p.shared_count > 0 ? '<span class="cs-post__stat"><i class="fa-solid fa-share-nodes"></i> ' + p.shared_count + '</span>' : '');
         var reschedule = (p.state === 'scheduled')
             ? '<li><button class="dropdown-item" data-post-act="reschedule"><i class="fa-solid fa-clock"></i> Reschedule</button></li>' : '';

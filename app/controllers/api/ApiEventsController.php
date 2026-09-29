@@ -186,7 +186,7 @@ class ApiEventsController extends BaseApiController {
         return [
             'id' => (int) $a['id'], 'name' => html_entity_decode((string) $a['name'], ENT_QUOTES, 'UTF-8'), 'handle' => (string) $a['handle'],
             'avatar' => (string) ($a['avatar_url'] ?? ''), 'registered' => $this->local_date((string) $a['created_at'], $tz),
-            'paid' => (int) $a['price_credits'] > 0 ? '$' . number_format(((int) $a['price_credits']) / 10, 2) : 'Free',
+            'paid' => (int) $a['price_credits'] > 0 ? Price::credits((int) $a['price_credits']) : 'Free',
             'paid_credits' => (int) $a['price_credits'], 'status' => (string) $a['status'],
             'status_label' => $label[(string) $a['status']] ?? ucfirst((string) $a['status']),
         ];

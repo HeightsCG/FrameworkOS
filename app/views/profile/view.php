@@ -948,7 +948,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     document.getElementById('pfLbPpv').onclick = function () { window.location = PF_LOGIN; };
                     return;
                 }
-                // Fans see dollars: the wallet holds credits ($1 = 10), shown as money.
+                // Prices and the wallet are in credits.
                 var price   = (typeof p.effective_price === 'number') ? p.effective_price : p.ppv_price_credits;
                 var bal     = '<div class="pf-plb__bal">Your balance: ' + money(VIEWER_CREDITS) + '</div>';
                 if (VIEWER_CREDITS >= price) {

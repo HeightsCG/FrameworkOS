@@ -379,7 +379,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $by_amount = (string) ($this->post['discount_type'] ?? 'percent') === 'amount';
         $percent = 0; $amount_off = null;
         if ($by_amount) {
-            $a = Price::from_dollars($this->post['amount_off'] ?? '');
+            $a = Price::from_credits($this->post['amount_off'] ?? '');
             if (!$a['ok']) { $this->jsonError('Amount off: ' . $a['message']); }
             $amount_off = $a['credits'];
         } else {
@@ -390,7 +390,7 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         $min_order = null;
         if (trim((string) ($this->post['min_order'] ?? '')) !== '') {
-            $m = Price::from_dollars($this->post['min_order']);
+            $m = Price::from_credits($this->post['min_order']);
             if (!$m['ok']) { $this->jsonError('Minimum order: ' . $m['message']); }
             $min_order = $m['credits'];
             if ($amount_off !== null && $amount_off >= $min_order) { $this->jsonError('The minimum order must be more than the amount off.'); }
@@ -1247,7 +1247,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'likes'          => (int) $p['likes'],
             'comments'       => (int) $p['comments'],
             'earnings_cents' => (int) $p['earnings_cents'],
-            'ppv_price_dollars' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? Price::input((int) $p['ppv_price_credits']) : null,
+            'ppv_price_credits' => ($p['audience'] === 'ppv' && ($p['ppv_price_credits'] ?? null) !== null) ? (int) $p['ppv_price_credits'] : null,
             'ppv_unlocks'    => ($p['audience'] === 'ppv') ? (int) ($ppv_stats[(int) $p['id']]['unlocks'] ?? 0) : 0,
             'moderation'     => (string) ($mod_map[(int) $p['id']] ?? 'ok'),   // 'blocked'|'pending'|'adult'|'ok'
             'shared_count'   => (new SocialPostsModel())->count_for_post((int) $p['id']) + (!empty($p['fanvue_post_uuid']) ? 1 : 0),

@@ -367,8 +367,8 @@
                         <div class="cs-pe__field cs-pe__reveal cs-pe__sub-field" id="csCompPpv" hidden>
                             <label class="cs-pe__label" for="csCompPpvPrice">Unlock price</label>
                             <div class="cs-pe__price">
-                                <span class="cs-pe__cur" aria-hidden="true">$</span>
-                                <input type="number" class="form-control" id="csCompPpvPrice" min="1" max="500" step="0.10" value="5.00" inputmode="decimal" aria-describedby="csPeErr_price">
+                                <input type="number" class="form-control" id="csCompPpvPrice" min="10" max="5000" step="1" value="50" inputmode="numeric" aria-describedby="csPeErr_price">
+                                <span class="cs-pe__cur" aria-hidden="true">credits</span>
                             </div>
                             <p class="cs-pe__error" id="csPeErr_price" role="alert" hidden></p>
                         </div>

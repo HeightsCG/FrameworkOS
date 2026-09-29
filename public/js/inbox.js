@@ -38,7 +38,7 @@
             h += '</div><div class="ibx__pricing" role="group" aria-label="Pricing">'
                + '<button type="button" class="ibx__pill' + (paid ? '' : ' is-on') + '" data-mode="free" aria-pressed="' + (paid ? 'false' : 'true') + '">Free</button>'
                + '<button type="button" class="ibx__pill' + (paid ? ' is-on' : '') + '" data-mode="paid" aria-pressed="' + (paid ? 'true' : 'false') + '">Paid</button>'
-               + '<label class="ibx__price"' + (paid ? '' : ' hidden') + '><input type="number" class="ibx__price-in" min="1" max="500" step="0.10" placeholder="5.00" value="' + (paid ? a.price : '') + '" aria-label="Price in dollars"></label></div>';
+               + '<label class="ibx__price"' + (paid ? '' : ' hidden') + '><input type="number" class="ibx__price-in" min="10" max="5000" step="1" placeholder="50" value="' + (paid ? a.price : '') + '" aria-label="Price in credits"><span class="ibx__price-unit">credits</span></label></div>';
             $wrap.html(h).prop('hidden', false);
             if (a.onchange) { a.onchange(); }
         };
@@ -51,19 +51,19 @@
             $wrap.find('.ibx__pill').each(function () { var on = ($(this).data('mode') === 'paid') === paid; $(this).toggleClass('is-on', on).attr('aria-pressed', on ? 'true' : 'false'); });
             var $in = $wrap.find('.ibx__price-in');
             $wrap.find('.ibx__price').prop('hidden', !paid);
-            if (paid) { if (!(parseFloat($in.val()) > 0)) { $in.val('5.00'); } a.price = parseFloat($in.val()) || 5; $in.trigger('focus').trigger('select'); }
+            if (paid) { if (!(parseInt($in.val(), 10) > 0)) { $in.val('50'); } a.price = parseInt($in.val(), 10) || 50; $in.trigger('focus').trigger('select'); }   // credits
             else { a.price = 0; }
             if (a.onchange) { a.onchange(); }
         });
         $wrap.on('input change', '.ibx__price-in', function (e) {
             // Never adjusted here: the server checks $1-$500 in 10¢ steps and says what to fix.
-            var v = parseFloat(this.value); a.price = isNaN(v) || v <= 0 ? 0 : v;
+            var v = parseInt(this.value, 10); a.price = isNaN(v) || v <= 0 ? 0 : v;   // credits
             if (a.onchange) { a.onchange(); }
         });
         return a;
     }
     var attachD = makeAttach($('#ibxAttach')), attachB = makeAttach($('#ibxBcastAttach'));
-    function updateSendLabel() { $('#ibxSendLabel').text(attachD.price > 0 ? 'Send for ' + money(Math.round(attachD.price * 10)) : 'Send'); }
+    function updateSendLabel() { $('#ibxSendLabel').text(attachD.price > 0 ? 'Send for ' + money(attachD.price) : 'Send'); }
     attachD.onchange = updateSendLabel;
 
     /* ---- library picker (creators) ---- */
@@ -412,7 +412,7 @@
         var segs = segList(), n = 0; segs.forEach(function (k) { n += (bcounts[k] || 0); });
         var has = ($('#ibxBcastBody').val() || '').trim() !== '' || attachB.list.length > 0;
         var label = segs.length === 1 && bcounts[segs[0]] != null ? 'Send to ' + bcounts[segs[0]] : 'Send';
-        if (attachB.price > 0) { label += ' for ' + money(Math.round(attachB.price * 10)) + ' Each'; }
+        if (attachB.price > 0) { label += ' for ' + money(attachB.price) + ' Each'; }
         $('#ibxBcastSend').text(label).prop('disabled', !segs.length || n <= 0 || !has);
     }
     attachB.onchange = updateBcastSend;

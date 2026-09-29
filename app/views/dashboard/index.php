@@ -1,6 +1,9 @@
 <link rel="stylesheet" href="/css/dashboard.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/dashboard.css'); ?>">
 <?php
-$fmt_money = function ($cents) { return '$' . number_format(((int) $cents) / 100, 2); };
+// Earnings come from the credit ledger (stored as cents, $1 = 10 credits) and are shown in credits. Memberships are
+// real card money (Stripe), so MRR stays in dollars.
+$fmt_money = function ($cents) { return Price::credits((int) round(((int) $cents) / 10)); };
+$fmt_usd   = function ($cents) { return '$' . number_format(((int) $cents) / 100, 2); };
 $fmt_num   = function ($n) { return number_format((int) $n); };
 // Stored times are UTC — render them in the creator's timezone.
 $dash_tz   = (string) ($this->timezone ?? 'UTC');
@@ -55,7 +58,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
     $kpis = array(
         array('label' => 'Revenue',        'value' => $fmt_money($cur['revenue_cents']), 'delta' => $dl['revenue_cents'], 'sub' => $fmt_money($rev_all['total_cents']) . ' all-time',                          'icon' => 'fa-coins'),
-        array('label' => 'Subscribers',    'value' => $fmt_num($cur['subscribers']),      'delta' => $dl['subscribers'],   'sub' => $fmt_num($s['subscribers']) . ' active · ' . $fmt_money($s['mrr_cents']) . '/mo', 'icon' => 'fa-heart'),
+        array('label' => 'Subscribers',    'value' => $fmt_num($cur['subscribers']),      'delta' => $dl['subscribers'],   'sub' => $fmt_num($s['subscribers']) . ' active · ' . $fmt_usd($s['mrr_cents']) . '/mo', 'icon' => 'fa-heart'),
         array('label' => 'Followers',      'value' => $fmt_num($cur['followers']),        'delta' => $dl['followers'],     'sub' => $fmt_num($s['followers']) . ' total',                             'icon' => 'fa-user-plus'),
         array('label' => 'Views',          'value' => $fmt_num($cur['views']),            'delta' => $dl['views'],         'sub' => $fmt_num($s['views']) . ' all-time',                                        'icon' => 'fa-eye'),
         array('label' => 'Posts',          'value' => $fmt_num($cur['posts']),            'delta' => $dl['posts'],         'sub' => $fmt_num($s['published_posts']) . ' published all-time',                    'icon' => 'fa-photo-film'),
@@ -172,7 +175,7 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
                         <span class="dash__row-title"><?php echo $item !== '' ? htmlspecialchars(mb_substr($item, 0, 60), ENT_QUOTES, 'UTF-8') : 'Untitled'; ?></span>
                         <span class="dash__row-meta"><span class="dash__tag dash__tag--sub"><?php echo htmlspecialchars($sale_tag[$u['kind']] ?? 'Sale', ENT_QUOTES, 'UTF-8'); ?></span> <?php echo htmlspecialchars($fmt_when((string) $u['created_at']), ENT_QUOTES, 'UTF-8'); ?></span>
                     </span>
-                    <span class="dash__amount">+<?php echo Price::fmt((int) $u['credits']); ?></span>
+                    <span class="dash__amount">+<?php echo Price::credits((int) $u['credits']); ?></span>
                 </div>
                 <?php endforeach; ?>
             </div>

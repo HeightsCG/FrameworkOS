@@ -143,9 +143,9 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
         <div class="cs-ae__row">
             <div class="cs-ae__field">
                 <label class="cs-ae__label" for="ev_price">Price</label>
-                <div class="ev-money">
-                    <span class="ev-money__sym" aria-hidden="true">$</span>
-                    <input type="number" class="form-control" id="ev_price" min="0" max="500" step="0.10" inputmode="decimal" placeholder="Free" aria-describedby="evErr_price">
+                <div class="ev-money ev-money--credits">
+                    <input type="number" class="form-control" id="ev_price" min="0" max="5000" step="1" inputmode="numeric" placeholder="Free" aria-describedby="evErr_price">
+                    <span class="ev-money__sym" aria-hidden="true">credits</span>
                 </div>
                 <p class="cs-ae__error" id="evErr_price" role="alert" hidden></p>
             </div>

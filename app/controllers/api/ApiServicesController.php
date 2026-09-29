@@ -66,7 +66,7 @@ class ApiServicesController extends BaseApiController {
         return [
             'id' => (int) $b['id'], 'user_id' => (int) $b['buyer_id'], 'name' => html_entity_decode((string) $b['name'], ENT_QUOTES, 'UTF-8'),
             'handle' => (string) $b['handle'], 'avatar' => (string) ($b['avatar_url'] ?? ''), 'booked' => $this->local_date((string) $b['created_at'], $tz),
-            'paid' => (int) $b['price_credits'] > 0 ? '$' . number_format(((int) $b['price_credits']) / 10, 2) : 'Free',
+            'paid' => (int) $b['price_credits'] > 0 ? Price::credits((int) $b['price_credits']) : 'Free',
             'paid_credits' => (int) $b['price_credits'], 'status' => (string) $b['status'], 'delivered' => !empty($b['delivered_at']),
             'status_label' => $label[(string) $b['status']] ?? ucfirst((string) $b['status']),
         ];

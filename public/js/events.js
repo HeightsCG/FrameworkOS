@@ -9,7 +9,8 @@
         opts = opts || {};
         var ed = window.SectionEditor(container);   // approved shell: left nav, one section at a time
         var status = 'draft';
-        function price() { var v = parseFloat(el('ev_price').value); return isNaN(v) ? 0 : v; }   // empty = free
+        function price() { var v = parseFloat(el('ev_price').value); return isNaN(v) ? 0 : v; }   // credits; empty = free
+        function credits(n) { n = Math.round(Number(n) || 0); return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside is credits
 
         var setFormat = ed.seg(el('evFormat'), el('ev_format'), 'data-format', function (v) {
             ed.reveal(el('ev_url_wrap'), v === 'virtual');   // CLS Video needs no link: people join on the event page
@@ -63,8 +64,8 @@
                 text_lines(el('evPv_where'), ['Online', 'Link shared after registration']);
             }
             el('evPv_who').textContent = who_label;
-            var paid = price() >= 1, cap = parseInt(el('ev_capacity').value, 10);
-            el('evPv_price').textContent = paid ? '$' + price().toFixed(2) : 'Free';
+            var paid = price() >= 10, cap = parseInt(el('ev_capacity').value, 10);
+            el('evPv_price').textContent = paid ? credits(price()) : 'Free';
             el('evPv_per').textContent = paid ? 'per person' : '';
             el('evPv_spots').textContent = cap > 0 ? cap + (cap === 1 ? ' spot' : ' spots') : 'No spot limit';
         }
@@ -91,7 +92,7 @@
             else { ed.summary('where', el('ev_format').value === 'cls_video' ? 'CLS Video' + (el('ev_pw').value.trim() ? ' · Password' : '') : 'Online'); }
             var who = el('ev_who'), label = who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Subscribers' : who.selectedOptions[0].textContent);
             var cap = parseInt(el('ev_capacity').value, 10);
-            ed.summary('tickets', (price() >= 1 ? '$' + price().toFixed(2) : 'Free') + ' · ' + label + (cap > 0 ? ' · ' + cap + ' spots' : ''));
+            ed.summary('tickets', (price() >= 10 ? credits(price()) : 'Free') + ' · ' + label + (cap > 0 ? ' · ' + cap + ' spots' : ''));
             preview(name, who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Any subscriber' : label + ' subscribers'));
         }
 
@@ -140,7 +141,7 @@
             el('ev_postal').value   = d ? (d.postal_code || '') : '';
             el('ev_instructions').value = d ? (d.access_instructions || '') : '';
             var at = d ? (d.access_type || 'free') : 'free', p = d ? parseFloat(d.price) : 0;
-            el('ev_price').value = at !== 'free' && p > 0 ? p.toFixed(2) : '';
+            el('ev_price').value = at !== 'free' && p > 0 ? Math.round(p) : '';
             var who = 'anyone';
             if (at === 'subscribers') { who = 'subscribers'; }
             if (at === 'tier' && d.tier_id && el('ev_who').querySelector('option[value="' + d.tier_id + '"]')) { who = String(d.tier_id); }
@@ -162,8 +163,8 @@
             if (el('ev_format').value === 'in_person' && (el('ev_street').value.trim() === '' || el('ev_city').value.trim() === '')) {
                 errs.push({ section: 'where', input: el('ev_street').value.trim() === '' ? 'ev_street' : 'ev_city', err: 'evErr_location', msg: 'Add the street address and city.' });
             }
-            if (el('ev_price').value.trim() !== '' && price() > 0 && price() < 1) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Paid tickets start at $1.00. Leave it empty for a free event.' }); }
-            else if (price() > 500 || Math.round(price() * 100) % 10 !== 0) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Enter a price up to $500.00, in 10¢ steps.' }); }
+            if (el('ev_price').value.trim() !== '' && price() > 0 && price() < 10) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Paid tickets start at 10 credits. Leave it empty for a free event.' }); }
+            else if (price() > 5000 || Math.floor(price()) !== price()) { errs.push({ section: 'tickets', input: 'ev_price', err: 'evErr_price', msg: 'Enter whole credits, up to 5,000.' }); }
             var cap = el('ev_capacity').value.trim();
             if (cap !== '' && !(parseInt(cap, 10) >= 1)) { errs.push({ section: 'tickets', input: 'ev_capacity', err: 'evErr_capacity', msg: 'Enter 1 or more, or leave it empty for unlimited.' }); }
             ed.showErrors(errs);
@@ -172,7 +173,7 @@
 
         function save(btn) {
             if (btn.disabled || !validate()) { return; }
-            var who = el('ev_who').value, paid = price() >= 1, date = el('ev_date').value;
+            var who = el('ev_who').value, paid = price() >= 10, date = el('ev_date').value;
             var access = who === 'anyone' ? (paid ? 'paid' : 'free') : (who === 'subscribers' ? 'subscribers' : 'tier');
             var label = btn.textContent; btn.disabled = true; btn.textContent = 'Saving…';
             ApiDataSvc.apiCall('post', 'event_save', {
@@ -194,7 +195,7 @@
                 access_instructions: el('ev_instructions').value,
                 access_type: access,
                 tier_id: access === 'tier' ? who : 0,
-                price: paid ? price().toFixed(2) : 0,
+                price: paid ? Math.round(price()) : 0,   // credits
                 capacity: el('ev_capacity').value.trim() !== '' ? el('ev_capacity').value : 0,
                 status: opts.status ? opts.status() : status
             }, function (r) {
