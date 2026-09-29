@@ -298,7 +298,9 @@ class ApiPostsController extends BaseApiController {
                 $this->promo_miss();
                 $this->jsonError("That discount code isn't valid.");
             }
-            $charge = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
+            $why = CreatorPromoCodesModel::rule_error($promo, $creator_id, $viewer, $price);   // minimum order, first purchase only
+            if ($why !== '') { $this->jsonError($why); }
+            $charge = CreatorPromoCodesModel::price_after($promo, $price);
         }
 
         $unlocks = new PpvUnlocksModel();
@@ -504,10 +506,12 @@ class ApiPostsController extends BaseApiController {
                 $this->promo_miss();
                 $this->jsonError("That discount code isn't valid.");
             }
+            $why = CreatorPromoCodesModel::rule_error($promo, $creator_id, $user_id, (int) round((int) $plan['price_cents'] / 10));   // plan price in credits
+            if ($why !== '') { $this->jsonError($why); }
             $promo_id  = (int) $promo['id'];
             $coupon_id = (string) ($promo['stripe_coupon_id'] ?? '');
             if ($coupon_id === '') {
-                $coupon_id = StripeService::create_connect_coupon($connect_id, (int) $promo['percent_off']);
+                $coupon_id = StripeService::create_connect_coupon($connect_id, (int) $promo['percent_off'], (int) ($promo['amount_off_credits'] ?? 0) * 10);
                 if ($coupon_id !== '') { (new CreatorPromoCodesModel())->set_stripe_coupon($promo_id, $coupon_id); }
             }
         }

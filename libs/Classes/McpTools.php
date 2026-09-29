@@ -272,17 +272,21 @@ class McpTools {
                 'price' => array('type' => 'number'), 'billing_interval' => array('type' => 'string', 'enum' => array('week', 'month', 'year')),
                 'description' => array('type' => 'string'), 'perks' => array('type' => 'string'))));
         $t[] = array('name' => 'create_promo_code', 'description' => 'Create a discount code (Pro/Studio plans).', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('code', 'percent_off'),
+            'type' => 'object', 'required' => array('code'),
             'properties' => array(
                 'code' => array('type' => 'string', 'description' => '3-40 letters/numbers'),
-                'percent_off' => array('type' => 'integer', 'description' => '1-100'),
+                'percent_off' => array('type' => 'integer', 'description' => '1-100. Give this or amount_off_credits.'),
+                'amount_off_credits' => array('type' => 'integer', 'description' => 'A fixed amount off instead of a percent. Credits, $1 = 10: 10 to 5000'),
+                'min_order_credits' => array('type' => 'integer', 'description' => 'Optional minimum order in credits ($1 = 10)'),
+                'first_purchase_only' => array('type' => 'boolean', 'description' => 'Only for fans who never bought from this creator'),
                 'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
                 'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string', 'description' => 'date/datetime'),
             )));
         $t[] = array('name' => 'update_promo_code', 'description' => 'Update a discount code.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
             'properties' => array('id' => array('type' => 'integer'), 'code' => array('type' => 'string'),
-                'percent_off' => array('type' => 'integer'), 'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
+                'percent_off' => array('type' => 'integer'), 'amount_off_credits' => array('type' => 'integer'), 'min_order_credits' => array('type' => 'integer'),
+                'first_purchase_only' => array('type' => 'boolean'), 'applies_to' => array('type' => 'string', 'enum' => array('all', 'subscription', 'ppv')),
                 'max_redemptions' => array('type' => 'integer'), 'expires_at' => array('type' => 'string'))));
         $t[] = array('name' => 'create_bundle', 'description' => 'Create a content bundle from owned media (Pro/Studio plans).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'price_credits', 'asset_ids'),
@@ -867,15 +871,23 @@ class McpTools {
         $g = function ($k, $d) use ($a, $row) { return array_key_exists($k, $a) ? $a[$k] : ($row[$k] ?? $d); };
         $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) $g('code', '')));
         if (strlen($code) < 3 || strlen($code) > 40) { throw new InvalidArgumentException('code must be 3-40 letters/numbers'); }
-        $pct = (int) $g('percent_off', 0);
-        if ($pct < 1 || $pct > 100) { throw new InvalidArgumentException('percent_off must be 1-100'); }
+        $amt = (int) $g('amount_off_credits', 0);
+        $pct = $amt > 0 ? 0 : (int) $g('percent_off', 0);   // a percent off, or an amount off (Stripe's two kinds)
+        if ($amt > 0) {
+            $chk = Price::check_credits($amt);
+            if (!$chk['ok']) { throw new InvalidArgumentException('amount_off_credits: ' . $chk['message']); }
+        } elseif ($pct < 1 || $pct > 100) { throw new InvalidArgumentException('Give percent_off (1-100) or amount_off_credits'); }
+        $min = (int) $g('min_order_credits', 0);
+        if ($min > 0 && !Price::check_credits($min)['ok']) { throw new InvalidArgumentException('min_order_credits: ' . Price::check_credits($min)['message']); }
+        if ($min > 0 && $amt > 0 && $amt >= $min) { throw new InvalidArgumentException('min_order_credits must be more than amount_off_credits'); }
         $applies = $g('applies_to', 'all');
         if (!in_array($applies, array('all', 'subscription', 'ppv'), true)) { $applies = 'all'; }
         $max = $g('max_redemptions', null);
         $max = ($max === null || $max === '' || (int) $max <= 0) ? null : (int) $max;
         $exp = $g('expires_at', null);
         $exp = (!empty($exp) && ($ts = strtotime((string) $exp))) ? date('Y-m-d H:i:s', $ts) : null;
-        return array('code' => $code, 'percent_off' => $pct, 'applies_to' => $applies, 'max_redemptions' => $max, 'expires_at' => $exp);
+        return array('code' => $code, 'percent_off' => $pct, 'amount_off_credits' => $amt > 0 ? $amt : null, 'min_order_credits' => $min > 0 ? $min : null,
+            'first_purchase_only' => !empty($g('first_purchase_only', 0)), 'applies_to' => $applies, 'max_redemptions' => $max, 'expires_at' => $exp);
     }
 
     /** Owned assets that are 'ready' and not deleted (bundle/item rules). */

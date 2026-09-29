@@ -477,11 +477,14 @@ class StripeService {
     }
 
     /** Create a percent-off coupon on a connected account (applies to every invoice). Returns id or ''. */
-    public static function create_connect_coupon($account_id, $percent_off): string
+    public static function create_connect_coupon($account_id, $percent_off, $amount_off_cents = 0): string
     {
         try {
+            $terms = (int) $amount_off_cents > 0
+                ? array('amount_off' => (int) $amount_off_cents, 'currency' => 'usd', 'duration' => 'forever')   // a creator's "$5 off" code
+                : array('percent_off' => (float) $percent_off, 'duration' => 'forever');
             $coupon = self::client()->coupons->create(
-                array('percent_off' => (float) $percent_off, 'duration' => 'forever'),
+                $terms,
                 array('stripe_account' => $account_id)
             );
             return (string) $coupon->id;

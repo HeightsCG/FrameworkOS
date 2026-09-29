@@ -49,6 +49,9 @@ class CreatorPromoCodesModel extends Model {
             'user_id'         => (int) $user_id,
             'code'            => (string) $fields['code'],
             'percent_off'     => (int) $fields['percent_off'],
+            'amount_off_credits' => !empty($fields['amount_off_credits']) ? (int) $fields['amount_off_credits'] : null,
+            'min_order_credits'  => !empty($fields['min_order_credits']) ? (int) $fields['min_order_credits'] : null,
+            'first_purchase_only' => !empty($fields['first_purchase_only']) ? 1 : 0,
             'applies_to'      => (string) $fields['applies_to'],
             'max_redemptions' => isset($fields['max_redemptions']) && $fields['max_redemptions'] !== null ? (int) $fields['max_redemptions'] : null,
             'expires_at'      => !empty($fields['expires_at']) ? (string) $fields['expires_at'] : null,
@@ -64,6 +67,9 @@ class CreatorPromoCodesModel extends Model {
             array(
                 'code'            => (string) $fields['code'],
                 'percent_off'     => (int) $fields['percent_off'],
+                'amount_off_credits' => !empty($fields['amount_off_credits']) ? (int) $fields['amount_off_credits'] : null,
+                'min_order_credits'  => !empty($fields['min_order_credits']) ? (int) $fields['min_order_credits'] : null,
+                'first_purchase_only' => !empty($fields['first_purchase_only']) ? 1 : 0,
                 'applies_to'      => (string) $fields['applies_to'],
                 'max_redemptions' => isset($fields['max_redemptions']) && $fields['max_redemptions'] !== null ? (int) $fields['max_redemptions'] : null,
                 'expires_at'      => !empty($fields['expires_at']) ? (string) $fields['expires_at'] : null,
@@ -92,6 +98,39 @@ class CreatorPromoCodesModel extends Model {
             1,
             array('id' => (int) $id, 'u' => (int) $user_id)
         );
+    }
+
+    /** A code's price for an item (credits): a percent off, or an amount off. Never below 1 credit. */
+    public static function price_after(array $promo, $price_credits): int {
+        $price = (int) $price_credits;
+        if ((int) ($promo['amount_off_credits'] ?? 0) > 0) { return max(1, $price - (int) $promo['amount_off_credits']); }
+        return (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
+    }
+
+    /** The discount on an item (credits). */
+    public static function discount(array $promo, $price_credits): int {
+        return max(0, (int) $price_credits - self::price_after($promo, $price_credits));
+    }
+
+    /**
+     * The rules beyond validity (Stripe's): a minimum order and first purchase only. Returns why the code can't be
+     * used on this item, or '' when it can. First purchase = the fan has never bought anything from this creator:
+     * no one-time purchase and no paid membership, ever.
+     */
+    public static function rule_error(array $promo, $creator_id, $fan_id, $price_credits): string {
+        $min = (int) ($promo['min_order_credits'] ?? 0);
+        if ($min > 0 && (int) $price_credits < $min) { return 'This code needs an order of at least ' . Price::fmt($min) . '.'; }
+        if (!empty($promo['first_purchase_only'])) {
+            $bought = (new FanSpendModel())->for_fan($creator_id, $fan_id)['purchases'] > 0
+                || (new CreatorSubscriptionsModel())->had_paid_with($fan_id, $creator_id);
+            if ($bought) { return 'This code is only for your first purchase from this creator.'; }
+        }
+        return '';
+    }
+
+    /** Short description for lists: "20% off" or "$5.00 off". */
+    public static function label(array $promo): string {
+        return (int) ($promo['amount_off_credits'] ?? 0) > 0 ? Price::fmt((int) $promo['amount_off_credits']) . ' off' : (int) $promo['percent_off'] . '% off';
     }
 
     /** Count a redemption, respecting max_redemptions (the WHERE is the guard). */

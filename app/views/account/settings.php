@@ -444,12 +444,15 @@
                         <div class="plan-row<?php echo empty($pc['is_active']) ? ' is-inactive' : ''; ?>" data-id="<?php echo (int) $pc['id']; ?>"
                              data-code="<?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-percent="<?php echo (int) $pc['percent_off']; ?>"
+                             data-amount="<?php echo (int) ($pc['amount_off_credits'] ?? 0) > 0 ? Price::input((int) $pc['amount_off_credits']) : ''; ?>"
+                             data-min="<?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? Price::input((int) $pc['min_order_credits']) : ''; ?>"
+                             data-first="<?php echo !empty($pc['first_purchase_only']) ? 1 : 0; ?>"
                              data-applies="<?php echo htmlspecialchars((string) $pc['applies_to'], ENT_QUOTES, 'UTF-8'); ?>"
                              data-max="<?php echo $pc['max_redemptions'] === null ? '' : (int) $pc['max_redemptions']; ?>"
                              data-expires="<?php echo $pc['expires_at'] ? htmlspecialchars(date('Y-m-d', strtotime((string) $pc['expires_at'])), ENT_QUOTES, 'UTF-8') : ''; ?>">
                             <div class="plan-row__info">
                                 <span class="plan-row__name"><?php echo htmlspecialchars((string) $pc['code'], ENT_QUOTES, 'UTF-8'); ?></span>
-                                <span class="plan-row__price"><?php echo (int) $pc['percent_off']; ?>% off<span class="plan-row__unit"> &middot; <?php echo $applies; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
+                                <span class="plan-row__price"><?php echo htmlspecialchars(CreatorPromoCodesModel::label($pc), ENT_QUOTES, 'UTF-8'); ?><span class="plan-row__unit"> &middot; <?php echo $applies; ?><?php echo (int) ($pc['min_order_credits'] ?? 0) > 0 ? ' &middot; Min ' . Price::fmt((int) $pc['min_order_credits']) : ''; ?><?php echo !empty($pc['first_purchase_only']) ? ' &middot; First purchase' : ''; ?> &middot; <?php echo (int) $pc['redemptions']; ?> used</span></span>
                             </div>
                             <label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle" <?php echo !empty($pc['is_active']) ? 'checked' : ''; ?>><span class="plan-row__slider"></span></label>
                             <button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>
@@ -1164,9 +1167,22 @@
                 </div>
                 <div class="plan-field-row">
                     <div class="link-field">
+                        <label for="promo_type">Discount Type</label>
+                        <select class="form-control" id="promo_type">
+                            <option value="percent">Percent Off</option>
+                            <option value="amount">Amount Off</option>
+                        </select>
+                    </div>
+                    <div class="link-field" id="promo_percent_wrap">
                         <label for="promo_percent">Discount (%)</label>
                         <input type="number" class="form-control" id="promo_percent" min="1" max="100" placeholder="20">
                     </div>
+                    <div class="link-field" id="promo_amount_wrap" hidden>
+                        <label for="promo_amount">Amount Off ($)</label>
+                        <input type="text" class="form-control" id="promo_amount" inputmode="decimal" placeholder="5.00">
+                    </div>
+                </div>
+                <div class="plan-field-row">
                     <div class="link-field">
                         <label for="promo_applies">Applies To</label>
                         <select class="form-control" id="promo_applies">
@@ -1174,6 +1190,10 @@
                             <option value="subscription">Subscriptions</option>
                             <option value="ppv">Pay-per-view</option>
                         </select>
+                    </div>
+                    <div class="link-field">
+                        <label for="promo_min">Minimum Order ($) <span class="plan-optional">(optional)</span></label>
+                        <input type="text" class="form-control" id="promo_min" inputmode="decimal" placeholder="No minimum">
                     </div>
                 </div>
                 <div class="plan-field-row">
@@ -1186,6 +1206,12 @@
                         <label for="promo_expires">Expires <span class="plan-optional">(optional)</span></label>
                         <input type="date" class="form-control" id="promo_expires">
                     </div>
+                </div>
+                <div class="promo-first">
+                    <label class="promo-first__label" for="promo_first">
+                        <span class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="promo_first"></span>
+                        First Purchase Only
+                    </label>
                 </div>
             </div>
             <div class="modal-footer">
@@ -2466,20 +2492,30 @@ $(function () {
     // ---- Discount codes ----
     function renderPromoRow(p) {
         var applies = p.applies === 'ppv' ? 'Pay-per-view' : (p.applies === 'subscription' ? 'Subscriptions' : 'Subs & PPV');
+        var label = p.amount ? '$' + parseFloat(p.amount).toFixed(2) + ' off' : (parseInt(p.percent, 10) || 0) + '% off';
+        var extra = (p.min ? ' · Min $' + parseFloat(p.min).toFixed(2) : '') + (p.first ? ' · First purchase' : '');
         return '<div class="plan-row' + (p.active ? '' : ' is-inactive') + '" data-id="' + p.id + '"'
             + ' data-code="' + escapeHtml(p.code) + '" data-percent="' + (parseInt(p.percent, 10) || 0) + '"'
+            + ' data-amount="' + escapeHtml(p.amount || '') + '" data-min="' + escapeHtml(p.min || '') + '" data-first="' + (p.first ? 1 : 0) + '"'
             + ' data-applies="' + escapeHtml(p.applies) + '" data-max="' + escapeHtml(p.max || '') + '" data-expires="' + escapeHtml(p.expires || '') + '">'
             + '<div class="plan-row__info"><span class="plan-row__name">' + escapeHtml(p.code) + '</span>'
-            + '<span class="plan-row__price">' + (parseInt(p.percent, 10) || 0) + '% off<span class="plan-row__unit"> · ' + applies + '</span></span></div>'
+            + '<span class="plan-row__price">' + escapeHtml(label) + '<span class="plan-row__unit"> · ' + applies + escapeHtml(extra) + '</span></span></div>'
             + '<label class="plan-row__switch" title="Active"><input type="checkbox" class="promo-toggle"' + (p.active ? ' checked' : '') + '><span class="plan-row__slider"></span></label>'
             + '<button type="button" class="link-row__btn promo-edit" aria-label="Edit code"><i class="fa-solid fa-pen"></i></button>'
             + '<button type="button" class="link-row__btn promo-delete" aria-label="Remove code"><i class="fa-solid fa-trash"></i></button>'
             + '</div>';
     }
+    function promoType(t) {   // Percent Off or Amount Off: one value field at a time
+        $('#promo_type').val(t);
+        $('#promo_percent_wrap').prop('hidden', t !== 'percent');
+        $('#promo_amount_wrap').prop('hidden', t !== 'amount');
+    }
+    $('#promo_type').on('change', function () { promoType($(this).val()); });
     $('#promo_add_btn').on('click', function () {
         $('#promo_id').val(0);
-        $('#promo_code').val(''); $('#promo_percent').val(''); $('#promo_applies').val('all');
-        $('#promo_max').val(''); $('#promo_expires').val('');
+        $('#promo_code').val(''); $('#promo_percent').val(''); $('#promo_amount').val(''); $('#promo_applies').val('all');
+        $('#promo_max').val(''); $('#promo_expires').val(''); $('#promo_min').val(''); $('#promo_first').prop('checked', false);
+        promoType('percent');
         $('#promo_modal_title').text('Add Code');
         $('#promo_modal').modal('show');
     });
@@ -2491,22 +2527,30 @@ $(function () {
         $('#promo_applies').val($row.data('applies'));
         $('#promo_max').val($row.data('max') || '');
         $('#promo_expires').val($row.data('expires') || '');
+        $('#promo_amount').val($row.data('amount') || '');
+        $('#promo_min').val($row.data('min') || '');
+        $('#promo_first').prop('checked', String($row.data('first')) === '1');
+        promoType($row.data('amount') ? 'amount' : 'percent');
         $('#promo_modal_title').text('Edit code');
         $('#promo_modal').modal('show');
     });
     $('#promo_save').on('click', function () {
         var id = $('#promo_id').val();
         var code = ($('#promo_code').val() || '').trim().toUpperCase();
-        var percent = parseInt($('#promo_percent').val(), 10) || 0;
+        var type = $('#promo_type').val(), percent = parseInt($('#promo_percent').val(), 10) || 0;
+        var amount = ($('#promo_amount').val() || '').trim().replace('$', ''), min = ($('#promo_min').val() || '').trim().replace('$', ''), first = $('#promo_first').is(':checked');
         if (code.length < 3) { toastr.error('Enter a code of at least 3 characters'); return; }
-        if (!(percent >= 1 && percent <= 100)) { toastr.error('Discount must be 1–100%'); return; }
+        if (type === 'percent' && !(percent >= 1 && percent <= 100)) { toastr.error('Discount must be 1–100%'); return; }
+        if (type === 'amount' && !(parseFloat(amount) > 0)) { toastr.error('Enter the amount off, like 5.00'); return; }
         var applies = $('#promo_applies').val(), max = ($('#promo_max').val() || ''), expires = ($('#promo_expires').val() || '');
-        ApiDataSvc.apiCall('post', 'save_promo_code', { id: id, code: code, percent_off: percent, applies_to: applies, max_redemptions: max, expires_at: expires }, function (data) {
+        ApiDataSvc.apiCall('post', 'save_promo_code', { id: id, code: code, discount_type: type, percent_off: type === 'percent' ? percent : 0, amount_off: type === 'amount' ? amount : '',
+            min_order: min, first_purchase_only: first ? 1 : 0, applies_to: applies, max_redemptions: max, expires_at: expires }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { toastr.error(o.message); return; }
             toastr.success(o.message);
             var $existing = $('#promos_list .plan-row[data-id="' + o.id + '"]');
-            var p = { id: o.id, code: o.code || code, percent: percent, applies: applies, max: max, expires: expires, active: true };
+            var p = { id: o.id, code: o.code || code, percent: type === 'percent' ? percent : 0, amount: type === 'amount' ? parseFloat(amount).toFixed(2) : '', min: min ? parseFloat(min).toFixed(2) : '',
+                      first: first, applies: applies, max: max, expires: expires, active: true };
             if ($existing.length) { p.active = !$existing.hasClass('is-inactive'); $existing.replaceWith(renderPromoRow(p)); }
             else { $('#promos_list').append(renderPromoRow(p)); $('#promos_empty').attr('hidden', true); }
             $('#promo_modal').modal('hide');

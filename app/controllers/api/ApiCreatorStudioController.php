@@ -375,10 +375,27 @@ class ApiCreatorStudioController extends BaseApiController {
         if (strlen($code) < 3 || strlen($code) > 40) {
             $this->jsonError('Use a code of 3–40 letters or numbers.');
         }
-        $percent = (int) ($this->post['percent_off'] ?? 0);
-        if ($percent < 1 || $percent > 100) {
-            $this->jsonError('Discount must be between 1% and 100%.');
+        // A percent off, or an amount off (Stripe's two kinds). Amounts follow the price rules ($1–$500, 10¢ steps).
+        $by_amount = (string) ($this->post['discount_type'] ?? 'percent') === 'amount';
+        $percent = 0; $amount_off = null;
+        if ($by_amount) {
+            $a = Price::from_dollars($this->post['amount_off'] ?? '');
+            if (!$a['ok']) { $this->jsonError('Amount off: ' . $a['message']); }
+            $amount_off = $a['credits'];
+        } else {
+            $percent = (int) ($this->post['percent_off'] ?? 0);
+            if ($percent < 1 || $percent > 100) {
+                $this->jsonError('Discount must be between 1% and 100%.');
+            }
         }
+        $min_order = null;
+        if (trim((string) ($this->post['min_order'] ?? '')) !== '') {
+            $m = Price::from_dollars($this->post['min_order']);
+            if (!$m['ok']) { $this->jsonError('Minimum order: ' . $m['message']); }
+            $min_order = $m['credits'];
+            if ($amount_off !== null && $amount_off >= $min_order) { $this->jsonError('The minimum order must be more than the amount off.'); }
+        }
+        $first_only = !empty($this->post['first_purchase_only']) && $this->post['first_purchase_only'] !== '0';
         $applies_to = (string) ($this->post['applies_to'] ?? 'all');
         if (!in_array($applies_to, ['all', 'subscription', 'ppv'], true)) { $applies_to = 'all'; }
 
@@ -395,8 +412,8 @@ class ApiCreatorStudioController extends BaseApiController {
             }
         }
 
-        $fields = ['code' => $code, 'percent_off' => $percent, 'applies_to' => $applies_to,
-            'max_redemptions' => $max, 'expires_at' => $expires_at];
+        $fields = ['code' => $code, 'percent_off' => $percent, 'amount_off_credits' => $amount_off, 'min_order_credits' => $min_order,
+            'first_purchase_only' => $first_only, 'applies_to' => $applies_to, 'max_redemptions' => $max, 'expires_at' => $expires_at];
 
         if ($id > 0) {
             if (!$model->get_owned($user_id, $id)) { $this->jsonError('Code not found'); }
@@ -432,8 +449,10 @@ class ApiCreatorStudioController extends BaseApiController {
         $price = (int) $post['ppv_price_credits'];
         $promo = (new CreatorPromoCodesModel())->get_redeemable((int) $post['creator_id'], (string) ($this->post['code'] ?? ''), 'ppv');
         if (!$promo) { $this->promo_miss(); $this->jsonError("That code isn't valid."); }
-        $new_price = (int) max(1, ceil($price * (100 - (int) $promo['percent_off']) / 100));
-        $this->jsonSuccess(['percent_off' => (int) $promo['percent_off'], 'original_price' => $price, 'new_price' => $new_price]);
+        $why = CreatorPromoCodesModel::rule_error($promo, (int) $post['creator_id'], (int) Session::get('user_id'), $price);
+        if ($why !== '') { $this->jsonError($why); }
+        $new_price = CreatorPromoCodesModel::price_after($promo, $price);
+        $this->jsonSuccess(['percent_off' => (int) $promo['percent_off'], 'label' => CreatorPromoCodesModel::label($promo), 'original_price' => $price, 'new_price' => $new_price]);
     }
 
     /* ---------- Content Studio: media vault ---------- */

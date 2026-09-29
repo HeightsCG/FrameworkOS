@@ -318,7 +318,7 @@
                 return;
             }
             p.applied_code = code; p.effective_price = o.new_price;
-            if (msg) { msg.textContent = o.percent_off + '% off applied'; msg.className = 'feed-plb__promo-msg is-ok'; }
+            if (msg) { msg.textContent = (o.label || (o.percent_off + '% off')) + ' applied'; msg.className = 'feed-plb__promo-msg is-ok'; }
             render_ppv_action(p);   // may flip Add-credits → Unlock if the discount brings it within budget
         });
     }

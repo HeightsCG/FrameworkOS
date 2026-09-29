@@ -976,7 +976,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                         return;
                     }
                     p.applied_code = code; p.effective_price = o.new_price;
-                    if (msg) { msg.textContent = o.percent_off + '% off applied'; msg.className = 'pf-plb__promo-msg is-ok'; }
+                    if (msg) { msg.textContent = (o.label || (o.percent_off + '% off')) + ' applied'; msg.className = 'pf-plb__promo-msg is-ok'; }
                     renderPpvAction(p);   // may flip Add-credits → Unlock if the discount brings it within budget
                 });
             }

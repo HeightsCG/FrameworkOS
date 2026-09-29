@@ -610,3 +610,12 @@
 .settings__section[data-section="domain"] .form-control:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; box-shadow:none; }
 .dir-row .notif__switch{ margin:0; flex:none; }
 .cprofile__actions--end{ margin-top:1.5rem; }
+
+/* Promo code modal: the First Purchase Only switch row */
+.promo-first{ margin-top:.25rem; }
+.promo-first__label{ display:inline-flex; align-items:center; gap:.6rem; font-size:.9rem; font-weight:500; color:var(--text); cursor:pointer; }
+.promo-first__label .form-check-input{ margin:0; cursor:pointer; }
+.promo-first .form-switch{ padding-left:0; min-height:0; display:inline-flex; }
+.promo-first .form-check-input{ width:2.4em; height:1.3em; }
+.promo-first .form-check-input:checked{ background-color:var(--acc-btn); border-color:var(--acc-btn); }
+.promo-first .form-check-input:focus{ box-shadow:var(--ring); border-color:var(--acc-btn); }
