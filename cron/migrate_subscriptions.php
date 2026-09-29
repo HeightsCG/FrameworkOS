@@ -20,6 +20,7 @@
 
 if (php_sapi_name() !== 'cli') { exit(1); }
 if (!getenv('APPLICATION_ENV')) { putenv('APPLICATION_ENV=development'); }
+date_default_timezone_set('UTC');   // same as Bootstrap: every stored timestamp is UTC, whatever the server's clock is set to
 $root = dirname(__DIR__);
 if (is_file($root . '/vendor/autoload.php')) { require_once $root . '/vendor/autoload.php'; }
 spl_autoload_register(function ($class) use ($root) {
