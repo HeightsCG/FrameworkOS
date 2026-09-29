@@ -518,22 +518,12 @@ class AnalyticsModel extends Model {
     /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */
     public function customer_stats($creator_id){
         $c = (int) $creator_id;
-        $rows = parent::select(
-            "SELECT buyer, COUNT(*) AS purchases, SUM(credits) AS spent FROM (
-                SELECT pu.fan_id AS buyer, pu.price_credits AS credits FROM ppv_unlocks pu WHERE pu.creator_id = :c1 AND pu.price_credits > 0
-                UNION ALL
-                SELECT bu.fan_id, bu.price_credits FROM bundle_unlocks bu WHERE bu.creator_id = :c2 AND bu.price_credits > 0
-                UNION ALL
-                SELECT er.user_id, er.price_credits FROM event_registrations er JOIN events e ON e.id = er.event_id WHERE e.creator_id = :c3 AND er.status <> 'refunded' AND er.price_credits > 0
-                UNION ALL
-                SELECT sp.buyer_id, sp.price_credits FROM service_purchases sp JOIN services s ON s.id = sp.service_id WHERE s.creator_id = :c4 AND sp.status = 'paid' AND sp.price_credits > 0
-             ) x GROUP BY buyer",
-            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c));
+        $rows = (new FanSpendModel())->by_fan($c);   // the one definition of what a fan has spent (now includes paid messages)
         $customers = 0; $repeat = 0; $credits = 0;
         foreach ((array) $rows as $r) {
             $customers++;
             if ((int) $r['purchases'] > 1) { $repeat++; }
-            $credits += (int) $r['spent'];
+            $credits += (int) $r['credits'];
         }
         return array(
             'customers'   => $customers,

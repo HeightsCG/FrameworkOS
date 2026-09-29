@@ -54,18 +54,13 @@ class AudienceModel extends Model {
             $bump_last($fans[(int) $r['uid']], (string) $r['since']);
         }
 
-        // Buyers (PPV + bundles) — count + spend
-        $buys = "SELECT fan_id AS uid, COUNT(*) AS c, SUM(price_credits) AS s, MAX(created_at) AS last
-                 FROM ppv_unlocks WHERE creator_id = :c1 GROUP BY fan_id
-                 UNION ALL
-                 SELECT fan_id AS uid, COUNT(*) AS c, SUM(price_credits) AS s, MAX(created_at) AS last
-                 FROM bundle_unlocks WHERE creator_id = :c2 GROUP BY fan_id";
-        foreach ((array) parent::select($buys, array('c1' => $cid, 'c2' => $cid)) as $r) {
-            $ensure($fans, $r['uid']);
-            $row =& $fans[(int) $r['uid']];
+        // Buyers: every one-time purchase (FanSpendModel, the one definition of what a fan has spent)
+        foreach ((new FanSpendModel())->by_fan($cid) as $r) {
+            $ensure($fans, $r['buyer']);
+            $row =& $fans[(int) $r['buyer']];
             $row['is_buyer']       = true;
-            $row['purchases']     += (int) $r['c'];
-            $row['spend_credits'] += (int) $r['s'];
+            $row['purchases']     += (int) $r['purchases'];
+            $row['spend_credits'] += (int) $r['credits'];
             $bump_last($row, (string) $r['last']);
             unset($row);
         }

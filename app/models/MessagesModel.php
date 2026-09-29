@@ -342,20 +342,15 @@ class MessagesModel extends Model {
              FROM creator_subscriptions cs LEFT JOIN creator_plans p ON p.id = cs.plan_id
              WHERE cs.subscriber_id = :f AND cs.creator_id = :c
              ORDER BY (cs.status = 'active') DESC, cs.created_at DESC LIMIT 1", array('f' => $f, 'c' => $c));
-        $spend = parent::select(
-            "SELECT COUNT(*) AS n, COALESCE(SUM(price_credits), 0) AS credits FROM (
-                SELECT price_credits FROM ppv_unlocks WHERE fan_id = :f1 AND creator_id = :c1
-                UNION ALL SELECT price_credits FROM bundle_unlocks WHERE fan_id = :f2 AND creator_id = :c2
-                UNION ALL SELECT price_credits FROM message_unlocks WHERE fan_id = :f3 AND creator_id = :c3
-             ) s", array('f1' => $f, 'c1' => $c, 'f2' => $f, 'c2' => $c, 'f3' => $f, 'c3' => $c));
+        $spend = (new FanSpendModel())->for_fan($c, $f);   // the one definition of what a fan has spent
         $acct = parent::select("SELECT created_at, last_active_at FROM user_accounts WHERE user_id = :f", array('f' => $f));
         $s = (is_array($sub) && count($sub)) ? $sub[0] : null;
         return array(
             'follows'       => is_array($follow) && count($follow) > 0,
             'followed_at'   => (is_array($follow) && count($follow)) ? (string) $follow[0]['created_at'] : '',
             'subscription'  => $s ? array('status' => (string) $s['status'], 'plan' => (string) ($s['plan_name'] ?? ''), 'free' => !empty($s['is_free']), 'since' => (string) $s['created_at']) : null,
-            'purchases'     => (is_array($spend) && count($spend)) ? (int) $spend[0]['n'] : 0,
-            'spent_credits' => (is_array($spend) && count($spend)) ? (int) $spend[0]['credits'] : 0,
+            'purchases'     => $spend['purchases'],
+            'spent_credits' => $spend['credits'],
             'member_since'  => (is_array($acct) && count($acct)) ? (string) $acct[0]['created_at'] : '',
             'last_active'   => (is_array($acct) && count($acct)) ? (string) ($acct[0]['last_active_at'] ?? '') : '',
         );
