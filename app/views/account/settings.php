@@ -585,8 +585,8 @@
                         <div class="credit-packs">
                             <?php foreach ($this->credit_packages as $pkg): $pkg_fee = (int) $pkg['dollars'] * Main::credit_fee_percent() / 100; ?>
                             <button type="button" class="credit-pack buy-credits" data-dollars="<?php echo (int) $pkg['dollars']; ?>">
-                                <span class="credit-pack__credits">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
-                                <span class="credit-pack__label">to your wallet</span>
+                                <span class="credit-pack__credits"><?php echo Price::credits((int) $pkg['credits']); ?></span>
+                                <span class="credit-pack__label">$<?php echo number_format((int) $pkg['dollars'], 2); ?></span>
                                 <span class="credit-pack__fee">+ $<?php echo number_format(round($pkg_fee, 2), 2); ?> fee · $<?php echo number_format((int) $pkg['dollars'] + round($pkg_fee, 2), 2); ?> total</span>
                             </button>
                             <?php endforeach; ?>
@@ -1377,7 +1377,7 @@
                         <select class="form-select" id="ar_package">
                             <?php foreach ($this->credit_packages as $pkg): ?>
                             <option value="<?php echo (int) $pkg['dollars']; ?>" data-credits="<?php echo (int) $pkg['credits']; ?>" <?php echo ((int) $ar['amount_cents'] === (int) $pkg['dollars'] * 100) ? 'selected' : ''; ?>>
-                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo '$' . number_format((int) $pkg['dollars'], 2); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
+                                <?php $ar_fee = round(((int) $pkg['dollars']) * Main::credit_fee_percent() / 100, 2); echo Price::credits((int) $pkg['credits']) . ' for $' . number_format((int) $pkg['dollars'], 2); ?><?php echo $ar_fee > 0 ? ' + $' . number_format($ar_fee, 2) . ' fee' : ''; ?>
                             </option>
                             <?php endforeach; ?>
                         </select>

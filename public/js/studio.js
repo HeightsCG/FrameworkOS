@@ -1503,7 +1503,7 @@ jQuery(function ($) {
                       '<div class="cs-pv__dots">' + assets.map(function (a, i) { return '<span class="cs-pv__dot' + (i === composer.pvIdx ? ' is-on' : '') + '"></span>'; }).join('') + '</div>';
             }
             var lockLabel = isPpv ? ('Unlock for ' + credits(composer.ppv_price)) : 'Subscribe to unlock';
-            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid ' + (isPpv ? 'fa-dollar-sign' : 'fa-lock') + '"></i><span>' + lockLabel + '</span></div>' : '';
+            var lock = locked ? '<div class="cs-pv__lock"><i class="fa-solid fa-lock"></i><span>' + lockLabel + '</span></div>' : '';
             media = '<div class="cs-pv__media cs-pv__media--carousel' + (locked ? ' is-locked' : '') + '">' + slides + lock + nav + '</div>';
         }
         var cap = composer.caption ? '<p class="cs-pv__cap">' + esc(composer.caption) + '</p>' : '<p class="cs-pv__cap cs-pv__cap--muted">Your caption appears here.</p>';

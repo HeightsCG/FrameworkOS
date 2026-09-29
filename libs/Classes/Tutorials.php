@@ -23,15 +23,16 @@ class Tutorials {
             'Check the box to accept it, then click Become a Creator.',
             'That\'s it. Your creator tools are unlocked, including Content Studio, Analytics, Audience and more.',
         )),
-        '02' => array('section' => 'start', 'title' => 'Choose Your Plan', 'secs' => 65, 'steps' => array(
-            'Your plan sets your platform fee and which AI tools you get. Here\'s how to pick one.',
-            'Click your name, then Billing.',
-            'Free is the account everyone starts with. It costs nothing and lets you follow, subscribe and buy. To sell, pick Creator or Studio.',
-            'Creator is 49 dollars a month. Your fee drops to 10 percent and you get an AI influencer, 500 AI credits a month and scheduled automations.',
-            'Studio is 199 dollars a month. Your fee drops to 3 percent, with 10 AI influencers, 3,000 AI credits a month, unlimited automations and 10 team seats.',
-            'Every plan includes unlimited social connections, membership tiers, bundles, promo codes and analytics.',
-            'Pick the plan that fits and click Choose. If you have a promo code, enter it at checkout.',
-            'Your current plan always shows at the top of this page.',
+        '02' => array('section' => 'start', 'title' => 'Choose Your Plan', 'secs' => 80, 'steps' => array(
+            'Your plan decides what you can do on Creator Link Studio. Here\'s how to pick one.',
+            'Click your name, then Billing, then the Plan tab.',
+            'Free is where everyone starts. Follow creators, join memberships, unlock posts, buy tickets and bookings, and message creators. There\'s no card needed.',
+            'To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts.',
+            'Creator is 49 dollars a month. You keep 90 percent of every sale, and you get an AI influencer, 500 AI credits a month, 5 scheduled automations, 25 gigabytes of storage, and inbox automation with AI replies.',
+            'Studio is 199 dollars a month. You keep 97 percent of every sale, with 10 AI influencers, 3,000 AI credits a month, unlimited automations, 500 gigabytes of storage, 10 team seats and your own custom domain.',
+            'Need more AI credits? On Creator and Studio you can buy more any time. One dollar buys 10 credits.',
+            'Pick the plan that fits and click its button. If you have a promo code, enter it at checkout.',
+            'Your current plan is always marked Your plan, with its renewal date right below.',
         )),
         '03' => array('section' => 'start', 'title' => 'Set Up Your Creator Profile', 'secs' => 30, 'steps' => array(
             'Your creator profile is what fans see first. Let\'s set it up.',
@@ -99,11 +100,11 @@ class Tutorials {
             'Each row is a type of update: messages, creator activity, broadcasts, purchases, subscriptions, events, services, credits and auto top-ups.',
             'Use the toggles to get each one in the app, by email, both or neither.',
         )),
-        '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 22, 'steps' => array(
+        '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 33, 'steps' => array(
             'Your wallet credits pay for unlocks, tickets and bookings. In Settings, open Wallet.',
             'Your balance is at the top. Creators also see their AI credits here, which are separate and used for making images and videos.',
             'Under Buy Credits, pick an amount. A small processing fee is added at checkout, and credits are non-refundable.',
-            'History shows everything you\'ve added and spent.',
+            'History shows everything you\'ve added, spent and earned.',
             'Auto-Replenishment buys credits automatically when your balance runs low. Click Manage to turn it on.',
         )),
         '12' => array('section' => 'start', 'title' => 'Restricted Content and Blocked Users', 'secs' => 19, 'steps' => array(
@@ -124,7 +125,7 @@ class Tutorials {
             'Scheduler runs your automations and scheduled messages.',
             'And the Action button is your shortcut to create anything.',
         )),
-        '14' => array('section' => 'studio', 'title' => 'Create and Publish a Post', 'secs' => 57, 'steps' => array(
+        '14' => array('section' => 'studio', 'title' => 'Create and Publish a Post', 'secs' => 52, 'steps' => array(
             'Let\'s publish a post. Click Action, then New Post.',
             'Add media from your Library, or upload new files.',
             'Pick your photos or videos and click Add to Post. The first one becomes the cover.',
@@ -134,7 +135,7 @@ class Tutorials {
             'For pay-per-view, set your unlock price, anywhere from 10 to 5,000 credits.',
             'Switch the preview to Public to see the locked version.',
             'Under Distribution, pick where it goes: your profile and any connected social accounts.',
-            'Last, Publish. Choose Publish now and click Publish now.',
+            'Last, Publish. Select Publish now, then click the Publish now button.',
             'Your post is live, and it shows at the top of your Posts list.',
         )),
         '15' => array('section' => 'studio', 'title' => 'Schedule a Post', 'secs' => 19, 'steps' => array(
