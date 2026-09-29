@@ -322,7 +322,7 @@ class ApiBillingController extends BaseApiController {
     }
 
     public function start_payout_onboardingAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
 
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {
@@ -359,7 +359,7 @@ class ApiBillingController extends BaseApiController {
     }
 
     public function payout_login_linkAction(){
-        $user       = $this->require_creator('owner');
+        $user       = $this->require_creator('owner', false);
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {
             $this->jsonError('Set up payouts first');
@@ -373,7 +373,7 @@ class ApiBillingController extends BaseApiController {
 
     /** Cash out the creator's earned credits: convert to $, deduct, and send via Stripe. */
     public function request_payoutAction(){
-        $user       = $this->require_creator('owner');
+        $user       = $this->require_creator('owner', false);
         $creator_id = (int) $user['user_id'];
         $account_id = (string) ($user['stripe_connect_account_id'] ?? '');
         if ($account_id === '') {
@@ -420,7 +420,7 @@ class ApiBillingController extends BaseApiController {
     }
 
     public function disconnect_payout_accountAction(){
-        $user       = $this->require_creator('owner');
+        $user       = $this->require_creator('owner', false);
         $account_id = $user['stripe_connect_account_id'] ?? '';
 
         if ($account_id !== '') {
