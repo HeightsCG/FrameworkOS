@@ -56,7 +56,7 @@
             if (a.onchange) { a.onchange(); }
         });
         $wrap.on('input change', '.ibx__price-in', function (e) {
-            // Never adjusted here: the server checks $1-$500 in 10¢ steps and says what to fix.
+            // Never adjusted here: the server checks 10 to 5,000 whole credits and says what to fix.
             var v = parseInt(this.value, 10); a.price = isNaN(v) || v <= 0 ? 0 : v;   // credits
             if (a.onchange) { a.onchange(); }
         });
