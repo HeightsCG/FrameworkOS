@@ -23,7 +23,9 @@ class BaseApiController extends Controller {
             $this->jsonError('Method not allowed', [], 405);
         }
         if (!CSRF::validate()) {
-            $this->jsonError('Invalid or expired request token');
+            // An idle page outlives its session (and the token in it): hand back a fresh token so the page can retry once
+            // (public/js/csrf-retry.js). Only this origin can read the reply, so this gives nothing away.
+            $this->jsonError('Your session timed out. Please try again.', ['csrf_expired' => 1, 'csrf_token' => CSRF::token()]);
         }
 
         $this->userModel          = new UsersModel();

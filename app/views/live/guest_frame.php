@@ -18,6 +18,7 @@
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="/js/api.data.js"></script>
+    <script src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
     <style>body.lv-guest{ background:var(--bg); } .lv-guest__main{ padding:1.5rem 16px 2rem; } .lv-guest .lv{ height:calc(100vh - 64px - 3.5rem); max-width:1152px; } .lv-guest--own .lv{ height:calc(100vh - 3.5rem); }</style>
 </head>
 <body class="lv-guest<?php echo !empty($c['own_domain']) ? ' lv-guest--own' : ''; ?>">

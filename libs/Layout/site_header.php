@@ -25,6 +25,7 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://kit.fontawesome.com/0b1fb50c1a.js" crossorigin="anonymous"></script>
     <script src="/js/api.data.js"></script>
+    <script src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
     <script src="/js/site.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/site.js'); ?>"></script>
 </head>
 <body class="app-shell<?php echo UserSession::impersonating() ? ' is-impersonating' : ''; ?>">

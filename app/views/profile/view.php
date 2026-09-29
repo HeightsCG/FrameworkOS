@@ -607,6 +607,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
     <!-- Loaded here, not in <head>, so they don't hold up the first paint; still before the script that uses them. -->
     <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
     <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
+    <script src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
     <?php endif; ?>
     <script>
     (function () {
