@@ -33,20 +33,21 @@ class LiveKit {
     public static function room_for_booking($purchase_id): string { return 'sv-' . (int) $purchase_id; }
 
     /**
-     * A pass into one room. $identity must be unique per person in the room (we use "u<user id>"); $name is shown
-     * under their video. $host adds room admin rights (remove people, mute everyone). $can_share_screen false = camera
-     * and microphone only (visitors without an account).
+     * A pass into one room. $identity must be unique per person in the room ("u<user id>", guests "g<hash>"); $name is
+     * shown under their video. $host adds room admin rights. $perm (from LiveControl::perm) says what they may publish:
+     * ['publish' => mic/camera at all, 'sources' => list of 'camera' | 'microphone' | 'screen_share' |
+     * 'screen_share_audio', 'data' => chat]. The server enforces it, so a tampered page can't get round it.
      */
-    public static function token($room, $identity, $name, $host = false, array $metadata = array(), $can_share_screen = true): string
+    public static function token($room, $identity, $name, $host = false, array $metadata = array(), array $perm = array()): string
     {
         $now = time();
         $video = array(
-            'room' => (string) $room, 'roomJoin' => true,
-            'canPublish' => true, 'canSubscribe' => true, 'canPublishData' => true,
+            'room' => (string) $room, 'roomJoin' => true, 'canSubscribe' => true,
+            'canPublish' => $host ? true : (bool) ($perm['publish'] ?? true),
+            'canPublishData' => $host ? true : (bool) ($perm['data'] ?? true),
             'roomAdmin' => (bool) $host,
         );
-        // The server enforces this: without it, the pass can't publish a screen share even from a tampered page.
-        if (!$can_share_screen) { $video['canPublishSources'] = array('camera', 'microphone'); }
+        if (!$host && isset($perm['sources'])) { $video['canPublishSources'] = array_values((array) $perm['sources']); }
         return self::jwt(array(
             'iss'  => self::cfg('livekit_api_key'),
             'sub'  => (string) $identity,
@@ -56,6 +57,56 @@ class LiveKit {
             'metadata' => json_encode($metadata + array('host' => (bool) $host)),
             'video' => $video,
         ));
+    }
+
+    /** Make the room now with its settings in the metadata (a room that already exists is left as it is). */
+    public static function create_room($room, $metadata): bool
+    {
+        return self::room_api('CreateRoom', array('name' => (string) $room, 'metadata' => (string) $metadata, 'empty_timeout' => 600), $room) !== null;
+    }
+
+    /** Send new settings to everyone in the room (the page listens for RoomMetadataChanged). */
+    public static function set_room_metadata($room, $metadata): bool
+    {
+        return self::room_api('UpdateRoomMetadata', array('room' => (string) $room, 'metadata' => (string) $metadata), $room) !== null;
+    }
+
+    /** Everyone in the room: LiveKit ParticipantInfo arrays (identity, name, metadata, attributes, tracks). */
+    public static function participants($room): ?array
+    {
+        $list = self::room_api('ListParticipants', array('room' => (string) $room), $room);
+        return $list === null ? null : (array) ($list['participants'] ?? array());
+    }
+
+    /**
+     * Change what one person may do, now: $perm as in token(). LiveKit takes their tracks down at once if they may no
+     * longer publish them. $attributes (optional) replaces keys in their attributes (the raised hand).
+     */
+    public static function update_participant($room, $identity, ?array $perm, array $attributes = array()): bool
+    {
+        $body = array('room' => (string) $room, 'identity' => (string) $identity);
+        if ($perm !== null) {
+            $body['permission'] = array(
+                'can_subscribe' => true, 'can_publish' => (bool) $perm['publish'], 'can_publish_data' => (bool) $perm['data'],
+                'can_publish_sources' => array_map('strtoupper', array_values((array) $perm['sources'])),
+            );
+        }
+        if (!empty($attributes)) { $body['attributes'] = (object) $attributes; }
+        return self::room_api('UpdateParticipant', $body, $room) !== null;
+    }
+
+    /** Turn off one person's microphone ('MICROPHONE') or camera ('CAMERA') from the host's side. */
+    public static function mute_source($room, $identity, $source): bool
+    {
+        foreach ((array) self::participants($room) as $p) {
+            if ((string) ($p['identity'] ?? '') !== (string) $identity) { continue; }
+            foreach ((array) ($p['tracks'] ?? array()) as $t) {
+                if (($t['source'] ?? '') !== $source || !empty($t['muted'])) { continue; }
+                return self::room_api('MutePublishedTrack', array('room' => (string) $room, 'identity' => (string) $identity, 'track_sid' => (string) $t['sid'], 'muted' => true), $room) !== null;
+            }
+            return true;   // nothing on to turn off
+        }
+        return false;
     }
 
     /** Who is in a room right now: ['people' => everyone but hosts, 'host_in' => a host is there]. Null if unreachable. */

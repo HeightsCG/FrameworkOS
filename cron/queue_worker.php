@@ -40,6 +40,7 @@ $handlers = [
     'membership_fee' => 'MembershipFeeJob',
     'event_message'  => 'EventMessageJob',
     'fanvue_share'   => 'FanvueShareJob',
+    'signup_alert'   => 'SignupAlertJob',
 ];
 
 $queue     = new DatabaseJobQueue();

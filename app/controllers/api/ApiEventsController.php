@@ -53,6 +53,10 @@ class ApiEventsController extends BaseApiController {
             'external_url'        => $format === 'virtual' ? $link : '',
             'access_instructions' => trim(html_entity_decode((string) ($this->post['access_instructions'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'call_password'       => $format === 'cls_video' ? html_entity_decode((string) ($this->post['call_password'] ?? ''), ENT_QUOTES, 'UTF-8') : '',
+            'call_waiting_room'   => (string) ($this->post['call_waiting_room'] ?? '0') === '1' ? 1 : 0,
+            'call_screen_share'   => (string) ($this->post['call_screen_share'] ?? 'host'),
+            'call_attendees'      => (string) ($this->post['call_attendees'] ?? 'talk'),
+            'call_chat'           => (string) ($this->post['call_chat'] ?? '1') === '0' ? 0 : 1,
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
         if (array_key_exists('reminders', $this->post)) { $fields['reminders'] = EventsModel::clean_reminders($this->post['reminders']); }   // e.g. '1440,60'; '' = none
@@ -62,6 +66,7 @@ class ApiEventsController extends BaseApiController {
             if (!$cur) { $this->jsonError('Event not found'); }
             if ((string) $cur['status'] === 'canceled') { $this->jsonError('This event was canceled, so it can no longer be edited.'); }
             $model->update_event($creator_id, $id, $fields);
+            (new LiveRoomsModel())->reset(LiveKit::room_for_event($id));   // the next call starts from the saved call settings
         } else {
             $id = (int) $model->create($creator_id, $fields);
         }

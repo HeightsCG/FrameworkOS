@@ -15,11 +15,19 @@
         var setFormat = ed.seg(el('evFormat'), el('ev_format'), 'data-format', function (v) {
             ed.reveal(el('ev_url_wrap'), v === 'virtual');   // CLS Video needs no link: people join on the event page
             ed.reveal(el('ev_pw_wrap'), v === 'cls_video');
+            ed.reveal(el('ev_call_wrap'), v === 'cls_video');
             el('ev_instructions').placeholder = v === 'in_person' ? 'Parking, entry code, what to bring'
                 : (v === 'cls_video' ? 'What to prepare before the call' : 'Dial-in number, what to prepare');
             ed.reveal(el('ev_location_wrap'), v === 'in_person');
             refresh();
         });
+        // CLS Video call settings: where the call starts (the host can change each one during the call).
+        var setCall = {
+            waiting:   ed.seg(el('evCallWaiting'), el('ev_call_waiting'), 'data-v', function () { refresh(); }),
+            share:     ed.seg(el('evCallShare'), el('ev_call_share'), 'data-v', function () { refresh(); }),
+            attendees: ed.seg(el('evCallAttendees'), el('ev_call_attendees'), 'data-v', function () { refresh(); }),
+            chat:      ed.seg(el('evCallChat'), el('ev_call_chat'), 'data-v', function () { refresh(); })
+        };
         ['ev_title', 'ev_desc', 'ev_date', 'ev_time', 'ev_time_end', 'ev_url', 'ev_pw', 'ev_venue', 'ev_street', 'ev_city', 'ev_region', 'ev_postal', 'ev_price', 'ev_capacity'].forEach(function (id) { el(id).addEventListener('input', refresh); });
         el('ev_who').addEventListener('change', refresh);
         el('ev_tz').addEventListener('change', refresh);
@@ -89,7 +97,7 @@
             var rn = reminders() === '' ? 0 : reminders().split(',').length;
             ed.summary('when', fmt_when() + (rn ? ' · ' + rn + (rn === 1 ? ' reminder' : ' reminders') : ''));
             if (el('ev_format').value === 'in_person') { var c = el('ev_city').value.trim(), v = el('ev_venue').value.trim(); ed.summary('where', 'In person' + (v || c ? ' · ' + (v || c) : '')); }
-            else { ed.summary('where', el('ev_format').value === 'cls_video' ? 'CLS Video' + (el('ev_pw').value.trim() ? ' · Password' : '') : 'Online'); }
+            else { ed.summary('where', el('ev_format').value === 'cls_video' ? 'CLS Video' + (el('ev_pw').value.trim() ? ' · Password' : '') + (el('ev_call_waiting').value === '1' ? ' · Waiting room' : '') : 'Online'); }
             var who = el('ev_who'), label = who.value === 'anyone' ? 'Anyone' : (who.value === 'subscribers' ? 'Subscribers' : who.selectedOptions[0].textContent);
             var cap = parseInt(el('ev_capacity').value, 10);
             ed.summary('tickets', (price() >= 10 ? credits(price()) : 'Free') + ' · ' + label + (cap > 0 ? ' · ' + cap + ' spots' : ''));
@@ -134,6 +142,10 @@
             set_reminders(d && d.reminders != null ? d.reminders : '1440');   // new events: a reminder the day before
             el('ev_url').value      = d ? (d.external_url || '') : '';
             el('ev_pw').value       = d ? (d.call_password || '') : '';
+            setCall.waiting(d && parseInt(d.call_waiting_room, 10) === 1 ? '1' : '0');
+            setCall.share(d && d.call_screen_share === 'everyone' ? 'everyone' : 'host');
+            setCall.attendees(d && d.call_attendees === 'watch' ? 'watch' : 'talk');
+            setCall.chat(d && parseInt(d.call_chat, 10) === 0 ? '0' : '1');
             el('ev_venue').value    = d ? (d.venue_name || '') : '';
             el('ev_street').value   = d ? (d.street || (d.venue_name ? '' : (d.location || ''))) : '';   // older events only have the one-line location
             el('ev_city').value     = d ? (d.city || '') : '';
@@ -187,6 +199,10 @@
                 format: el('ev_format').value,
                 external_url: el('ev_url').value.trim(),
                 call_password: el('ev_pw').value.trim(),
+                call_waiting_room: el('ev_call_waiting').value,
+                call_screen_share: el('ev_call_share').value,
+                call_attendees: el('ev_call_attendees').value,
+                call_chat: el('ev_call_chat').value,
                 venue_name: el('ev_venue').value.trim(),
                 street: el('ev_street').value.trim(),
                 city: el('ev_city').value.trim(),

@@ -55,6 +55,7 @@ class ApiAuthController extends BaseApiController {
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
         $this->userModel->record_first_touch($user_id);
+        SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
 
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);

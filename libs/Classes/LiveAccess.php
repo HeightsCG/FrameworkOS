@@ -38,7 +38,8 @@ class LiveAccess {
     }
 
     /**
-     * Decide one join. Returns ['ok', 'message', 'room', 'host', 'guest', 'title', 'creator_id', plus 'need_login' /
+     * Decide one join. Returns ['ok', 'message', 'room', 'host', 'guest', 'title', 'creator_id', 'defaults' (the call's
+     * starting settings, LiveControl::defaults), plus 'need_login' /
      * 'need_password' / 'opens_at' when refused for that reason]. $kind: 'event' (id = event id) or 'booking' (id =
      * service purchase id). $password: what they typed (events with a call password). $user_id 0 = not signed in.
      */
@@ -71,7 +72,8 @@ class LiveAccess {
                 return $no(trim((string) $password) === '' ? 'Enter the call password.' : 'That password isn’t right.', array('need_password' => true, 'wrong_password' => trim((string) $password) !== ''));
             }
             return array('ok' => true, 'message' => '', 'room' => LiveKit::room_for_event((int) $ev['id']), 'host' => $host, 'guest' => $user_id <= 0,
-                'title' => html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 'creator_id' => (int) $ev['creator_id']);
+                'title' => html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 'creator_id' => (int) $ev['creator_id'],
+                'defaults' => LiveControl::defaults($ev));
         }
 
         if ($user_id <= 0) { return $no('Sign in to join.', array('need_login' => true)); }
@@ -84,7 +86,8 @@ class LiveAccess {
             $host = self::is_host((int) $sv['creator_id']);
             if (!$host && (int) $p['buyer_id'] !== (int) $user_id) { return $no('This call is only for the person who booked it.'); }
             return array('ok' => true, 'message' => '', 'room' => LiveKit::room_for_booking((int) $p['id']), 'host' => $host, 'guest' => false,
-                'title' => html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8'), 'creator_id' => (int) $sv['creator_id']);
+                'title' => html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8'), 'creator_id' => (int) $sv['creator_id'],
+                'defaults' => LiveControl::defaults(null));
         }
         return $no('This call is not available.');
     }

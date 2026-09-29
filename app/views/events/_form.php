@@ -15,6 +15,8 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
 ?>
 <input type="hidden" id="ev_id" value="">
 <input type="hidden" id="ev_format" value="virtual">
+<input type="hidden" id="ev_call_waiting" value="0"><input type="hidden" id="ev_call_share" value="host">
+<input type="hidden" id="ev_call_attendees" value="talk"><input type="hidden" id="ev_call_chat" value="1">
 
 <nav class="cs-ae__nav" aria-label="Event sections">
     <label class="cs-ae__navselect-label" for="evNavSelect">Section</label>
@@ -100,6 +102,36 @@ $icons    = array('details' => 'fa-regular fa-file-lines', 'when' => 'fa-regular
         <div class="cs-ae__field cs-ae__reveal" id="ev_pw_wrap" hidden>
             <label class="cs-ae__label" for="ev_pw">Call Password</label>
             <input type="text" class="form-control" id="ev_pw" maxlength="64" autocomplete="off" placeholder="No password">
+        </div>
+        <div class="cs-ae__reveal ev-call" id="ev_call_wrap" hidden>
+            <div class="cs-ae__field ev-formatrow">
+                <span class="cs-ae__label" id="evCallWaitingLabel">Waiting Room</span>
+                <div class="cs-seg cs-ae__seg" id="evCallWaiting" role="group" aria-labelledby="evCallWaitingLabel">
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="0"><span>Off</span></button>
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="1"><span>On</span></button>
+                </div>
+            </div>
+            <div class="cs-ae__field ev-formatrow">
+                <span class="cs-ae__label" id="evCallShareLabel">Screen Sharing</span>
+                <div class="cs-seg cs-ae__seg" id="evCallShare" role="group" aria-labelledby="evCallShareLabel">
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="host"><span>Host Only</span></button>
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="everyone"><span>Everyone</span></button>
+                </div>
+            </div>
+            <div class="cs-ae__field ev-formatrow">
+                <span class="cs-ae__label" id="evCallAttendeesLabel">Attendees</span>
+                <div class="cs-seg cs-ae__seg" id="evCallAttendees" role="group" aria-labelledby="evCallAttendeesLabel">
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="talk"><span>Can Talk</span></button>
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="watch"><span>Watch Only</span></button>
+                </div>
+            </div>
+            <div class="cs-ae__field ev-formatrow">
+                <span class="cs-ae__label" id="evCallChatLabel">Chat</span>
+                <div class="cs-seg cs-ae__seg" id="evCallChat" role="group" aria-labelledby="evCallChatLabel">
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="1"><span>On</span></button>
+                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-v="0"><span>Off</span></button>
+                </div>
+            </div>
         </div>
         <div class="cs-ae__field cs-ae__reveal" id="ev_url_wrap">
             <label class="cs-ae__label" for="ev_url">Meeting Link</label>

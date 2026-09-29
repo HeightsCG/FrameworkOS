@@ -87,6 +87,10 @@ class EventsModel extends Model {
             'external_url'        => self::web_link($f['external_url'] ?? ''),
             'access_instructions' => (string) ($f['access_instructions'] ?? ''),
             'call_password'       => self::call_password($f['call_password'] ?? ''),
+            'call_waiting_room'   => (int) ($f['call_waiting_room'] ?? 0) === 1 ? 1 : 0,
+            'call_screen_share'   => self::call_choice('call_screen_share', $f['call_screen_share'] ?? 'host'),
+            'call_attendees'      => self::call_choice('call_attendees', $f['call_attendees'] ?? 'talk'),
+            'call_chat'           => (int) ($f['call_chat'] ?? 1) === 0 ? 0 : 1,
             'status'              => in_array($f['status'] ?? 'draft', array('draft', 'published', 'canceled'), true) ? $f['status'] : 'draft',
             'created_at'          => $now,
             'updated_at'          => $now,
@@ -113,6 +117,13 @@ class EventsModel extends Model {
         return $v === '' ? null : mb_substr($v, 0, 64);
     }
 
+    /** CLS Video call settings with a fixed set of values (LiveControl reads them): anything else is the default. */
+    public static function call_choice($key, $v){
+        $v = (string) $v;
+        if ($key === 'call_screen_share') { return $v === 'everyone' ? 'everyone' : 'host'; }
+        return $v === 'watch' ? 'watch' : 'talk';   // call_attendees
+    }
+
     /** A free event anyone can come to: its CLS Video call is open to everyone, registered or not (no account needed). */
     public static function open_call(array $ev): bool {
         return (string) ($ev['format'] ?? '') === 'cls_video' && (string) ($ev['access_type'] ?? '') === 'free' && (int) ($ev['price_credits'] ?? 0) === 0;
@@ -128,7 +139,8 @@ class EventsModel extends Model {
         if (!$this->get_one($creator_id, $id)) { return false; }
         $data = array('updated_at' => date('Y-m-d H:i:s'));
         foreach (array('title', 'description', 'start_at', 'end_at', 'timezone', 'reminders', 'access_type', 'price_credits',
-                       'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'call_password', 'status') as $k) {
+                       'tier_id', 'capacity', 'format', 'location', 'venue_name', 'street', 'city', 'region', 'postal_code', 'external_url', 'access_instructions', 'call_password',
+                       'call_waiting_room', 'call_screen_share', 'call_attendees', 'call_chat', 'status') as $k) {
             if (!array_key_exists($k, $f)) { continue; }
             if ($k === 'access_type' && !in_array($f[$k], self::access_types(), true)) { continue; }
             if ($k === 'format') { $data[$k] = self::format($f[$k]); continue; }
@@ -138,6 +150,8 @@ class EventsModel extends Model {
             elseif (in_array($k, array('price_credits', 'capacity'), true)) { $data[$k] = max(0, (int) $f[$k]); }
             elseif ($k === 'external_url') { $data[$k] = self::web_link($f[$k]); }
             elseif ($k === 'call_password') { $data[$k] = self::call_password($f[$k]); }
+            elseif ($k === 'call_waiting_room' || $k === 'call_chat') { $data[$k] = (int) $f[$k] === 1 ? 1 : 0; }
+            elseif ($k === 'call_screen_share' || $k === 'call_attendees') { $data[$k] = self::call_choice($k, $f[$k]); }
             else { $data[$k] = $f[$k]; }
         }
         return parent::update('events', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));

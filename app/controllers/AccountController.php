@@ -370,6 +370,7 @@ class AccountController extends Controller {
                 if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
                 $users->link_google($uid, $g['sub']);
                 $users->record_first_touch($uid);
+                SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
                 $new = true;
                 $user = array('user_id' => $uid);
             }

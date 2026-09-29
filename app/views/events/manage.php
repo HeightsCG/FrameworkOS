@@ -24,8 +24,11 @@ $editor_data = array(
     'venue_name' => $d($ev['venue_name'] ?? ''), 'street' => $d($ev['street'] ?? ''), 'city' => $d($ev['city'] ?? ''),
     'region' => $d($ev['region'] ?? ''), 'postal_code' => $d($ev['postal_code'] ?? ''),
     'access_instructions' => $d($ev['access_instructions']), 'call_password' => (string) ($ev['call_password'] ?? ''),
+    'call_waiting_room' => (int) ($ev['call_waiting_room'] ?? 0), 'call_screen_share' => (string) ($ev['call_screen_share'] ?? 'host'),
+    'call_attendees' => (string) ($ev['call_attendees'] ?? 'talk'), 'call_chat' => (int) ($ev['call_chat'] ?? 1),
     'access_type' => $ev['access_type'], 'tier_id' => (int) ($ev['tier_id'] ?? 0),
-    'price' => (int) $ev['price_credits'],   // credits 'capacity' => (int) $ev['capacity'], 'status' => $ev['status'],
+    'price' => (int) $ev['price_credits'],   // credits
+    'capacity' => (int) $ev['capacity'], 'status' => $ev['status'],
 );
 $going = (int) $stats['going'];
 $cap   = (int) $ev['capacity'];

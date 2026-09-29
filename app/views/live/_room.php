@@ -70,6 +70,13 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
     <section class="lv-call" id="lvCall" hidden>
         <div class="lv-call__main">
             <div class="lv-banner" id="lvBanner" role="status" hidden></div>
+            <?php if ($c['is_host']): ?>
+            <div class="lv-waitbar" id="lvWaitBar" role="status" hidden>
+                <i class="fa-solid fa-user-clock" aria-hidden="true"></i><span id="lvWaitBarText"></span>
+                <button type="button" class="lv-waitbar__btn" id="lvWaitBarAdmit">Admit All</button>
+                <button type="button" class="lv-waitbar__link" id="lvWaitBarView">View</button>
+            </div>
+            <?php endif; ?>
             <div class="lv-stage" id="lvStage">
                 <div class="lv-feature" id="lvFeature" hidden></div>
                 <div class="lv-grid" id="lvGrid" data-count="0"></div>
@@ -77,20 +84,48 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
             <div class="lv-bar" role="toolbar" aria-label="Call controls">
                 <button type="button" class="lv-ctl" id="lvMic" aria-pressed="true" aria-label="Microphone" title="Microphone"><i class="fa-solid fa-microphone" aria-hidden="true"></i></button>
                 <button type="button" class="lv-ctl" id="lvCam" aria-pressed="true" aria-label="Camera" title="Camera"><i class="fa-solid fa-video" aria-hidden="true"></i></button>
-                <?php if (empty($c['guest'])): /* visitors without an account can't share their screen */ ?><button type="button" class="lv-ctl lv-ctl--wide-hide" id="lvShare" aria-pressed="false" aria-label="Share Screen" title="Share Screen"><i class="fa-solid fa-display" aria-hidden="true"></i></button><?php endif; ?>
+                <?php if (empty($c['guest'])): /* visitors without an account never share their screen */ ?><button type="button" class="lv-ctl lv-ctl--opt lv-ctl--wide-hide" id="lvShare" aria-pressed="false" aria-label="Share Screen" title="Share Screen"><i class="fa-solid fa-display" aria-hidden="true"></i></button><?php endif; ?>
+                <?php if (!$c['is_host']): ?><button type="button" class="lv-ctl lv-ctl--opt" id="lvHand" aria-pressed="false" aria-label="Raise Hand" title="Raise Hand"><i class="fa-solid fa-hand" aria-hidden="true"></i></button><?php endif; ?>
+                <button type="button" class="lv-ctl lv-ctl--opt" id="lvChatBtn" aria-pressed="false" aria-label="Chat" title="Chat" data-pane="chat"><i class="fa-solid fa-message" aria-hidden="true"></i><span class="lv-ctl__dot" id="lvChatDot" hidden></span></button>
                 <?php if ($c['is_host']): ?>
-                <button type="button" class="lv-ctl" id="lvPeople" aria-pressed="false" aria-label="People" title="People"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span class="lv-ctl__count" id="lvCount">1</span></button>
-                <button type="button" class="lv-ctl" id="lvMuteAll" aria-label="Mute Everyone" title="Mute Everyone"><i class="fa-solid fa-microphone-lines-slash" aria-hidden="true"></i></button>
+                <button type="button" class="lv-ctl lv-ctl--opt" id="lvPeople" aria-pressed="false" aria-label="People" title="People" data-pane="people"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span class="lv-ctl__count" id="lvCount">1</span></button>
+                <button type="button" class="lv-ctl lv-ctl--opt" id="lvSettingsBtn" aria-pressed="false" aria-label="Host Settings" title="Host Settings" data-pane="settings"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>
                 <?php endif; ?>
                 <button type="button" class="lv-ctl lv-ctl--leave" id="lvLeave" aria-label="Leave Call" title="Leave Call"><i class="fa-solid fa-phone-slash" aria-hidden="true"></i></button>
             </div>
         </div>
-        <?php if ($c['is_host']): ?>
-        <aside class="lv-people" id="lvPeoplePanel" hidden aria-label="People in the call">
-            <header class="lv-people__head"><h2 class="lv-people__h">People</h2><button type="button" class="lv-people__close" id="lvPeopleClose" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
-            <ul class="lv-people__list" id="lvPeopleList"></ul>
+        <aside class="lv-side" id="lvSide" hidden aria-labelledby="lvSideTitle">
+            <header class="lv-side__head"><h2 class="lv-side__h" id="lvSideTitle">Chat</h2><button type="button" class="lv-side__close" id="lvSideClose" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></header>
+            <?php if ($c['is_host']): ?>
+            <div class="lv-pane" id="lvPanePeople" data-pane="people" hidden>
+                <div class="lv-group" id="lvWaitGroup" hidden>
+                    <div class="lv-group__head"><span class="lv-group__h" id="lvWaitTitle">Waiting</span><button type="button" class="lv-group__act" id="lvAdmitAll">Admit All</button></div>
+                    <ul class="lv-list" id="lvWaitList"></ul>
+                </div>
+                <div class="lv-group">
+                    <div class="lv-group__head"><span class="lv-group__h" id="lvInTitle">In the Call</span><button type="button" class="lv-group__act" id="lvMuteAll">Mute All</button></div>
+                    <ul class="lv-list" id="lvPeopleList"></ul>
+                </div>
+            </div>
+            <div class="lv-pane" id="lvPaneSettings" data-pane="settings" hidden>
+                <ul class="lv-set">
+                    <li class="lv-set__row"><label class="lv-set__label" for="lvSetWaiting">Waiting Room</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetWaiting" data-key="waiting"></div></li>
+                    <li class="lv-set__row"><label class="lv-set__label" for="lvSetShare">Attendees Can Share Screen</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetShare" data-key="share"></div></li>
+                    <li class="lv-set__row"><label class="lv-set__label" for="lvSetTalk">Attendees Can Talk</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetTalk" data-key="watch"></div></li>
+                    <li class="lv-set__row"><label class="lv-set__label" for="lvSetChat">Chat</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetChat" data-key="chat"></div></li>
+                    <li class="lv-set__row"><label class="lv-set__label" for="lvSetLocked">Lock Call</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetLocked" data-key="locked"></div></li>
+                </ul>
+            </div>
+            <?php endif; ?>
+            <div class="lv-pane lv-chat" id="lvPaneChat" data-pane="chat" hidden>
+                <ol class="lv-chat__list" id="lvChatList" aria-live="polite"></ol>
+                <p class="lv-chat__empty" id="lvChatEmpty">No messages yet.</p>
+                <form class="lv-chat__form" id="lvChatForm" autocomplete="off">
+                    <input type="text" class="form-control" id="lvChatInput" maxlength="500" placeholder="Message everyone" aria-label="Message">
+                    <button type="submit" class="lv-chat__send" id="lvChatSend" aria-label="Send"><i class="fa-solid fa-paper-plane" aria-hidden="true"></i></button>
+                </form>
+            </div>
         </aside>
-        <?php endif; ?>
     </section>
 
     <!-- After leaving (or being removed / the call closing) -->
