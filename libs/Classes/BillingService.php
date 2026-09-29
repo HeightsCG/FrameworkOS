@@ -68,6 +68,27 @@ class BillingService {
         return max(0.0, min(1.0, ($e - time()) / ($e - $s)));
     }
 
+    /**
+     * The share of the plan price actually paid for the current period (1.0 = full price, 0.5 = a 50%-off promo,
+     * 0 = free), from the charge that bought it: its plan line against its promo lines. Upgrades credit unused time
+     * at this rate, so a discounted period is never refunded as if it were paid in full. No charge on record (e.g. an
+     * account migrated from Stripe) = full price.
+     */
+    public static function paid_share(array $acct): float
+    {
+        $since = (string) ($acct['current_period_start'] ?? '');
+        if ($since === '') { return 1.0; }
+        $row = (new BillingChargesModel())->last_plan_charge((int) $acct['user_id'], gmdate('Y-m-d H:i:s', strtotime($since . ' UTC') - 300));
+        if (!$row) { return 1.0; }
+        $plan = 0; $promo = 0;
+        foreach ((array) json_decode((string) $row['line_items'], true) as $l) {
+            $label = (string) ($l['label'] ?? ''); $amt = (int) ($l['amount_cents'] ?? 0);
+            if (strpos($label, 'Promo ') === 0) { $promo += -$amt; }
+            elseif ($plan === 0 && $amt > 0 && preg_match('/ plan( \(rest of this period\))?$/', $label)) { $plan = $amt; }
+        }
+        return $plan > 0 ? max(0.0, min(1.0, ($plan - $promo) / $plan)) : 1.0;
+    }
+
     /** $from plus whole billing periods, keeping the day of month (clamped like Stripe). */
     public static function add_period($from, $periods = 1): string
     {
@@ -532,8 +553,9 @@ class BillingService {
         if ($from === $plan) { return array('ok' => false, 'message' => 'That is already your plan.'); }
         if (self::plan_cents($plan) > self::plan_cents($from)) {
             $frac = self::remaining_fraction($acct);
+            // Credit for the rest of the current plan at what was actually paid for it (a promo period isn't refunded at list price).
             $lines = array(array($to['name'] . ' plan (rest of this period)', (int) round(self::plan_cents($plan) * $frac)),
-                           array('Unused ' . PlanTiers::get($from)['name'] . ' time', -(int) round(self::plan_cents($from) * $frac)));
+                           array('Unused ' . PlanTiers::get($from)['name'] . ' time', -(int) round(self::plan_cents($from) * $frac * self::paid_share($acct))));
             if ((int) $acct['influencer_slots'] > 0 && !self::takes_slots($plan)) {
                 $lines[] = array('Unused extra AI influencers', -(int) round((int) $acct['influencer_slots'] * self::slot_cents() * $frac));
             }

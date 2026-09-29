@@ -25,6 +25,13 @@ class BillingChargesModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** The latest applied charge that bought a plan (subscribe, renewal or upgrade) since $since, newest first, or null. */
+    public function last_plan_charge($user_id, $since){
+        $r = parent::select("SELECT * FROM billing_charges WHERE user_id = :u AND applied = 1 AND kind IN ('subscribe', 'renewal', 'upgrade')
+                             AND created_at >= :s ORDER BY id DESC LIMIT 1", array('u' => (int) $user_id, 's' => (string) $since));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
     public function by_payment_intent($pi){
         $r = parent::select("SELECT * FROM billing_charges WHERE stripe_payment_intent_id = :pi", array('pi' => (string) $pi));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
