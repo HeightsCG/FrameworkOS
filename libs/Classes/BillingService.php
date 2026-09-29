@@ -347,6 +347,7 @@ class BillingService {
         }
         $accts->save($uid, $f);
         self::mirror($uid);
+        if ((string) $row['kind'] === 'subscribe') { DirectoryService::list_on_upgrade($uid); }   // Free to a paid plan: listed in /creators by default
         self::receipt($row);
         return true;
     }

@@ -1,6 +1,7 @@
 <?php
 /**
- * Creator directory (/creators, /creators/<category>). Opt-in and safe-for-work only.
+ * Creator directory (/creators, /creators/<category>). On by default once a creator upgrades from Free (they can
+ * switch it off in Settings); safe-for-work only.
  * A creator shows when they switched it on, picked a category, their profile photo and cover passed the
  * adult-image check as they are now, and they have at least one published, non-adult page post
  * (CreatorProfileModel::directory_where). Changing a photo queues a re-check (DirectoryRecheckJob), and
@@ -50,6 +51,23 @@ class DirectoryService {
         return array('ok' => true, 'message' => $m->directory_eligible($user_id)
             ? 'You\'re listed in the Creator Directory.'
             : 'Saved. You\'ll appear in the directory once you have a published post whose images aren\'t adult content.');
+    }
+
+    /**
+     * Upgrading from Free lists the creator by default (Settings can switch it off). Keeps a category they already
+     * picked, else Other. The photo check runs as a job; until it passes (and they have a photo and a safe-for-work
+     * post) they don't show. Never breaks the caller: billing must not fail over the directory.
+     */
+    public static function list_on_upgrade($user_id): void {
+        try {
+            $m   = new CreatorProfileModel();
+            $p   = (array) $m->get_for_user($user_id);
+            $cat = (string) ($p['directory_category'] ?? '');
+            $m->set_directory($user_id, true, isset(self::CATEGORIES[$cat]) ? $cat : 'other');
+            self::queue_recheck($user_id);
+        } catch (\Throwable $e) {
+            error_log('[directory] list_on_upgrade ' . (int) $user_id . ': ' . $e->getMessage());
+        }
     }
 
     /** Photo or cover changed: queue a re-check for a listed creator (the directory drops them until it passes). */

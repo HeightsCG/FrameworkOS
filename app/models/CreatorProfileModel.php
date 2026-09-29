@@ -77,6 +77,17 @@ class CreatorProfileModel extends Model {
             'user_id = :user_id', array('user_id' => (int) $user_id));
     }
 
+    /** Creators on a paid plan who aren't listed in the directory (for the one-off cron/directory_backfill.php). */
+    public function paid_unlisted_creators(): array {
+        $rows = parent::select(
+            "SELECT u.user_id FROM user_accounts u
+             JOIN user_roles r ON r.id = u.role_id AND r.role_name = 'Creator'
+             LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
+             WHERE u.deleted = 0 AND u.user_status = 'Active' AND " . Plan::paid_sql('u') . " AND COALESCE(cp.directory_listed, 0) = 0
+             ORDER BY u.user_id");
+        return array_map(function ($r) { return (int) $r['user_id']; }, (array) $rows);
+    }
+
     /** Record which images passed the adult check (hash of "avatar|cover"), or null when they didn't. */
     public function set_directory_media($user_id, $hash){
         return parent::update('creator_profiles', array('directory_media_ok' => $hash, 'directory_checked_at' => gmdate('Y-m-d H:i:s')),
@@ -90,7 +101,7 @@ class CreatorProfileModel extends Model {
     private function directory_where(): string {
         return "cp.directory_listed = 1
             AND cp.directory_media_ok = SHA1(CONCAT(COALESCE(cp.avatar_url, ''), '|', COALESCE(cp.cover_url, '')))
-            AND u.deleted = 0 AND u.user_status = 'Active' AND r.role_name = 'Creator' AND u.u_name <> ''
+            AND u.deleted = 0 AND u.user_status = 'Active' AND r.role_name = 'Creator' AND u.u_name <> '' AND COALESCE(cp.avatar_url, '') <> ''
             AND " . Plan::paid_sql('u') . "
             AND EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1
