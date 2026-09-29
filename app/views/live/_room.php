@@ -15,7 +15,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
             <p class="lv__sub"><?php echo $h($c['when']); ?><?php if ($c['host_name'] !== ''): ?> · Hosted by <?php echo $h($c['host_name']); ?><?php endif; ?></p>
         </div>
         <div class="lv__meta">
-            <?php if ($c['is_host']): ?><span class="lv__chip">Host</span><?php endif; ?>
+            <?php if ($c['is_host']): ?><span class="lv__chip lv__chip--tips" id="lvTipTotal" hidden></span><span class="lv__chip">Host</span><?php endif; ?>
             <span class="lv__timer" id="lvTimer" hidden>00:00</span>
         </div>
     </header>
@@ -77,6 +77,12 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
                 <button type="button" class="lv-waitbar__link" id="lvWaitBarView">View</button>
             </div>
             <?php endif; ?>
+            <div class="lv-tipnote" id="lvTipNote" role="status" hidden></div>
+            <div class="lv-offer" id="lvOffer" hidden>
+                <div class="lv-offer__body"><span class="lv-offer__kind" id="lvOfferKind">Pinned by the host</span><b class="lv-offer__title" id="lvOfferTitle"></b><span class="lv-offer__price" id="lvOfferPrice"></span></div>
+                <a class="btn btn-primary lv-offer__btn" id="lvOfferBtn" href="#" target="_blank" rel="noopener">Buy</a>
+                <?php if ($c['is_host']): ?><button type="button" class="lv-offer__x" id="lvOfferUnpin" aria-label="Unpin" title="Unpin"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button><?php endif; ?>
+            </div>
             <div class="lv-stage" id="lvStage">
                 <div class="lv-feature" id="lvFeature" hidden></div>
                 <div class="lv-grid" id="lvGrid" data-count="0"></div>
@@ -86,6 +92,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
                 <button type="button" class="lv-ctl" id="lvCam" aria-pressed="true" aria-label="Camera" title="Camera"><i class="fa-solid fa-video" aria-hidden="true"></i></button>
                 <?php if (empty($c['guest'])): /* visitors without an account never share their screen */ ?><button type="button" class="lv-ctl lv-ctl--opt lv-ctl--wide-hide" id="lvShare" aria-pressed="false" aria-label="Share Screen" title="Share Screen"><i class="fa-solid fa-display" aria-hidden="true"></i></button><?php endif; ?>
                 <?php if (!$c['is_host']): ?><button type="button" class="lv-ctl lv-ctl--opt" id="lvHand" aria-pressed="false" aria-label="Raise Hand" title="Raise Hand"><i class="fa-solid fa-hand" aria-hidden="true"></i></button><?php endif; ?>
+                <?php if (empty($c['guest']) && !$c['is_host']): ?><button type="button" class="lv-ctl lv-ctl--opt" id="lvTipBtn" aria-pressed="false" aria-label="Send a Tip" title="Send a Tip" data-pane="tip"><i class="fa-solid fa-coins" aria-hidden="true"></i></button><?php endif; ?>
                 <button type="button" class="lv-ctl lv-ctl--opt" id="lvChatBtn" aria-pressed="false" aria-label="Chat" title="Chat" data-pane="chat"><i class="fa-solid fa-message" aria-hidden="true"></i><span class="lv-ctl__dot" id="lvChatDot" hidden></span></button>
                 <?php if ($c['is_host']): ?>
                 <button type="button" class="lv-ctl lv-ctl--opt" id="lvPeople" aria-pressed="false" aria-label="People" title="People" data-pane="people"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span class="lv-ctl__count" id="lvCount">1</span></button>
@@ -115,6 +122,29 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
                     <li class="lv-set__row"><label class="lv-set__label" for="lvSetChat">Chat</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetChat" data-key="chat"></div></li>
                     <li class="lv-set__row"><label class="lv-set__label" for="lvSetLocked">Lock Call</label><div class="form-check form-switch"><input class="form-check-input" type="checkbox" role="switch" id="lvSetLocked" data-key="locked"></div></li>
                 </ul>
+                <div class="lv-pin">
+                    <label class="lv-field__label" for="lvOfferSel">Pinned Offer</label>
+                    <div class="lv-pin__row">
+                        <select class="form-select" id="lvOfferSel"><option value="">Nothing pinned</option></select>
+                        <button type="button" class="btn btn-secondary" id="lvPinBtn">Pin</button>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+            <?php if (empty($c['guest']) && !$c['is_host']): ?>
+            <div class="lv-pane lv-tip" id="lvPaneTip" data-pane="tip" hidden>
+                <p class="lv-tip__bal">You have <b id="lvTipBal">0 credits</b></p>
+                <div class="lv-tip__chips" role="group" aria-label="Amount">
+                    <button type="button" class="lv-tip__chip" data-amt="10">10</button><button type="button" class="lv-tip__chip is-on" data-amt="50" aria-pressed="true">50</button>
+                    <button type="button" class="lv-tip__chip" data-amt="100">100</button><button type="button" class="lv-tip__chip" data-amt="500">500</button>
+                </div>
+                <div class="lv-field">
+                    <label class="lv-field__label" for="lvTipCustom">Other Amount</label>
+                    <input type="number" class="form-control" id="lvTipCustom" min="10" max="5000" step="1" inputmode="numeric" placeholder="10 to 5,000 credits">
+                </div>
+                <button type="button" class="btn btn-primary lv-tip__send" id="lvTipSend">Send 50 Credits</button>
+                <a class="lv-link lv-tip__buy" id="lvTipBuy" href="/account/settings?section=wallet" target="_blank" rel="noopener" hidden>Buy Credits</a>
+                <p class="lv-tip__final">Tips are final and go straight to the host.</p>
             </div>
             <?php endif; ?>
             <div class="lv-pane lv-chat" id="lvPaneChat" data-pane="chat" hidden>

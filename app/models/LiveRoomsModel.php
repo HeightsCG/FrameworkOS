@@ -31,6 +31,19 @@ class LiveRoomsModel extends Model {
         parent::delete_all('live_rooms', 'room = :room', array('room' => (string) $room));
     }
 
+    /* ---- tips ---- */
+
+    public function add_tip($room, $kind, $ref_id, $creator_id, $fan_id, $credits, $net): void {
+        parent::insert('live_tips', array('room' => (string) $room, 'kind' => (string) $kind, 'ref_id' => (int) $ref_id, 'creator_id' => (int) $creator_id,
+            'fan_id' => (int) $fan_id, 'credits' => (int) $credits, 'net_credits' => (int) $net, 'created_at' => gmdate('Y-m-d H:i:s')));
+    }
+
+    /** Credits tipped in one call so far. */
+    public function tips_total($room): int {
+        $r = parent::select("SELECT COALESCE(SUM(credits), 0) AS c FROM live_tips WHERE room = :room", array('room' => (string) $room));
+        return (int) ($r[0]['c'] ?? 0);
+    }
+
     /* ---- waiting room ---- */
 
     public function entry($room, $identity): ?array {

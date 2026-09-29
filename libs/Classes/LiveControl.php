@@ -41,6 +41,7 @@ class LiveControl {
             'locked'    => (int) ($row['locked'] ?? 0) === 1,
             'spotlight' => (string) ($row['spotlight'] ?? ''),
             'speakers'  => is_array($speakers) ? array_values(array_map('strval', $speakers)) : array(),
+            'offer'     => is_array($o = json_decode((string) ($row['pinned'] ?? ''), true)) ? $o : null,
         );
     }
 
@@ -60,7 +61,7 @@ class LiveControl {
     public static function meta(array $s): string
     {
         return json_encode(array('waiting' => $s['waiting'], 'share' => $s['share'], 'watch' => $s['watch'], 'chat' => $s['chat'],
-                                 'locked' => $s['locked'], 'spotlight' => $s['spotlight'], 'speakers' => $s['speakers']));
+                                 'locked' => $s['locked'], 'spotlight' => $s['spotlight'], 'speakers' => $s['speakers'], 'offer' => $s['offer'] ?? null));
     }
 
     /**
@@ -91,6 +92,37 @@ class LiveControl {
             $ok = LiveKit::update_participant($room, $id, self::perm($s, $id, !empty($meta['guest']))) && $ok;
         }
         return $ok;
+    }
+
+    /**
+     * What a host can pin in their call: their live bundles, published services and active membership plans, each as
+     * the card attendees see (type, id, title, price, cta, url). Bundles and services are in credits; memberships are
+     * billed to a card, so their price is in dollars.
+     */
+    public static function offers($creator_id): array
+    {
+        $rows  = (new UsersModel())->get_user_by_id((int) $creator_id);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$owner) { return array(); }
+        $d = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $out = array();
+        foreach ((array) (new ContentBundlesModel())->get_active_for_creator($creator_id) as $b) {
+            $out[] = array('type' => 'bundle', 'id' => (int) $b['id'], 'title' => $d($b['name']), 'price' => Price::credits((int) $b['price_credits']),
+                           'cta' => 'Buy', 'url' => CustomDomains::share_url($owner, '') . '#plans');
+        }
+        foreach ((new ServicesModel())->list_for_creator($creator_id) as $sv) {
+            if ((string) $sv['status'] !== 'published') { continue; }
+            $out[] = array('type' => 'service', 'id' => (int) $sv['id'], 'title' => $d($sv['name']),
+                           'price' => (int) $sv['price_credits'] > 0 ? Price::credits((int) $sv['price_credits']) : 'Free',
+                           'cta' => 'Book', 'url' => CustomDomains::share_url($owner, 'services/' . (int) $sv['id']));
+        }
+        foreach ((array) (new CreatorPlansModel())->get_active_for_user($creator_id) as $pl) {
+            $cents = (int) $pl['price_cents'];
+            $out[] = array('type' => 'plan', 'id' => (int) $pl['id'], 'title' => $d($pl['name']),
+                           'price' => $cents > 0 ? '$' . number_format($cents / 100, 2) . ' / ' . ((string) $pl['billing_interval'] === 'year' ? 'year' : 'month') : 'Free',
+                           'cta' => 'Join', 'url' => CustomDomains::share_url($owner, '') . '#plans');
+        }
+        return $out;
     }
 
     /** The identity a signed-in person or a guest (by browser session) has in a room. */

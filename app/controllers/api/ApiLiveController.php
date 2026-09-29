@@ -65,6 +65,9 @@ class ApiLiveController extends BaseApiController {
             'title' => $r['title'],
             'me'    => $identity,
             'state' => json_decode(LiveControl::meta($s), true),
+            'credits' => $me > 0 ? (int) (new CreditsModel())->get_balance($me) : 0,   // for the tip panel
+            'tips'  => !empty($r['host']) ? (new LiveRoomsModel())->tips_total($room) : 0,
+            'can_tip' => $me > 0 && empty($r['host']),
         ]);
     }
 
@@ -193,6 +196,67 @@ class ApiLiveController extends BaseApiController {
         $up = (string) ($this->post['up'] ?? '') === '1';
         if (!LiveKit::update_participant($room, $me, null, array('hand' => $up ? (string) time() : ''))) { $this->jsonError('Could not reach the video server. Try again.'); }
         $this->jsonSuccess(['up' => $up]);
+    }
+
+    /** Host: what they can pin in the call (their bundles, services, membership plans). {kind, id} */
+    public function live_offersAction(){
+        $r = $this->host_room();
+        $this->jsonSuccess(['offers' => LiveControl::offers((int) $r['creator_id'])]);
+    }
+
+    /** Host: pin one offer for everyone, or unpin (type ''). {kind, id, type: bundle|service|plan, item} */
+    public function live_pinAction(){
+        $r = $this->host_room();
+        $type = (string) ($this->post['type'] ?? ''); $item = (int) ($this->post['item'] ?? 0);
+        $offer = null;
+        if ($type !== '') {
+            foreach (LiveControl::offers((int) $r['creator_id']) as $o) { if ($o['type'] === $type && $o['id'] === $item) { $offer = $o; break; } }
+            if ($offer === null) { $this->jsonError('That offer isn’t available.'); }
+        }
+        $rooms = new LiveRoomsModel();
+        $rooms->set($r['room'], array('pinned' => $offer ? json_encode($offer) : null));
+        $s = LiveControl::state($r['room'], (array) $r['defaults']);
+        if (!LiveKit::set_room_metadata($r['room'], LiveControl::meta($s))) { $this->jsonError('Could not reach the video server. Try again.'); }
+        $this->jsonSuccess(['state' => json_decode(LiveControl::meta($s), true)]);
+    }
+
+    /**
+     * A fan tips the host during the call, in wallet credits. {kind, id, credits}
+     * Signed-in attendees only (guests have no wallet); the host can't tip themselves. The creator gets their share
+     * at once, less the platform fee. Everyone in the call sees it (sent from the server, so nobody can fake one).
+     */
+    public function live_tipAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { $this->jsonError('Sign in to send a tip.', ['need_login' => true]); }
+        $kind = (string) ($this->post['kind'] ?? ''); $id = (int) ($this->post['id'] ?? 0);
+        $room = $kind === 'event' ? LiveKit::room_for_event($id) : ($kind === 'booking' ? LiveKit::room_for_booking($id) : '');
+        if ($room === '') { $this->jsonError('This call is not available.'); }
+        if ($kind === 'event') {
+            $ev = (new EventsModel())->get_public($id);
+            $creator = $ev ? (int) $ev['creator_id'] : 0; $title = $ev ? html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8') : '';
+        } else {
+            $services = new ServicesModel();
+            $p = $services->purchase_by_id($id); $sv = $p ? $services->get_by_id((int) $p['service_id']) : null;
+            $creator = $sv ? (int) $sv['creator_id'] : 0; $title = $sv ? html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8') : '';
+        }
+        if ($creator <= 0) { $this->jsonError('This call is not available.'); }
+        if (LiveAccess::is_host($creator)) { $this->jsonError('You can’t tip your own call.'); }
+        $in = false;   // they must be in the call right now
+        foreach ((array) LiveKit::participants($room) as $pp) { if ((string) ($pp['identity'] ?? '') === 'u' . $me) { $in = true; break; } }
+        if (!$in) { $this->jsonError('Join the call first.'); }
+        if ($this->seller_suspended($creator) || (new BlocksModel())->either_blocked($me, $creator)) { $this->jsonError('Tips aren’t available in this call.'); }
+        $credits = $this->price_credits($this->post['credits'] ?? '');   // 10 to 5,000 whole credits
+        $net = $this->creator_net($creator, $credits);
+        $name = Notify::name_of($me) ?: 'Someone';
+        $after = (new CreditsModel())->pay($me, $credits, 'live_tip', 'Tip in "' . mb_substr($title, 0, 80) . '"', $creator, $net, 'tip_earning', 'Tip from ' . $name . ' in "' . mb_substr($title, 0, 80) . '"');
+        if ($after === false) {
+            $bal = (int) (new CreditsModel())->get_balance($me);
+            $this->jsonError($bal < $credits ? 'You have ' . Price::credits($bal) . '. Buy credits to send this tip.' : 'Your tip didn’t go through. Try again.', ['need_credits' => $bal < $credits, 'balance' => $bal]);
+        }
+        $rooms = new LiveRoomsModel();
+        $rooms->add_tip($room, $kind, $id, $creator, $me, $credits, $net);
+        LiveKit::send_data($room, array('name' => $name, 'credits' => $credits, 'total' => $rooms->tips_total($room)), 'tip');
+        $this->jsonSuccess(['balance' => (int) $after, 'message' => 'You sent ' . Price::credits($credits)]);
     }
 
     /** A participant identity from the page: u<user id> or g<hash>. */

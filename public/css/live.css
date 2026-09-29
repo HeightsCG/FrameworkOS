@@ -180,3 +180,50 @@
 .lv .btn-primary:hover, .lv .btn-primary:focus-visible{ background:var(--acc-btn-h); border-color:var(--acc-btn-h); color:var(--on-acc); }
 .lv .btn-primary:focus-visible{ box-shadow:var(--ring); }
 .lv .btn-primary:disabled{ background:var(--acc-btn); border-color:var(--acc-btn); opacity:.5; }
+
+/* Tips (fans) and the host's running total */
+.lv__chip--tips{ color:var(--acc-ink); border-color:#fbd5bd; background:#fff7f1; display:inline-flex; align-items:center; gap:.35rem; }
+.lv__chip--tips[hidden]{ display:none; }
+.lv-tip{ padding:0 1rem 1rem; display:flex; flex-direction:column; gap:1rem; }
+.lv-tip[hidden]{ display:none; }
+.lv-tip__bal{ margin:0; font-size:.875rem; color:var(--t2); }
+.lv-tip__bal b{ color:var(--text); font-weight:600; }
+.lv-tip__chips{ display:grid; grid-template-columns:repeat(4, 1fr); gap:.5rem; }
+.lv-tip__chip{ border:1px solid var(--line); background:var(--surface); border-radius:var(--r); padding:.55rem 0; font-size:.9rem; font-weight:600; color:var(--text); }
+.lv-tip__chip:hover{ background:#fafafa; }
+.lv-tip__chip.is-on{ border-color:var(--acc); background:#fff7f1; color:var(--acc-ink); box-shadow:inset 0 0 0 1px var(--acc); }
+.lv-tip__chip:focus-visible{ outline:none; box-shadow:var(--ring); }
+.lv-tip__send{ width:100%; font-weight:600; }
+.lv-tip__buy{ align-self:center; }
+.lv-tip__final{ margin:0; font-size:.78rem; color:var(--muted); text-align:center; }
+
+/* A tip arriving: everyone sees it on the stage */
+.lv-tipnote{ position:absolute; top:.8rem; right:.8rem; z-index:4; display:flex; align-items:center; gap:.5rem; background:#fff; color:var(--text); font-size:.875rem;
+             padding:.5rem .9rem; border-radius:var(--r-pill); box-shadow:0 4px 16px rgba(0,0,0,.25); max-width:calc(100% - 1.6rem); }
+.lv-tipnote[hidden]{ display:none; }
+.lv-tipnote .fa-coins{ color:var(--acc-ink); }
+.lv-tipnote b{ font-weight:600; }
+.lv-tipnote.is-in{ animation:lv-pop .35s ease-out; }
+@keyframes lv-pop{ from{ transform:translateY(-8px); opacity:0; } to{ transform:none; opacity:1; } }
+@media (prefers-reduced-motion:reduce){ .lv-tipnote.is-in{ animation:none; } }
+.lv-msg--note .lv-msg__text{ color:var(--t2); font-size:.8rem; }
+.lv-msg--note .fa-coins{ color:var(--acc-ink); margin-right:.25rem; }
+
+/* Pinned offer: a card over the stage, above the controls */
+.lv-offer{ position:absolute; left:.8rem; bottom:4.8rem; z-index:3; display:flex; align-items:center; gap:.9rem; background:#fff; border-radius:var(--r-lg);
+           padding:.65rem .65rem .65rem .9rem; box-shadow:0 6px 24px rgba(0,0,0,.3); max-width:min(420px, calc(100% - 1.6rem)); }
+.lv-offer[hidden]{ display:none; }
+.lv-offer__body{ display:flex; flex-direction:column; min-width:0; }
+.lv-offer__kind{ font-size:.72rem; color:var(--muted); }
+.lv-offer__title{ font-size:.9rem; font-weight:600; color:var(--text); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lv-offer__price{ font-size:.8rem; color:var(--t2); }
+.lv-offer__btn{ flex:none; padding:.45rem .9rem; font-size:.85rem; font-weight:600; }
+.lv-offer__x{ flex:none; background:none; border:0; width:28px; height:28px; border-radius:var(--r); color:var(--muted); }
+.lv-offer__x:hover{ background:#f4f4f4; color:var(--text); }
+.lv-offer__x:focus-visible{ outline:none; box-shadow:var(--ring); }
+
+/* Host settings: pinned offer picker */
+.lv-pin{ padding:1rem .5rem 0; margin-top:.25rem; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:.4rem; }
+.lv-pin__row{ display:flex; gap:.5rem; }
+.lv-pin__row .form-select{ min-width:0; flex:1; }
+@media (max-width:640px){ .lv-offer{ bottom:4.4rem; left:.5rem; right:.5rem; max-width:none; } }

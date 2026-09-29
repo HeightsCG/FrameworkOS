@@ -95,6 +95,12 @@ class LiveKit {
         return self::room_api('UpdateParticipant', $body, $room) !== null;
     }
 
+    /** A message to every page in the room from the server itself (no participant can fake it: it has no sender). */
+    public static function send_data($room, array $payload, $topic): bool
+    {
+        return self::room_api('SendData', array('room' => (string) $room, 'data' => base64_encode(json_encode($payload)), 'kind' => 'RELIABLE', 'topic' => (string) $topic), $room) !== null;
+    }
+
     /** Turn off one person's microphone ('MICROPHONE') or camera ('CAMERA') from the host's side. */
     public static function mute_source($room, $identity, $source): bool
     {

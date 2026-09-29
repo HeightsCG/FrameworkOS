@@ -76,6 +76,7 @@ class AdminModel extends Model {
             'message' => array('Paid messages','message_unlock',   'message_earning'),
             'service' => array('Services',     'service_purchase', 'service_earning'),
             'event'   => array('Events',       'event_ticket',     'event_earning'),
+            'tip'     => array('Tips',         'live_tip',         'tip_earning'),
         );
         $ledger = array();
         foreach ((array) parent::select("SELECT type, COUNT(*) AS n, COALESCE(SUM(credits),0) AS cr FROM credit_transactions GROUP BY type") as $r) {
@@ -155,6 +156,7 @@ class AdminModel extends Model {
             'message' => array('message_unlock', 'message_earning'),
             'service' => array('service_purchase', 'service_earning'),
             'event'   => array('event_ticket', 'event_earning'),
+            'tip'     => array('live_tip', 'tip_earning'),
         );
         $since = gmdate('Y-m-01 00:00:00', strtotime('first day of -23 months'));
         $keys = array();

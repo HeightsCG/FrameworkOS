@@ -88,7 +88,7 @@ class ApiRoutes {
             'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all', 'event_set_live',
         ],
         'ApiLiveController' => [
-            'live_join', 'live_remove', 'live_mute_all', 'live_status', 'live_settings', 'live_waiting', 'live_admit', 'live_deny', 'live_person', 'live_hand',
+            'live_join', 'live_remove', 'live_mute_all', 'live_status', 'live_settings', 'live_waiting', 'live_admit', 'live_deny', 'live_person', 'live_hand', 'live_offers', 'live_pin', 'live_tip',
         ],
         'ApiServicesController' => [
             'service_save', 'service_delete', 'service_purchase', 'service_buyers', 'service_buyers_csv', 'service_refund_buyer', 'service_set_live', 'service_mark_delivered',

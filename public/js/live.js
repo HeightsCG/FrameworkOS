@@ -179,6 +179,7 @@
         var btn = el('lvJoin');
         me_id = r.me || '';
         if (r.state) { state = r.state; }
+        tip_balance = parseInt(r.credits, 10) || 0; show_tip_total(parseInt(r.tips, 10) || 0);
         var may_talk = is_host || !state.watch || state.speakers.indexOf(me_id) >= 0;
         var want_mic = may_talk && mic_on && !!preview.audio, want_cam = may_talk && cam_on && !!preview.video;
         var mic_id = el('lvMicSel').value, cam_id = el('lvCamSel').value;
@@ -219,7 +220,10 @@
         });
         r.on(E.RoomMetadataChanged, function (m) { apply_state(m); });
         r.on(E.ParticipantPermissionsChanged, function (prev, p) { if (p === r.localParticipant) { perms_changed(prev); } });
-        r.on(E.DataReceived, function (payload, p, kind_, topic) { if (topic === 'chat') { chat_in(payload, p); } });
+        r.on(E.DataReceived, function (payload, p, kind_, topic) {
+            if (topic === 'chat') { chat_in(payload, p); }
+            if (topic === 'tip' && !p) { tip_in(payload); }   // only the server sends tips (a participant can't fake one)
+        });
         r.on(E.Reconnecting, function () { banner('Reconnecting…'); });
         r.on(E.Reconnected, function () { banner(''); });
         r.on(E.Disconnected, function (reason) {
@@ -245,7 +249,7 @@
         if (!s || typeof s !== 'object' || !('share' in s)) { return; }
         state = s; state.speakers = state.speakers || [];
         if (is_host) { sync_settings(); poll_waiting(); }
-        render(); chat_state();
+        render(); chat_state(); render_offer();
     }
     /* What this attendee may do right now (LiveKit enforces it; this only mirrors it in the controls). */
     function may(src) {
@@ -361,13 +365,15 @@
     });
 
     /* ---------------- Side panel: chat for everyone; people and settings for the host ---------------- */
-    var pane = null, TITLES = { chat: 'Chat', people: 'People', settings: 'Host Settings' };
+    var pane = null, TITLES = { chat: 'Chat', people: 'People', settings: 'Host Settings', tip: 'Send a Tip' };
     function open_pane(name) {
         pane = name;
         el('lvSide').hidden = !name;
         document.querySelectorAll('.lv-pane').forEach(function (p) { p.hidden = p.getAttribute('data-pane') !== name; });
         document.querySelectorAll('.lv-bar [data-pane]').forEach(function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-pane') === name ? 'true' : 'false'); });
         if (name) { el('lvSideTitle').textContent = TITLES[name]; }
+        if (name === 'tip') { tip_ui(); }
+        if (name === 'settings' && is_host) { load_offers(); }
         if (name === 'chat') { unread = 0; el('lvChatDot').hidden = true; scroll_chat(); if (!el('lvChatInput').disabled) { el('lvChatInput').focus(); } }
     }
     document.querySelectorAll('.lv-bar [data-pane]').forEach(function (b) {
@@ -406,6 +412,99 @@
             .then(function () { chat_add(my_name, t, true, is_host); el('lvChatInput').value = ''; })
             .catch(function () { toastr.error(state.chat ? 'Your message didn’t send. Try again.' : 'The host turned chat off.'); });
     });
+
+    /* ---------------- Tips ---------------- */
+    var tip_balance = 0, tip_amt = 50;
+    function cr(n) { n = parseInt(n, 10) || 0; return n.toLocaleString('en-US') + (n === 1 ? ' credit' : ' credits'); }
+    function tip_value() { var c = el('lvTipCustom'); var v = c && c.value.trim() !== '' ? parseInt(c.value, 10) : tip_amt; return isNaN(v) ? 0 : v; }
+    function tip_ui() {
+        if (!el('lvTipSend')) { return; }
+        var v = tip_value(), ok = v >= 10 && v <= 5000;
+        el('lvTipBal').textContent = cr(tip_balance);
+        el('lvTipSend').textContent = ok ? 'Send ' + cr(v).replace('credit', 'Credit') : 'Send a Tip';
+        el('lvTipSend').disabled = !ok || v > tip_balance;
+        el('lvTipBuy').hidden = !(ok && v > tip_balance);
+    }
+    if (el('lvTipSend')) {
+        document.querySelectorAll('.lv-tip__chip').forEach(function (b) {
+            b.addEventListener('click', function () {
+                tip_amt = parseInt(b.getAttribute('data-amt'), 10); el('lvTipCustom').value = '';
+                document.querySelectorAll('.lv-tip__chip').forEach(function (x) { var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+                tip_ui();
+            });
+        });
+        el('lvTipCustom').addEventListener('input', function () {
+            var custom = el('lvTipCustom').value.trim() !== '';
+            document.querySelectorAll('.lv-tip__chip').forEach(function (x) { var on = !custom && parseInt(x.getAttribute('data-amt'), 10) === tip_amt; x.classList.toggle('is-on', on); x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+            tip_ui();
+        });
+        el('lvTipSend').addEventListener('click', function () {
+            var v = tip_value(), b = el('lvTipSend'); b.disabled = true; b.textContent = 'Sending…';
+            ApiDataSvc.apiCall('post', 'live_tip', { kind: kind, id: id, credits: v }, function (data) {
+                var r = parse(data);
+                if (r.success) { tip_balance = r.balance; el('lvTipCustom').value = ''; toastr.success(r.message); }
+                else { if (r.balance != null) { tip_balance = r.balance; } toastr.error(r.message || 'Your tip didn’t go through.'); }
+                tip_ui();
+            });
+        });
+    }
+    var note_timer = null;
+    function tip_in(payload) {
+        var m = null; try { m = JSON.parse(new TextDecoder().decode(payload)); } catch (e) { return; }
+        if (!m || !m.credits) { return; }
+        var n = el('lvTipNote');
+        n.innerHTML = '<i class="fa-solid fa-coins" aria-hidden="true"></i><span><b>' + esc(m.name || 'Someone') + '</b> sent ' + esc(cr(m.credits)) + '</span>';
+        n.hidden = false; n.classList.remove('is-in'); void n.offsetWidth; n.classList.add('is-in');
+        clearTimeout(note_timer); note_timer = setTimeout(function () { n.hidden = true; }, 6000);
+        chat_note((m.name || 'Someone') + ' sent ' + cr(m.credits));
+        if (is_host && m.total) { show_tip_total(m.total); }
+    }
+    function show_tip_total(total) {
+        var t = el('lvTipTotal'); if (!t) { return; }
+        t.hidden = !(total > 0); t.innerHTML = '<i class="fa-solid fa-coins" aria-hidden="true"></i> ' + esc(cr(total)) + ' in tips';
+    }
+    function chat_note(text) {
+        var li = document.createElement('li'); li.className = 'lv-msg lv-msg--note';
+        li.innerHTML = '<p class="lv-msg__text"><i class="fa-solid fa-coins" aria-hidden="true"></i> ' + esc(text) + '</p>';
+        el('lvChatList').appendChild(li); el('lvChatEmpty').hidden = true; scroll_chat();
+    }
+
+    /* ---------------- Pinned offer ---------------- */
+    function render_offer() {
+        var o = state.offer, card = el('lvOffer');
+        card.hidden = !o;
+        if (!o) { return; }
+        el('lvOfferKind').textContent = o.type === 'plan' ? 'Membership' : (o.type === 'service' ? 'Service' : 'Bundle');
+        el('lvOfferTitle').textContent = o.title; el('lvOfferPrice').textContent = o.price;
+        el('lvOfferBtn').textContent = o.cta || 'Buy'; el('lvOfferBtn').href = o.url;
+    }
+    var offers_loaded = false;
+    function load_offers() {
+        if (offers_loaded) { return; }
+        ApiDataSvc.apiCall('post', 'live_offers', { kind: kind, id: id }, function (data) {
+            var r = parse(data); if (!r.success) { return; }
+            offers_loaded = true;
+            var groups = { bundle: 'Bundles', service: 'Services', plan: 'Memberships' }, html = '<option value="">Nothing pinned</option>';
+            Object.keys(groups).forEach(function (g) {
+                var items = (r.offers || []).filter(function (o) { return o.type === g; });
+                if (!items.length) { return; }
+                html += '<optgroup label="' + groups[g] + '">' + items.map(function (o) { return '<option value="' + g + ':' + o.id + '">' + esc(o.title) + ' · ' + esc(o.price) + '</option>'; }).join('') + '</optgroup>';
+            });
+            el('lvOfferSel').innerHTML = html;
+            if (state.offer) { el('lvOfferSel').value = state.offer.type + ':' + state.offer.id; }
+            if (!(r.offers || []).length) { el('lvOfferSel').innerHTML = '<option value="">You have nothing to pin yet</option>'; el('lvOfferSel').disabled = true; el('lvPinBtn').disabled = true; }
+        });
+    }
+    function pin(v) {
+        var parts = String(v || '').split(':');
+        host_call('live_pin', { type: parts[0] || '', item: parts[1] || 0 }, function (r) {
+            if (r.success) { toastr.success(parts[0] ? 'Pinned for everyone' : 'Unpinned'); if (el('lvOfferSel')) { el('lvOfferSel').value = parts[0] ? v : ''; } }
+        });
+    }
+    if (is_host) {
+        el('lvPinBtn').addEventListener('click', function () { pin(el('lvOfferSel').value); });
+        el('lvOfferUnpin').addEventListener('click', function () { pin(''); });
+    }
 
     /* ---------------- Host tools ---------------- */
     var waiting_timer = null, waiting_list = [];
