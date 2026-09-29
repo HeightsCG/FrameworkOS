@@ -34,7 +34,7 @@ class ApiBillingController extends BaseApiController {
      * often, the next charge date. For plans (plan=<key>), slots (slots=<n>) or a pack (pack=<dollars>).
      */
     public function billing_quoteAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $uid  = (int) $user['user_id'];
         $acct = BillingService::account($uid);
         $fmt  = function ($lines) { return array_map(function ($l) { return array('label' => $l[0], 'amount' => BillingService::money($l[1])); }, $lines); };
@@ -70,7 +70,7 @@ class ApiBillingController extends BaseApiController {
 
     /** Start saving a card: a SetupIntent for off-session charges. */
     public function billing_card_setupAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $customer = StripeService::ensure_customer($user);
         $si = $customer !== '' ? StripeService::create_setup_intent($customer) : array();
         if (empty($si)) { $this->jsonError('Could not start adding a card. Please try again.'); }
@@ -79,7 +79,7 @@ class ApiBillingController extends BaseApiController {
 
     /** The SetupIntent succeeded in the page: keep its card as the one we charge (retries a past-due account). */
     public function billing_card_saveAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $r = BillingService::save_card((int) $user['user_id'], (string) ($this->post['setup_intent_id'] ?? ''));
         if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
         $retry = (array) ($r['retry'] ?? array());
@@ -93,7 +93,7 @@ class ApiBillingController extends BaseApiController {
 
     /** Choose a paid plan (from Free), upgrade now (prorated), or schedule a downgrade. */
     public function billing_change_planAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $plan = (string) ($this->post['plan'] ?? '');
         if ($plan === PlanTiers::FREE_KEY) { $r = BillingService::set_cancel((int) $user['user_id'], true); if (empty($r['ok'])) { $this->jsonError($r['message']); } $this->jsonSuccess(['status' => 'scheduled', 'message' => $r['message']]); }
         $t = PlanTiers::get($plan);
@@ -102,14 +102,14 @@ class ApiBillingController extends BaseApiController {
 
     /** One-click cancel: the plan runs to the end of the period, then the account moves to Free. */
     public function billing_cancelAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $r = BillingService::set_cancel((int) $user['user_id'], true);
         if (empty($r['ok'])) { $this->jsonError($r['message']); }
         $this->jsonSuccess(['message' => $r['message']]);
     }
 
     public function billing_resumeAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $r = BillingService::set_cancel((int) $user['user_id'], false);
         if (empty($r['ok'])) { $this->jsonError($r['message']); }
         $this->jsonSuccess(['message' => $r['message']]);
@@ -131,13 +131,13 @@ class ApiBillingController extends BaseApiController {
 
     /** The page finished a bank authentication: record the payment's outcome. */
     public function billing_confirmAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $this->charge_answer(BillingService::confirm((int) $user['user_id'], (int) ($this->post['charge_id'] ?? 0)), 'Payment confirmed.');
     }
 
     /** A payment waiting for authentication (the link in the "confirm your payment" email). */
     public function billing_pendingAction(){
-        $user = $this->require_creator('owner');
+        $user = $this->require_creator('owner', false);
         $row  = (new BillingChargesModel())->get_for_user((int) $user['user_id'], (int) ($this->post['charge_id'] ?? 0));
         if (!$row || (string) $row['status'] !== 'requires_action' || (string) $row['stripe_payment_intent_id'] === '') { $this->jsonError('There is no payment waiting for you.'); }
         $r = StripeService::payment_intent_result((string) $row['stripe_payment_intent_id']);

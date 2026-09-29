@@ -100,11 +100,11 @@ class Tutorials {
             'Use the toggles to get each one in the app, by email, both or neither.',
         )),
         '11' => array('section' => 'start', 'title' => 'Your Wallet', 'secs' => 22, 'steps' => array(
-            'Your wallet pays for unlocks, tickets and bookings. In Settings, open Wallet.',
-            'Your current balance is at the top.',
-            'Under Buy Credits, pick an amount. A small processing fee is added at checkout.',
+            'Your wallet credits pay for unlocks, tickets and bookings. In Settings, open Wallet.',
+            'Your balance is at the top. Creators also see their AI credits here, which are separate and used for making images and videos.',
+            'Under Buy Credits, pick an amount. A small processing fee is added at checkout, and credits are non-refundable.',
             'History shows everything you\'ve added and spent.',
-            'Auto-Replenishment adds funds automatically when your balance runs low. Click Manage to turn it on.',
+            'Auto-Replenishment buys credits automatically when your balance runs low. Click Manage to turn it on.',
         )),
         '12' => array('section' => 'start', 'title' => 'Restricted Content and Blocked Users', 'secs' => 19, 'steps' => array(
             'Two quick settings for what you see and who can reach you.',

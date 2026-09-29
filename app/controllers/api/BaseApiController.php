@@ -58,7 +58,7 @@ class BaseApiController extends Controller {
         return !Plan::can_use_creator_features($rows[0]);
     }
 
-    protected function require_creator(string $capability = 'content'): array{
+    protected function require_creator(string $capability = 'content', bool $need_plan = true): array{
         if (empty(Session::get('user_id'))) {
             $this->jsonError('Not authorized');
         }
@@ -90,8 +90,9 @@ class BaseApiController extends Controller {
             $this->jsonError('Only creators can do that');
         }
         // Creator features require an active platform plan on the OWNER account. need_plan lets
-        // the frontend send the user to /account/billing to choose one.
-        if (!Plan::can_use_creator_features($user)) {
+        // the frontend send the user to /account/billing to choose one. Billing itself passes
+        // $need_plan = false: a Free creator has to be able to buy the plan.
+        if ($need_plan && !Plan::can_use_creator_features($user)) {
             $this->jsonError('An active plan is required to use creator tools. Choose a plan to continue.', ['need_plan' => true]);
         }
         // Refresh the ACTING user's presence (throttled ~once/45s).
