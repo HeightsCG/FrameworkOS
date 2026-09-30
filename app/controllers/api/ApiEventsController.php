@@ -178,6 +178,38 @@ class ApiEventsController extends BaseApiController {
 
     /* ---------- Managing one event (creator, Manager+) ---------- */
 
+    /** One of this event's call recordings, ready to watch: short-lived links to the video and its poster. {event_id, recording_id, download?} */
+    public function event_recordingAction(){
+        [$owner, $ev] = $this->owned_event();
+        [$rec, $asset] = $this->event_recording_row($owner, $ev);
+        $name = preg_replace('/[^A-Za-z0-9 _.-]+/', '', html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8')) ?: 'Recording';
+        $file = trim($name) . ' ' . gmdate('Y-m-d', strtotime((string) $rec['started_at'] . ' UTC')) . '.mp4';
+        $this->jsonSuccess([
+            'url'      => S3Service::presigned_get_url((string) $asset['original_key'], 3600, !empty($this->post['download']) ? $file : ''),
+            'poster'   => (string) $asset['poster_key'] !== '' ? S3Service::presigned_get_url((string) $asset['poster_key'], 3600) : '',
+            'title'    => html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'),
+            'duration' => (int) $rec['duration_sec'],
+        ]);
+    }
+
+    /** Delete one of this event's call recordings (the video is removed; it no longer counts toward storage). {event_id, recording_id} */
+    public function event_recording_deleteAction(){
+        [$owner, $ev] = $this->owned_event();
+        [$rec, $asset] = $this->event_recording_row($owner, $ev);
+        (new MediaAssetsModel())->soft_delete($owner, (int) $asset['id']);
+        (new LiveRecordingsModel())->set((int) $rec['id'], array('status' => 'deleted'));
+        $this->jsonSuccess(['message' => 'Recording deleted']);
+    }
+
+    /** [recording, its video] for this event, or a JSON error. */
+    private function event_recording_row(int $owner, array $ev): array{
+        $rec = (new LiveRecordingsModel())->get((int) ($this->post['recording_id'] ?? 0));
+        if (!$rec || (int) $rec['event_id'] !== (int) $ev['id'] || (string) $rec['status'] !== 'ready' || (int) $rec['asset_id'] <= 0) { $this->jsonError('That recording isn’t available.'); }
+        $asset = (new MediaAssetsModel())->get_one($owner, (int) $rec['asset_id']);
+        if (!$asset || (string) $asset['original_key'] === '') { $this->jsonError('That recording isn’t available.'); }
+        return [$rec, $asset];
+    }
+
     /** [owner id, the owner's event, owner row] — or a JSON 'Event not found'. */
     private function owned_event(): array{
         $user = $this->require_creator('manage', false)  /* refunds, attendees, cancelling: still theirs to handle on Free */;

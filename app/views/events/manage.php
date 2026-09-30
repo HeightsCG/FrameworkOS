@@ -135,28 +135,47 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
         </div>
     </dl>
 
-    <?php if (!empty($this->recordings)): /* CLS Video recordings of this call: each becomes a Library video to sell */ ?>
+    <?php if (!empty($this->recordings)): /* CLS Video recordings of this call: they belong to the event (event-page.js plays them) */ ?>
     <section class="evm-recs" aria-labelledby="evmRecsH">
         <h2 class="evm-recs__h" id="evmRecsH">Recordings</h2>
         <ul class="evm-recs__list">
             <?php foreach ($this->recordings as $rec):
-                $st = (string) $rec['status']; $secs = (int) $rec['duration_sec'];
+                $st = (string) $rec['status']; $secs = (int) $rec['duration_sec']; $ready = $st === 'ready' && (int) $rec['asset_id'] > 0;
                 $len = $secs > 0 ? ($secs >= 3600 ? floor($secs / 3600) . ':' . sprintf('%02d', floor($secs % 3600 / 60)) : floor($secs / 60)) . ':' . sprintf('%02d', $secs % 60) : '';
-                $label = array('recording' => 'Recording now', 'stopping' => 'Finishing', 'processing' => 'Adding to your Library', 'ready' => 'In your Library', 'failed' => 'Didn’t save')[$st] ?? $st; ?>
-            <li class="evm-rec">
-                <span class="evm-rec__ic evm-rec__ic--<?php echo $e($st); ?>"><i class="fa-solid <?php echo $st === 'failed' ? 'fa-triangle-exclamation' : ($st === 'ready' ? 'fa-circle-play' : 'fa-circle-dot'); ?>" aria-hidden="true"></i></span>
-                <span class="evm-rec__body">
-                    <span class="evm-rec__main"><?php echo $e($local($rec['started_at'], 'M j, g:i A')); ?><?php echo $len !== '' ? ' · ' . $e($len) : ''; ?></span>
-                    <span class="evm-rec__sub"><?php echo $e($label); ?><?php echo $st === 'failed' && (string) $rec['error'] !== '' ? ': ' . $e($rec['error']) : ''; ?></span>
-                </span>
-                <?php if ($st === 'ready' && (int) $rec['asset_id'] > 0): ?>
+                $label = array('recording' => 'Recording now', 'stopping' => 'Finishing', 'processing' => 'Processing', 'ready' => 'Ready to watch', 'failed' => 'Didn’t save')[$st] ?? $st;
+                $when = $local($rec['started_at'], 'M j, g:i A'); ?>
+            <li class="evm-rec" data-rec="<?php echo (int) $rec['id']; ?>">
+                <?php if ($ready): ?><button type="button" class="evm-rec__play" data-rec-play="<?php echo (int) $rec['id']; ?>" aria-label="Play the recording from <?php echo $e($when); ?>"><?php else: ?><span class="evm-rec__play is-static"><?php endif; ?>
+                    <span class="evm-rec__ic evm-rec__ic--<?php echo $e($st); ?>"><i class="fa-solid <?php echo $st === 'failed' ? 'fa-triangle-exclamation' : ($ready ? 'fa-play' : 'fa-circle-dot'); ?>" aria-hidden="true"></i></span>
+                    <span class="evm-rec__body">
+                        <span class="evm-rec__main"><?php echo $e($when); ?><?php echo $len !== '' ? ' · ' . $e($len) : ''; ?></span>
+                        <span class="evm-rec__sub"><?php echo $e($label); ?><?php echo $st === 'failed' && (string) $rec['error'] !== '' ? ': ' . $e($rec['error']) : ''; ?></span>
+                    </span>
+                <?php echo $ready ? '</button>' : '</span>'; ?>
+                <?php if ($ready): ?>
                 <div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Recording actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
-                    <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="/studio?use=<?php echo (int) $rec['asset_id']; ?>">Create a Post With It</a></li></ul></div>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li><button type="button" class="dropdown-item" data-rec-play="<?php echo (int) $rec['id']; ?>">Play</button></li>
+                        <li><button type="button" class="dropdown-item" data-rec-download="<?php echo (int) $rec['id']; ?>">Download</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>
+                    </ul></div>
                 <?php endif; ?>
             </li>
             <?php endforeach; ?>
         </ul>
     </section>
+    <div class="modal fade evm-player" id="evmPlayer" tabindex="-1" aria-labelledby="evmPlayerTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 class="modal-title evm-player__title" id="evmPlayerTitle">Recording</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body evm-player__body"><video id="evmPlayerVideo" controls playsinline preload="metadata"></video></div>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 
     <section class="evm-work">

@@ -1,10 +1,11 @@
 <?php
 /**
- * Record an event's CLS Video call and turn the recording into a Library video the creator can sell (a pay-per-view
- * post, a bundle). LiveKit's recorder (Egress) does the recording and uploads the MP4 to S3 under recordings/; this
- * class starts and stops it and, through the queue job recording_watch (RecordingWatchJob), waits for the file and
- * makes the Library video, the same way an uploaded video becomes one (poster, duration, plan storage).
+ * Record an event's CLS Video call. LiveKit's recorder (Egress) records it and uploads the MP4 to S3 under
+ * recordings/; this class starts and stops it and, through the queue job recording_watch (RecordingWatchJob), waits
+ * for the file and saves it like an uploaded video (poster, duration, counted toward plan storage).
  *
+ * A recording belongs to its event: it's played, downloaded and deleted from the event's page and never appears in
+ * the Content Studio Library or its pickers (media_assets.source = 'recording', see MediaAssetsModel::NOT_RECORDING).
  * Creator and Studio can record; one recording per call at a time, up to LIMITS minutes each (then it stops itself).
  * Everyone in the call sees that it's being recorded (the room metadata carries "recording", see LiveControl).
  */
@@ -112,7 +113,7 @@ class LiveRecording {
         $gb = Plan::limit($owner, 'storage_gb');
         $mm = new MediaAssetsModel();
         if ($gb !== null && (int) $gb > 0 && (int) $mm->total_bytes($cid) + $bytes > (int) $gb * 1073741824) {
-            self::fail($r, 'Your storage is full, so the recording couldn’t be added to your Library. Free up space or upgrade, then contact support to recover it.');
+            self::fail($r, 'Your storage is full, so the recording couldn’t be saved. Free up space or upgrade, then contact support to recover it.');
             return 'storage full';
         }
         $ev = (new EventsModel())->get_one($cid, (int) $r['event_id']);
@@ -120,12 +121,13 @@ class LiveRecording {
         $when = self::local_date((string) $r['started_at'], (string) ($owner['content_timezone'] ?? ''));
         $label = 'Recording: ' . mb_substr($title, 0, 40) . ' (' . $when . ')';
         $aid = (int) $mm->add($cid, 'video', $label . '.mp4', 'video/mp4', 'processing');
-        if ($aid <= 0) { self::fail($r, 'Could not create the Library item.'); return 'failed'; }
+        if ($aid <= 0) { self::fail($r, 'Could not save the recording.'); return 'failed'; }
+        $mm->mark_recording($cid, $aid);   // it belongs to the event: never shown in the Content Studio Library
         $key = MediaService::key($cid, $aid, 'original', 'mp4');
         if (!S3Service::copy_private($src, $key, 'video/mp4')) {
             error_log('[recording] ' . $r['egress_id'] . ': copy from ' . $src . ' failed (see [s3] line above)');
             $mm->set_failed($cid, $aid, 'Could not copy the recording');
-            self::fail($r, 'The recording couldn’t be copied into your Library.');
+            self::fail($r, 'The recording couldn’t be saved.');
             return 'copy failed';
         }
         $url = S3Service::presigned_get_url($key, 1800);
@@ -141,8 +143,8 @@ class LiveRecording {
             'duration_sec' => $duration, 'width' => (int) ($probe['width'] ?? 0), 'height' => (int) ($probe['height'] ?? 0))));
         (new LiveRecordingsModel())->set((int) $r['id'], array('status' => 'ready', 'asset_id' => $aid, 'duration_sec' => $duration, 'bytes' => $bytes, 'error' => null));
         S3Service::delete_key($src);   // the Library copy is the one that counts now
-        Notify::send($cid, 'events', 'Your recording is ready', '"' . mb_substr($title, 0, 60) . '" is in your Library. Sell it as a pay-per-view post.',
-            '/studio?use=' . $aid, 'fa-circle-play');
+        Notify::send($cid, 'events', 'Your recording is ready', 'The recording of "' . mb_substr($title, 0, 60) . '" is on the event page, ready to watch or download.',
+            '/events/manage/' . (int) $r['event_id'] . '?recording=' . (int) $r['id'], 'fa-circle-play');
         return 'ready: asset ' . $aid;
     }
 

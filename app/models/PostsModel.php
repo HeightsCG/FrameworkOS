@@ -115,7 +115,7 @@ class PostsModel extends Model {
         foreach ($asset_ids as $aid) {
             $aid = (int) $aid;
             $own = parent::select(
-                "SELECT id FROM media_assets WHERE id = :a AND creator_id = :c AND deleted_at IS NULL",
+                "SELECT id FROM media_assets WHERE id = :a AND creator_id = :c AND deleted_at IS NULL AND " . MediaAssetsModel::NOT_RECORDING,   // call recordings stay on their event
                 array('a' => $aid, 'c' => (int) $creator_id)
             );
             if (!is_array($own) || count($own) !== 1) { continue; }

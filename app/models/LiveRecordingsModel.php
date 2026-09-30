@@ -24,7 +24,7 @@ class LiveRecordingsModel extends Model {
     }
 
     public function for_event($event_id): array {
-        return (array) parent::select("SELECT * FROM live_recordings WHERE event_id = :e ORDER BY id DESC LIMIT 50", array('e' => (int) $event_id));
+        return (array) parent::select("SELECT * FROM live_recordings WHERE event_id = :e AND status <> 'deleted' ORDER BY id DESC LIMIT 50", array('e' => (int) $event_id));
     }
 
     public function set($id, array $f): void {

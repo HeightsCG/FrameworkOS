@@ -303,3 +303,13 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
 .evm-rec__body{ flex:1; min-width:0; display:flex; flex-direction:column; }
 .evm-rec__main{ font-size:.9rem; font-weight:600; color:var(--text); }
 .evm-rec__sub{ font-size:.8rem; color:var(--muted); }
+.evm-rec{ gap:8px; }
+.evm-rec__play{ flex:1; min-width:0; display:flex; align-items:center; gap:12px; background:none; border:0; padding:0; text-align:left; border-radius:var(--r-sm); }
+button.evm-rec__play{ cursor:pointer; }
+button.evm-rec__play:hover .evm-rec__main{ text-decoration:underline; }
+button.evm-rec__play:focus-visible{ outline:none; box-shadow:var(--ring); }
+.evm-rec__ic--ready{ background:#fff7f1; color:var(--acc-ink); }
+.evm-rec.is-flash{ background:#fff7f1; }
+.evm-player .modal-body{ padding:0; background:#000; }
+.evm-player video{ display:block; width:100%; max-height:70vh; background:#000; }
+.evm-player__title{ font-size:1rem; font-weight:700; }

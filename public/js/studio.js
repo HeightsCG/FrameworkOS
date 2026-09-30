@@ -2601,15 +2601,4 @@ jQuery(function ($) {
     loadCollections();
     loadLibrary();
     loadPosts();   // Posts is the first tab, so it does not get a shown.bs.tab on load
-
-    // /studio?use=<asset id>: open a new post with that Library item in it (e.g. "Your recording is ready").
-    var useId = parseInt(new URLSearchParams(location.search).get('use'), 10);
-    if (useId > 0) {
-        history.replaceState(null, '', location.pathname);   // a refresh doesn't open it again
-        ApiDataSvc.apiCall('post', 'media_get', { id: useId }, function (data) {
-            var o = null; try { o = JSON.parse(data); } catch (e) {}
-            if (!o || !o.success || !o.asset) { toastr.error((o && o.message) || 'That file was not found.'); return; }
-            newComposer(); composerModal.show(); composerAddAsset(o.asset);
-        });
-    }
 });

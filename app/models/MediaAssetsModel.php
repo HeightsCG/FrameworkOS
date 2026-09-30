@@ -26,6 +26,14 @@ class MediaAssetsModel extends Model {
         ));
     }
 
+    /** Call recordings (source 'recording') belong to their event: never in the Library, pickers or attachments. */
+    const NOT_RECORDING = "COALESCE(source, '') <> 'recording'";
+
+    /** Mark a Library row as a call recording. */
+    public function mark_recording($creator_id, $id){
+        return parent::update('media_assets', array('source' => 'recording'), 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
     /** Ready, owned assets by id (order preserved) — for attaching to messages. */
     public function get_owned_ready($creator_id, array $ids){
         $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
@@ -33,7 +41,7 @@ class MediaAssetsModel extends Model {
         $in = implode(',', $ids);
         $rows = parent::select(
             "SELECT * FROM media_assets WHERE id IN ($in) AND creator_id = :c AND deleted_at IS NULL AND status = 'ready'
-               AND moderation_status <> 'blocked'",   // quarantined media never goes out in DMs/broadcasts/automations
+               AND moderation_status <> 'blocked' AND " . self::NOT_RECORDING,   // quarantined media never goes out in DMs/broadcasts/automations
             array('c' => (int) $creator_id));
         $by = array();
         foreach ((array) $rows as $r) { $by[(int) $r['id']] = $r; }
@@ -56,7 +64,7 @@ class MediaAssetsModel extends Model {
         if (empty($ids)) { return array(); }
         $in = array(); $params = array('c' => (int) $creator_id);
         foreach ($ids as $i => $id) { $in[] = ':i' . $i; $params['i' . $i] = $id; }
-        $rows = (array) parent::select("SELECT * FROM media_assets WHERE creator_id = :c AND status = 'ready' AND deleted_at IS NULL AND id IN (" . implode(',', $in) . ")", $params);
+        $rows = (array) parent::select("SELECT * FROM media_assets WHERE creator_id = :c AND status = 'ready' AND deleted_at IS NULL AND " . self::NOT_RECORDING . " AND id IN (" . implode(',', $in) . ")", $params);
         $by = array(); foreach ($rows as $r) { $by[(int) $r['id']] = $r; }
         $out = array(); foreach ($ids as $id) { if (isset($by[$id])) { $out[] = $by[$id]; } }
         return $out;
@@ -156,7 +164,7 @@ class MediaAssetsModel extends Model {
      */
     public function get_for_creator($creator_id, array $filters = array()){
         $params = array('c' => (int) $creator_id);
-        $where  = array('a.creator_id = :c', 'a.deleted_at IS NULL');
+        $where  = array('a.creator_id = :c', 'a.deleted_at IS NULL', "COALESCE(a.source, '') <> 'recording'");   // call recordings live on their event
         $join   = '';
 
         if (!empty($filters['type']) && in_array($filters['type'], array('image','video','gif'), true)) {
@@ -205,7 +213,7 @@ class MediaAssetsModel extends Model {
 
     public function count_for_creator($creator_id){
         $rows = parent::select(
-            "SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL",
+            "SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL AND " . self::NOT_RECORDING,
             array('c' => (int) $creator_id)
         );
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['n'] : 0;

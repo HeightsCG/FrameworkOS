@@ -300,3 +300,57 @@
         document.addEventListener('visibilitychange', function () { if (!document.hidden) { call_status(); } });
     }
 })();
+
+/* CLS Video recordings of this event's call: play in a player here, download, delete. They belong to the event only
+   (never the Content Studio Library). ?recording=<id> (the "Your recording is ready" link) opens that one. */
+(function () {
+    var root = document.querySelector('.evm'), list = document.querySelector('.evm-recs');
+    if (!root || !list) { return; }
+    var event_id = root.getAttribute('data-event-id');
+    function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
+    function get(id, download, done) {
+        ApiDataSvc.apiCall('post', 'event_recording', { event_id: event_id, recording_id: id, download: download ? 1 : 0 }, function (r) {
+            var o = parse(r);
+            if (!o || !o.success || !o.url) { if (window.toastr) { toastr.error((o && o.message) || 'That recording isn’t available.'); } return; }
+            done(o);
+        });
+    }
+    var modal_el = document.getElementById('evmPlayer'), video = document.getElementById('evmPlayerVideo');
+    var modal = modal_el && window.bootstrap ? bootstrap.Modal.getOrCreateInstance(modal_el) : null;
+    if (modal_el) { modal_el.addEventListener('hidden.bs.modal', function () { video.pause(); video.removeAttribute('src'); video.load(); }); }
+    function play(id) {
+        get(id, false, function (o) {
+            var row = list.querySelector('[data-rec="' + id + '"] .evm-rec__main');
+            document.getElementById('evmPlayerTitle').textContent = o.title + (row ? ' · ' + row.textContent : '');
+            video.poster = o.poster || ''; video.src = o.url;
+            if (modal) { modal.show(); }
+            video.play().catch(function () {});
+        });
+    }
+    list.addEventListener('click', function (e) {
+        var p = e.target.closest('[data-rec-play]'), d = e.target.closest('[data-rec-download]'), x = e.target.closest('[data-rec-delete]');
+        if (p) { play(p.getAttribute('data-rec-play')); return; }
+        if (d) { get(d.getAttribute('data-rec-download'), true, function (o) { window.location.href = o.url; }); return; }
+        if (x) {
+            var id = x.getAttribute('data-rec-delete');
+            Swal.fire({ title: 'Delete this recording?', text: 'The video is removed for good and no longer counts toward your storage.', showCancelButton: true, reverseButtons: true, focusCancel: true,
+                        confirmButtonText: 'Delete', cancelButtonText: 'Keep It', confirmButtonColor: '#e5484d' })
+                .then(function (res) {
+                    if (!res.isConfirmed) { return; }
+                    ApiDataSvc.apiCall('post', 'event_recording_delete', { event_id: event_id, recording_id: id }, function (r) {
+                        var o = parse(r);
+                        if (!o || !o.success) { toastr.error((o && o.message) || 'Could not delete it.'); return; }
+                        var li = list.querySelector('[data-rec="' + id + '"]'); if (li) { li.remove(); }
+                        if (!list.querySelector('.evm-rec')) { list.remove(); }
+                        toastr.success(o.message);
+                    });
+                });
+        }
+    });
+    var want = parseInt(new URLSearchParams(location.search).get('recording'), 10);
+    if (want > 0) {
+        history.replaceState(null, '', location.pathname);
+        if (list.querySelector('[data-rec-play="' + want + '"]')) { play(want); }
+        else { var li = list.querySelector('[data-rec="' + want + '"]'); if (li) { li.scrollIntoView({ block: 'center' }); li.classList.add('is-flash'); } }
+    }
+})();
