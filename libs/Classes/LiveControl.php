@@ -42,6 +42,7 @@ class LiveControl {
             'spotlight' => (string) ($row['spotlight'] ?? ''),
             'speakers'  => is_array($speakers) ? array_values(array_map('strval', $speakers)) : array(),
             'offer'     => is_array($o = json_decode((string) ($row['pinned'] ?? ''), true)) ? $o : null,
+            'recording' => LiveRecording::running_since($room),   // Unix time it started, 0 = not recording
         );
     }
 
@@ -61,7 +62,8 @@ class LiveControl {
     public static function meta(array $s): string
     {
         return json_encode(array('waiting' => $s['waiting'], 'share' => $s['share'], 'watch' => $s['watch'], 'chat' => $s['chat'],
-                                 'locked' => $s['locked'], 'spotlight' => $s['spotlight'], 'speakers' => $s['speakers'], 'offer' => $s['offer'] ?? null));
+                                 'locked' => $s['locked'], 'spotlight' => $s['spotlight'], 'speakers' => $s['speakers'], 'offer' => $s['offer'] ?? null,
+                                 'recording' => (int) ($s['recording'] ?? 0)));
     }
 
     /**

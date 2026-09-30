@@ -135,6 +135,30 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
         </div>
     </dl>
 
+    <?php if (!empty($this->recordings)): /* CLS Video recordings of this call: each becomes a Library video to sell */ ?>
+    <section class="evm-recs" aria-labelledby="evmRecsH">
+        <h2 class="evm-recs__h" id="evmRecsH">Recordings</h2>
+        <ul class="evm-recs__list">
+            <?php foreach ($this->recordings as $rec):
+                $st = (string) $rec['status']; $secs = (int) $rec['duration_sec'];
+                $len = $secs > 0 ? ($secs >= 3600 ? floor($secs / 3600) . ':' . sprintf('%02d', floor($secs % 3600 / 60)) : floor($secs / 60)) . ':' . sprintf('%02d', $secs % 60) : '';
+                $label = array('recording' => 'Recording now', 'stopping' => 'Finishing', 'processing' => 'Adding to your Library', 'ready' => 'In your Library', 'failed' => 'Didn’t save')[$st] ?? $st; ?>
+            <li class="evm-rec">
+                <span class="evm-rec__ic evm-rec__ic--<?php echo $e($st); ?>"><i class="fa-solid <?php echo $st === 'failed' ? 'fa-triangle-exclamation' : ($st === 'ready' ? 'fa-circle-play' : 'fa-circle-dot'); ?>" aria-hidden="true"></i></span>
+                <span class="evm-rec__body">
+                    <span class="evm-rec__main"><?php echo $e($local($rec['started_at'], 'M j, g:i A')); ?><?php echo $len !== '' ? ' · ' . $e($len) : ''; ?></span>
+                    <span class="evm-rec__sub"><?php echo $e($label); ?><?php echo $st === 'failed' && (string) $rec['error'] !== '' ? ': ' . $e($rec['error']) : ''; ?></span>
+                </span>
+                <?php if ($st === 'ready' && (int) $rec['asset_id'] > 0): ?>
+                <div class="dropdown"><button type="button" class="evm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Recording actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                    <ul class="dropdown-menu dropdown-menu-end"><li><a class="dropdown-item" href="/studio?use=<?php echo (int) $rec['asset_id']; ?>">Create a Post With It</a></li></ul></div>
+                <?php endif; ?>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+    </section>
+    <?php endif; ?>
+
     <section class="evm-work">
         <div class="evm-work__bar">
             <div class="evm-tabs" role="tablist" aria-label="Event workspace">

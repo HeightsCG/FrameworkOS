@@ -33,6 +33,8 @@ class LiveController extends Controller {
             'open' => EventsModel::open_call($ev),
             'password' => $host ? trim((string) ($ev['call_password'] ?? '')) : '',   // the host sees it so they can share it
             'needs_password' => !$host && trim((string) ($ev['call_password'] ?? '')) !== '',
+            'recording' => LiveRecording::running_since(LiveKit::room_for_event((int) $ev['id'])) > 0,   // warned before joining
+            'can_record' => $host,
         ));
     }
 

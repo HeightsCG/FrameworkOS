@@ -149,13 +149,71 @@ class LiveKit {
         return $n;
     }
 
+    /* ---- Recording (LiveKit Egress, running next to the server; it uploads to S3 itself, see docs/live-video.md) ---- */
+
+    /**
+     * Start recording a room as one MP4, Zoom-style: the active speaker big with the others in a strip, a shared
+     * screen taking the main spot. $filepath is the S3 key it uploads to (bucket and keys are in egress.yaml on the
+     * video server). Returns the egress id, or '' when it couldn't start (recorder busy or down).
+     */
+    public static function start_recording($room, $filepath): string
+    {
+        $r = self::api('Egress', 'StartRoomCompositeEgress', array(
+            'room_name' => (string) $room, 'layout' => 'speaker',
+            'file_outputs' => array(array('file_type' => 'MP4', 'filepath' => (string) $filepath)),
+        ), $room, true);
+        return $r === null ? '' : (string) self::field($r, 'egress_id');
+    }
+
+    public static function stop_recording($egress_id): bool
+    {
+        return self::api('Egress', 'StopEgress', array('egress_id' => (string) $egress_id), '', true) !== null;
+    }
+
+    /**
+     * Where a recording is: ['status' => EGRESS_STARTING|EGRESS_ACTIVE|EGRESS_ENDING|EGRESS_COMPLETE|EGRESS_FAILED|
+     * EGRESS_ABORTED|EGRESS_LIMIT_REACHED, 'error', 'file' => S3 key, 'bytes', 'duration' (seconds)], or null when the
+     * video server can't be reached.
+     */
+    public static function recording_info($egress_id): ?array
+    {
+        $r = self::api('Egress', 'ListEgress', array('egress_id' => (string) $egress_id), '', true);
+        if ($r === null) { return null; }
+        $item = (array) (($r['items'] ?? array())[0] ?? array());
+        if (!$item) { return array('status' => 'EGRESS_FAILED', 'error' => 'The recorder has no record of this recording.', 'file' => '', 'bytes' => 0, 'duration' => 0); }
+        $files = (array) (self::field($item, 'file_results') ?: array());
+        $f = (array) ($files[0] ?? (self::field($item, 'file') ?: array()));
+        $st = self::field($item, 'status');
+        return array(
+            'status'   => is_numeric($st) ? (array('EGRESS_STARTING', 'EGRESS_ACTIVE', 'EGRESS_ENDING', 'EGRESS_COMPLETE', 'EGRESS_FAILED', 'EGRESS_ABORTED', 'EGRESS_LIMIT_REACHED')[(int) $st] ?? 'EGRESS_FAILED') : (string) ($st ?: 'EGRESS_STARTING'),
+            'error'    => (string) self::field($item, 'error'),
+            'file'     => (string) self::field($f, 'filename'),
+            'bytes'    => (int) self::field($f, 'size'),
+            'duration' => (int) round(((float) self::field($f, 'duration')) / 1e9),   // nanoseconds
+        );
+    }
+
+    /** A reply field under its proto name (egress_id) or its JSON name (egressId). */
+    private static function field(array $a, $snake)
+    {
+        if (array_key_exists($snake, $a)) { return $a[$snake]; }
+        $camel = lcfirst(str_replace('_', '', ucwords($snake, '_')));
+        return $a[$camel] ?? '';
+    }
+
     /** LiveKit's server API (Twirp over HTTPS, JSON). Returns the decoded reply, or null on failure. */
     private static function room_api($method, array $body, $room)
     {
+        return self::api('RoomService', $method, $body, $room, false);
+    }
+
+    private static function api($service, $method, array $body, $room, $record)
+    {
         $base = preg_replace('#^ws#', 'http', rtrim(self::url(), '/'));
-        $auth = self::jwt(array('iss' => self::cfg('livekit_api_key'), 'nbf' => time() - 10, 'exp' => time() + 60,
-            'video' => array('room' => (string) $room, 'roomAdmin' => true, 'roomList' => true)));
-        $ch = curl_init($base . '/twirp/livekit.RoomService/' . $method);
+        $grant = array('room' => (string) $room, 'roomAdmin' => true, 'roomList' => true);
+        if ($record) { $grant['roomRecord'] = true; }
+        $auth = self::jwt(array('iss' => self::cfg('livekit_api_key'), 'nbf' => time() - 10, 'exp' => time() + 60, 'video' => $grant));
+        $ch = curl_init($base . '/twirp/livekit.' . $service . '/' . $method);
         curl_setopt_array($ch, array(
             CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8,
             CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Authorization: Bearer ' . $auth),

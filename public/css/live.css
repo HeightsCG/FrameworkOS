@@ -227,3 +227,14 @@
 .lv-pin__row{ display:flex; gap:.5rem; }
 .lv-pin__row .form-select{ min-width:0; flex:1; }
 @media (max-width:640px){ .lv-offer{ bottom:4.4rem; left:.5rem; right:.5rem; max-width:none; } }
+
+/* Recording: a red badge everyone sees for the whole recording, and the host's Record button */
+.lv__rec{ display:inline-flex; align-items:center; gap:.4rem; font-size:.75rem; font-weight:600; color:#b42318; background:#fef3f2; border:1px solid #fecdca;
+          border-radius:var(--r-pill); padding:.2rem .6rem; font-variant-numeric:tabular-nums; }
+.lv__rec[hidden]{ display:none; }
+.lv__rec-dot{ width:8px; height:8px; border-radius:50%; background:#d92d20; flex:none; animation:lv-rec 1.4s ease-in-out infinite; }
+@keyframes lv-rec{ 50%{ opacity:.35; } }
+@media (prefers-reduced-motion:reduce){ .lv__rec-dot{ animation:none; } }
+.lv-lobby__rec{ margin:0; display:flex; align-items:center; gap:.5rem; font-size:.875rem; font-weight:600; color:#b42318; background:#fef3f2; border-radius:var(--r); padding:.6rem .8rem; }
+.lv-ctl--rec[aria-pressed="true"]{ background:#d92d20; color:#fff; }
+.lv-ctl--rec[aria-pressed="true"]:hover{ background:#b42318; }

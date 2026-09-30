@@ -15,6 +15,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
             <p class="lv__sub"><?php echo $h($c['when']); ?><?php if ($c['host_name'] !== ''): ?> · Hosted by <?php echo $h($c['host_name']); ?><?php endif; ?></p>
         </div>
         <div class="lv__meta">
+            <span class="lv__rec" id="lvRec" hidden><span class="lv__rec-dot" aria-hidden="true"></span>Recording <span id="lvRecTime">00:00</span></span>
             <?php if ($c['is_host']): ?><span class="lv__chip lv__chip--tips" id="lvTipTotal" hidden></span><span class="lv__chip">Host</span><?php endif; ?>
             <span class="lv__timer" id="lvTimer" hidden>00:00</span>
         </div>
@@ -36,6 +37,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
         <div class="lv-lobby__panel">
             <h2 class="lv-lobby__h">Ready to join?</h2>
             <?php if (!empty($c['open']) && !$c['is_host']): ?><p class="lv-lobby__p">This call is open to everyone. No account or registration needed.</p><?php endif; ?>
+            <?php if (!empty($c['recording'])): ?><p class="lv-lobby__rec"><span class="lv__rec-dot" aria-hidden="true"></span>This call is being recorded.</p><?php endif; ?>
             <?php if (!empty($c['guest'])): ?>
             <div class="lv-field">
                 <label class="lv-field__label" for="lvName">Your Name</label>
@@ -94,6 +96,7 @@ $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); 
                 <?php if (!$c['is_host']): ?><button type="button" class="lv-ctl lv-ctl--opt" id="lvHand" aria-pressed="false" aria-label="Raise Hand" title="Raise Hand"><i class="fa-solid fa-hand" aria-hidden="true"></i></button><?php endif; ?>
                 <?php if (empty($c['guest']) && !$c['is_host']): ?><button type="button" class="lv-ctl lv-ctl--opt" id="lvTipBtn" aria-pressed="false" aria-label="Send a Tip" title="Send a Tip" data-pane="tip"><i class="fa-solid fa-coins" aria-hidden="true"></i></button><?php endif; ?>
                 <button type="button" class="lv-ctl lv-ctl--opt" id="lvChatBtn" aria-pressed="false" aria-label="Chat" title="Chat" data-pane="chat"><i class="fa-solid fa-message" aria-hidden="true"></i><span class="lv-ctl__dot" id="lvChatDot" hidden></span></button>
+                <?php if (!empty($c['can_record'])): ?><button type="button" class="lv-ctl lv-ctl--opt lv-ctl--rec" id="lvRecBtn" aria-pressed="false" aria-label="Record" title="Record"><i class="fa-solid fa-circle-dot" aria-hidden="true"></i></button><?php endif; ?>
                 <?php if ($c['is_host']): ?>
                 <button type="button" class="lv-ctl lv-ctl--opt" id="lvPeople" aria-pressed="false" aria-label="People" title="People" data-pane="people"><i class="fa-solid fa-user-group" aria-hidden="true"></i><span class="lv-ctl__count" id="lvCount">1</span></button>
                 <button type="button" class="lv-ctl lv-ctl--opt" id="lvSettingsBtn" aria-pressed="false" aria-label="Host Settings" title="Host Settings" data-pane="settings"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>

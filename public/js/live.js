@@ -236,6 +236,7 @@
             Object.keys(tiles).forEach(drop_tile); el('lvGrid').innerHTML = ''; el('lvFeature').innerHTML = '';
             document.querySelectorAll('body > audio').forEach(function (a) { a.remove(); });
             if (is_host) { el('lvPeopleList').removeAttribute('data-sig'); }
+            rec_ready = false; rec_since = 0; clearInterval(rec_clock); el('lvRec').hidden = true;
             el('lvChatList').innerHTML = ''; el('lvChatEmpty').hidden = false; unread = 0; el('lvChatDot').hidden = true;
             open_pane(null);
             show('lvEnd');
@@ -249,7 +250,7 @@
         if (!s || typeof s !== 'object' || !('share' in s)) { return; }
         state = s; state.speakers = state.speakers || [];
         if (is_host) { sync_settings(); poll_waiting(); }
-        render(); chat_state(); render_offer();
+        render(); chat_state(); render_offer(); render_rec();
     }
     /* What this attendee may do right now (LiveKit enforces it; this only mirrors it in the controls). */
     function may(src) {
@@ -468,6 +469,42 @@
         li.innerHTML = '<p class="lv-msg__text"><i class="fa-solid fa-coins" aria-hidden="true"></i> ' + esc(text) + '</p>';
         el('lvChatList').appendChild(li); el('lvChatEmpty').hidden = true; scroll_chat();
     }
+
+    /* ---------------- Recording: everyone sees the badge; the host starts and stops it ---------------- */
+    var rec_since = 0, rec_clock = null, rec_ready = false;   // the first state after joining is shown quietly (the lobby warned them)
+    function render_rec() {
+        var since = parseInt(state.recording, 10) || 0;
+        if (!rec_ready) { rec_ready = !!room; rec_since = since; }
+        if (since && !rec_since && room && room.state !== 'disconnected') { toastr.info(is_host ? 'Recording started. Everyone in the call can see it.' : 'The host started recording this call.'); }
+        if (!since && rec_since && room) { toastr.info(is_host ? 'Recording stopped. It will be in your Library in a few minutes.' : 'The host stopped recording.'); }
+        rec_since = since;
+        el('lvRec').hidden = !since;
+        clearInterval(rec_clock);
+        if (since) {
+            var t = function () {
+                var s = Math.max(0, Math.floor(Date.now() / 1000 - since)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+                el('lvRecTime').textContent = (h ? h + ':' + String(m).padStart(2, '0') : String(m).padStart(2, '0')) + ':' + String(x).padStart(2, '0');
+            };
+            t(); rec_clock = setInterval(t, 1000);
+        }
+        var b = el('lvRecBtn');
+        if (b) {
+            b.setAttribute('aria-pressed', since ? 'true' : 'false');
+            b.title = since ? 'Stop Recording' : 'Record'; b.setAttribute('aria-label', b.title);
+            b.innerHTML = '<i class="fa-solid ' + (since ? 'fa-stop' : 'fa-circle-dot') + '" aria-hidden="true"></i>';
+        }
+    }
+    if (el('lvRecBtn')) el('lvRecBtn').addEventListener('click', function () {
+        var b = el('lvRecBtn'), on = !!rec_since;
+        var go = function () {
+            b.disabled = true;
+            host_call(on ? 'live_record_stop' : 'live_record_start', {}, function () { b.disabled = false; });
+        };
+        if (on) { go(); return; }
+        Swal.fire({ title: 'Record this call?', text: 'Everyone in the call will see it’s being recorded. When you stop, the recording goes to your Library, ready to sell as a post.',
+                    showCancelButton: true, confirmButtonText: 'Start Recording', cancelButtonText: 'Cancel', reverseButtons: true })
+            .then(function (res) { if (res.isConfirmed) { go(); } });
+    });
 
     /* ---------------- Pinned offer ---------------- */
     function render_offer() {

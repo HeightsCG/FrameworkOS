@@ -38,6 +38,7 @@ class EventsController extends Controller {
 
         $this->view->event     = $ev;
         $this->view->stats     = $model->stats($id);
+        $this->view->recordings = (new LiveRecordingsModel())->for_event($id);   // CLS Video recordings of this event's call
         $this->view->registrations = $model->registration_count($id);
         $this->view->has_paid  = $model->has_paid_going($id);
         $blocked = (new BlocksModel())->related_ids($creator_id);   // same filter event_message_send applies

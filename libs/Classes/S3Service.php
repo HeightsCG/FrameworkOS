@@ -184,6 +184,21 @@ class S3Service {
     }
 
     /** Delete a private object by its raw key. */
+    /** Copy one private object to another key inside the bucket (no download: S3 copies it server-side). */
+    public static function copy_private($from_key, $to_key, $content_type): bool
+    {
+        if (!self::configured() || (string) $from_key === '' || (string) $to_key === '') { return false; }
+        try {
+            // Large files (recordings run to gigabytes) need the multipart copier; it handles small ones too.
+            (new \Aws\S3\ObjectCopier(self::client(), array('Bucket' => self::bucket(), 'Key' => $from_key),
+                array('Bucket' => self::bucket(), 'Key' => $to_key), 'private', array('params' => array('ContentType' => $content_type, 'MetadataDirective' => 'REPLACE'))))->copy();
+        } catch (\Throwable $e) {
+            error_log('[s3] copy_private failed: ' . $e->getMessage());
+            return false;
+        }
+        return true;
+    }
+
     public static function delete_key($key): bool
     {
         if (!self::configured() || (string) $key === '') {

@@ -259,6 +259,31 @@ class ApiLiveController extends BaseApiController {
         $this->jsonSuccess(['balance' => (int) $after, 'message' => 'You sent ' . Price::credits($credits)]);
     }
 
+    /** Host: start recording the call (events only). {kind, id} */
+    public function live_record_startAction(){
+        $r = $this->host_room();
+        if ((string) ($this->post['kind'] ?? '') !== 'event') { $this->jsonError('Only event calls can be recorded.'); }
+        $ev = (new EventsModel())->get_public((int) ($this->post['id'] ?? 0));
+        $rows = $this->userModel->get_user_by_id((int) $r['creator_id']);
+        $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$ev || !$owner) { $this->jsonError('This call is not available.'); }
+        $res = LiveRecording::start($r['room'], $ev, $owner, (int) Session::get('user_id'));
+        if (empty($res['ok'])) { $this->jsonError((string) $res['message']); }
+        LiveRecording::push_state($r['room']);
+        $this->jsonSuccess(['message' => 'Recording started', 'minutes' => (int) $res['minutes'],
+                            'state' => json_decode(LiveControl::meta(LiveControl::state($r['room'], (array) $r['defaults'])), true)]);
+    }
+
+    /** Host: stop recording. The recording turns up in their Library a few minutes later. {kind, id} */
+    public function live_record_stopAction(){
+        $r = $this->host_room();
+        $res = LiveRecording::stop($r['room']);
+        if (empty($res['ok'])) { $this->jsonError((string) $res['message']); }
+        LiveRecording::push_state($r['room']);
+        $this->jsonSuccess(['message' => 'Recording stopped. It will be in your Library in a few minutes.',
+                            'state' => json_decode(LiveControl::meta(LiveControl::state($r['room'], (array) $r['defaults'])), true)]);
+    }
+
     /** A participant identity from the page: u<user id> or g<hash>. */
     private function identity_param(): string{
         $who = preg_replace('/[^a-z0-9]/i', '', (string) ($this->post['identity'] ?? ''));
