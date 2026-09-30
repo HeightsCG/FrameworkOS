@@ -274,6 +274,22 @@ class ProfileController extends Controller {
         foreach ($eventsModel->list_public_for_creator($user['user_id']) as $ev) {
             $event_cards[] = $make_event_card($ev);
         }
+        // Ended events stay on the profile ("Past Events"), so nothing a fan saw announced just disappears.
+        $past_event_cards = array();
+        foreach ($eventsModel->list_past_public_for_creator($user['user_id']) as $ev) {
+            $past_event_cards[] = $make_event_card($ev);
+        }
+        // Replays on sale get their own tab: anyone (follower or not) sees them, buys them there and watches on the event page.
+        $replay_cards = array();
+        foreach ($eventsModel->list_with_replay($user['user_id']) as $ev) {
+            $rp = EventReplay::info($ev);
+            if (!$rp) { continue; }
+            $acc = EventReplay::access($ev, $rp, $viewer_id);
+            if (!$rp['on_sale'] && $acc === '') { continue; }   // off sale: only people who can still watch it see it
+            $card = $make_event_card($ev);
+            $card['replay'] = array('price' => $rp['price'], 'length' => EventReplay::length($rp['duration']), 'access' => $acc, 'free_attendees' => $rp['free_attendees']);
+            $replay_cards[] = $card;
+        }
 
         // Published services this creator sells (PRD §22). The instructions are revealed ONLY to a buyer; the creator
         // sees their own service exactly as a fan does.

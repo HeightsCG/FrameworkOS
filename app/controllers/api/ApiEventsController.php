@@ -209,8 +209,10 @@ class ApiEventsController extends BaseApiController {
         [$rec] = $this->event_recording_row($owner, $ev);
         $price = $this->price_credits($this->post['price'] ?? '');   // 10 to 5,000 whole credits
         $free  = (string) ($this->post['free_attendees'] ?? '1') !== '0';
+        $was_on_sale = (int) ($ev['replay_price_credits'] ?? 0) > 0 && (int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id'];
         (new EventsModel())->set_replay($owner, (int) $ev['id'], (int) $rec['id'], $price, $free);
-        $this->jsonSuccess(['message' => 'The replay is on sale on your event page']);
+        if (!$was_on_sale) { ReplayAnnounceJob::queue((int) $ev['id'], (int) $rec['id']); }   // tell registered people and the creator's audience
+        $this->jsonSuccess(['message' => $was_on_sale ? 'Replay price saved' : 'The replay is on sale. Everyone who registered and your followers are being told.']);
     }
 
     /** Stop selling the replay (people who bought it keep watching it). {event_id} */

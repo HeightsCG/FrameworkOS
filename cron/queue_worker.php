@@ -42,6 +42,7 @@ $handlers = [
     'fanvue_share'   => 'FanvueShareJob',
     'signup_alert'   => 'SignupAlertJob',
     'recording_watch' => 'RecordingWatchJob',
+    'replay_announce' => 'ReplayAnnounceJob',
 ];
 
 $queue     = new DatabaseJobQueue();

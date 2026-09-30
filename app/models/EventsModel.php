@@ -194,8 +194,27 @@ class EventsModel extends Model {
             "SELECT e.*, (SELECT COUNT(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'registered') AS attendees
              FROM events e
              WHERE e.creator_id = :c AND e.status = 'published'
-               AND (e.end_at IS NULL OR e.end_at >= UTC_TIMESTAMP() OR e.start_at >= UTC_TIMESTAMP() OR e.replay_price_credits > 0)   -- past events stay listed while their replay is on sale
+               AND (e.end_at IS NULL OR e.end_at >= UTC_TIMESTAMP() OR e.start_at >= UTC_TIMESTAMP() )
              ORDER BY e.start_at ASC",
+            array('c' => (int) $creator_id));
+    }
+
+    /** A creator's ended events, newest first (the profile's Events tab lists them under "Past Events"). */
+    public function list_past_public_for_creator($creator_id, $limit = 20){
+        $limit = max(1, min(50, (int) $limit));
+        return (array) parent::select(
+            "SELECT e.*, (SELECT COUNT(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'registered') AS attendees
+             FROM events e
+             WHERE e.creator_id = :c AND e.status = 'published'
+               AND COALESCE(e.end_at, e.start_at + INTERVAL 1 HOUR) < UTC_TIMESTAMP()
+             ORDER BY e.start_at DESC LIMIT $limit",
+            array('c' => (int) $creator_id));
+    }
+
+    /** A creator's events that have a replay (on sale, or off sale but owned by some viewers), newest first. */
+    public function list_with_replay($creator_id){
+        return (array) parent::select(
+            "SELECT * FROM events WHERE creator_id = :c AND status = 'published' AND replay_recording_id IS NOT NULL ORDER BY start_at DESC LIMIT 50",
             array('c' => (int) $creator_id));
     }
 

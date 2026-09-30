@@ -428,7 +428,8 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
                     <button class="pf-tab" data-panel="plans" role="tab">Membership</button>
                     <?php if (!empty($service_cards)): ?><button class="pf-tab" data-panel="services" role="tab">Services</button><?php endif; ?>
-                    <?php if (!empty($event_cards)): ?><button class="pf-tab" data-panel="events" role="tab">Events</button><?php endif; ?>
+                    <?php $has_events_tab = !empty($event_cards) || !empty($replay_cards) || !empty($past_event_cards); ?>
+                    <?php if ($has_events_tab): ?><button class="pf-tab" data-panel="events" role="tab">Events</button><?php endif; ?>
                     <button class="pf-tab" data-panel="about" role="tab">About</button>
                     <?php if (!empty($links)): ?><button class="pf-tab" data-panel="links" role="tab">Links</button><?php endif; ?>
                 </nav>
@@ -582,11 +583,57 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                 </section>
                 <?php endif; ?>
 
-                <?php if (!empty($event_cards)): ?>
+                <?php if ($has_events_tab):
+                    // One Events tab with sub-tabs: Upcoming | Replays (anyone can buy, follower or not) | Past.
+                    $replay_ids = array_map(function ($c) { return (int) $c['id']; }, (array) $replay_cards);
+                    $past_only  = array_values(array_filter((array) $past_event_cards, function ($c) use ($replay_ids) { return !in_array((int) $c['id'], $replay_ids, true); }));
+                    $rh = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
                 <section class="pf-panel" data-panel="events">
-                    <div class="pel-list">
+                    <?php
+                    // Sub-tabs inside Events: Upcoming | Replays | Past (only the ones with something in them).
+                    $ev_subs = array_filter(array('upcoming' => !empty($event_cards), 'replays' => !empty($replay_cards), 'past' => !empty($past_only)));
+                    $ev_first = array_keys($ev_subs)[0]; ?>
+                    <?php if (count($ev_subs) > 1): ?>
+                    <div class="pel-subs" role="tablist" aria-label="Events">
+                        <?php foreach (array('upcoming' => 'Upcoming', 'replays' => 'Replays', 'past' => 'Past') as $sk => $sl): if (empty($ev_subs[$sk])) { continue; } ?>
+                        <button type="button" class="pel-sub<?php echo $sk === $ev_first ? ' is-on' : ''; ?>" role="tab" aria-selected="<?php echo $sk === $ev_first ? 'true' : 'false'; ?>" data-ev-sub="<?php echo $sk; ?>"><?php echo $sl; ?></button>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($event_cards)): ?>
+                    <div class="pel-list" data-ev-list="upcoming"<?php echo $ev_first !== 'upcoming' ? ' hidden' : ''; ?>>
                         <?php foreach ($event_cards as $ec) { $render_ev_card($ec); } ?>
                     </div>
+                    <?php endif; ?>
+                    <?php if (!empty($replay_cards)): ?>
+                    <div class="pel-list" data-ev-list="replays"<?php echo $ev_first !== 'replays' ? ' hidden' : ''; ?>>
+                        <?php foreach ($replay_cards as $rc): $rpc = $rc['replay']; $ev_href = $pf_base . '/events/' . (int) $rc['id']; ?>
+                        <div class="pel pel--replay" data-ev-card="<?php echo (int) $rc['id']; ?>">
+                            <a class="pel__link" href="<?php echo $rh($ev_href); ?>">
+                                <span class="pel__date" aria-hidden="true"><span class="pel__m"><?php echo $rh($rc['tile_month']); ?></span><span class="pel__d"><?php echo $rh($rc['tile_day']); ?></span></span>
+                                <span class="pel__body">
+                                    <span class="pel__title"><?php echo $rh($rc['title']); ?> <span class="pel__flag pel__flag--ok">Replay</span></span>
+                                    <span class="pel__meta"><span><i class="fa-solid fa-circle-play" aria-hidden="true"></i> <?php echo $rpc['length'] !== '' ? 'Full recording · ' . $rh($rpc['length']) : 'Full recording'; ?></span><span class="pel__sep" aria-hidden="true">·</span><span><?php echo $rh($rc['date_long']); ?></span></span>
+                                </span>
+                            </a>
+                            <span class="pel__buy">
+                                <?php if ($rpc['access'] !== ''): ?>
+                                <a class="pel__btn" href="<?php echo $rh($ev_href); ?>#peReplayH">Watch</a>
+                                <?php else: ?>
+                                <span class="pel__amount"><?php echo $rh(Price::credits($rpc['price'])); ?></span>
+                                <?php if ($viewer_logged_in): ?><button type="button" class="pel__btn" data-replay-buy="<?php echo (int) $rc['id']; ?>" data-price="<?php echo (int) $rpc['price']; ?>">Buy</button>
+                                <?php else: ?><a class="pel__btn" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Buy</a><?php endif; ?>
+                                <?php endif; ?>
+                            </span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                    <?php if (!empty($past_only)): ?>
+                    <div class="pel-list" data-ev-list="past"<?php echo $ev_first !== 'past' ? ' hidden' : ''; ?>>
+                        <?php foreach ($past_only as $ec) { $render_ev_card($ec); } ?>
+                    </div>
+                    <?php endif; ?>
                 </section>
                 <?php endif; ?>
 
@@ -764,6 +811,15 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     pfToast(o.message || 'Bundle unlocked!');
                     setTimeout(function () { window.location.reload(); }, 900);   // reveal the now-unlocked posts
                 });
+            };
+        });
+
+        // Events tab sub-tabs: Upcoming | Replays | Past.
+        document.querySelectorAll('[data-ev-sub]').forEach(function (t) {
+            t.onclick = function () {
+                var k = t.getAttribute('data-ev-sub');
+                document.querySelectorAll('[data-ev-sub]').forEach(function (x) { var on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+                document.querySelectorAll('[data-ev-list]').forEach(function (l) { l.hidden = l.getAttribute('data-ev-list') !== k; });
             };
         });
 
