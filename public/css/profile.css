@@ -610,3 +610,5 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
 .pel-sub:hover{ color:#1d1d1d; }
 .pel-sub.is-on{ background:#fff; color:#1d1d1d; box-shadow:0 1px 2px rgba(0,0,0,.08); }
 .pel-sub:focus-visible{ outline:2px solid #FF6A13; outline-offset:1px; }
+/* The replay row's Watch / Sign In to Buy are links styled as buttons: keep white text over the app shell's link colours */
+.pel .pel__buy a.pel__btn, .pel .pel__buy a.pel__btn:link, .pel .pel__buy a.pel__btn:visited, .pel .pel__buy a.pel__btn:hover, .pel .pel__buy a.pel__btn:focus{ color:#fff; text-decoration:none; }
