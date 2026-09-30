@@ -231,6 +231,13 @@ class ProfileController extends Controller {
             if ($card['is_video']) {
                 list($v_open, $v_close) = LiveAccess::window($ev);
                 $card['video_phase'] = LiveAccess::event_phase($ev);
+                // After the scheduled end the call stays joinable for a while so an overrun isn't cut off, but the page
+                // only offers "Join Video" then if the host is actually still in the call; otherwise it has ended.
+                $sched_end = !empty($ev['end_at']) ? strtotime((string) $ev['end_at'] . ' UTC') : strtotime((string) $ev['start_at'] . ' UTC') + 3600;
+                if ($card['video_phase'] === 'open' && time() > $sched_end) {
+                    $live_now = LiveKit::room_status(LiveKit::room_for_event((int) $ev['id']));
+                    if (!$live_now || empty($live_now['host_in'])) { $card['video_phase'] = 'closed'; }
+                }
                 $card['video_opens'] = isset($sd) ? (clone $sd)->setTimestamp($v_open)->format('g:i A T') : '';
                 $card['video_url']   = '/live/event/' . (int) $ev['id'];
                 $card['open_call']    = EventsModel::open_call($ev);
