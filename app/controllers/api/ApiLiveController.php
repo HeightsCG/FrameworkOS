@@ -54,8 +54,13 @@ class ApiLiveController extends BaseApiController {
                     $rooms->wait($room, $identity, $name);   // the page asks again every few seconds until the host decides
                     $this->jsonSuccess(['waiting' => true, 'message' => 'Waiting for the host to let you in.']);
                 }
-                $rooms->admit($room, $identity, $name);
             }
+            // Like Zoom: nobody gets in before the host (the page checks again every few seconds and lets them in).
+            $live = LiveKit::room_status($room);
+            if (!$live || empty($live['host_in'])) {
+                $this->jsonError('Waiting for the host to start this call. This page will let you in when they join.', ['no_host' => true]);
+            }
+            if ($status !== 'admitted') { $rooms->admit($room, $identity, $name); }
         }
         if (!empty($r['guest'])) {
             if ($this->loginAttemptsModel->count_recent($ip, 'guestjoin', 10) >= 30) { $this->jsonError('Too many joins from this connection. Wait a few minutes and try again.'); }

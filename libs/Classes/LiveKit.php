@@ -279,7 +279,8 @@ class LiveKit {
     private static function reply($method, $out, $code)
     {
         if ($out === false || $out === null || $code !== 200) {
-            error_log('[livekit] ' . $method . ' HTTP ' . $code . ': ' . substr((string) $out, 0, 200));
+            // A room nobody has opened yet isn't an error worth logging (attendees check for the host every few seconds).
+            if (!($code === 404 && $method === 'ListParticipants')) { error_log('[livekit] ' . $method . ' HTTP ' . $code . ': ' . substr((string) $out, 0, 200)); }
             return null;
         }
         $j = json_decode((string) $out, true);
