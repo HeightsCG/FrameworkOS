@@ -29,7 +29,11 @@
         // The Font Awesome kit swaps <i> for <svg>, so redraw the icon rather than editing it.
         btn.innerHTML = '<i class="fa-solid ' + (on ? icon_on : icon_off) + '" aria-hidden="true"></i>';
     }
+    // A camera can take seconds to start (longer if another app just had it): the lobby never waits for it.
+    // preview_gen drops a preview that finishes after the person already joined or restarted it.
+    var preview_gen = 0, preview_pending = false;
     function stop_preview() {
+        preview_gen++; preview_pending = false;
         if (meter) { clearInterval(meter.timer); try { meter.ctx.close(); } catch (e) {} meter = null; }
         ['audio', 'video'].forEach(function (k) { if (preview[k]) { preview[k].stop(); preview[k] = null; } });
         el('lvPreviewVideo').srcObject = null;
@@ -51,13 +55,26 @@
         if (current) { sel.value = current; }
         sel.disabled = list.length === 0;
     }
+    function quick_devices() {   // the devices the browser already knows, straight away (full names once the camera is on)
+        if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) { return; }
+        navigator.mediaDevices.enumerateDevices().then(function (list) {
+            if (!preview_pending) { return; }
+            var mics = list.filter(function (d) { return d.kind === 'audioinput' && d.deviceId; }), cams = list.filter(function (d) { return d.kind === 'videoinput' && d.deviceId; });
+            if (mics.length && !el('lvMicSel').options.length) { fill_devices(el('lvMicSel'), mics, ''); }
+            if (cams.length && !el('lvCamSel').options.length) { fill_devices(el('lvCamSel'), cams, ''); }
+        }).catch(function () {});
+    }
     function start_preview() {
         stop_preview();
+        var gen = ++preview_gen; preview_pending = true;
+        update_preview(); quick_devices();
         el('lvRetryDevices').hidden = true;
         var opts = {};
         if (el('lvMicSel').value) { opts.audio = { deviceId: el('lvMicSel').value }; } else { opts.audio = true; }
         if (el('lvCamSel').value) { opts.video = { deviceId: el('lvCamSel').value }; } else { opts.video = true; }
         return LK.createLocalTracks(opts).then(function (tracks) {
+            if (gen !== preview_gen) { tracks.forEach(function (t) { t.stop(); }); return; }   // they joined (or restarted) meanwhile
+            preview_pending = false;
             tracks.forEach(function (t) { preview[t.kind] = t; });
             if (preview.video) { preview.video.attach(el('lvPreviewVideo')); }
             if (preview.audio) { start_meter(preview.audio); }
@@ -67,6 +84,8 @@
                 fill_devices(el('lvCamSel'), d[1], preview.video && preview.video.mediaStreamTrack.getSettings().deviceId);
             });
         }).catch(function (err) {
+            if (gen !== preview_gen) { return; }
+            preview_pending = false;
             // No permission, or no camera/mic: they can still join to watch and listen.
             mic_on = false; cam_on = false; update_preview();
             var denied = err && (err.name === 'NotAllowedError' || /denied|permission/i.test(String(err.message)));
@@ -84,6 +103,8 @@
         set_toggle(el('lvPvCam'), cam_on && !!preview.video, 'fa-video', 'fa-video-slash');
         el('lvPvMic').disabled = !preview.audio; el('lvPvCam').disabled = !preview.video;
         var cam_visible = cam_on && !!preview.video;
+        var off_text = el('lvPreviewOff').querySelector('span:last-child');
+        if (off_text) { off_text.textContent = preview_pending ? 'Starting your camera…' : 'Camera is off'; }
         el('lvPreviewVideo').hidden = !cam_visible; el('lvPreviewOff').hidden = cam_visible;
         el('lvPreviewAvatar').textContent = initials(my_name);
         if (preview.video) { cam_on ? preview.video.unmute() : preview.video.mute(); }
@@ -119,7 +140,7 @@
     var SRC = { camera: 1, microphone: 2, screen_share: 3 };   // LiveKit TrackSource numbers in permissions
 
     el('lvJoin').addEventListener('click', join);
-    el('lvRejoin').addEventListener('click', function () { show('lvLobby'); start_preview().then(lobby_ready); });
+    el('lvRejoin').addEventListener('click', function () { show('lvLobby'); lobby_ready(); start_preview(); });
 
     function field_error(input, msg) {
         input.classList.toggle('is-invalid', !!msg);
@@ -181,7 +202,8 @@
         if (r.state) { state = r.state; }
         tip_balance = parseInt(r.credits, 10) || 0; show_tip_total(parseInt(r.tips, 10) || 0);
         var may_talk = is_host || !state.watch || state.speakers.indexOf(me_id) >= 0;
-        var want_mic = may_talk && mic_on && !!preview.audio, want_cam = may_talk && cam_on && !!preview.video;
+        var starting = preview_pending;   // joined before the preview was ready: turn them on in the call instead
+        var want_mic = may_talk && mic_on && (!!preview.audio || starting), want_cam = may_talk && cam_on && (!!preview.video || starting);
         var mic_id = el('lvMicSel').value, cam_id = el('lvCamSel').value;
         stop_preview();
         room = new LK.Room({ adaptiveStream: true, dynacast: true });
@@ -351,7 +373,23 @@
     el('lvMic').addEventListener('click', function () { var lp = room.localParticipant; lp.setMicrophoneEnabled(!lp.isMicrophoneEnabled).then(render).catch(device_error); });
     el('lvCam').addEventListener('click', function () { var lp = room.localParticipant; lp.setCameraEnabled(!lp.isCameraEnabled).then(render).catch(device_error); });
     if (el('lvShare')) el('lvShare').addEventListener('click', function () { var lp = room.localParticipant; lp.setScreenShareEnabled(!lp.isScreenShareEnabled).then(render).catch(function () { render(); }); });
-    el('lvLeave').addEventListener('click', function () { leaving = true; if (room) { room.disconnect(); } });
+    function leave() { leaving = true; if (room) { room.disconnect(); } }
+    el('lvLeave').addEventListener('click', function () {
+        // Like Zoom: a host with others still in the call chooses to end it for everyone or just leave it running.
+        if (!is_host || !room || room.remoteParticipants.size === 0) { leave(); return; }
+        Swal.fire({ title: 'Leave the call?', text: rec_since ? 'Ending it for everyone also stops the recording.' : 'You can end it for everyone, or leave it running for the others.',
+                    showDenyButton: true, showCancelButton: true, confirmButtonText: 'End Call for Everyone', denyButtonText: 'Just Leave', cancelButtonText: 'Cancel',
+                    customClass: { confirmButton: 'lv-swal-end' } })
+            .then(function (res) {
+                if (res.isDenied) { leave(); return; }
+                if (!res.isConfirmed) { return; }
+                ApiDataSvc.apiCall('post', 'live_end', { kind: kind, id: id }, function (data) {
+                    var r = parse(data);
+                    if (!r.success) { toastr.error(r.message || 'Could not end the call.'); return; }
+                    leaving = true;   // the server closes the room; everyone (the host too) gets "The call has ended"
+                });
+            });
+    });
     function device_error() { toastr.error('Your browser blocked the camera or microphone. Allow it in the address bar and try again.'); render(); }
     window.addEventListener('beforeunload', function () { if (room) { room.disconnect(); } });
 
@@ -666,5 +704,6 @@
     }
 
     show('lvLobby');
-    start_preview().then(lobby_ready);
+    lobby_ready();   // Join works at once; the camera preview catches up
+    start_preview();
 })();

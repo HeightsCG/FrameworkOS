@@ -128,6 +128,12 @@ class LiveKit {
         return array('people' => $people, 'host_in' => $host_in);
     }
 
+    /** Close a room for everyone in it now (the host's End Call for Everyone). Their pages show "The call has ended". */
+    public static function delete_room($room): bool
+    {
+        return self::room_api('DeleteRoom', array('room' => (string) $room), $room) !== null;
+    }
+
     /** Take someone out of a room now (host action). They can't come back with that pass's identity kicked. */
     public static function remove_participant($room, $identity): bool
     {
@@ -210,7 +216,7 @@ class LiveKit {
     private static function api($service, $method, array $body, $room, $record)
     {
         $base = preg_replace('#^ws#', 'http', rtrim(self::url(), '/'));
-        $grant = array('room' => (string) $room, 'roomAdmin' => true, 'roomList' => true);
+        $grant = array('room' => (string) $room, 'roomAdmin' => true, 'roomList' => true, 'roomCreate' => true);   // CreateRoom/DeleteRoom need roomCreate
         if ($record) { $grant['roomRecord'] = true; }
         $auth = self::jwt(array('iss' => self::cfg('livekit_api_key'), 'nbf' => time() - 10, 'exp' => time() + 60, 'video' => $grant));
         $ch = curl_init($base . '/twirp/livekit.' . $service . '/' . $method);

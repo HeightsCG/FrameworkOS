@@ -259,6 +259,14 @@ class ApiLiveController extends BaseApiController {
         $this->jsonSuccess(['balance' => (int) $after, 'message' => 'You sent ' . Price::credits($credits)]);
     }
 
+    /** Host: end the call for everyone (stops a running recording first, so it's kept). {kind, id} */
+    public function live_endAction(){
+        $r = $this->host_room();
+        if (LiveRecording::running_since($r['room']) > 0) { LiveRecording::stop($r['room']); }
+        if (!LiveKit::delete_room($r['room'])) { $this->jsonError('Could not reach the video server. Try again.'); }
+        $this->jsonSuccess(['message' => 'The call has ended for everyone']);
+    }
+
     /** Host: start recording the call (events only). {kind, id} */
     public function live_record_startAction(){
         $r = $this->host_room();
