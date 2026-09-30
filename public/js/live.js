@@ -180,13 +180,13 @@
             if (r.success && r.waiting) {
                 note('Waiting for the host to let you in. Keep this page open.', 'wait');
                 btn.disabled = false; btn.textContent = 'Stop Waiting';
-                wait_poll = setTimeout(function () { ask(body); }, 3000);
+                wait_poll = setTimeout(function () { ask(body); }, 1500);
                 return;
             }
             if (!r.success && r.ended) {   // the host ended the call: wait here in case they start it again
                 note('The host ended this call. If they start it again, this page will let you in.', 'wait');
                 btn.disabled = false; btn.textContent = 'Stop Waiting';
-                wait_poll = setTimeout(function () { ask(body); }, 10000);
+                wait_poll = setTimeout(function () { ask(body); }, 5000);
                 return;
             }
             stop_waiting();
@@ -211,8 +211,15 @@
         var starting = preview_pending;   // joined before the preview was ready: turn them on in the call instead
         var want_mic = may_talk && mic_on && (!!preview.audio || starting), want_cam = may_talk && cam_on && (!!preview.video || starting);
         var mic_id = el('lvMicSel').value, cam_id = el('lvCamSel').value;
-        stop_preview();
-        room = new LK.Room({ adaptiveStream: true, dynacast: true });
+        // Hand the lobby's camera and mic straight to the call: restarting a camera takes a second or two on some machines.
+        var keep = { audio: want_mic ? preview.audio : null, video: want_cam ? preview.video : null };
+        if (meter) { clearInterval(meter.timer); try { meter.ctx.close(); } catch (e) {} meter = null; }
+        ['audio', 'video'].forEach(function (k) { if (preview[k] && preview[k] !== keep[k]) { preview[k].stop(); } preview[k] = null; });
+        if (keep.video) { keep.video.detach(el('lvPreviewVideo')); }
+        el('lvPreviewVideo').srcObject = null;
+        preview_gen++; preview_pending = false;   // a preview still starting is dropped when it arrives
+        room = warm || new LK.Room({ adaptiveStream: true, dynacast: true });
+        warm = null;
         wire(room);
         room.connect(r.url, r.token).then(function () {
             show('lvCall'); leaving = false;
@@ -221,12 +228,15 @@
             apply_state(room.metadata || state);   // fills the host's settings too
             if (!may_talk) { toastr.info('This call is watch-only. Raise your hand to ask to talk.'); }
             if (is_host) { poll_waiting(); }
-            var lp = room.localParticipant;
+            var lp = room.localParticipant, S = LK.Track.Source;
             return Promise.all([
-                lp.setMicrophoneEnabled(want_mic, mic_id ? { deviceId: mic_id } : undefined).catch(function () {}),
-                lp.setCameraEnabled(want_cam, cam_id ? { deviceId: cam_id } : undefined).catch(function () {}),
+                keep.audio ? lp.publishTrack(keep.audio, { source: S.Microphone }).catch(function () { keep.audio.stop(); return lp.setMicrophoneEnabled(true).catch(function () {}); })
+                           : lp.setMicrophoneEnabled(want_mic, mic_id ? { deviceId: mic_id } : undefined).catch(function () {}),
+                keep.video ? lp.publishTrack(keep.video, { source: S.Camera }).catch(function () { keep.video.stop(); return lp.setCameraEnabled(true).catch(function () {}); })
+                           : lp.setCameraEnabled(want_cam, cam_id ? { deviceId: cam_id } : undefined).catch(function () {}),
             ]);
         }).then(function () { btn.textContent = 'Join Call'; btn.disabled = false; render(); }).catch(function () {
+            ['audio', 'video'].forEach(function (k) { if (keep[k]) { keep[k].stop(); } });
             btn.textContent = 'Join Call'; btn.disabled = false;
             note('Could not connect to the call. Check your connection and try again.', 'error');
             start_preview();
@@ -611,7 +621,7 @@
         ApiDataSvc.apiCall('post', 'live_waiting', { kind: kind, id: id }, function (data) {
             var r = parse(data);
             if (r.success) { waiting_list = r.waiting || []; render_waiting(); }
-            waiting_timer = setTimeout(poll_waiting, 3000);
+            waiting_timer = setTimeout(poll_waiting, 2000);
         });
     }
     function render_waiting() {
@@ -708,6 +718,13 @@
                 + '<ul class="dropdown-menu dropdown-menu-end">' + items.join('') + '</ul></div></li>';
         }).join('');
     }
+
+    // Warm up the connection to the video server while they're in the lobby, so Join connects faster.
+    var warm = null;
+    try {
+        var lk_url = root.getAttribute('data-lk-url') || '';
+        if (lk_url) { warm = new LK.Room({ adaptiveStream: true, dynacast: true }); warm.prepareConnection(lk_url).catch(function () {}); }
+    } catch (e) { warm = null; }
 
     show('lvLobby');
     lobby_ready();   // Join works at once; the camera preview catches up

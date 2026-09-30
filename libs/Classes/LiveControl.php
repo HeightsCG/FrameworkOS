@@ -87,14 +87,15 @@ class LiveControl {
         $ok = LiveKit::set_room_metadata($room, self::meta($s));
         $people = LiveKit::participants($room);
         if ($people === null) { return false; }
+        $list = array();
         foreach ($people as $p) {
             $id = (string) ($p['identity'] ?? '');
             if ($who !== null && $id !== (string) $who) { continue; }
             $meta = json_decode((string) ($p['metadata'] ?? ''), true);
             if (!empty($meta['host'])) { continue; }   // hosts keep every right
-            $ok = LiveKit::update_participant($room, $id, self::perm($s, $id, !empty($meta['guest']))) && $ok;
+            $list[] = array($id, self::perm($s, $id, !empty($meta['guest'])));
         }
-        return $ok;
+        return (LiveKit::update_participants($room, $list) === count($list)) && $ok;   // everyone at once, not one by one
     }
 
     /**

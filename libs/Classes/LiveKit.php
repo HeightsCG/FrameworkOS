@@ -101,6 +101,18 @@ class LiveKit {
         return self::room_api('SendData', array('room' => (string) $room, 'data' => base64_encode(json_encode($payload)), 'kind' => 'RELIABLE', 'topic' => (string) $topic), $room) !== null;
     }
 
+    /** update_participant() for many people at once: [[identity, perm], ...]. Returns how many succeeded. */
+    public static function update_participants($room, array $list): int
+    {
+        $bodies = array();
+        foreach ($list as $x) {
+            $bodies[] = array('room' => (string) $room, 'identity' => (string) $x[0], 'permission' => array(
+                'can_subscribe' => true, 'can_publish' => (bool) $x[1]['publish'], 'can_publish_data' => (bool) $x[1]['data'],
+                'can_publish_sources' => array_map('strtoupper', array_values((array) $x[1]['sources']))));
+        }
+        return self::api_many('RoomService', 'UpdateParticipant', $bodies, $room);
+    }
+
     /** Turn off one person's microphone ('MICROPHONE') or camera ('CAMERA') from the host's side. */
     public static function mute_source($room, $identity, $source): bool
     {
@@ -213,22 +225,60 @@ class LiveKit {
         return self::api('RoomService', $method, $body, $room, false);
     }
 
+    /**
+     * One request to the video server. The connection is kept open for the rest of the page request (one secure
+     * handshake instead of one per call), since a single host action can make several calls.
+     */
+    private static $conn = null;
     private static function api($service, $method, array $body, $room, $record)
+    {
+        if (self::$conn === null) { self::$conn = curl_init(); }
+        $ch = self::$conn;
+        curl_setopt_array($ch, self::request_opts($service, $method, $body, $room, $record));
+        return self::reply($method, curl_exec($ch), (int) curl_getinfo($ch, CURLINFO_HTTP_CODE));
+    }
+
+    /**
+     * The same request for many people at once (a host setting that changes everyone's rights): all sent together
+     * over parallel connections instead of one after another. Returns how many succeeded.
+     */
+    private static function api_many($service, $method, array $bodies, $room): int
+    {
+        if (count($bodies) <= 1) { $ok = 0; foreach ($bodies as $b) { if (self::api($service, $method, $b, $room, false) !== null) { $ok++; } } return $ok; }
+        $ok = 0;
+        foreach (array_chunk($bodies, 20) as $chunk) {   // at most 20 at a time
+            $mh = curl_multi_init(); $hs = array();
+            foreach ($chunk as $b) {
+                $h = curl_init(); curl_setopt_array($h, self::request_opts($service, $method, $b, $room, false));
+                curl_multi_add_handle($mh, $h); $hs[] = $h;
+            }
+            do { $st = curl_multi_exec($mh, $running); if ($running) { curl_multi_select($mh, 1.0); } } while ($running && $st === CURLM_OK);
+            foreach ($hs as $h) {
+                if (self::reply($method, curl_multi_getcontent($h), (int) curl_getinfo($h, CURLINFO_HTTP_CODE)) !== null) { $ok++; }
+                curl_multi_remove_handle($mh, $h); curl_close($h);
+            }
+            curl_multi_close($mh);
+        }
+        return $ok;
+    }
+
+    private static function request_opts($service, $method, array $body, $room, $record): array
     {
         $base = preg_replace('#^ws#', 'http', rtrim(self::url(), '/'));
         $grant = array('room' => (string) $room, 'roomAdmin' => true, 'roomList' => true, 'roomCreate' => true);   // CreateRoom/DeleteRoom need roomCreate
         if ($record) { $grant['roomRecord'] = true; }
         $auth = self::jwt(array('iss' => self::cfg('livekit_api_key'), 'nbf' => time() - 10, 'exp' => time() + 60, 'video' => $grant));
-        $ch = curl_init($base . '/twirp/livekit.' . $service . '/' . $method);
-        curl_setopt_array($ch, array(
-            CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8,
+        return array(
+            CURLOPT_URL => $base . '/twirp/livekit.' . $service . '/' . $method,
+            CURLOPT_POST => true, CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 8, CURLOPT_CONNECTTIMEOUT => 4,
             CURLOPT_HTTPHEADER => array('Content-Type: application/json', 'Authorization: Bearer ' . $auth),
             CURLOPT_POSTFIELDS => json_encode((object) $body),   // always a JSON object, even when empty
-        ));
-        $out  = curl_exec($ch);
-        $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-        if ($out === false || $code !== 200) {
+        );
+    }
+
+    private static function reply($method, $out, $code)
+    {
+        if ($out === false || $out === null || $code !== 200) {
             error_log('[livekit] ' . $method . ' HTTP ' . $code . ': ' . substr((string) $out, 0, 200));
             return null;
         }

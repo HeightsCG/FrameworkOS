@@ -4,9 +4,12 @@ $c = isset($c) ? $c : $this->call;   // guest_frame.php passes $c directly
 $h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 ?>
 <link rel="stylesheet" href="/css/live.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/live.css'); ?>">
+<?php $lk_http = preg_replace('#^ws#', 'http', rtrim(LiveKit::url(), '/')); ?>
+<link rel="preconnect" href="<?php echo $h($lk_http); ?>">
+<link rel="preload" as="script" href="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.js">
 <div class="lv" id="lv" data-kind="<?php echo $h($c['kind']); ?>" data-id="<?php echo (int) $c['id']; ?>" data-host="<?php echo $c['is_host'] ? 1 : 0; ?>"
      data-opens="<?php echo (int) $c['opens_at']; ?>" data-back="<?php echo $h($c['back']); ?>" data-me="<?php echo $h($c['me_name']); ?>"
-     data-guest="<?php echo !empty($c['guest']) ? 1 : 0; ?>" data-needs-pw="<?php echo !empty($c['needs_password']) ? 1 : 0; ?>">
+     data-guest="<?php echo !empty($c['guest']) ? 1 : 0; ?>" data-lk-url="<?php echo $h(LiveKit::url()); ?>" data-needs-pw="<?php echo !empty($c['needs_password']) ? 1 : 0; ?>">
 
     <header class="lv__head">
         <a class="lv__back" href="<?php echo $h($c['back']); ?>" aria-label="Back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i></a>
