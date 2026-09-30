@@ -20,6 +20,7 @@ class FanSpendModel extends Model {
             "SELECT sp.buyer_id, sp.price_credits, sp.created_at FROM service_purchases sp JOIN services s ON s.id = sp.service_id
                WHERE s.creator_id = :c5 AND sp.status = 'paid' AND sp.price_credits > 0" . ($fan === null ? '' : sprintf($f, 'sp.buyer_id', 5)),
             "SELECT fan_id, credits, created_at FROM live_tips WHERE creator_id = :c6" . ($fan === null ? '' : sprintf($f, 'fan_id', 6)),
+            "SELECT fan_id, price_credits, created_at FROM replay_unlocks WHERE creator_id = :c7" . ($fan === null ? '' : sprintf($f, 'fan_id', 7)),
         );
         return implode(' UNION ALL ', $parts);
     }
@@ -27,7 +28,7 @@ class FanSpendModel extends Model {
     private function params($creator_id, $fan_id = null): array
     {
         $p = array();
-        for ($i = 1; $i <= 6; $i++) {
+        for ($i = 1; $i <= 7; $i++) {
             $p['c' . $i] = (int) $creator_id;
             if ($fan_id !== null) { $p['f' . $i] = (int) $fan_id; }
         }

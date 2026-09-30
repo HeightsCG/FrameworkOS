@@ -238,6 +238,30 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 <p class="pe-desc"><?php echo nl2br($h_($fe['description'])); ?></p>
                             </section>
                             <?php endif; ?>
+                            <?php if (!empty($fe['replay'])): $rp = $fe['replay']; ?>
+                            <section class="pe-replay" aria-labelledby="peReplayH">
+                                <h2 class="pe-about__h" id="peReplayH">Replay</h2>
+                                <?php if ($rp['access'] !== ''): ?>
+                                <div class="pe-replay__player" id="peReplayPlayer" data-event="<?php echo (int) $fe['id']; ?>">
+                                    <button type="button" class="pe-replay__start" data-replay-watch="<?php echo (int) $fe['id']; ?>"><span class="pe-replay__icon"><i class="fa-solid fa-play" aria-hidden="true"></i></span><span>Watch the Replay<?php echo $rp['length'] !== '' ? ' · ' . $h_($rp['length']) : ''; ?></span></button>
+                                </div>
+                                <p class="pe-replay__note"><?php echo $rp['access'] === 'host' ? ($rp['on_sale'] ? 'Your replay is on sale for ' . $h_(Price::credits($rp['price'])) . '.' : 'Your replay isn’t for sale right now. People who bought it can still watch it.') : ($rp['access'] === 'attendee' ? 'Included because you registered for this event.' : 'You bought this replay.'); ?></p>
+                                <?php else: ?>
+                                <div class="pe-replay__locked">
+                                    <span class="pe-replay__icon"><i class="fa-solid fa-lock" aria-hidden="true"></i></span>
+                                    <div class="pe-replay__text">
+                                        <p class="pe-replay__main">Watch the full recording<?php echo $rp['length'] !== '' ? ' · ' . $h_($rp['length']) : ''; ?></p>
+                                        <p class="pe-replay__sub"><?php echo $h_(Price::credits($rp['price'])); ?><?php echo $rp['free_attendees'] ? ' · Free for people who registered' : ''; ?></p>
+                                    </div>
+                                    <?php if (!$viewer_logged_in): ?>
+                                    <a class="pe-btn pe-replay__buy" href="<?php echo htmlspecialchars($login_href, ENT_QUOTES, 'UTF-8'); ?>">Sign In to Buy</a>
+                                    <?php else: ?>
+                                    <button type="button" class="pe-btn pe-replay__buy" data-replay-buy="<?php echo (int) $fe['id']; ?>" data-price="<?php echo (int) $rp['price']; ?>">Buy Replay</button>
+                                    <?php endif; ?>
+                                </div>
+                                <?php endif; ?>
+                            </section>
+                            <?php endif; ?>
                             <?php if ($can_see && trim((string) $ax['instructions']) !== ''): ?>
                             <section class="pe-about pe-about--instr">
                                 <h2 class="pe-about__h">Instructions for Attendees</h2>
@@ -277,6 +301,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 <?php if (!empty($fe['open_call']) && $fe_state !== 'registered'): ?><p class="pe-card__sub">Anyone can join. Registering is optional.</p><?php endif; ?>
                                 <?php elseif ($fe_state === 'ended'): ?>
                                 <p class="pe-status">This event has ended.</p>
+                                <?php if (!empty($fe['replay'])): ?><a class="pe-card__sub pe-replay__jump" href="#peReplayH"><i class="fa-solid fa-circle-play" aria-hidden="true"></i> Watch the replay</a><?php endif; ?>
                                 <?php elseif ($fe_state === 'registered'): ?>
                                 <p class="pe-status pe-status--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> You&rsquo;re registered</p>
                                 <?php if (!empty($fe['is_video'])): ?><p class="pe-card__sub">The call opens here at <?php echo $h_($fe['video_opens']); ?>.</p><?php echo $fe_pw_note; ?><?php endif; ?>
@@ -732,6 +757,47 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     if (!o.success) { b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Could not unlock'); return; }
                     pfToast(o.message || 'Bundle unlocked!');
                     setTimeout(function () { window.location.reload(); }, 900);   // reveal the now-unlocked posts
+                });
+            };
+        });
+
+        // Event replay: buy it with wallet credits (confirm first), then watch it right here.
+        document.querySelectorAll('[data-replay-buy]').forEach(function (b) {
+            b.onclick = function () {
+                if (!LOGGED_IN) { window.location = PF_LOGIN; return; }
+                var price = parseInt(b.getAttribute('data-price'), 10) || 0;
+                var go = function () {
+                    var orig = b.innerHTML; b.disabled = true; b.textContent = 'Buying…';
+                    ApiDataSvc.apiCall('post', 'event_replay_buy', { event_id: b.getAttribute('data-replay-buy') }, function (resp) {
+                        var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                        if (o && o.need_login) { window.location = PF_LOGIN; return; }
+                        if (o && o.need_credits) {
+                            b.disabled = false; b.innerHTML = orig; pfToast(o.message || 'Not enough credits in your wallet.');
+                            setTimeout(function () { window.location = '/account/settings?section=wallet'; }, 1400); return;
+                        }
+                        if (!o || !o.success) { b.disabled = false; b.innerHTML = orig; pfToast((o && o.message) || 'Could not buy the replay'); return; }
+                        pfToast(o.message || 'Replay purchased');
+                        setTimeout(function () { window.location.reload(); }, 800);
+                    });
+                };
+                if (!window.Swal) { go(); return; }
+                Swal.fire({ title: 'Buy the replay for ' + price.toLocaleString('en-US') + ' credits?', text: 'You watch it here on the event page. Sales are final.',
+                            showCancelButton: true, reverseButtons: true, confirmButtonText: 'Buy Replay', cancelButtonText: 'Cancel', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
+                    .then(function (r) { if (r.isConfirmed) { go(); } });
+            };
+        });
+        document.querySelectorAll('[data-replay-watch]').forEach(function (b) {
+            b.onclick = function () {
+                b.disabled = true;
+                ApiDataSvc.apiCall('post', 'event_replay_watch', { event_id: b.getAttribute('data-replay-watch') }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (e) { o = null; }
+                    if (!o || !o.success || !o.url) { b.disabled = false; pfToast((o && o.message) || 'Could not load the replay'); return; }
+                    var v = document.createElement('video');
+                    v.controls = true; v.playsInline = true; v.preload = 'metadata'; v.className = 'pe-replay__video';
+                    if (o.poster) { v.poster = o.poster; }
+                    v.src = o.url;
+                    b.parentNode.replaceChild(v, b);
+                    v.play().catch(function () {});
                 });
             };
         });

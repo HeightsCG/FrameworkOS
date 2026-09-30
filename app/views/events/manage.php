@@ -143,7 +143,12 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                 $st = (string) $rec['status']; $secs = (int) $rec['duration_sec']; $ready = $st === 'ready' && (int) $rec['asset_id'] > 0;
                 $len = $secs > 0 ? ($secs >= 3600 ? floor($secs / 3600) . ':' . sprintf('%02d', floor($secs % 3600 / 60)) : floor($secs / 60)) . ':' . sprintf('%02d', $secs % 60) : '';
                 $label = array('recording' => 'Recording now', 'stopping' => 'Finishing', 'processing' => 'Processing', 'ready' => 'Ready to watch', 'failed' => 'Didn’t save')[$st] ?? $st;
-                $when = $local($rec['started_at'], 'M j, g:i A'); ?>
+                $when = $local($rec['started_at'], 'M j, g:i A');
+                $is_replay = $ready && (int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id'] && (int) ($ev['replay_price_credits'] ?? 0) > 0;
+                if ($is_replay) {
+                    $label .= ' · Replay on sale for ' . Price::credits((int) $ev['replay_price_credits']) . ((int) $ev['replay_free_attendees'] === 1 ? ', free for registered people' : '')
+                            . ' · ' . (int) $this->replay_sold . ' sold';
+                } ?>
             <li class="evm-rec" data-rec="<?php echo (int) $rec['id']; ?>">
                 <?php if ($ready): ?><button type="button" class="evm-rec__play" data-rec-play="<?php echo (int) $rec['id']; ?>" aria-label="Play the recording from <?php echo $e($when); ?>"><?php else: ?><span class="evm-rec__play is-static"><?php endif; ?>
                     <span class="evm-rec__ic evm-rec__ic--<?php echo $e($st); ?>"><i class="fa-solid <?php echo $st === 'failed' ? 'fa-triangle-exclamation' : ($ready ? 'fa-play' : 'fa-circle-dot'); ?>" aria-hidden="true"></i></span>
@@ -157,6 +162,13 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                     <ul class="dropdown-menu dropdown-menu-end">
                         <li><button type="button" class="dropdown-item" data-rec-play="<?php echo (int) $rec['id']; ?>">Play</button></li>
                         <li><button type="button" class="dropdown-item" data-rec-download="<?php echo (int) $rec['id']; ?>">Download</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <?php if ($is_replay): ?>
+                        <li><button type="button" class="dropdown-item" data-rec-sell="<?php echo (int) $rec['id']; ?>" data-price="<?php echo (int) $ev['replay_price_credits']; ?>" data-free="<?php echo (int) $ev['replay_free_attendees']; ?>">Change Replay Price…</button></li>
+                        <li><button type="button" class="dropdown-item" data-rec-unsell="<?php echo (int) $rec['id']; ?>">Stop Selling Replay</button></li>
+                        <?php else: ?>
+                        <li><button type="button" class="dropdown-item" data-rec-sell="<?php echo (int) $rec['id']; ?>" data-price="" data-free="1">Sell as Replay…</button></li>
+                        <?php endif; ?>
                         <li><hr class="dropdown-divider"></li>
                         <li><button type="button" class="dropdown-item evm-menu__danger" data-rec-delete="<?php echo (int) $rec['id']; ?>">Delete…</button></li>
                     </ul></div>

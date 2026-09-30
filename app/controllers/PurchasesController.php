@@ -113,6 +113,14 @@ class PurchasesController extends Controller {
                 'link' => '/@' . rawurlencode((string) $b['creator_handle']) . '/services/' . (int) $b['service_id'], 'link_label' => 'View Booking',
             );
         }
+        foreach ((new ReplayUnlocksModel())->for_fan($user_id) as $rp) {   // watched on the event page, not here
+            $purchases[] = array(
+                'key' => 'replay:' . (int) $rp['event_id'], 'type' => 'replay', 'title' => html_entity_decode((string) $rp['title'], ENT_QUOTES, 'UTF-8'),
+                'creator' => (string) $rp['creator_name'], 'handle' => (string) $rp['creator_handle'], 'price' => (int) $rp['price_credits'],
+                'purchased_at' => (string) $rp['purchased_at'], 'assets' => array(),
+                'link' => '/@' . rawurlencode((string) $rp['creator_handle']) . '/events/' . (int) $rp['event_id'], 'link_label' => 'Watch Replay',
+            );
+        }
         usort($purchases, function ($a, $b) { return strcmp((string) $b['purchased_at'], (string) $a['purchased_at']); });
         return $purchases;
     }

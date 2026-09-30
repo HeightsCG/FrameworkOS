@@ -401,7 +401,7 @@
         if (!is_host || !room || room.remoteParticipants.size === 0) { leave(); return; }
         Swal.fire({ title: 'Leave the call?', text: rec_since ? 'Ending it for everyone also stops the recording.' : 'You can end it for everyone, or leave it running for the others.',
                     showDenyButton: true, showCancelButton: true, confirmButtonText: 'End Call for Everyone', denyButtonText: 'Just Leave', cancelButtonText: 'Cancel',
-                    customClass: { confirmButton: 'lv-swal-end' } })
+                    denyButtonColor: '#3a3a3f', cancelButtonColor: '#6b6779', customClass: { confirmButton: 'lv-swal-end' } })
             .then(function (res) {
                 if (res.isDenied) { leave(); return; }
                 if (!res.isConfirmed) { return; }
@@ -536,7 +536,7 @@
         var since = parseInt(state.recording, 10) || 0;
         if (!rec_ready) { rec_ready = !!room; rec_since = since; }
         if (since && !rec_since && room && room.state !== 'disconnected') { toastr.info(is_host ? 'Recording started. Everyone in the call can see it.' : 'The host started recording this call.'); }
-        if (!since && rec_since && room) { toastr.info(is_host ? 'Recording stopped. It will be in your Library in a few minutes.' : 'The host stopped recording.'); }
+        if (!since && rec_since && room) { toastr.info(is_host ? 'Recording stopped. It will be on the event page in a few minutes.' : 'The host stopped recording.'); }
         rec_since = since;
         el('lvRec').hidden = !since;
         clearInterval(rec_clock);
@@ -561,7 +561,7 @@
             host_call(on ? 'live_record_stop' : 'live_record_start', {}, function () { b.disabled = false; });
         };
         if (on) { go(); return; }
-        Swal.fire({ title: 'Record this call?', text: 'Everyone in the call will see it’s being recorded. When you stop, the recording goes to your Library, ready to sell as a post.',
+        Swal.fire({ title: 'Record this call?', text: 'Everyone in the call will see it’s being recorded. When you stop, the recording is saved on the event page, where you can watch it, download it or sell it as the replay.', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
                     showCancelButton: true, confirmButtonText: 'Start Recording', cancelButtonText: 'Cancel', reverseButtons: true })
             .then(function (res) { if (res.isConfirmed) { go(); } });
     });
@@ -682,7 +682,7 @@
             }
             if (!rm) { return; }
             var who2 = rm.getAttribute('data-remove'), name = rm.getAttribute('data-name');
-            Swal.fire({ title: 'Remove ' + name + '?', text: 'They will be taken out of this call and can’t rejoin it.', showCancelButton: true, confirmButtonText: 'Remove', cancelButtonText: 'Cancel', reverseButtons: true })
+            Swal.fire({ title: 'Remove ' + name + '?', text: 'They will be taken out of this call and can’t rejoin it.', showCancelButton: true, confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779', confirmButtonText: 'Remove', cancelButtonText: 'Cancel', reverseButtons: true })
                 .then(function (res) {
                     if (!res.isConfirmed) { return; }
                     ApiDataSvc.apiCall('post', 'live_remove', { kind: kind, id: id, identity: who2 }, function (data) {

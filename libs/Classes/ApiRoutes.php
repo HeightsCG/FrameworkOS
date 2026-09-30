@@ -85,7 +85,7 @@ class ApiRoutes {
             'seo_article_unpublish', 'seo_article_rewrite', 'seo_article_discard', 'seo_article_cover',
         ],
         'ApiEventsController' => [
-            'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all', 'event_set_live', 'event_recording', 'event_recording_delete',
+            'event_save', 'event_delete', 'event_register', 'event_cancel', 'event_attendees', 'event_attendees_csv', 'event_refund_attendee', 'event_remove_attendee', 'event_message_send', 'event_messages', 'event_cancel_all', 'event_set_live', 'event_recording', 'event_recording_delete', 'event_replay_set', 'event_replay_off', 'event_replay_buy', 'event_replay_watch',
         ],
         'ApiLiveController' => [
             'live_join', 'live_remove', 'live_mute_all', 'live_status', 'live_settings', 'live_waiting', 'live_admit', 'live_deny', 'live_person', 'live_hand', 'live_offers', 'live_pin', 'live_tip', 'live_record_start', 'live_record_stop', 'live_end',

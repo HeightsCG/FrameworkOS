@@ -300,7 +300,7 @@ class ApiLiveController extends BaseApiController {
         $res = LiveRecording::stop($r['room']);
         if (empty($res['ok'])) { $this->jsonError((string) $res['message']); }
         LiveRecording::push_state($r['room']);
-        $this->jsonSuccess(['message' => 'Recording stopped. It will be in your Library in a few minutes.',
+        $this->jsonSuccess(['message' => 'Recording stopped. It will be on the event page in a few minutes.',
                             'state' => json_decode(LiveControl::meta(LiveControl::state($r['room'], (array) $r['defaults'])), true)]);
     }
 

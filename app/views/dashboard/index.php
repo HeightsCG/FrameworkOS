@@ -137,9 +137,10 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
         array('Events',       (int) $rev['event_cents'],   'fa-calendar-days'),
         array('Services',     (int) $rev['service_cents'], 'fa-briefcase'),
         array('Tips',         (int) ($rev['tip_cents'] ?? 0), 'fa-coins'),
+        array('Replays',      (int) ($rev['replay_cents'] ?? 0), 'fa-circle-play'),
     );
-    $rev_max = max(1, (int) $rev['ppv_cents'], (int) $rev['bundle_cents'], (int) $rev['message_cents'], (int) $rev['event_cents'], (int) $rev['service_cents'], (int) ($rev['tip_cents'] ?? 0));
-    $sale_tag = array('ppv' => 'PPV', 'bundle' => 'Bundle', 'event' => 'Event', 'service' => 'Service', 'tip' => 'Tip');
+    $rev_max = max(1, (int) $rev['ppv_cents'], (int) $rev['bundle_cents'], (int) $rev['message_cents'], (int) $rev['event_cents'], (int) $rev['service_cents'], (int) ($rev['tip_cents'] ?? 0), (int) ($rev['replay_cents'] ?? 0));
+    $sale_tag = array('ppv' => 'PPV', 'bundle' => 'Bundle', 'event' => 'Event', 'service' => 'Service', 'tip' => 'Tip', 'replay' => 'Replay');
     ?>
     <section class="dash__tab-panel is-active" data-panel="revenue">
         <div class="dash__panel">

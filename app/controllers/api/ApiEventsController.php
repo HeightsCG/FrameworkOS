@@ -198,7 +198,75 @@ class ApiEventsController extends BaseApiController {
         [$rec, $asset] = $this->event_recording_row($owner, $ev);
         (new MediaAssetsModel())->soft_delete($owner, (int) $asset['id']);
         (new LiveRecordingsModel())->set((int) $rec['id'], array('status' => 'deleted'));
+        if ((int) ($ev['replay_recording_id'] ?? 0) === (int) $rec['id']) { (new EventsModel())->set_replay($owner, (int) $ev['id'], 0, 0, true); }   // no longer on sale
         $this->jsonSuccess(['message' => 'Recording deleted']);
+    }
+
+    /** Sell one of this event's recordings as its replay, on the public event page. {event_id, recording_id, price, free_attendees} */
+    public function event_replay_setAction(){
+        [$owner, $ev] = $this->owned_event();
+        if ($this->seller_suspended($owner)) { $this->jsonError('Selling replays is included on the Creator and Studio plans.', ['need_plan' => true]); }
+        [$rec] = $this->event_recording_row($owner, $ev);
+        $price = $this->price_credits($this->post['price'] ?? '');   // 10 to 5,000 whole credits
+        $free  = (string) ($this->post['free_attendees'] ?? '1') !== '0';
+        (new EventsModel())->set_replay($owner, (int) $ev['id'], (int) $rec['id'], $price, $free);
+        $this->jsonSuccess(['message' => 'The replay is on sale on your event page']);
+    }
+
+    /** Stop selling the replay (people who bought it keep watching it). {event_id} */
+    public function event_replay_offAction(){
+        [$owner, $ev] = $this->owned_event();
+        // Keep which recording it is (price 0 = off sale): people who bought it keep watching.
+        (new EventsModel())->set_replay($owner, (int) $ev['id'], (int) ($ev['replay_recording_id'] ?? 0), 0, (int) ($ev['replay_free_attendees'] ?? 1) === 1);
+        $this->jsonSuccess(['message' => 'The replay is no longer for sale']);
+    }
+
+    /** A fan buys an event's replay with wallet credits. {event_id} */
+    public function event_replay_buyAction(){
+        $me = (int) Session::get('user_id');
+        if ($me <= 0) { $this->jsonError('Sign in to buy the replay.', ['need_login' => true]); }
+        $ev = (new EventsModel())->get_public((int) ($this->post['event_id'] ?? 0));
+        $info = $ev ? EventReplay::info($ev) : null;
+        if (!$ev || !$info || !$info['on_sale'] || (string) $ev['status'] !== 'published') { $this->jsonError('This replay isn’t for sale.'); }
+        $creator = (int) $ev['creator_id'];
+        if ((new BlocksModel())->either_blocked($me, $creator) || $this->seller_suspended($creator)) { $this->jsonError('This replay isn’t available.'); }
+        if (EventReplay::access($ev, $info, $me) !== '') { $this->jsonSuccess(['already' => true, 'message' => 'You can already watch this replay.']); }
+        // Adult (or not yet checked) video is only sold to fans who have adult content on, like bundles.
+        $st = (string) ($info['asset']['moderation_status'] ?? '');
+        if ($st !== 'n_a' && ($st !== 'approved' || !empty($info['asset']['is_adult']))) {
+            $vrow = $this->userModel->get_user_by_id($me);
+            if (!(is_array($vrow) && count($vrow) === 1 && !empty($vrow[0]['adult_content_enabled']))) {
+                $this->jsonError('This replay has adult content. Turn on adult content in Settings to buy it.');
+            }
+        }
+        $price = (int) $info['price'];
+        $credits = new CreditsModel();
+        $balance = (int) $credits->get_balance($me);
+        if ($balance < $price) { $this->jsonError('You need ' . Price::credits($price - $balance) . ' more in your wallet to buy this replay.', ['need_credits' => true, 'balance' => $balance, 'price' => $price]); }
+        $unlocks = new ReplayUnlocksModel();
+        if (!$unlocks->record((int) $ev['id'], $creator, $me, $price)) { $this->jsonSuccess(['already' => true, 'message' => 'You already own this replay.']); }
+        $title = html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8');
+        $net = $this->creator_net($creator, $price);
+        if ($credits->pay($me, $price, 'replay_unlock', 'Replay of "' . mb_substr($title, 0, 80) . '"', $creator, $net, 'replay_earning', 'Replay sale: "' . mb_substr($title, 0, 80) . '"') === false) {
+            $unlocks->remove((int) $ev['id'], $me);
+            $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => (int) $credits->get_balance($me), 'price' => $price]);
+        }
+        if ($net > 0) { $unlocks->set_net((int) $ev['id'], $me, $net); }
+        $this->notify($creator, 'purchases', 'New replay sale', 'Someone bought the replay of "' . mb_substr($title, 0, 60) . '" for ' . Notify::credits($price) . '.', '/events/manage/' . (int) $ev['id'], 'fa-circle-play');
+        $this->notify($me, 'purchases', 'Replay purchased', Notify::credits($price) . ' spent · ' . Notify::credits($credits->get_balance($me)) . ' left. Watch it on the event page.', '/purchases', 'fa-circle-play');
+        InboxAutomationService::trigger($creator, $me, 'new_purchase', 'replay' . (int) $ev['id']);
+        $this->jsonSuccess(['message' => 'Replay purchased. Enjoy!', 'balance' => (int) $credits->get_balance($me)]);
+    }
+
+    /** Watch an event's replay (anyone allowed to): a short-lived link to the video. {event_id} */
+    public function event_replay_watchAction(){
+        $ev = (new EventsModel())->get_public((int) ($this->post['event_id'] ?? 0));
+        $info = $ev ? EventReplay::info($ev) : null;
+        if (!$ev || !$info) { $this->jsonError('This replay isn’t available.'); }
+        if (EventReplay::access($ev, $info, (int) Session::get('user_id')) === '') { $this->jsonError('Buy the replay to watch it.', ['need_buy' => true]); }
+        $a = $info['asset'];
+        $this->jsonSuccess(['url' => S3Service::presigned_get_url((string) $a['original_key'], 4 * 3600),
+                            'poster' => (string) $a['poster_key'] !== '' ? S3Service::presigned_get_url((string) $a['poster_key'], 4 * 3600) : '']);
     }
 
     /** [recording, its video] for this event, or a JSON error. */

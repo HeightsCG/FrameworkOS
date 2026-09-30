@@ -259,6 +259,12 @@ class ProfileController extends Controller {
             $focus_event['is_live'] = ((string) $row['status'] === 'published');
             $mine = ($viewer_logged_in && !empty($focus_event['registered'])) ? $eventsModel->going_registration((int) $row['id'], $viewer_id) : null;
             $focus_event['my_paid'] = $mine ? (int) $mine['price_credits'] : 0;   // shown in the cancel dialog (refunded before the start)
+            // A replay on sale (one of the call's recordings): watched here by the host, buyers and (if chosen) registered people.
+            $rp = EventReplay::info($row);
+            $rp_access = $rp ? EventReplay::access($row, $rp, $viewer_id) : '';
+            // Shown while it's on sale; once taken off sale, only to people who can still watch it.
+            $focus_event['replay'] = ($rp && ($rp['on_sale'] || $rp_access !== '')) ? array('price' => $rp['price'], 'on_sale' => $rp['on_sale'],
+                'length' => EventReplay::length($rp['duration']), 'free_attendees' => $rp['free_attendees'], 'access' => $rp_access) : null;
         }
 
         // Published events this creator is hosting (PRD §23). Access details (venue,

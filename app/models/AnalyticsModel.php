@@ -54,7 +54,7 @@ class AnalyticsModel extends Model {
      * The creator's revenue rows in the credit ledger: every sale's earning (already net of the platform fee) and every
      * refund's clawback (a negative refund_reversal). Revenue = their sum, so refunds come off what was earned.
      */
-    const REVENUE_TYPES = "('ppv_earning','bundle_earning','message_earning','event_earning','service_earning','tip_earning','refund_reversal')";
+    const REVENUE_TYPES = "('ppv_earning','bundle_earning','message_earning','event_earning','service_earning','tip_earning','replay_earning','refund_reversal')";
 
     /**
      * Which offering a revenue row belongs to. A clawback carries no reference, but its description is written by the
@@ -62,7 +62,7 @@ class AnalyticsModel extends Model {
      */
     const REVENUE_OFFERING = "CASE type
             WHEN 'ppv_earning' THEN 'ppv' WHEN 'bundle_earning' THEN 'bundle' WHEN 'message_earning' THEN 'message'
-            WHEN 'event_earning' THEN 'event' WHEN 'service_earning' THEN 'service' WHEN 'tip_earning' THEN 'tip'
+            WHEN 'event_earning' THEN 'event' WHEN 'service_earning' THEN 'service' WHEN 'tip_earning' THEN 'tip' WHEN 'replay_earning' THEN 'replay'
             ELSE CASE WHEN description LIKE '%pay-per-view%' THEN 'ppv' WHEN description LIKE '%bundle%' THEN 'bundle'
                       WHEN description LIKE '%message%' THEN 'message' WHEN description LIKE '%event%' THEN 'event'
                       WHEN description LIKE '%service%' THEN 'service' ELSE 'other' END END";
@@ -78,7 +78,7 @@ class AnalyticsModel extends Model {
         $rows = parent::select(
             "SELECT " . self::REVENUE_OFFERING . " AS k, COALESCE(SUM(credits),0) AS credits FROM credit_transactions WHERE $where GROUP BY k",
             $params);
-        $m = array('ppv' => 0, 'bundle' => 0, 'message' => 0, 'event' => 0, 'service' => 0, 'tip' => 0, 'other' => 0);
+        $m = array('ppv' => 0, 'bundle' => 0, 'message' => 0, 'event' => 0, 'service' => 0, 'tip' => 0, 'replay' => 0, 'other' => 0);
         foreach ((array) $rows as $r) { if (isset($m[$r['k']])) { $m[$r['k']] = (int) $r['credits'] * 10; } }
         return array(
             'ppv_cents'     => $m['ppv'],
@@ -87,6 +87,7 @@ class AnalyticsModel extends Model {
             'event_cents'   => $m['event'],
             'service_cents' => $m['service'],
             'tip_cents'     => $m['tip'],   // tips sent in CLS Video calls
+            'replay_cents'  => $m['replay'],   // event replays sold on the event page
             'total_cents'   => array_sum($m),
         );
     }
@@ -519,8 +520,12 @@ class AnalyticsModel extends Model {
                   LEFT JOIN service_purchases sp2 ON lt.kind = 'booking' AND sp2.id = lt.ref_id
                   LEFT JOIN services s2 ON s2.id = sp2.service_id
                   WHERE lt.creator_id = :c5
+                UNION ALL
+                SELECT 'replay', ru.price_credits, ru.created_at, CONCAT('Replay: ', e.title) COLLATE utf8mb4_unicode_ci
+                  FROM replay_unlocks ru JOIN events e ON e.id = ru.event_id
+                  WHERE ru.creator_id = :c6
              ) x ORDER BY x.created_at DESC LIMIT $limit",
-            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c, 'c5' => $c));
+            array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c, 'c5' => $c, 'c6' => $c));
     }
 
     /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */

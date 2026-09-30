@@ -124,6 +124,13 @@ class EventsModel extends Model {
         return $v === 'watch' ? 'watch' : 'talk';   // call_attendees
     }
 
+    /** Sell one of the event's recordings as its replay ($recording_id 0 = stop selling). */
+    public function set_replay($creator_id, $id, $recording_id, $price, $free_attendees){
+        return parent::update('events', array('replay_recording_id' => (int) $recording_id > 0 ? (int) $recording_id : null,
+            'replay_price_credits' => (int) $recording_id > 0 ? (int) $price : 0, 'replay_free_attendees' => $free_attendees ? 1 : 0, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
     /** A free event anyone can come to: its CLS Video call is open to everyone, registered or not (no account needed). */
     public static function open_call(array $ev): bool {
         return (string) ($ev['format'] ?? '') === 'cls_video' && (string) ($ev['access_type'] ?? '') === 'free' && (int) ($ev['price_credits'] ?? 0) === 0;
@@ -187,7 +194,7 @@ class EventsModel extends Model {
             "SELECT e.*, (SELECT COUNT(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'registered') AS attendees
              FROM events e
              WHERE e.creator_id = :c AND e.status = 'published'
-               AND (e.end_at IS NULL OR e.end_at >= UTC_TIMESTAMP() OR e.start_at >= UTC_TIMESTAMP())
+               AND (e.end_at IS NULL OR e.end_at >= UTC_TIMESTAMP() OR e.start_at >= UTC_TIMESTAMP() OR e.replay_price_credits > 0)   -- past events stay listed while their replay is on sale
              ORDER BY e.start_at ASC",
             array('c' => (int) $creator_id));
     }

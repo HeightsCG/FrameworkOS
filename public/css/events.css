@@ -313,3 +313,10 @@ button.evm-rec__play:focus-visible{ outline:none; box-shadow:var(--ring); }
 .evm-player .modal-body{ padding:0; background:#000; }
 .evm-player video{ display:block; width:100%; max-height:70vh; background:#000; }
 .evm-player__title{ font-size:1rem; font-weight:700; }
+/* Sell as replay dialog */
+.evm-sell__lead{ margin:0 0 16px; font-size:.9rem; color:var(--muted); }
+.evm-sell__label{ display:block; text-align:left; font-size:.8rem; font-weight:600; color:var(--t2); margin:0 0 6px; }
+.evm-sell__price{ display:flex; align-items:center; gap:8px; }
+.evm-sell__price input{ max-width:180px; }
+.evm-sell__price span{ font-size:.9rem; color:var(--t2); }
+.evm-sell__check{ display:flex; align-items:center; gap:8px; margin:16px 0 0; font-size:.9rem; color:var(--text); text-align:left; cursor:pointer; }

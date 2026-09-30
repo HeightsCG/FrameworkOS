@@ -330,11 +330,19 @@
     list.addEventListener('click', function (e) {
         var p = e.target.closest('[data-rec-play]'), d = e.target.closest('[data-rec-download]'), x = e.target.closest('[data-rec-delete]');
         if (p) { play(p.getAttribute('data-rec-play')); return; }
+        var sell = e.target.closest('[data-rec-sell]'), unsell = e.target.closest('[data-rec-unsell]');
+        if (sell) { sell_replay(sell); return; }
+        if (unsell) {
+            Swal.fire({ title: 'Stop selling the replay?', text: 'It comes off your event page. People who already bought it can still watch it.', showCancelButton: true, reverseButtons: true, focusCancel: true,
+                        confirmButtonText: 'Stop Selling', cancelButtonText: 'Keep Selling', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
+                .then(function (res) { if (res.isConfirmed) { replay_call('event_replay_off', {}); } });
+            return;
+        }
         if (d) { get(d.getAttribute('data-rec-download'), true, function (o) { window.location.href = o.url; }); return; }
         if (x) {
             var id = x.getAttribute('data-rec-delete');
             Swal.fire({ title: 'Delete this recording?', text: 'The video is removed for good and no longer counts toward your storage.', showCancelButton: true, reverseButtons: true, focusCancel: true,
-                        confirmButtonText: 'Delete', cancelButtonText: 'Keep It', confirmButtonColor: '#e5484d' })
+                        confirmButtonText: 'Delete', cancelButtonText: 'Keep It', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
                 .then(function (res) {
                     if (!res.isConfirmed) { return; }
                     ApiDataSvc.apiCall('post', 'event_recording_delete', { event_id: event_id, recording_id: id }, function (r) {
@@ -347,6 +355,37 @@
                 });
         }
     });
+    /* Sell a recording as the event's replay: a price in credits and whether registered people watch free. */
+    function replay_call(action, data) {
+        data.event_id = event_id;
+        ApiDataSvc.apiCall('post', action, data, function (r) {
+            var o = parse(r);
+            if (!o || !o.success) { toastr.error((o && o.message) || 'Something went wrong. Try again.'); return; }
+            toastr.success(o.message); setTimeout(function () { location.reload(); }, 700);
+        });
+    }
+    function sell_replay(btn) {
+        var price = btn.getAttribute('data-price'), free = btn.getAttribute('data-free') !== '0';
+        Swal.fire({
+            title: price ? 'Replay price' : 'Sell as replay',
+            html: '<p class="evm-sell__lead">People buy it on your event page and watch it there. Sales are final.</p>'
+                + '<label class="evm-sell__label" for="evmSellPrice">Price</label>'
+                + '<div class="evm-sell__price"><input type="number" id="evmSellPrice" class="form-control" min="10" max="5000" step="1" inputmode="numeric" placeholder="10 to 5,000" value="' + (price || '') + '"><span>credits</span></div>'
+                + '<label class="evm-sell__check"><input type="checkbox" id="evmSellFree"' + (free ? ' checked' : '') + '> Free for people who registered</label>',
+            showCancelButton: true, reverseButtons: true, confirmButtonText: price ? 'Save' : 'Start Selling', cancelButtonText: 'Cancel', focusConfirm: false,
+            confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779',
+            didOpen: function () { document.getElementById('evmSellPrice').focus(); },
+            preConfirm: function () {
+                var v = document.getElementById('evmSellPrice').value.trim(), n = Number(v);
+                if (v === '' || !isFinite(n) || n < 10 || n > 5000 || Math.floor(n) !== n) { Swal.showValidationMessage('Enter a whole number of credits from 10 to 5,000.'); return false; }
+                return { price: n, free: document.getElementById('evmSellFree').checked ? 1 : 0 };
+            }
+        }).then(function (res) {
+            if (!res.isConfirmed) { return; }
+            replay_call('event_replay_set', { recording_id: btn.getAttribute('data-rec-sell'), price: res.value.price, free_attendees: res.value.free });
+        });
+    }
+
     var want = parseInt(new URLSearchParams(location.search).get('recording'), 10);
     if (want > 0) {
         history.replaceState(null, '', location.pathname);
