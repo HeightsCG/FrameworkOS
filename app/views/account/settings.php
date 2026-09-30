@@ -264,17 +264,17 @@
                     <div class="cprofile__grid">
                         <div class="cprofile__field">
                             <label for="cp_display_name">Display Name</label>
-                            <input type="text" class="form-control" id="cp_display_name" maxlength="190" value="<?php echo htmlspecialchars((string) $cp['display_name'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <input type="text" class="form-control" id="cp_display_name" maxlength="190" value="<?php echo htmlspecialchars(html_entity_decode((string) $cp['display_name'], ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                         <div class="cprofile__field">
                             <label for="cp_location">Location (Optional)</label>
-                            <input type="text" class="form-control" id="cp_location" maxlength="190" placeholder="City, Country" value="<?php echo htmlspecialchars((string) $cp['location'], ENT_QUOTES, 'UTF-8'); ?>">
+                            <input type="text" class="form-control" id="cp_location" maxlength="190" placeholder="City, Country" value="<?php echo htmlspecialchars(html_entity_decode((string) $cp['location'], ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?>">
                         </div>
                     </div>
 
                     <div class="cprofile__field">
                         <label for="cp_bio">Bio (Optional)</label>
-                        <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars((string) $cp['bio'], ENT_QUOTES, 'UTF-8'); ?></textarea>
+                        <textarea class="form-control" id="cp_bio" rows="4" placeholder="Tell visitors who you are and what you offer."><?php echo htmlspecialchars(html_entity_decode((string) $cp['bio'], ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?></textarea>
                     </div>
 
                     <div class="cprofile__divider"></div>

@@ -9,8 +9,9 @@
  */
 $has_cover  = trim((string) ($profile['cover_url'] ?? ''))  !== '';
 $has_avatar = trim((string) ($profile['avatar_url'] ?? '')) !== '';
-$bio        = trim((string) ($profile['bio'] ?? ''));
-$location   = trim((string) ($profile['location'] ?? ''));
+// Profiles saved before 2026-09-29 were stored HTML-encoded ("won&#039;t"): decode, then escape once below.
+$bio        = trim(html_entity_decode((string) ($profile['bio'] ?? ''), ENT_QUOTES, 'UTF-8'));
+$location   = trim(html_entity_decode((string) ($profile['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
 $site_name  = Main::site_name();
 $page_title = $display_name . ' (@' . $handle . ') · ' . $site_name;
 $initial    = strtoupper(mb_substr($display_name, 0, 1));
@@ -139,7 +140,8 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
     $paid = ($ec['access_type'] !== 'free' && (int) $ec['price_credits'] > 0);
     $req  = $ec['access_type'] === 'tier' ? ($ec['tier_name'] !== '' ? $ec['tier_name'] . ' subscribers' : 'Subscribers') : ($ec['access_type'] === 'subscribers' ? 'Subscribers' : '');
     $left = (int) $ec['capacity'] > 0 ? max(0, (int) $ec['capacity'] - (int) $ec['attendees']) : null;
-    $flag = !empty($ec['is_canceled']) ? array('Canceled', 'off') : (!empty($ec['is_past']) ? array('Ended', 'off') : (!empty($ec['registered']) ? array('Registered', 'ok') : (!empty($ec['is_full']) ? array('Sold out', 'off') : null)));
+    $replay = !empty($ec['is_past']) && empty($ec['is_canceled']) && (int) ($ec['replay_price'] ?? 0) > 0;   // an ended event selling its replay
+    $flag = !empty($ec['is_canceled']) ? array('Canceled', 'off') : ($replay ? array('Replay', 'ok') : (!empty($ec['is_past']) ? array('Ended', 'off') : (!empty($ec['registered']) ? array('Registered', 'ok') : (!empty($ec['is_full']) ? array('Sold out', 'off') : null))));
     $where = $ec['is_inperson'] ? ($ec['place']['short'] !== '' ? $ec['place']['short'] : 'In person') : 'Online';
 ?>
                         <a class="pel" href="<?php echo $h_($pf_base); ?>/events/<?php echo (int) $ec['id']; ?>" data-ev-card="<?php echo (int) $ec['id']; ?>">
@@ -155,8 +157,12 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                                 <?php if (trim((string) $ec['description']) !== ''): ?><span class="pel__desc"><?php echo $h_($ec['description']); ?></span><?php endif; ?>
                             </span>
                             <span class="pel__price">
+                                <?php if ($replay): ?>
+                                <span class="pel__amount"><?php echo $h_(Price::credits($ec['replay_price'])); ?></span><span class="pel__req">replay</span>
+                                <?php else: ?>
                                 <span class="pel__amount"><?php echo $paid ? $h_(Price::credits($ec['price_credits'])) : 'Free'; ?></span>
                                 <?php if ($req !== ''): ?><span class="pel__req"><?php echo $h_($req); ?></span><?php endif; ?>
+                                <?php endif; ?>
                             </span>
                             <i class="fa-solid fa-chevron-right pel__go" aria-hidden="true"></i>
                         </a>

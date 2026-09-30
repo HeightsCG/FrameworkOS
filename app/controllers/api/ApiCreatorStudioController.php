@@ -20,15 +20,17 @@ class ApiCreatorStudioController extends BaseApiController {
     public function save_creator_profileAction(){
         $this->require_creator();
 
-        $display_name = trim((string) ($this->post['display_name'] ?? ''));
+        // POST text arrives HTML-encoded (clean_post_data); store it plain, the pages escape it once when shown.
+        $plain = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $display_name = $plain('display_name');
         if ($display_name === '') {
             $this->jsonError('Display name is required');
         }
 
         (new CreatorProfileModel())->save(Permissions::creator_id(), [
             'display_name' => $display_name,
-            'bio'          => trim((string) ($this->post['bio'] ?? '')),
-            'location'     => trim((string) ($this->post['location'] ?? '')),
+            'bio'          => $plain('bio'),
+            'location'     => $plain('location'),
         ]);
 
         $this->jsonSuccess(['message' => 'Profile saved']);

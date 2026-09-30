@@ -85,7 +85,7 @@ class ProfileController extends Controller {
         $plans = (new CreatorPlansModel())->get_active_for_user($user['user_id']);
 
         // Display fields with sensible fallbacks.
-        $display_name = trim((string) $profile['display_name']);
+        $display_name = trim(html_entity_decode((string) $profile['display_name'], ENT_QUOTES, 'UTF-8'));   // older rows were stored HTML-encoded
         if ($display_name === '') {
             $display_name = trim($user['first_name'] . ' ' . $user['last_name']);
         }
@@ -236,6 +236,7 @@ class ProfileController extends Controller {
                 $card['open_call']    = EventsModel::open_call($ev);
                 $card['has_password'] = trim((string) ($ev['call_password'] ?? '')) !== '';
             }
+            $card['replay_price'] = (int) ($ev['replay_price_credits'] ?? 0);   // > 0: its replay is on sale (the Events tab says so)
             return $card;
         };
 
