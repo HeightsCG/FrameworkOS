@@ -43,6 +43,7 @@ class LiveControl {
             'speakers'  => is_array($speakers) ? array_values(array_map('strval', $speakers)) : array(),
             'offer'     => is_array($o = json_decode((string) ($row['pinned'] ?? ''), true)) ? $o : null,
             'recording' => LiveRecording::running_since($room),   // Unix time it started, 0 = not recording
+            'ended'     => !empty($row['ended_at']),                // the host ended it for everyone; closed until they rejoin
         );
     }
 

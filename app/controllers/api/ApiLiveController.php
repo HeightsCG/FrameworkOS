@@ -38,7 +38,12 @@ class ApiLiveController extends BaseApiController {
         $identity = LiveControl::identity($me, $room);
         $s = LiveControl::state($room, (array) $r['defaults']);
 
+        if (!empty($r['host']) && $s['ended']) {
+            (new LiveRoomsModel())->set($room, array('ended_at' => null));   // the host starting it again reopens it
+            $s['ended'] = false;
+        }
         if (empty($r['host'])) {
+            if ($s['ended']) { $this->jsonError('The host ended this call.', ['ended' => true]); }   // the page checks again every few seconds
             $rooms = new LiveRoomsModel();
             $entry = $rooms->entry($room, $identity);
             $status = $entry ? (string) $entry['status'] : '';
@@ -263,6 +268,8 @@ class ApiLiveController extends BaseApiController {
     public function live_endAction(){
         $r = $this->host_room();
         if (LiveRecording::running_since($r['room']) > 0) { LiveRecording::stop($r['room']); }
+        LiveControl::state($r['room'], (array) $r['defaults']);   // make sure the room's row exists
+        (new LiveRoomsModel())->set($r['room'], array('ended_at' => gmdate('Y-m-d H:i:s')));   // nobody rejoins until the host does
         if (!LiveKit::delete_room($r['room'])) { $this->jsonError('Could not reach the video server. Try again.'); }
         $this->jsonSuccess(['message' => 'The call has ended for everyone']);
     }

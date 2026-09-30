@@ -183,6 +183,12 @@
                 wait_poll = setTimeout(function () { ask(body); }, 3000);
                 return;
             }
+            if (!r.success && r.ended) {   // the host ended the call: wait here in case they start it again
+                note('The host ended this call. If they start it again, this page will let you in.', 'wait');
+                btn.disabled = false; btn.textContent = 'Stop Waiting';
+                wait_poll = setTimeout(function () { ask(body); }, 10000);
+                return;
+            }
             stop_waiting();
             if (!r.success) {
                 if (r.need_login) { window.location.href = '/?auth=login&next=' + encodeURIComponent(location.pathname); return; }
