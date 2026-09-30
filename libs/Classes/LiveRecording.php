@@ -91,8 +91,10 @@ class LiveRecording {
         // Finished (stopped, room emptied, or the recorder hit its own limit): whatever file there is becomes the video.
         if (!$m->claim_processing($id)) { return 'already claimed'; }
         self::push_state((string) $r['room']);
-        if ($info['file'] === '' && $info['bytes'] <= 0 && $info['status'] !== 'EGRESS_COMPLETE') {
-            self::fail($r, $info['error'] !== '' ? 'The recording failed: ' . $info['error'] : 'The recording failed.');
+        // Nothing was uploaded (the recorder failed, or saved nowhere we can reach): say why instead of trying to copy it.
+        if ($info['status'] !== 'EGRESS_COMPLETE' && $info['bytes'] <= 0) {
+            error_log('[recording] ' . $r['egress_id'] . ' ' . $info['status'] . ': ' . $info['error']);
+            self::fail($r, 'The recording couldn’t be saved' . ($info['error'] !== '' ? ' (' . mb_substr($info['error'], 0, 150) . ')' : '') . '. Contact support if it happens again.');
             return 'failed';
         }
         return self::make_video($m->get($id), $info);
@@ -121,6 +123,7 @@ class LiveRecording {
         if ($aid <= 0) { self::fail($r, 'Could not create the Library item.'); return 'failed'; }
         $key = MediaService::key($cid, $aid, 'original', 'mp4');
         if (!S3Service::copy_private($src, $key, 'video/mp4')) {
+            error_log('[recording] ' . $r['egress_id'] . ': copy from ' . $src . ' failed (see [s3] line above)');
             $mm->set_failed($cid, $aid, 'Could not copy the recording');
             self::fail($r, 'The recording couldn’t be copied into your Library.');
             return 'copy failed';
