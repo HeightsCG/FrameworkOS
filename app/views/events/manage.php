@@ -59,7 +59,7 @@ $msg_empty  = $canceled ? 'This event was canceled.' : ($ended ? 'This event has
                 <div class="evm-top__titlerow">
                     <h1 class="evm-top__title"><?php echo $e($d($ev['title'])); ?></h1>
                     <?php if ($canceled): ?><span class="evm-flag evm-flag--off">Canceled</span>
-                    <?php elseif ($ended): ?><span class="evm-flag">Ended</span>
+                    <?php elseif ($ended): ?><span class="evm-flag"><?php echo $live ? 'Ended' : 'Ended · Hidden'; ?></span>
                     <?php elseif (!$live): ?><span class="evm-flag">Not live</span><?php endif; ?>
                 </div>
                 <?php if (trim($d($ev['description'])) !== ''): ?><p class="evm-top__desc"><?php echo $e($d($ev['description'])); ?></p><?php endif; ?>
