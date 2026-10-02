@@ -641,7 +641,7 @@ class InfluencerJobService {
             $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
                 'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
                 'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'square', 'num_images' => 1, 'scene' => (string) $scene),
+                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'portrait', 'num_images' => 1, 'scene' => (string) $scene),
             ), false);
         } catch (PlanLimitException $e) {
             return array('ok' => false, 'error' => $e->getMessage());

@@ -557,7 +557,7 @@
                             <label for="csGenSize">Shape</label>
                             <select class="form-select" id="csGenSize">
                                 <option value="square">Square (1:1)</option>
-                                <option value="portrait">Portrait (2:3)</option>
+                                <option value="portrait" selected>Portrait (2:3)</option>
                                 <option value="landscape">Landscape (3:2)</option>
                             </select>
                         </div>
@@ -607,7 +607,7 @@
             <div class="cs-ae__body">
                 <input type="hidden" id="csSchedId" value="0">
                 <input type="hidden" id="csSchedKind" value="post">
-                <input type="hidden" id="csSchedSize" value="square">
+                <input type="hidden" id="csSchedSize" value="portrait">
                 <input type="checkbox" id="csSchedBrand" checked hidden>
 
                 <nav class="cs-ae__nav" aria-label="Automation sections">
@@ -682,8 +682,8 @@
                             <div class="cs-ae__field">
                                 <span class="cs-ae__label" id="csSchedShapeLabel">Format</span>
                                 <div class="cs-seg cs-ae__seg" id="csSchedShape" role="group" aria-labelledby="csSchedShapeLabel">
-                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
                                     <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
                                 </div>
                             </div>

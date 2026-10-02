@@ -2236,7 +2236,7 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
             var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer') : 'Brand photo';
-            var size = $('#csSchedSize').val() || 'square';
+            var size = $('#csSchedSize').val() || 'portrait';
             schedSum('content', src + ' · ' + size.charAt(0).toUpperCase() + size.slice(1) + (schedIsVideo() ? ' · Video' : ''));
             var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
             var tier = schedForm.audience === 'subscribers' ? ($('#csSchedTierSel option:selected').text() || 'All tiers') : ($('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
@@ -2374,7 +2374,7 @@ jQuery(function ($) {
         $('#csSchedId').val(rule ? rule.id : 0);
         $('#csSchedName').val(rule ? rule.name : '');
         $('#csSchedTopic').val(rule ? rule.topic : '');
-        setSchedSize(rule ? rule.size : 'square');
+        setSchedSize(rule ? rule.size : 'portrait');   // new automations: portrait (full bodies warp in a square frame)
         $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
@@ -2407,7 +2407,7 @@ jQuery(function ($) {
     function syncPressed(sel) { $(sel).find('.cs-seg__opt, .cs-ae__day').each(function () { $(this).attr('aria-pressed', $(this).hasClass('is-on') ? 'true' : 'false'); }); }
     $('#csSchedShape').on('click', '.cs-seg__opt', function () { setSchedSize($(this).data('size')); });
     function setSchedSize(size) {
-        size = (size === 'portrait' || size === 'landscape') ? size : 'square';
+        size = (size === 'square' || size === 'landscape') ? size : 'portrait';
         $('#csSchedSize').val(size);
         $('#csSchedShape .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('size') === size); });
         syncPressed('#csSchedShape');

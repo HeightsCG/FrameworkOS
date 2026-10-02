@@ -57,7 +57,7 @@ class SchedulerRulesModel extends Model {
         $out['name']             = mb_substr(trim((string) ($f['name'] ?? '')), 0, 190);
         $out['active']           = !empty($f['active']) ? 1 : 0;
         $out['topic']            = (string) ($f['topic'] ?? '');
-        $out['size']             = in_array($f['size'] ?? '', array('square','portrait','landscape'), true) ? $f['size'] : 'square';
+        $out['size']             = in_array($f['size'] ?? '', array('square','portrait','landscape'), true) ? $f['size'] : 'portrait';   // portrait by default: full bodies warp in a square frame
         $src = (string) ($f['image_source'] ?? 'brand');
         $out['image_source']     = ($src === 'influencer') ? 'influencer' : 'brand';
         $out['influencer_id']    = ($out['image_source'] === 'influencer' && (int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null;

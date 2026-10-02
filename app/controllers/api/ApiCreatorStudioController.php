@@ -593,7 +593,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'name'             => $name,
             'topic'            => $topic,
             'active'           => ((string) ($this->post['active'] ?? '1')) !== '0',
-            'size'             => (string) ($this->post['size'] ?? 'square'),
+            'size'             => (string) ($this->post['size'] ?? 'portrait'),
             'audience'         => (string) ($this->post['audience'] ?? 'free'),
             'tier_id'          => (int) ($this->post['tier_id'] ?? 0),
             'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',

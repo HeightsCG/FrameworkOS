@@ -339,7 +339,7 @@ class InfluencerActions {
         $prompt = trim($lead . ($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
-        $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'square';
+        $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'portrait';   // portrait unless asked: bodies warp in a square frame
         $n     = max(1, min(4, (int) ($in['num_images'] ?? 1)));
         $seed  = (int) ($in['seed'] ?? 0);
         $overrides = array();
