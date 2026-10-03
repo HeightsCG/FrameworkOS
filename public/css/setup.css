@@ -33,3 +33,6 @@
     .setup__step{ flex-wrap:wrap; }
     .setup__cta{ width:100%; margin-left:44px; }
 }
+@media (max-width:820px){
+    .setup__cta{ width:auto; flex:1 1 100%; margin-left:44px; min-height:44px; display:inline-flex; align-items:center; justify-content:center; }
+}

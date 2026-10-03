@@ -95,3 +95,6 @@
     .aud-cell--since{ grid-area:since; justify-self:end; align-self:center; }
     .aud-row__detail{ padding-left:1.1rem; }
 }
+@media (max-width:760px){
+    .aud__search{ min-width:0; width:100%; min-height:44px; }
+}

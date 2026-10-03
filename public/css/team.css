@@ -64,3 +64,6 @@
     .team-row > .team-cell:nth-child(2){ grid-area:role; } .team-row > .team-cell:nth-child(3){ grid-area:status; }
     .team-row > .team-cell:nth-child(4){ grid-area:meta; }
 }
+@media (max-width:780px){
+    .team-cell--act{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.4rem; }
+}

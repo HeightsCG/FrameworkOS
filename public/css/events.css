@@ -45,10 +45,11 @@
 
 @media (max-width:720px){
     .ev-table__head{ display:none; }
-    .ev-row{ grid-template-columns:1fr; grid-template-areas:"title" "when" "meta"; gap:.4rem .8rem; }
-    .ev-cell--title{ grid-area:title; }
-    .ev-row > .ev-cell:nth-child(2){ grid-area:when; }
-    .ev-row > .ev-cell:nth-child(3), .ev-row > .ev-cell:nth-child(4), .ev-row > .ev-cell:nth-child(5){ grid-area:meta; display:inline-flex; margin-right:.6rem; }
+    /* stacked row: name, date, then price / sold / status side by side on one line */
+    .ev-row{ display:flex; flex-wrap:wrap; align-items:center; gap:.35rem .9rem; padding:.9rem 1rem; }
+    .ev-row > .ev-cell{ flex:none; }
+    .ev-row > .ev-cell.ev-cell--title, .ev-row > .ev-cell:nth-child(2){ flex:1 1 100%; }
+    .ev-cell__name{ white-space:normal; }
 }
 
 /* List rows are links to the event page */
@@ -320,3 +321,19 @@ button.evm-rec__play:focus-visible{ outline:none; box-shadow:var(--ring); }
 .evm-sell__price input{ max-width:180px; }
 .evm-sell__price span{ font-size:.9rem; color:var(--t2); }
 .evm-sell__check{ display:flex; align-items:center; gap:8px; margin:16px 0 0; font-size:.9rem; color:var(--text); text-align:left; cursor:pointer; }
+
+/* ---------- Phones ---------- */
+@media (max-width:720px){
+    .ev__head .ev-btn{ min-height:44px; }
+    .evm-work__bar{ flex-wrap:wrap; padding:0 16px; gap:0 16px; }
+    .evm-tabs{ min-height:52px; }
+    .evm-work__bar .ev-btn{ margin:0 0 12px; width:100%; justify-content:center; }
+    .evm-more{ width:44px; height:44px; }
+    .evm-menu .dropdown-item{ min-height:44px; }
+    /* editor format rows: label above the options, options share the width */
+    .ev-editor .ev-formatrow{ flex-direction:column; align-items:stretch; gap:8px; }
+    .ev-editor .ev-formatrow .cs-ae__seg{ flex:1 1 auto; }
+    .ev-editor .ev-formatrow .cs-seg__opt{ flex:1 1 0; width:0; height:auto; min-height:44px; padding:6px 8px; }
+    .ev-cityrow{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); row-gap:16px; }
+    .ev-cityrow > :first-child{ grid-column:1 / -1; }
+}

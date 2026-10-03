@@ -612,3 +612,22 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
 .pel-sub:focus-visible{ outline:2px solid #FF6A13; outline-offset:1px; }
 /* The replay row's Watch / Sign In to Buy are links styled as buttons: keep white text over the app shell's link colours */
 .pel .pel__buy a.pel__btn, .pel .pel__buy a.pel__btn:link, .pel .pel__buy a.pel__btn:visited, .pel .pel__buy a.pel__btn:hover, .pel .pel__buy a.pel__btn:focus{ color:#fff; text-decoration:none; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 620px) {
+    .pf-container, .pf-dock__inner { max-width: none; }
+    .pf-dock__inner { padding: .5rem 14px; gap: .6rem; }
+    .pf-dock__name { max-width: none; }
+    .pf-dock__id { flex: 1 1 auto; }
+    .pf-dock .pf-btn { height: 40px; padding: 0 .75rem; }
+    /* tabs scroll sideways instead of being cut off */
+    .pf-tabs { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 0 8px; }
+    .pf-tabs::-webkit-scrollbar { display: none; }
+    .pf-tab { flex: none; white-space: nowrap; min-height: 48px; }
+    .pf-bundle { flex-direction: column; align-items: stretch; gap: .8rem; }
+    .pf-bundle .pf-plan__cta { width: 100%; height: 44px; }
+    .pf-btn { min-height: 44px; }
+    .pf-search__input { font-size: 16px; }
+    .pf-plb input, .pf-plb textarea, .pf-plan input { font-size: 16px; }
+    .pf { min-height: 100dvh; }
+}

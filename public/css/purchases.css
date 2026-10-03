@@ -50,3 +50,9 @@
 .pur-card__link{ display:inline-flex; align-items:center; gap:6px; font-size:.86rem; font-weight:600; color:var(--acc-ink); text-decoration:none; }
 .pur-card__link:hover{ text-decoration:underline; }
 .pur-card__link:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; border-radius:2px; }
+@media (max-width:640px){
+    .pur-card{ padding:1rem; }
+    .pur-card__meta{ flex-wrap:wrap; gap:.35rem .6rem; }
+    .pur-card__title{ white-space:normal; flex:1 1 100%; }
+    .pur-lb{ padding:56px 12px 16px; }
+}

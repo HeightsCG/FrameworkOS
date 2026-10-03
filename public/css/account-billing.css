@@ -254,3 +254,13 @@
 .ai-prices__n.is-neg{color:var(--t2);}
 .ai-prices__n.is-pos{color:var(--success);}
 .ai-prices__date{color:var(--muted); margin-right:.4rem;}
+
+/* ---------- Phones ---------- */
+@media (max-width:820px){
+    .invoices th, .invoices td{ padding:.65rem .55rem; }
+    .invoices td{ font-size:.84rem; overflow-wrap:anywhere; }
+    .invoices th:first-child, .invoices td:first-child{ padding-left:.8rem; }
+    .invoices th:last-child, .invoices td:last-child{ padding-right:.8rem; }
+    .blist__body--inline, .ccard__monthly{ flex-wrap:wrap; }
+    .ccard__repeat{ width:auto; align-items:flex-start; }
+}

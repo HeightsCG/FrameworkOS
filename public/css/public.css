@@ -240,3 +240,11 @@
 .bp-group__title{ margin:0 0 6px; font-size:1.25rem; font-weight:700; letter-spacing:-.01em; color:var(--sx-ink); }
 .bp-group__lead{ margin:0 0 20px; font-size:.95rem; color:var(--sx-t2); max-width:640px; }
 .bp-group--us .sx-acts{ margin-top:4px; }
+
+/* ---------- Phones: article content never widens the page ---------- */
+.pub-body img, .pub-body video, .pub-body iframe, .gd-body img, .gd-body video, .gd-body iframe { max-width: 100%; height: auto; }
+.pub-body pre, .gd-body pre { max-width: 100%; overflow-x: auto; }
+@media (max-width: 640px) {
+    .pub-body table, .gd-body table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .pub-body, .gd-body { overflow-wrap: break-word; }
+}

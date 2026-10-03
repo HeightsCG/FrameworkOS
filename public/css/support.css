@@ -238,3 +238,10 @@
 @media (max-width:760px){ .sw-opt{ grid-template-columns:1fr; } .sw-opt .sw-btn{ grid-column:1; grid-row:auto; justify-self:start; } .sw-ai__ask{ flex-wrap:wrap; } }
 .sw-side .sc-check__txt b{ flex:none; white-space:nowrap; }
 .sw-side .sc-check__txt span{ min-width:0; }
+@media (max-width:760px){
+    .sw-tabs{ overflow-x:auto; scrollbar-width:none; }
+    .sw-tabs::-webkit-scrollbar{ display:none; }
+    .sw-tabs > *{ flex:none; white-space:nowrap; }
+    .sw-compose__bar{ flex-wrap:wrap; }
+    .sw-compose__bar > *{ flex:1 1 auto; }
+}

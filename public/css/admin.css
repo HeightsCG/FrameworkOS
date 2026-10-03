@@ -444,3 +444,35 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
 .adm-bal__body em{ font-style:normal; font-weight:600; color:#1d1d1f; font-variant-numeric:tabular-nums; }
 @media (max-width:520px){ .adm-bal{ grid-template-columns:1fr; } }
 .adm-field .adm-bal__opt{ text-transform:none; letter-spacing:normal; font-weight:400; font-size:inherit; color:inherit; }
+
+/* ---------- Phones: tables keep their columns and header and scroll sideways inside their own box ---------- */
+@media (max-width:820px){
+    .adm-table{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .adm-table:not(.adm-table--content):not(.adm-table--keywords) > .adm-table__head{ display:grid; }
+    .adm-table:not(.adm-table--content):not(.adm-table--keywords) > .adm-table__head,
+    .adm-table:not(.adm-table--content):not(.adm-table--keywords) > .adm-table__body{ min-width:780px; }
+    .adm-table--billing > .adm-table__head, .adm-table--billing > .adm-table__body,
+    .adm-table--audit > .adm-table__head, .adm-table--audit > .adm-table__body,
+    .adm-table--months > .adm-table__head, .adm-table--months > .adm-table__body{ min-width:960px !important; }
+    .adm .adm-table__body, .adm-subpanel .adm-table__body, .adm .adm-mod-grid, .adm #admMod, .adm-ov__feed{ max-height:none; min-height:0; overflow-y:visible; }
+    .adm-urow{ grid-template-columns:var(--adm-cols); grid-template-areas:none; gap:1rem; }
+    .adm-urow > .adm-ucell--user, .adm-urow > .adm-ucell--act{ grid-area:auto; }
+    .adm-urow > .adm-ucell:not(.adm-ucell--user):not(.adm-ucell--act){ display:block; grid-area:auto; font-size:.84rem; }
+    .adm-more{ width:44px; height:44px; }
+    .adm-menu .dropdown-item{ min-height:44px; display:flex; align-items:center; }
+    .adm-usearch{ min-width:0; width:100%; }
+    .adm-subtabs{ display:flex; max-width:100%; overflow-x:auto; scrollbar-width:none; }
+    .adm-subtabs::-webkit-scrollbar{ display:none; }
+    .adm-subtabs > *{ flex:none; white-space:nowrap; }
+    .adm-kwadd{ flex-wrap:wrap; }
+    .adm-kwadd input[name=keyword]{ flex:1 1 100%; width:auto; }
+    .adm-kwadd input[type=number], .adm-kwadd select{ flex:1 1 0; width:auto; min-width:0; }
+    .adm-faq__row{ grid-template-columns:minmax(0,1fr) 40px; }
+    .adm-faq__row > :nth-child(2){ grid-column:1; grid-row:2; }
+    .adm-faq__row > :nth-child(3){ grid-row:1; }
+}
+@media (max-width:640px){
+    .adm-ustrip{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .adm-ustrip__cell{ border-left:0; border-top:1px solid #F2F2F2; }
+}
+

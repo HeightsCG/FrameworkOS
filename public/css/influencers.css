@@ -303,3 +303,21 @@ button.inf-photo--pick{ padding:0; }
 .inf-gal-grid:has(.is-on) .inf-photo--pick:not(.is-on){ opacity:1; }   /* keep every image easy to judge while picking */
 .inf-sec__err{ max-width:none; margin-bottom:1rem; }
 .inf-card.inf-card--static{ animation:none; opacity:1; transform:none; }   /* a card updated in place does not replay the entrance */
+
+/* ---------- Phones ---------- */
+@media (max-width:980px){
+    .inf-gen > *{ min-width:0; }
+    .inf-gen__form{ padding:1rem; }
+}
+@media (max-width:640px){
+    .inf-seg__opt{ height:auto; min-height:40px; white-space:normal; line-height:1.2; }
+    .inf-wiz__foot{ flex-wrap:wrap; }
+    .inf-wiz__foot .btn{ flex:1 1 auto; justify-content:center; }
+    .inf-result__actions .btn{ white-space:normal; }
+}
+@media (hover:none){ .inf-photo__rm{ opacity:1; width:32px; height:32px; } }
+@media (max-width:640px){
+    .inf-lightbox__bar{ flex-wrap:wrap; padding:.7rem .75rem; }
+    .inf-lightbox__bar .btn{ flex:1 1 auto; justify-content:center; }
+    .inf-lightbox__body, .inf-lightbox__body img, .inf-lightbox__body video{ max-height:70vh; }
+}

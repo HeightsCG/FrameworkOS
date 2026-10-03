@@ -5,6 +5,18 @@
 
 $(document).ready(function() {
 
+    /* ---------- Phone menu (Features / Pricing / Blog / Sign In) ---------- */
+    $('#ld_nav_toggle').on('click', function() {
+        var is_open = $('#ld_nav_links').toggleClass('is-open').hasClass('is-open');
+        $(this).attr('aria-expanded', is_open ? 'true' : 'false');
+    });
+    $(document).on('click', function(e) {
+        if ($(e.target).closest('#ld_nav_toggle').length) { return; }
+        if ($(e.target).closest('#ld_nav_links').length && !$(e.target).closest('a, button').length) { return; }
+        $('#ld_nav_links').removeClass('is-open');
+        $('#ld_nav_toggle').attr('aria-expanded', 'false');
+    });
+
     /* ---------- Auth modal shell ---------- */
 
     var auth_overlay = document.getElementById('ld_auth');

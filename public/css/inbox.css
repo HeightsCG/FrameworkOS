@@ -214,3 +214,12 @@
 @media (hover: none){ .ibx-bubble__del{ opacity:.55; } }
 .ibx-swal--danger .swal2-confirm{ background:#d9436a !important; }
 .ibx-swal--danger .swal2-confirm:hover{ background:#c23158 !important; }
+
+/* ---------- Phones: the page is exactly the space under the app chrome, so the compose bar is always on screen ---------- */
+@media (max-width:820px){
+    .ibx{ height:calc(100vh - var(--chrome-h)); height:calc(100dvh - var(--chrome-h)); }
+    .ibx__ico{ width:44px; height:44px; }
+    .ibx__addbtn{ width:44px; height:44px; }
+    .ibx-tab, .ibx__tab{ min-height:40px; }
+}
+@media (max-width:820px){ .ibx__thread .ibx__ico{ width:40px; height:40px; } }

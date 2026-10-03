@@ -454,3 +454,44 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 .plan-bar__text strong{ font-weight:600; }
 .plan-bar__btn{ flex:none; }
 @media (max-width:640px){ .plan-bar{ flex-direction:column; align-items:flex-start; } }
+
+/* ---------- Phones (shell): everything below only applies at the mobile shell breakpoint ---------- */
+:root{ --chrome-h:var(--topbar-h); }   /* height of the fixed chrome above a page; page CSS subtracts it from the viewport */
+@media (max-width:820px){
+    :root{ --chrome-h:calc(var(--topbar-h) + 61px); }   /* topbar + the brand/menu row */
+    .app-shell{ min-height:100dvh; }
+    .app-content{ overflow-x:clip; }
+    .app-brand{ flex:0 1 auto; min-width:0; }
+    .app-brand__name{ overflow:hidden; text-overflow:ellipsis; }
+    .app-navtoggle, .app-notif__btn{ width:44px; height:44px; flex:none; }
+    .app-nav{ max-height:calc(100dvh - 61px); overflow-y:auto; overscroll-behavior:contain; }
+    .app-nav-item{ min-height:44px; }
+    /* dropdowns span the screen instead of hanging off their (narrow, off-centre) trigger */
+    .app-search, .app-notif{ position:static; }
+    .app-search__panel, .app-notif__panel{ left:16px; right:16px; top:calc(100% + 6px); width:auto; max-width:none; max-height:min(70dvh,460px); }
+    .app-notif__mark{ min-height:44px; padding:0 4px; }
+    .app-account-menu{ max-width:calc(100vw - 32px); }
+    .app-account-menu__em{ display:block; overflow:hidden; text-overflow:ellipsis; }
+    .app-account-menu__item{ min-height:44px; }
+    /* 16px inputs: anything smaller makes iOS zoom the page on focus */
+    .app-search .form-control{ height:40px; font-size:16px; }
+    .app-shell input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), .app-shell textarea, .app-shell select{ font-size:16px !important; }
+    .app-shell .btn{ padding:.55rem .95rem; }
+    .setup-widget__iconbtn{ width:40px; height:40px; }
+    .setup-widget__skip{ width:36px; height:36px; }
+    .plan-lock{ padding:16px; }
+    .plan-lock__card{ padding:2rem 1.5rem; }
+    body.is-impersonating .app-sidebar{ top:0; height:auto; }
+}
+@media (max-width:720px){
+    .cs-ae-modal .cs-ae__close{ width:44px; height:44px; }
+    .cs-ae-modal .cs-ae__seg .cs-seg__opt{ height:auto; min-height:44px; padding:6px 8px; font-size:13px; }
+    .cs-ae-modal .cs-ae__seg .cs-seg__opt span{ white-space:normal; line-height:1.25; }
+}
+@media (max-width:720px){   /* editor headers: the walkthrough button is icon-only so the title and close button always fit */
+    .cs-ae-modal .cs-ae__headtools .tut-btn, #csComposer .cs-pe__headtools .tut-btn{ font-size:0; gap:0; width:40px; height:40px; padding:0; justify-content:center; }
+    .cs-ae-modal .cs-ae__headtools .tut-btn i, #csComposer .cs-pe__headtools .tut-btn i,
+    .cs-ae-modal .cs-ae__headtools .tut-btn svg, #csComposer .cs-pe__headtools .tut-btn svg{ font-size:1.1rem; }
+    .cs-ae-modal .cs-ae__headtools .tut-btn__len, #csComposer .cs-pe__headtools .tut-btn__len{ display:none; }
+    .cs-ae-modal .cs-ae__headtools, #csComposer .cs-pe__headtools{ gap:4px; }
+}

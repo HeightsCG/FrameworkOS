@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="/css/account-profile.css">
+<link rel="stylesheet" href="/css/account-profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/account-profile.css'); ?>">
 <script>
 $(function () {
 

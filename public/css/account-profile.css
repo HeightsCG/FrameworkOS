@@ -18,3 +18,4 @@
 .password-reqs li.is-met .password-reqs__dot{background:var(--acc); border-color:var(--acc);}
 .password-reqs li.is-met .password-reqs__dot::after{content:""; position:absolute; left:4.5px; top:1.5px; width:3px; height:6.5px; border:solid #fff; border-width:0 1.6px 1.6px 0; transform:rotate(45deg);}
 
+@media (max-width:820px){ .app-content .container{ width:100%; } }

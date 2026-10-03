@@ -630,3 +630,30 @@
 .wallet__balance-link{ font-size:.8rem; font-weight:600; color:var(--acc-ink); text-decoration:underline; text-underline-offset:2px; }
 @media (max-width:760px){ .wallet__pair{ grid-template-columns:1fr; } }
 .wallet__pair .wallet__balance-value{ white-space:nowrap; }
+
+/* ---------- Phones ---------- */
+@media (max-width:760px){
+    .settings{ max-width:none; }
+    /* section nav: one scrolling line of pills, labels never cut mid-word */
+    .settings__nav{ margin:0 -16px; padding:0 16px 4px; scrollbar-width:none; -webkit-overflow-scrolling:touch; }
+    .settings__nav::-webkit-scrollbar{ display:none; }
+    .settings__nav-item{ flex:none; width:auto; white-space:nowrap; min-height:44px; padding:.55rem .85rem; }
+    .acct-grid, .cprofile__grid, .plan-field-row, .inbox-grid{ grid-template-columns:minmax(0,1fr); }
+    .payout-balance{ grid-auto-flow:row; }
+    .payout-balance__cell + .payout-balance__cell{ border-top:1px solid var(--line2); border-left:0; }
+    /* text + action rows: the action drops under the text */
+    .acct-danger, .creator-danger, .payout-setup, .sub-row, .mfa-method, .wallet__ar-summary, .payout__head{ flex-direction:column; align-items:flex-start; gap:.8rem; }
+    .acct-danger .btn, .creator-danger .btn, .payout-setup .btn, .sub-row__actions .btn{ min-height:44px; }
+    .brand-gen__row, .inbox-test{ flex-wrap:wrap; }
+    .brand-gen__row .form-control, .inbox-test .form-control{ flex:1 1 100%; }
+    .inbox-quiet{ flex-wrap:wrap; }
+    .notif__row{ grid-template-columns:minmax(0,1fr) 44px 44px; gap:.6rem; padding:.85rem 1rem; }
+    .plan-row{ flex-wrap:wrap; }
+    .plan-row__info{ flex:1 1 100%; flex-wrap:wrap; gap:.2rem .6rem; }
+    .plan-row__price{ flex:0 1 auto; }
+    .inbox-tabs{ overflow-x:auto; scrollbar-width:none; }
+    .inbox-tabs::-webkit-scrollbar{ display:none; }
+    .inbox-tabs__tab{ flex:none; white-space:nowrap; min-height:44px; }
+    .ledger th, .ledger td{ padding:.65rem .7rem; }
+    .ledger td{ font-size:.84rem; overflow-wrap:anywhere; }
+}

@@ -742,3 +742,44 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sf__social{ display:flex; flex-wrap:wrap; gap:14px; margin:14px 0 0; }
 .sf__social a{ font-size:.86rem; color:var(--sx-muted, #a1a1aa); text-decoration:none; }
 .sf__social a:hover{ color:var(--sx-acc); }
+
+/* ---------- Phones ---------- */
+.ld-nav__toggle, .ld-nav__signin { display: none; }
+@media (max-width: 640px) {
+    /* header: brand, Get Started, menu. Features / Pricing / Blog / Sign In open under the bar. */
+    .ld-brand { min-width: 0; }
+    .ld-brand__name { display: block !important; overflow: hidden; text-overflow: ellipsis; }
+    .ld-nav__actions { flex: none; gap: 4px; }
+    .ld-nav__actions .ld-btn--quiet { display: none; }
+    .ld-nav .ld-btn { height: 40px; }
+    .ld-nav__toggle { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; margin-right: -10px; padding: 0; border: 0; border-radius: var(--sx-r); background: transparent; color: var(--sx-ink); cursor: pointer; }
+    .ld-nav__toggle:hover, .ld-nav__toggle[aria-expanded="true"] { background: rgba(255, 255, 255, .06); }
+    .ld-nav__toggle:focus-visible { outline: none; box-shadow: var(--sx-ring); }
+    .ld-nav__links { position: absolute; top: 100%; left: 0; right: 0; height: auto; margin: 0; padding: 8px 14px 14px; flex-direction: column; align-items: stretch; gap: 2px; background: #050505; border-bottom: 1px solid var(--sx-line); }
+    .ld-nav__links.is-open { display: flex; }
+    .ld-nav__links a, .ld-nav__signin { display: flex; align-items: center; height: 48px; padding: 0 12px; border: 0; border-radius: var(--sx-r); background: none; font: inherit; font-size: 1rem; font-weight: 500; color: var(--sx-t2); text-align: left; cursor: pointer; }
+    .ld-nav__links a.is-active { color: var(--sx-ink); background: rgba(255, 255, 255, .05); }
+    .ld-nav__links a.is-active::after { display: none; }
+    .ld-nav__signin { margin-top: 6px; border-top: 1px solid var(--sx-line); border-radius: 0; padding-top: 6px; height: 54px; color: var(--sx-ink); }
+    .ld-nav__signin:focus-visible { outline: none; box-shadow: var(--sx-ring); }
+
+    /* long words in big headlines break instead of being clipped */
+    .hx__big, .sx-hero__title, .sx-h2, .sx-cta__title, .lg__title, .bl-top__title { overflow-wrap: break-word; }
+    /* 3+ column tables keep readable columns and scroll inside their box */
+    .sx-table:has(thead th:nth-child(3)) { min-width: 560px; }
+    .sx-table:has(thead th:nth-child(4)) { min-width: 640px; }
+    .sx-table-wrap { -webkit-overflow-scrolling: touch; }
+    /* tap targets */
+    .sf__col a { display: block; padding: 6px 0; }
+    .lg__toc ol { gap: 0; }
+    .lg__toc a { display: block; padding: 8px 0; }
+    .sx-table a.sx-tlink { height: 40px; }
+    /* sign-in sheet fills the screen: square edges, comfortable close + text links */
+    .ld-auth__dialog { border-radius: 0 !important; border: 0 !important; }
+    .ld-auth__close { width: 44px !important; height: 44px !important; }
+    .ld-auth button.cos-link { min-height: 44px; padding: 0 4px; }
+}
+@media (max-width: 400px) {
+    .hx__big, .sx-hero__title, .sx--bgimg .sx-hero__title { font-size: 2.375rem; }
+    .sx-h2, .sx-cta__title { font-size: 2rem; }
+}
