@@ -13,7 +13,7 @@ class EventsController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { header('Location: /'); exit; }
+        if ((!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) && !Plan::cover('events')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $creator_id = Permissions::creator_id();
         $rows  = (new UsersModel())->get_user_by_id($creator_id);
         $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

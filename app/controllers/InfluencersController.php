@@ -16,7 +16,7 @@ class InfluencersController extends Controller {
 
     /** Shared gate + page config. Returns the owner row, or redirects. */
     private function gate(){
-        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('content')) { header('Location: /'); exit; }
+        if ((!Permissions::can_act_as_creator() || !Permissions::team_allows('content')) && !Plan::cover('influencers')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $creator_id = Permissions::creator_id();
         $rows = (new UsersModel())->get_user_by_id($creator_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

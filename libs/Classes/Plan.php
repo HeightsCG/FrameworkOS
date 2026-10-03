@@ -12,6 +12,26 @@
 class Plan {
 
     /**
+     * Creator pages a Free (non-creator) account can open to look at, keyed by controller. The page renders behind
+     * a cover (site_header.php) that says what it does and links to the plans; nothing on it can be used.
+     */
+    const COVERS = array(
+        'dashboard'   => array('icon' => 'fa-chart-line',     'title' => 'Analytics',      'text' => 'See what earns: revenue by offering, your top posts, audience growth and your best customers.'),
+        'studio'      => array('icon' => 'fa-photo-film',     'title' => 'Content Studio', 'text' => 'Upload once and publish everywhere, with a media library, a calendar and automations that post for you.'),
+        'influencers' => array('icon' => 'fa-user-astronaut', 'title' => 'Influencers',    'text' => 'Create an AI influencer and generate on-brand photos and videos for your posts.'),
+        'audience'    => array('icon' => 'fa-users',          'title' => 'Audience',       'text' => 'Every follower, subscriber and buyer in one list, with tags, notes and messaging.'),
+        'events'      => array('icon' => 'fa-calendar-days',  'title' => 'Events',         'text' => 'Sell tickets to workshops, livestreams and meetups, with video calls built in.'),
+        'services'    => array('icon' => 'fa-briefcase',      'title' => 'Services',       'text' => 'Sell bookings and one-to-one sessions, delivered by video call or in person.'),
+    );
+
+    /** The cover for this page when the signed-in account is not a creator (and not on a creator's team); null otherwise. */
+    public static function cover($controller)
+    {
+        if (!Permissions::is_logged_in() || Permissions::can_act_as_creator()) { return null; }
+        return self::COVERS[(string) $controller] ?? null;
+    }
+
+    /**
      * Using ANY creator feature (Studio, publishing, selling, AI, scheduling, analytics, payouts) requires a
      * creator account on a paid plan (Creator or Studio). Free is the account everyone signs up with: it can
      * follow, subscribe, unlock, buy and message, but never gets creator tools (Daniel, 2026-09-28).

@@ -14,7 +14,7 @@ class StudioController extends Controller {
     }
 
     public function indexAction(){
-        $is_creator = Permissions::can_act_as_creator();
+        $is_creator = Permissions::can_act_as_creator() || Plan::cover('studio') !== null;   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $this->view->is_creator = $is_creator;
 
         if ($is_creator) {

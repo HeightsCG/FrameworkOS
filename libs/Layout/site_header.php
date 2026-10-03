@@ -55,7 +55,7 @@
             <span class="app-nav__label">Menu</span>
             <a href="/" class="app-nav-item<?php echo ($this->controller === 'index' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-house"></i> Home</a>
             <a href="/inbox" class="app-nav-item<?php echo ($this->controller === 'inbox' ? ' app-nav-item-active' : ''); ?>"><i class="fa-regular fa-comment-dots"></i> Inbox <span class="app-nav__badge" id="appInboxBadge" hidden></span></a>
-            <?php if (Permissions::can_act_as_creator()): ?>
+            <?php if (Permissions::can_act_as_creator() || !Permissions::is_team_member()): /* Free accounts see the creator pages too; each opens behind an upgrade cover (Plan::COVERS) */ ?>
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
             <a href="/influencers" class="app-nav-item<?php echo ($this->controller === 'influencers' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-user-astronaut"></i> Influencers</a>
@@ -120,7 +120,19 @@
             </div>
         </header>
 
-        <div class="app-content">
+<?php $plan_cover = Plan::cover($this->controller); ?>
+<?php if ($plan_cover): ?>
+        <div class="plan-lock" role="dialog" aria-modal="false" aria-labelledby="plan_lock_title">
+            <div class="plan-lock__card">
+                <div class="plan-lock__icon"><i class="fa-solid <?php echo $plan_cover['icon']; ?>" aria-hidden="true"></i></div>
+                <h2 class="plan-lock__title" id="plan_lock_title"><?php echo htmlspecialchars($plan_cover['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
+                <p class="plan-lock__text"><?php echo htmlspecialchars($plan_cover['text'], ENT_QUOTES, 'UTF-8'); ?></p>
+                <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
+                <p class="plan-lock__note">Included with Creator and Studio.</p>
+            </div>
+        </div>
+<?php endif; ?>
+        <div class="app-content<?php echo $plan_cover ? ' app-content--covered' : ''; ?>"<?php echo $plan_cover ? ' inert aria-hidden="true"' : ''; ?>>
 <?php
 // Creator onboarding widget: floats bottom-right on every page (not on /setup) until every
 // required step is done or skipped, or the creator hides it. Collapsed/open is remembered client-side.

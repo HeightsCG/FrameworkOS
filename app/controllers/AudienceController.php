@@ -13,7 +13,7 @@ class AudienceController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::can_act_as_creator()) { header('Location: /'); exit; }
+        if (!Permissions::can_act_as_creator() && !Plan::cover('audience')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $user_id = Permissions::creator_id();   // owner account for collaborators, self otherwise
 
         $rows = (new UsersModel())->get_user_by_id($user_id);
