@@ -17,12 +17,28 @@ class Plan {
      */
     const COVERS = array(
         'dashboard'   => array('icon' => 'fa-chart-line',     'title' => 'Analytics',      'text' => 'See what earns: revenue by offering, your top posts, audience growth and your best customers.'),
-        'studio'      => array('icon' => 'fa-photo-film',     'title' => 'Content Studio', 'text' => 'Upload once and publish everywhere, with a media library, a calendar and automations that post for you.'),
-        'influencers' => array('icon' => 'fa-user-astronaut', 'title' => 'Influencers',    'text' => 'Create an AI influencer and generate on-brand photos and videos for your posts.'),
+        'studio'      => array('video' => '13', 'icon' => 'fa-photo-film',     'title' => 'Content Studio', 'text' => 'Upload once and publish everywhere, with a media library, a calendar and automations that post for you.'),
+        'influencers' => array('video' => '20', 'icon' => 'fa-user-astronaut', 'title' => 'Influencers',    'text' => 'Create an AI influencer and generate on-brand photos and videos for your posts.'),
         'audience'    => array('icon' => 'fa-users',          'title' => 'Audience',       'text' => 'Every follower, subscriber and buyer in one list, with tags, notes and messaging.'),
         'events'      => array('icon' => 'fa-calendar-days',  'title' => 'Events',         'text' => 'Sell tickets to workshops, livestreams and meetups, with video calls built in.'),
         'services'    => array('icon' => 'fa-briefcase',      'title' => 'Services',       'text' => 'Sell bookings and one-to-one sessions, delivered by video call or in person.'),
     );
+
+    /** Creator-only Settings sections a Free account sees as a locked panel (same idea as COVERS), keyed by section. */
+    const SETTINGS_COVERS = array(
+        'brand'     => array('video' => '04', 'icon' => 'fa-wand-magic-sparkles', 'title' => 'Brand Identity',   'text' => 'Set your colors, voice and audience once, and every caption and image the Studio writes follows them.'),
+        'plans'     => array('video' => '05', 'icon' => 'fa-gem',                 'title' => 'Membership Plans', 'text' => 'Sell monthly memberships with tiers and free trials, plus promo codes and content bundles.'),
+        'inbox'     => array('video' => '07', 'icon' => 'fa-robot',               'title' => 'Inbox Automation', 'text' => 'Welcome new fans, answer messages and send scheduled messages with media and a price, automatically.'),
+        'connected' => array('video' => '06', 'icon' => 'fa-share-nodes',         'title' => 'Integrations',     'text' => 'Connect your social accounts and publish each post to all of them from one place.'),
+        'domain'    => array('video' => '',   'icon' => 'fa-globe',               'title' => 'Custom Domain',    'text' => 'Put your public page on your own domain.'),
+    );
+
+    /** The locked Settings sections for the signed-in account: all of them for a non-creator, none for anyone else. */
+    public static function settings_covers(): array
+    {
+        if (!Permissions::is_logged_in() || Permissions::can_act_as_creator()) { return array(); }
+        return self::SETTINGS_COVERS;
+    }
 
     /** The cover for this page when the signed-in account is not a creator (and not on a creator's team); null otherwise. */
     public static function cover($controller)

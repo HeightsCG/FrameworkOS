@@ -16,7 +16,7 @@ class ServicesController extends Controller {
         if ((!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) && !Plan::cover('services')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $creator_id = Permissions::creator_id();
 
-        $this->view->services = (new ServicesModel())->list_for_creator($creator_id);
+        $this->view->services = Plan::cover('services') ? PlanCoverSample::services() : (new ServicesModel())->list_for_creator($creator_id);   // sample rows behind the upgrade cover
         $this->view->render();
     }
 

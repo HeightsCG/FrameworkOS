@@ -17,10 +17,11 @@
             <?php elseif (!$this->is_creator): ?>
             <button type="button" class="settings__nav-item" data-section="creator"><i class="fa-solid fa-star"></i><span>Become a Creator</span></button>
             <?php endif; ?>
-            <?php if ($this->can_content): ?>
+            <?php $settings_covers = Plan::settings_covers();   /* creator sections a Free account sees as locked panels */ ?>
+            <?php if ($this->can_content || isset($settings_covers['brand'])): ?>
             <button type="button" class="settings__nav-item" data-section="brand"><i class="fa-solid fa-wand-magic-sparkles"></i><span>Brand Identity</span></button>
             <?php endif; ?>
-            <?php if ($this->can_manage): ?>
+            <?php if ($this->can_manage || isset($settings_covers['plans'])): ?>
             <button type="button" class="settings__nav-item" data-section="plans"><i class="fa-solid fa-gem"></i><span>Membership Plans</span></button>
             <?php endif; ?>
             <button type="button" class="settings__nav-item" data-section="subscriptions"><i class="fa-solid fa-heart"></i><span>My Subscriptions</span></button>
@@ -29,6 +30,10 @@
             <button type="button" class="settings__nav-item" data-section="blocked"><i class="fa-solid fa-ban"></i><span>Blocked Users</span></button>
             <?php if ($this->can_manage): ?>
             <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span><span class="settings__nav-badge" id="inboxNavBadge" <?php echo $this->inbox_pending > 0 ? '' : 'hidden'; ?>><?php echo (int) $this->inbox_pending; ?></span></button>
+            <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
+            <button type="button" class="settings__nav-item" data-section="domain"><i class="fa-solid fa-globe"></i><span>Custom Domain</span></button>
+            <?php elseif ($settings_covers): ?>
+            <button type="button" class="settings__nav-item" data-section="inbox"><i class="fa-solid fa-robot"></i><span>Inbox Automation</span></button>
             <button type="button" class="settings__nav-item" data-section="connected"><i class="fa-solid fa-share-nodes"></i><span>Integrations</span></button>
             <button type="button" class="settings__nav-item" data-section="domain"><i class="fa-solid fa-globe"></i><span>Custom Domain</span></button>
             <?php endif; ?>
@@ -494,6 +499,21 @@
             </section>
 
             <?php endif; ?>
+
+            <?php foreach ($settings_covers as $cover_key => $cover): ?>
+            <section class="settings__section" data-section="<?php echo $cover_key; ?>">
+                <div class="settings-lock">
+                    <div class="settings-lock__icon"><i class="fa-solid <?php echo $cover['icon']; ?>" aria-hidden="true"></i></div>
+                    <h2 class="settings-lock__title"><?php echo htmlspecialchars($cover['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
+                    <p class="settings-lock__text"><?php echo htmlspecialchars($cover['text'], ENT_QUOTES, 'UTF-8'); ?></p>
+                    <div class="settings-lock__actions">
+                        <a href="/account/billing" class="btn btn-primary">Choose a Plan</a>
+                        <?php echo $cover['video'] !== '' ? Tutorials::button($cover['video']) : ''; ?>
+                    </div>
+                    <p class="settings-lock__note">Included with Creator and Studio.</p>
+                </div>
+            </section>
+            <?php endforeach; ?>
 
             <section class="settings__section" data-section="subscriptions">
                 <p class="acct-card__desc" style="margin:0 0 1.1rem;">Creators you support. Cancel or resume anytime.</p>

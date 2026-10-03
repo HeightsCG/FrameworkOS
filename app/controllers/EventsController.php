@@ -18,7 +18,7 @@ class EventsController extends Controller {
         $rows  = (new UsersModel())->get_user_by_id($creator_id);
         $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
 
-        $this->view->events   = (new EventsModel())->list_for_creator($creator_id);
+        $this->view->events   = Plan::cover('events') ? PlanCoverSample::events() : (new EventsModel())->list_for_creator($creator_id);   // sample rows behind the upgrade cover
         $this->view->tiers    = (new CreatorPlansModel())->get_for_user($creator_id);   // for tier-specific access
         $this->view->timezone = (string) ($owner['content_timezone'] ?? 'UTC');
         $this->view->render();

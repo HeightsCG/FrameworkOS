@@ -128,9 +128,26 @@
                 <h2 class="plan-lock__title" id="plan_lock_title"><?php echo htmlspecialchars($plan_cover['title'], ENT_QUOTES, 'UTF-8'); ?></h2>
                 <p class="plan-lock__text"><?php echo htmlspecialchars($plan_cover['text'], ENT_QUOTES, 'UTF-8'); ?></p>
                 <a href="/account/billing" class="plan-lock__btn">Choose a Plan</a>
+                <?php echo !empty($plan_cover['video']) ? Tutorials::button($plan_cover['video'], 'data-plan-lock-video') : ''; ?>
                 <p class="plan-lock__note">Included with Creator and Studio.</p>
             </div>
         </div>
+<?php $plan_sample = PlanCoverSample::api((string) $this->controller); if ($plan_sample): ?>
+        <script>
+        // Upgrade cover: the page's list requests are answered with sample content (PlanCoverSample) so the tool behind the
+        // cover is not empty. Only on this page, only for these endpoints; every other call goes to the server untouched.
+        (function () {
+            if (typeof window.ApiDataSvc === 'undefined') { return; }
+            var sample = <?php echo json_encode($plan_sample, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?>;
+            var real_call = ApiDataSvc.apiCall;
+            ApiDataSvc.apiCall = function (type, endpoint, body, success) {
+                if (!Object.prototype.hasOwnProperty.call(sample, endpoint)) { return real_call.apply(this, arguments); }
+                var answer = JSON.stringify(sample[endpoint]);
+                setTimeout(function () { if (typeof success === 'function') { success(answer); } }, 0);
+            };
+        })();
+        </script>
+<?php endif; ?>
 <?php endif; ?>
         <div class="app-content<?php echo $plan_cover ? ' app-content--covered' : ''; ?>"<?php echo $plan_cover ? ' inert aria-hidden="true"' : ''; ?>>
 <?php

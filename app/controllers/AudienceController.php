@@ -20,7 +20,7 @@ class AudienceController extends Controller {
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
 
         $model    = new AudienceModel();
-        $audience = $model->list_for_creator($user_id);
+        $audience = Plan::cover('audience') ? PlanCoverSample::audience() : $model->list_for_creator($user_id);   // sample rows behind the upgrade cover
 
         $this->view->audience = $audience;
         $this->view->counts   = $model->segment_counts($audience);

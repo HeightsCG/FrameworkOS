@@ -524,3 +524,4 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 .app-content--covered{ user-select:none; -webkit-user-select:none; }
 .app-content--covered .plan-bar, .app-content--covered .setup-widget{ display:none; }
 @media (max-width:820px){ .plan-lock{ align-items:flex-start; padding-top:15vh; } }
+.plan-lock__card .tut-btn{ margin:.7rem auto 0; height:40px; }

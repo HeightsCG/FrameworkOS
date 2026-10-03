@@ -64,6 +64,9 @@ class DashboardController extends Controller {
             if ($this->view->nudge) { $this->view->nudge['gross_cents'] = $gross; }
         }
 
+        // Behind the upgrade cover a Free account sees sample numbers, not an empty page.
+        if (Plan::cover('dashboard')) { foreach (PlanCoverSample::dashboard($range) as $key => $value) { $this->view->$key = $value; } }
+
         $this->view->render();
     }
 

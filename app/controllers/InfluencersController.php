@@ -53,6 +53,12 @@ class InfluencersController extends Controller {
             'addon_price'  => (int) ($cap['addon_price'] ?? 0),
             'addon_next'   => !empty($cap['addon']) ? Plan::addon_quantity($user, (string) $cap['addon']) + 1 : 0,
         );
+        if (Plan::cover('influencers')) {   // behind the upgrade cover: the working page with sample influencers, not the Free prompts
+            $this->view->needs_plan = false;
+            $this->view->can_ai     = true;
+            $this->view->ready      = array(array('id' => 1, 'name' => 'Nova'), array('id' => 2, 'name' => 'Ari'), array('id' => 3, 'name' => 'Sol'));
+            $this->view->limit      = array_merge($this->view->limit, array('can_create' => true, 'included' => true, 'message' => ''));
+        }
         return $user;
     }
 

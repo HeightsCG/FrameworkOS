@@ -24,7 +24,7 @@ class StudioController extends Controller {
 
             // Creator tools require an active platform plan. We still render the
             // full workspace, but the view blurs it behind a plan-lock overlay.
-            $this->view->needs_plan = !Plan::can_use_creator_features($user);
+            $this->view->needs_plan = !Plan::can_use_creator_features($user) && !Plan::cover('studio');   // behind the cover the full workspace shows, create buttons included
 
             // Every active membership tier (free ones too), for the composer's tier checkboxes.
             $plans = array();
