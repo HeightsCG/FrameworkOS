@@ -321,3 +321,8 @@ button.inf-photo--pick{ padding:0; }
     .inf-lightbox__bar .btn{ flex:1 1 auto; justify-content:center; }
     .inf-lightbox__body, .inf-lightbox__body img, .inf-lightbox__body video{ max-height:70vh; }
 }
+@media (max-width:640px){
+    .inf-chip{ min-height:40px; padding:.3rem .8rem; }
+    .inf-card__menu{ width:40px; height:40px; }
+    .inf-field__row .inf-link, .inf-gal__bar .inf-link{ min-height:40px; padding:0 .2rem; }
+}

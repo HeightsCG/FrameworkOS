@@ -337,3 +337,14 @@ button.evm-rec__play:focus-visible{ outline:none; box-shadow:var(--ring); }
     .ev-cityrow{ grid-template-columns:minmax(0,1fr) minmax(0,1fr); row-gap:16px; }
     .ev-cityrow > :first-child{ grid-column:1 / -1; }
 }
+@media (max-width:720px){ .ev-row > .ev-cell:nth-child(4)::after{ content:" sold"; } }   /* stacked rows have no header: say what the number is */
+
+/* ---------- Narrow desktop / tablet: the list used to clip its right-hand columns between 720 and ~1140px ---------- */
+@media (max-width:1140px){ .ev-table{ --ev-cols:minmax(140px,1.3fr) 150px 120px 70px 90px; } }
+@media (min-width:821px) and (max-width:970px){   /* sidebar still showing, so the content column is phone-narrow: stack like a phone */
+    .ev-table__head{ display:none; }
+    .ev-row{ display:flex; flex-wrap:wrap; align-items:center; gap:.35rem .9rem; padding:.9rem 1rem; }
+    .ev-row > .ev-cell{ flex:none; }
+    .ev-row > .ev-cell.ev-cell--title, .ev-row > .ev-cell:nth-child(2){ flex:1 1 100%; }
+    .ev-row > .ev-cell:nth-child(4)::after{ content:" sold"; }
+}

@@ -198,3 +198,6 @@
     .dash__break-row{ grid-template-columns:minmax(0,112px) minmax(40px,1fr) auto; }
     .dash__tab{ min-height:44px; }
 }
+.dash__tapread{ margin-top:.7rem; padding:.5rem .7rem; background:#F7F7F7; border-radius:var(--r-sm); font-size:.84rem; font-weight:600; color:var(--text); }
+.dash__col.is-tapped{ background:#E4E4E4; }
+.dash__heat-cell.is-tapped{ outline:2px solid var(--text); outline-offset:1px; }

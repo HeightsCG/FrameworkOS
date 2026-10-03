@@ -248,3 +248,5 @@
     .pub-body table, .gd-body table { display: block; max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .pub-body, .gd-body { overflow-wrap: break-word; }
 }
+@media (max-width:900px){ .gd-posthead--cover{ grid-template-columns:minmax(0,1fr); } .gd-posthead--cover > *{ min-width:0; } }
+@media (max-width:640px){ .gd-posthead{ padding:24px 20px 20px; } .gd-posthead__title{ font-size:1.6rem; overflow-wrap:break-word; } }

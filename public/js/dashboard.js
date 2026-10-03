@@ -54,4 +54,23 @@
             if (location.hash) { a.setAttribute('href', a.getAttribute('href').split('#')[0] + location.hash); }
         });
     });
+    // Touch screens have no hover: tapping a chart bar or heatmap cell shows its value under the chart.
+    if (window.matchMedia && window.matchMedia('(hover: none)').matches) {
+        document.addEventListener('click', function (e) {
+            var mark = e.target.closest('.dash__col, .dash__heat-cell');
+            if (!mark || !mark.getAttribute('title')) { return; }
+            var chart = mark.closest('.dash__bars, .dash__heat');
+            var panel = chart.parentNode;
+            var read_out = panel.querySelector('.dash__tapread');
+            if (!read_out) {
+                read_out = document.createElement('div');
+                read_out.className = 'dash__tapread';
+                read_out.setAttribute('aria-live', 'polite');
+                panel.appendChild(read_out);
+            }
+            panel.querySelectorAll('.is-tapped').forEach(function (m) { m.classList.remove('is-tapped'); });
+            mark.classList.add('is-tapped');
+            read_out.textContent = mark.getAttribute('title');
+        });
+    }
 })();

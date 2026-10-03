@@ -64,7 +64,7 @@
         @keyframes vspin { to { transform: rotate(360deg); } }
     </style>
 </head>
-<body>
+<body class="auth-plain">
     <div class="container verify-card">
         <h1 class="h4 mb-4"><?php echo Main::site_name(); ?></h1>
         <div id="verify_spinner" class="verify-spinner"></div>

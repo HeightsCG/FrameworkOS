@@ -169,3 +169,14 @@ button.feed-card__act.is-liked:hover i{ color:#e0245e; transform:scale(1.12); }
 .feed-plb__csend:hover{ background:var(--acc-btn-h); }
 .feed-plb__cnote{ font-size:.86rem; color:var(--muted); margin:.6rem 0 0; }
 .feed-plb__cnote a{ color:var(--acc-ink); }
+
+/* ---------- Phones: the close button gets its own strip above the post, clear of the report flag in the post header ---------- */
+@media (max-width:640px){
+    .feed-plb{ padding:76px 12px 24px; }
+    .feed-plb__close{ top:16px; right:12px; width:44px; height:44px; }
+    .feed-plb__report{ width:44px; height:44px; margin-right:-.4rem; }
+}
+@media (max-width:640px){
+    .feed-card__act{ min-height:40px; padding:.25rem .6rem; }
+    .feed-plb input, .feed-plb textarea{ font-size:16px; }
+}

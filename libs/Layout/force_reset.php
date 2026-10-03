@@ -43,7 +43,7 @@
     });
     </script>
 </head>
-<body>
+<body class="auth-plain">
     <div class="container" style="max-width:420px; margin-top:80px;">
         <h1 class="h4 mb-2 text-center"><?php echo Main::site_name(); ?></h1>
         <p class="text-muted text-center mb-4">You must set a new password before continuing.</p>

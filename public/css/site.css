@@ -458,13 +458,18 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 /* ---------- Phones (shell): everything below only applies at the mobile shell breakpoint ---------- */
 :root{ --chrome-h:var(--topbar-h); }   /* height of the fixed chrome above a page; page CSS subtracts it from the viewport */
 @media (max-width:820px){
-    :root{ --chrome-h:calc(var(--topbar-h) + 61px); }   /* topbar + the brand/menu row */
-    .app-shell{ min-height:100dvh; }
+    /* ONE header row: brand icon · search · bell · account · menu. The brand icon and menu button (which live in the sidebar
+       markup) are laid over the two ends of the sticky topbar; the topbar pads itself to leave room for them. */
+    .app-shell{ grid-template-rows:minmax(0,1fr); min-height:100dvh; }
+    .app-sidebar{ position:fixed; top:0; left:0; right:0; z-index:55; height:var(--topbar-h); padding:0 8px 0 16px; gap:0; background:none; border:0; box-shadow:none; pointer-events:none; }
+    .app-sidebar > *{ pointer-events:auto; }
+    .app-brand{ flex:none; padding:0; }
+    .app-brand__name{ display:none; }
+    .app-topbar{ padding:0 56px 0 58px; }
     .app-content{ overflow-x:clip; }
-    .app-brand{ flex:0 1 auto; min-width:0; }
-    .app-brand__name{ overflow:hidden; text-overflow:ellipsis; }
     .app-navtoggle, .app-notif__btn{ width:44px; height:44px; flex:none; }
-    .app-nav{ max-height:calc(100dvh - 61px); overflow-y:auto; overscroll-behavior:contain; }
+    .app-notif{ margin-right:2px; }
+    .app-nav{ max-height:calc(100dvh - var(--topbar-h)); overflow-y:auto; overscroll-behavior:contain; border-top:1px solid var(--line); }
     .app-nav-item{ min-height:44px; }
     /* dropdowns span the screen instead of hanging off their (narrow, off-centre) trigger */
     .app-search, .app-notif{ position:static; }
@@ -481,7 +486,7 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
     .setup-widget__skip{ width:36px; height:36px; }
     .plan-lock{ padding:16px; }
     .plan-lock__card{ padding:2rem 1.5rem; }
-    body.is-impersonating .app-sidebar{ top:0; height:auto; }
+    body.is-impersonating .app-sidebar{ height:var(--topbar-h); }
 }
 @media (max-width:720px){
     .cs-ae-modal .cs-ae__close{ width:44px; height:44px; }
@@ -495,3 +500,15 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
     .cs-ae-modal .cs-ae__headtools .tut-btn__len, #csComposer .cs-pe__headtools .tut-btn__len{ display:none; }
     .cs-ae-modal .cs-ae__headtools, #csComposer .cs-pe__headtools{ gap:4px; }
 }
+
+/* Standalone account pages (reset password, forced reset, verify email): brand button and full-size fields instead of framework defaults. */
+.auth-plain{ background:var(--bg, #F6F6F6); color:var(--text); font-family:var(--font); }
+.auth-plain .container{ padding-left:16px; padding-right:16px; }
+.auth-plain .form-control{ min-height:48px; font-size:16px; border-radius:2px; border:1px solid #D9D9D9; box-shadow:none; }
+.auth-plain .form-control:focus{ border-color:var(--acc); box-shadow:0 0 0 3px rgba(255, 106, 19, .18); }
+.auth-plain .btn{ display:inline-flex; align-items:center; justify-content:center; min-height:48px; border-radius:2px; font-weight:600; }
+.auth-plain .btn-primary{ background:var(--acc-btn); border-color:var(--acc-btn); color:#fff; }
+.auth-plain .btn-primary:hover, .auth-plain .btn-primary:focus-visible{ background:var(--acc-btn-h); border-color:var(--acc-btn-h); color:#fff; }
+.auth-plain .btn-primary:focus-visible{ box-shadow:0 0 0 3px rgba(255, 106, 19, .3); }
+.auth-plain .btn-primary:disabled{ background:var(--acc-btn); border-color:var(--acc-btn); opacity:.55; }
+@media (max-width:480px){ .auth-plain .container[style*="margin-top"], .auth-plain .verify-card{ margin-top:48px !important; } }

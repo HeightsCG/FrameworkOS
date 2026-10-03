@@ -631,3 +631,8 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
     .pf-plb input, .pf-plb textarea, .pf-plan input { font-size: 16px; }
     .pf { min-height: 100dvh; }
 }
+@media (max-width: 640px) {   /* post lightbox: close button sits in its own strip above the post, clear of the header controls */
+    .pf-plb { padding: 76px 12px 24px; }
+    .pf-plb__close { top: 16px; right: 12px; width: 44px; height: 44px; }
+    .pf-plb [data-report-type] { min-width: 44px; min-height: 44px; }
+}

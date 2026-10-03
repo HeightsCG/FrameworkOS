@@ -245,3 +245,11 @@
     .sw-compose__bar{ flex-wrap:wrap; }
     .sw-compose__bar > *{ flex:1 1 auto; }
 }
+@media (max-width:760px){
+    /* subject + status on the first line, topic and last update under it */
+    .sup-row{ grid-template-columns:minmax(0,1fr) auto; }
+    .sup-row > .sup-cell--title{ grid-column:1; grid-row:1; }
+    .sup-row > .sup-cell:nth-child(4){ grid-column:2; grid-row:1; }
+    .sup-row > .sup-cell:nth-child(3)::before{ content:"Updated "; }
+    .sup-table__body{ max-height:none; overflow-y:visible; }
+}

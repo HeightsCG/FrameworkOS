@@ -223,3 +223,4 @@
     .ibx-tab, .ibx__tab{ min-height:40px; }
 }
 @media (max-width:820px){ .ibx__thread .ibx__ico{ width:40px; height:40px; } }
+@media (max-width:820px){ .ibx{ grid-template-columns:minmax(0,1fr); } .ibx__list, .ibx__thread{ min-width:0; } }

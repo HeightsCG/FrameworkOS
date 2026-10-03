@@ -907,3 +907,10 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
     #csComposer .cs-pe__itembtn--right{ right:38px; }
     #csComposer .cs-pe__itembtn--left{ right:70px; }
 }
+@media (max-width:640px){
+    .cs-tile__check, .cs-tile__rmcol{ width:32px; height:32px; font-size:.85rem; }
+}
+@media (max-width:640px){   /* five tabs: drop the icons so more fit, the cut-off one shows there is more to scroll to */
+    .cs-tabs .nav-link{ padding-left:.6rem; padding-right:.6rem; }
+    .cs-tabs .nav-link i, .cs-tabs .nav-link svg{ display:none; }
+}

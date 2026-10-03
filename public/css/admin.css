@@ -476,3 +476,20 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
     .adm-ustrip__cell{ border-left:0; border-top:1px solid #F2F2F2; }
 }
 
+@media (max-width:820px){
+    .adm-box{ min-width:0; }
+    .adm-box__row{ flex-wrap:wrap; }
+    .adm-ugrid, .adm-cols, .adm-uhead{ min-width:0; }
+}
+@media (max-width:1100px){ .adm-ov{ grid-template-columns:minmax(0,1fr); } .adm-ov__main{ min-width:0; } }
+
+/* ---------- Narrow desktop / tablet: wide tables scroll sideways instead of clipping their last columns ---------- */
+@media (min-width:821px) and (max-width:1240px){
+    .adm-table{ overflow-x:auto; }
+    .adm-table > .adm-table__head, .adm-table > .adm-table__body{ min-width:780px; }
+    .adm-table--billing > .adm-table__head, .adm-table--billing > .adm-table__body,
+    .adm-table--audit > .adm-table__head, .adm-table--audit > .adm-table__body,
+    .adm-table--months > .adm-table__head, .adm-table--months > .adm-table__body{ min-width:960px; }
+    .adm-table--content > .adm-table__head, .adm-table--content > .adm-table__body,
+    .adm-table--keywords > .adm-table__head, .adm-table--keywords > .adm-table__body{ min-width:0; }
+}

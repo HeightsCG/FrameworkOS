@@ -65,7 +65,7 @@
     });
     </script>
 </head>
-<body>
+<body class="auth-plain">
     <div class="container" style="max-width:420px; margin-top:80px;">
         <h1 class="h4 mb-4 text-center"><?php echo Main::site_name(); ?></h1>
         <div class="mb-2"><input type="password" id="p_word" class="form-control" placeholder="New password"></div>

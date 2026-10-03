@@ -67,3 +67,4 @@
 @media (max-width:780px){
     .team-cell--act{ display:flex; flex-wrap:wrap; justify-content:flex-end; gap:.4rem; }
 }
+@media (max-width:780px){ .team-row > .team-cell:nth-child(4)::before{ content:"Last active "; color:#ABABAB; } }
