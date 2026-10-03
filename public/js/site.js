@@ -41,6 +41,13 @@ $(document).ready(function() {
         if (!$input.length || !$panel.length) { return; }
         var timer = null;
 
+        // The phone header leaves the box too narrow for the full hint, so it reads "Search" there.
+        var full_hint = $input.attr('placeholder');
+        var narrow = window.matchMedia('(max-width: 820px)');
+        function set_hint() { $input.attr('placeholder', narrow.matches ? 'Search' : full_hint); }
+        set_hint();
+        if (narrow.addEventListener) { narrow.addEventListener('change', set_hint); }
+
         function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
         function ini(n) { return (String(n || '?').trim().charAt(0) || '?').toUpperCase(); }
         function hide() { $panel.prop('hidden', true).empty(); }
