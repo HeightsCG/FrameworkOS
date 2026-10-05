@@ -44,6 +44,8 @@ class SocialShareService {
         try {
             if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
             if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }
+            // Post for Me refuses a post with no caption (HTTP 400 "caption is required"), so say so instead of sending it.
+            if (trim((string) ($post['caption'] ?? '')) === '') { return array('ok' => false, 'shared' => 0, 'error' => 'The post has no caption. Add one to share it to social accounts.'); }
             $valid = array(); $req = array_map('strval', $account_ids);
             $accounts = array();
             foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
@@ -56,9 +58,6 @@ class SocialShareService {
             if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
             $promo = trim((string) $post['caption']);
-            // Post for Me refuses a post with no caption ("caption is required"), so say so instead of sending it.
-            if ($promo === '') { return array('ok' => false, 'shared' => 0, 'error' => 'The post has no caption. Add one to share it to social accounts.'); }
-
             $assets = (new PostsModel())->get_assets((int) $post['id']);
             $cover = null;
             foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
