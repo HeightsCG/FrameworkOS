@@ -46,8 +46,9 @@
                 <input type="text" class="form-control" id="inf_rep_extra" maxlength="500" placeholder="Golden hour light">
             </div>
             <div class="inf-field">
-                <div class="inf-field__row"><label class="inf-label" for="inf_rep_prompt">Prompt</label><button type="button" class="inf-link" id="inf_rep_rewrite" hidden><i class="fa-solid fa-rotate-right"></i> Rewrite</button></div>
+                <div class="inf-field__row"><label class="inf-label" for="inf_rep_prompt">Prompt</label><span class="inf-working" id="inf_rep_reading" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Reading the photo</span><button type="button" class="inf-link" id="inf_rep_rewrite" hidden><i class="fa-solid fa-rotate-right"></i> Rewrite</button></div>
                 <textarea class="form-control inf-gen__prompt" id="inf_rep_prompt" maxlength="4000" rows="7" placeholder="Choose a source photo" disabled></textarea>
+                <div class="inf-imgkey" aria-label="What the image names in the prompt mean"><span class="inf-imgkey__item"><code>@img1</code> Source Photo</span><span class="inf-imgkey__item"><code>@img2</code> <?php echo $e($infl['name']); ?></span></div>
                 <p class="inf-err" id="inf_rep_err" role="alert" hidden></p>
             </div>
 

@@ -157,6 +157,19 @@ class InfluencerImageActions {
      * 1. Replicate a photo
      * =================================================================== */
 
+    /**
+     * What the image model is sent for a prompt written with @img tokens. The tokens are our own shorthand for
+     * "the Nth image attached": no model defines them. So each becomes "image N", and the prompt opens with a line
+     * saying what every numbered image is ($labels: number => what it shows), so the model is never left guessing.
+     */
+    public static function with_image_key($prompt, array $labels){
+        $prompt = preg_replace('/@img\s*(\d+)/i', 'image $1', (string) $prompt);
+        ksort($labels);
+        $key = array();
+        foreach ($labels as $n => $what) { $key[] = 'Image ' . (int) $n . ' is ' . rtrim((string) $what, '.') . '.'; }
+        return trim(implode(' ', $key) . ' ' . $prompt);
+    }
+
     /** The Style prompt: the spec's template, filled from what Claude saw in the two images. */
     public static function style_prompt(array $infl, array $seen, $extra = ''){
         list($pr) = InfluencerService::pronouns($infl);
@@ -257,6 +270,10 @@ class InfluencerImageActions {
             $prompt .= ' The face in @img1 is covered by a grey mask: take the face only from @img2.';
         }
         if (count($refs) > 1) { $prompt .= ' The images after @img2 show the same model from other angles.'; }
+        // What the model reads: the images named in order (source first, then her reference, then her other angles).
+        $labels = array(1 => 'the source photo: copy its scene, pose, outfit and framing', 2 => 'the model, ' . (string) $infl['name'] . ': use ' . ($infl['gender'] === 'man' ? 'his' : 'her') . ' face and physical features');
+        for ($i = 3; $i <= count($refs) + 1; $i++) { $labels[$i] = 'the same model from another angle'; }
+        $prompt = self::with_image_key($prompt, $labels);
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'replicate', array(
                 'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $src['id'], 'params' => $params,
@@ -380,7 +397,7 @@ class InfluencerImageActions {
         } else {
             $lead = 'The model is the person in @img1' . ($ref_count > 1 ? ' (the other images show the same model from other angles)' : '') . ': keep the exact face and physical features. ';
         }
-        return $lead . 'New photo: ' . $shot . ' Photorealistic, UGC style, raw unedited photo, natural skin texture.';
+        return preg_replace('/@img\s*(\d+)/i', 'image $1', $lead) . 'New photo: ' . $shot . ' Photorealistic, UGC style, raw unedited photo, natural skin texture.';
     }
 
     /**

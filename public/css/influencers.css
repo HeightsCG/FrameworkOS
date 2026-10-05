@@ -164,6 +164,18 @@
 .inf-next__item:hover .inf-next__go{ color:var(--acc-ink); transform:translateX(2px); }
 .inf-next.is-flash .inf-next__item{ border-color:var(--acc); }
 @media (prefers-reduced-motion:reduce){ .inf-next__item, .inf-next__go{ transition:none; } }
+/* Replicate Photo: the chosen photo is being read (face found, prompt written) */
+.inf-mask__stage.is-reading{ pointer-events:none; }
+.inf-mask__stage.is-reading::after{ content:"Reading the photo"; position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; padding-top:56px; background:rgba(17, 17, 17, .62); color:#fff; font-size:13px; font-weight:600; line-height:1.3; }
+.inf-mask__stage.is-reading::before{ content:""; position:absolute; left:50%; top:50%; z-index:3; width:26px; height:26px; margin:-26px 0 0 -13px; border:2px solid rgba(255, 255, 255, .35); border-top-color:#fff; border-radius:50%; animation:inf-reading .7s linear infinite; }
+@keyframes inf-reading{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce){ .inf-mask__stage.is-reading::before{ animation-duration:2.4s; } }
+.inf-working{ display:inline-flex; align-items:center; gap:6px; margin-left:auto; font-size:13px; color:var(--muted); }
+.inf-working[hidden]{ display:none; }
+.inf-working .spinner-border{ width:.8em; height:.8em; border-width:.15em; }
+/* Replicate Photo: what @img1 and @img2 in the prompt stand for */
+.inf-imgkey{ display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:6px; font-size:13px; color:var(--muted); }
+.inf-imgkey code{ padding:1px 5px; border:1px solid var(--line); border-radius:2px; background:var(--line2); color:var(--t2); font-size:12px; }
 .inf-sec__sub{ margin:2px 0 0; font-size:13px; color:var(--muted); line-height:1.4; }
 /* trained influencer: image defaults beside persona, one Save for both */
 .inf-about{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr); gap:16px 40px; align-items:start; margin-top:1.6rem; padding-top:1.4rem; border-top:1px solid var(--line); }

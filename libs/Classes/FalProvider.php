@@ -346,6 +346,10 @@ class FalProvider implements InfluencerProvider {
         if (strpos($lc, 'likenesses of real people') !== false) {
             return self::fail('This model does not accept realistic photos of people as references. Try another model.', 'content_policy', false, $code);
         }
+        // The model's own safety check refused the prompt or one of the images. Say what happened and what to try.
+        if (strpos($lc, 'flagged by a content checker') !== false || strpos($lc, 'content checker') !== false) {
+            return self::fail('This model\'s safety check refused the photo or the prompt. Try the other model, a different source photo, or plainer wording for the outfit.', 'content_policy', false, $code);
+        }
         if ($code === 401 || $code === 403) { return self::fail($msg, 'auth', false, $code); }
         if ($code === 422 || $code === 400) {
             $policy = (strpos($lc, 'content_policy') !== false || strpos($lc, 'nsfw') !== false || strpos($lc, 'safety') !== false || strpos($lc, 'policy') !== false);

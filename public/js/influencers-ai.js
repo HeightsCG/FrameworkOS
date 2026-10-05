@@ -211,13 +211,18 @@ jQuery(function ($) {
             if (!source) { return; }
             preparing = true; prep = null; dirty = false;
             fail('');
-            $('#inf_rep_prompt').val('').prop('disabled', true).attr('placeholder', 'Reading the photo');
+            // Reading the photo and writing the prompt takes several seconds: say so on the photo itself, where the creator is looking.
+            $('#inf_rep_stage').addClass('is-reading').attr('aria-busy', 'true');
+            $('#inf_rep_reading').prop('hidden', false);
+            $('#inf_rep_prompt').val('').prop('disabled', true).attr('placeholder', 'Writing the prompt from your photo');
             $('#inf_rep_rewrite').prop('hidden', true);
             draw(); mask_state(); cost();
             var asked = source.id;
             api('influencer_replicate_prepare', { id: inf.id, source_asset_id: source.id, mode: seg_val('inf_rep_mode'), instruction: $('#inf_rep_extra').val() }, function (o) {
                 if (!source || source.id !== asked) { return; }
                 preparing = false;
+                $('#inf_rep_stage').removeClass('is-reading').removeAttr('aria-busy');
+                $('#inf_rep_reading').prop('hidden', true);
                 $('#inf_rep_prompt').prop('disabled', false).attr('placeholder', 'Describe what to recreate');
                 $('#inf_rep_rewrite').prop('hidden', false);
                 if (!o || !o.success) {
@@ -290,7 +295,13 @@ jQuery(function ($) {
                 $.each(jobs, function (i, x) { if (x.id === j.id) { jobs[i] = j; } });
                 api('media_edit_options', {}, function (r) { if (r && r.success) { T.set_balance(r.ai_credits); } cost(); });
                 if (j.status === 'done' && j.assets && j.assets.length) { select(j.assets[0]); }
-                else { stage(current ? 'main' : 'idle'); if (current) { $('#inf_result').prop('hidden', false); } render_strip(); toastr.error((j.error || 'The replica failed.') + ' Your AI credits were returned.'); }
+                else { stage(current ? 'main' : 'idle'); if (current) { $('#inf_result').prop('hidden', false); } render_strip(); toastr.error((j.error || 'The replica failed.') + ' Your AI credits were returned.');
+                    // A safety refusal is often specific to one model: line up the other one so trying again is one click.
+                    if (j.error_code === 'content_policy') {
+                        var $other = $('#inf_rep_model .inf-opt').not('.is-on').not(':disabled').first();
+                        if ($other.length) { $other.trigger('click'); fail((j.error || 'This model refused the photo.') + ' ' + $other.find('.inf-opt__t').text() + ' is now selected: click Replicate Photo to try it.'); }
+                        else { fail(j.error || 'This model refused the photo.'); }
+                    } }
                 cost();
             });
             cost();

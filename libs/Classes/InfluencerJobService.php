@@ -522,8 +522,60 @@ class InfluencerJobService {
         return self::fail_job($m->get_by_id($job['id']), $m, $from, $code, $error);
     }
 
+    /** Job types that may move to the next model of their picker when a model's safety check refuses the run. */
+    const MODEL_FALLBACK_TYPES = array('replicate', 'carousel');
+
+    /**
+     * The next model to try after $job's model refused it on safety grounds: the next entry of that op's picker
+     * that has not been tried for this job. null when there is none (or the type does not fall back).
+     */
+    public static function fallback_model(array $job){
+        if (!in_array((string) $job['type'], self::MODEL_FALLBACK_TYPES, true)) { return null; }
+        $p     = InfluencerJobsModel::params($job);
+        $tried = array_map('strval', (array) ($p['tried_models'] ?? array()));
+        $tried[] = (string) $job['model_key'];
+        $op = self::op_for((string) $job['type']);
+        foreach ((array) (InfluencerConfig::PICKERS[$op] ?? array()) as $key) {
+            if (in_array((string) $key, $tried, true)) { continue; }
+            $mk = InfluencerConfig::model((string) $key);
+            if ($mk && InfluencerConfig::serves($mk, $op)) { return $mk; }
+        }
+        return null;
+    }
+
+    /**
+     * A safety refusal is usually one model's filter, not the photo being unusable: put the job back on the queue
+     * with the next model instead of failing it. Credits follow the new model's price (the difference is returned
+     * when it is cheaper; nothing extra is taken when it is dearer). False when there is no model left to try.
+     */
+    private static function retry_on_next_model(array $job, InfluencerJobsModel $m, $from){
+        $next = self::fallback_model($job);
+        if (!$next) { return false; }
+        $p = InfluencerJobsModel::params($job);
+        $p['tried_models']  = array_values(array_unique(array_merge((array) ($p['tried_models'] ?? array()), array((string) $job['model_key']))));
+        $p['fallback_from'] = (string) ($p['fallback_from'] ?? $job['model_key']);
+        if (isset($p['aspect'])) { $p['aspect'] = Aspect::for_model($next, (string) $p['aspect']); }
+        $paid  = (int) ($job['credits_charged'] ?? 0);
+        $price = min($paid, (int) Plan::ai_price((string) $job['type'], array('model_key' => (string) $next['key'], 'params' => $p)));
+        $n = $m->transition($job['id'], $from, array('status' => 'queued', 'model_key' => (string) $next['key'], 'params_json' => json_encode($p),
+            'credits_charged' => $price, 'wait_reason' => null, 'error' => null, 'error_code' => null,
+            'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
+            'submitted_at' => null, 'deadline_at' => null, 'poll_count' => 0));
+        if ($n !== 1) { return false; }
+        if ($paid > $price) {
+            (new AiCreditsModel())->apply_delta((int) $job['creator_id'], $paid - $price, 'refund',
+                ucfirst((string) $job['type']) . ' run ' . (int) $job['id'] . ' moved to a cheaper model', (int) $job['id']);
+        }
+        error_log('[influencer job] ' . (int) $job['id'] . ': ' . $job['model_key'] . ' refused on safety, retrying on ' . $next['key']);
+        self::dispatch((int) $job['id'], 0);
+        return true;
+    }
+
     private static function fail_job($job, InfluencerJobsModel $m, $from, $code, $error){
         if (!$job) { return self::out('failed', true, null, (string) $error); }
+        if ((string) $code === 'content_policy' && self::retry_on_next_model($job, $m, $from)) {
+            return self::out('queued', false, 0, 'refused by the model, retrying on another');
+        }
         $n = $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
             'error' => mb_substr((string) $error, 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));
         if ($n === 1) { self::refund_credits($job); self::drop_placeholder($m->get_by_id($job['id'])); }
