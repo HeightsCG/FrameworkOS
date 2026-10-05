@@ -7,6 +7,22 @@ window.AiTools = (function ($) {
 
     var balance = 0;
 
+    /**
+     * Put a list of tiles into $el without rebuilding the ones that have not changed. Pages that check progress
+     * every few seconds would otherwise reload every finished image on each check (signed image links change
+     * each time), which shows as a flash. A tile is "the same" when its markup matches once link signatures are ignored.
+     */
+    function patch_children($el, html) {
+        var $new = $('<div>').html(html).children(), $old = $el.children();
+        $new.each(function (i) {
+            var sig = this.outerHTML.replace(/\?[^"'\s>]*/g, ''), old = $old.get(i);
+            if (old && old._sig === sig) { return; }
+            this._sig = sig;
+            if (old) { $(old).replaceWith(this); } else { $el.append(this); }
+        });
+        $old.slice($new.length).remove();
+    }
+
     function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     function api(endpoint, body, cb) {
@@ -262,7 +278,7 @@ window.AiTools = (function ($) {
 
     return {
         export_frame: export_frame, clock: clock,
-        esc: esc, api: api, err: err, credits_html: credits_html, can_afford: can_afford, poll_job: poll_job, status_text: status_text,
+        esc: esc, api: api, err: err, patch_children: patch_children, credits_html: credits_html, can_afford: can_afford, poll_job: poll_job, status_text: status_text,
         pick_image: pick_image, edit: edit,
         set_balance: function (n) { balance = parseInt(n, 10) || 0; },
         get_balance: function () { return balance; }

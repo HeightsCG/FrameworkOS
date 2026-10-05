@@ -121,7 +121,6 @@
 .inf-sec__actions .btn{ display:inline-flex; align-items:center; gap:.45rem; }
 .inf-sec__actions .inf-wiz__meta{ margin:0; }
 .inf-sec__head{ align-items:flex-start; }
-.inf-photos--sm{ margin-top:0; }
 /* Change Look window: her reference now beside the changed one */
 .inf-look__title{ font-size:20px; font-weight:700; margin:0; }
 .inf-look .modal-body{ display:flex; flex-direction:column; gap:16px; }
@@ -204,6 +203,8 @@ button.inf-photo--pick{ padding:0; }
 .inf-counter__fill.is-met{ background:var(--success); }
 .inf-photos{ display:grid; grid-template-columns:repeat(auto-fill, minmax(112px, 1fr)); gap:.6rem; }
 .inf-photos--sm{ grid-template-columns:repeat(auto-fill, minmax(84px, 1fr)); gap:.45rem; margin-top:1rem; }
+.inf-photos--set{ grid-template-columns:repeat(10, minmax(0, 1fr)); }   /* the ten training photos sit in one row, or two rows of five */
+.inf-sec .inf-photos--sm{ margin-top:0; }   /* under a section header the header supplies the gap */
 .inf-photo{ position:relative; aspect-ratio:1/1; border-radius:var(--r-sm); overflow:hidden; background:#F0F0F0; border:1px solid var(--line); }
 .inf-photo img{ width:100%; height:100%; object-fit:cover; display:block; }
 .inf-photo__rm{ position:absolute; right:.3rem; top:.3rem; width:24px; height:24px; border-radius:50%; border:none; background:rgba(18, 18, 18, .6); color:#fff; font-size:.75rem; display:flex; align-items:center; justify-content:center; cursor:pointer; opacity:0; transition:opacity .12s, background .12s; }
@@ -581,3 +582,5 @@ a.inf-link:hover{ text-decoration:underline; }
     .inf-look .form-control{ font-size:16px; }
 }
 @media (max-width:640px){ .inf-body{ grid-template-columns:1fr 1fr; } .inf-body .form-select{ font-size:16px; } }
+@media (max-width:1280px){ .inf-photos--set{ grid-template-columns:repeat(5, minmax(0, 1fr)); } }
+@media (max-width:520px){ .inf-photos--set{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }

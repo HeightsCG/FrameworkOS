@@ -392,7 +392,7 @@ jQuery(function ($) {
                 html = '';
             }
             $('#inf_panel').html(html);
-            $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'review'); });
+            $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'set'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
             if (!failed) { render_training_photos(); render_settings(); }
         }
@@ -420,7 +420,7 @@ jQuery(function ($) {
                 api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
                     ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
                 });
-                $('#inf_ref_retrain').on('click', function () { show('review'); });
+                $('#inf_ref_retrain').on('click', function () { show('set'); });
                 $('#inf_look_open').on('click', look_open);
                 return;
             }
@@ -600,7 +600,7 @@ jQuery(function ($) {
             $('#inf_count_bar').css('width', Math.min(100, n / min * 100) + '%').toggleClass('is-met', n >= min);
             $('#inf_count_txt').text(n >= min ? (n + ' of ' + max + ' max') : (n + ' of ' + min + ' minimum'));
             $('#inf_photos_train').prop('disabled', n < min || upload_active > 0 || !C.enabled);
-            $('#inf_photos_cost').text(n >= min ? 'Training is included in your plan' : '');
+            $('#inf_photos_cost').text('');
             $('#inf_drop').toggleClass('is-full', n >= max);
         }
         function upload_start(file) {
@@ -835,11 +835,11 @@ jQuery(function ($) {
                 '<p class="inf-wiz__p">' + size + ' square images from the reference, different angles, expressions and light.</p>' +
                 '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Steer the set (optional)</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
-                '<div class="inf-photos" id="inf_set_grid" hidden></div>' +
+                '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_set_back">Back</button><span class="inf-wiz__meta" id="inf_set_status"></span>' +
                 '<button type="button" class="btn btn-secondary" id="inf_set_regen" hidden><i class="fa-solid fa-rotate"></i> Start over</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_set_go"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate ' + size + ' images</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_set_next" hidden>Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
+                '<button type="button" class="btn btn-primary" id="inf_set_next" hidden><i class="fa-solid fa-bolt"></i> ' + (inf.active_model_id > 0 ? 'Retrain' : 'Train') + '</button></div>';
             $('#inf_panel').html(html);
             $('#inf_set_back').on('click', function () { go_back('set'); });
             function paint(st) {
@@ -850,9 +850,16 @@ jQuery(function ($) {
                 if (!has) { return; }
                 $('#inf_set_done').text(st.done); $('#inf_set_bar').css('width', (st.done / st.size * 100) + '%').toggleClass('is-met', st.complete);
                 $('#inf_set_status').text(st.active > 0 ? (st.active + ' generating') : (st.failed > 0 ? st.failed + ' failed' : ''));
-                var $g = $('#inf_set_grid').empty();
-                st.slots.forEach(function (sl) {
-                    var $t = $('<div class="inf-photo inf-slot">').attr('data-job', sl.job_id);
+                // Tiles are updated in place: one that has not changed since the last check is left alone, so finished
+                // photos do not reload and flash every few seconds.
+                var $g = $('#inf_set_grid'), keep = {}, seen = {};
+                st.slots.forEach(function (sl, pos) {
+                    seen[sl.index] = (seen[sl.index] || 0) + 1;
+                    var key = 'slot' + sl.index + '_' + seen[sl.index], sig = [sl.job_id, sl.status, sl.asset_id || 0, (sl.status === 'done' || sl.status === 'failed' || sl.status === 'cancelled') ? '' : status_text(sl)].join('|');
+                    keep[key] = true;
+                    var $old = $g.children('[data-slot="' + key + '"]');
+                    if ($old.length && $old.attr('data-sig') === sig) { return; }
+                    var $t = $('<div class="inf-photo inf-slot">').attr({ 'data-job': sl.job_id, 'data-slot': key, 'data-sig': sig });
                     if (sl.status === 'done' && sl.thumb_url) {
                         $t.append('<img src="' + esc(sl.thumb_url) + '" alt="">');
                         $t.append('<button type="button" class="inf-photo__rm" title="Regenerate"><i class="fa-solid fa-rotate"></i></button>');
@@ -864,8 +871,10 @@ jQuery(function ($) {
                     $t.find('.inf-photo__rm, .inf-slot__retry').on('click', function () {
                         api('influencer_training_set_retry', { id: inf.id, job_id: sl.job_id }, function (o) { if (o && o.success) { refresh(); } else { err(o); } });
                     });
-                    $g.append($t);
+                    if ($old.length) { $old.replaceWith($t); }
+                    else { var $at = $g.children().eq(pos); if ($at.length) { $at.before($t); } else { $g.append($t); } }
                 });
+                $g.children().each(function () { if (!keep[$(this).attr('data-slot')]) { $(this).remove(); } });
                 if (st.active > 0) { set_timer = setTimeout(refresh, 3000); }
             }
             function refresh() { api('influencer_training_set_status', { id: inf.id }, function (o) { if (o && o.success) { paint(o); } }); }
@@ -880,40 +889,20 @@ jQuery(function ($) {
             });
             $('#inf_set_regen').on('click', function () {
                 Swal.fire({ title: 'Start the set over?', text: 'The current images are set aside and ' + size + ' new ones are generated.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Start over', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
-                    .then(function (r) { if (r.isConfirmed) { inf.training_set_group = ''; clearTimeout(set_timer); paint({ group_key: '', complete: false, slots: [] }); } });
+                    .then(function (r) { if (r.isConfirmed) { inf.training_set_group = ''; clearTimeout(set_timer); $('#inf_set_grid').empty(); paint({ group_key: '', complete: false, slots: [] }); } });
             });
+            // The finished set is what she is trained on: training starts here, with no second screen of the same photos.
             $('#inf_set_next').on('click', function () {
-                api('influencer_save_step', { id: inf.id, step: 'review' }, function (o) { if (o && o.success) { inf = o.influencer; show('review'); } else { err(o); } });
-            });
-        }
-
-        /* --- Path B: Review & train --- */
-        function render_review() {
-            var retrain = inf.active_model_id > 0;
-            var html = '<h2 class="inf-wiz__h">' + (retrain ? 'Retrain ' : 'Train ') + esc(inf.name) + '</h2>' +
-                '<p class="inf-wiz__p">' + (retrain ? 'The current model keeps working until the new one finishes. ' : '') + 'Training takes a few minutes and runs once; afterwards it generates on demand.</p>' +
-                '<div class="inf-summary"><span><strong id="inf_rev_n">…</strong> images</span><span><strong>Included</strong> in your plan</span><span><strong>' + esc(LIM.steps) + '</strong> steps</span></div>' +
-                '<div class="inf-photos inf-photos--sm" id="inf_rev_grid"></div>' +
-                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_rev_back">Back</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_rev_go" disabled><i class="fa-solid fa-bolt"></i> ' + (retrain ? 'Retrain' : 'Train') + '</button></div>';
-            $('#inf_panel').html(html);
-            api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
-                var imgs = (o && o.success) ? o.images : [];
-                $('#inf_rev_n').text(imgs.length);
-                imgs.forEach(function (img) { $('#inf_rev_grid').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
-                $('#inf_rev_go').prop('disabled', imgs.length < LIM.set_size || !C.enabled);
-                if (!C.enabled) { toastr.info('Rendering is not configured yet'); }
-            });
-            $('#inf_rev_back').on('click', function () { if (retrain) { window.location = '/influencers'; } else { go_back('review'); } });
-            $('#inf_rev_go').on('click', function () {
+                if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
                 var $b = $(this).prop('disabled', true);
+                clearTimeout(set_timer);
                 api('influencer_train', { id: inf.id }, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Training started'); show('training'); } else { err(o); $b.prop('disabled', false); }
                 });
             });
         }
 
-        var RENDER = { name: render_name, photos: render_photos, input: render_name, reference: render_reference, set: render_set, review: render_review, training: render_training, done: render_done };
+        var RENDER = { name: render_name, photos: render_photos, input: render_name, reference: render_reference, set: render_set, review: render_set, training: render_training, done: render_done };
         window.INF_WIZ = { register: function (step, fn) { RENDER[step] = fn; }, get: function () { return inf; }, set: function (v) { inf = v; }, show: function (s) { show(s); }, back: go_back, steps: visible_steps, path: function () { return path; } };
 
         function show(step) {
@@ -927,7 +916,7 @@ jQuery(function ($) {
             path = inf.path;
             if (!path) { path = 'photos'; }
             if (inf.status === 'ready' && inf.pending_model_id > 0) { show('training'); return; }
-            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'done' : 'review'); return; }
+            if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'done' : 'set'); return; }
             show(inf.wizard_step || 'name');
         } else {
             path = 'photos';

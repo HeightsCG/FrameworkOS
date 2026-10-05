@@ -107,7 +107,7 @@ jQuery(function ($) {
             var missing = state.slots.filter(function (s) { return s.status === 'empty' || s.status === 'failed'; }).length;
             $('#inf_ang_base').html('<img src="' + esc(state.reference.thumb_url) + '" alt="Her reference image">');
             $('#inf_ang_count').text(state.approved + ' of ' + state.total + ' angles approved');
-            $('#inf_angles').html(state.slots.map(card).join(''));
+            T.patch_children($('#inf_angles'), state.slots.map(card).join(''));
             var total = missing * state.price_each;
             $('#inf_ang_generate').prop('hidden', missing === 0).prop('disabled', missing === 0 || !T.can_afford(total))
                 .html('<i class="fa-solid fa-wand-magic-sparkles"></i> ' + (missing === state.total ? 'Generate Angle Set' : 'Generate ' + missing + ' Missing'));
@@ -381,7 +381,7 @@ jQuery(function ($) {
         }
         function render() {
             var k = kept(), n_drop = order.length - k.length, ready = kept_ready().length, active = k.map(by_index).filter(function (s) { return s && !s.asset_id && s.status !== 'failed'; }).length;
-            $('#inf_car_grid').attr('data-shape', set.aspect).html(k.map(function (i, pos) { return tile(by_index(i), pos, k.length); }).join(''));
+            T.patch_children($('#inf_car_grid').attr('data-shape', set.aspect), k.map(function (i, pos) { return tile(by_index(i), pos, k.length); }).join(''));
             $('#inf_car_title').text((FOCUS[set.focus] || 'Carousel') + ' · ' + k.length + ' image' + (k.length === 1 ? '' : 's'));
             $('#inf_car_constants').text(set.constants || '');
             $('#inf_car_kept').html(esc(ready + ' of ' + k.length + ' ready') + (n_drop ? ' · <button type="button" class="inf-link" id="inf_car_restore">Restore ' + n_drop + ' Dropped</button>' : ''));
