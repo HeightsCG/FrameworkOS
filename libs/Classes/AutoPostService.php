@@ -27,7 +27,7 @@ class AutoPostService {
         // Scene first: the image model weighs the start of the prompt most, and the pose and expression live there.
         $image_brief = trim(rtrim($scene, " .") . (empty($parts['shared']) ? '' : '. ' . implode(' ', $parts['shared'])));
         if ($image_brief === '') { return self::fail(null, 'This automation has no scene to generate from.'); }
-        $size      = in_array(($rule['size'] ?? ''), array('square', 'portrait', 'landscape'), true) ? $rule['size'] : 'square';
+        $size      = Aspect::normalize($rule['size'] ?? '', '1:1');
 
         // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
         $asset_id = 0;
@@ -61,7 +61,7 @@ class AutoPostService {
         $label    = 'Scheduled · ' . mb_substr($topic, 0, 40);
         $ext      = in_array($gen['ext'] ?? 'png', array('jpg', 'png', 'webp'), true) ? $gen['ext'] : 'png';
         $mime     = array('jpg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp');
-        $asset_id = (int) $media->add($creator_id, 'image', $label . '.' . $ext, $mime[$ext], 'processing');
+        $asset_id = (int) $media->add($creator_id, 'image', $label . '.' . $ext, $mime[$ext], 'processing', 'generated');
         if ($asset_id <= 0) { @unlink($tmp); $refund(); return self::fail(null, 'Could not create the media asset.'); }
         $watermark = !empty($user['watermark_enabled']);
         $r = MediaService::process_image($creator_id, $asset_id, $tmp, $ext, $mime[$ext], $user, $watermark);

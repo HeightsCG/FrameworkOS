@@ -39,7 +39,7 @@ class InfluencerActions {
     /**
      * Persist wizard inputs / settings. $in may hold: name, gender, path, input_method, is_public,
      * source_description, reference_model_key, steer_text, prompt_defaults, negative_prompt,
-     * share_accounts (array or comma list), step.
+     * the persona_* fields (InfluencerService::PERSONA), share_accounts (array or comma list), step.
      */
     public static function update($cid, array $infl, array $in){
         $m = new InfluencersModel();
@@ -67,6 +67,9 @@ class InfluencerActions {
         if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, 1000); }
         if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, 2000); }
         if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, 2000); }
+        foreach (InfluencerService::PERSONA as $col => $def) {
+            if (array_key_exists($col, $in)) { $f[$col] = mb_substr(trim((string) $in[$col]), 0, (int) $def['max']); }
+        }
         if (array_key_exists('share_accounts', $in)) {
             $sa = $in['share_accounts'];
             if (is_string($sa)) { $sa = array_filter(array_map('trim', explode(',', $sa)), 'strlen'); }
@@ -339,14 +342,14 @@ class InfluencerActions {
         $prompt = trim($lead . ($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
-        $size  = in_array($in['image_size'] ?? '', array('square', 'portrait', 'landscape'), true) ? $in['image_size'] : 'portrait';   // portrait unless asked: bodies warp in a square frame
+        $size  = Aspect::for_model($mk, (string) ($in['aspect'] ?? ($in['image_size'] ?? '')));   // 3:4 unless asked: bodies warp in a square frame
         $n     = max(1, min(4, (int) ($in['num_images'] ?? 1)));
         $seed  = (int) ($in['seed'] ?? 0);
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
-        $params = array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
-            'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0));
+        $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
+            'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0)));
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'], 'prompt' => $prompt,

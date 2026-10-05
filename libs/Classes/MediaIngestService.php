@@ -189,6 +189,48 @@ class MediaIngestService {
         return array('asset_id' => $aid, 'type' => 'video', 'bytes' => (int) $bytes, 'duration_sec' => (int) ($probe['duration'] ?? 0));
     }
 
+    /** Sniff an audio file's magic bytes: ['ext','mime'] or null when it is not MP3/WAV/M4A. */
+    public static function verify_audio_file($path){
+        $head = (string) @file_get_contents($path, false, null, 0, 16);
+        if (strlen($head) < 12) { return null; }
+        if (substr($head, 0, 3) === 'ID3' || (ord($head[0]) === 0xFF && (ord($head[1]) & 0xE0) === 0xE0)) { return array('ext' => 'mp3', 'mime' => 'audio/mpeg'); }
+        if (substr($head, 0, 4) === 'RIFF' && substr($head, 8, 4) === 'WAVE') { return array('ext' => 'wav', 'mime' => 'audio/wav'); }
+        if (substr($head, 4, 4) === 'ftyp' && in_array(substr($head, 8, 4), array('M4A ', 'M4B '), true)) { return array('ext' => 'm4a', 'mime' => 'audio/mp4'); }
+        return null;
+    }
+
+    /**
+     * Store an audio file (a generated take, an uploaded track) as a library asset: original to S3, length via
+     * ffprobe, mark ready. Audio has no renditions and is not image-moderated. Deletes $path when done. When
+     * $asset_id is given the existing placeholder row is used. Returns ['asset_id', 'type' => 'audio', 'duration_sec'].
+     */
+    public static function ingest_audio_file($cid, array $user, $path, $label, $asset_id = 0, $provenance = 'uploaded'){
+        $t = self::verify_audio_file($path);
+        $probe = ($t !== null) ? VideoTools::probe($path) : null;
+        // The container must hold sound and no picture: a video renamed .mp3 is not an audio asset.
+        if ($t === null || (VideoTools::available() && (!$probe['has_audio'] || $probe['has_video']))) { @unlink($path); throw new RuntimeException('That file is not a supported audio file (MP3/WAV/M4A)'); }
+        $bytes = (int) @filesize($path);
+        $gb = Plan::limit($user, 'storage_gb');
+        if ($gb !== null && (int) $gb > 0 && ((int) (new MediaAssetsModel())->total_bytes($cid) + $bytes) > (int) $gb * 1073741824) {
+            @unlink($path);
+            throw new RuntimeException('Not enough storage left on your plan for this audio');
+        }
+        $mm  = new MediaAssetsModel();
+        $aid = (int) $asset_id;
+        if ($aid <= 0) { $aid = (int) $mm->add($cid, 'audio', mb_substr($label, 0, 60) . '.' . $t['ext'], $t['mime'], 'processing', $provenance); }
+        if ($aid <= 0) { @unlink($path); throw new RuntimeException('Could not create the media asset'); }
+        $key = MediaService::key($cid, $aid, 'original', $t['ext']);
+        if (!S3Service::put_private($key, $path, $t['mime'])) {
+            @unlink($path);
+            $mm->set_failed($cid, $aid, 'Storage failed');
+            throw new RuntimeException('Could not store the audio');
+        }
+        @unlink($path);
+        $mm->set_ready($cid, $aid, array('original_key' => $key, 'bytes' => $bytes, 'duration_sec' => (int) ceil((float) $probe['duration']),
+            'moderation_status' => 'n_a'));
+        return array('asset_id' => $aid, 'type' => 'audio', 'duration_sec' => (int) ceil((float) $probe['duration']));
+    }
+
     /** Video from a URL (MCP path): poster first, then the download, then ingest_video_file(). */
     public static function ingest_video_from_url($cid, array $user, $url, $poster_url, $label){
         $poster_tmp = '';

@@ -1,9 +1,10 @@
 <?php
 /**
- * AI influencers (/influencers). Four destinations: the influencer gallery (index), the
+ * AI influencers (/influencers). The destinations: the influencer gallery (index), the
  * create wizard (/influencers/create[/<id>]), Generate Images (/influencers/images/<id>),
  * Generate Videos (/influencers/videos/<id>) and the per-influencer Gallery
- * (/influencers/gallery/<id>). Creator-only, gated on the ai_tools plan flag like the
+ * (/influencers/gallery/<id>), plus Replicate Photo, Generate Carousel and References
+ * (/influencers/replicate|carousel|references/<id>). Creator-only, gated on the ai_tools plan flag like the
  * Studio's AI actions. Collaborators act on the owner's account via Permissions::creator_id().
  */
 class InfluencersController extends Controller {
@@ -126,6 +127,42 @@ class InfluencersController extends Controller {
             $a = (new MediaAssetsModel())->get_one((int) $user['user_id'], $aid);
             if ($a && (string) $a['type'] === 'image' && (string) $a['status'] === 'ready') { $this->view->still_asset_id = $aid; }
         }
+        $this->view->render();
+    }
+
+    /** Replicate Photo: recreate a source photo with her in it. /influencers/replicate/<id>/<asset_id> preselects the source. */
+    public function replicateAction(){
+        $user = $this->gate();
+        $this->view->page = 'replicate';
+        $this->ready_influencer($user);
+        $aid = (int) (Main::get_url()[3] ?? 0);
+        $this->view->source_asset = null;
+        if ($aid > 0) {
+            $a = (new MediaAssetsModel())->get_one((int) $user['user_id'], $aid);
+            if ($a && (string) $a['type'] === 'image' && (string) $a['status'] === 'ready' && (string) $a['moderation_status'] !== 'blocked') {
+                $this->view->source_asset = array('id' => $aid, 'thumb_url' => MediaService::signed_url($a, 'thumb', (int) $user['user_id']),
+                    'display_url' => MediaService::signed_url($a, 'display', (int) $user['user_id']), 'width' => (int) $a['width'], 'height' => (int) $a['height']);
+            }
+        }
+        $this->view->render();
+    }
+
+    /** Generate Carousel: several shots of one moment. /influencers/carousel/<id>/<set_id> reopens a set. */
+    public function carouselAction(){
+        $user = $this->gate();
+        $this->view->page = 'carousel';
+        $infl = $this->ready_influencer($user);
+        $set  = (int) (Main::get_url()[3] ?? 0);
+        $row  = $set > 0 ? (new CarouselSetsModel())->get_one((int) $user['user_id'], $set) : null;
+        $this->view->set_id = ($row && (int) $row['influencer_id'] === (int) $infl['id']) ? $set : 0;
+        $this->view->render();
+    }
+
+    /** References: her multi-angle reference set. */
+    public function referencesAction(){
+        $user = $this->gate();
+        $this->view->page = 'references';
+        $this->ready_influencer($user);
         $this->view->render();
     }
 

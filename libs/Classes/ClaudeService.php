@@ -158,6 +158,39 @@ class ClaudeService {
         return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '');
     }
 
+    /**
+     * Several images + one question → text (the source photo next to her reference, a first frame next to a
+     * motion video's frame). $images: [['bytes' => ..., 'mime' => 'image/jpeg', 'label' => 'Image 1: the source photo'], ...]
+     * in the order the question refers to them; a label is sent as a line of text just before its image.
+     * @return array ['ok'=>bool, 'text'=>string, 'stop_reason'=>string, 'error'=>string]
+     */
+    public static function vision_multi($system, $text, array $images, $max_tokens = 600, $timeout = 60, $effort = 'low'): array {
+        $key = self::api_key();
+        if ($key === '') { return self::fail('Claude API key is not configured'); }
+        $content = array();
+        foreach ($images as $img) {
+            $bytes = (string) ($img['bytes'] ?? '');
+            if ($bytes === '') { continue; }
+            $mime = (string) ($img['mime'] ?? 'image/jpeg');
+            $mime = in_array($mime, array('image/jpeg', 'image/png', 'image/webp', 'image/gif'), true) ? $mime : 'image/jpeg';
+            if (trim((string) ($img['label'] ?? '')) !== '') { $content[] = array('type' => 'text', 'text' => (string) $img['label']); }
+            $content[] = array('type' => 'image', 'source' => array('type' => 'base64', 'media_type' => $mime, 'data' => base64_encode($bytes)));
+        }
+        if (empty($content)) { return self::fail('No image'); }
+        $content[] = array('type' => 'text', 'text' => (string) $text);
+        $body = array(
+            'max_tokens'    => max(64, (int) $max_tokens),
+            'messages'      => array(array('role' => 'user', 'content' => $content)),
+            'output_config' => array('effort' => in_array($effort, array('low', 'medium', 'high'), true) ? $effort : 'low'),
+        );
+        if (trim((string) $system) !== '') { $body['system'] = (string) $system; }
+        $d = self::post($body, $timeout, 'vision ');
+        if (isset($d['ok']) && $d['ok'] === false) { return $d; }
+        $out = '';
+        foreach ((array) ($d['content'] ?? array()) as $block) { if (($block['type'] ?? '') === 'text') { $out = (string) $block['text']; break; } }
+        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '');
+    }
+
     /** Drop empties, merge consecutive same-role turns, ensure the list starts and ends with a user turn. */
     private static function normalize(array $messages): array {
         $out = array();

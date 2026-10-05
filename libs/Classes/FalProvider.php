@@ -21,7 +21,8 @@ class FalProvider implements InfluencerProvider {
 
     public static function capabilities(): array {
         return array(
-            'ops'    => array('reference' => true, 'training_set' => true, 'image' => true, 'video' => true, 'enhance' => true, 'training' => true),
+            'ops'    => array('reference' => true, 'training_set' => true, 'image' => true, 'video' => true, 'enhance' => true, 'training' => true,
+                'replicate' => true, 'edit' => true, 'angle' => true),
         );
     }
 
@@ -44,12 +45,26 @@ class FalProvider implements InfluencerProvider {
         return self::submit((string) ($req['endpoint'] ?? ''), self::build_training_input($req));
     }
 
+    /** Input family of a request: the catalog's `family`, else read off the endpoint id (an app.ini endpoint override). */
+    private static function family(array $req): string {
+        $f = (string) ($req['family'] ?? '');
+        if ($f !== '') { return $f; }
+        $ep = (string) ($req['endpoint'] ?? '');
+        foreach (array('nano-banana' => 'nano_banana', 'clarity-upscaler' => 'clarity', 'seedream' => 'seedream', 'grok-imagine' => 'grok',
+                       'flux-pro' => 'flux_pro', 'kling-video' => 'kling_i2v', 'hailuo' => 'hailuo') as $needle => $family) {
+            if (strpos($ep, $needle) !== false) { return $family; }
+        }
+        return 'flux';
+    }
+
     /**
      * Map the generic request onto the endpoint's schema. Every fal image endpoint accepts
-     * `prompt` and `seed`; the rest differs per family and is keyed off the endpoint id.
+     * `prompt` and `seed`; the rest differs per family. $req['aspect_value'] is the catalog's
+     * value for the chosen shape (a preset, a ratio string or width/height).
      */
     private static function build_image_input(array $req): array {
-        $ep    = (string) ($req['endpoint'] ?? '');
+        $family = self::family($req);
+        $shape  = $req['aspect_value'] ?? null;
         $in    = (array) ($req['params'] ?? array());
         $in['prompt'] = (string) ($req['prompt'] ?? '');
         if (!empty($req['seed'])) { $in['seed'] = (int) $req['seed']; }
@@ -57,15 +72,32 @@ class FalProvider implements InfluencerProvider {
         // fal's post-render safety checker does not error: it hands back a BLACK image for
         // anything it flags (tease/lingerie included). It is always off (flux-pro: most permissive tolerance).
 
-        if (strpos($ep, 'nano-banana') !== false) {
+        if ($family === 'nano_banana') {
             // Reference edit: prompt + image_urls; aspect ratio string; output png.
             $in['image_urls']    = array_values((array) ($req['image_urls'] ?? array()));
             $in['num_images']    = $n;
-            $in['aspect_ratio']  = (string) ($req['aspect_ratio'] ?? '1:1');
+            $in['aspect_ratio']  = is_string($shape) ? $shape : (string) ($req['aspect_ratio'] ?? '1:1');   // 'auto' keeps the source image's shape
             $in['output_format'] = 'png';
             return $in;
         }
-        if (strpos($ep, 'clarity-upscaler') !== false) {
+        if ($family === 'seedream') {
+            // Multi-image edit: prompt + up to 10 image_urls; explicit width/height.
+            $in['image_urls'] = array_values((array) ($req['image_urls'] ?? array()));
+            $in['num_images'] = $n;
+            if (is_array($shape)) { $in['image_size'] = array('width' => (int) $shape['width'], 'height' => (int) $shape['height']); }
+            $in['enable_safety_checker'] = false;
+            return $in;
+        }
+        if ($family === 'grok') {
+            // Instruction edit: prompt + up to 3 image_urls; 'auto' keeps the first image's shape.
+            $in['image_urls']   = array_slice(array_values((array) ($req['image_urls'] ?? array())), 0, 3);
+            $in['num_images']   = $n;
+            $in['aspect_ratio'] = is_string($shape) ? $shape : 'auto';
+            $in['output_format'] = 'png';
+            unset($in['seed']);   // not an input of this endpoint
+            return $in;
+        }
+        if ($family === 'clarity') {
             $in['image_url'] = (string) ($req['image_url'] ?? '');
             if (trim((string) ($req['negative_prompt'] ?? '')) !== '') { $in['negative_prompt'] = (string) $req['negative_prompt']; }
             if ($in['prompt'] === '') { unset($in['prompt']); }
@@ -73,7 +105,7 @@ class FalProvider implements InfluencerProvider {
             return $in;
         }
         // Flux family (flux-lora, flux/schnell, flux-pro/v1.1): image_size preset + num_images.
-        $in['image_size'] = self::flux_size((string) ($req['image_size'] ?? 'square'));
+        $in['image_size'] = ($shape !== null) ? $shape : self::flux_size((string) ($req['image_size'] ?? 'square'));
         $in['num_images'] = $n;
         if (!empty($req['loras'])) {
             $in['loras'] = array();
@@ -81,7 +113,7 @@ class FalProvider implements InfluencerProvider {
                 $in['loras'][] = array('path' => (string) $l['url'], 'scale' => (float) ($l['scale'] ?? 1.0));
             }
         }
-        if (strpos($ep, 'flux-pro') !== false) {
+        if ($family === 'flux_pro') {
             $in['output_format']    = 'jpeg';
             $in['safety_tolerance'] = '6';
         } else {
@@ -92,17 +124,17 @@ class FalProvider implements InfluencerProvider {
     }
 
     private static function build_video_input(array $req): array {
-        $ep = (string) ($req['endpoint'] ?? '');
+        $family = self::family($req);
         $in = (array) ($req['params'] ?? array());
         $in['prompt']   = (string) ($req['prompt'] ?? '');
         $in['duration'] = (string) ($req['duration'] ?? '5');
-        if (strpos($ep, 'kling-video') !== false) {
+        if ($family === 'kling_i2v') {
             $in['start_image_url'] = (string) ($req['image_url'] ?? '');
             if (trim((string) ($req['negative_prompt'] ?? '')) !== '') { $in['negative_prompt'] = (string) $req['negative_prompt']; }
         } else {
             $in['image_url'] = (string) ($req['image_url'] ?? '');
         }
-        if (!empty($req['seed']) && strpos($ep, 'hailuo') === false) { $in['seed'] = (int) $req['seed']; }
+        if (!empty($req['seed']) && $family !== 'hailuo') { $in['seed'] = (int) $req['seed']; }
         return $in;
     }
 
@@ -116,13 +148,10 @@ class FalProvider implements InfluencerProvider {
         return $in;
     }
 
-    /** square|portrait|landscape -> fal image_size preset. */
-    public static function flux_size($size): string {
-        switch ((string) $size) {
-            case 'portrait':  return 'portrait_4_3';
-            case 'landscape': return 'landscape_4_3';
-            default:          return 'square_hd';
-        }
+    /** Shape key (ratio or the older square|portrait|landscape) -> fal Flux image_size: a preset, or width/height. */
+    public static function flux_size($size) {
+        $map = InfluencerConfig::FLUX_ASPECTS;
+        return $map[Aspect::normalize($size, '1:1')];
     }
 
     private static function submit($endpoint, array $input): array {

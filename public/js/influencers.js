@@ -390,6 +390,20 @@ jQuery(function ($) {
         }
 
         /* --- Trained: her defaults, share targets and automations (kept separate per influencer) --- */
+        // Who she is, for every AI writer (captions, DMs, automations): one field per C.persona entry.
+        function persona_fields() {
+            var her = (inf.gender === 'man') ? 'Him' : 'Her', html = '';
+            $.each(C.persona || {}, function (col, def) {
+                var id = 'inf_' + col, label = String(def.label).replace('{Her}', her), ph = String(def.placeholder || '');
+                if (inf.gender === 'man') { ph = ph.replace(/\bher\b/g, 'his'); }
+                html += '<div class="inf-field inf-field--full"><label class="inf-label" for="' + id + '">' + esc(label) + '</label>' +
+                    (def.rows > 1
+                        ? '<textarea class="form-control" id="' + id + '" data-persona="' + col + '" rows="' + def.rows + '" maxlength="' + def.max + '" placeholder="' + esc(ph) + '">' + esc(inf[col] || '') + '</textarea>'
+                        : '<input type="text" class="form-control" id="' + id + '" data-persona="' + col + '" maxlength="' + def.max + '" placeholder="' + esc(ph) + '" value="' + esc(inf[col] || '') + '">') +
+                    '</div>';
+            });
+            return html;
+        }
         function render_settings() {
             var soc = CFG.social || { accounts: [] };
             var sel = new Set((inf.share_accounts || []).map(String));
@@ -403,6 +417,9 @@ jQuery(function ($) {
                 '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_negative">Negative Prompt</label><input type="text" class="form-control" id="inf_set_negative" maxlength="2000" placeholder="blurry, extra fingers" value="' + esc(inf.negative_prompt) + '"></div>' +
                 '<div class="inf-field inf-field--full"><div class="inf-label">Share To</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
                 '</div>' +
+                '</section>' +
+                '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Persona</h2></div>' +
+                '<div class="inf-grid">' + persona_fields() + '</div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
                 '</section>' +
                 '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Automations</h2><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New Automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></section>';
@@ -410,7 +427,9 @@ jQuery(function ($) {
             seg_bind('inf_set_gender');
             $('#inf_set_save').on('click', function () {
                 var share = $('#inf_set_share input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
-                api('influencer_save_step', { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val(), share_accounts: share.join(',') }, function (o) {
+                var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val(), share_accounts: share.join(',') };
+                $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
+                api('influencer_save_step', body, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
                 });
             });
@@ -842,7 +861,22 @@ jQuery(function ($) {
 
         $('#inf_who').on('change', function () { window.location = '/influencers/images/' + this.value; });
         $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
-        $('#inf_model').on('click', '.inf-opt', function () { $('#inf_model .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); cost(); });
+        // A shape key as stored now ('3:4'); runs made before the ratios carry square | portrait | landscape.
+        function aspect_key(v) {
+            var A = C.aspect || { keys: [], legacy: {}, default_image: '3:4' };
+            v = String(v || '');
+            if (A.legacy[v]) { return A.legacy[v]; }
+            return A.keys.indexOf(v) >= 0 ? v : A.default_image;
+        }
+        // Shapes the chosen model cannot render are disabled; a selected one moves to the first it can.
+        function sync_sizes() {
+            var key = model_key(), m = null;
+            $.each((C.pickers || {}).image || [], function (i, o) { if (o.key === key) { m = o; } });
+            var ok = (m && m.aspects && m.aspects.length) ? m.aspects : null;
+            $('#inf_size .inf-seg__opt').each(function () { $(this).prop('disabled', !!ok && ok.indexOf(String($(this).data('value'))) < 0); });
+            if ($('#inf_size .inf-seg__opt.is-on').prop('disabled')) { seg_set('inf_size', ok[0]); }
+        }
+        $('#inf_model').on('click', '.inf-opt', function () { $('#inf_model .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); sync_sizes(); cost(); });
         seg_pick('inf_size'); seg_pick('inf_n');
         $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(prompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_prompt_auto').on('click', function () {
@@ -932,8 +966,8 @@ jQuery(function ($) {
             var seed = String(current.job.result_seed || current.job.seed || '');
             $('#inf_prompt').val(current.job.prompt);
             $('#inf_seed').val(seed);
-            seg_set('inf_size', current.job.params.image_size || 'square');
-            generate({ prompt: current.job.prompt, seed: seed, image_size: current.job.params.image_size || 'square', model_key: current.job.model_key });
+            seg_set('inf_size', aspect_key(current.job.params.image_size || 'square'));
+            generate({ prompt: current.job.prompt, seed: seed, image_size: aspect_key(current.job.params.image_size || 'square'), model_key: current.job.model_key });
         });
         $('#inf_res_video').on('click', function () { if (current) { window.location = '/influencers/videos/' + inf.id + '/' + current.asset.id; } });
         $('#inf_res_download').on('click', function () {
@@ -1170,6 +1204,7 @@ jQuery(function ($) {
                 $('#inf_lightbox_img').prop('hidden', false).attr('src', a.preview_url || a.display_url || a.thumb_url);
             }
             $('#inf_lightbox_meta').text((a.type === 'video' ? 'Video' : 'Image') + (a.width && a.height ? ' · ' + a.width + '×' + a.height : ''));
+            $('#inf_lightbox_edit').prop('hidden', a.type !== 'image');   // Edit By Instruction is for images
             $('#inf_lightbox').prop('hidden', false);
         }
         function close_lightbox() { $('#inf_lightbox').prop('hidden', true); var v = document.getElementById('inf_lightbox_video'); v.pause(); }
@@ -1180,6 +1215,13 @@ jQuery(function ($) {
         $('#inf_lightbox_download').on('click', function () { if (!current) { return; } api('influencer_asset_url', { asset_id: current.id }, function (o) { if (o && o.success) { window.open(o.url, '_blank'); } else { err(o); } }); });
         $('#inf_lightbox_post').on('click', function () { if (!current) { return; } try { sessionStorage.setItem('cs_open_asset', String(current.id)); } catch (e) {} window.location = '/studio'; });
         $('#inf_lightbox_message').on('click', function () { if (!current) { return; } send_in_message(current); });
+        // Edit By Instruction (AiTools, ai-tools.js): the result is a new image in her gallery, so the grid reloads.
+        $('#inf_lightbox_edit').on('click', function () {
+            if (!current || !window.AiTools) { return; }
+            var a = current;
+            close_lightbox();
+            AiTools.edit({ id: a.id, display_url: a.preview_url || a.display_url, thumb_url: a.thumb_url, name: a.name }, function () { load(); });
+        });
         $('#inf_lightbox_delete').on('click', function () {
             if (!current) { return; }
             var gone = current.id;

@@ -64,10 +64,11 @@ class McpTools {
         $t[] = array('name' => 'list_posts',  'description' => 'List posts, newest first.', 'inputSchema' => $limit);
         $t[] = array('name' => 'get_post',    'description' => 'Get one post by id.', 'inputSchema' => $id);
         $t[] = array('name' => 'post_counts', 'description' => 'Counts of posts by state (draft/scheduled/published/archived).', 'inputSchema' => $none);
-        $t[] = array('name' => 'create_post', 'description' => 'Create a DRAFT post.', 'inputSchema' => array(
+        $t[] = array('name' => 'create_post', 'description' => 'Create a DRAFT post. Pass asset_ids to attach library media in that order (the first is the cover): this is how a generated carousel becomes a post.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('caption'),
             'properties' => array(
                 'caption'  => array('type' => 'string'),
+                'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Up to 10 ready library assets, in display order.'),
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers', 'ppv')),
                 'ppv_price_credits' => array('type' => 'integer', 'description' => 'Required when audience=ppv. Credits, $1 = 10: 10 to 5000 ($1 to $500).'),
             )));
@@ -212,7 +213,7 @@ class McpTools {
                 'run_time' => array('type' => 'string', 'description' => 'HH:MM'), 'timezone' => array('type' => 'string'),
                 'audience' => array('type' => 'string', 'enum' => array('free', 'subscribers')),
                 'active' => array('type' => 'boolean'),
-                'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'size' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Output shape: 3:4 (default for feed images), 4:5, 9:16 (stories), 1:1 or 4:3. square, portrait and landscape still work.'),
                 'social_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Cross-post targets, e.g. ["fanvue"]. See list_share_targets.'),
                 'image_source' => array('type' => 'string', 'enum' => array('brand', 'influencer'), 'description' => '"influencer" renders one of the creator\'s trained AI influencers (influencer_id required); the topic is then the scene only. Default "brand".'),
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
@@ -303,7 +304,7 @@ class McpTools {
         $t[] = array('name' => 'generate_image', 'description' => 'Generate a brand AI image (Flux on fal.ai; costs AI credits like any AI image) and add it to the media library. Returns the new asset id.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('prompt'),
             'properties' => array('prompt' => array('type' => 'string'),
-                'size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'size' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Output shape: 3:4 (default for feed images), 4:5, 9:16 (stories), 1:1 or 4:3. square, portrait and landscape still work.'),
                 'use_brand' => array('type' => 'boolean', 'description' => 'Apply brand style (default true).'))));
         $t[] = array('name' => 'upload_image_from_url', 'description' => 'Fetch a PUBLIC image URL and add it to the media library. Images only.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('url'),
@@ -336,17 +337,19 @@ class McpTools {
         $infl = array('type' => 'object', 'required' => array('influencer_id'), 'properties' => array('influencer_id' => array('type' => 'integer')));
         $t[] = array('name' => 'list_influencers', 'description' => 'List the creator\'s AI influencers with status, trigger word and counts. Status ready = trained and usable.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_influencer', 'description' => 'One influencer: status, path, wizard step, trigger word, prompt defaults, counts, cover image.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance), each with a label, what it is good at, price and durations. Pass model_key values from here to the generate tools.', 'inputSchema' => $none);
+        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, replicate, edit, angle), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) and how many reference images it accepts (max_refs). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_influencer', 'description' => 'Create an influencer. path "photos" = train from 10-50 uploaded photos (add_influencer_photo); path "reference" = describe the face or upload one face photo, generate a reference, then a 10-image training set. gender (woman or man) is required so prompts describe the right person; ask the user rather than assuming.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'gender'),
             'properties' => array('name' => array('type' => 'string', 'description' => 'Unique per account'),
                 'gender' => array('type' => 'string', 'enum' => array('woman', 'man'), 'description' => 'Image prompts must name the matching subject: "photo of a woman ..." or "photo of a man ...".'),
                 'path' => array('type' => 'string', 'enum' => array('photos', 'reference'), 'description' => 'Default "photos".'))));
-        $t[] = array('name' => 'update_influencer', 'description' => 'Update an influencer\'s settings. Any subset: name, gender (woman, man), source_description (face description for the reference path), reference_model_key, steer_text (training-set steering), prompt_defaults (prepended to every prompt), negative_prompt, is_public, share_accounts (default share targets for the influencer\'s automations; see list_share_targets).', 'inputSchema' => array(
+        $t[] = array('name' => 'update_influencer', 'description' => 'Update an influencer\'s settings. Any subset: name, gender (woman, man), source_description (face description for the reference path), reference_model_key, steer_text (training-set steering), prompt_defaults (prepended to every prompt), negative_prompt, is_public, share_accounts (default share targets for the influencer\'s automations; see list_share_targets), and the persona every AI writer (captions, DMs, automations, launch posts) writes in: persona_description (1 to 2 paragraphs), persona_personality, persona_speaking (way of speaking), persona_niche, persona_vulnerability.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'name' => array('type' => 'string'), 'gender' => array('type' => 'string', 'enum' => array('woman', 'man')), 'source_description' => array('type' => 'string'),
                 'reference_model_key' => array('type' => 'string'), 'steer_text' => array('type' => 'string'), 'prompt_defaults' => array('type' => 'string'),
                 'negative_prompt' => array('type' => 'string'), 'is_public' => array('type' => 'boolean'),
+                'persona_description' => array('type' => 'string'), 'persona_personality' => array('type' => 'string'), 'persona_speaking' => array('type' => 'string'),
+                'persona_niche' => array('type' => 'string'), 'persona_vulnerability' => array('type' => 'string'),
                 'share_accounts' => array('type' => 'array', 'items' => array('type' => 'string')))));
         $t[] = array('name' => 'delete_influencer', 'description' => 'Remove an influencer (its media stays in the library).', 'inputSchema' => $infl);
         $t[] = array('name' => 'add_influencer_photo', 'description' => 'Fetch a PUBLIC image URL and attach it to the influencer. role "upload" = a training photo (photos path, 10-50 needed); role "face" = the single face photo that becomes the reference (reference path).', 'inputSchema' => array(
@@ -382,7 +385,7 @@ class McpTools {
             'type' => 'object', 'required' => array('influencer_id', 'prompt'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string'),
                 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.image'),
-                'image_size' => array('type' => 'string', 'enum' => array('square', 'portrait', 'landscape')),
+                'image_size' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Output shape: 3:4 (default), 4:5, 9:16, 1:1 or 4:3. square, portrait and landscape still work.'),
                 'num_images' => array('type' => 'integer', 'description' => '1-4'), 'seed' => array('type' => 'integer', 'description' => 'Pin to reproduce'),
                 'guidance' => array('type' => 'number'), 'steps' => array('type' => 'integer'), 'lora_scale' => array('type' => 'number', 'description' => 'Likeness strength 0.1-2, default 1'))));
         $t[] = array('name' => 'generate_influencer_video', 'description' => 'Image-to-video from one of the influencer\'s stills (a generated/enhanced/reference asset id). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
@@ -393,6 +396,40 @@ class McpTools {
         $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of the influencer\'s images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        // ---- images built on her identity references: angle set, replicate, edit, carousel, scene templates ----
+        $t[] = array('name' => 'generate_angle_set', 'description' => 'Generate the influencer\'s multi-angle reference set from the approved reference: 3 front close-ups, left profile, right profile, back view, full body front, full body back. Send slots to (re)make specific ones (front_close_1, front_close_2, front_close_3, left_profile, right_profile, back, full_front, full_back); omit it to fill every empty slot. Each image costs AI credits (see influencer_model_options, purpose angle). Returns job ids; poll get_angle_set. Approved angles are used as identity inputs by replicate_influencer_image and generate_carousel.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'slots' => array('type' => 'array', 'items' => array('type' => 'string')), 'model_key' => array('type' => 'string'))));
+        $t[] = array('name' => 'get_angle_set', 'description' => 'The influencer\'s angle reference set: every slot with its image, whether it is approved, a running job or the last error.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'approve_angle_reference', 'description' => 'Approve (or with approved=false, un-approve) one angle reference image. Only approved ones are used as identity inputs.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'), 'approved' => array('type' => 'boolean'))));
+        $t[] = array('name' => 'replicate_influencer_image', 'description' => 'Recreate a source photo with the influencer in it. mode "style" recreates the scene and pose from a description of the source (pass prompt to use your own wording, else it is written from the photo); mode "exact" swaps the influencer into the photo and keeps the composition. The face in the source is found and masked automatically so the source person\'s features do not carry over (mask=false to skip). Costs AI credits per image (influencer_model_options, purpose replicate). Returns a job id; poll get_influencer_job for the asset ids.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'source_asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'source_asset_id' => array('type' => 'integer', 'description' => 'A library image (upload one with upload_image_from_url first)'),
+                'mode' => array('type' => 'string', 'enum' => array('style', 'exact')), 'prompt' => array('type' => 'string'), 'instruction' => array('type' => 'string', 'description' => 'Optional extra instruction'),
+                'aspect' => array('type' => 'string', 'enum' => self::shapes()), 'num_images' => array('type' => 'integer', 'minimum' => 1, 'maximum' => 4),
+                'model_key' => array('type' => 'string'), 'mask' => array('type' => 'boolean'))));
+        $t[] = array('name' => 'edit_image', 'description' => 'Edit any library image by instruction, e.g. "make the dress red". Everything else in the photo is kept. Saves a NEW asset linked to the original (its parent), so the original is never changed. Costs AI credits (influencer_model_options, purpose edit). Without model_key the model that keeps the image\'s shape is used. Returns a job id; poll get_influencer_job for the new asset id.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('asset_id', 'instruction'),
+            'properties' => array('asset_id' => array('type' => 'integer'), 'instruction' => array('type' => 'string'), 'model_key' => array('type' => 'string'))));
+        $t[] = array('name' => 'get_image_versions', 'description' => 'The version history of a library image: the original and every edit made from it, oldest first, with the instruction that made each one.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('asset_id'), 'properties' => array('asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'generate_carousel', 'description' => 'Generate a carousel set: 2 to 10 images of one moment with the outfit, location, props and pets held constant. Give a seed scene as seed_asset_id (a library image) and/or seed_text. focus picks what varies: angles, expressions, poses, details, or without_her (needs a seed image). Costs AI credits per image. Returns set_id; poll get_carousel, then pass the asset ids in the order you want to create_post.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'count'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'seed_asset_id' => array('type' => 'integer'), 'seed_text' => array('type' => 'string'),
+                'count' => array('type' => 'integer', 'minimum' => 2, 'maximum' => 10), 'focus' => array('type' => 'string', 'enum' => array_keys(InfluencerImageActions::CAROUSEL_FOCUS)),
+                'aspect' => array('type' => 'string', 'enum' => self::shapes()), 'model_key' => array('type' => 'string'))));
+        $t[] = array('name' => 'get_carousel', 'description' => 'A carousel set\'s slots in order, each with its status, asset id and the shot it shows.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('set_id'), 'properties' => array('set_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'regenerate_carousel_slot', 'description' => 'Render one carousel slot again (job_id from get_carousel). A failed slot is retried; a finished one is replaced. Costs the slot\'s AI credits again.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'list_scene_templates', 'description' => 'The scene template library: ready-made scenes to run with an influencer. Adult templates are listed only for accounts that turned adult content on.', 'inputSchema' => $none);
+        $t[] = array('name' => 'generate_from_scene_template', 'description' => 'Run a scene template with a trained influencer: four variants in one job. Costs AI credits per image like any influencer image. Returns a job id; poll get_influencer_job, then rate variants with vote_scene_variant.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'template_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'template_id' => array('type' => 'integer'), 'aspect' => array('type' => 'string', 'enum' => self::shapes()))));
+        $t[] = array('name' => 'vote_scene_variant', 'description' => 'Thumbs up (vote 1), thumbs down (vote -1) or clear (vote 0) on one image a scene template produced.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('asset_id', 'vote'), 'properties' => array('asset_id' => array('type' => 'integer'), 'vote' => array('type' => 'integer', 'enum' => array(1, 0, -1)))));
         $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for an image of the influencer, or a motion prompt for a video (returned as text, nothing is rendered).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'), 'kind' => array('type' => 'string', 'enum' => array('image', 'video'), 'description' => 'Default image'))));
@@ -455,13 +492,16 @@ class McpTools {
             case 'create_post': {
                 $caption = trim((string) ($a['caption'] ?? ''));
                 if ($caption === '') { throw new InvalidArgumentException('caption is required'); }
-                $aud = in_array($a['audience'] ?? 'free', array('free', 'subscribers', 'ppv'), true) ? $a['audience'] : 'free';
+                $aud = in_array((string) ($a['audience'] ?? 'free'), array('free', 'subscribers', 'ppv'), true) ? (string) ($a['audience'] ?? 'free') : 'free';
                 $p = new PostsModel();
                 $pid = (int) $p->create_draft($cid, $caption, $aud);
                 if ($pid <= 0) { throw new RuntimeException('Could not create the post'); }
                 $a = self::priced($a, 'ppv_price_credits');
                 $p->update_fields($cid, $pid, array('caption' => $caption, 'audience' => $aud, 'ppv_price_credits' => (int) ($a['ppv_price_credits'] ?? 0)));
-                return array('post_id' => $pid, 'state' => 'draft');
+                $media = array();   // a carousel: the images in the order given, the first one as the cover
+                foreach ((new MediaAssetsModel())->get_owned_ready($cid, array_slice((array) ($a['asset_ids'] ?? array()), 0, 10)) as $m) { $media[] = (int) $m['id']; }
+                if (!empty($media)) { $p->set_assets($cid, $pid, $media, $media[0]); }
+                return array('post_id' => $pid, 'state' => 'draft', 'asset_ids' => $media);
             }
             case 'update_post': {
                 $a = self::priced($a, 'ppv_price_credits');
@@ -666,7 +706,7 @@ class McpTools {
                 if (!S3Service::configured()) { throw new RuntimeException('Image generation unavailable (storage not configured)'); }
                 $prompt = trim((string) ($a['prompt'] ?? ''));
                 if ($prompt === '') { throw new InvalidArgumentException('prompt is required'); }
-                $size = in_array($a['size'] ?? 'square', array('square', 'portrait', 'landscape'), true) ? $a['size'] : 'square';
+                $size = Aspect::normalize($a['size'] ?? '', Aspect::DEFAULT_IMAGE);
                 $final = $prompt;
                 if (($a['use_brand'] ?? true)) {
                     $cb = (new CreatorBrandModel())->get_for_user($cid);
@@ -682,7 +722,9 @@ class McpTools {
                     throw new RuntimeException('Generation failed: ' . ($res['error'] ?? 'unknown'));
                 }
                 try {
-                    return self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
+                    $made = self::ingestImage($cid, $user, $res['bytes'], (string) ($res['ext'] ?? 'png'), (string) ($res['mime'] ?? 'image/png'), 'Generated · ' . mb_substr($prompt, 0, 40));
+                    (new MediaAssetsModel())->set_lineage($cid, (int) $made['asset_id'], array('provenance' => 'generated', 'model_key' => (string) ($res['model_key'] ?? ''), 'prompt' => $final));
+                    return $made;
                 } catch (\Throwable $e) {   // paid for but never stored: give the credits back
                     (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: image could not be saved');
                     throw $e;
@@ -764,13 +806,21 @@ class McpTools {
                 return array('influencers' => $out);
             }
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
-            case 'influencer_model_options':  return array('enabled' => InfluencerConfig::enabled(), 'reference' => InfluencerConfig::picker_options('reference'), 'image' => InfluencerConfig::picker_options('image'), 'video' => InfluencerConfig::picker_options('video'), 'enhance' => InfluencerConfig::picker_options('enhance'));
+            case 'influencer_model_options': {
+                $out = array('enabled' => InfluencerConfig::enabled(), 'shapes' => Aspect::options());
+                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
+                // Flat-priced purposes carry no price of their own on the model: fill in what a run actually costs.
+                foreach (array('image', 'enhance') as $purpose) {
+                    foreach ($out[$purpose] as $i => $o) { if ($o['credits'] === null) { $out[$purpose][$i]['credits'] = Plan::ai_price($purpose, array('model_key' => $o['key'])); } }
+                }
+                return $out;
+            }
             case 'create_influencer': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::create($cid, (string) ($a['name'] ?? ''), (string) ($a['path'] ?? 'photos'), (string) ($a['gender'] ?? '')));
             }
             case 'update_influencer': {
-                $in = array_intersect_key($a, array_flip(array('name', 'gender', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts')));
+                $in = array_intersect_key($a, array_flip(array_merge(array('name', 'gender', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts'), array_keys(InfluencerService::PERSONA))));
                 return self::result(InfluencerActions::update($cid, self::influencer_usable($cid, $a), $in));
             }
             case 'delete_influencer':          return self::result(InfluencerActions::delete($cid, self::influencer($cid, $a)));
@@ -807,6 +857,41 @@ class McpTools {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::generate_image($cid, self::influencer_usable($cid, $a), $a, 'studio'));
             }
+            case 'generate_angle_set': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerImageActions::angle_set_generate($cid, self::influencer_usable($cid, $a), (array) ($a['slots'] ?? array()), (string) ($a['model_key'] ?? ''), 'studio'));
+            }
+            case 'get_angle_set':             return self::result(InfluencerImageActions::angle_set_status($cid, self::influencer($cid, $a)));
+            case 'approve_angle_reference': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerImageActions::angle_approve($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0), !array_key_exists('approved', $a) || !empty($a['approved'])));
+            }
+            case 'replicate_influencer_image': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('source_asset_id', 'mode', 'prompt', 'instruction', 'aspect', 'num_images', 'model_key', 'mask')));
+                return self::result(InfluencerImageActions::replicate($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'edit_image': {
+                self::requirePlan($cid, 'ai_tools', 'AI image editing requires an active plan');
+                return self::result(InfluencerImageActions::edit_image($cid, (int) ($a['asset_id'] ?? 0), (string) ($a['instruction'] ?? ''), (string) ($a['model_key'] ?? ''), 'studio'));
+            }
+            case 'get_image_versions':        return self::result(InfluencerImageActions::versions($cid, (int) ($a['asset_id'] ?? 0)));
+            case 'generate_carousel': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('seed_asset_id', 'seed_text', 'count', 'focus', 'aspect', 'model_key')));
+                return self::result(InfluencerImageActions::carousel_start($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'get_carousel':              return self::result(InfluencerImageActions::carousel_status($cid, (int) ($a['set_id'] ?? 0)));
+            case 'regenerate_carousel_slot': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerImageActions::carousel_regenerate($cid, (int) ($a['job_id'] ?? 0)));
+            }
+            case 'list_scene_templates':      return SceneTemplates::for_user(self::user($cid));
+            case 'generate_from_scene_template': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(SceneTemplates::run($cid, self::user($cid), self::influencer_usable($cid, $a), (int) ($a['template_id'] ?? 0), (string) ($a['aspect'] ?? ''), '', 'studio'));
+            }
+            case 'vote_scene_variant':        return self::result(SceneTemplates::vote($cid, (int) ($a['asset_id'] ?? 0), (int) ($a['vote'] ?? 0)));
             case 'generate_influencer_video': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::generate_video($cid, self::influencer_usable($cid, $a), $a, 'studio'));
@@ -900,6 +985,9 @@ class McpTools {
         foreach ((array) $ids as $id) { $id = (int) $id; if (isset($ready[$id])) { $out[$id] = $id; } }
         return array_values($out);
     }
+
+    /** Every shape key a tool accepts: the ratios plus the older names. */
+    private static function shapes(){ return array_merge(Aspect::keys(), array_keys(Aspect::LEGACY)); }
 
     /* ---- ingest helpers: thin delegates to MediaIngestService (shared with influencer generations) ---- */
 

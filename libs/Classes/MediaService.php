@@ -235,7 +235,7 @@ class MediaService {
     /* ---- video pipeline (ffmpeg) ---- */
 
     /** Absolute path to ffmpeg/ffprobe, or '' if not installed. */
-    private static function bin($name): string
+    public static function bin($name): string
     {
         static $cache = array();
         if (array_key_exists($name, $cache)) { return $cache[$name]; }
@@ -255,7 +255,7 @@ class MediaService {
      * Run a shell command, but kill it after $seconds (a stalled download or a malformed file must not hang the
      * worker; macOS has no `timeout`). Returns stdout ('' on timeout/failure).
      */
-    private static function run_with_timeout(string $cmd, int $seconds): string
+    public static function run_with_timeout(string $cmd, int $seconds): string
     {
         $proc = @proc_open($cmd, array(1 => array('pipe', 'w'), 2 => array('file', '/dev/null', 'w')), $pipes);
         if (!is_resource($proc)) { return ''; }

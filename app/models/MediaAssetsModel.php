@@ -10,8 +10,10 @@ class MediaAssetsModel extends Model {
         parent::__construct();
     }
 
-    /** Create a placeholder row (status uploading/processing); returns the new id. */
-    public function add($creator_id, $type, $filename, $mime, $status = 'processing'){
+    const PROVENANCE = array('uploaded', 'generated', 'edited');
+
+    /** Create a placeholder row (status uploading/processing); returns the new id. $provenance: uploaded | generated | edited. */
+    public function add($creator_id, $type, $filename, $mime, $status = 'processing', $provenance = 'uploaded'){
         $now = date('Y-m-d H:i:s');
         return parent::insert('media_assets', array(
             'creator_id' => (int) $creator_id,
@@ -19,6 +21,7 @@ class MediaAssetsModel extends Model {
             'filename'   => (string) $filename,
             'mime'       => (string) $mime,
             'status'     => (string) $status,
+            'provenance' => in_array($provenance, self::PROVENANCE, true) ? $provenance : 'uploaded',
             // Only images are content-moderated; videos/gifs aren't scanned.
             'moderation_status' => 'pending',   // images and videos (poster frame) are both moderated
             'created_at' => $now,
@@ -137,6 +140,41 @@ class MediaAssetsModel extends Model {
             array('tags' => mb_substr((string) $tags, 0, 512), 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /**
+     * Record where an AI-made file came from. $f: provenance (generated | edited), parent_asset_id (the file this is a
+     * new version of), source_asset_id (the input it was made from), model_key, prompt, influencer_id, job_id.
+     */
+    public function set_lineage($creator_id, $id, array $f){
+        $data = array('updated_at' => date('Y-m-d H:i:s'));
+        if (isset($f['provenance']) && in_array($f['provenance'], self::PROVENANCE, true)) { $data['provenance'] = $f['provenance']; }
+        foreach (array('parent_asset_id' => 'parent_asset_id', 'source_asset_id' => 'source_asset_id', 'influencer_id' => 'gen_influencer_id', 'job_id' => 'gen_job_id') as $in => $col) {
+            if (array_key_exists($in, $f)) { $data[$col] = ((int) $f[$in] > 0) ? (int) $f[$in] : null; }
+        }
+        if (array_key_exists('model_key', $f)) { $data['gen_model_key'] = ((string) $f['model_key'] !== '') ? mb_substr((string) $f['model_key'], 0, 64) : null; }
+        if (array_key_exists('prompt', $f))    { $data['gen_prompt'] = ((string) $f['prompt'] !== '') ? (string) $f['prompt'] : null; }
+        return parent::update('media_assets', $data, 'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
+    }
+
+    /** The version chain an asset belongs to, oldest first: its ancestors, itself, then everything made from it. */
+    public function versions($creator_id, $id){
+        $root = $this->get_one($creator_id, $id);
+        if (!$root) { return array(); }
+        for ($i = 0; $i < 50 && !empty($root['parent_asset_id']); $i++) {   // walk up to the original
+            $up = $this->get_one($creator_id, (int) $root['parent_asset_id']);
+            if (!$up) { break; }
+            $root = $up;
+        }
+        $out = array($root); $seen = array((int) $root['id'] => true); $frontier = array((int) $root['id']);
+        for ($depth = 0; $depth < 50 && !empty($frontier); $depth++) {
+            $kids = (array) parent::select(
+                "SELECT * FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL AND parent_asset_id IN (" . implode(',', array_map('intval', $frontier)) . ") ORDER BY id ASC",
+                array('c' => (int) $creator_id));
+            $frontier = array();
+            foreach ($kids as $k) { if (empty($seen[(int) $k['id']])) { $seen[(int) $k['id']] = true; $out[] = $k; $frontier[] = (int) $k['id']; } }
+        }
+        return $out;
     }
 
     public function set_watermark_applied($creator_id, $id, $applied){

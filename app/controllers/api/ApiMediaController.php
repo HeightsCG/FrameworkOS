@@ -76,7 +76,7 @@ class ApiMediaController extends BaseApiController {
 
         $model    = new MediaAssetsModel();
         $label    = 'Generated · ' . mb_substr($prompt, 0, 40);
-        $asset_id = (int) $model->add($creator_id, 'image', $label . '.png', 'image/png', 'processing');
+        $asset_id = (int) $model->add($creator_id, 'image', $label . '.png', 'image/png', 'processing', 'generated');
         if ($asset_id <= 0) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: image not started'); $this->jsonError('Could not save the image. Try again.'); }
 
         $job_id = (new DatabaseJobQueue())->dispatch('media_generate', [

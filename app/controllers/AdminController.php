@@ -82,6 +82,9 @@ class AdminController extends Controller {
             $this->view->seo_archived  = count($art->by_status(array('archived')));
         } catch (\Throwable $e) { error_log('[seo] admin content tab: ' . $e->getMessage()); }
 
+        $this->view->scenes = array();
+        try { $this->view->scenes = (new SceneTemplatesModel())->list_all(); } catch (\Throwable $e) { error_log('[admin] scenes: ' . $e->getMessage()); }   // /admin still loads before the stage 2 SQL runs
+
         $this->view->render();
     }
 

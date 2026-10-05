@@ -12,6 +12,7 @@ class Tutorials {
     const SECTIONS = array(
         'start'  => 'Getting Started and Settings',
         'studio' => 'Content Studio',
+        'influencers' => 'AI Influencers',
     );
 
     const VIDEOS = array(
@@ -192,6 +193,47 @@ class Tutorials {
             'Leave Use my brand checked so your colors, voice and keywords steer the look.',
             'Click Generate. It takes up to a minute.',
             'Your image is saved to your Library automatically. Click Use in a Post to start a post with it.',
+        )),
+        // AI influencer pipeline. Stubs: each appears once its <id>.mp4 is uploaded and 'secs' is set.
+        '21' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Persona', 'secs' => 0, 'steps' => array(
+            'A persona tells every AI writer who your influencer is, so captions, messages and automations sound like one person.',
+            'Open Influencers, click the menu on your influencer, then Settings.',
+            'Under Persona, describe who she is in a paragraph or two.',
+            'Fill in her personality, how she speaks, her niche and what makes her vulnerable.',
+            'Click Save. New captions and replies are written in her voice from now on.',
+        )),
+        '22' => array('section' => 'influencers', 'title' => 'Build Her Angle Reference Set', 'secs' => 0, 'steps' => array(
+            'Angle references keep your influencer looking the same from every side.',
+            'Open Influencers, then References.',
+            'Click Generate Angle Set. You get three front close-ups, both profiles, a back view and two full body shots.',
+            'Approve the ones that look like her. Reroll any that do not.',
+            'Approved angles are used automatically in Replicate Photo, Carousel and video.',
+        )),
+        '23' => array('section' => 'influencers', 'title' => 'Replicate a Photo', 'secs' => 0, 'steps' => array(
+            'Replicate Photo recreates any photo with your influencer in it.',
+            'Open Influencers, Generate Images, then Replicate Photo.',
+            'Choose a source photo from your Library or upload one. The face in it is hidden automatically.',
+            'Pick Style to recreate the scene and pose, or Exact to swap her in and keep the composition.',
+            'Edit the prompt if you want, choose a size, and click Replicate.',
+        )),
+        '24' => array('section' => 'influencers', 'title' => 'Generate a Carousel', 'secs' => 0, 'steps' => array(
+            'A carousel is several shots of one moment, with the outfit and location held the same.',
+            'Open Influencers, Generate Images, then Carousel.',
+            'Add a seed image or describe the scene, then pick what should vary and how many images you want.',
+            'Click Generate Carousel. Reorder, drop or regenerate any image.',
+            'Click Use In Post to open a draft with the images in that order.',
+        )),
+        '25' => array('section' => 'studio', 'title' => 'Edit an Image by Instruction', 'secs' => 0, 'steps' => array(
+            'Change one thing in a photo by describing it.',
+            'Open an image in your Library and click Edit.',
+            'Type the change, for example make the dress red, and click Apply Edit.',
+            'The edit is saved as a new version. The original stays in your Library.',
+        )),
+        '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 0, 'steps' => array(
+            'Scenes are ready-made ideas you can run with any of your influencers.',
+            'Open Content Studio, then Scenes.',
+            'Pick a scene and an influencer and click Generate. You get four variants.',
+            'Give a thumbs up or down to each one, then use your favourite in a post.',
         )),
     );
 

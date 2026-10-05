@@ -16,6 +16,95 @@ class InfluencerService {
     /** Gender options (value => label). Required when creating an influencer; drives the subject word and pronouns in every prompt. */
     const GENDERS = array('woman' => 'Woman', 'man' => 'Man');
 
+    /**
+     * Who the influencer is, for every AI writer (captions, DMs, automations, launch posts): column => label, max length,
+     * textarea rows, placeholder. {Her} in a label follows the influencer's gender.
+     */
+    const PERSONA = array(
+        'persona_description'   => array('label' => 'Description',               'max' => 3000, 'rows' => 5, 'placeholder' => '24, grew up in Tampa, moved to Miami for nursing school'),
+        'persona_personality'   => array('label' => 'Personality',               'max' => 1000, 'rows' => 2, 'placeholder' => 'Warm, teasing, a little shy at first'),
+        'persona_speaking'      => array('label' => 'Way Of Speaking',           'max' => 1000, 'rows' => 2, 'placeholder' => 'Short sentences, lowercase, no emoji'),
+        'persona_niche'         => array('label' => 'Niche',                     'max' => 255,  'rows' => 1, 'placeholder' => 'Fitness and gym life'),
+        'persona_vulnerability' => array('label' => 'What Makes {Her} Vulnerable', 'max' => 1000, 'rows' => 2, 'placeholder' => 'Feels invisible next to her older sister'),
+    );
+
+    /**
+     * The multi-angle reference set: slot => label, shape, and what to ask the edit model for. Approved slots are sent
+     * with her reference as identity inputs to Replicate, Carousel, Motion Control and Replace Character.
+     */
+    const ANGLES = array(
+        'front_close_1' => array('label' => 'Front Close-Up 1', 'aspect' => '3:4', 'prompt' => 'Close-up portrait, head and shoulders, facing the camera directly, neutral relaxed expression, eyes to camera'),
+        'front_close_2' => array('label' => 'Front Close-Up 2', 'aspect' => '3:4', 'prompt' => 'Close-up portrait, head and shoulders, facing the camera, soft natural smile, slight head tilt'),
+        'front_close_3' => array('label' => 'Front Close-Up 3', 'aspect' => '3:4', 'prompt' => 'Close-up portrait, head and shoulders, head turned a three-quarter view, eyes to camera, calm expression'),
+        'left_profile'  => array('label' => 'Left Profile',     'aspect' => '3:4', 'prompt' => 'Side profile portrait, head and shoulders, turned ninety degrees so the left side of the face is to the camera, looking straight ahead'),
+        'right_profile' => array('label' => 'Right Profile',    'aspect' => '3:4', 'prompt' => 'Side profile portrait, head and shoulders, turned ninety degrees so the right side of the face is to the camera, looking straight ahead'),
+        'back'          => array('label' => 'Back View',        'aspect' => '3:4', 'prompt' => 'Seen from directly behind, head and shoulders, the back of the head and hair, face not visible'),
+        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Full body, standing straight facing the camera, arms relaxed at the sides, head to toe in frame, plain fitted t-shirt and jeans'),
+        'full_back'     => array('label' => 'Full Body Back',   'aspect' => '9:16', 'prompt' => 'Full body seen from directly behind, standing straight, arms relaxed at the sides, head to toe in frame, plain fitted t-shirt and jeans'),
+    );
+
+    /** The prompt for one angle slot. */
+    public static function angle_prompt(array $infl, $slot){
+        $def = self::ANGLES[$slot] ?? null;
+        if (!$def) { return ''; }
+        return 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: identical face, hair, skin tone and body. '
+            . $def['prompt'] . '. Plain light grey studio background, soft even daylight. Photorealistic, natural skin texture, raw unedited photo.';
+    }
+
+    /** The one image that defines her: the approved reference, else her face photo, else her first training photo, else her newest render. 0 when none. */
+    public static function base_reference($creator_id, array $infl){
+        $mm = new MediaAssetsModel();
+        foreach (array((int) ($infl['reference_asset_id'] ?? 0), (int) ($infl['face_asset_id'] ?? 0)) as $aid) {
+            if ($aid <= 0) { continue; }
+            $a = $mm->get_one($creator_id, $aid);
+            if ($a && (string) $a['status'] === 'ready' && (string) $a['moderation_status'] !== 'blocked') { return $aid; }
+        }
+        $im = new InfluencerImagesModel();
+        foreach (array('upload', 'training', 'generated') as $role) {
+            $ids = $im->ready_asset_ids($creator_id, (int) $infl['id'], $role);
+            if (!empty($ids)) { return ($role === 'generated') ? (int) end($ids) : (int) $ids[0]; }
+        }
+        return 0;
+    }
+
+    /** Identity inputs for the edit and video models: her reference first, then her approved angle references in slot order. */
+    public static function identity_refs($creator_id, array $infl, $max = 6){
+        $ids  = array();
+        $base = self::base_reference($creator_id, $infl);
+        if ($base > 0) { $ids[] = $base; }
+        $by = array();
+        foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle') as $r) {
+            if (!empty($r['approved']) && (string) $r['status'] === 'ready' && (string) $r['moderation_status'] !== 'blocked') { $by[(string) $r['angle']] = (int) $r['id']; }
+        }
+        foreach (array_keys(self::ANGLES) as $slot) { if (isset($by[$slot])) { $ids[] = $by[$slot]; } }
+        return array_slice(array_values(array_unique($ids)), 0, max(1, (int) $max));
+    }
+
+    /** Her persona fields as set, keyed without the persona_ prefix (empty ones left out). */
+    public static function persona(array $infl){
+        $out = array();
+        foreach (self::PERSONA as $col => $def) {
+            $v = trim((string) ($infl[$col] ?? ''));
+            if ($v !== '') { $out[substr($col, 8)] = $v; }
+        }
+        return $out;
+    }
+
+    /** The persona as a block of plain text for an AI writer's system prompt; '' when nothing is filled in. */
+    public static function persona_block($infl){
+        if (!is_array($infl)) { return ''; }
+        $p = self::persona($infl);
+        if (empty($p)) { return ''; }
+        list($pr, $po, $ps) = self::pronouns($infl);
+        $lines = array('You are writing as ' . (string) $infl['name'] . '. Stay in ' . $ps . ' voice in everything you write.');
+        if (isset($p['description']))   { $lines[] = 'About ' . $po . ': ' . $p['description']; }
+        if (isset($p['personality']))   { $lines[] = 'Personality: ' . $p['personality']; }
+        if (isset($p['speaking']))      { $lines[] = 'How ' . $pr . ' speaks: ' . $p['speaking']; }
+        if (isset($p['niche']))         { $lines[] = 'Niche: ' . $p['niche']; }
+        if (isset($p['vulnerability'])) { $lines[] = 'What makes ' . $po . ' vulnerable: ' . $p['vulnerability']; }
+        return implode("\n", $lines);
+    }
+
     /** Name ideas per gender. */
     const NAMES = array(
         'woman'     => array('Ava', 'Mia', 'Luna', 'Sofia', 'Isla', 'Aria', 'Chloe', 'Zoe', 'Nova', 'Lila', 'Maya', 'Elena',
@@ -203,6 +292,11 @@ class InfluencerService {
             'steer_text'          => (string) ($infl['steer_text'] ?? ''),
             'prompt_defaults'     => (string) ($infl['prompt_defaults'] ?? ''),
             'negative_prompt'     => (string) ($infl['negative_prompt'] ?? ''),
+            'persona_description'   => (string) ($infl['persona_description'] ?? ''),
+            'persona_personality'   => (string) ($infl['persona_personality'] ?? ''),
+            'persona_speaking'      => (string) ($infl['persona_speaking'] ?? ''),
+            'persona_niche'         => (string) ($infl['persona_niche'] ?? ''),
+            'persona_vulnerability' => (string) ($infl['persona_vulnerability'] ?? ''),
             'face_asset_id'       => (int) ($infl['face_asset_id'] ?? 0),
             'reference_asset_id'  => (int) ($infl['reference_asset_id'] ?? 0),
             'training_set_group'  => (string) ($infl['training_set_group'] ?? ''),
@@ -244,6 +338,9 @@ class InfluencerService {
             'enabled' => InfluencerConfig::enabled(),
             'pickers' => array(
                 'reference'    => InfluencerConfig::picker_options('reference'),
+                'replicate'    => InfluencerConfig::picker_options('replicate'),
+                'edit'         => InfluencerConfig::picker_options('edit'),
+                'angle'        => InfluencerConfig::picker_options('angle'),
                 'training_set' => InfluencerConfig::picker_options('training_set'),
                 'image'        => InfluencerConfig::picker_options('image'),
                 'video'        => InfluencerConfig::picker_options('video'),
@@ -262,6 +359,10 @@ class InfluencerService {
             'prompts' => array('woman' => self::prompts_for('woman'), 'man' => self::prompts_for('man')),   // picked by the influencer's gender
             'genders' => self::GENDERS,
             'steps'   => self::STEPS,
+            'aspect'  => Aspect::client(),
+            'persona' => self::PERSONA,
+            'carousel' => array('min' => InfluencerImageActions::CAROUSEL_MIN, 'max' => InfluencerImageActions::CAROUSEL_MAX,
+                'focus' => array_map(function ($f) { return $f['label']; }, InfluencerImageActions::CAROUSEL_FOCUS)),
         );
     }
 }

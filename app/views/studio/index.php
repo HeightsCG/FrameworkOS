@@ -29,6 +29,8 @@
                     <?php if (!empty($this->can_ai)): ?>
                     <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
                     <li><button type="button" class="dropdown-item" id="csGenVideoBtn"><span class="cs-create__ic"><i class="fa-solid fa-film"></i></span><span><strong>Generate Video</strong><small>Bring one of your images to life</small></span></button></li>
+                    <li><a class="dropdown-item" href="/influencers/replicate" id="csReplicateBtn"><span class="cs-create__ic"><i class="fa-solid fa-clone"></i></span><span><strong>Replicate Photo</strong><small>Recreate a photo with your influencer</small></span></a></li>
+                    <li><a class="dropdown-item" href="/influencers/carousel" id="csCarouselBtn"><span class="cs-create__ic"><i class="fa-solid fa-layer-group"></i></span><span><strong>Generate Carousel</strong><small>Several shots of one moment</small></span></a></li>
                     <?php endif; ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
                     <?php if (!empty($this->inbox['can'])): ?>
@@ -62,6 +64,7 @@
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCalendar" data-bs-toggle="tab" data-bs-target="#csPaneCalendar" type="button" role="tab"><i class="fa-solid fa-calendar-days"></i> Calendar</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCollections" data-bs-toggle="tab" data-bs-target="#csPaneCollections" type="button" role="tab"><i class="fa-solid fa-folder"></i> Collections</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabScheduler" data-bs-toggle="tab" data-bs-target="#csPaneScheduler" type="button" role="tab"><i class="fa-solid fa-robot"></i> Scheduler</button></li>
+        <?php if (!empty($this->can_ai)): ?><li class="nav-item" role="presentation"><button class="nav-link" id="csTabScenes" data-bs-toggle="tab" data-bs-target="#csPaneScenes" type="button" role="tab"><i class="fa-solid fa-panorama"></i> Scenes</button></li><?php endif; ?>
     </ul>
 
     <div class="tab-content cs-tabcontent">
@@ -205,6 +208,8 @@
                 </div>
             </div>
         </div>
+
+<?php if (!empty($this->can_ai)) { require __DIR__ . '/_scenes.php'; } ?>
 
         <!-- ============ SCHEDULER ============ -->
         <div class="tab-pane fade" id="csPaneScheduler" role="tabpanel">
@@ -556,9 +561,9 @@
                         <div class="cs-gen__field">
                             <label for="csGenSize">Shape</label>
                             <select class="form-select" id="csGenSize">
-                                <option value="square">Square (1:1)</option>
-                                <option value="portrait" selected>Portrait (2:3)</option>
-                                <option value="landscape">Landscape (3:2)</option>
+                                <?php foreach (Aspect::options(ImageGenService::model_for()) as $ao): if (!$ao['supported']) { continue; } ?>
+                                <option value="<?php echo $ao['key']; ?>"<?php echo $ao['key'] === Aspect::DEFAULT_IMAGE ? ' selected' : ''; ?>><?php echo $ao['name'] . ' ' . $ao['label']; ?></option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                         <label class="cs-gen__brand" id="csGenBrandRow" hidden>
@@ -607,7 +612,7 @@
             <div class="cs-ae__body">
                 <input type="hidden" id="csSchedId" value="0">
                 <input type="hidden" id="csSchedKind" value="post">
-                <input type="hidden" id="csSchedSize" value="portrait">
+                <input type="hidden" id="csSchedSize" value="<?php echo Aspect::DEFAULT_IMAGE; ?>">
                 <input type="checkbox" id="csSchedBrand" checked hidden>
 
                 <nav class="cs-ae__nav" aria-label="Automation sections">
@@ -682,9 +687,7 @@
                             <div class="cs-ae__field">
                                 <span class="cs-ae__label" id="csSchedShapeLabel">Format</span>
                                 <div class="cs-seg cs-ae__seg" id="csSchedShape" role="group" aria-labelledby="csSchedShapeLabel">
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="square"><i class="fa-regular fa-square" aria-hidden="true"></i><span>Square</span></button>
-                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-size="portrait"><i class="fa-solid fa-mobile-screen" aria-hidden="true"></i><span>Portrait</span></button>
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-size="landscape"><i class="fa-regular fa-rectangle-list" aria-hidden="true"></i><span>Landscape</span></button>
+                                    <?php echo Aspect::seg_buttons('cs-seg__opt', 'data-size'); ?>
                                 </div>
                             </div>
                         </div>
@@ -839,8 +842,13 @@ window.CS_CONFIG = <?php echo json_encode(array(
     'brand'    => $this->brand,
     'ai'       => $this->ai ?? array('balance' => 0, 'image_price' => 0),
     'automation_plan' => $this->automation_plan ?? null,
+    'aspect'   => Aspect::client(),
+    'can_ai'   => !empty($this->can_ai),
+    'image_models' => InfluencerConfig::picker_options('image'),
     's3_ready' => !empty($this->s3_ready),
 ), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 </script>
 <script src="/js/studio.js?v=<?php echo @filemtime(Main::app_path().'/public/js/studio.js'); ?>"></script>
+<script src="/js/ai-tools.js?v=<?php echo @filemtime(Main::app_path().'/public/js/ai-tools.js'); ?>"></script>
+<script src="/js/studio-ai.js?v=<?php echo @filemtime(Main::app_path().'/public/js/studio-ai.js'); ?>"></script>
 <?php endif; ?>

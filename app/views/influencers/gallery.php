@@ -45,6 +45,7 @@
         </div>
         <div class="inf-lightbox__bar">
             <span class="inf-lightbox__meta" id="inf_lightbox_meta"></span>
+            <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_edit"><i class="fa-solid fa-pen"></i> Edit</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_download"><i class="fa-solid fa-download"></i> Download</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_message"><i class="fa-solid fa-comment-dots"></i> Send in a Message</button>

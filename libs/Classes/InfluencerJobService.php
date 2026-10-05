@@ -44,7 +44,7 @@ class InfluencerJobService {
             }
             Plan::grant_monthly($user);
             $credits = new AiCreditsModel();
-            $after = $credits->apply_delta($creator_id, -$price, 'spend', ucfirst((string) $type) . ' run');
+            $after = $credits->apply_delta($creator_id, -$price, 'spend', ucfirst(str_replace('_', ' ', (string) $type)) . ' run');
             if ($after === false) {
                 $balance = $credits->get_balance($creator_id);
                 throw new PlanLimitException(Plan::credits_message($type, $price, $balance),
@@ -166,7 +166,7 @@ class InfluencerJobService {
         }
         // Concurrency caps: over the cap the job simply waits its turn.
         $wait = '';
-        if ($m->count_active_for_influencer($job['influencer_id'], $job['id']) >= InfluencerConfig::cap('influencer')) { $wait = 'cap_influencer'; }
+        if ((int) $job['influencer_id'] > 0 && $m->count_active_for_influencer($job['influencer_id'], $job['id']) >= InfluencerConfig::cap('influencer')) { $wait = 'cap_influencer'; }
         elseif ($m->count_active_for_creator($job['creator_id'], $job['id']) >= InfluencerConfig::cap('account')) { $wait = 'cap_account'; }
         if ($wait !== '') {
             $m->transition($job['id'], 'submitting', array('status' => 'queued', 'wait_reason' => $wait));
@@ -333,9 +333,10 @@ class InfluencerJobService {
             }
 
             $user = self::user($job['creator_id']);
-            $infl = (new InfluencersModel())->get_by_id($job['influencer_id']);
+            $infl = ((int) $job['influencer_id'] > 0) ? (new InfluencersModel())->get_by_id($job['influencer_id']) : null;
             $role = self::role_for($type);
-            $watermark = in_array($type, array('image', 'video', 'enhance'), true) ? !empty($user['watermark_enabled']) : false;
+            // Finished content carries the creator's watermark; training material (reference, training set, angle references) never does.
+            $watermark = in_array($type, array('reference', 'training_set', 'angle'), true) ? false : !empty($user['watermark_enabled']);
             $label = self::label_for($job, $infl);
             $ids = array();
             $i = 0;
@@ -414,10 +415,11 @@ class InfluencerJobService {
 
         // Find or claim the asset row for this output slot.
         $aid = 0;
+        $fresh = false;   // a placeholder made here for a later image: removed again if this image is rejected
         if ($index === 0) {
             $aid = (int) ($job['result_asset_id'] ?? 0);
             if ($aid <= 0) {
-                $new = (int) $mm->add($cid, $type, $label . '.' . ($is_video ? 'mp4' : 'png'), $is_video ? 'video/mp4' : 'image/png', 'processing');
+                $new = (int) $mm->add($cid, $type, $label . '.' . ($is_video ? 'mp4' : 'png'), $is_video ? 'video/mp4' : 'image/png', 'processing', self::provenance_for((string) $job['type']));
                 if ($new <= 0) { throw new RuntimeException('Could not create the media asset'); }
                 if ($m->claim_result_slot($job['id'], $new) !== 1) {
                     $mm->soft_delete($cid, $new);   // a parallel lander won the slot
@@ -425,17 +427,19 @@ class InfluencerJobService {
                 } else { $aid = $new; }
             }
         } else {
-            $rows = (new InfluencerImagesModel())->list_for_influencer($cid, $job['influencer_id'], '', true);
+            $rows = ((int) $job['influencer_id'] > 0) ? (new InfluencerImagesModel())->list_for_influencer($cid, $job['influencer_id'], '', true) : array();
             foreach ($rows as $r) { if ((int) $r['job_id'] === (int) $job['id'] && (int) $r['result_index'] === (int) $index) { $aid = (int) $r['id']; break; } }
             if ($aid <= 0) {
-                $aid = (int) $mm->add($cid, $type, $label . '.' . ($is_video ? 'mp4' : 'png'), $is_video ? 'video/mp4' : 'image/png', 'processing');
+                $aid = (int) $mm->add($cid, $type, $label . '.' . ($is_video ? 'mp4' : 'png'), $is_video ? 'video/mp4' : 'image/png', 'processing', self::provenance_for((string) $job['type']));
                 if ($aid <= 0) { throw new RuntimeException('Could not create the media asset'); }
+                $fresh = true;
             }
         }
         $asset = $mm->get_one($cid, $aid);
         if (!$asset) { throw new RuntimeException('Media asset ' . $aid . ' vanished'); }
 
         if ((string) $asset['status'] !== 'ready') {
+          try {
             // Download + verify + ingest into this exact placeholder row.
             if ($is_video) {
                 $v = MediaIngestService::fetch_video($o['url'], (int) InfluencerConfig::get('output_max_video_bytes', 1073741824), 540);
@@ -451,10 +455,30 @@ class InfluencerJobService {
                 }
                 MediaIngestService::ingest_image($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label, $watermark, $aid);
             }
-            $mm->set_tags($cid, $aid, 'influencer:' . (int) $job['influencer_id'] . ',' . $role);
+          } catch (\Throwable $e) {
+            // A blank or bad render re-rolls the whole job, and the re-roll makes its own rows for the later images:
+            // without this the placeholder stayed in the Library as "Processing" for good.
+            if ($fresh) { $mm->soft_delete($cid, $aid); }
+            throw $e;
+          }
+            if ((int) $job['influencer_id'] > 0) { $mm->set_tags($cid, $aid, 'influencer:' . (int) $job['influencer_id'] . ',' . $role); }
         }
-        $sort = (int) ($job['group_index'] ?? 0);
-        $im->attach($job['influencer_id'], $cid, $aid, $role, $job['id'], $index, $sort);   // 0 = already attached, fine
+        // Lineage on every output: what made it, from which file, for whom.
+        $src = (int) ($job['input_asset_id'] ?? 0);
+        $mm->set_lineage($cid, $aid, array(
+            'provenance'      => self::provenance_for((string) $job['type']),
+            'parent_asset_id' => (self::provenance_for((string) $job['type']) === 'edited') ? $src : 0,
+            'source_asset_id' => $src,
+            'model_key'       => (string) $job['model_key'],
+            'prompt'          => (string) $job['prompt'],
+            'influencer_id'   => (int) $job['influencer_id'],
+            'job_id'          => (int) $job['id'],
+        ));
+        if ((int) $job['influencer_id'] > 0) {
+            $sort = (int) ($job['group_index'] ?? 0);
+            $im->attach($job['influencer_id'], $cid, $aid, $role, $job['id'], $index, $sort);   // 0 = already attached, fine
+            if ($role === 'angle') { $im->set_angle($cid, $aid, (string) (InfluencerJobsModel::params($job)['angle'] ?? '')); }
+        }
         return $aid;
     }
 
@@ -530,7 +554,17 @@ class InfluencerJobService {
             'num_images'      => max(1, min(4, (int) ($p['num_images'] ?? 1))),
             'image_size'      => (string) ($p['image_size'] ?? 'square'),
             'aspect_ratio'    => (string) ($p['aspect_ratio'] ?? '1:1'),
+            'family'          => (string) ($model['family'] ?? ''),
         );
+        // The shape asked for, as the value this model's endpoint takes. Older jobs carry image_size (square|portrait|landscape).
+        if (!empty($model['aspects']) && (string) ($p['aspect'] ?? '') === 'source') {
+            $req['aspect_ratio'] = 'auto';   // an edit keeps the shape of the image it changes
+        } elseif (!empty($model['aspects'])) {
+            $aspect = Aspect::for_model($model, (string) ($p['aspect'] ?? ($p['image_size'] ?? ($p['aspect_ratio'] ?? ''))), '1:1');
+            $req['aspect']       = $aspect;
+            $req['aspect_value'] = Aspect::value_for($model, $aspect);
+            $req['aspect_ratio'] = $aspect;
+        }
         // Per-job overrides of the catalog's fixed params (steps, guidance, upscale factor...).
         foreach ((array) ($p['overrides'] ?? array()) as $k => $v) { $req['params'][$k] = $v; }
         $ttl = (int) InfluencerConfig::get('input_url_ttl', 1800);
@@ -545,10 +579,13 @@ class InfluencerJobService {
             if ($url === '') { return array('error' => 'The trained weights are unavailable'); }
             $req['loras'] = array(array('url' => $url, 'scale' => (float) ($p['lora_scale'] ?? InfluencerConfig::get('training_lora_scale', 1.0))));
         }
-        if (in_array($type, array('training_set', 'reference', 'enhance', 'video'), true) && !empty($job['input_asset_id'])) {
+        if ($type !== 'image' && $type !== 'training' && !empty($job['input_asset_id'])) {
             $a = $mm->get_one($job['creator_id'], $job['input_asset_id']);
             if (!$a || (string) $a['status'] !== 'ready') { return array('error' => 'The source image is not ready'); }
+            if ((string) $a['moderation_status'] === 'blocked') { return array('error' => 'That file was blocked by moderation and cannot be used as a source'); }
             $key = (string) ($a['original_key'] ?: ($a['display_key'] ?: $a['thumb_key']));
+            // A face-masked copy of the source (FaceMask::store) is sent in its place; the asset stays the recorded source.
+            if (!empty($p['source_key']) && FaceMask::owns_key($job['creator_id'], (string) $p['source_key'])) { $key = (string) $p['source_key']; }
             $url = S3Service::presigned_get_url($key, $ttl);
             if ($url === '') { return array('error' => 'Could not sign the source image'); }
             $req['image_url']  = $url;
@@ -558,13 +595,18 @@ class InfluencerJobService {
             $urls = array();
             foreach ((array) $p['image_asset_ids'] as $id) {
                 $a = $mm->get_one($job['creator_id'], $id);
-                if ($a && (string) $a['status'] === 'ready') {
+                if ($a && (string) $a['status'] === 'ready' && (string) $a['moderation_status'] !== 'blocked') {
                     $u = S3Service::presigned_get_url((string) ($a['original_key'] ?: $a['display_key']), $ttl);
                     if ($u !== '') { $urls[] = $u; }
                 }
             }
             if (!empty($urls)) { $req['image_urls'] = array_values(array_unique(array_merge((array) ($req['image_urls'] ?? array()), $urls))); }
         }
+        // The source image leads; a model that takes fewer references keeps the first ones.
+        if (!empty($model['max_refs']) && !empty($req['image_urls']) && count($req['image_urls']) > (int) $model['max_refs']) {
+            $req['image_urls'] = array_slice($req['image_urls'], 0, (int) $model['max_refs']);
+        }
+        if (in_array($type, array('replicate', 'edit', 'angle', 'carousel'), true) && empty($req['image_urls'])) { return array('error' => 'A source image is required'); }
         if ($type === 'video') {
             if (empty($req['image_url'])) { return array('error' => 'A still image is required for video'); }
             $durs = array_values((array) ($model['durations'] ?? array()));
@@ -641,7 +683,7 @@ class InfluencerJobService {
             $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
                 'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
                 'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'params' => array('image_size' => in_array($size, array('square', 'portrait', 'landscape'), true) ? $size : 'portrait', 'num_images' => 1, 'scene' => (string) $scene),
+                'params' => array('image_size' => Aspect::for_model($mk, $size), 'num_images' => 1, 'scene' => (string) $scene),
             ), false);
         } catch (PlanLimitException $e) {
             return array('ok' => false, 'error' => $e->getMessage());
@@ -665,14 +707,20 @@ class InfluencerJobService {
             'cancel_url' => (string) $job['provider_cancel_url']);
     }
 
-    public static function op_for($type){ return (string) $type; }
+    /** The catalog op a job type runs under (a carousel slot is a replicate run). */
+    public static function op_for($type){ return ((string) $type === 'carousel') ? 'replicate' : (string) $type; }
+
+    /** edit and enhance make a new version of their source; everything else is a fresh generation. */
+    public static function provenance_for($type){ return in_array((string) $type, array('edit', 'enhance'), true) ? 'edited' : 'generated'; }
 
     public static function role_for($type){
         switch ((string) $type) {
             case 'reference':    return 'reference';
             case 'training_set': return 'training';
-            case 'video':        return 'video';
+            case 'video': case 'motion': case 'talking': case 'replace': case 'scene': return 'video';
             case 'enhance':      return 'enhanced';
+            case 'angle':        return 'angle';
+            case 'speech':       return 'audio';
             default:             return 'generated';
         }
     }
@@ -684,6 +732,10 @@ class InfluencerJobService {
             case 'training_set': return $name . ' · training ' . (int) ($job['group_index'] ?? 0);
             case 'video':        return $name . ' · video';
             case 'enhance':      return $name . ' · enhanced';
+            case 'angle':        return $name . ' · reference ' . str_replace('_', ' ', (string) (InfluencerJobsModel::params($job)['angle'] ?? 'angle'));
+            case 'edit':         return ($infl ? $name . ' · ' : '') . 'edit · ' . mb_substr((string) (InfluencerJobsModel::params($job)['instruction'] ?? $job['prompt']), 0, 30);
+            case 'replicate':    return $name . ' · replica';
+            case 'carousel':     return $name . ' · carousel ' . (int) ($job['group_index'] ?? 0);
             default:             return $name . ' · ' . mb_substr((string) $job['prompt'], 0, 30);
         }
     }

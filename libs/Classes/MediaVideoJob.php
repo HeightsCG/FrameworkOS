@@ -25,8 +25,9 @@ class MediaVideoJob {
         $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key'], 'duration' => $dur));
         if (empty($pay['ok'])) { return array('ok' => false, 'message' => $pay['message'], 'need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']); }
         $media = new MediaAssetsModel();
-        $aid = (int) $media->add($cid, 'video', 'Generated · ' . mb_substr((string) $prompt, 0, 40) . '.mp4', 'video/mp4', 'processing');
+        $aid = (int) $media->add($cid, 'video', 'Generated · ' . mb_substr((string) $prompt, 0, 40) . '.mp4', 'video/mp4', 'processing', 'generated');
         if ($aid <= 0) { (new AiCreditsModel())->apply_delta($cid, (int) $pay['price'], 'refund', 'Refund: video not started'); return array('ok' => false, 'message' => 'Could not save the video. Try again.'); }
+        $media->set_lineage($cid, $aid, array('source_asset_id' => (int) $source_asset_id, 'model_key' => (string) $model['key'], 'prompt' => (string) $prompt));
         $job_id = (new DatabaseJobQueue())->dispatch('media_video', array(
             'creator_id' => $cid, 'asset_id' => $aid, 'source_asset_id' => (int) $source_asset_id, 'model_key' => (string) $model['key'],
             'prompt' => (string) $prompt, 'duration' => $dur, 'credits' => (int) $pay['price'],

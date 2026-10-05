@@ -17,7 +17,8 @@
  *   infl_training_steps / infl_training_set_size / infl_training_min_photos / infl_training_max_photos
  *   infl_training_lora_scale / infl_training_zip_url_ttl / infl_training_zip_max_bytes / infl_training_lora_max_bytes
  *
- * Operations: reference | training_set | image | video | enhance | training.
+ * Operations: reference | training_set | image | video | enhance | training, plus the metered
+ * ones priced from provider cost (METERED_OPS): replicate | edit | angle.
  */
 class InfluencerConfig {
 
@@ -34,49 +35,86 @@ class InfluencerConfig {
         'video'        => array('fal'),
         'enhance'      => array('fal'),
         'training'     => array('fal'),
+        'replicate'    => array('fal'),
+        'edit'         => array('fal'),
+        'angle'        => array('fal'),
     );
+
+    /**
+     * Ops whose AI credit price is worked out from the model's provider cost (credits_from_usd)
+     * instead of a flat PlanTiers::AI_PRICES number. A model can still set its own 'credits'.
+     */
+    const METERED_OPS = array('replicate', 'edit', 'angle', 'motion', 'talking', 'replace', 'scene', 'speech');
+
+    /** AI credits charged per provider dollar, rounded to CREDIT_STEP, never under CREDIT_FLOOR. */
+    const CREDITS_PER_USD = 700;
+    const CREDIT_STEP     = 10;
+    const CREDIT_FLOOR    = 10;
+
+    /* Output shapes per model family: Aspect ratio key => the value that endpoint takes. */
+    const FLUX_ASPECTS = array('1:1' => 'square_hd', '3:4' => 'portrait_4_3', '4:5' => array('width' => 896, 'height' => 1120),
+        '9:16' => 'portrait_16_9', '4:3' => 'landscape_4_3');
+    const RATIO_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '4:5' => '4:5', '9:16' => '9:16', '4:3' => '4:3');
+    const GROK_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '9:16' => '9:16', '4:3' => '4:3');   // no 4:5
+    const SEEDREAM_ASPECTS = array('1:1' => array('width' => 2048, 'height' => 2048), '3:4' => array('width' => 1920, 'height' => 2560),
+        '4:5' => array('width' => 1920, 'height' => 2400), '9:16' => array('width' => 2160, 'height' => 3840), '4:3' => array('width' => 2560, 'height' => 1920));
 
     /**
      * Model catalog. `label`/`purpose` are what the user sees; `endpoints` maps each provider
      * that can serve the entry to its endpoint id (a fallback provider needs one here or via
      * infl_endpoint_<model_key>_<provider>); `price_usd` + `price_unit` feed the cost estimate;
-     * `params` are fixed inputs merged into the request.
+     * `params` are fixed inputs merged into the request. `family` picks the provider's input
+     * builder; `aspects` lists the shapes it renders (none = follows its source image); `ops`
+     * lets one entry serve further operations; `max_refs` caps the reference images it accepts.
      */
     const MODELS = array(
         // -- reference image (text -> image), reference path only --
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Best likeness', 'purpose' => 'Sharper faces and skin, slower',
-            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array()),
+            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_schnell' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux/schnell'),
             'label' => 'Quick draft', 'purpose' => 'Fast and cheap, good for testing',
-            'price_usd' => 0.003, 'price_unit' => 'image', 'params' => array('num_inference_steps' => 4)),
+            'price_usd' => 0.003, 'price_unit' => 'image', 'params' => array('num_inference_steps' => 4), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         // -- reference-based edits (image + prompt -> image): training set, face photo -> reference --
         'nano_banana_edit' => array('provider' => 'fal', 'op' => 'training_set', 'endpoints' => array('fal' => 'fal-ai/nano-banana/edit'),
             'label' => 'Consistent likeness', 'purpose' => 'Keeps the same face across variations',
-            'price_usd' => 0.039, 'price_unit' => 'image', 'params' => array()),
+            'price_usd' => 0.039, 'price_unit' => 'image', 'params' => array(), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS,
+            'ops' => array('edit', 'angle'), 'max_refs' => 8),
+        // -- replicate a photo (source + identity references -> image) --
+        'nano_banana_pro_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/nano-banana-pro/edit'),
+            'label' => 'Best match', 'purpose' => 'Closest to the source photo and her face',
+            'price_usd' => 0.15, 'price_unit' => 'image', 'params' => array('resolution' => '2K'), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS,
+            'ops' => array('angle'), 'max_refs' => 8),
+        'seedream_45_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
+            'label' => 'Budget', 'purpose' => 'Good likeness at a lower price',
+            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10),
+        // -- edit by instruction (image + instruction -> image) --
+        'grok_edit' => array('provider' => 'fal', 'op' => 'edit', 'endpoints' => array('fal' => 'xai/grok-imagine-image/edit'),
+            'label' => 'Precise edit', 'purpose' => 'Changes only what you ask for',
+            'price_usd' => 0.022, 'price_unit' => 'image', 'params' => array('resolution' => '2k'), 'family' => 'grok', 'aspects' => self::GROK_ASPECTS, 'max_refs' => 3),
         // -- generation with the trained weights --
         'flux_lora_quality' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
             'label' => 'Best quality', 'purpose' => 'Most detail, best for final posts',
             'price_usd' => 0.035, 'price_unit' => 'image',
-            'params' => array('num_inference_steps' => 28, 'guidance_scale' => 3.5, 'acceleration' => 'none')),
+            'params' => array('num_inference_steps' => 28, 'guidance_scale' => 3.5, 'acceleration' => 'none'), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         'flux_lora_fast' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
             'label' => 'Fast', 'purpose' => 'Quicker drafts to explore ideas',
             'price_usd' => 0.035, 'price_unit' => 'image',
-            'params' => array('num_inference_steps' => 16, 'guidance_scale' => 3.5, 'acceleration' => 'regular')),
+            'params' => array('num_inference_steps' => 16, 'guidance_scale' => 3.5, 'acceleration' => 'regular'), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         // -- image -> video --
         'hailuo_02' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/minimax/hailuo-02/standard/image-to-video'),
             'label' => 'Natural motion', 'purpose' => 'Smooth, budget friendly',
             'price_usd' => 0.045, 'price_unit' => 'second',
-            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => array('6' => 200, '10' => 340)),
+            'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => array('6' => 200, '10' => 340), 'family' => 'hailuo'),
         'kling_v3' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/image-to-video'),
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
             'price_usd' => 0.084, 'price_unit' => 'second',
-            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => array('5' => 300, '10' => 600)),
+            'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => array('5' => 300, '10' => 600), 'family' => 'kling_i2v'),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
             'price_usd' => 0.03, 'price_unit' => 'image',
-            'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8)),
+            'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8), 'family' => 'clarity'),
         // -- training --
         'flux_lora_fast_training' => array('provider' => 'fal', 'op' => 'training', 'endpoints' => array('fal' => 'fal-ai/flux-lora-fast-training'),
             'label' => 'Standard training', 'purpose' => 'Flux LoRA, about 1000 steps',
@@ -91,6 +129,9 @@ class InfluencerConfig {
         'video'        => array('hailuo_02', 'kling_v3'),
         'enhance'      => array('clarity_upscaler'),
         'training'     => array('flux_lora_fast_training'),
+        'replicate'    => array('nano_banana_pro_edit', 'seedream_45_edit'),
+        'edit'         => array('grok_edit', 'nano_banana_edit'),
+        'angle'        => array('nano_banana_edit', 'nano_banana_pro_edit'),
     );
 
     const DEFAULTS = array(
@@ -220,11 +261,39 @@ class InfluencerConfig {
     /** Resolve a model key for an op; falls back to the picker default when the key is unknown or for another op. */
     public static function resolve_model($op, $key){
         $m = ($key !== '' && $key !== null) ? self::model($key) : null;
-        if ($m && ($m['op'] ?? '') === $op) { return $m; }
+        if ($m && self::serves($m, $op)) { return $m; }
         return self::model(self::default_model_key($op));
     }
 
-    /** Public picker payload for the UI: key, label, purpose, price hint, durations. */
+    /** Can this catalog entry run $op (its own op, or one listed under 'ops')? */
+    public static function serves(array $m, $op){
+        return ($m['op'] ?? '') === (string) $op || in_array((string) $op, (array) ($m['ops'] ?? array()), true);
+    }
+
+    /** Provider dollars -> AI credits: CREDITS_PER_USD, rounded to CREDIT_STEP, at least CREDIT_FLOOR. */
+    public static function credits_from_usd($usd){
+        $usd = (float) $usd;
+        if ($usd <= 0) { return 0; }
+        $per  = (float) self::get('credits_per_usd', self::CREDITS_PER_USD);
+        $step = self::CREDIT_STEP;
+        return (int) max(self::CREDIT_FLOOR, round($usd * $per / $step) * $step);
+    }
+
+    /**
+     * AI credits for ONE unit of a metered model: one image, or one run of $duration seconds for a
+     * per-second model. The model's own 'credits' wins when it has one.
+     */
+    public static function metered_credits(array $m, $duration = ''){
+        $own = self::credits_for($m, $duration);
+        if ($own !== null && $own > 0) { return $own; }
+        $units = 1;
+        if ((string) ($m['price_unit'] ?? '') === 'second') {
+            $durs  = array_values((array) ($m['durations'] ?? array()));
+            $units = max(1, (int) ($duration !== '' && $duration !== null ? $duration : ($durs[0] ?? 5)));
+        }
+        return self::credits_from_usd((float) ($m['price_usd'] ?? 0) * $units);
+    }
+
     /**
      * AI credits a model charges per run, or null when it uses its type's default (PlanTiers::AI_PRICES).
      * A video model prices each length ('credits' => ['6' => 200, '10' => 340]: in proportion to its length);
@@ -247,7 +316,10 @@ class InfluencerConfig {
                 'price_usd' => (float) $m['price_usd'],
                 'price_unit'=> $m['price_unit'],
                 'durations' => array_values((array) ($m['durations'] ?? array())),
-                'credits'   => isset($m['credits']) ? self::credits_for($m, '') : null,   // AI credits per run at the default length
+                'credits'   => isset($m['credits']) ? self::credits_for($m, '')
+                    : (in_array((string) $purpose, self::METERED_OPS, true) ? self::metered_credits($m) : null),   // AI credits per run at the default length
+                'aspects'   => Aspect::supported($m),   // shapes it renders; empty = follows its source image
+                'max_refs'  => (int) ($m['max_refs'] ?? 0),
                 'credits_by_duration' => (isset($m['credits']) && is_array($m['credits'])) ? array_map('intval', $m['credits']) : null,   // video: price per length
             );
         }

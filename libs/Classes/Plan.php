@@ -354,13 +354,21 @@ class Plan {
     /** What a job type costs in AI credits, per the request ($f['params']['num_images'] for images). */
     public static function ai_price($type, array $f = array()): int
     {
-        $unit = (int) (PlanTiers::AI_PRICES[(string) $type] ?? 0);
+        $type = (string) $type;
+        $op   = InfluencerJobService::op_for($type);
+        $dur  = (string) ($f['duration'] ?? ($f['params']['duration'] ?? ''));
+        $n    = in_array($type, array('image', 'replicate', 'edit', 'angle', 'carousel'), true) ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
+        // Metered runs are priced from the model's provider cost (InfluencerConfig::credits_from_usd).
+        if (in_array($op, InfluencerConfig::METERED_OPS, true)) {
+            $model = InfluencerConfig::resolve_model($op, (string) ($f['model_key'] ?? ''));
+            return $model ? InfluencerConfig::metered_credits($model, $dur) * $n : 0;
+        }
+        $unit = (int) (PlanTiers::AI_PRICES[$type] ?? 0);
         if ($unit <= 0) { return 0; }
         // A model can set its own price (the cinematic video model costs more; a video's price follows its length).
         $model = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;
-        $own   = $model ? InfluencerConfig::credits_for($model, (string) ($f['duration'] ?? ($f['params']['duration'] ?? ''))) : null;
+        $own   = $model ? InfluencerConfig::credits_for($model, $dur) : null;
         if ($own !== null && $own > 0) { $unit = $own; }
-        $n = ((string) $type === 'image') ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
         return $unit * $n;
     }
 
@@ -476,7 +484,9 @@ class Plan {
     {
         $unit = max(1, (int) (PlanTiers::AI_PRICES[(string) $type] ?? 1));
         $n    = max(1, intdiv((int) $price, $unit));
-        $what = ($type === 'video') ? 'a video' : (($type === 'enhance') ? 'an enhancement' : ($n > 1 ? $n . ' images' : 'an image'));
+        $named = array('video' => 'a video', 'enhance' => 'an enhancement', 'replicate' => 'this replica', 'edit' => 'this edit', 'angle' => 'this reference',
+            'carousel' => 'this carousel image', 'motion' => 'this video', 'talking' => 'this video', 'replace' => 'this video', 'scene' => 'this video', 'speech' => 'this audio');
+        $what = isset($named[(string) $type]) ? $named[(string) $type] : ($n > 1 ? $n . ' images' : 'an image');
         return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. AI credits are separate from your wallet credits: buy AI credits in Billing, AI Credits.';
     }
 

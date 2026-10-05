@@ -6,7 +6,7 @@
  */
 class InfluencerImagesModel extends Model {
 
-    const ROLES = array('upload', 'face', 'reference', 'training', 'generated', 'video', 'enhanced');
+    const ROLES = array('upload', 'face', 'reference', 'training', 'generated', 'video', 'enhanced', 'angle', 'audio');
 
     public function __construct(){ parent::__construct(); }
 
@@ -30,6 +30,18 @@ class InfluencerImagesModel extends Model {
         }
     }
 
+    /** Tag a reference with the angle it shows (front_close | left_profile | right_profile | back | full_front | full_back). */
+    public function set_angle($creator_id, $asset_id, $angle){
+        return parent::update('influencer_images', array('angle' => ((string) $angle !== '') ? mb_substr((string) $angle, 0, 24) : null),
+            'asset_id = :a AND creator_id = :c', array('a' => (int) $asset_id, 'c' => (int) $creator_id));
+    }
+
+    /** Approve or un-approve an angle reference; only approved ones are used as identity inputs. */
+    public function set_approved($creator_id, $asset_id, $approved){
+        return parent::update('influencer_images', array('approved' => $approved ? 1 : 0),
+            'asset_id = :a AND creator_id = :c', array('a' => (int) $asset_id, 'c' => (int) $creator_id));
+    }
+
     /** Rows joined to their ready media assets for one role (or all roles when $role = ''). */
     public function list_for_influencer($creator_id, $influencer_id, $role = '', $include_excluded = false){
         $params = array('c' => (int) $creator_id, 'i' => (int) $influencer_id);
@@ -37,7 +49,7 @@ class InfluencerImagesModel extends Model {
         if ($role !== '') { $where .= ' AND ii.role = :r'; $params['r'] = (string) $role; }
         if (!$include_excluded) { $where .= ' AND ii.is_excluded = 0'; }
         return (array) parent::select(
-            "SELECT ii.id AS link_id, ii.role, ii.job_id, ii.result_index, ii.sort_order, ii.is_excluded, a.*
+            "SELECT ii.id AS link_id, ii.role, ii.angle, ii.approved, ii.job_id, ii.result_index, ii.sort_order, ii.is_excluded, a.*
              FROM influencer_images ii JOIN media_assets a ON a.id = ii.asset_id
              WHERE $where ORDER BY ii.sort_order ASC, ii.id ASC",
             $params);
@@ -93,7 +105,7 @@ class InfluencerImagesModel extends Model {
         $r = parent::select(
             "SELECT a.* FROM influencer_images ii JOIN media_assets a ON a.id = ii.asset_id
              WHERE ii.creator_id = :c AND ii.influencer_id = :i AND ii.is_excluded = 0 AND a.status = 'ready' AND a.deleted_at IS NULL
-               AND a.type = 'image' AND a.moderation_status <> 'blocked'
+               AND a.type = 'image' AND a.moderation_status <> 'blocked' AND ii.role NOT IN ('angle', 'audio')   -- angle references are working material, never her picture
              ORDER BY FIELD(ii.role, 'reference', 'generated', 'enhanced', 'face', 'training', 'upload'), ii.id DESC LIMIT 1",
             array('c' => (int) $creator_id, 'i' => (int) $influencer_id));
         return (is_array($r) && count($r) === 1) ? $r[0] : null;

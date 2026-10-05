@@ -12,6 +12,7 @@
                     <?php endforeach; ?>
                 </select>
             </label>
+            <?php require __DIR__ . '/_modes.php'; ?>
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
                 <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($gp['image'][0]); ?>"></textarea>
@@ -36,9 +37,7 @@
             <div class="inf-field">
                 <div class="inf-label">Size</div>
                 <div class="inf-seg" id="inf_size" role="group" aria-label="Size">
-                    <button type="button" class="inf-seg__opt" data-value="square" aria-pressed="false"><i class="fa-regular fa-square"></i><span>Square</span></button>
-                    <button type="button" class="inf-seg__opt is-on" data-value="portrait" aria-pressed="true"><i class="fa-solid fa-mobile-screen"></i><span>Portrait</span></button>
-                    <button type="button" class="inf-seg__opt" data-value="landscape" aria-pressed="false"><i class="fa-regular fa-rectangle-list"></i><span>Landscape</span></button>
+                    <?php echo Aspect::seg_buttons('inf-seg__opt', 'data-value'); ?>
                 </div>
             </div>
 

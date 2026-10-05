@@ -11,8 +11,11 @@ $nav = array(
     array('key' => 'index',   'href' => '/influencers',                         'icon' => 'fa-user-group',           'label' => 'Your Influencers', 'needs' => false),
     array('key' => 'images',  'href' => '/influencers/images/' . $target,       'icon' => 'fa-wand-magic-sparkles',  'label' => 'Generate Images',  'needs' => true),
     array('key' => 'videos',  'href' => '/influencers/videos/' . $target,       'icon' => 'fa-clapperboard',         'label' => 'Generate Videos',  'needs' => true),
+    array('key' => 'references', 'href' => '/influencers/references/' . $target, 'icon' => 'fa-id-badge',            'label' => 'References',       'needs' => true),
     array('key' => 'gallery', 'href' => '/influencers/gallery/' . $target,      'icon' => 'fa-images',               'label' => 'Gallery',          'needs' => true),
 );
+/* Replicate Photo and Carousel are ways of generating images: they sit under Generate Images. */
+$image_modes = array('images' => 'From Prompt', 'replicate' => 'Replicate Photo', 'carousel' => 'Carousel');
 ?>
 <div class="inf" id="inf" data-page="<?php echo $e($page); ?>">
 <?php if (!empty($this->needs_plan)): ?>
@@ -24,7 +27,7 @@ $nav = array(
     <nav class="inf-nav" aria-label="Influencer sections">
         <?php foreach ($nav as $n):
             $off = $n['needs'] && ($target <= 0 || !empty($this->needs_plan));
-            $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index'); ?>
+            $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index') || ($n['key'] === 'images' && isset($image_modes[$page])); ?>
             <?php if ($off): ?>
             <span class="inf-nav__item is-off" aria-disabled="true" title="Train an influencer first"><i class="fa-solid <?php echo $e($n['icon']); ?>"></i> <?php echo $e($n['label']); ?></span>
             <?php else: ?>

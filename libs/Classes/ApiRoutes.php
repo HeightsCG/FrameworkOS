@@ -103,6 +103,14 @@ class ApiRoutes {
             'influencer_training_set_retry', 'influencer_job_get', 'influencer_generate_image', 'influencer_jobs_list', 'influencer_job_retry',
             'influencer_prompt_auto', 'influencer_asset_url', 'influencer_asset_delete', 'influencer_generate_video', 'influencer_enhance',
         ],
+        'ApiInfluencerImagesController' => [
+            'influencer_angle_status', 'influencer_angle_generate', 'influencer_angle_approve', 'influencer_replicate_prepare', 'influencer_replicate',
+            'media_edit', 'media_versions', 'media_edit_options', 'influencer_carousel_start', 'influencer_carousel_status', 'influencer_carousel_list',
+            'influencer_carousel_regenerate', 'influencer_carousel_to_post', 'scenes_list', 'scene_run', 'scene_vote',
+        ],
+        'ApiAdminScenesController' => [
+            'admin_scene_save', 'admin_scene_set_active', 'admin_scene_delete', 'admin_scene_thumb',
+        ],
     ];
 
     private static $index = null;

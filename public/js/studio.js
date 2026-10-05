@@ -942,6 +942,7 @@ jQuery(function ($) {
             wm +
             '<label class="form-label cs-dv__label">Add to a collection</label><div class="cs-dv__cols">' + cols + '</div>' +
             '<label class="form-label cs-dv__label">Used in</label>' + posts +
+            '<div id="csDvAi"></div>' +   // Edit + version history, filled by studio-ai.js
             '<button type="button" class="btn btn-outline-secondary w-100 mt-3" id="csDvDownload"><i class="fa-solid fa-download"></i> Download</button>' +
             '<button type="button" class="btn btn-outline-danger w-100 mt-2" id="csDvDelete"><i class="fa-solid fa-trash"></i> Remove file</button>'
         );
@@ -994,7 +995,18 @@ jQuery(function ($) {
                 ApiDataSvc.apiCall('post', 'media_delete', { id: a.id }, function (resp) { var o = JSON.parse(resp); if (o.success) { (o.unpublished ? toastr.warning : toastr.success)(o.message || 'File removed', '', o.unpublished ? { timeOut: 9000 } : {}); detailOC.hide(); loadLibrary(); if (o.unpublished && typeof loadPosts === 'function') { loadPosts(); } } else err(o); });
             });
         });
+        $(document).trigger('cs:detail', [a]);
     }
+
+    // Bridge for studio-ai.js (Edit By Instruction, Scenes): it adds to the Library and opens a file through these
+    // events instead of reaching into this closure.
+    $(document).on('cs:asset-added', function (e, id) {
+        ApiDataSvc.apiCall('post', 'media_get', { id: id }, function (resp) { var o = null; try { o = JSON.parse(resp); } catch (x) {} if (o && o.success && o.asset) { injectAsset(o.asset); } });
+    });
+    $(document).on('cs:open-asset', function (e, id) { openDetail(id); });
+    $(document).on('cs:use-in-post', function (e, id) {
+        ApiDataSvc.apiCall('post', 'media_get', { id: id }, function (resp) { var o = null; try { o = JSON.parse(resp); } catch (x) {} if (o && o.success && o.asset) { newComposer(); composerModal.show(); composerAddAsset(o.asset); } });
+    });
 
     function mergeAsset(asset) {
         if (!asset) return;
@@ -1719,6 +1731,12 @@ jQuery(function ($) {
             newComposer(); composerModal.show(); composerAddAsset(o.asset);
         });
     })();
+    // Hand-off from Generate Carousel ("Use In Post"): the draft it made opens in the composer.
+    (function () {
+        var post = '';
+        try { post = sessionStorage.getItem('cs_open_post') || ''; sessionStorage.removeItem('cs_open_post'); } catch (e) {}
+        if (parseInt(post, 10) > 0) { openComposer(parseInt(post, 10)); }
+    })();
 
     if (typeof toastr !== 'undefined') {
         toastr.options = $.extend(toastr.options || {}, { positionClass: 'toast-bottom-right', timeOut: 3200, preventDuplicates: true });
@@ -2229,15 +2247,18 @@ jQuery(function ($) {
         $('#csSchedMediaWrap').prop('hidden', !schedVideoModels().length);   // no video model configured: images only
         updateSchedSummaries();
     }
-    $('#csSchedMedia').on('click', '.cs-seg__opt', function () { setSchedMedia($(this).data('media')); });
+    $('#csSchedMedia').on('click', '.cs-seg__opt', function () {
+        setSchedMedia($(this).data('media'));
+        if ($(this).data('media') === 'video' && CFG.aspect) { setSchedSize(CFG.aspect.default_video); }   // video starts at 9:16; the shape can still be changed
+    });
 
     function updateSchedSummaries() {
         schedCredits();
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
             var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer') : 'Brand photo';
-            var size = $('#csSchedSize').val() || 'portrait';
-            schedSum('content', src + ' · ' + size.charAt(0).toUpperCase() + size.slice(1) + (schedIsVideo() ? ' · Video' : ''));
+            var size = aspectKey($('#csSchedSize').val());
+            schedSum('content', src + ' · ' + ((CFG.aspect && CFG.aspect.names[size]) || size) + (schedIsVideo() ? ' · Video' : ''));
             var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
             var tier = schedForm.audience === 'subscribers' ? ($('#csSchedTierSel option:selected').text() || 'All tiers') : ($('#csSchedAi').is(':checked') ? 'AI captions' : 'Own caption');
             schedSum('publishing', aud + ' · ' + tier);
@@ -2374,7 +2395,7 @@ jQuery(function ($) {
         $('#csSchedId').val(rule ? rule.id : 0);
         $('#csSchedName').val(rule ? rule.name : '');
         $('#csSchedTopic').val(rule ? rule.topic : '');
-        setSchedSize(rule ? rule.size : 'portrait');   // new automations: portrait (full bodies warp in a square frame)
+        setSchedSize(rule ? rule.size : '');   // new automations: 3:4 (full bodies warp in a square frame)
         $('#csSchedBrand').prop('checked', rule ? !!rule.use_brand : true);
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
@@ -2406,8 +2427,15 @@ jQuery(function ($) {
     // Mirror the visual selected state to aria-pressed for segmented controls and day pills.
     function syncPressed(sel) { $(sel).find('.cs-seg__opt, .cs-ae__day').each(function () { $(this).attr('aria-pressed', $(this).hasClass('is-on') ? 'true' : 'false'); }); }
     $('#csSchedShape').on('click', '.cs-seg__opt', function () { setSchedSize($(this).data('size')); });
+    // A shape key as the server stores it now ('3:4'); rules saved before the ratios carry square | portrait | landscape.
+    function aspectKey(v) {
+        var A = CFG.aspect || { keys: [], legacy: {}, default_image: '3:4' };
+        v = String(v || '');
+        if (A.legacy[v]) { return A.legacy[v]; }
+        return A.keys.indexOf(v) >= 0 ? v : A.default_image;
+    }
     function setSchedSize(size) {
-        size = (size === 'square' || size === 'landscape') ? size : 'portrait';
+        size = aspectKey(size);
         $('#csSchedSize').val(size);
         $('#csSchedShape .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('size') === size); });
         syncPressed('#csSchedShape');

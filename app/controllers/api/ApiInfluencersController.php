@@ -68,7 +68,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
-        foreach (['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'] as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
+        foreach (array_merge(['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'], array_keys(InfluencerService::PERSONA)) as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
         foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         if (isset($this->post['share_accounts'])) {
             $sa = $this->post['share_accounts'];

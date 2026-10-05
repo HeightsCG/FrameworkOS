@@ -13,9 +13,10 @@ class ImageGenService {
 
     const BUDGET_SECONDS = 170;
 
-    /** Normalises a size key; kept for callers that used to need OpenAI pixel sizes. */
+    /** Normalises a shape key (a ratio, or the older square|portrait|landscape) to a ratio the brand model renders. */
     public static function dimensions($key){
-        return in_array((string) $key, array('square', 'portrait', 'landscape'), true) ? (string) $key : 'square';
+        $model = self::model_for();
+        return $model ? Aspect::for_model($model, $key, '1:1') : Aspect::normalize($key, '1:1');
     }
 
     /** The model that renders brand images (null when none is configured). */
@@ -25,7 +26,7 @@ class ImageGenService {
 
     /**
      * Generate one image. Returns ['ok'=>bool, 'bytes'|'error', 'ext', 'mime', 'seed', 'model_key'].
-     * $size: square|portrait|landscape.
+     * $size: a ratio key (Aspect::RATIOS) or the older square|portrait|landscape.
      */
     public static function generate($prompt, $size = 'square'){
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Image generation is not configured (no fal.ai key).'); }

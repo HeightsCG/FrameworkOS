@@ -6,18 +6,21 @@
  */
 class InfluencerJobsModel extends Model {
 
-    const TYPES    = array('reference', 'training_set', 'training', 'image', 'video', 'enhance');
+    const TYPES    = array('reference', 'training_set', 'training', 'image', 'video', 'enhance',
+                           'replicate', 'edit', 'angle', 'carousel', 'motion', 'talking', 'replace', 'scene', 'speech');
     const ACTIVE   = "('submitting','running','landing')";
     const PENDING  = "('queued','submitting','running','landing')";
 
     public function __construct(){ parent::__construct(); }
 
+    /** Insert a queued job. An unknown type is refused (0): it is never run as something else. $influencer_id 0 = no influencer (a Library edit). */
     public function create($creator_id, $influencer_id, $type, array $f){
+        if (!in_array($type, self::TYPES, true)) { return 0; }
         $now = date('Y-m-d H:i:s');
         return (int) parent::insert('influencer_jobs', array(
             'creator_id'      => (int) $creator_id,
-            'influencer_id'   => (int) $influencer_id,
-            'type'            => in_array($type, self::TYPES, true) ? $type : 'image',
+            'influencer_id'   => ((int) $influencer_id > 0) ? (int) $influencer_id : null,
+            'type'            => $type,
             'status'          => 'queued',
             'origin'          => in_array($f['origin'] ?? '', array('wizard', 'studio', 'scheduler'), true) ? $f['origin'] : 'studio',
             'rule_id'         => isset($f['rule_id']) ? (int) $f['rule_id'] : null,
@@ -32,6 +35,8 @@ class InfluencerJobsModel extends Model {
             'model_id'        => isset($f['model_id']) ? (int) $f['model_id'] : null,
             'result_model_id' => isset($f['result_model_id']) ? (int) $f['result_model_id'] : null,
             'credits_charged' => max(0, (int) ($f['credits_charged'] ?? 0)),
+            'attested_at'     => !empty($f['attested_at']) ? (string) $f['attested_at'] : null,
+            'source_hash'     => !empty($f['source_hash']) ? mb_substr((string) $f['source_hash'], 0, 64) : null,
             'created_at'      => $now,
             'updated_at'      => $now,
         ));
