@@ -230,7 +230,7 @@ jQuery(function ($) {
     }
 
     /* Prebuilt lists show their first six rows; Show More opens the rest. */
-    $(document).on('click', '.inf-more', function () {
+    $(document).on('click', '.inf-showmore', function () {
         var $list = $(this).closest('.inf-chips'), open = !$list.hasClass('is-open');
         $list.toggleClass('is-open', open);
         $(this).text(open ? 'Show Less' : 'Show More').attr('aria-expanded', open ? 'true' : 'false');
@@ -313,7 +313,7 @@ jQuery(function ($) {
             if (!list.length) { return ''; }
             return '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips" id="' + id + '">' + list.map(function (t, i) {
                 return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>';
-            }).join('') + (list.length > 6 ? '<button type="button" class="inf-link inf-more" aria-expanded="false">Show More</button>' : '') + '</div></div>';
+            }).join('') + (list.length > 6 ? '<button type="button" class="inf-link inf-showmore" aria-expanded="false">Show More</button>' : '') + '</div></div>';
         }
         function body_prebuilt_bind(id, $field) { $('#' + id).on('click', '.inf-chip--text', function () { $field.val(body_prebuilt()[$(this).data('i')]).trigger('input').trigger('focus'); }); }
         function body_section_html() {
@@ -519,6 +519,10 @@ jQuery(function ($) {
                     if (was_retrain) {
                         if (inf.last_error) { toastr.error('Retraining failed: ' + inf.last_error + ' ' + inf.name + ' still uses the previous model.'); }
                         else { toastr.success(inf.name + ' is retrained and now uses the new model'); }
+                    } else if (inf.status === 'ready' && inf.active_model_id > 0) {
+                        // First training finished while this page was open: the section tabs above were drawn while she was
+                        // still training (disabled). Load the page again so Generate Images, Videos and the rest open for her.
+                        window.location.reload(); return;
                     }
                     show(inf.wizard_step);
                 });
@@ -543,7 +547,25 @@ jQuery(function ($) {
             $('#inf_panel').html(html);
             $('#inf_retry_train').on('click', function () { show(path === 'photos' ? 'photos' : 'set'); });
             $('[data-copy]').on('click', function () { var t = $(this).data('copy'); if (navigator.clipboard) { navigator.clipboard.writeText(t); toastr.success('Copied'); } });
-            if (!failed) { render_training_photos(); render_settings(); }
+            if (!failed) { render_next(); render_training_photos(); render_settings(); }
+        }
+
+        /* --- Trained: what to do with her now. Links to the tools, so this page is never a dead end. --- */
+        function render_next() {
+            if (inf.status !== 'ready' || !(inf.active_model_id > 0)) { return; }
+            var who = esc(inf.name), her = (inf.gender === 'man') ? 'him' : 'her', his = (inf.gender === 'man') ? 'his' : 'her';
+            var items = [
+                { href: '/influencers/images/' + inf.id,     icon: 'fa-wand-magic-sparkles', title: 'Generate Images',  text: 'Photos of ' + her + ' from a prompt, a photo to copy, or a carousel.' },
+                { href: '/influencers/videos/' + inf.id,     icon: 'fa-clapperboard',        title: 'Generate Videos',  text: 'Turn an image into a clip, or make ' + her + ' talk.' },
+                { href: '/influencers/references/' + inf.id, icon: 'fa-id-badge',            title: 'Build References', text: 'Angles of ' + his + ' face and body that keep ' + her + ' consistent.' },
+                { href: '/influencers/voice/' + inf.id,      icon: 'fa-microphone-lines',    title: 'Design A Voice',   text: 'Give ' + her + ' a voice for speech and talking videos.' }
+            ];
+            $('#inf_panel').append('<section class="inf-sec inf-next"><div class="inf-sec__head"><div><h2 class="inf-sec__h">' + who + ' Is Ready</h2><p class="inf-sec__sub">Choose what to make next. The settings below can be changed any time.</p></div></div>' +
+                '<div class="inf-next__grid">' + items.map(function (it) {
+                    return '<a class="inf-next__item" href="' + it.href + '"><span class="inf-next__ic"><i class="fa-solid ' + it.icon + '" aria-hidden="true"></i></span>' +
+                        '<span class="inf-next__body"><span class="inf-next__t">' + it.title + '</span><span class="inf-next__x">' + it.text + '</span></span>' +
+                        '<i class="fa-solid fa-arrow-right inf-next__go" aria-hidden="true"></i></a>';
+                }).join('') + '</div></section>');
         }
 
         /* --- Trained: the photos her model learned from, and retraining from them --- */
@@ -710,7 +732,7 @@ jQuery(function ($) {
                 $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
                 body.body_description = $('#inf_set_bodytext').val();
                 api('influencer_save_step', body, function (o) {
-                    if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
+                    if (o && o.success) { inf = o.influencer; toastr.success('Saved. ' + inf.name + ' is ready to use.'); var $n = $('.inf-next'); if ($n.length) { $n[0].scrollIntoView({ behavior: 'smooth', block: 'start' }); $n.addClass('is-flash'); setTimeout(function () { $n.removeClass('is-flash'); }, 1600); } } else { err(o); }
                 });
             });
         }
@@ -891,7 +913,7 @@ jQuery(function ($) {
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_ref_desc">Face Description</label><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc(faces[0] || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
-                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + (faces.length > 6 ? '<button type="button" class="inf-link inf-more" aria-expanded="false">Show More</button>' : '') + '</div></div>' : '') +
+                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + (faces.length > 6 ? '<button type="button" class="inf-link inf-showmore" aria-expanded="false">Show More</button>' : '') + '</div></div>' : '') +
                 '</div>' +
                 '<div class="inf-wiz__view">' +
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
@@ -1172,12 +1194,14 @@ jQuery(function ($) {
         cost();
 
         /* --- submit --- */
+        // A setting's value, '' when the field is not on the page: a missing field must never stop a run.
+        function field(id) { var v = $('#' + id).val(); return (v == null) ? '' : String(v).trim(); }
         function generate(overrides) {
             var prompt = $('#inf_prompt').val().trim();
             if (prompt == '') { toastr.error('Write a prompt first'); return; }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
             var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'),
-                seed: $('#inf_seed').val().trim(), lora_scale: $('#inf_lora').val().trim(), guidance: $('#inf_guidance').val().trim(), steps: $('#inf_steps').val().trim() }, overrides || {});
+                seed: field('inf_seed'), lora_scale: field('inf_lora'), guidance: field('inf_guidance'), steps: field('inf_steps') }, overrides || {});
             $('#inf_gen_go, #inf_res_again').prop('disabled', true);
             busy('Sending');
             api('influencer_generate_image', body, function (o) {
@@ -1244,10 +1268,13 @@ jQuery(function ($) {
             // takes those values too, so the next run can start from them.
             if (!current) { return; }
             var seed = String(current.job.result_seed || current.job.seed || '');
-            $('#inf_prompt').val(current.job.prompt);
+            // Her own words for that image, not the full prompt sent to the model: the model's ID word, her body
+            // description and her prompt defaults are added again on the server, so sending them back would double them.
+            var words = (current.job.params && current.job.params.user_prompt) || current.job.prompt;
+            $('#inf_prompt').val(words);
             $('#inf_seed').val(seed);
             seg_set('inf_size', aspect_key(current.job.params.image_size || 'square'));
-            generate({ prompt: current.job.prompt, seed: seed, image_size: aspect_key(current.job.params.image_size || 'square'), model_key: current.job.model_key });
+            generate({ prompt: words, seed: seed, image_size: aspect_key(current.job.params.image_size || 'square'), model_key: current.job.model_key });
         });
         $('#inf_res_video').on('click', function () { if (current) { window.location = '/influencers/videos/' + inf.id + '/' + current.asset.id; } });
         $('#inf_res_download').on('click', function () {

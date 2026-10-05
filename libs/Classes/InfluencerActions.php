@@ -460,6 +460,8 @@ class InfluencerActions {
         if ($defaults !== '' && $trigger !== '' && stripos($defaults, $trigger) !== false && stripos($user_prompt, $trigger) !== false) {
             $defaults = trim(str_ireplace($trigger, '', $defaults));
         }
+        // A prompt that already carries her defaults (an older image run again, or pasted back) does not get them twice.
+        if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
         $prompt = trim($lead . ($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
