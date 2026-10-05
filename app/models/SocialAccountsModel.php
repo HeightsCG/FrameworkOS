@@ -69,6 +69,13 @@ class SocialAccountsModel extends Model {
         ));
     }
 
+    /** The line added to this account's cross-posts of AI media ('' = the default line). */
+    public function set_ai_disclosure_text($user_id, $pfm_id, $text){
+        $t = trim(preg_replace('/\s+/', ' ', (string) $text));
+        return parent::update('user_social_accounts', array('ai_disclosure_text' => ($t === '') ? null : mb_substr($t, 0, 200)),
+            'user_id = :u AND post_for_me_social_account_id = :p', array('u' => (int) $user_id, 'p' => (string) $pfm_id));
+    }
+
     public function mark_disconnected($user_id, $pfm_id){
         return parent::update(
             'user_social_accounts',

@@ -25,11 +25,61 @@ class BrandService {
         return $guide;
     }
 
+    /** The kinds of caption the writers can produce (key => label). */
+    const CAPTION_MODES = array('standard' => 'Standard', 'continuation' => 'Continuation', 'comment_bait' => 'Comment Bait', 'hook_overlay' => 'Hook Overlay');
+
+    /** The text a Hook Overlay ends with, pointing the viewer from the on-video line to the caption. */
+    const HOOK_POINTER = 'Read below 👇';
+
+    public static function caption_mode($mode){
+        $m = strtolower(str_replace(array(' ', '-'), '_', trim((string) $mode)));
+        return isset(self::CAPTION_MODES[$m]) ? $m : 'standard';
+    }
+
+    /** What a mode adds to the writer's instructions ('' for Standard). */
+    public static function mode_rule($mode){
+        switch (self::caption_mode($mode)) {
+            case 'continuation':
+                return 'Caption mode: Continuation. The caption picks up where the photo or video leaves off, in the first person, as if mid-thought: say what happened next or what was going through your head. Do not describe what is already visible.';
+            case 'comment_bait':
+                return 'Caption mode: Comment bait. Build to one specific, easy question or a light either/or that people can answer in a few words, and end on it. Never say "comment below" or "let me know".';
+            case 'hook_overlay':
+                return 'Caption mode: Hook overlay. Write two parts. First the line of text that sits on the video itself: at most 8 words, an open loop that cannot be understood without reading on, ending with "' . self::HOOK_POINTER . '". Then the caption, which pays off that line in the first sentence. '
+                    . 'Answer in exactly this form and nothing else:' . "\nHOOK: <the on-video line>\nCAPTION: <the caption>";
+        }
+        return '';
+    }
+
+    /** Split a Hook Overlay answer into array('hook' => ..., 'caption' => ...). A plain answer comes back as the caption with no hook. */
+    public static function split_hook($text){
+        $text = trim((string) $text);
+        if (preg_match('/^\s*HOOK:\s*(.+?)\s*\n+\s*CAPTION:\s*(.+)$/is', $text, $m)) {
+            $hook = self::unquote($m[1]);
+            if (mb_stripos($hook, 'read below') === false) { $hook = rtrim($hook, " .") . ' ' . self::HOOK_POINTER; }
+            return array('hook' => $hook, 'caption' => self::unquote($m[2]));
+        }
+        return array('hook' => '', 'caption' => $text);
+    }
+
+    /** Strip surrounding whitespace and quote marks. Character-aware: a byte-wise trim of curly quotes eats the first byte of "…" and similar. */
+    public static function unquote($text){
+        return (string) preg_replace('/^[\\s"\'“”]+|[\\s"\'“”]+$/u', '', (string) $text);
+    }
+
+    /** The on-video line written by the last Hook Overlay caption ('' otherwise). */
+    public static $last_hook = '';
+
     /**
      * Write a short social caption for a topic, in the creator's brand voice. Returns the
      * caption string, or '' on any failure (caller can fall back to the topic).
      */
-    public static function caption_for($topic, array $cb, $style = '', array $rules = array()){
+    public static function caption_for($topic, array $cb, $style = '', array $rules = array(), array $opts = array()){
+        // $opts: 'mode' (CAPTION_MODES key), 'persona' (InfluencerService::persona_block text for the influencer the post is by).
+        self::$last_hook = '';
+        $mode    = self::caption_mode($opts['mode'] ?? 'standard');
+        $persona = trim((string) ($opts['persona'] ?? ''));
+        $extra   = ($persona !== '' ? $persona . "\n" : '');
+        $rule    = self::mode_rule($mode);
         $key = (string) Main::config('global', 'anthropic_api_key');
         if ($key === '') { $key = (string) Main::config('global', 'claude_api_key'); }
         if ($key === '' || trim((string) $topic) === '') { return ''; }
@@ -41,18 +91,20 @@ class BrandService {
         if (!empty($rules)) {
             // The creator wrote how their captions should read: those instructions are the only ones. No house tone,
             // length, emoji or hashtag defaults are added on top of them.
-            $prompt = "Write the caption for a social media post. The photo shows: " . trim((string) $topic) . "\n"
+            $prompt = $extra . "Write the caption for a social media post. The photo shows: " . trim((string) $topic) . "\n"
                 . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
                 . "The creator's caption instructions, to follow exactly:\n" . implode("\n", $rules) . "\n"
-                . "Respond with ONLY the caption text: no quotes, no preamble.";
+                . ($rule !== '' ? $rule . "\n" : '')
+                . ($mode === 'hook_overlay' ? '' : "Respond with ONLY the caption text: no quotes, no preamble.");
         } else {
-            $prompt = "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
+            $prompt = $extra . "Write a short, engaging social media caption for a post about: " . trim((string) $topic) . ".\n"
                 . (empty($brand) ? '' : (implode(' ', $brand) . "\n"))
                 . "Rules: 1-3 sentences, warm and human, match the brand voice, you may use 1-2 tasteful emoji, "
                 . "no hashtags unless they feel natural. " . ($style === 'tease'
                     ? "Tone: flirty and teasing, first person, written to make people stop and reply or tap through: a playful hook, a hint that there's more where this came from, and end with a question or an invitation. Keep it suggestive only in spirit, never explicit. "
                     : '')
-                . "Respond with ONLY the caption text: no quotes, no preamble.";
+                . ($rule !== '' ? "\n" . $rule . "\n" : '')
+                . ($mode === 'hook_overlay' ? '' : "Respond with ONLY the caption text: no quotes, no preamble.");
         }
         error_log('[caption] prompt: ' . $prompt);
 
@@ -61,7 +113,12 @@ class BrandService {
         self::$last_error = '';
         $res = ClaudeService::chat('', array(array('role' => 'user', 'content' => $prompt)), 400, 45, 'low');
         if (!$res['ok']) { self::$last_error = (string) $res['error']; error_log('[caption] ' . $res['error']); return ''; }
-        return trim($res['text'], " \n\"'“”");
+        if ($mode === 'hook_overlay') {
+            $parts = self::split_hook($res['text']);
+            self::$last_hook = $parts['hook'];
+            return $parts['caption'];
+        }
+        return self::unquote($res['text']);
     }
 
     /** Why the last caption_for() returned '' ('' when it succeeded). */

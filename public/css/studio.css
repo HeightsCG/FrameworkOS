@@ -767,6 +767,8 @@
 #csComposer .cs-pe__dest:first-child{ border-top:0; }
 #csComposer .cs-pe__dest:hover{ background:rgba(29, 29, 29, .025); }
 #csComposer .cs-pe__dest[hidden]{ display:none; }
+#csComposer .cs-pe__story{ display:flex; align-items:center; justify-content:space-between; gap:16px; min-height:40px; padding:0 16px 0 50px; margin:0; background:rgba(29, 29, 29, .02); border-top:1px solid var(--line2); font-size:13px; color:var(--t2); cursor:pointer; }
+#csComposer .cs-pe__story[hidden]{ display:none; }
 #csComposer .cs-pe__dest.is-on{ background:rgba(255, 106, 19, .05); }
 #csComposer .cs-pe__dest.is-off{ color:var(--muted2); cursor:not-allowed; }
 #csComposer .cs-pe__dest .form-check-input{ width:18px; height:18px; margin:0; flex:none; cursor:pointer; }
@@ -969,3 +971,10 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
     .cs-srun__item figcaption{ flex-wrap:wrap; }
     .cs-srun__vote{ width:40px; height:40px; }
 }
+/* composer: caption mode and the Hook Overlay line */
+#csComposer .cs-pe__capmode{ width:auto; height:28px; min-height:28px; padding:0 28px 0 8px; font-size:13px; border-radius:2px; background-position:right 8px center; }
+#csComposer .cs-pe__hook{ display:flex; align-items:center; gap:12px; margin-top:8px; padding:8px 12px; border:1px solid var(--line); border-radius:2px; background:rgba(29, 29, 29, .02); font-size:13px; }
+#csComposer .cs-pe__hook[hidden]{ display:none; }
+#csComposer .cs-pe__hooklabel{ flex:0 0 auto; color:var(--muted); font-weight:500; }
+#csComposer .cs-pe__hooktext{ flex:1 1 auto; min-width:0; color:var(--text); font-weight:600; }
+@media (max-width:640px){ #csComposer .cs-pe__capmode{ height:40px; font-size:16px; } #csComposer .cs-pe__hook{ flex-wrap:wrap; } }

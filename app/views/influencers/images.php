@@ -12,7 +12,6 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-            <?php require __DIR__ . '/_modes.php'; ?>
             <div class="inf-field">
                 <div class="inf-field__row"><label class="inf-label" for="inf_prompt">Prompt</label><button type="button" class="inf-link" id="inf_prompt_auto"><i class="fa-solid fa-wand-magic-sparkles"></i> Write a prompt</button></div>
                 <textarea class="form-control inf-gen__prompt" id="inf_prompt" maxlength="4000" placeholder="<?php echo $e($gp['image'][0]); ?>"></textarea>
@@ -21,7 +20,7 @@
                 <div class="inf-label">Prebuilt</div>
                 <div class="inf-chips" id="inf_prompt_chips">
                     <?php foreach ($gp['image'] as $i => $t): ?>
-                    <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e(mb_strlen($t) > 60 ? mb_substr($t, 0, 60) . '…' : $t); ?></button>
+                    <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e($t); ?></button>
                     <?php endforeach; ?>
                 </div>
             </div>

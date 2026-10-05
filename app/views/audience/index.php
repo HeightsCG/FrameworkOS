@@ -19,8 +19,16 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
 ?>
 <div class="aud">
     <header class="aud__head">
-        <h1 class="aud__title">Audience</h1>
-        <p class="aud__sub">Everyone connected to you — followers, subscribers, and buyers.</p>
+        <div>
+            <h1 class="aud__title">Audience</h1>
+            <p class="aud__sub">Everyone connected to you — followers, subscribers, and buyers.</p>
+        </div>
+        <?php if (!Plan::cover('audience')): ?>
+        <div class="aud__actions">
+            <?php echo Tutorials::button('34'); ?>
+            <button type="button" class="btn btn-primary" id="lcOpen"><i class="fa-solid fa-rocket" aria-hidden="true"></i> Launch Campaign</button>
+        </div>
+        <?php endif; ?>
     </header>
 
 <?php if (empty($audience)): ?>
@@ -125,4 +133,73 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
 <?php endif; ?>
 </div>
 
+<?php if (!Plan::cover('audience')): ?>
+<div class="modal fade" id="lcModal" tabindex="-1" aria-labelledby="lcTitle" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content lc">
+            <div class="modal-header">
+                <h2 class="modal-title lc__title" id="lcTitle">Launch Campaign</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="lc__state" id="lcLoading"><span class="spinner-border spinner-border-sm" role="status"></span> Loading</div>
+                <div class="lc__state lc__state--error" id="lcLoadError" hidden><span>Could not load the campaign options.</span> <button type="button" class="btn btn-secondary btn-sm" id="lcRetry">Try Again</button></div>
+
+                <form class="lc__form" id="lcForm" hidden novalidate>
+                    <div class="lc__field lc__field--full">
+                        <label class="lc__label" for="lcWhat">What Are You Launching</label>
+                        <textarea class="form-control" id="lcWhat" rows="3" maxlength="600" placeholder="New photo set from Miami, 24 images"></textarea>
+                    </div>
+                    <div class="lc__field">
+                        <label class="lc__label" for="lcAt">Launch Time</label>
+                        <input type="datetime-local" class="form-control" id="lcAt">
+                    </div>
+                    <div class="lc__field">
+                        <label class="lc__label" for="lcDays">Days Of Anticipation</label>
+                        <select class="form-select" id="lcDays"></select>
+                    </div>
+                    <div class="lc__field" id="lcInflWrap">
+                        <label class="lc__label" for="lcInfl">Written As</label>
+                        <select class="form-select" id="lcInfl"></select>
+                    </div>
+                    <div class="lc__field">
+                        <label class="lc__label" for="lcDest">Destination</label>
+                        <select class="form-select" id="lcDest"><option value="cls">Creator Link Studio</option></select>
+                    </div>
+                    <div class="lc__field lc__field--full">
+                        <div class="lc__label">Send Messages To</div>
+                        <div class="lc__checks" id="lcSegs"></div>
+                    </div>
+                    <div class="lc__field lc__field--full" id="lcAccWrap" hidden>
+                        <div class="lc__label">Also Post To</div>
+                        <div class="lc__checks" id="lcAccs"></div>
+                    </div>
+                    <div class="lc__field">
+                        <label class="lc__label" for="lcCode">Promo Code</label>
+                        <input type="text" class="form-control" id="lcCode" maxlength="24" placeholder="LAUNCH20" autocomplete="off">
+                    </div>
+                    <div class="lc__field lc__field--pair">
+                        <div><label class="lc__label" for="lcPct">Percent Off</label><input type="number" class="form-control" id="lcPct" min="1" max="100" placeholder="20" disabled></div>
+                        <div><label class="lc__label" for="lcValid">Days Valid</label><input type="number" class="form-control" id="lcValid" min="1" max="60" value="7" disabled></div>
+                    </div>
+                </form>
+
+                <div class="lc__review" id="lcReview" hidden>
+                    <p class="lc__note" id="lcNote" hidden></p>
+                    <div class="lc__items" id="lcItems"></div>
+                </div>
+                <p class="lc__error" id="lcError" role="alert" hidden></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="lcBack" hidden>Back</button>
+                <span class="lc__summary" id="lcSummary"></span>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="lcCancel">Cancel</button>
+                <button type="button" class="btn btn-primary" id="lcWrite" disabled><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write Drafts</button>
+                <button type="button" class="btn btn-primary" id="lcConfirm" hidden>Schedule Campaign</button>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="/js/launch-campaign.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/launch-campaign.js'); ?>"></script>
+<?php endif; ?>
 <script src="/js/audience.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/audience.js'); ?>"></script>

@@ -11,7 +11,6 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-            <?php require __DIR__ . '/_modes.php'; ?>
 
             <div class="inf-field">
                 <div class="inf-field__row"><div class="inf-label" id="inf_rep_src_label">Source Photo</div><?php echo Tutorials::button('23'); ?></div>

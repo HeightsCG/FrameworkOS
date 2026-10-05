@@ -587,3 +587,8 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 .ai-picker__row span{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ai-picker__row em{ font-style:normal; font-size:12px; color:var(--muted); flex:none; }
 .ai-picker__len{ position:absolute; left:6px; bottom:6px; padding:2px 6px; font-size:11px; font-weight:600; color:#fff; background:rgba(13,13,13,.72); border-radius:2px; display:inline-flex; align-items:center; gap:4px; }
+/* Settings > Integrations: the AI disclosure line of one social account */
+.integ__ailine{ display:flex; align-items:center; gap:8px; margin:0 8px 0 auto; min-width:0; }
+.integ__ailabel{ font-size:12px; color:var(--muted); white-space:nowrap; }
+.integ__ailine .form-control{ width:220px; max-width:100%; }
+@media (max-width:640px){ .integ__ailine{ flex:1 1 100%; margin:8px 0 0; flex-wrap:wrap; } .integ__ailine .form-control{ width:100%; font-size:16px; } }

@@ -10,6 +10,10 @@ class ApiInboxController extends BaseApiController {
             $f[$k] = $this->post[$k] ?? null;
         }
         $f['persona']      = html_entity_decode((string) ($this->post['persona'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $f['ai_disclosure_text'] = html_entity_decode((string) ($this->post['ai_disclosure_text'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if (trim($f['ai_disclosure_text']) === '') { $this->jsonError('The first reply disclosure cannot be blank.', ['field' => 'ai_disclosure_text']); }
+        $pid = (int) ($this->post['persona_influencer_id'] ?? 0);
+        $f['persona_influencer_id'] = ($pid > 0 && (new InfluencersModel())->get_one((int) $user['user_id'], $pid)) ? $pid : 0;
         $f['avoid_topics'] = html_entity_decode((string) ($this->post['avoid_topics'] ?? ''), ENT_QUOTES, 'UTF-8');
         if (!empty($f['cls_enabled']) && !Plan::has_feature($user, 'inbox_ai')) {
             $this->jsonError(Plan::feature_message('inbox_ai'), ['need_upgrade' => true]);

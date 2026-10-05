@@ -10,7 +10,7 @@ class InfluencerService {
     /** Wizard steps per path, in order. 'training' and 'done' are reached by the engine. */
     const STEPS = array(
         'photos'    => array('name', 'photos', 'training', 'done'),
-        'reference' => array('name', 'input', 'reference', 'set', 'review', 'training', 'done'),
+        'reference' => array('name', 'reference', 'set', 'review', 'training', 'done'),   // how the reference is made is chosen on the first step
     );
 
     /** Gender options (value => label). Required when creating an influencer; drives the subject word and pronouns in every prompt. */
@@ -21,7 +21,7 @@ class InfluencerService {
      * textarea rows, placeholder. {Her} in a label follows the influencer's gender.
      */
     const PERSONA = array(
-        'persona_description'   => array('label' => 'Description',               'max' => 3000, 'rows' => 5, 'placeholder' => '24, grew up in Tampa, moved to Miami for nursing school'),
+        'persona_description'   => array('label' => 'Description',               'max' => 3000, 'rows' => 3, 'placeholder' => '24, grew up in Tampa, moved to Miami for nursing school'),
         'persona_personality'   => array('label' => 'Personality',               'max' => 1000, 'rows' => 2, 'placeholder' => 'Warm, teasing, a little shy at first'),
         'persona_speaking'      => array('label' => 'Way Of Speaking',           'max' => 1000, 'rows' => 2, 'placeholder' => 'Short sentences, lowercase, no emoji'),
         'persona_niche'         => array('label' => 'Niche',                     'max' => 255,  'rows' => 1, 'placeholder' => 'Fitness and gym life'),
@@ -48,7 +48,7 @@ class InfluencerService {
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
         return 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: identical face, hair, skin tone and body. '
-            . $def['prompt'] . '. Plain light grey studio background, soft even daylight. Photorealistic, natural skin texture, raw unedited photo.';
+            . $def['prompt'] . '. Plain light grey wall behind, flat daylight. ' . self::REALISM;
     }
 
     /** The one image that defines her: the approved reference, else her face photo, else her first training photo, else her newest render. 0 when none. */
@@ -113,19 +113,33 @@ class InfluencerService {
             'Nico', 'Elias', 'Jonah', 'Felix', 'Omar', 'Hugo', 'Silas', 'Tomas', 'Andre', 'Caleb', 'Idris', 'Mason'),
     );
 
+    /**
+     * The look every image of an influencer should have: a real, unretouched photograph. Added to the
+     * reference image and the training set, because those two decide how everything trained from them looks:
+     * a polished, airbrushed set trains a polished, airbrushed model.
+     */
+    const REALISM = 'Unretouched candid photograph taken on a phone camera, not a studio portrait. Real skin with visible pores, fine lines, faint blemishes and slightly uneven tone, stray flyaway hairs, natural facial asymmetry, ordinary uneven available light, true-to-life colour, slight sensor grain. No airbrushing, no beauty filter, no skin smoothing, no glow, no perfect symmetry, no CGI, render or illustration look.';
+
+    /** A prompt with the realism direction on the end (once). */
+    public static function realistic($prompt){
+        $p = rtrim(trim((string) $prompt), " .,;");
+        if ($p === '') { return self::REALISM; }
+        return (stripos($p, 'no airbrushing') !== false) ? $p : $p . '. ' . self::REALISM;
+    }
+
     /** Drop-in face descriptions for the reference step (text input), per gender. */
     const FACE_PROMPTS = array(
         'woman' => array(
-            'Portrait photo of a woman in her mid 20s, long dark wavy hair, warm brown eyes, soft freckles, natural makeup, neutral background, soft daylight, looking at the camera',
-            'Portrait photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, minimal makeup, clean studio background, even lighting',
-            'Portrait photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, gold hoop earrings, neutral background, golden hour light',
-            'Portrait photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, natural look, plain background, soft window light',
+            'Phone photo of a woman in her mid 20s, long dark wavy hair a little messy, warm brown eyes, freckles across the nose, no makeup, standing by a kitchen window in daylight, looking at the camera',
+            'Phone photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, barely any makeup, grey t-shirt, sitting in a parked car in overcast daylight',
+            'Phone photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, small gold hoop earrings, on a city sidewalk in late afternoon sun',
+            'Phone photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, bare skin, plain white wall behind, window light from one side',
         ),
         'man' => array(
-            'Portrait photo of a man in his late 20s, short dark hair with a fade, brown eyes, trimmed beard, neutral background, soft daylight, looking at the camera',
-            'Portrait photo of a man in his early 30s, sandy blond hair swept back, blue eyes, light stubble, easy smile, clean studio background, even lighting',
-            'Portrait photo of a man in his mid 20s, black curly hair, dark brown eyes, strong jawline, clean shaven, neutral background, golden hour light',
-            'Portrait photo of a man in his early 30s, auburn hair, green eyes, freckles, short beard, plain background, soft window light',
+            'Phone photo of a man in his late 20s, short dark hair with a fade, brown eyes, trimmed beard, plain t-shirt, standing by a window in daylight, looking at the camera',
+            'Phone photo of a man in his early 30s, sandy blond hair pushed back, blue eyes, light stubble, easy smile, sitting in a parked car in overcast daylight',
+            'Phone photo of a man in his mid 20s, black curly hair, dark brown eyes, strong jawline, clean shaven, on a city sidewalk in late afternoon sun',
+            'Phone photo of a man in his early 30s, auburn hair, green eyes, freckles, short beard, plain white wall behind, window light from one side',
         ),
     );
 
@@ -174,16 +188,16 @@ class InfluencerService {
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. */
     const TRAINING_VARIATIONS = array(
-        'same person, front-facing portrait, neutral expression, soft studio light, plain background, 1:1 crop of head and shoulders',
-        'same person, three-quarter view turned slightly left, gentle smile, natural window light, plain background',
-        'same person, three-quarter view turned slightly right, relaxed expression, warm evening light, plain background',
-        'same person, profile view, hair tucked behind ear, soft light, plain background',
-        'same person, laughing with eyes crinkled, bright daylight, outdoor blurred background',
-        'same person, looking over shoulder at the camera, golden hour, outdoor background',
-        'same person, close-up of the face, serious expression, dramatic side lighting, dark background',
-        'same person, upper body, arms crossed, confident look, overcast daylight, city street background',
-        'same person, relaxed at-home look, soft expression, morning light, bedroom background',
-        'same person, wearing sunglasses pushed up on the head, big smile, beach background, midday sun',
+        'same person, front-facing head and shoulders, neutral expression, flat daylight from a window, plain wall behind',
+        'same person, three-quarter view turned slightly left, small smile, window light from one side, living room behind',
+        'same person, three-quarter view turned slightly right, relaxed expression, warm evening lamp light indoors',
+        'same person, side profile, hair tucked behind the ear, overcast daylight outdoors',
+        'same person, laughing mid-laugh with eyes crinkled, bright daylight, street behind slightly out of focus',
+        'same person, looking over the shoulder at the camera, late afternoon sun, park behind',
+        'same person, close-up of the face, serious expression, light from one side only, dim room',
+        'same person, upper body, arms crossed, overcast daylight, city street behind',
+        'same person, at home in a plain t-shirt, hair undone, soft expression, morning light, bedroom behind',
+        'same person, sunglasses pushed up on the head, big smile, harsh midday sun, beach behind',
     );
 
     /* ---- steps ---- */
@@ -215,7 +229,7 @@ class InfluencerService {
             } elseif (!empty($infl['input_method'])) {
                 $max = 'reference';
             } else {
-                $max = 'input';
+                $max = 'name';
             }
         }
         // Training/done are engine-owned; a stale 'training' with no pending model means it failed.

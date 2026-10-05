@@ -72,9 +72,11 @@ class AutoPostService {
 
         // 3) Caption: AI, written from the scene line. When the creator wrote caption instructions, those are the only
         // instructions, and the formatting rules they state are also enforced in code after the model answers.
+        $cap_infl  = ((int) ($rule['influencer_id'] ?? 0) > 0) ? (new InfluencersModel())->get_one($creator_id, (int) $rule['influencer_id']) : null;
+        $cap_opts  = array('mode' => (string) ($rule['caption_mode'] ?? 'standard'), 'persona' => InfluencerService::persona_block($cap_infl));
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
-        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption']), $parts['caption'])
+        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption'], $cap_opts), $parts['caption'])
                                 : $fixed;
         if ($caption === '') { $caption = $fixed; }   // never publish the saved prompt as a caption
 

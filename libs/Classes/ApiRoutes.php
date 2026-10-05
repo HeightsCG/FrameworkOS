@@ -43,7 +43,7 @@ class ApiRoutes {
             'domain_add', 'domain_verify', 'domain_set_primary', 'domain_remove',
         ],
         'ApiSocialIntegrationsController' => [
-            'connect_account', 'disconnect_account', 'fanvue_connect',
+            'connect_account', 'disconnect_account', 'social_disclosure_save', 'fanvue_connect',
             'fanvue_disconnect',
         ],
         'ApiSupportController' => [
@@ -68,6 +68,7 @@ class ApiRoutes {
         ],
         'ApiAudienceController' => [
             'audience_tag_add', 'audience_tag_remove', 'audience_note_save',
+            'launch_campaign_options', 'launch_campaign_draft', 'launch_campaign_confirm',
         ],
         'ApiSearchController' => [
             'search',

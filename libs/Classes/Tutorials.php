@@ -283,6 +283,19 @@ class Tutorials {
             'Add text and image overlays, and an audio track if you want one.',
             'Pick 9:16 or 3:4 and click Export. The finished video is saved to your Library.',
         )),
+        '34' => array('section' => 'studio', 'title' => 'Run a Launch Campaign', 'secs' => 0, 'steps' => array(
+            'A launch campaign is a run of posts and messages that build up to one launch.',
+            'Open Audience and click Launch Campaign.',
+            'Say what you are launching, pick the launch time and how many days of anticipation you want.',
+            'Click Write Drafts. Edit any post or message, or clear one to leave it out.',
+            'Click Schedule Campaign. Every post and message is scheduled at once.',
+        )),
+        '35' => array('section' => 'studio', 'title' => 'Caption Modes, Stories and AI Disclosure', 'secs' => 0, 'steps' => array(
+            'When you write a post, pick a caption mode next to Write a Caption: Standard, Continuation, Comment Bait or Hook Overlay.',
+            'Hook Overlay also gives you a short line to put on the video itself.',
+            'In Distribution, tick an Instagram or Facebook account and switch on Post As Story to send 9:16 media as a Story.',
+            'Posts with AI media carry an AI disclosure on every platform. You can switch it off per post.',
+        )),
     );
 
     /** One video with its URLs, or null when unknown or its file isn't uploaded yet. */

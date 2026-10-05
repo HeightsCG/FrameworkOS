@@ -456,6 +456,9 @@ class ProfileController extends Controller {
         // One free trial per fan per creator: someone who has had a paid membership here doesn't see trial offers.
         $trial_used = $viewer_logged_in && !$is_self && (new CreatorSubscriptionsModel())->had_paid_with($viewer_id, (int) $user['user_id']);
 
+        // AI disclosure: an account that has published AI media carries the AI badge and a line saying so.
+        $ai_creator = (new PostsModel())->has_published_ai((int) $user['user_id']);
+
         require Main::app_path() . '/app/views/profile/view.php';
     }
 

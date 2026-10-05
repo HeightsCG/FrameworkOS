@@ -119,7 +119,7 @@ class PostForMeService {
      * $media_urls: array of media_url strings. $scheduled_at: ISO-8601 string or null (null = publish now).
      * Returns the created post row or null.
      */
-    public static function create_post($social_account_ids, $caption, $media_urls = array(), $scheduled_at = null, $is_draft = false, array $platform_configurations = array())
+    public static function create_post($social_account_ids, $caption, $media_urls = array(), $scheduled_at = null, $is_draft = false, array $platform_configurations = array(), array $account_configurations = array())
     {
         $payload = array(
             'caption'         => (string) $caption,
@@ -128,6 +128,10 @@ class PostForMeService {
         // Per-platform overrides, e.g. array('x' => array('caption' => '...')) for X's 280-char limit.
         if (!empty($platform_configurations)) {
             $payload['platform_configurations'] = $platform_configurations;
+        }
+        // Per-account overrides: array(array('social_account_id' => ..., 'configuration' => array('placement' => 'stories', ...))).
+        if (!empty($account_configurations)) {
+            $payload['account_configurations'] = array_values($account_configurations);
         }
         if (!empty($media_urls)) {
             $payload['media'] = array_map(function ($u) { return array('url' => $u); }, $media_urls);

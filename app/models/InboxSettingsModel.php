@@ -23,7 +23,25 @@ class InboxSettingsModel extends Model {
             'avoid_topics'    => '',
             'upsell_enabled'  => 0,
             'disclose_ai'     => 0,
+            'ai_disclosure_text'    => AiDisclosure::DEFAULT_FIRST_REPLY,   // sent with the first automated reply to each fan; never blank
+            'persona_influencer_id' => 0,                                    // whose persona the replies are written in (0 = brand voice only)
         );
+    }
+
+    /** Claim the one-time disclosure for (creator, fan): true for the first caller only. */
+    public function claim_disclosure($creator_id, $fan_id){
+        try {
+            parent::insert('inbox_disclosures', array('creator_id' => (int) $creator_id, 'fan_id' => (int) $fan_id, 'created_at' => date('Y-m-d H:i:s')));
+            return true;
+        } catch (\PDOException $e) {
+            if ((string) $e->getCode() === '23000') { return false; }   // already disclosed to this fan
+            throw $e;
+        }
+    }
+
+    /** Give the claim back (the reply that carried the disclosure was not sent). */
+    public function release_disclosure($creator_id, $fan_id){
+        return parent::delete_all('inbox_disclosures', 'creator_id = :c AND fan_id = :f', array('c' => (int) $creator_id, 'f' => (int) $fan_id));
     }
 
     public function get_for_creator($creator_id){
@@ -57,6 +75,8 @@ class InboxSettingsModel extends Model {
             'avoid_topics'    => mb_substr(trim(strip_tags((string) ($f['avoid_topics'] ?? ''))), 0, 2000),
             'upsell_enabled'  => !empty($f['upsell_enabled']) ? 1 : 0,
             'disclose_ai'     => !empty($f['disclose_ai']) ? 1 : 0,
+            'ai_disclosure_text'    => AiDisclosure::first_reply_text($f['ai_disclosure_text'] ?? ''),   // blank falls back to the default: it cannot be empty
+            'persona_influencer_id' => ((int) ($f['persona_influencer_id'] ?? 0) > 0) ? (int) $f['persona_influencer_id'] : null,
             'updated_at'      => date('Y-m-d H:i:s'),
         );
         // A half-set window is no window.

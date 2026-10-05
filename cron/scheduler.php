@@ -49,6 +49,14 @@ try {
     error_log('[scheduler] publish_due failed: ' . $e->getMessage());
 }
 
+// One-off scheduled messages (launch campaigns): sent through the normal broadcast path when their time comes.
+try {
+    $n = LaunchCampaign::send_due(50);
+    if ($n > 0) { fwrite(STDOUT, date('c') . " scheduled messages sent: {$n}\n"); }
+} catch (\Throwable $e) {
+    error_log('[scheduler] scheduled messages failed: ' . $e->getMessage());
+}
+
 // Abandoned chunked uploads: once an hour, abort S3 multipart uploads nobody touched for a day (frees their parts).
 if (date('i') === '15') {
     try {

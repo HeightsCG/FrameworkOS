@@ -207,4 +207,53 @@ jQuery(function ($) {
             });
         });
     }
+    /* ---- composer: AI disclosure and Story placement on the Distribution section ---- */
+    var STORY_PLATFORMS = ['instagram', 'facebook'];
+    function has_ai(c) { return (c.assets || []).some(function (a) { return a.provenance === 'generated' || a.provenance === 'edited'; }); }
+    function dest_extras(c, accounts) {
+        var $wrap = $('#csCompSocial');
+        $wrap.find('.cs-pe__story').remove(); $('#csPeAiRow').remove();
+        c.story_accounts = (c.story_accounts || []).map(String);
+        (accounts || []).forEach(function (a) {
+            if (STORY_PLATFORMS.indexOf(String(a.platform).toLowerCase()) < 0) { return; }
+            var $box = $wrap.find('input[data-acct]').filter(function () { return String($(this).data('acct')) === String(a.id); });
+            if (!$box.length || $box.prop('disabled')) { return; }
+            var on = c.story_accounts.indexOf(String(a.id)) >= 0, id = 'csPeStory_' + String(a.id).replace(/[^A-Za-z0-9_-]/g, '_');
+            $box.closest('.cs-pe__dest').after('<label class="cs-pe__story" for="' + id + '" data-story="' + T.esc(a.id) + '"' + ($box.prop('checked') ? '' : ' hidden') + '>' +
+                '<span class="cs-pe__storylabel">Post As Story</span>' +
+                '<span class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="' + id + '"' + (on ? ' checked' : '') + '></span></label>');
+        });
+        if (has_ai(c)) {
+            $wrap.after('<div class="cs-pe__switchrow" id="csPeAiRow"><label class="cs-pe__switchtext" for="csPeAiDisclose"><span class="cs-pe__switchlabel">AI Disclosure</span></label>' +
+                '<div class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="csPeAiDisclose"' + (c.ai_disclosure === 0 || c.ai_disclosure === '0' ? '' : ' checked') + '></div></div>');
+        }
+        $wrap.off('change.csx').on('change.csx', '.cs-pe__story input', function () {
+            var id = String($(this).closest('.cs-pe__story').data('story'));
+            c.story_accounts = c.story_accounts.filter(function (x) { return x !== id; });
+            if (this.checked) { c.story_accounts.push(id); }
+        });
+        $('#csPeAiDisclose').off('change').on('change', function () { c.ai_disclosure = this.checked ? 1 : 0; });
+    }
+    var dest_last = null;
+    $(document).on('cs:dest-rendered', function (e, c, accounts) { dest_last = [c, accounts]; dest_extras(c, accounts); });
+    // Media can change after the list was drawn: show or drop the AI switch to match.
+    $(document).on('click', '#csComposer', function () {
+        if (dest_last && has_ai(dest_last[0]) !== ($('#csPeAiRow').length > 0)) { dest_extras(dest_last[0], dest_last[1]); }
+    });
+    $(document).on('cs:dest-changed', function (e, c) {
+        $('#csCompSocial .cs-pe__story').each(function () {
+            var id = String($(this).data('story')), on = c.share.has(id);
+            $(this).prop('hidden', !on);
+            if (!on) { $(this).find('input').prop('checked', false); c.story_accounts = (c.story_accounts || []).filter(function (x) { return x !== id; }); }
+        });
+    });
+    /* ---- composer: the on-video line a Hook Overlay caption was written to follow ---- */
+    $(document).on('cs:caption-written', function (e, o) {
+        var hook = (o && o.success && o.hook) ? String(o.hook) : '';
+        $('#csPeHookText').text(hook); $('#csPeHook').prop('hidden', hook === '');
+    });
+    $(document).on('click', '#csPeHookCopy', function () {
+        var t = $('#csPeHookText').text();
+        if (navigator.clipboard && t) { navigator.clipboard.writeText(t); toastr.success('Copied'); }
+    });
 });

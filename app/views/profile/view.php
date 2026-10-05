@@ -118,13 +118,14 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
                     <span class="pf-presence <?php echo $is_online ? 'is-online' : 'is-offline'; ?>" title="<?php echo $is_online ? 'Online now' : 'Offline'; ?>"></span>
                 </div>
                 <div class="pf-hero__id">
-                    <h1 class="pf-name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?></h1>
+                    <h1 class="pf-name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?><?php if (!empty($user['verified'])): ?> <i class="fa-solid fa-circle-check pf-verified" title="Verified creator"></i><?php endif; ?><?php if (!empty($ai_creator)): ?> <span class="pf-ai" title="This account posts AI-generated content">AI</span><?php endif; ?></h1>
                     <div class="pf-meta">
                         <span class="pf-meta__handle">@<?php echo htmlspecialchars($handle, ENT_QUOTES, 'UTF-8'); ?></span>
                         <span class="pf-meta__dot">·</span>
                         <span class="pf-status <?php echo $is_online ? 'pf-status--online' : 'pf-status--offline'; ?>"><span class="pf-status__dot"></span><?php echo $is_online ? 'Online' : 'Offline'; ?></span>
                         <?php if ($location !== ''): ?><span class="pf-meta__dot">·</span><span class="pf-meta__loc"><i class="fa-solid fa-location-dot"></i> <?php echo htmlspecialchars($location, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                     </div>
+                    <?php if (!empty($ai_creator)): ?><p class="pf-ai-line"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> <?php echo htmlspecialchars(AiDisclosure::PROFILE_LINE, ENT_QUOTES, 'UTF-8'); ?></p><?php endif; ?>
                     <div class="pf-stats"><span class="pf-stat"><strong id="pf_follower_count"><?php echo $followers; ?></strong> <span id="pf_follower_word"><?php echo $follow_word; ?></span></span></div>
                 </div>
                 <div class="pf-actions" id="pf_actions"></div>

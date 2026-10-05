@@ -60,6 +60,18 @@ class PostsModel extends Model {
         if (array_key_exists('tier_id', $fields))  { $data['tier_id'] = ((int) $fields['tier_id'] > 0) ? (int) $fields['tier_id'] : null; }
         if (array_key_exists('comments_enabled', $fields)) { $data['comments_enabled'] = !empty($fields['comments_enabled']) ? 1 : 0; }
         if (array_key_exists('on_cls', $fields))           { $data['on_cls'] = !empty($fields['on_cls']) ? 1 : 0; }
+        // AI disclosure on cross-posts: null = on whenever the post has AI media, 0 = off, 1 = on.
+        if (array_key_exists('ai_disclosure', $fields)) {
+            $d = $fields['ai_disclosure'];
+            $data['ai_disclosure'] = ($d === null || $d === '') ? null : (((int) $d === 1) ? 1 : 0);
+        }
+        // Social accounts that get this post as a Story instead of a feed post.
+        if (array_key_exists('story_accounts', $fields)) {
+            $ids = is_array($fields['story_accounts']) ? $fields['story_accounts'] : explode(',', (string) $fields['story_accounts']);
+            $ids = array_values(array_unique(array_filter(array_map(function ($v) { return preg_replace('/[^A-Za-z0-9_\-]/', '', (string) $v); }, $ids), 'strlen')));
+            $data['story_accounts'] = mb_substr(implode(',', $ids), 0, 1024);
+        }
+        if (array_key_exists('campaign_id', $fields)) { $data['campaign_id'] = ((int) $fields['campaign_id'] > 0) ? (int) $fields['campaign_id'] : null; }
         $res = parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
         // Multi-tier targeting lives in post_tiers. Passing tier_ids replaces the set; a
@@ -174,7 +186,7 @@ class PostsModel extends Model {
     public function get_assets($post_id){
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
-                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult,
+                    ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult, ma.provenance, ma.width, ma.height,
                     ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
@@ -182,6 +194,16 @@ class PostsModel extends Model {
              ORDER BY pa.sort_order ASC",
             array('p' => (int) $post_id)
         );
+    }
+
+    /** Has this creator published a post (on Creator Link Studio) with AI-generated or AI-edited media? Drives the profile's AI badge. */
+    public function has_published_ai($creator_id){
+        $r = parent::select(
+            "SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
+             WHERE p.creator_id = :c AND p.state = 'published' AND p.on_cls = 1
+               AND ma.provenance IN ('generated', 'edited') AND ma.deleted_at IS NULL LIMIT 1",
+            array('c' => (int) $creator_id));
+        return is_array($r) && count($r) > 0;
     }
 
     /** A post by id regardless of owner — for public engagement (like/comment/view). */

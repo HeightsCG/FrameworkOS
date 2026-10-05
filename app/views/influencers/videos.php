@@ -12,7 +12,6 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-            <?php require __DIR__ . '/_vmodes.php'; ?>
             <div class="inf-field">
                 <div class="inf-chips inf-stills__roles" id="inf_still_roles" role="group" aria-label="Filter images" hidden></div>
                 <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading images…</span></div>
@@ -25,7 +24,7 @@
                 <div class="inf-label">Prebuilt</div>
                 <div class="inf-chips" id="inf_vprompt_chips">
                     <?php foreach ($gp['video'] as $i => $t): ?>
-                    <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e(mb_strlen($t) > 60 ? mb_substr($t, 0, 60) . '…' : $t); ?></button>
+                    <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e($t); ?></button>
                     <?php endforeach; ?>
                 </div>
             </div>

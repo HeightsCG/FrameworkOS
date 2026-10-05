@@ -599,6 +599,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'comments_enabled' => ((string) ($this->post['comments_enabled'] ?? '1')) !== '0',
             'use_brand'        => ((string) ($this->post['use_brand'] ?? '1')) !== '0',
             'ai_assist'        => ((string) ($this->post['ai_assist'] ?? '1')) !== '0' ? 1 : 0,
+            'caption_mode'     => (string) ($this->post['caption_mode'] ?? 'standard'),
             'caption_text'     => trim(html_entity_decode((string) ($this->post['caption_text'] ?? ''), ENT_QUOTES)),
             'social_accounts'  => $this->post['social_accounts'] ?? [],
             'cadence'          => (string) ($this->post['cadence'] ?? 'daily'),
@@ -685,7 +686,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $hint = mb_substr(trim(html_entity_decode((string) ($this->post['hint'] ?? ''), ENT_QUOTES, 'UTF-8')), 0, 500);
         $aud  = $this->post_audience((string) ($this->post['audience'] ?? 'free'));
 
-        $parts = array(); $who = ''; $kinds = array();
+        $parts = array(); $who = ''; $kinds = array(); $infl_id = 0;
         $media = new MediaAssetsModel(); $links = new InfluencerImagesModel(); $jobs = new InfluencerJobsModel();
         foreach (array_slice($ids, 0, 4) as $aid) {
             $a = $media->get_one($creator_id, $aid);
@@ -693,7 +694,7 @@ class ApiCreatorStudioController extends BaseApiController {
             $kinds[(string) $a['type']] = true;
             $link = $links->get_by_asset($creator_id, $aid);
             if ($link) {
-                $who = (string) $link['influencer_name'];
+                $who = (string) $link['influencer_name']; $infl_id = (int) ($link['influencer_id'] ?? 0);
                 $job = !empty($link['job_id']) ? $jobs->get_by_id((int) $link['job_id']) : null;
                 $p   = $job ? InfluencerJobsModel::params($job) : array();
                 $scene = trim((string) ($p['scene'] ?? ($p['user_prompt'] ?? '')));
@@ -712,13 +713,16 @@ class ApiCreatorStudioController extends BaseApiController {
 
         $cb = (new CreatorBrandModel())->get_for_user($creator_id);
         $style = ($aud === 'subscribers' || $aud === 'ppv') ? 'tease' : '';
-        $caption = BrandService::caption_for($topic, (array) $cb, $style);
+        // Her persona (when the media is an influencer's) and the kind of caption asked for.
+        $infl    = $infl_id > 0 ? (new InfluencersModel())->get_one($creator_id, $infl_id) : null;
+        $caption = BrandService::caption_for($topic, (array) $cb, $style, array(), array(
+            'mode' => (string) ($this->post['caption_mode'] ?? 'standard'), 'persona' => InfluencerService::persona_block($infl)));
         if ($caption === '') {
             $why = (string) BrandService::$last_error;
             $busy = stripos($why, 'Overloaded') !== false || strpos($why, 'HTTP 529') !== false || strpos($why, 'HTTP 429') !== false;
             $this->jsonError($busy ? 'The AI is busy right now. Try again in a few seconds.' : 'Could not write a caption right now.');
         }
-        $this->jsonSuccess(['caption' => mb_substr($caption, 0, 3000)]);
+        $this->jsonSuccess(['caption' => mb_substr($caption, 0, 3000), 'hook' => (string) BrandService::$last_hook]);
     }
 
     public function post_saveAction(){
@@ -812,6 +816,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
+        $post = $this->save_share_options($model, $creator_id, $post);
         if (!$model->publish_once($creator_id, $id)) {   // already published (double-click / retry): don't fan out again
             $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
         }
@@ -835,6 +840,7 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
+        $post = $this->save_share_options($model, $creator_id, $post);
         $model->set_state($creator_id, $id, 'scheduled', $utc);
         // $utc is already 'Y-m-d H:i:s' in UTC — build the ISO directly (strtotime would
         // misread it in the server's America/New_York default zone and send a wrong time).
@@ -896,6 +902,7 @@ class ApiCreatorStudioController extends BaseApiController {
             if (in_array((string) $a['post_for_me_social_account_id'], $req, true)) { $n++; }
         }
         if ($n === 0) { $this->jsonError('Those accounts are not connected.'); }
+        $post = $this->save_share_options(new PostsModel(), $creator_id, $post);
         $this->share_post_to_social($user, $post, $accounts, null);
         $this->jsonSuccess(['message' => 'Shared to ' . $n . ' account' . ($n > 1 ? 's' : '') . '.']);
     }
@@ -1061,6 +1068,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'comments_enabled' => (int) $r['comments_enabled'],
             'use_brand'        => (int) $r['use_brand'],
             'ai_assist'        => isset($r['ai_assist']) ? (int) $r['ai_assist'] : 1,
+            'caption_mode'     => BrandService::caption_mode($r['caption_mode'] ?? 'standard'),
             'caption_text'     => (string) ($r['caption_text'] ?? ''),
             'social_accounts'  => array_map('strval', (array) $accounts),
             'cadence'          => (string) $r['cadence'],
@@ -1126,6 +1134,7 @@ class ApiCreatorStudioController extends BaseApiController {
                 'duration' => $a['duration_sec'] !== null ? (int) $a['duration_sec'] : null,
                 'is_cover' => (int) $a['is_cover'],
                 'missing'  => !empty($a['deleted_at']),
+                'provenance' => (string) ($a['provenance'] ?? 'uploaded'),
                 'thumb_url'=> $ready ? MediaService::signed_url($signable, 'thumb', $creator_id) : '',
                 'video_url'=> ($ready && $a['type'] === 'video') ? MediaService::signed_url($signable, 'original', $creator_id) : '',
             ];
@@ -1153,6 +1162,8 @@ class ApiCreatorStudioController extends BaseApiController {
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? Price::input((int) $post['ppv_price_credits']) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
             'on_cls'            => (int) ($post['on_cls'] ?? 1),
+            'ai_disclosure'     => (($post['ai_disclosure'] ?? null) === null) ? null : (int) $post['ai_disclosure'],
+            'story_accounts'    => array_values(array_filter(explode(',', (string) ($post['story_accounts'] ?? '')), 'strlen')),
             'state'             => $post['state'],
             'scheduled_local'   => $this->from_utc($post['scheduled_at'] ?? '', $tz),
             'timezone'          => $tz,
@@ -1194,6 +1205,19 @@ class ApiCreatorStudioController extends BaseApiController {
             if ((int) ($post['ppv_price_credits'] ?? 0) <= 0) { return ['ok' => false, 'reason' => 'Set a price for this pay-per-view post.']; }
         }
         return ['ok' => true, 'reason' => ''];
+    }
+
+    /**
+     * The cross-post choices sent with publish / schedule / share: the AI disclosure switch
+     * ('' = default, on for AI media) and the accounts that get the post as a Story. Saved on the post.
+     */
+    private function save_share_options(PostsModel $model, int $creator_id, array $post): array{
+        $f = [];
+        if (array_key_exists('ai_disclosure', $this->post)) { $f['ai_disclosure'] = (string) $this->post['ai_disclosure']; }
+        if (array_key_exists('story_accounts', $this->post)) { $f['story_accounts'] = is_array($this->post['story_accounts']) ? $this->post['story_accounts'] : []; }
+        if (empty($f)) { return $post; }
+        $model->update_fields($creator_id, (int) $post['id'], $f);
+        return $model->get_one($creator_id, (int) $post['id']) ?: $post;
     }
 
     private function share_accounts_from_request(): array{

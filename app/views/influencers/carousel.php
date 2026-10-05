@@ -11,7 +11,6 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-            <?php require __DIR__ . '/_modes.php'; ?>
 
             <div class="inf-field">
                 <div class="inf-field__row"><div class="inf-label" id="inf_car_seed_label">Seed Image</div><?php echo Tutorials::button('24'); ?></div>

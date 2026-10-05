@@ -7,4 +7,3 @@
                     <?php endforeach; ?>
                 </select>
             </label>
-            <?php require __DIR__ . '/_vmodes.php'; ?>

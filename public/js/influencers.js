@@ -235,7 +235,7 @@ jQuery(function ($) {
     function init_create() {
         var inf   = CFG.influencer || null;
         var path  = inf ? inf.path : '';
-        var STEP_LABELS = { name: 'Name', photos: 'Photos', input: 'Input', reference: 'Reference', set: 'Training set', review: 'Review', training: 'Training', done: 'Done' };
+        var STEP_LABELS = { name: 'Setup', photos: 'Photos', input: 'Setup', reference: 'Reference', set: 'Training Set', review: 'Review', training: 'Training', done: 'Done' };
         var poll_timer = null;
 
         function steps_for(p) { return (C.steps && C.steps[p]) ? C.steps[p] : ['name']; }
@@ -253,56 +253,73 @@ jQuery(function ($) {
 
         function set_actions(html) { $('#inf_wiz_actions').html(html || ''); }
 
-        /* --- chooser (no row yet): pick a path, then name her, then create --- */
-        $('#inf_chooser .inf-path').on('click', function () {
-            path = $(this).data('path');
-            $('#inf_chooser').prop('hidden', true);
-            $('#inf_wizard').prop('hidden', false);
-            render_steps(path, 'name');
-            render_name();
-        });
-
-        /* --- Name + gender (gender picks the name ideas and every prompt suggestion) --- */
+        /* --- Setup: name, gender (picks the name ideas and every prompt suggestion), what she is built from, gallery --- */
+        var SOURCES = [
+            { value: 'photos',     path: 'photos',    icon: 'fa-images',         label: 'Your Photos',       note: LIM.min_photos + ' to ' + LIM.max_photos + ' photos, highest likeness' },
+            { value: 'text',       path: 'reference', icon: 'fa-pen-nib',        label: 'Describe The Face', note: 'A written description, fastest start' },
+            { value: 'face_photo', path: 'reference', icon: 'fa-image-portrait', label: 'One Face Photo',    note: 'A single front-facing photo' }
+        ];
+        function source_of(v) { return SOURCES.filter(function (s) { return s.value === v; })[0] || SOURCES[0]; }
+        function can_switch() { return !inf || (['draft', 'awaiting_reference', 'failed'].indexOf(inf.status) >= 0 && inf.pending_model_id <= 0); }
         function render_name() {
             var gender = inf ? inf.gender : '';
-            var html = '<h2 class="inf-wiz__h">Name Your Influencer</h2>' +
-                '<p class="inf-wiz__p">Unique across your influencers. You can change both later.</p>' +
-                '<div class="inf-grid">' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Gender</div>' + seg_html('inf_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], gender) + '</div>' +
-                '<div class="inf-field inf-field--full">' +
-                '<label class="inf-label" for="inf_name">Name</label>' +
+            var source = !inf ? 'photos' : (inf.path === 'photos' ? 'photos' : (inf.input_method || 'text'));
+            var locked = !can_switch();
+            var html = '<div class="inf-setup">' +
+                '<div class="inf-setup__col">' +
+                '<div class="inf-field"><label class="inf-label" for="inf_name">Name</label>' +
                 '<input type="text" class="form-control" id="inf_name" maxlength="120" value="' + esc(inf ? inf.name : '') + '">' +
+                '<div class="inf-chips" id="inf_name_chips" hidden></div></div>' +
+                '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], gender) + '</div>' +
+                '<div class="inf-field"><div class="inf-label">Public Gallery</div>' + seg_html('inf_public_seg', [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], String(inf ? (inf.is_public || 0) : 0)) + '</div>' +
                 '</div>' +
-                '<div class="inf-field inf-field--full" id="inf_name_ideas" hidden><div class="inf-label">Suggestions</div><div class="inf-chips" id="inf_name_chips"></div></div>' +
-                '</div>' +
+                '<div class="inf-setup__col">' +
+                '<div class="inf-field"><div class="inf-label">Build From</div><div class="inf-srcs" id="inf_source" role="radiogroup">' +
+                SOURCES.map(function (s) {
+                    var on = s.value === source;
+                    return '<button type="button" role="radio" class="inf-src' + (on ? ' is-on' : '') + '" data-value="' + s.value + '" aria-checked="' + on + '"' + (locked && !on ? ' disabled' : '') + '>' +
+                        '<span class="inf-src__ic"><i class="fa-solid ' + s.icon + '"></i></span>' +
+                        '<span class="inf-src__body"><span class="inf-src__t">' + esc(s.label) + '</span><span class="inf-src__n">' + esc(s.note) + '</span></span>' +
+                        '<span class="inf-src__mark"><i class="fa-solid fa-check"></i></span></button>';
+                }).join('') + '</div></div>' +
+                '</div></div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end">' +
-                (inf ? '' : '<button type="button" class="btn btn-secondary" id="inf_name_back">Back</button>') +
                 '<button type="button" class="btn btn-primary" id="inf_name_next">Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
             $('#inf_panel').html(html);
             function show_names(g) {
                 var names = ((CFG.names || {})[g]) || [];
                 $('#inf_name').attr('placeholder', names[0] || '');
-                $('#inf_name_chips').html(names.map(function (n) { return '<button type="button" class="inf-chip" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join(''));
-                $('#inf_name_ideas').prop('hidden', !names.length);
+                $('#inf_name_chips').html(names.map(function (n) { return '<button type="button" class="inf-chip" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('')).prop('hidden', !names.length);
             }
             seg_bind('inf_gender', function (g) { gender = g; show_names(g); });
+            seg_bind('inf_public_seg');
             if (gender) { show_names(gender); }
             $('#inf_name_chips').on('click', '.inf-chip', function () { $('#inf_name').val($(this).data('name')).trigger('focus'); $('#inf_name_chips .inf-chip').removeClass('is-on'); $(this).addClass('is-on'); });
-            $('#inf_name_back').on('click', function () { $('#inf_wizard').prop('hidden', true); $('#inf_chooser').prop('hidden', false); });
+            $('#inf_source').on('click', '.inf-src:not(:disabled)', function () {
+                source = $(this).data('value');
+                $('#inf_source .inf-src').removeClass('is-on').attr('aria-checked', 'false'); $(this).addClass('is-on').attr('aria-checked', 'true');
+                render_steps(source_of(source).path, 'name');   // the steps ahead depend on the source
+            });
             $('#inf_name').on('keydown', function (e) { if (e.key === 'Enter') { $('#inf_name_next').trigger('click'); } });
             $('#inf_name_next').on('click', function () {
-                var name = $('#inf_name').val().trim();
-                if (!gender) { toastr.error('Choose Woman or Man'); return; }
+                var name = $('#inf_name').val().trim(), src = source_of(source);
                 if (name == '') { toastr.error('Give your influencer a name'); $('#inf_name').trigger('focus'); return; }
+                if (!gender) { toastr.error('Choose Woman or Man'); return; }
+                var $b = $(this).prop('disabled', true);
+                var body = { name: name, gender: gender, is_public: seg_value('inf_public_seg') };
+                if (src.path === 'reference') { body.input_method = src.value; }
                 if (!inf) {
-                    api('influencer_create', { name: name, path: path, gender: gender }, function (o) {
-                        if (o && o.success) { window.location = '/influencers/create/' + o.influencer.id; } else { err(o); }
+                    body.path = src.path;
+                    api('influencer_create', body, function (o) {
+                        if (o && o.success) { window.location = '/influencers/create/' + o.influencer.id; } else { err(o); $b.prop('disabled', false); }
                     });
                     return;
                 }
-                var next = steps_for(path)[1];
-                api('influencer_save_step', { id: inf.id, name: name, gender: gender, step: next }, function (o) {
-                    if (o && o.success) { inf = o.influencer; $('#inf_wiz_title').text(inf.name); show(inf.wizard_step); } else { err(o); }
+                body.id = inf.id; body.step = steps_for(src.path)[1];
+                if (src.path !== inf.path) { body.path = src.path; }
+                api('influencer_save_step', body, function (o) {
+                    $b.prop('disabled', false);
+                    if (o && o.success) { inf = o.influencer; path = inf.path; $('#inf_wiz_title').text(inf.name); show(inf.wizard_step); } else { err(o); }
                 });
             });
         }
@@ -374,7 +391,7 @@ jQuery(function ($) {
             }
             if (!photos_path) {   // built from a reference: its training set is managed on the review step
                 html += '<div class="inf-photos inf-photos--sm" id="inf_set_view"></div>' +
-                        '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+                        '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
                 $('#inf_panel').append(html);
                 api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
                     ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
@@ -384,7 +401,7 @@ jQuery(function ($) {
             }
             html += photo_manager_html() +
                 '<div class="inf-wiz__foot"><span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
-                '<button type="button" class="btn btn-primary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+                '<button type="button" class="btn btn-secondary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
             $('#inf_panel').append(html);
             photo_manager_bind();
         }
@@ -396,7 +413,7 @@ jQuery(function ($) {
             $.each(C.persona || {}, function (col, def) {
                 var id = 'inf_' + col, label = String(def.label).replace('{Her}', her), ph = String(def.placeholder || '');
                 if (inf.gender === 'man') { ph = ph.replace(/\bher\b/g, 'his'); }
-                html += '<div class="inf-field inf-field--full"><label class="inf-label" for="' + id + '">' + esc(label) + '</label>' +
+                html += '<div class="inf-field"><label class="inf-label" for="' + id + '">' + esc(label) + '</label>' +
                     (def.rows > 1
                         ? '<textarea class="form-control" id="' + id + '" data-persona="' + col + '" rows="' + def.rows + '" maxlength="' + def.max + '" placeholder="' + esc(ph) + '">' + esc(inf[col] || '') + '</textarea>'
                         : '<input type="text" class="form-control" id="' + id + '" data-persona="' + col + '" maxlength="' + def.max + '" placeholder="' + esc(ph) + '" value="' + esc(inf[col] || '') + '">') +
@@ -405,28 +422,22 @@ jQuery(function ($) {
             return html;
         }
         function render_settings() {
-            var soc = CFG.social || { accounts: [] };
-            var sel = new Set((inf.share_accounts || []).map(String));
-            var chips = (soc.accounts || []).map(function (a) {
-                return '<label class="inf-social"><input class="form-check-input" type="checkbox" data-sacct="' + esc(a.id) + '"' + (sel.has(String(a.id)) ? ' checked' : '') + '> <span>' + esc(a.username || a.platform) + '</span></label>';
-            }).join('');
-            var html = '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Settings</h2></div>' +
-                '<div class="inf-grid">' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_defaults">Prompt Defaults</label><input type="text" class="form-control" id="inf_set_defaults" maxlength="2000" placeholder="film grain, natural light" value="' + esc(inf.prompt_defaults) + '"></div>' +
-                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_set_negative">Negative Prompt</label><input type="text" class="form-control" id="inf_set_negative" maxlength="2000" placeholder="blurry, extra fingers" value="' + esc(inf.negative_prompt) + '"></div>' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Share To</div><div class="inf-chips" id="inf_set_share">' + (chips || '<span class="inf-wiz__meta">No connected accounts yet.</span>') + '</div></div>' +
-                '</div>' +
-                '</section>' +
-                '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Persona</h2></div>' +
-                '<div class="inf-grid">' + persona_fields() + '</div>' +
-                '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
-                '</section>';
+            var she = (inf.gender === 'man') ? 'he' : 'she', her = (inf.gender === 'man') ? 'him' : 'her';
+            var html = '<div class="inf-about">' +
+                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2><p class="inf-sec__sub">Applied to every image generated with ' + her + '.</p></div></div>' +
+                '<div class="inf-about__fields">' +
+                '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
+                '</div></section>' +
+                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2><p class="inf-sec__sub">Who ' + she + ' is when AI writes captions, replies and campaign posts for ' + her + '.</p></div></div>' +
+                '<div class="inf-about__fields inf-persona">' + persona_fields() + '</div>' +
+                '</section></div>' +
+                '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';
             $('#inf_panel').append(html);
             seg_bind('inf_set_gender');
             $('#inf_set_save').on('click', function () {
-                var share = $('#inf_set_share input[data-sacct]:checked').map(function () { return String($(this).data('sacct')); }).get();
-                var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val(), share_accounts: share.join(',') };
+                var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val() };
                 $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
                 api('influencer_save_step', body, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
@@ -600,60 +611,45 @@ jQuery(function ($) {
         }
         function seg_bind(id, on_change) { $('#' + id).on('click', '.inf-seg__opt', function () { $('#' + id + ' .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); if (on_change) { on_change($(this).data('value')); } }); }
         function seg_value(id) { return $('#' + id + ' .inf-seg__opt.is-on').data('value'); }
-        /* --- Path B: Input --- */
-        function render_input() {
-            var html = '<h2 class="inf-wiz__h">How Should the Reference Be Made?</h2>' +
-                '<p class="inf-wiz__p">The reference image is the face every training image is built from.</p>' +
-                '<div class="inf-grid">' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Input</div>' + seg_html('inf_input_seg', [{ value: 'text', label: 'Describe the Face', icon: 'fa-pen-nib' }, { value: 'face_photo', label: 'Upload a face photo', icon: 'fa-image-portrait' }], inf.input_method || 'text') + '</div>' +
-                '<div class="inf-field"><div class="inf-label">Public gallery</div>' + seg_html('inf_public_seg', [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], String(inf.is_public || 0)) + '</div>' +
-                '</div>' +
-                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_input_back">Back</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_input_next">Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
-            $('#inf_panel').html(html);
-            seg_bind('inf_input_seg'); seg_bind('inf_public_seg');
-            $('#inf_input_back').on('click', function () { go_back('input'); });
-            $('#inf_input_next').on('click', function () {
-                api('influencer_save_step', { id: inf.id, input_method: seg_value('inf_input_seg'), is_public: seg_value('inf_public_seg'), step: 'reference' }, function (o) {
-                    if (o && o.success) { inf = o.influencer; show('reference'); } else { err(o); }
-                });
-            });
-        }
-
         /* --- Path B: Reference (text -> generate, or face photo upload) --- */
         var ref_stop = null;
         function render_reference() {
             if (ref_stop) { ref_stop(); ref_stop = null; }
             if (inf.input_method === 'face_photo') { return render_reference_photo(); }
             var faces = ((C.prompts || {})[inf.gender] || {}).face || [];
-            var html = '<h2 class="inf-wiz__h">Reference Image</h2>' +
-                '<p class="inf-wiz__p">This choice affects only the reference image, nothing generated later.</p>' +
-                '<div class="inf-grid">' +
-                '<div class="inf-field inf-field--full"><div class="inf-label">Render with</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
-                '<div class="inf-field inf-field--full"><label class="inf-label" for="inf_ref_desc">Face description</label><textarea class="form-control" id="inf_ref_desc" maxlength="2000" placeholder="' + esc(faces[0] || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
-                (faces.length ? '<div class="inf-field inf-field--full"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text" data-i="' + i + '" title="' + esc(t) + '">' + esc(t.slice(0, 70)) + (t.length > 70 ? '…' : '') + '</button>'; }).join('') + '</div></div>' : '') +
+            var html = '<div class="inf-wiz__split">' +
+                '<div class="inf-wiz__form">' +
+                '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_ref_desc">Face Description</label><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc(faces[0] || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
+                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div></div>' : '') +
                 '</div>' +
-                '<div class="inf-ref" id="inf_ref_out" hidden><div class="inf-label">Reference</div><div class="inf-ref__row" id="inf_ref_row"></div></div>' +
+                '<div class="inf-wiz__view">' +
+                '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
+                '<div class="inf-ref__row" id="inf_ref_row" hidden></div>' +
+                '</div></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_ref_back">Back</button>' +
                 '<span class="inf-wiz__meta" id="inf_ref_status"></span>' +
-                '<button type="button" class="btn btn-secondary" id="inf_ref_gen" hidden><i class="fa-solid fa-wand-magic-sparkles"></i> Generate another</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_ref_gen_primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate reference</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_ref_use" hidden><i class="fa-solid fa-check"></i> Use this reference</button></div>';
+                '<button type="button" class="btn btn-secondary" id="inf_ref_gen" hidden><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Another</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_ref_gen_primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Reference</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_ref_use" hidden><i class="fa-solid fa-check"></i> Use This Reference</button></div>';
             $('#inf_panel').html(html);
             opts_bind('inf_ref_model');
-            $('#inf_panel').on('click', '.inf-chip--text', function () { $('#inf_ref_desc').val(faces[$(this).data('i')]).trigger('focus'); });
+            $('#inf_panel').off('click.infpre').on('click.infpre', '.inf-chip--text', function () { $('#inf_ref_desc').val(faces[$(this).data('i')]).trigger('focus'); });
             $('#inf_ref_back').on('click', function () { go_back('reference'); });
             var selected = inf.reference_asset_id || 0;
+            var IDLE = $('#inf_ref_stage').html();
+            function stage(img) { $('#inf_ref_stage').html(img ? '<figure class="inf-gen__main"><img src="' + esc(img.display_url || img.thumb_url) + '" alt=""></figure>' : IDLE); }
+            function busy(text) { $('#inf_ref_stage').html('<div class="inf-gen__busy"><span class="spinner-border" role="status"></span><p>' + esc(text) + '</p></div>'); }
             function paint(images) {
-                var $row = $('#inf_ref_row').empty();
-                if (!images.length) { $('#inf_ref_out').prop('hidden', true); return; }
-                $('#inf_ref_out').prop('hidden', false);
+                var $row = $('#inf_ref_row').empty().prop('hidden', images.length < 2);
+                if (!images.length) { stage(null); return; }
+                if (!selected || !images.some(function (im) { return im.id === selected; })) { selected = images[images.length - 1].id; }
                 images.forEach(function (img) {
                     var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === selected ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
-                    $t.on('click', function () { selected = img.id; $('#inf_ref_row .inf-photo').removeClass('is-on'); $t.addClass('is-on'); });
+                    $t.on('click', function () { selected = img.id; $('#inf_ref_row .inf-photo').removeClass('is-on'); $t.addClass('is-on'); stage(img); });
                     $row.append($t);
+                    if (img.id === selected) { stage(img); }
                 });
-                if (!selected) { selected = images[images.length - 1].id; $row.find('[data-id="' + selected + '"]').addClass('is-on'); }
                 $('#inf_ref_use').prop('hidden', false); $('#inf_ref_gen').prop('hidden', false); $('#inf_ref_gen_primary').prop('hidden', true);
             }
             api('influencer_images', { id: inf.id, role: 'reference' }, function (o) { if (o && o.success && o.images.length) { paint(o.images); } });
@@ -662,14 +658,13 @@ jQuery(function ($) {
                 if (desc == '') { toastr.error('Describe the face first'); return; }
                 if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
                 $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', true);
-                $('#inf_ref_status').html('<span class="spinner-border spinner-border-sm"></span> Generating');
+                busy('Generating');
                 api('influencer_reference_generate', { id: inf.id, source_description: desc, reference_model_key: opts_value('inf_ref_model') }, function (o) {
-                    if (!o || !o.success) { err(o); $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', false); $('#inf_ref_status').text(''); return; }
-                    ref_stop = poll_job(o.job_id, function (j) { $('#inf_ref_status').html('<span class="spinner-border spinner-border-sm"></span> ' + esc(status_text(j))); }, function (j) {
+                    if (!o || !o.success) { err(o); $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', false); api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) { paint((o2 && o2.success) ? o2.images : []); }); return; }
+                    ref_stop = poll_job(o.job_id, function (j) { busy(status_text(j)); }, function (j) {
                         $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', false); $('#inf_ref_status').text('');
-                        if (j.status !== 'done') { toastr.error(j.error || 'Generation failed'); return; }
-                        selected = 0;
-                        api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) { if (o2 && o2.success) { paint(o2.images); } });
+                        if (j.status === 'done') { selected = 0; } else { toastr.error(j.error || 'Generation failed'); }
+                        api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) { paint((o2 && o2.success) ? o2.images : []); });
                     });
                 });
             }
@@ -801,32 +796,25 @@ jQuery(function ($) {
             });
         }
 
-        var RENDER = { name: render_name, photos: render_photos, input: render_input, reference: render_reference, set: render_set, review: render_review, training: render_training, done: render_done };
+        var RENDER = { name: render_name, photos: render_photos, input: render_name, reference: render_reference, set: render_set, review: render_review, training: render_training, done: render_done };
         window.INF_WIZ = { register: function (step, fn) { RENDER[step] = fn; }, get: function () { return inf; }, set: function (v) { inf = v; }, show: function (s) { show(s); }, back: go_back, steps: visible_steps, path: function () { return path; } };
 
         function show(step) {
             clearTimeout(poll_timer);
             render_steps(path, step);
             $('#inf_steps').prop('hidden', step === 'done');
-            if (step === 'training' || step === 'done') { set_actions(''); }   // Switch path is only possible before training: don't leave it up once training has started
             (RENDER[step] || function () { render_pending(step); })();
         }
 
         if (inf) {
             path = inf.path;
-            if (!path) { $('#inf_wizard').prop('hidden', true); return; }
-            // Switch path (before training only).
-            if (['draft', 'awaiting_reference', 'failed'].indexOf(inf.status) >= 0 && inf.pending_model_id <= 0) {
-                set_actions('<button type="button" class="btn btn-outline-secondary btn-sm" id="inf_switch">Switch path</button>');
-                $('#inf_switch').on('click', function () {
-                    var other = path === 'photos' ? 'reference' : 'photos';
-                    Swal.fire({ title: 'Switch to ' + (other === 'photos' ? 'Train from your photos' : 'Text or single image') + '?', text: 'Your name and anything already uploaded are kept.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Switch', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
-                        .then(function (r) { if (r.isConfirmed) { api('influencer_save_step', { id: inf.id, path: other, step: 'name' }, function (o) { if (o && o.success) { window.location.reload(); } else { err(o); } }); } });
-                });
-            }
+            if (!path) { path = 'photos'; }
             if (inf.status === 'ready' && inf.pending_model_id > 0) { show('training'); return; }
             if (CFG.retrain && inf.status === 'ready' && inf.pending_model_id <= 0) { show(path === 'photos' ? 'done' : 'review'); return; }
             show(inf.wizard_step || 'name');
+        } else {
+            path = 'photos';
+            show('name');
         }
     }
 

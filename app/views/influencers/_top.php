@@ -27,7 +27,9 @@ $video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control',
         <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
     </div>
 <?php endif; ?>
-    <nav class="inf-nav" aria-label="Influencer sections">
+<?php $sub_modes = isset($image_modes[$page]) ? $image_modes : (isset($video_modes[$page]) ? $video_modes : array());
+      if ($target <= 0 || !empty($this->needs_plan)) { $sub_modes = array(); } ?>
+    <nav class="inf-nav<?php echo $sub_modes ? ' inf-nav--sub' : ''; ?>" aria-label="Influencer sections">
         <?php foreach ($nav as $n):
             $off = $n['needs'] && ($target <= 0 || !empty($this->needs_plan));
             $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index') || ($n['key'] === 'images' && isset($image_modes[$page])) || ($n['key'] === 'videos' && isset($video_modes[$page])); ?>
@@ -38,3 +40,10 @@ $video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control',
             <?php endif; ?>
         <?php endforeach; ?>
     </nav>
+<?php if ($sub_modes): /* The ways to generate (images or video) are pages of their own: a second row under the section tabs. */ ?>
+    <nav class="inf-sub" aria-label="How to generate">
+        <?php foreach ($sub_modes as $mk => $ml): ?>
+        <a class="inf-sub__item<?php echo $page === $mk ? ' is-on' : ''; ?>" href="/influencers/<?php echo $mk; ?>/<?php echo (int) $target; ?>"<?php echo $page === $mk ? ' aria-current="page"' : ''; ?>><?php echo $e($ml); ?></a>
+        <?php endforeach; ?>
+    </nav>
+<?php endif; ?>

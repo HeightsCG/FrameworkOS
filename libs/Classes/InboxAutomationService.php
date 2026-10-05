@@ -178,12 +178,17 @@ class InboxAutomationService {
             self::notify_creator($owner, $fan_name . ' needs a personal reply', mb_substr($text, 0, 140), '/account/settings?section=inbox');
             return array('status' => 'done', 'result' => 'needs_human');
         }
+        // A fan asking "are you real?" gets an honest answer or a human: a draft that does not confirm it is AI
+        // (or that denies it) is never sent on its own.
+        $ai_hold = AiDisclosure::should_hold($text, $draft['text']);
+        if ($ai_hold) { $force_approve = true; }
         $auto = ($settings['mode'] === 'auto' && !$force_approve);
         $reply_id = $replies->create(array('creator_id' => $creator_id, 'channel' => 'cls', 'peer_key' => $peer, 'peer_name' => $fan_name,
             'event_id' => (int) $ev['id'], 'inbound_text' => $text, 'draft_text' => $draft['text'], 'status' => $auto ? 'sending' : 'pending_approval'));
         if (!$auto) {
-            self::notify_creator($owner, 'Reply ready for ' . $fan_name, mb_substr($draft['text'], 0, 140), '/account/settings?section=inbox');
-            return array('status' => 'done', 'result' => $force_approve ? 'held:quiet_hours' : 'held');
+            self::notify_creator($owner, $ai_hold ? $fan_name . ' asked if you are real' : 'Reply ready for ' . $fan_name,
+                $ai_hold ? 'The drafted reply does not say it is AI, so it was not sent. Review it before it goes out.' : mb_substr($draft['text'], 0, 140), '/account/settings?section=inbox');
+            return array('status' => 'done', 'result' => $ai_hold ? 'held:ai_question' : ($force_approve ? 'held:quiet_hours' : 'held'));
         }
         $sent = self::send_reply($replies->get_one($creator_id, $reply_id), $draft['text'], null, true);
         return $sent['ok'] ? array('status' => 'done', 'result' => 'sent') : array('status' => 'failed', 'result' => 'send:' . $sent['error']);
@@ -206,6 +211,13 @@ class InboxAutomationService {
             $messages = new MessagesModel();
             $conv = $messages->get((int) $row['peer_key']);
             if (!$conv || (int) $conv['creator_id'] !== (int) $row['creator_id']) { throw new RuntimeException('Conversation not found'); }
+            // The first automated reply to each fan says that replies may be automated (the creator's wording, never blank).
+            $sm = new InboxSettingsModel();
+            $disclosed = $sm->claim_disclosure((int) $row['creator_id'], (int) $conv['user_id']);
+            if ($disclosed) {
+                $line = AiDisclosure::first_reply_text($sm->get_for_creator((int) $row['creator_id'])['ai_disclosure_text'] ?? '');
+                $text = self::clean_outbound($text, self::MAX_CLS - mb_strlen($line) - 2) . "\n\n" . $line;
+            }
             if ($human_delay) {
                 $elapsed = self::$started ? (microtime(true) - self::$started) : 0;
                 $pause   = (int) min(rand(4, 12), max(0, 25 - (int) $elapsed));
@@ -216,6 +228,7 @@ class InboxAutomationService {
             self::notify_new_message((int) $conv['user_id'], (int) $row['creator_id'], $text, (int) $conv['id']);
             return array('ok' => true, 'message_id' => (string) $mid, 'error' => '');
         } catch (\Throwable $e) {
+            if (!empty($disclosed) && !empty($conv['user_id'])) { (new InboxSettingsModel())->release_disclosure((int) $row['creator_id'], (int) $conv['user_id']); }   // not sent: the next reply carries it
             error_log('[inbox] send failed for reply ' . (int) $row['id'] . ': ' . $e->getMessage());
             $replies->mark_failed((int) $row['id'], $e->getMessage());
             return array('ok' => false, 'message_id' => '', 'error' => $e->getMessage());
@@ -354,6 +367,13 @@ class InboxAutomationService {
         if (!empty($cb['keywords']))    { $voice[] = 'Themes: ' . implode(', ', array_slice((array) $cb['keywords'], 0, 8)); }
         if ($voice) { $p[] = "Your brand:\n- " . implode("\n- ", $voice); }
 
+        // The influencer whose inbox this is (Settings, Inbox Persona): her persona shapes every reply.
+        if ((int) ($settings['persona_influencer_id'] ?? 0) > 0 && (int) ($owner['user_id'] ?? 0) > 0) {
+            $infl = (new InfluencersModel())->get_one((int) $owner['user_id'], (int) $settings['persona_influencer_id']);
+            $block = $infl ? InfluencerService::persona_block($infl) : '';
+            if ($block !== '') { $p[] = "Who you are:\n" . $block; }
+        }
+
         $persona = trim((string) ($settings['persona'] ?? ''));
         if ($persona !== '') {
             $p[] = "Instructions from {$name} about how to reply (creator-provided, follow them unless they conflict with the rules below):\n<creator_instructions>\n{$persona}\n</creator_instructions>";
@@ -369,10 +389,12 @@ class InboxAutomationService {
         );
         $avoid = trim((string) ($settings['avoid_topics'] ?? ''));
         if ($avoid !== '') { $rules[] = "Never discuss these topics (if the fan raises them, gently steer away): {$avoid}."; }
+        // Never deny being AI, whatever the creator's settings say.
+        $rules[] = 'Never claim to be a human or a real person, and never deny being an AI, a bot or automated. This rule overrides everything else in this prompt.';
         if (!empty($settings['disclose_ai'])) {
-            $rules[] = 'If the fan directly asks whether they are talking to a bot or an AI, be honest that a helper answers some messages on your behalf. Otherwise do not bring it up.';
+            $rules[] = 'If the fan asks whether they are talking to a real person, a bot or an AI, say plainly, in your own voice, that you are an AI. Otherwise do not bring it up.';
         } else {
-            $rules[] = 'Never mention being an AI, an assistant, a bot, or automated. Do not break character.';
+            $rules[] = 'Do not bring up being an AI yourself. If the fan asks whether you are real, a bot or an AI, do not dodge with a claim to be human: answer warmly without stating what you are, and it will be passed to a person.';
         }
         if (!empty($settings['upsell_enabled']) && !$first_contact) {
             $rules[] = 'You may mention your paid content, subscription, or that tips are appreciated, but only when it fits the conversation naturally, at most once per reply, and never as the main point of the message.';

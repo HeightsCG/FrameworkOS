@@ -45,21 +45,17 @@ class SocialShareService {
             if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
             if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }
             $valid = array(); $req = array_map('strval', $account_ids);
-            $platforms = array();
+            $accounts = array();
             foreach ((new SocialAccountsModel())->get_connected_for_user((int) $user['user_id']) as $a) {
                 $pfm = (string) $a['post_for_me_social_account_id'];
-                if (in_array($pfm, $req, true)) { $valid[] = $pfm; $platforms[(string) $a['platform']] = (string) $a['platform']; }
+                if (in_array($pfm, $req, true)) {
+                    $valid[] = $pfm;
+                    $accounts[] = array('id' => $pfm, 'platform' => (string) $a['platform'], 'ai_disclosure_text' => (string) ($a['ai_disclosure_text'] ?? ''));
+                }
             }
             if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
             $promo = trim((string) $post['caption']);
-
-            // Platforms with a hard length limit get a shortened caption so nothing is cut off mid-word.
-            $platform_configurations = array();
-            foreach ($platforms as $platform) {
-                $fit = self::caption_for($platform, $promo);
-                if ($fit !== $promo) { $platform_configurations[$platform] = array('caption' => $fit); }
-            }
 
             $assets = (new PostsModel())->get_assets((int) $post['id']);
             $cover = null;
@@ -72,9 +68,9 @@ class SocialShareService {
                 if ($post['audience'] === 'subscribers' || !self::sfw($cover)) {
                     // Teaser only (members-only post, or an adult / not-yet-cleared image on mainstream socials):
                     // the blurred still, never the media itself.
-                    $items = self::push_item((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', false, $items);
+                    $items = self::tag_shape(self::push_item((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', false, $items), $cover);
                 } else {
-                    $items = self::push_asset($cover, $items);
+                    $items = self::tag_shape(self::push_asset($cover, $items), $cover);
                 }
             }
             // Free posts go out as a carousel: the rest of the post's media after the cover.
@@ -84,26 +80,26 @@ class SocialShareService {
                     if (count($items) >= self::MAX_MEDIA) { break; }
                     if ((int) $a['asset_id'] === (int) $cover['asset_id'] || !empty($a['deleted_at'])) { continue; }
                     if (!self::sfw($a)) { continue; }
-                    $items = self::push_asset($a, $items);
+                    $items = self::tag_shape(self::push_asset($a, $items), $a);
                 }
             }
 
-            // Each platform gets only as much of the carousel as it accepts.
-            $media_urls = array_column($items, 'url');
-            foreach ($platforms as $platform) {
-                $fit = array_column(self::media_for($platform, $items), 'url');
-                if ($fit !== $media_urls) {
-                    $platform_configurations[$platform]['media'] = array_map(function ($u) { return array('url' => $u); }, $fit);
-                }
-            }
+            // Captions, the carousel slice, the AI label or disclosure line, and Stories: one plan, built without the network.
+            $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
+            $plan = self::plan($promo, $accounts, $items, array(
+                'ai'      => AiDisclosure::applies($post['ai_disclosure'] ?? null, $live),
+                'stories' => array_filter(explode(',', (string) ($post['story_accounts'] ?? '')), 'strlen'),
+            ));
+            if (empty($plan['accounts'])) { return array('ok' => false, 'shared' => 0, 'error' => implode(' ', $plan['notes'])); }
+            $valid = $plan['accounts'];
 
-            $res = PostForMeService::create_post($valid, $promo, $media_urls, $scheduled_iso, false, $platform_configurations);
+            $res = PostForMeService::create_post($valid, $promo, $plan['media'], $scheduled_iso, false, $plan['platform_configurations'], $plan['account_configurations']);
             if (is_array($res) && isset($res['id'])) {
                 (new SocialPostsModel())->create(
                     (int) $user['user_id'], (string) $res['id'], $promo,
                     (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
                 );
-                return array('ok' => true, 'shared' => count($valid), 'error' => '');
+                return array('ok' => true, 'shared' => count($valid), 'error' => implode(' ', $plan['notes']));
             }
             $err = is_array($res) ? (string) ($res['_error'] ?? 'unknown error') : 'no response from Post for Me';
             error_log('[social share] create_post failed: ' . $err);
@@ -112,6 +108,87 @@ class SocialShareService {
             error_log('[social share] failed: ' . $e->getMessage());
             return array('ok' => false, 'shared' => 0, 'error' => $e->getMessage());
         }
+    }
+
+    /**
+     * What one cross-post sends, worked out without touching the network (so it can be tested).
+     *
+     * $accounts: rows of id, platform, ai_disclosure_text. $items: uploaded media, cover first, each
+     * array('url', 'video' => bool, 'tall' => bool (9:16)). $opts: 'ai' => disclose this post as AI media,
+     * 'stories' => account ids that get it as a Story.
+     *
+     * Returns accounts (the ids that are sent to), media (urls), platform_configurations,
+     * account_configurations and notes (what was left out, and why).
+     *
+     *  - AI disclosure: TikTok and YouTube take their own AI flag; every other platform gets the
+     *    account's disclosure line as the last line of the caption, inside that platform's limit.
+     *  - Stories (Instagram, Facebook): placement "stories" with only the 9:16 media. A Story carries
+     *    no caption, so it cannot carry the disclosure line. An account with no 9:16 media is skipped.
+     */
+    public static function plan($caption, array $accounts, array $items, array $opts = array()): array {
+        $caption = trim((string) $caption);
+        $ai      = !empty($opts['ai']);
+        $stories = array_map('strval', (array) ($opts['stories'] ?? array()));
+        $media   = array_column($items, 'url');
+        $out     = array('accounts' => array(), 'media' => $media, 'platform_configurations' => array(), 'account_configurations' => array(), 'notes' => array());
+        $tall    = array_values(array_filter($items, function ($i) { return !empty($i['tall']); }));
+
+        $feed = array();   // platform => accounts posting to the feed
+        foreach ($accounts as $a) {
+            $id = (string) $a['id']; $platform = strtolower((string) $a['platform']);
+            if (in_array($id, $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true)) {
+                if (empty($tall)) { $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: Stories need 9:16 media.'; continue; }
+                $out['accounts'][] = $id;
+                $out['account_configurations'][] = array('social_account_id' => $id, 'configuration' => array(
+                    'placement' => 'stories',
+                    'media'     => array_map(function ($i) { return array('url' => $i['url']); }, $tall),
+                ));
+                continue;
+            }
+            $out['accounts'][] = $id;
+            $feed[$platform][] = $a;
+        }
+
+        foreach ($feed as $platform => $list) {
+            $cfg  = array();
+            $flag = $ai ? AiDisclosure::flag_for($platform) : '';
+            if ($flag !== '') { $cfg[$flag] = true; }
+            $fit = self::caption_for($platform, $caption);
+            if ($fit !== $caption) { $cfg['caption'] = $fit; }
+            $slice = array_column(self::media_for($platform, $items), 'url');
+            if ($slice !== $media) { $cfg['media'] = array_map(function ($u) { return array('url' => $u); }, $slice); }
+            if (!empty($cfg)) { $out['platform_configurations'][$platform] = $cfg; }
+            if (!$ai || $flag !== '') { continue; }
+            // No AI label on this platform: the disclosure line goes on the caption. Accounts can each have their own line.
+            $lines = array();
+            foreach ($list as $a) { $lines[(string) $a['id']] = AiDisclosure::line($a['ai_disclosure_text'] ?? ''); }
+            if (count(array_unique($lines)) === 1) {
+                $out['platform_configurations'][$platform]['caption'] = self::caption_with_line($platform, $caption, reset($lines));
+            } else {
+                foreach ($lines as $id => $line) {
+                    $out['account_configurations'][] = array('social_account_id' => (string) $id, 'configuration' => array('caption' => self::caption_with_line($platform, $caption, $line)));
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** The caption with the disclosure line as its last line, the caption shortened so both fit the platform's limit. */
+    public static function caption_with_line($platform, $caption, $line): string {
+        $platform = strtolower((string) $platform); $caption = trim((string) $caption); $line = AiDisclosure::line($line);
+        if ($caption === '') { return $line; }
+        if (mb_stripos($caption, $line) !== false) { return self::caption_for($platform, $caption); }   // already says it
+        $tail = "\n\n" . $line;
+        return self::caption_for($platform, $caption, self::length_for($platform, $tail)) . $tail;
+    }
+
+    /** Mark the item just uploaded for $asset as 9:16 or not (Stories take only 9:16). */
+    private static function tag_shape(array $items, array $asset): array {
+        $n = count($items);
+        if ($n > 0 && !isset($items[$n - 1]['tall'])) {
+            $items[$n - 1]['tall'] = Aspect::matches((int) ($asset['width'] ?? 0), (int) ($asset['height'] ?? 0), '9:16', 0.04);
+        }
+        return $items;
     }
 
     /** Hard post-length limits per platform (Post for Me platform keys). Everything else is effectively unlimited. */
@@ -124,11 +201,11 @@ class SocialShareService {
      * The caption for one platform: shortened at a word boundary (with an ellipsis) when it
      * exceeds the platform's limit. Platforms without a limit get the text unchanged.
      */
-    public static function caption_for($platform, $caption): string {
+    public static function caption_for($platform, $caption, $reserve = 0): string {
         $platform = strtolower((string) $platform);
         $caption  = trim((string) $caption);
         if (!isset(self::LIMITS[$platform])) { return $caption; }
-        $limit = self::LIMITS[$platform];
+        $limit = max(1, self::LIMITS[$platform] - (int) $reserve);   // $reserve: room kept free for text added after the caption
         if (self::length_for($platform, $caption) <= $limit) { return $caption; }
 
         $budget = $limit - self::length_for($platform, '…');

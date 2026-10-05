@@ -842,9 +842,24 @@
                         <span class="cprofile__hint">Messages about these are held for you instead of answered.</span>
                     </div>
 
+                    <div class="cprofile__field">
+                        <label for="inboxAiDisclosure">First Reply Disclosure</label>
+                        <input type="text" class="form-control" id="inboxAiDisclosure" maxlength="300" required placeholder="<?php echo htmlspecialchars(AiDisclosure::DEFAULT_FIRST_REPLY, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars((string) ($is['ai_disclosure_text'] ?? AiDisclosure::DEFAULT_FIRST_REPLY), ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
+<?php $inbox_infl = array(); try { foreach ((new InfluencersModel())->list_ready(Permissions::creator_id()) as $ir) { $inbox_infl[] = $ir; } } catch (\Throwable $e) {} ?>
+<?php if (!empty($inbox_infl)): ?>
+                    <div class="cprofile__field">
+                        <label for="inboxPersonaInfluencer">Inbox Persona</label>
+                        <select class="form-select" id="inboxPersonaInfluencer">
+                            <option value="0">Brand Voice Only</option>
+                            <?php foreach ($inbox_infl as $ir): ?><option value="<?php echo (int) $ir['id']; ?>"<?php echo ((int) ($is['persona_influencer_id'] ?? 0) === (int) $ir['id']) ? ' selected' : ''; ?>><?php echo htmlspecialchars((string) $ir['name'], ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?>
+                        </select>
+                    </div>
+<?php endif; ?>
+
                     <div class="inbox-checks">
                         <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxUpsell" <?php echo !empty($is['upsell_enabled']) ? 'checked' : ''; ?>><span><strong>Allow gentle upsells</strong><small>May mention your paid content or tips when it fits naturally. Never on a first message.</small></span></label>
-                        <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxDisclose" <?php echo !empty($is['disclose_ai']) ? 'checked' : ''; ?>><span><strong>Be honest if asked</strong><small>If a fan asks whether they're talking to a bot, say a helper answers some messages.</small></span></label>
+                        <label class="inbox-check"><input class="form-check-input" type="checkbox" id="inboxDisclose" <?php echo !empty($is['disclose_ai']) ? 'checked' : ''; ?>><span><strong>Say It Is AI When Asked</strong><small>If a fan asks whether they're talking to a real person, the reply says it is AI. When this is off, that reply is held for you instead. A reply never claims to be human.</small></span></label>
                     </div>
 
                     <div class="cprofile__field">
@@ -1078,6 +1093,10 @@
                         <li class="integ__acct">
                             <span class="integ__dot is-on"></span>
                             <span class="integ__acctname"><?php echo htmlspecialchars(($a['username'] !== '' && $a['username'] !== null) ? '@' . $a['username'] : 'Connected', ENT_QUOTES, 'UTF-8'); ?></span>
+                            <?php if (AiDisclosure::flag_for($p) === ''): /* platforms with their own AI label need no line */ ?>
+                            <label class="integ__ailine"><span class="integ__ailabel">AI Disclosure Line</span>
+                                <input type="text" class="form-control form-control-sm conn-ai-line" maxlength="200" placeholder="<?php echo htmlspecialchars(AiDisclosure::DEFAULT_LINE, ENT_QUOTES, 'UTF-8'); ?>" value="<?php echo htmlspecialchars(html_entity_decode((string) ($a['ai_disclosure_text'] ?? ''), ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8'); ?>" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>"></label>
+                            <?php endif; ?>
                             <button type="button" class="btn btn-ghost btn-sm conn-disconnect" data-account-id="<?php echo htmlspecialchars($a['post_for_me_social_account_id'], ENT_QUOTES, 'UTF-8'); ?>">Disconnect</button>
                         </li>
                         <?php endforeach; ?>
@@ -3096,7 +3115,9 @@ $(function () {
             persona:         $('#inboxPersona').val(),
             avoid_topics:    $('#inboxAvoid').val(),
             upsell_enabled:  $('#inboxUpsell').is(':checked') ? 1 : 0,
-            disclose_ai:     $('#inboxDisclose').is(':checked') ? 1 : 0
+            disclose_ai:     $('#inboxDisclose').is(':checked') ? 1 : 0,
+            ai_disclosure_text: $('#inboxAiDisclosure').val(),
+            persona_influencer_id: $('#inboxPersonaInfluencer').val() || 0
         };
     }
 
@@ -3133,6 +3154,15 @@ $(function () {
             } else {
                 toastr.error(o.message);
             }
+        });
+    });
+
+    // AI disclosure line per social account: saved when the field is left.
+    $(document).on('change', '.conn-ai-line', function () {
+        var $f = $(this);
+        ApiDataSvc.apiCall('post', 'social_disclosure_save', { account_id: $f.data('account-id'), text: $f.val() }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            if (o && o.success) { toastr.success('Saved'); } else { toastr.error((o && o.message) || 'Could not save.'); }
         });
     });
 

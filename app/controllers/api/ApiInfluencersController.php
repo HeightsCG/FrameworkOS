@@ -59,7 +59,8 @@ class ApiInfluencersController extends BaseApiController {
 
     public function influencer_createAction(){
         $user = $this->ai_user();
-        $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? '')));
+        $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? ''),
+            (string) ($this->post['input_method'] ?? 'text'), (string) ($this->post['is_public'] ?? '0') === '1'));
     }
 
     /** Persist wizard inputs + the step the user is on (any subset of the settable fields). */

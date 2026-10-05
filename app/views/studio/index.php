@@ -349,9 +349,10 @@
                         <div class="cs-pe__field">
                             <div class="cs-pe__labelrow">
                                 <label class="cs-pe__label" for="csCompCaption">Caption</label>
-                                <span class="cs-pe__labeltools"><button type="button" class="cs-pe__link" id="csPeCaptionAuto"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write a caption</button><span class="cs-pe__count" id="csPeCount"><span id="csCompCount">0</span> / 3000</span></span>
+                                <span class="cs-pe__labeltools"><label class="visually-hidden" for="csPeCaptionMode">Caption Mode</label><select class="form-select cs-pe__capmode" id="csPeCaptionMode"><?php foreach (BrandService::CAPTION_MODES as $mk => $ml): ?><option value="<?php echo $mk; ?>"><?php echo htmlspecialchars($ml, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select><button type="button" class="cs-pe__link" id="csPeCaptionAuto"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write a caption</button><span class="cs-pe__count" id="csPeCount"><span id="csCompCount">0</span> / 3000</span></span>
                             </div>
                             <textarea id="csCompCaption" class="form-control cs-pe__caption" rows="6" maxlength="3000" placeholder="Write a caption…" aria-describedby="csPeCount csPeErr_caption"></textarea>
+                            <div class="cs-pe__hook" id="csPeHook" hidden><span class="cs-pe__hooklabel">On-Video Text</span><span class="cs-pe__hooktext" id="csPeHookText"></span><button type="button" class="cs-pe__link" id="csPeHookCopy"><i class="fa-regular fa-copy" aria-hidden="true"></i> Copy</button></div>
                             <p class="cs-pe__error" id="csPeErr_caption" role="alert" hidden></p>
                         </div>
 
@@ -760,6 +761,10 @@
                         <div class="cs-ae__field cs-ae__field--switch">
                             <label class="cs-ae__label" for="csSchedAi">AI captions</label>
                             <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedAi" checked></div>
+                        </div>
+                        <div class="cs-ae__field cs-ae__reveal" id="csSchedCapModeWrap">
+                            <label class="cs-ae__label" for="csSchedCapMode">Caption Mode</label>
+                            <select class="form-select" id="csSchedCapMode"><?php foreach (BrandService::CAPTION_MODES as $mk => $ml): ?><option value="<?php echo $mk; ?>"><?php echo htmlspecialchars($ml, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select>
                         </div>
                         <div class="cs-ae__field cs-ae__reveal" id="csSchedCaptionWrap" hidden>
                             <label class="cs-ae__label" for="csSchedCaption">Caption</label>

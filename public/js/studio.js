@@ -1069,7 +1069,13 @@ jQuery(function ($) {
                 (off ? '<span class="cs-pe__deststate">Disconnected</span>' : '') +
                 '<span class="cs-pe__destplat">' + esc(plat) + '</span></label>');
         });
-        peUpdateDestCount();
+        peUpdateDestCount();        $(document).trigger('cs:dest-rendered', [composer, accounts]);
+    }
+    /* Cross-post choices kept on the composer by studio-ai.js: the AI disclosure switch and Story placement. */
+    function shareOpts(body) {
+        body.ai_disclosure = (composer.ai_disclosure == null) ? '' : (composer.ai_disclosure ? '1' : '0');
+        body.story_accounts = (composer.story_accounts || []).filter(function (id) { return composer.share.has(String(id)); });
+        return body;
     }
     function peUpdateDestCount() {
         var n = composer.share.size, total = $('#csCompSocial input[data-acct]').length;
@@ -1085,6 +1091,7 @@ jQuery(function ($) {
     });
     $('#csCompSocial').on('change', 'input[data-acct]', function () {
         var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id);
+        $(document).trigger('cs:dest-changed', [composer]);
         $(this).closest('.cs-pe__dest').toggleClass('is-on', this.checked);
         peUpdateDestCount(); peMarkDirty();
     });
@@ -1306,6 +1313,8 @@ jQuery(function ($) {
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
+        composer.ai_disclosure = (p.ai_disclosure == null) ? null : p.ai_disclosure;   // null = on when the post has AI media
+        composer.story_accounts = (p.story_accounts || []).map(String);
         composer.state = p.state || 'draft';
         composer.assets = p.assets || []; composer.coverDisplay = p.cover_display_url || ''; composer.coverBlurred = p.cover_blurred_url || '';
         composer.validation = p.validation || { ok: true, reason: '' };
@@ -1570,8 +1579,9 @@ jQuery(function ($) {
         var $b = $(this), html = $b.html();
         $b.prop('disabled', true).addClass('is-busy').html('<span class="spinner-border spinner-border-sm"></span> Writing…');
         $('#csCompCaption').prop('disabled', true).attr('placeholder', 'Writing a caption…');
-        ApiDataSvc.apiCall('post', 'post_caption_auto', { asset_ids: composer.assets.map(function (a) { return a.id; }), audience: composer.audience, hint: composer.caption.trim() }, function (resp) {
+        ApiDataSvc.apiCall('post', 'post_caption_auto', { asset_ids: composer.assets.map(function (a) { return a.id; }), audience: composer.audience, hint: composer.caption.trim(), caption_mode: $('#csPeCaptionMode').val() || 'standard' }, function (resp) {
             var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            $(document).trigger('cs:caption-written', [o]);
             $b.prop('disabled', false).removeClass('is-busy').html(html);
             $('#csCompCaption').prop('disabled', false).attr('placeholder', 'Write a caption…');
             if (!o || !o.success) { toastr.error((o && o.message) || 'Could not write a caption right now.'); return; }
@@ -1620,7 +1630,7 @@ jQuery(function ($) {
     function composerAddAsset(asset) {
         if (peUploading > 0) { peUploading--; peUploadStatus(); }
         if (!asset || composer.assets.some(function (a) { return a.id === asset.id; })) return;
-        composer.assets.push({ id: asset.id, type: asset.type, thumb_url: asset.thumb_url, video_url: asset.video_url || '', duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
+        composer.assets.push({ id: asset.id, provenance: asset.provenance || 'uploaded', type: asset.type, thumb_url: asset.thumb_url, video_url: asset.video_url || '', duration: asset.duration, status: asset.status, is_cover: 0, missing: false });
         peClearError('media');
         renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     }
@@ -1660,7 +1670,7 @@ jQuery(function ($) {
     $('#csPickerAdd').on('click', function () {
         Array.from(pickerSel).forEach(function (id) {
             var a = pickerAssets.filter(function (x) { return x.id === id; })[0];
-            if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, type: a.type, thumb_url: a.thumb_url, video_url: a.video_url || '', duration: a.duration, status: a.status, is_cover: 0, missing: false });
+            if (a && !composer.assets.some(function (x) { return x.id === id; })) composer.assets.push({ id: a.id, provenance: a.provenance || 'uploaded', type: a.type, thumb_url: a.thumb_url, video_url: a.video_url || '', duration: a.duration, status: a.status, is_cover: 0, missing: false });
         });
         pickerModal.hide(); peClearError('media'); renderCompMedia(); renderPreview(); peUpdateSummaries(); peMarkDirty(); scheduleSave();
     });
@@ -1691,8 +1701,8 @@ jQuery(function ($) {
             }
             if (kind === 'update') { done(); peSnapshot(); toastr.success('Changes saved'); composerModal.hide(); afterComposer(); return; }
             if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Draft saved'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', { id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else ApiDataSvc.apiCall('post', 'post_publish', { id: composer.id, share_accounts: Array.from(composer.share) }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', shareOpts({ id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else ApiDataSvc.apiCall('post', 'post_publish', shareOpts({ id: composer.id, share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
         });
     }
 
@@ -2321,6 +2331,7 @@ jQuery(function ($) {
     $('#csSchedMsgAi').on('change', setSchedMsgAi);
     function setSchedAi() {
         $('#csSchedCaptionWrap').prop('hidden', $('#csSchedAi').is(':checked'));
+        $('#csSchedCapModeWrap').prop('hidden', !$('#csSchedAi').is(':checked'));
         updateSchedSummaries();
     }
     $('#csSchedAi').on('change', setSchedAi);
@@ -2406,6 +2417,7 @@ jQuery(function ($) {
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
         $('#csSchedCaption').val(rule ? (rule.caption_text || '') : '');
+        $('#csSchedCapMode').val(rule ? (rule.caption_mode || 'standard') : 'standard');
         setSchedAi();
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.cadence = rule ? rule.cadence : 'daily';
@@ -2552,7 +2564,7 @@ jQuery(function ($) {
             tier_id: schedForm.audience === 'subscribers' ? (schedForm.tier_id || '') : '',
             comments_enabled: $('#csSchedComments').is(':checked') ? '1' : '0',
             use_brand: $('#csSchedBrand').is(':checked') ? '1' : '0',
-            ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '',
+            ai_assist: $('#csSchedAi').is(':checked') ? '1' : '0', caption_text: $('#csSchedCaption').val() || '', caption_mode: $('#csSchedCapMode').val() || 'standard',
             social_accounts: social, cadence: schedForm.cadence, days_of_week: days,
             run_time: $('#csSchedTime').val() || '09:00',
             timezone: (CFG.creator && CFG.creator.timezone) || USER_TZ || '', active: '1'

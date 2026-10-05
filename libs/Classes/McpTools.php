@@ -85,12 +85,14 @@ class McpTools {
         $share = array('type' => 'array', 'items' => array('type' => 'string'),
             'description' => 'Optional cross-post targets: connected social account ids (see list_share_targets) and/or "fanvue" to mirror the full post to the connected Fanvue account.');
         $t[] = array('name' => 'list_share_targets', 'description' => 'Connected cross-post targets (social accounts + Fanvue) usable as share_accounts.', 'inputSchema' => $none);
+        $ai_disc = array('type' => 'boolean', 'description' => 'AI disclosure on the cross-posts. Default: on when the post has AI-generated or AI-edited media (TikTok and YouTube get their AI flag, other platforms get a disclosure line on the caption).');
+        $story   = array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Instagram or Facebook account ids (from share_accounts) that get this post as a Story instead of a feed post. Stories take only 9:16 media.');
         $t[] = array('name' => 'publish_post',  'description' => 'Publish a post now (fails if it has no ready media). Optionally cross-post.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
-            'properties' => array('id' => array('type' => 'integer'), 'share_accounts' => $share)));
+            'properties' => array('id' => array('type' => 'integer'), 'share_accounts' => $share, 'ai_disclosure' => $ai_disc, 'story_accounts' => $story)));
         $t[] = array('name' => 'schedule_post', 'description' => 'Schedule a post for a future UTC datetime. Optionally cross-post at that time.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'scheduled_at'),
-            'properties' => array('id' => array('type' => 'integer'), 'scheduled_at' => array('type' => 'string', 'description' => 'UTC "YYYY-MM-DD HH:MM:SS"'), 'share_accounts' => $share)));
+            'properties' => array('id' => array('type' => 'integer'), 'scheduled_at' => array('type' => 'string', 'description' => 'UTC "YYYY-MM-DD HH:MM:SS"'), 'share_accounts' => $share, 'ai_disclosure' => $ai_disc, 'story_accounts' => $story)));
         $t[] = array('name' => 'archive_post',  'description' => 'Archive a post.', 'inputSchema' => $id);
         $t[] = array('name' => 'delete_post',   'description' => 'Delete a post.', 'inputSchema' => $id);
         $t[] = array('name' => 'duplicate_post','description' => 'Duplicate a post as a new draft.', 'inputSchema' => $id);
@@ -219,6 +221,7 @@ class McpTools {
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
+                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait', 'hook_overlay'), 'description' => 'Kind of AI caption. continuation: carries on from the image. comment_bait: ends on an easy question. hook_overlay: written to follow an on-video hook line. Default standard.'),
             )));
         $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'name', 'topic'),
@@ -234,6 +237,7 @@ class McpTools {
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
+                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait', 'hook_overlay'), 'description' => 'Kind of AI caption. continuation: carries on from the image. comment_bait: ends on an easy question. hook_overlay: written to follow an on-video hook line. Default standard.'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
             )));
         $t[] = array('name' => 'set_automation_active','description' => 'Activate/deactivate an automation.', 'inputSchema' => self::idAndActive());
@@ -321,6 +325,21 @@ class McpTools {
             'type' => 'object', 'required' => array('to_user_id'),
             'properties' => array('to_user_id' => array('type' => 'integer'), 'body' => array('type' => 'string'),
                 'asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')), 'price' => array('type' => 'integer', 'description' => 'Credits, 10 to 5000 (everything on the platform is priced in credits); 0 or omitted = free'))));
+        $t[] = array('name' => 'create_launch_campaign', 'description' => 'Plan a launch campaign: an announcement, daily anticipation posts, a countdown and a live post, with matching messages to fans. Without confirm it returns the written drafts and creates nothing. With confirm: true it schedules every post and message at once (pass back the edited items, or omit items to schedule the drafts as written). Messages are Creator Link Studio messages; posts can also go to social accounts and Fanvue.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('what', 'launch_at'),
+            'properties' => array(
+                'what' => array('type' => 'string', 'description' => 'What is launching, in a sentence.'),
+                'launch_at' => array('type' => 'string', 'description' => 'Launch time in the creator\'s timezone, "YYYY-MM-DD HH:MM".'),
+                'days' => array('type' => 'integer', 'description' => 'Days of anticipation posts before the launch, 0-7. Default 3.'),
+                'influencer_id' => array('type' => 'integer', 'description' => 'Write in this influencer\'s persona.'),
+                'destination' => array('type' => 'string', 'enum' => array('cls', 'fanvue')),
+                'segments' => array('type' => 'array', 'items' => array('type' => 'string', 'enum' => array('followers', 'subscribers', 'expired', 'buyers')), 'description' => 'Who receives the messages. Default followers.'),
+                'share_accounts' => array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Social account ids the posts are cross-posted to (see list_share_targets).'),
+                'asset_id' => array('type' => 'integer', 'description' => 'Library media used on every post.'),
+                'promo_code' => array('type' => 'string'), 'promo_percent' => array('type' => 'integer'), 'promo_days' => array('type' => 'integer', 'description' => 'Days the code stays valid after launch. Default 7.'),
+                'items' => array('type' => 'array', 'description' => 'Edited drafts to schedule: key, kind, type (post|message), at (local "YYYY-MM-DDTHH:MM"), text.', 'items' => array('type' => 'object')),
+                'confirm' => array('type' => 'boolean', 'description' => 'true schedules the campaign. Default false (drafts only).'),
+            )));
         $t[] = array('name' => 'send_broadcast', 'description' => 'Send one message to every fan in one or more audience segments (each gets it as a private DM). Optionally attach media and a price.', 'inputSchema' => array(
             'type' => 'object', 'required' => array(),
             'properties' => array('body' => array('type' => 'string'),
@@ -813,6 +832,24 @@ class McpTools {
                 InboxAutomationService::notify_new_message($to, $cid, MessagesModel::preview_text($body, count($asset_ids), $price), $conv);
                 return array('conversation_id' => $conv, 'message_id' => (int) $mid, 'price_credits' => $price);
             }
+            case 'create_launch_campaign': {
+                $u = self::user($cid);
+                if (!Plan::has_paid_plan($u)) { throw new RuntimeException('Launch campaigns need a paid plan. Upgrade at /account/billing.'); }
+                if (empty($a['confirm'])) {
+                    $r = LaunchCampaign::draft($cid, $u, $a);
+                } else {
+                    if (empty($a['items'])) {
+                        $d = LaunchCampaign::draft($cid, $u, $a);
+                        if (empty($d['success'])) { throw new RuntimeException((string) $d['message']); }
+                        $a['items'] = $d['items'];
+                    }
+                    $a['also_cls'] = true;
+                    $r = LaunchCampaign::confirm($cid, $u, $a);
+                }
+                if (empty($r['success'])) { throw new RuntimeException((string) ($r['message'] ?? 'Could not build the campaign.')); }
+                unset($r['success']);
+                return $r;
+            }
             case 'send_broadcast': {
                 $body = trim((string) ($a['body'] ?? ''));
                 list($asset_ids, $price) = self::message_media($cid, $a);
@@ -1121,6 +1158,10 @@ class McpTools {
     private static function with_share(array $res, $cid, array $post, array $a, $scheduled_iso){
         $ids = array_values(array_filter(array_map('strval', (array) ($a['share_accounts'] ?? array()))));
         if (empty($ids)) { return $res; }
+        $f = array();
+        if (array_key_exists('ai_disclosure', $a))  { $f['ai_disclosure'] = !empty($a['ai_disclosure']) ? 1 : 0; }
+        if (array_key_exists('story_accounts', $a)) { $f['story_accounts'] = (array) $a['story_accounts']; }
+        if (!empty($f)) { $pm = new PostsModel(); $pm->update_fields((int) $cid, (int) $post['id'], $f); $post = $pm->get_one((int) $cid, (int) $post['id']) ?: $post; }
         $rows = (new UsersModel())->get_user_by_id((int) $cid);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$user) { return $res; }

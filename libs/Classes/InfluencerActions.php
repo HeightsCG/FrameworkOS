@@ -20,7 +20,7 @@ class InfluencerActions {
 
     /* ---- create / settings ---- */
 
-    public static function create($cid, $name, $path, $gender = ''){
+    public static function create($cid, $name, $path, $gender = '', $input_method = 'text', $is_public = 0){
         $name = mb_substr(trim((string) $name), 0, 120);
         $path = ($path === 'reference') ? 'reference' : 'photos';
         $gender = InfluencerService::gender($gender);
@@ -32,7 +32,9 @@ class InfluencerActions {
         if ($m->name_taken($cid, $name)) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $id = $m->create($cid, $name, $path, 0, $gender);
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }
-        $m->update_fields($cid, $id, array('wizard_step' => ($path === 'photos') ? 'photos' : 'input'));
+        $f = array('wizard_step' => ($path === 'photos') ? 'photos' : 'reference', 'is_public' => !empty($is_public) ? 1 : 0);
+        if ($path === 'reference') { $f['input_method'] = ($input_method === 'face_photo') ? 'face_photo' : 'text'; }
+        $m->update_fields($cid, $id, $f);
         return self::okr(array('influencer' => self::json($cid, $id)));
     }
 
@@ -50,7 +52,7 @@ class InfluencerActions {
             if ($m->name_taken($cid, $name, (int) $infl['id'])) { return self::fail('You already have an influencer called ' . $name . '.'); }
             $f['name'] = $name;
         }
-        if (isset($in['path']) && in_array($in['path'], array('photos', 'reference'), true)) {
+        if (isset($in['path']) && in_array($in['path'], array('photos', 'reference'), true) && $in['path'] !== (string) $infl['path']) {
             if (!in_array((string) $infl['status'], array('draft', 'awaiting_reference', 'failed'), true) || !empty($infl['pending_model_id'])) {
                 return self::fail('The path can only change before training starts.');
             }
@@ -221,7 +223,7 @@ class InfluencerActions {
         $model = InfluencerConfig::resolve_model('reference', (string) $infl['reference_model_key']);
         if (!$model) { return self::fail('No reference model is configured.'); }
         $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
-            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $desc,
+            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => InfluencerService::realistic($desc),
             'params' => array('image_size' => 'square', 'num_images' => 1),
         ));
         if ($job_id <= 0) { return self::fail('Could not start the reference image.'); }
@@ -261,7 +263,7 @@ class InfluencerActions {
         $vars = InfluencerService::TRAINING_VARIATIONS;
         $ids  = array();
         for ($i = 1; $i <= $size; $i++) {
-            $prompt = $vars[($i - 1) % count($vars)] . ($steer !== '' ? ', ' . $steer : '');
+            $prompt = InfluencerService::realistic($vars[($i - 1) % count($vars)] . ($steer !== '' ? ', ' . $steer : ''));
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
                 'group_key' => $group, 'group_index' => $i,
@@ -432,7 +434,7 @@ class InfluencerActions {
         } else {
             $system = 'You write one image-generation prompt for a photorealistic social-media photo of a specific ' . $noun . '. '
                 . 'Output ONLY the prompt text, one line, 25 to 60 words, no quotes, no preamble. '
-                . 'Always name the subject ("photo of a ' . $noun . ' ..."). Describe setting, outfit, pose, lighting and camera feel. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
+                . 'Always name the subject ("photo of a ' . $noun . ' ..."). Describe setting, outfit, pose, lighting and camera feel. Make it read as a real, unposed phone photo: ordinary available light, everyday framing, natural skin texture; never glossy, studio-lit, airbrushed or editorial. Keep it within what a mainstream social platform allows: no nudity, no explicit or sexual language.';
             $ask = 'Write a prompt for a new post by ' . $infl['name'] . '.' . ($hint !== '' ? ' Theme: ' . $hint : ' Pick a fresh everyday scene.');
         }
         $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 200, 30, 'low');

@@ -411,6 +411,9 @@
 .pf-plb__cnote{ font-size:.86rem; color:var(--pf-muted); margin:.6rem 0 0; }
 .pf-plb__cnote a{ color:var(--pf-violet7); }
 .pf-verified{ color:var(--acc-ink); font-size:.7em; vertical-align:middle; margin-left:.1em; }
+.pf-ai{ display:inline-flex; align-items:center; height:20px; padding:0 6px; margin-left:.25em; border:1px solid currentColor; border-radius:2px; font-size:11px; font-weight:700; letter-spacing:.04em; line-height:1; vertical-align:middle; opacity:.75; }
+.pf-ai-line{ margin:6px 0 0; font-size:13px; opacity:.75; }
+.pf-ai-line i{ font-size:.9em; margin-right:.25em; }
 
 /* ---- signed-in viewers: the profile sits inside the app shell (sidebar + top bar) ---- */
 .pf--app { min-height: 0; margin: -2.2rem -30px 0; }

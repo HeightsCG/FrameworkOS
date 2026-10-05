@@ -10,7 +10,7 @@ class SchedulerRulesModel extends Model {
     private static $cols = array(
         'kind', 'name', 'active', 'topic', 'message_text', 'message_targets', 'message_ai',
         'size', 'image_source', 'influencer_id', 'influencer_model_key', 'media_type', 'video_prompt', 'video_model_key', 'video_duration', 'content_level', 'audience', 'tier_id', 'comments_enabled',
-        'use_brand', 'ai_assist', 'caption_text', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
+        'use_brand', 'ai_assist', 'caption_text', 'caption_mode', 'social_accounts', 'cadence', 'days_of_week', 'run_time', 'timezone',
     );
 
     const CLS_SEGMENTS = array('all', 'followers', 'subscribers', 'expired', 'buyers');
@@ -76,6 +76,7 @@ class SchedulerRulesModel extends Model {
         $out['use_brand']        = !empty($f['use_brand']) ? 1 : 0;
         $out['ai_assist']        = (isset($f['ai_assist']) && (string) $f['ai_assist'] === '0') ? 0 : 1;
         $out['caption_text']     = mb_substr(trim((string) ($f['caption_text'] ?? '')), 0, 5000);
+        $out['caption_mode']     = BrandService::caption_mode($f['caption_mode'] ?? 'standard');
         $socials = $f['social_accounts'] ?? array();
         if (is_string($socials)) { $socials = array_filter(array_map('trim', explode(',', $socials)), 'strlen'); }
         $out['social_accounts']  = json_encode(array_values(array_map('strval', (array) $socials)));
