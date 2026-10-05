@@ -262,6 +262,27 @@ class Tutorials {
             'Click Export This Frame. The image is saved to your Library.',
             'From there you can edit it or use it as the source for Replicate Photo.',
         )),
+        '31' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Voice', 'secs' => 0, 'steps' => array(
+            'A voice lets your influencer speak in videos and audio.',
+            'Open Influencers, then Voice.',
+            'Under Design A Voice, describe her age and vibe, pick a keyword, and set her accent by city and country.',
+            'Click Design Voice. Listen to the three candidates and save the one you like.',
+            'To make audio, write a script, add audio tags or click Enhance, and click Generate Speech. Save the take you prefer to your Library.',
+        )),
+        '32' => array('section' => 'influencers', 'title' => 'Make a Talking Video', 'secs' => 0, 'steps' => array(
+            'A talking video is a close-up of your influencer speaking your script.',
+            'Open Influencers, Generate Videos, then Talking.',
+            'Choose a close-up image with a clear face.',
+            'Write the script, or switch to Audio File and choose one from your Library.',
+            'Click Generate Video. Long scripts are rendered in parts and joined for you.',
+        )),
+        '33' => array('section' => 'studio', 'title' => 'Edit Clips Together', 'secs' => 0, 'steps' => array(
+            'The clip editor joins your videos and images into one finished video.',
+            'In Content Studio, click Action, then New Edit.',
+            'Add clips and stills, drag them into order, and trim each one.',
+            'Add text and image overlays, and an audio track if you want one.',
+            'Pick 9:16 or 3:4 and click Export. The finished video is saved to your Library.',
+        )),
     );
 
     /** One video with its URLs, or null when unknown or its file isn't uploaded yet. */

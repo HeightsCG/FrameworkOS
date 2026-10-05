@@ -918,6 +918,10 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
 /* ---- AI additions (studio-ai.js): drawer tools + versions, Scenes tab ---- */
 .cs-dv__ai{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:.9rem; }
 .cs-dv__ai--one{ grid-template-columns:1fr; }
+.cs-dv__audio{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; width:100%; min-height:180px; padding:1.2rem; background:#111; color:#fff; font-size:1.8rem; }
+.cs-dv__audio audio{ width:100%; }
+.cs-tile[data-type="audio"] .cs-tile__ph{ color:var(--acc-ink); background:var(--vsoft); }
+.cs-tile__name{ position:absolute; left:.5rem; right:.5rem; top:50%; margin-top:1.4rem; font-size:.74rem; font-weight:500; color:var(--t2); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .cs-dv__ai .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; }
 .cs-dv__versions{ list-style:none; margin:0 0 .9rem; padding:0; display:flex; flex-direction:column; gap:.3rem; }
 .cs-dv__version{ display:flex; align-items:center; gap:.6rem; width:100%; padding:.3rem; border:1px solid var(--line); border-radius:2px; background:#fff; text-align:left; font-size:.82rem; color:var(--t2); cursor:pointer; }

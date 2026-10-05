@@ -421,8 +421,7 @@ jQuery(function ($) {
                 '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Persona</h2></div>' +
                 '<div class="inf-grid">' + persona_fields() + '</div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_set_save">Save</button></div>' +
-                '</section>' +
-                '<section class="inf-sec"><div class="inf-sec__head"><h2 class="inf-sec__h">Automations</h2><a class="inf-link" href="/studio#automation-new-' + inf.id + '"><i class="fa-solid fa-plus"></i> New Automation</a></div><div id="inf_autos_list" class="inf-autos__list"><span class="inf-wiz__meta">Loading…</span></div></section>';
+                '</section>';
             $('#inf_panel').append(html);
             seg_bind('inf_set_gender');
             $('#inf_set_save').on('click', function () {
@@ -431,14 +430,6 @@ jQuery(function ($) {
                 $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
                 api('influencer_save_step', body, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
-                });
-            });
-            api('scheduler_list', {}, function (o) {
-                var rules = ((o && o.success) ? (o.rules || []) : []).filter(function (r) { return r.image_source === 'influencer' && String(r.influencer_id) === String(inf.id); });
-                var $l = $('#inf_autos_list').empty();
-                if (!rules.length) { $l.html('<span class="inf-wiz__meta">None yet.</span>'); return; }
-                rules.forEach(function (r) {
-                    $l.append('<a class="inf-auto" href="/studio#scheduler"><span class="inf-auto__name">' + esc(r.name) + '</span><span class="inf-auto__meta">' + esc(r.cadence_summary || '') + (r.next_run ? ' · next ' + esc(r.next_run) : '') + '</span><span class="inf-state inf-state--' + (r.active ? 'ready' : 'draft') + '">' + (r.active ? 'On' : 'Off') + '</span></a>');
                 });
             });
         }
@@ -817,6 +808,7 @@ jQuery(function ($) {
             clearTimeout(poll_timer);
             render_steps(path, step);
             $('#inf_steps').prop('hidden', step === 'done');
+            if (step === 'training' || step === 'done') { set_actions(''); }   // Switch path is only possible before training: don't leave it up once training has started
             (RENDER[step] || function () { render_pending(step); })();
         }
 

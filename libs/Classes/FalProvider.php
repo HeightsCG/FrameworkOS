@@ -22,7 +22,7 @@ class FalProvider implements InfluencerProvider {
     public static function capabilities(): array {
         return array(
             'ops'    => array('reference' => true, 'training_set' => true, 'image' => true, 'video' => true, 'enhance' => true, 'training' => true,
-                'replicate' => true, 'edit' => true, 'angle' => true, 'motion' => true, 'replace' => true, 'scene' => true),
+                'replicate' => true, 'edit' => true, 'angle' => true, 'motion' => true, 'replace' => true, 'scene' => true, 'talking' => true),
         );
     }
 
@@ -134,6 +134,14 @@ class FalProvider implements InfluencerProvider {
             $in['image_url'] = (string) ($req['image_url'] ?? ($images[0] ?? ''));
             $in['video_url'] = (string) ($req['video_url'] ?? '');
             if ($in['prompt'] === '') { unset($in['prompt']); }
+            return $in;
+        }
+        if ($family === 'heygen') {
+            // Photo to talking video: the face from image_url, lip-synced to audio_url; length follows the audio.
+            $in['image_url'] = (string) ($req['image_url'] ?? ($images[0] ?? ''));
+            $in['audio_url'] = (string) ($req['audio_url'] ?? '');
+            $in['aspect_ratio'] = !empty($req['aspect_value']) ? (string) $req['aspect_value'] : 'auto';
+            unset($in['prompt']);
             return $in;
         }
         if ($family === 'wan_ref') {

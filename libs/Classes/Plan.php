@@ -361,6 +361,9 @@ class Plan {
         // Metered runs are priced from the model's provider cost (InfluencerConfig::credits_from_usd).
         if (in_array($op, InfluencerConfig::METERED_OPS, true)) {
             $model = InfluencerConfig::resolve_model($op, (string) ($f['model_key'] ?? ''));
+            if ($model && (string) ($model['price_unit'] ?? '') === '1000_chars') {   // voice: characters spoken, times the takes rendered
+                return InfluencerConfig::metered_credits($model, max(1, (int) ($f['params']['chars'] ?? 0)) * max(1, (int) ($f['params']['takes'] ?? 1)));
+            }
             return $model ? InfluencerConfig::metered_credits($model, $dur) * $n : 0;
         }
         $unit = (int) (PlanTiers::AI_PRICES[$type] ?? 0);
@@ -485,7 +488,7 @@ class Plan {
         $unit = max(1, (int) (PlanTiers::AI_PRICES[(string) $type] ?? 1));
         $n    = max(1, intdiv((int) $price, $unit));
         $named = array('video' => 'a video', 'enhance' => 'an enhancement', 'replicate' => 'this replica', 'edit' => 'this edit', 'angle' => 'this reference',
-            'carousel' => 'this carousel image', 'motion' => 'this video', 'talking' => 'this video', 'replace' => 'this video', 'scene' => 'this video', 'speech' => 'this audio');
+            'carousel' => 'this carousel image', 'motion' => 'this video', 'talking' => 'this video', 'replace' => 'this video', 'scene' => 'this video', 'speech' => 'this audio', 'voice_design' => 'this voice design');
         $what = isset($named[(string) $type]) ? $named[(string) $type] : ($n > 1 ? $n . ' images' : 'an image');
         return 'You need ' . number_format((int) $price) . ' AI credit' . ((int) $price === 1 ? '' : 's') . ' for ' . $what . ' and have ' . number_format((int) $balance) . '. AI credits are separate from your wallet credits: buy AI credits in Billing, AI Credits.';
     }

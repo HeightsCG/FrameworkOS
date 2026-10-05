@@ -70,7 +70,7 @@ jQuery(function ($) {
     }
     function fmtDuration(s) { if (!s) return ''; var m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
     function fmtDate(iso) { if (!iso) return ''; var d = new Date(iso.replace(' ', 'T') + 'Z'); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
-    function typeIcon(t) { return t === 'video' ? 'fa-play' : (t === 'gif' ? 'fa-clapperboard' : 'fa-image'); }
+    function typeIcon(t) { return t === 'video' ? 'fa-play' : (t === 'gif' ? 'fa-clapperboard' : (t === 'audio' ? 'fa-music' : 'fa-image')); }
     function err(o, fallback) { toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.'); }
 
     function dialog(opts) {
@@ -240,6 +240,7 @@ jQuery(function ($) {
         }
         $('<span class="cs-tile__type"><i class="fa-solid ' + typeIcon(a.type) + '"></i></span>').appendTo($t);
         if (a.type === 'video' && a.duration) $('<span class="cs-tile__badge"><i class="fa-solid fa-play"></i> ' + fmtDuration(a.duration) + '</span>').appendTo($t);
+        if (a.type === 'audio') $('<span class="cs-tile__badge"><i class="fa-solid fa-music"></i> ' + (fmtDuration(a.duration) || '') + '</span><span class="cs-tile__name">' + esc(a.name || 'Audio') + '</span>').appendTo($t);
         if (a.moderation === 'flagged') $('<span class="cs-tile__adult" title="Marked adult — shown only to fans with adult content on">18+</span>').appendTo($t);
         else if (a.moderation === 'pending' && a.status === 'ready') $('<span class="cs-tile__scan" title="Checking content…"><i class="fa-solid fa-shield-halved"></i></span>').appendTo($t);
         if (a.usage_count > 0) $('<span class="cs-tile__use">In ' + a.usage_count + '</span>').appendTo($t);
@@ -917,9 +918,13 @@ jQuery(function ($) {
     function renderDetail(a) {
         var preview = a.type === 'video'
             ? '<video controls preload="metadata" poster="' + esc(a.preview_url) + '" src="' + esc(a.video_url) + '"></video>'
-            : '<img src="' + esc(a.preview_url) + '" alt="' + esc(a.name) + '">';
+            : (a.type === 'audio'
+                ? '<div class="cs-dv__audio"><i class="fa-solid fa-music" aria-hidden="true"></i><audio controls preload="metadata" src="' + esc(a.audio_url) + '"></audio></div>'
+                : '<img src="' + esc(a.preview_url) + '" alt="' + esc(a.name) + '">');
         var dims = (a.width && a.height) ? (a.width + ' × ' + a.height) : '—';
-        var meta = a.type === 'video'
+        var meta = a.type === 'audio'
+            ? '<dt>Duration</dt><dd>' + (fmtDuration(a.duration) || '—') + '</dd><dt>Type</dt><dd>AUDIO</dd>'
+            : a.type === 'video'
             ? '<dt>Duration</dt><dd>' + (fmtDuration(a.duration) || '—') + '</dd><dt>Dimensions</dt><dd>' + dims + '</dd>'
             : '<dt>Dimensions</dt><dd>' + dims + '</dd><dt>Type</dt><dd>' + esc(String(a.type).toUpperCase()) + '</dd>';
         var cols = state.collections.map(function (c) {
@@ -929,7 +934,8 @@ jQuery(function ($) {
         var posts = (a.posts && a.posts.length)
             ? '<ul class="cs-dv__posts">' + a.posts.map(function (p) { return '<li><i class="fa-solid fa-rectangle-list"></i> ' + esc(p.excerpt) + ' <em>· ' + esc(p.state) + '</em></li>'; }).join('') + '</ul>'
             : '<p class="cs-col__count">Not used in any post yet.</p>';
-        var wm = a.type === 'video'
+        var wm = a.type === 'audio' ? ''
+            : a.type === 'video'
             ? '<div class="cs-dv__toggle"><span>Watermark<small>Shown as an overlay on the video player.</small></span></div>'
             : '<div class="cs-dv__toggle"><span>Watermark<small>Your name, baked into the delivered image.</small></span>' +
               '<div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" id="csWm"' + (a.watermark_applied ? ' checked' : '') + '></div></div>';

@@ -205,7 +205,7 @@ class MediaAssetsModel extends Model {
         $where  = array('a.creator_id = :c', 'a.deleted_at IS NULL', "COALESCE(a.source, '') <> 'recording'");   // call recordings live on their event
         $join   = '';
 
-        if (!empty($filters['type']) && in_array($filters['type'], array('image','video','gif'), true)) {
+        if (!empty($filters['type']) && in_array($filters['type'], array('image','video','gif','audio'), true)) {
             $where[] = 'a.type = :type';
             $params['type'] = $filters['type'];
         }

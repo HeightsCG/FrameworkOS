@@ -178,6 +178,9 @@ class InfluencerJobService {
         if (!$model) { return self::fail_job($job, $m, 'submitting', 'validation', 'No model is configured for ' . $type); }
 
 
+        // Speech is rendered here, against the voice service, not queued at a provider.
+        if ($type === 'speech') { return self::step_speech($job, $m, $model); }
+
         // Build the provider request once (presigned inputs, ZIP for training).
         try {
             $req = ($type === 'training') ? InfluencerTrainingService::build_request($job, $model) : self::build_request($job, $model);
@@ -251,6 +254,20 @@ class InfluencerJobService {
         }
         $m->transition($job['id'], 'submitting', array('attempts_json' => json_encode($attempts), 'provider_index' => min($idx, max(0, count($providers) - 1))));
         return self::fail_job($m->get_by_id($job['id']), $m, 'submitting', $last['error_code'], $last['error']);
+    }
+
+    /** Text to speech: render the takes now (InfluencerVoiceActions::render_takes) and finish the job. Takes are kept as previews until one is saved. */
+    private static function step_speech(array $job, InfluencerJobsModel $m, array $model){
+        $r = InfluencerVoiceActions::render_takes($job);
+        if (empty($r['ok'])) { return self::fail_job($m->get_by_id($job['id']), $m, 'submitting', 'provider', (string) $r['error']); }
+        $result = InfluencerJobsModel::result($job);
+        $result['takes'] = $r['takes'];
+        $p = InfluencerJobsModel::params($job);
+        $cost = InfluencerConfig::price((string) $job['model_key'], 1) * max(1, (int) ($p['chars'] ?? 0)) * count($r['takes']) / 1000;
+        $n = $m->transition($job['id'], 'submitting', array('status' => 'done', 'provider' => 'elevenlabs', 'result_json' => json_encode($result), 'cost_usd' => round($cost, 4),
+            'submitted_at' => date('Y-m-d H:i:s'), 'finished_at' => date('Y-m-d H:i:s'), 'error' => null, 'error_code' => null));
+        if ($n !== 1) { return self::out('submitting', false, 5, 'lost the transition'); }
+        return self::out('done', true, null, 'rendered ' . count($r['takes']) . ' take(s)');
     }
 
     /* ---- running: poll, time out, or land ---- */
@@ -533,6 +550,9 @@ class InfluencerJobService {
             if (in_array((string) $job['type'], array('reference', 'training_set'), true) && class_exists('InfluencerService')) {
                 InfluencerService::on_wizard_job_finished($job);
             }
+            if ((string) $job['type'] === 'talking' && (string) $job['group_key'] !== '') {
+                InfluencerVoiceActions::talking_part_finished($job);   // a talking video rendered in parts is joined once the last part lands
+            }
         } catch (\Throwable $e) {
             error_log('[influencer] after_terminal job ' . (int) $job['id'] . ': ' . $e->getMessage());
         }
@@ -618,6 +638,15 @@ class InfluencerJobService {
             $vu = S3Service::presigned_get_url((string) $v['original_key'], max($ttl, 3600));
             if ($vu === '') { return array('error' => 'Could not sign the source video'); }
             $req['video_url'] = $vu;
+        }
+        if ($type === 'talking') {
+            $akey = (string) ($p['audio_key'] ?? '');
+            if ($akey === '' || !FaceMask::owns_key($job['creator_id'], $akey)) { return array('error' => 'The speech audio is missing'); }
+            $au = S3Service::presigned_get_url($akey, max($ttl, 3600));
+            if ($au === '') { return array('error' => 'Could not sign the speech audio'); }
+            $req['audio_url'] = $au;
+            $req['duration']  = (string) max(1, (int) ($p['duration'] ?? 1));
+            if (empty($req['image_url'])) { return array('error' => 'A close-up image is required'); }
         }
         if (in_array($type, array('motion', 'replace', 'scene'), true)) {
             $req['duration'] = (string) max(1, (int) ($p['duration'] ?? 5));
@@ -757,6 +786,7 @@ class InfluencerJobService {
             case 'motion':       return $name . ' · motion';
             case 'replace':      return $name . ' · replaced';
             case 'scene':        return $name . ' · scene';
+            case 'talking':      return $name . ' · talking' . ((int) (InfluencerJobsModel::params($job)['parts'] ?? 1) > 1 ? ' part ' . (int) ($job['group_index'] ?? 0) : '');
             default:             return $name . ' · ' . mb_substr((string) $job['prompt'], 0, 30);
         }
     }
@@ -785,7 +815,16 @@ class InfluencerJobService {
             );
         }
         $p = InfluencerJobsModel::params($job);
+        $takes = array();   // speech: the takes of this run, playable until one is saved to the Library
+        if ((string) $job['type'] === 'speech') {
+            foreach ((array) ($result['takes'] ?? array()) as $i => $t) {
+                $takes[] = array('index' => (int) $i, 'duration' => (float) ($t['duration'] ?? 0), 'asset_id' => (int) ($t['asset_id'] ?? 0),
+                    'url' => (FaceMask::owns_key($creator_id, (string) ($t['key'] ?? ''))) ? S3Service::presigned_get_url((string) $t['key'], 1800) : '');
+            }
+            unset($p['text']);   // the script is in `prompt`
+        }
         return array(
+            'takes' => $takes,
             'id' => (int) $job['id'], 'influencer_id' => (int) $job['influencer_id'], 'type' => (string) $job['type'],
             'status' => (string) $job['status'], 'wait_reason' => (string) $job['wait_reason'], 'provider' => (string) $job['provider'],
             'model_key' => (string) $job['model_key'], 'prompt' => (string) $job['prompt'], 'negative_prompt' => (string) $job['negative_prompt'],

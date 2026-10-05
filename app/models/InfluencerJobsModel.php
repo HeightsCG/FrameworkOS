@@ -133,6 +133,19 @@ class InfluencerJobsModel extends Model {
         return $out;
     }
 
+    /** One-time claim on a finished job (joining the parts of a talking video): only the first caller gets 1. */
+    public function claim_once($id, $mark){
+        return (int) parent::update('influencer_jobs', array('wait_reason' => mb_substr((string) $mark, 0, 24), 'updated_at' => date('Y-m-d H:i:s')),
+            "id = :id AND status = 'done' AND (wait_reason IS NULL OR wait_reason = '')", array('id' => (int) $id));
+    }
+
+    /** Merge keys into a job's result_json. */
+    public function merge_result($id, array $more){
+        $job = $this->get_by_id($id);
+        if (!$job) { return 0; }
+        return parent::update('influencer_jobs', array('result_json' => json_encode(array_merge(self::result($job), $more)), 'updated_at' => date('Y-m-d H:i:s')), 'id = :id', array('id' => (int) $id));
+    }
+
     public function set_superseded($id, $by_id){
         return parent::update('influencer_jobs', array('superseded_by' => (int) $by_id, 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id', array('id' => (int) $id));

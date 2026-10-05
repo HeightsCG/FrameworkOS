@@ -12,12 +12,13 @@ $nav = array(
     array('key' => 'images',  'href' => '/influencers/images/' . $target,       'icon' => 'fa-wand-magic-sparkles',  'label' => 'Generate Images',  'needs' => true),
     array('key' => 'videos',  'href' => '/influencers/videos/' . $target,       'icon' => 'fa-clapperboard',         'label' => 'Generate Videos',  'needs' => true),
     array('key' => 'references', 'href' => '/influencers/references/' . $target, 'icon' => 'fa-id-badge',            'label' => 'References',       'needs' => true),
+    array('key' => 'voice',   'href' => '/influencers/voice/' . $target,        'icon' => 'fa-microphone-lines',     'label' => 'Voice',            'needs' => true),
     array('key' => 'gallery', 'href' => '/influencers/gallery/' . $target,      'icon' => 'fa-images',               'label' => 'Gallery',          'needs' => true),
 );
 /* Replicate Photo and Carousel are ways of generating images: they sit under Generate Images. */
 $image_modes = array('images' => 'From Prompt', 'replicate' => 'Replicate Photo', 'carousel' => 'Carousel');
 /* Likewise the ways of generating video sit under Generate Videos. */
-$video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control', 'replace' => 'Replace Character', 'scene' => 'Scene');
+$video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control', 'talking' => 'Talking', 'replace' => 'Replace Character', 'scene' => 'Scene');
 ?>
 <div class="inf" id="inf" data-page="<?php echo $e($page); ?>">
 <?php if (!empty($this->needs_plan)): ?>

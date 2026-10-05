@@ -464,3 +464,48 @@ a.inf-link:hover{ text-decoration:underline; }
     .inf-line__rm{ grid-column:2; grid-row:1; width:40px; }
     .inf .inf-line .form-control, .inf .inf-line .form-select{ font-size:16px; }
 }
+
+/* ---- voice + talking video (influencers-voice.js) ---- */
+.inf-gen__form .inf-sec__h{ margin:0; }
+.inf-tags{ display:flex; flex-direction:column; gap:.55rem; }
+.inf-tags__group{ display:grid; grid-template-columns:84px minmax(0,1fr); gap:.5rem; align-items:start; }
+.inf-tags__name{ font-size:.78rem; color:var(--muted); padding-top:.35rem; }
+.inf-tags .inf-chip{ font-size:.76rem; padding:.22rem .5rem; }
+.inf-takes{ display:flex; flex-direction:column; gap:.6rem; padding-top:.9rem; border-top:1px solid var(--line); }
+.inf-take{ display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.6rem; align-items:center; }
+.inf-take audio, .inf-cand audio{ width:100%; height:36px; }
+.inf-take__n, .inf-cand__n{ grid-column:1 / -1; font-size:.8rem; font-weight:600; color:var(--t2); }
+.inf-take .btn{ white-space:nowrap; }
+.inf-takes__busy{ display:flex; align-items:center; gap:.6rem; font-size:.88rem; color:var(--muted); }
+.inf-gen__preview .inf-result .inf-sec__head{ display:flex; align-items:center; justify-content:space-between; gap:1rem; margin-bottom:.9rem; }
+.inf-gen__preview .inf-result .inf-state-loading, .inf-gen__preview .inf-result .inf-state-error{ padding:1.6rem 1rem; }
+.inf-voices__empty{ padding:1.6rem 1rem; }
+.inf-voices{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; }
+.inf-voice{ display:flex; align-items:center; gap:.8rem; padding:.7rem 0; border-top:1px solid var(--line); }
+.inf-voice:first-child{ border-top:0; padding-top:0; }
+.inf-voice__body{ flex:1; min-width:0; display:flex; flex-direction:column; gap:.1rem; }
+.inf-voice__name{ font-size:.92rem; font-weight:600; display:flex; align-items:center; gap:.5rem; }
+.inf-voice__badge{ font-size:.68rem; font-weight:700; text-transform:uppercase; letter-spacing:.03em; padding:.1rem .4rem; border-radius:2px; background:var(--vsoft); color:var(--acc-ink); }
+.inf-voice__sub{ font-size:.8rem; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inf-voice__act{ display:flex; align-items:center; gap:.8rem; flex:none; }
+.inf-voice__act .inf-link{ font-size:.82rem; }
+.inf-voice__act .inf-link--danger{ color:var(--danger); }
+.inf-cands{ list-style:none; margin:1rem 0 0; padding:1rem 0 0; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:.8rem; }
+.inf-cand{ display:grid; grid-template-columns:minmax(0,1fr) minmax(0,180px) auto; gap:.5rem .6rem; align-items:center; }
+.inf-cand .form-control{ height:36px; }
+.inf-source--row{ min-height:56px; justify-content:flex-start; padding:0 .9rem; }
+.inf-source--row .inf-source__empty{ flex-direction:row; padding:0; }
+.inf-source--row .inf-source__empty i{ font-size:1rem; }
+.inf-source__file{ display:flex; align-items:center; gap:.7rem; width:100%; font-size:.88rem; color:var(--text); }
+.inf-source__file i{ color:var(--acc-ink); }
+.inf-source__file span{ flex:1; min-width:0; text-align:left; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.inf-source__file em{ font-style:normal; font-size:.78rem; color:var(--muted); }
+@media (max-width:640px){
+    .inf-tags__group{ grid-template-columns:1fr; gap:.25rem; }
+    .inf-tags__name{ padding-top:0; }
+    .inf-tags .inf-chip{ min-height:36px; padding:.3rem .65rem; }
+    .inf-take{ grid-template-columns:1fr; }
+    .inf-cand{ grid-template-columns:1fr; }
+    .inf-voice{ flex-wrap:wrap; }
+    .inf-voice__act{ width:100%; justify-content:flex-start; }
+}

@@ -182,6 +182,22 @@ class InfluencersController extends Controller {
         $this->view->render();
     }
 
+    /** Voice: design and save her voices, and text to speech. */
+    public function voiceAction(){
+        $user = $this->gate();
+        $this->view->page = 'voice';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
+
+    /** Talking: a close-up lip-synced to a script or an audio file. */
+    public function talkingAction(){
+        $user = $this->gate();
+        $this->view->page = 'talking';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
+
     /** References: her multi-angle reference set. */
     public function referencesAction(){
         $user = $this->gate();

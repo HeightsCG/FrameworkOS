@@ -112,6 +112,14 @@ class ApiRoutes {
             'media_extract_frame', 'influencer_motion_check', 'influencer_motion_first_frame', 'influencer_motion_start',
             'influencer_replace_prepare', 'influencer_replace_start', 'influencer_scene_build', 'influencer_scene_start',
         ],
+        'ApiInfluencerVoiceController' => [
+            'influencer_voices', 'influencer_voice_design', 'influencer_voice_save', 'influencer_voice_activate', 'influencer_voice_delete',
+            'influencer_speech_enhance', 'influencer_speech_start', 'influencer_speech_save', 'influencer_speech_price',
+            'influencer_talking_estimate', 'influencer_talking_start', 'influencer_talking_status',
+        ],
+        'ApiClipEditorController' => [
+            'edit_project_list', 'edit_project_create', 'edit_project_get', 'edit_project_save', 'edit_project_delete', 'edit_project_export', 'edit_project_status',
+        ],
         'ApiAdminScenesController' => [
             'admin_scene_save', 'admin_scene_set_active', 'admin_scene_delete', 'admin_scene_thumb',
         ],

@@ -450,6 +450,39 @@ class McpTools {
                 'setting' => array('type' => 'string'), 'second' => array('type' => 'string', 'enum' => array('none', 'influencer', 'described')), 'second_influencer_id' => array('type' => 'integer'),
                 'second_description' => array('type' => 'string'), 'second_gender' => array('type' => 'string', 'enum' => array('woman', 'man')), 'seconds' => array('type' => 'integer', 'minimum' => 4, 'maximum' => 30),
                 'aspect' => array('type' => 'string', 'enum' => array('9:16', '3:4', '1:1', '4:3')), 'model_key' => array('type' => 'string'))));
+        // ---- voice: design, speech, talking video ----
+        $t[] = array('name' => 'design_voice', 'description' => 'Design a voice for the influencer from a description (ElevenLabs Voice Design). age_vibe e.g. "24 year old, warm and playful, slightly breathy"; keyword one of influencer, supermodel, blogger, youtuber, instagrammer; accent as city + country; optional tone. preview_text is what the candidates say (100 to 1000 characters). Returns 3 candidates with a listen URL each and a token: keep one with save_voice. Costs AI credits per run.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'age_vibe', 'preview_text'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'age_vibe' => array('type' => 'string'), 'keyword' => array('type' => 'string', 'enum' => InfluencerVoiceActions::KEYWORDS),
+                'city' => array('type' => 'string'), 'country' => array('type' => 'string'), 'tone' => array('type' => 'string'), 'preview_text' => array('type' => 'string', 'minLength' => 100, 'maxLength' => 1000))));
+        $t[] = array('name' => 'save_voice', 'description' => 'Keep one candidate from design_voice as a voice of the influencer (token and the candidate\'s index). The first voice saved becomes the active one.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'token', 'index'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'token' => array('type' => 'string'), 'index' => array('type' => 'integer'), 'name' => array('type' => 'string'))));
+        $t[] = array('name' => 'list_voices', 'description' => 'The influencer\'s saved voices (the active one first) and how many more the account can save.', 'inputSchema' => $infl);
+        $t[] = array('name' => 'set_active_voice', 'description' => 'Make one of the influencer\'s saved voices the active one (used for speech and talking videos).', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'voice_id'), 'properties' => array('influencer_id' => array('type' => 'integer'), 'voice_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'generate_speech', 'description' => 'Text to speech with the influencer\'s active voice (Eleven v3). Audio tags in square brackets shape the delivery, e.g. [whispers], [laughs], [sighs], [excited], [pause]; pass enhance=true to have tags added automatically (no words are changed). Up to 3000 characters. Returns a job id: poll get_influencer_job for the takes (2 per run, each with a listen URL), then save_speech_take to keep one in the library as audio. Costs AI credits per character.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'text'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'text' => array('type' => 'string'), 'enhance' => array('type' => 'boolean'), 'voice_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'save_speech_take', 'description' => 'Save one take of a finished generate_speech job to the library as an audio file. Returns the asset id.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('job_id', 'take'), 'properties' => array('job_id' => array('type' => 'integer'), 'take' => array('type' => 'integer', 'description' => '0 or 1'))));
+        $t[] = array('name' => 'generate_talking_video', 'description' => 'A talking video: a close-up image of the influencer lip-synced to speech, at 1080p. Pass script (spoken with the active voice first; separate paragraphs with a blank line, long scripts are rendered in parts and joined) or audio_asset_id (a library audio file). Up to 5 minutes. Costs AI credits per second of video plus the speech. Returns group_key: poll get_talking_video for the finished asset.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'image_asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'image_asset_id' => array('type' => 'integer', 'description' => 'A close-up image with a clear face'),
+                'script' => array('type' => 'string'), 'audio_asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'get_talking_video', 'description' => 'State of a talking video (working, done or failed), parts finished, and the final video asset once it exists.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('group_key'), 'properties' => array('group_key' => array('type' => 'string'))));
+        // ---- clip editor ----
+        $t[] = array('name' => 'render_clip_edit', 'description' => 'Join library videos and images into one 1080p MP4 (H.264) and save it to the library. clips play in order: each has asset_id, and for a video optional start and end (seconds) and mute (drop its own sound), for an image a duration (seconds, default 3). texts are on-screen text overlays: text, position (top, upper, middle, lower, bottom), size (small, medium, large, huge), font, color (#RRGGBB), start and end (seconds; end 0 = to the end), shadow (on unless false). overlays are PNG images: asset_id, anchor (top_left, top_right, center, bottom_left, bottom_right), scale (percent of the width), start, end. audio is an optional library audio track {asset_id, volume 0-100}. aspect is 9:16 or 3:4. Free. Returns project_id: poll get_clip_edit for the finished asset.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('clips'),
+            'properties' => array('name' => array('type' => 'string'), 'aspect' => array('type' => 'string', 'enum' => array('9:16', '3:4')),
+                'clips' => array('type' => 'array', 'items' => array('type' => 'object', 'required' => array('asset_id'), 'properties' => array('asset_id' => array('type' => 'integer'), 'start' => array('type' => 'number'), 'end' => array('type' => 'number'), 'duration' => array('type' => 'number'), 'mute' => array('type' => 'boolean')))),
+                'texts' => array('type' => 'array', 'items' => array('type' => 'object', 'required' => array('text'), 'properties' => array('text' => array('type' => 'string'), 'position' => array('type' => 'string', 'enum' => array_keys(ClipRenderer::POSITIONS)), 'size' => array('type' => 'string', 'enum' => array_keys(ClipRenderer::TEXT_SIZES)),
+                    'font' => array('type' => 'string', 'enum' => array_keys(ClipRenderer::FONTS)), 'color' => array('type' => 'string'), 'start' => array('type' => 'number'), 'end' => array('type' => 'number'), 'shadow' => array('type' => 'boolean')))),
+                'overlays' => array('type' => 'array', 'items' => array('type' => 'object', 'required' => array('asset_id'), 'properties' => array('asset_id' => array('type' => 'integer'), 'anchor' => array('type' => 'string', 'enum' => ClipRenderer::ANCHORS), 'scale' => array('type' => 'integer'), 'start' => array('type' => 'number'), 'end' => array('type' => 'number')))),
+                'audio' => array('type' => 'object', 'properties' => array('asset_id' => array('type' => 'integer'), 'volume' => array('type' => 'integer'))))));
+        $t[] = array('name' => 'get_clip_edit', 'description' => 'A clip edit project: its timeline, export status (draft, rendering, done, failed) and the finished video asset once it exists.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('project_id'), 'properties' => array('project_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for an image of the influencer, or a motion prompt for a video (returned as text, nothing is rendered).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'), 'kind' => array('type' => 'string', 'enum' => array('image', 'video'), 'description' => 'Default image'))));
@@ -828,7 +861,7 @@ class McpTools {
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
             case 'influencer_model_options': {
                 $out = array('enabled' => InfluencerConfig::enabled(), 'shapes' => Aspect::options());
-                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
+                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene', 'talking', 'speech', 'voice_design') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
                 // Flat-priced purposes carry no price of their own on the model: fill in what a run actually costs.
                 foreach (array('image', 'enhance') as $purpose) {
                     foreach ($out[$purpose] as $i => $o) { if ($o['credits'] === null) { $out[$purpose][$i]['credits'] = Plan::ai_price($purpose, array('model_key' => $o['key'])); } }
@@ -912,6 +945,44 @@ class McpTools {
                 return self::result(SceneTemplates::run($cid, self::user($cid), self::influencer_usable($cid, $a), (int) ($a['template_id'] ?? 0), (string) ($a['aspect'] ?? ''), '', 'studio'));
             }
             case 'vote_scene_variant':        return self::result(SceneTemplates::vote($cid, (int) ($a['asset_id'] ?? 0), (int) ($a['vote'] ?? 0)));
+            case 'render_clip_edit': {
+                self::requirePlan($cid, 'content', 'The clip editor requires an active plan');
+                $made = self::result(ClipEditActions::create($cid, (string) ($a['name'] ?? ''), (string) ($a['aspect'] ?? '9:16')));
+                $pid = (int) $made['project']['id'];
+                self::result(ClipEditActions::save($cid, $pid, array('timeline' => array('clips' => (array) ($a['clips'] ?? array()), 'texts' => (array) ($a['texts'] ?? array()),
+                    'overlays' => (array) ($a['overlays'] ?? array()), 'audio' => is_array($a['audio'] ?? null) ? $a['audio'] : null))));
+                $r = self::result(ClipEditActions::export($cid, $pid));
+                return array('project_id' => $pid, 'status' => $r['project']['status'], 'seconds' => $r['seconds']);
+            }
+            case 'get_clip_edit':             return self::result(ClipEditActions::status($cid, (int) ($a['project_id'] ?? 0)));
+            case 'design_voice': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $f = array_intersect_key($a, array_flip(array('age_vibe', 'keyword', 'city', 'country', 'tone', 'preview_text')));
+                return self::result(InfluencerVoiceActions::design($cid, self::user($cid), self::influencer_usable($cid, $a), $f));
+            }
+            case 'save_voice': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerVoiceActions::save_voice($cid, self::influencer_usable($cid, $a), (string) ($a['token'] ?? ''), (int) ($a['index'] ?? -1), (string) ($a['name'] ?? '')));
+            }
+            case 'list_voices':               return self::result(InfluencerVoiceActions::voices($cid, self::influencer($cid, $a)));
+            case 'set_active_voice': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerVoiceActions::set_active($cid, self::influencer_usable($cid, $a), (int) ($a['voice_id'] ?? 0)));
+            }
+            case 'generate_speech': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $infl_row = self::influencer_usable($cid, $a);
+                $text = (string) ($a['text'] ?? '');
+                if (!empty($a['enhance'])) { $e = InfluencerVoiceActions::enhance($infl_row, $text); if (!empty($e['ok'])) { $text = (string) $e['text']; } }
+                return self::result(InfluencerVoiceActions::speech_start($cid, $infl_row, $text, (int) ($a['voice_id'] ?? 0), 'studio'));
+            }
+            case 'save_speech_take':          return self::result(InfluencerVoiceActions::speech_save($cid, self::user($cid), (int) ($a['job_id'] ?? 0), (int) ($a['take'] ?? -1)));
+            case 'generate_talking_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('image_asset_id', 'script', 'audio_asset_id')));
+                return self::result(InfluencerVoiceActions::talking_start($cid, self::user($cid), self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'get_talking_video':         return InfluencerVoiceActions::talking_status($cid, (string) ($a['group_key'] ?? ''));
             case 'extract_video_frame': {
                 self::requirePlan($cid, 'content', 'Frame export requires an active plan');
                 return self::result(InfluencerVideoActions::extract_frame($cid, self::user($cid), (int) ($a['asset_id'] ?? 0), (float) ($a['seconds'] ?? 0)));

@@ -21,6 +21,9 @@ window.INF_CONFIG = <?php echo json_encode(array(
 <?php if ((string) $this->page === 'carousel'): ?><script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script><?php endif; ?>
 <script src="/js/influencers-ai.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-ai.js'); ?>"></script>
 <?php endif; ?>
+<?php if (in_array((string) ($this->page ?? ''), array('voice', 'talking'), true)): ?>
+<script src="/js/influencers-voice.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-voice.js'); ?>"></script>
+<?php endif; ?>
 <?php if (in_array((string) ($this->page ?? ''), array('motion', 'replace', 'scene'), true)): ?>
 <script src="/js/influencers-video.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-video.js'); ?>"></script>
 <?php endif; ?>

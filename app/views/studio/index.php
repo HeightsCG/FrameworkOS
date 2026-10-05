@@ -39,6 +39,7 @@
                     <li><hr class="dropdown-divider"></li>
                     <li class="cs-create__label">Library</li>
                     <li><button type="button" class="dropdown-item" id="csUploadBtn"><span class="cs-create__ic"><i class="fa-solid fa-arrow-up-from-bracket"></i></span><span><strong>Upload Media</strong><small>Add files to your library</small></span></button></li>
+                    <li><a class="dropdown-item" href="/studio/edit" id="csNewEditBtn"><span class="cs-create__ic"><i class="fa-solid fa-scissors"></i></span><span><strong>New Edit</strong><small>Join clips, add text and audio</small></span></a></li>
                     <li><button type="button" class="dropdown-item" id="csCreateCollectionBtn"><span class="cs-create__ic"><i class="fa-solid fa-folder-plus"></i></span><span><strong>Create Collection</strong><small>Group related files</small></span></button></li>
                 </ul>
             </div>
@@ -81,6 +82,7 @@
                     <option value="image">Images</option>
                     <option value="video">Videos</option>
                     <option value="gif">GIFs</option>
+                    <option value="audio">Audio</option>
                 </select>
                 <select id="csFilterCollection" class="form-select cs-filter" aria-label="Filter by collection">
                     <option value="">All Collections</option>

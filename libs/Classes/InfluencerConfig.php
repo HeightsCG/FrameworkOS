@@ -41,13 +41,14 @@ class InfluencerConfig {
         'motion'       => array('fal'),
         'replace'      => array('fal'),
         'scene'        => array('fal'),
+        'talking'      => array('fal'),
     );
 
     /**
      * Ops whose AI credit price is worked out from the model's provider cost (credits_from_usd)
      * instead of a flat PlanTiers::AI_PRICES number. A model can still set its own 'credits'.
      */
-    const METERED_OPS = array('replicate', 'edit', 'angle', 'motion', 'talking', 'replace', 'scene', 'speech');
+    const METERED_OPS = array('replicate', 'edit', 'angle', 'motion', 'talking', 'replace', 'scene', 'speech', 'voice_design');
 
     /** AI credits charged per provider dollar, rounded to CREDIT_STEP, never under CREDIT_FLOOR. */
     const CREDITS_PER_USD = 700;
@@ -150,6 +151,17 @@ class InfluencerConfig {
             'label' => 'Draft', 'purpose' => 'Check the take first, 480p', 'price_usd' => 0.2205, 'price_unit' => 'second',
             'params' => array('resolution' => '480p', 'generate_audio' => true), 'family' => 'seedance_ref', 'aspects' => self::VIDEO_ASPECTS,
             'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 8),
+        // -- talking video: a close-up + speech audio -> lip-synced video, priced per second of audio --
+        'heygen_avatar4' => array('provider' => 'fal', 'op' => 'talking', 'endpoints' => array('fal' => 'fal-ai/heygen/avatar4/image-to-video'),
+            'label' => 'Lip Sync', 'purpose' => 'Photo to talking video, 1080p', 'price_usd' => 0.10, 'price_unit' => 'second',
+            'params' => array('resolution' => '1080p', 'talking_style' => 'expressive'), 'family' => 'heygen',
+            'aspects' => array('9:16' => '9:16', '4:5' => '4:5', '1:1' => '1:1'), 'min_seconds' => 1, 'max_seconds' => 600),
+        // -- voice: ElevenLabs, called directly (ElevenLabsService), priced per 1,000 characters. price_usd is an estimate of
+        //    the platform plan's cost per 1,000 characters: set infl_price_eleven_v3 / infl_price_eleven_voice_design to the real one. --
+        'eleven_v3' => array('provider' => 'elevenlabs', 'op' => 'speech', 'endpoints' => array(),
+            'label' => 'Eleven v3', 'purpose' => 'Expressive speech with audio tags', 'price_usd' => 0.20, 'price_unit' => '1000_chars', 'params' => array()),
+        'eleven_voice_design' => array('provider' => 'elevenlabs', 'op' => 'voice_design', 'endpoints' => array(),
+            'label' => 'Voice Design', 'purpose' => 'Three candidate voices from a description', 'price_usd' => 0.20, 'price_unit' => '1000_chars', 'params' => array()),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
@@ -175,6 +187,9 @@ class InfluencerConfig {
         'motion'       => array('kling_v3_motion_std', 'kling_v3_motion_pro'),
         'replace'      => array('wan_30_ref'),
         'scene'        => array('wan_30_scene_final', 'wan_30_scene_draft'),
+        'talking'      => array('heygen_avatar4'),
+        'speech'       => array('eleven_v3'),
+        'voice_design' => array('eleven_voice_design'),
     );
 
     const DEFAULTS = array(
@@ -191,6 +206,12 @@ class InfluencerConfig {
         'ceiling_motion'              => 2400,
         'ceiling_replace'             => 2400,
         'ceiling_scene'               => 2400,
+        'ceiling_talking'             => 2400,
+        'voices_per_creator'          => 10,     // saved voices per account: the platform voice account is one shared pool
+        'voice_design_previews'       => 3,      // candidates a Voice Design run returns (what a run is charged for)
+        'speech_takes'                => 2,      // takes per text to speech run
+        'talking_part_seconds'        => 60,     // a longer talking video is rendered in parts of this length and joined
+        'talking_max_seconds'         => 300,
         'ceiling_training'            => 3600,
         'training_steps'              => 1000,
         'training_set_size'           => 10,
@@ -217,6 +238,7 @@ class InfluencerConfig {
         'motion'       => array(20, 20, 30, 30, 60),
         'replace'      => array(20, 20, 30, 30, 60),
         'scene'        => array(20, 20, 30, 30, 60),
+        'talking'      => array(15, 15, 20, 30, 60),
         'training'     => array(30, 60, 60, 120),
     );
 
@@ -330,12 +352,15 @@ class InfluencerConfig {
 
     /**
      * AI credits for ONE unit of a metered model: one image, or one run of $duration seconds for a
-     * per-second model. The model's own 'credits' wins when it has one.
+     * per-second model, or $duration characters for a per-1,000-characters (voice) model. The model's own 'credits' wins when it has one.
      */
     public static function metered_credits(array $m, $duration = ''){
         $own = self::credits_for($m, $duration);
         if ($own !== null && $own > 0) { return $own; }
         $units = 1;
+        if ((string) ($m['price_unit'] ?? '') === '1000_chars') {   // $duration carries the character count
+            return self::credits_from_usd((float) ($m['price_usd'] ?? 0) * max(1, (int) $duration) / 1000);
+        }
         if ((string) ($m['price_unit'] ?? '') === 'second') {
             $durs  = array_values((array) ($m['durations'] ?? array()));
             $units = max(1, (int) ($duration !== '' && $duration !== null ? $duration : ($durs[0] ?? 5)));

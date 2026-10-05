@@ -16,9 +16,23 @@ class ApiMediaController extends BaseApiController {
         }
         $finfo = new finfo(FILEINFO_MIME_TYPE);
         $mime  = (string) $finfo->file($file['tmp_name']);
+        // Audio (a voice track for a clip edit or a talking video): MP3, WAV or M4A, stored as it is.
+        if (MediaIngestService::verify_audio_file($file['tmp_name']) !== null) {
+            if ((int) $file['size'] > MediaLimits::MAX_IMAGE_BYTES * 2) { $this->jsonError('That audio file is too large. Audio can be up to 30 MB.'); }
+            $copy = tempnam(sys_get_temp_dir(), 'upaud');
+            if ($copy === false || !copy($file['tmp_name'], $copy)) { $this->jsonError('Could not read that file. Please try again.'); }
+            try {
+                $name = preg_replace('/\.[A-Za-z0-9]{2,5}$/', '', (string) ($file['name'] ?? 'Audio'));
+                $r = MediaIngestService::ingest_audio_file($creator_id, $user, $copy, $name !== '' ? $name : 'Audio');
+            } catch (\Throwable $e) {
+                $this->jsonError($e->getMessage());
+            }
+            $a = (new MediaAssetsModel())->get_one($creator_id, (int) $r['asset_id']);
+            $this->jsonSuccess(['asset' => $this->studio_asset_json($a, $creator_id)]);
+        }
         $types = $this->studio_media_types();
         if (!isset($types[$mime]) || $types[$mime][0] === 'video') {
-            $this->jsonError('That file type is not supported here. Use JPG, PNG, WebP, or GIF.');
+            $this->jsonError('That file type is not supported here. Use JPG, PNG, WebP, GIF, MP3, WAV or M4A.');
         }
         list($type, $ext, $max) = $types[$mime];
         if ((int) $file['size'] > $max) {
@@ -592,6 +606,8 @@ class ApiMediaController extends BaseApiController {
             'created_at'        => $a['created_at'],
             'thumb_url'         => $thumb,
             'video_url'         => ($a['type'] === 'video' && $a['status'] === 'ready') ? MediaService::signed_url($a, 'original', $creator_id) : '',
+            'audio_url'         => ($a['type'] === 'audio' && $a['status'] === 'ready') ? MediaService::signed_variant($a, 'original', 1800) : '',
+            'provenance'        => (string) ($a['provenance'] ?? 'uploaded'),
         ];
     }
 

@@ -81,6 +81,7 @@ window.AiTools = (function ($) {
               '<div class="ai-picker__bar"><input type="search" class="form-control" id="aiPickerSearch" placeholder="Search your library" aria-label="Search your library">' +
               '<button type="button" class="btn btn-secondary" id="aiPickerUpload"><i class="fa-solid fa-arrow-up-from-bracket" aria-hidden="true"></i> Upload</button>' +
               '<input type="file" id="aiPickerFile" accept="image/jpeg,image/png,image/webp" hidden></div>' +
+              '<p class="ai-error" id="aiPickerNote" hidden></p>' +
               '<div class="ai-picker__state" id="aiPickerState" role="status"></div>' +
               '<div class="ai-picker__grid" id="aiPickerGrid"></div>' +
             '</div></div></div></div>').appendTo('body');
@@ -97,7 +98,8 @@ window.AiTools = (function ($) {
         $picker.on('change', '#aiPickerFile', function () {
             var file = this.files && this.files[0];
             if (!file) { return; }
-            if (file.size > 15 * 1048576) { toastr.error('That image is too large. Images can be up to 15 MB.'); return; }
+            var audio = picker_filter.type === 'audio';
+            if (file.size > (audio ? 30 : 15) * 1048576) { toastr.error(audio ? 'That audio file is too large. Audio can be up to 30 MB.' : 'That image is too large. Images can be up to 15 MB.'); return; }
             var fd = new FormData(); fd.append('file', file);
             picker_state('<span class="spinner-border spinner-border-sm text-primary"></span> Uploading');
             $('#aiPickerUpload').prop('disabled', true);
@@ -114,31 +116,39 @@ window.AiTools = (function ($) {
     function picker_load() {
         picker_state('<span class="spinner-border spinner-border-sm text-primary"></span> Loading your library');
         $('#aiPickerGrid').empty();
-        var video = picker_filter.type === 'video';
-        var body = { type: picker_filter.type, search: picker_filter.search };
+        var video = picker_filter.type === 'video', audio = picker_filter.type === 'audio';
+        var body = { type: picker_filter.type === 'media' ? '' : picker_filter.type, search: picker_filter.search };
         if (picker_filter.influencer) { body.influencer = picker_filter.influencer; }
         api('media_list', body, function (o) {
             if (!o || !o.success) { picker_state('<span class="ai-picker__err">Could not load your library. <button type="button" class="btn btn-link p-0" id="aiPickerRetry">Try Again</button></span>'); $('#aiPickerRetry').on('click', picker_load); return; }
-            picker_assets = (o.assets || []).filter(function (a) { return a.status === 'ready' && a.thumb_url && a.moderation !== 'blocked'; });
+            picker_assets = (o.assets || []).filter(function (a) { return a.status === 'ready' && (a.thumb_url || a.type === 'audio') && a.moderation !== 'blocked' && (picker_filter.type !== 'media' || a.type !== 'audio'); });
             if (!picker_assets.length) {
-                picker_state(picker_filter.search ? 'Nothing matches that search.' : (video ? 'No videos in your library yet. Upload one in Content Studio.' : 'No images in your library yet. Upload one to start.'));
+                picker_state(picker_filter.search ? 'Nothing matches that search.' : (video ? 'No videos in your library yet. Upload one in Content Studio.' : (audio ? 'No audio in your library yet. Upload a file to start.' : 'No images in your library yet. Upload one to start.')));
                 return;
             }
             picker_state('');
+            $('#aiPickerGrid').toggleClass('ai-picker__grid--list', audio);
+            if (audio) {
+                $('#aiPickerGrid').html(picker_assets.map(function (a) {
+                    return '<button type="button" class="ai-picker__item ai-picker__row" data-id="' + a.id + '"><i class="fa-solid fa-music" aria-hidden="true"></i><span>' + esc(a.name) + '</span><em>' + clock(a.duration) + '</em></button>';
+                }).join(''));
+                return;
+            }
             $('#aiPickerGrid').html(picker_assets.map(function (a) {
                 return '<button type="button" class="ai-picker__item" data-id="' + a.id + '" title="' + esc(a.name) + '"><img src="' + esc(a.thumb_url) + '" alt="' + esc(a.name) + '" loading="lazy">' +
-                    (video ? '<span class="ai-picker__len"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + clock(a.duration) + '</span>' : '') + '</button>';
+                    ((video || a.type === 'video') ? '<span class="ai-picker__len"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + clock(a.duration) + '</span>' : '') + '</button>';
             }).join(''));
         });
     }
-    /* opts: { title, influencer, type: 'image' (default) | 'video' }. Videos are picked from the Library only (uploads go through Content Studio). */
+    /* opts: { title, influencer, type: 'image' (default) | 'video' | 'audio' }. Videos are picked from the Library only (uploads go through Content Studio). */
     function pick_image(opts, cb) {
         picker_build();
         opts = opts || {};
         picker_cb = cb;
-        picker_filter = { search: '', influencer: parseInt(opts.influencer, 10) || 0, type: opts.type === 'video' ? 'video' : 'image' };
-        $('#aiPickerTitle').text(opts.title || (picker_filter.type === 'video' ? 'Choose a Video' : 'Choose an Image'));
-        $('#aiPickerUpload').prop('hidden', picker_filter.type === 'video');
+        picker_filter = { search: '', influencer: parseInt(opts.influencer, 10) || 0, type: (opts.type === 'video' || opts.type === 'audio' || opts.type === 'media') ? opts.type : 'image' };
+        $('#aiPickerTitle').text(opts.title || (picker_filter.type === 'video' ? 'Choose a Video' : (picker_filter.type === 'audio' ? 'Choose an Audio File' : (picker_filter.type === 'media' ? 'Choose a Clip Or Image' : 'Choose an Image'))));
+        $('#aiPickerUpload').prop('hidden', picker_filter.type === 'video' || picker_filter.type === 'media');
+        $('#aiPickerFile').attr('accept', picker_filter.type === 'audio' ? 'audio/mpeg,audio/wav,audio/x-wav,audio/mp4,.mp3,.wav,.m4a' : 'image/jpeg,image/png,image/webp');
         $('#aiPickerSearch').val('');
         bootstrap.Modal.getOrCreateInstance($picker[0]).show();
         picker_load();

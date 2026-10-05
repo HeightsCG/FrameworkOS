@@ -122,6 +122,18 @@ class VideoTools {
         return '';
     }
 
+    /** Cut an audio file into consecutive pieces of at most $seconds each (MP3). Returns their paths in order. */
+    public static function split_audio($src, $seconds, $timeout = 300){
+        $ffmpeg = MediaService::bin('ffmpeg');
+        if ($ffmpeg === '' || (string) $src === '' || (int) $seconds < 1) { return array(); }
+        $base = tempnam(sys_get_temp_dir(), 'seg'); @unlink($base);
+        MediaService::run_with_timeout(escapeshellarg($ffmpeg) . ' -y -i ' . escapeshellarg($src) . ' -vn -f segment -segment_time ' . (int) $seconds
+            . ' -c:a libmp3lame -q:a 2 ' . escapeshellarg($base . '_%03d.mp3'), (int) $timeout);
+        $out = glob($base . '_*.mp3') ?: array();
+        sort($out);
+        return array_values(array_filter($out, function ($f) { return filesize($f) > 0; }));
+    }
+
     /** SHA-256 of a local file (the fingerprint stored with a source video). */
     public static function file_hash($path){
         $h = @hash_file('sha256', (string) $path);

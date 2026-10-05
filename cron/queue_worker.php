@@ -43,6 +43,7 @@ $handlers = [
     'signup_alert'   => 'SignupAlertJob',
     'recording_watch' => 'RecordingWatchJob',
     'replay_announce' => 'ReplayAnnounceJob',
+    'clip_render'    => 'ClipRenderJob',
 ];
 
 $queue     = new DatabaseJobQueue();

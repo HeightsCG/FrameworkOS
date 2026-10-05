@@ -119,6 +119,30 @@ class StudioController extends Controller {
         $this->view->render();
     }
 
+    /**
+     * Clip editor. /studio/edit lists the creator's edit projects; /studio/edit/<id> opens one. Same gate as the
+     * Studio: creators with a plan (others are sent to the Studio, which shows the upgrade cover).
+     */
+    public function editAction(){
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('content')) { header('Location: /studio'); exit; }
+        $cid  = (int) Permissions::creator_id();
+        $rows = $this->userModel->get_user_by_id($cid);
+        $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : array();
+        if (!Plan::can_use_creator_features($user)) { header('Location: /studio'); exit; }
+        $id = (int) (Main::get_url()[2] ?? 0);
+        $this->view->project_id = 0;
+        if ($id > 0) {
+            if (!(new EditProjectsModel())->get_one($cid, $id)) { header('Location: /studio/edit'); exit; }
+            $this->view->project_id = $id;
+        } else {
+            $list = ClipEditActions::listing($cid);
+            $this->view->projects = $list['projects'];
+        }
+        $this->view->can_export = ClipRenderer::available();
+        $this->view->timezone   = (string) ($user['content_timezone'] ?? 'UTC');
+        $this->view->render();
+    }
+
 
     /** Download several Library files as one zip: /studio/download?ids=1,2,3 (originals, up to MAX_ZIP_FILES). */
     const MAX_ZIP_FILES = 100;
