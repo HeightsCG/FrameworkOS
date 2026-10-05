@@ -213,6 +213,7 @@ jQuery(function ($) {
             fail('');
             // Reading the photo and writing the prompt takes several seconds: say so on the photo itself, where the creator is looking.
             $('#inf_rep_stage').addClass('is-reading').attr('aria-busy', 'true');
+            $('#inf_rep_own').prop('hidden', true);
             $('#inf_rep_reading').prop('hidden', false);
             $('#inf_rep_prompt').val('').prop('disabled', true).attr('placeholder', 'Writing the prompt from your photo');
             $('#inf_rep_rewrite').prop('hidden', true);
@@ -229,6 +230,7 @@ jQuery(function ($) {
                     if (o && (o.need_plan || o.need_credits || o.need_upgrade)) { err(o); } else { fail((o && o.message) || 'Could not read the photo. Write the prompt yourself or try again.'); }
                 } else {
                     prep = o; $('#inf_rep_prompt').val(o.prompt);
+                    $('#inf_rep_own').prop('hidden', !o.own);
                     if (!o.face && mask_mode() === 'auto') { seg_set('inf_rep_maskmode', 'brush'); }
                 }
                 draw(); mask_state(); cost();

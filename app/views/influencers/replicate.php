@@ -32,6 +32,7 @@
                         </div>
                     </div>
                 </div>
+                <p class="inf-note" id="inf_rep_own" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> <span>This photo is already <?php echo $e($infl['name']); ?>, so the replica will look the same. Replicate Photo puts <?php echo ((string) ($infl['gender'] ?? '') === 'man') ? 'him' : 'her'; ?> into a photo of someone else. For new shots from this one, use <a class="inf-link" href="/influencers/carousel/<?php echo (int) $infl['id']; ?>">Carousel</a>.</span></p>
             </div>
 
             <div class="inf-field">

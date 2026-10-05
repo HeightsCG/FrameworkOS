@@ -294,6 +294,8 @@ button.inf-photo--pick{ padding:0; }
 .inf-stills .inf-photo--pick:focus-visible{ outline:3px solid var(--acc); outline-offset:-3px; }
 .inf-note{ display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--acc); border-radius:2px; background:var(--vsoft); color:var(--acc-ink); font-size:13px; line-height:1.45; }
 .inf-note[hidden]{ display:none; }
+.inf-note a.inf-link{ text-decoration:underline; }
+.inf-gen__form .inf-note{ margin:8px 0 0; }
 .inf-note i{ margin-top:2px; }
 #inf_set_form{ margin-bottom:14px; }
 .inf-setprog{ display:flex; align-items:center; gap:1rem; margin:.2rem 0 .9rem; }

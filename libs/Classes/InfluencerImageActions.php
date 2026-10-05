@@ -227,6 +227,8 @@ class InfluencerImageActions {
         $mode = ($mode === 'exact') ? 'exact' : 'style';
         return self::okr(array(
             'mode' => $mode, 'face' => $face, 'refs' => count($refs),
+            // The source is already a picture of this influencer: putting her into it changes nothing.
+            'own' => ((int) ($src['gen_influencer_id'] ?? 0) === (int) $infl['id']),
             'seen' => array('outfit' => self::one_line($seen['outfit'] ?? '', 300), 'setting' => self::one_line($seen['setting'] ?? '', 500), 'features' => self::one_line($seen['features'] ?? '', 300)),
             'prompt' => ($mode === 'exact') ? self::exact_prompt($infl, $seen, $extra) : self::style_prompt($infl, $seen, $extra),
         ));
