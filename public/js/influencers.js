@@ -229,13 +229,56 @@ jQuery(function ($) {
         load(false);
     }
 
+    /* Prebuilt lists show their first six rows; Show More opens the rest. */
+    $(document).on('click', '.inf-more', function () {
+        var $list = $(this).closest('.inf-chips'), open = !$list.hasClass('is-open');
+        $list.toggleClass('is-open', open);
+        $(this).text(open ? 'Show Less' : 'Show More').attr('aria-expanded', open ? 'true' : 'false');
+    });
+
+    /* Enlarge a photo: any tile carrying data-full opens it large, with the other tiles of its grid to step through. */
+    var zoom = { list: [], at: 0 };
+    function zoom_show(i) {
+        zoom.at = (i + zoom.list.length) % zoom.list.length;
+        $('#inf_zoom_img').attr('src', zoom.list[zoom.at]);
+        $('#inf_zoom_n').text((zoom.at + 1) + ' of ' + zoom.list.length);
+        $('#inf_zoom .inf-zoom__nav, #inf_zoom_n').prop('hidden', zoom.list.length < 2);
+    }
+    function zoom_close() { $('#inf_zoom').prop('hidden', true); $('#inf_zoom_img').attr('src', ''); if (zoom.from) { $(zoom.from).trigger('focus'); } }
+    $(document).on('click keydown', '.inf [data-full]', function (e) {
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') { return; }
+        if ($(e.target).closest('button, a').length && !$(e.target).closest('button, a').is('[data-full]')) { return; }   // a button on the tile (regenerate, remove) keeps its own job
+        e.preventDefault();
+        if (!$('#inf_zoom').length) {
+            $('body').append('<div class="inf-zoom" id="inf_zoom" role="dialog" aria-modal="true" aria-label="Photo" hidden>' +
+                '<button type="button" class="inf-zoom__btn inf-zoom__close" id="inf_zoom_close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+                '<button type="button" class="inf-zoom__btn inf-zoom__nav inf-zoom__nav--prev" data-step="-1" aria-label="Previous photo"><i class="fa-solid fa-chevron-left"></i></button>' +
+                '<img id="inf_zoom_img" alt="">' +
+                '<button type="button" class="inf-zoom__btn inf-zoom__nav inf-zoom__nav--next" data-step="1" aria-label="Next photo"><i class="fa-solid fa-chevron-right"></i></button>' +
+                '<span class="inf-zoom__n" id="inf_zoom_n"></span></div>');
+            $('#inf_zoom').on('click', function (ev) { if (ev.target === this) { zoom_close(); } });
+            $('#inf_zoom_close').on('click', zoom_close);
+            $('#inf_zoom').on('click', '[data-step]', function () { zoom_show(zoom.at + parseInt($(this).data('step'), 10)); });
+            $(document).on('keydown', function (ev) {
+                if ($('#inf_zoom').prop('hidden')) { return; }
+                if (ev.key === 'Escape') { zoom_close(); } else if (ev.key === 'ArrowLeft') { zoom_show(zoom.at - 1); } else if (ev.key === 'ArrowRight') { zoom_show(zoom.at + 1); }
+            });
+        }
+        var $tiles = $(this).parent().children('[data-full]');
+        zoom.list = $tiles.map(function () { return $(this).attr('data-full'); }).get();
+        zoom.from = this;
+        $('#inf_zoom').prop('hidden', false);
+        zoom_show(Math.max(0, $tiles.index(this)));
+        $('#inf_zoom_close').trigger('focus');
+    });
+
     /* =====================================================================
      * Create wizard
      * =================================================================== */
     function init_create() {
         var inf   = CFG.influencer || null;
         var path  = inf ? inf.path : '';
-        var STEP_LABELS = { name: 'Setup', photos: 'Photos', input: 'Setup', reference: 'Reference', set: 'Training Set', review: 'Review', training: 'Training', done: 'Done' };
+        var STEP_LABELS = { name: 'Setup', photos: 'Photos', input: 'Setup', reference: 'Face', body: 'Body', set: 'Training Set', review: 'Review', training: 'Training', done: 'Done' };
         var poll_timer = null;
 
         function steps_for(p) { return (C.steps && C.steps[p]) ? C.steps[p] : ['name']; }
@@ -253,21 +296,129 @@ jQuery(function ($) {
 
         function set_actions(html) { $('#inf_wiz_actions').html(html || ''); }
 
-        /* --- Body settings (height, build, bust): one row of selects, shared by Setup and the trained page --- */
-        function body_html(prefix, values, gender) {
-            var html = '<div class="inf-body" id="' + prefix + '">';
-            $.each(C.body || {}, function (col, def) {
-                var id = prefix + '_' + col, cur = String((values && values[col]) || '');
-                html += '<div class="inf-field" data-body-field="' + col + '"' + (def.women_only && gender === 'man' ? ' hidden' : '') + '><label class="inf-label" for="' + id + '">' + esc(def.label) + '</label>' +
-                    '<select class="form-select" id="' + id + '" data-body="' + col + '">' + $.map(def.options, function (label, value) { return '<option value="' + esc(value) + '"' + (value === cur ? ' selected' : '') + '>' + esc(label) + '</option>'; }).join('') + '</select></div>';
-            });
-            return html + '</div>';
+        /* --- Body: her build in the creator's own words, and a full-body reference image made from it that can be adjusted --- */
+        var body_stop = null;
+        function body_ideas_html() { return (C.body_ideas || []).map(function (t) { return '<button type="button" class="inf-chip" data-body-idea="' + esc(t) + '">' + esc(t) + '</button>'; }).join(''); }
+        // Tapping an idea adds it to the text (or takes it out again); the field stays free text.
+        function body_idea_toggle($field, word) {
+            var parts = $field.val().split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x != ''; });
+            var at = parts.map(function (x) { return x.toLowerCase(); }).indexOf(String(word).toLowerCase());
+            if (at >= 0) { parts.splice(at, 1); } else { parts.push(word); }
+            $field.val(parts.join(', ')).trigger('input');
         }
-        function body_gender(prefix, gender) { $.each(C.body || {}, function (col, def) { if (def.women_only) { $('#' + prefix + ' [data-body-field="' + col + '"]').prop('hidden', gender === 'man'); } }); }
-        function body_values(prefix, gender) {
-            var out = {};
-            $('#' + prefix + ' [data-body]').each(function () { var col = $(this).data('body'); out[col] = ((C.body[col] || {}).women_only && gender === 'man') ? '' : $(this).val(); });
-            return out;
+        // Whole body descriptions to start from (per gender); picking one fills the field, which stays editable.
+        function body_prebuilt() { return ((C.prompts || {})[inf.gender] || {}).body || []; }
+        function body_prebuilt_html(id) {
+            var list = body_prebuilt();
+            if (!list.length) { return ''; }
+            return '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips" id="' + id + '">' + list.map(function (t, i) {
+                return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>';
+            }).join('') + (list.length > 6 ? '<button type="button" class="inf-link inf-more" aria-expanded="false">Show More</button>' : '') + '</div></div>';
+        }
+        function body_prebuilt_bind(id, $field) { $('#' + id).on('click', '.inf-chip--text', function () { $field.val(body_prebuilt()[$(this).data('i')]).trigger('input').trigger('focus'); }); }
+        function body_section_html() {
+            return '<div class="inf-wiz__split">' +
+                '<div class="inf-wiz__form">' +
+                '<div class="inf-field"><label class="inf-label" for="inf_body_text">Body Description</label>' +
+                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<div class="inf-chips" id="inf_body_ideas">' + body_ideas_html() + '</div></div>' +
+                body_prebuilt_html('inf_body_pre') +
+                '<div class="inf-bodysec__go"><button type="button" class="btn btn-secondary" id="inf_body_gen" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="inf_body_gen_t">Generate Body Reference</span></button><span class="inf-wiz__meta" id="inf_body_cost"></span></div>' +
+                '</div>' +
+                '<div class="inf-wiz__view">' +
+                '<div class="inf-gen__stage inf-wiz__stage inf-wiz__stage--body" id="inf_body_stage"></div>' +
+                '<div class="inf-adjust" id="inf_body_adjust" hidden><label class="visually-hidden" for="inf_body_change">Adjust the body reference</label>' +
+                '<input type="text" class="form-control" id="inf_body_change" maxlength="500" placeholder="Slimmer waist, more muscular arms">' +
+                '<button type="button" class="btn btn-secondary" id="inf_body_apply" disabled>Adjust</button></div>' +
+                '<p class="inf-err" id="inf_body_err" role="alert" hidden></p>' +
+                '</div></div>';
+        }
+        /* The Body step: describe her build, make the full-body reference from her face, adjust it in words. Optional: Continue works with none of it. */
+        function render_body() {
+            if (body_stop) { body_stop(); body_stop = null; }
+            $('#inf_panel').html(body_section_html() +
+                '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_body_back">Back</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_body_next">Continue <i class="fa-solid fa-arrow-right"></i></button></div>');
+            var body = body_section_bind(function () { return inf.reference_asset_id || inf.face_asset_id || 0; });
+            body.ready(!!(inf.reference_asset_id || inf.face_asset_id));
+            $('#inf_body_back').on('click', function () { if (body_stop) { body_stop(); body_stop = null; } go_back('body'); });
+            $('#inf_body_next').on('click', function () {
+                var $b = $(this).prop('disabled', true);
+                body.finish(function () {
+                    if (body_stop) { body_stop(); body_stop = null; }
+                    api('influencer_save_step', { id: inf.id, step: 'set' }, function (o) { $b.prop('disabled', false); if (o && o.success) { inf = o.influencer; show('set'); } else { err(o); } });
+                });
+            });
+        }
+        /* get_face(): the face image the body is built from (0 = none yet). Returns { save(cb), approve(cb), ready(on) }. */
+        function body_section_bind(get_face) {
+            var cur = null, price = 0, working = false, face_ready = false;
+            function error(m) { $('#inf_body_err').text(m || '').prop('hidden', !m); }
+            function stage(state, text) {
+                var $s = $('#inf_body_stage');
+                if (state === 'busy') { $s.html('<div class="inf-gen__busy"><span class="spinner-border" role="status"></span><p>' + esc(text || 'Working') + '</p></div>'); }
+                else if (cur && cur.display_url) { $s.html('<figure class="inf-gen__main" tabindex="0" role="button" aria-label="Enlarge the body reference" data-full="' + esc(cur.display_url) + '"><img src="' + esc(cur.display_url) + '" alt="Full-body reference"></figure>'); }
+                else { $s.html('<div class="inf-gen__idle"><i class="fa-solid fa-person"></i><p>' + (face_ready ? 'The full-body reference appears here.' : 'Make the face reference first.') + '</p></div>'); }
+            }
+            function sync() {
+                $('#inf_body_gen').prop('disabled', working || !face_ready);
+                $('#inf_body_gen_t').text(cur && cur.asset_id ? 'Generate Another' : 'Generate Body Reference');
+                $('#inf_body_cost').text(price > 0 ? Number(price).toLocaleString() + ' AI credits' : '');
+                $('#inf_body_adjust').prop('hidden', !(cur && cur.asset_id));
+                $('#inf_body_apply').prop('disabled', working || $('#inf_body_change').val().trim() == '');
+                $('#inf_body_change').prop('disabled', working);
+            }
+            function load(then) {
+                api('influencer_body_status', { id: inf.id }, function (o) {
+                    if (o && o.success) {
+                        price = o.price || 0;
+                        var b = o.body || {};
+                        if (b.status === 'working' && b.job_id && !working) { watch(b.job_id); }
+                        else if (b.status === 'ready') { cur = b; }
+                        else if (b.status === 'failed' && !cur) { error(b.error || 'The body reference failed.'); }
+                    }
+                    if (!working) { stage('idle'); }
+                    sync(); if (then) { then(); }
+                });
+            }
+            function watch(job_id) {
+                working = true; error(''); stage('busy', 'Working'); sync();
+                if (body_stop) { body_stop(); }
+                body_stop = poll_job(job_id, function (j) { stage('busy', status_text(j)); }, function (j) {
+                    body_stop = null; working = false;
+                    if (j.status !== 'done') { error(j.error || 'The body reference failed. Your AI credits were returned.'); }
+                    load();
+                });
+            }
+            function run(change) {
+                if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
+                working = true; error(''); stage('busy', 'Sending'); sync();
+                api('influencer_body_generate', { id: inf.id, body_description: $('#inf_body_text').val(), asset_id: get_face() || 0, change: change || '' }, function (o) {
+                    if (!o || !o.success) {
+                        working = false; stage('idle'); sync();
+                        if (o && (o.need_plan || o.need_credits || o.need_upgrade)) { err(o); } else { error((o && o.message) || 'Could not start the body reference.'); }
+                        return;
+                    }
+                    inf.body_description = $('#inf_body_text').val();
+                    if (change) { $('#inf_body_change').val(''); }
+                    watch(o.job_id);
+                });
+            }
+            $('#inf_body_ideas').on('click', '[data-body-idea]', function () { body_idea_toggle($('#inf_body_text'), $(this).data('body-idea')); });
+            body_prebuilt_bind('inf_body_pre', $('#inf_body_text'));
+            $('#inf_body_gen').on('click', function () { run(''); });
+            $('#inf_body_change').on('input', sync).on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#inf_body_apply').trigger('click'); } });
+            $('#inf_body_apply').on('click', function () { var c = $('#inf_body_change').val().trim(); if (c != '') { run(c); } });
+            stage('idle'); load();
+            return {
+                ready: function (on) { face_ready = !!on; if (!working) { stage('idle'); } sync(); },
+                // Before leaving the step: keep the text, and approve the shown image so the other tools use it.
+                finish: function (cb) {
+                    api('influencer_save_step', { id: inf.id, body_description: $('#inf_body_text').val() }, function () {
+                        if (cur && cur.asset_id && !cur.approved) { api('influencer_body_approve', { id: inf.id, asset_id: cur.asset_id }, function () { cb(); }); } else { cb(); }
+                    });
+                }
+            };
         }
 
         /* --- Setup: name, gender (picks the name ideas and every prompt suggestion), what she is built from, gallery --- */
@@ -288,7 +439,6 @@ jQuery(function ($) {
                 '<div class="inf-field"><label class="inf-label" for="inf_name">Name</label>' +
                 '<input type="text" class="form-control" id="inf_name" maxlength="120" value="' + esc(inf ? inf.name : '') + '"></div>' +
                 '<div class="inf-field" id="inf_name_ideas"><div class="inf-label">Suggestions</div><div class="inf-chips" id="inf_name_chips"></div></div>' +
-                body_html('inf_body', inf, gender) +
                 '<div class="inf-field"><div class="inf-label">Public Gallery</div>' + seg_html('inf_public_seg', [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], String(inf ? (inf.is_public || 0) : 0)) + '</div>' +
                 '</div>' +
                 '<div class="inf-setup__col">' +
@@ -311,7 +461,7 @@ jQuery(function ($) {
                 $('#inf_name_chips').html(names.map(function (n) { return '<button type="button" class="inf-chip" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join(''));
                 $('#inf_name_ideas').prop('hidden', !names.length);
             }
-            seg_bind('inf_gender', function (g) { gender = g; show_names(g); body_gender('inf_body', g); });
+            seg_bind('inf_gender', function (g) { gender = g; show_names(g); });
             seg_bind('inf_public_seg');
             show_names(gender);
             $('#inf_name_chips').on('click', '.inf-chip', function () { $('#inf_name').val($(this).data('name')).trigger('focus'); $('#inf_name_chips .inf-chip').removeClass('is-on'); $(this).addClass('is-on'); });
@@ -327,7 +477,6 @@ jQuery(function ($) {
                 if (!gender) { toastr.error('Choose Woman or Man'); return; }
                 var $b = $(this).prop('disabled', true);
                 var body = { name: name, gender: gender, is_public: seg_value('inf_public_seg') };
-                $.extend(body, body_values('inf_body', gender));
                 if (src.path === 'reference') { body.input_method = src.value; }
                 if (!inf) {
                     body.path = src.path;
@@ -411,14 +560,14 @@ jQuery(function ($) {
                 html += '<p class="inf-wiz__meta">' + esc(inf.name) + ' keeps generating with the current model until the new one is ready.</p>' +
                         '<div class="inf-photos inf-photos--sm" id="inf_photos"></div></section>';
                 $('#inf_panel').append(html);
-                photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); }); });
+                photos_load(function () { photos.forEach(function (img) { $('#inf_photos').append('<div class="inf-photo" tabindex="0" role="button" aria-label="Enlarge photo" data-full="' + esc(img.display_url || img.thumb_url) + '"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); }); });
                 return;
             }
             if (!photos_path) {   // built from a reference: its training set is managed on the review step
                 html += '<div class="inf-photos inf-photos--sm" id="inf_set_view"></div></section>';
                 $('#inf_panel').append(html);
                 api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
-                    ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
+                    ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo" tabindex="0" role="button" aria-label="Enlarge photo" data-full="' + esc(img.display_url || img.thumb_url) + '"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
                 });
                 $('#inf_ref_retrain').on('click', function () { show('set'); });
                 $('#inf_look_open').on('click', look_open);
@@ -542,7 +691,9 @@ jQuery(function ($) {
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2><p class="inf-sec__sub">Applied to every image generated with ' + her + '.</p></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                body_html('inf_set_body', inf, inf.gender) +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<div class="inf-chips" id="inf_set_bodyideas">' + body_ideas_html() + '</div></div>' +
+                body_prebuilt_html('inf_set_bodypre') +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
@@ -551,11 +702,13 @@ jQuery(function ($) {
                 '</section></div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';
             $('#inf_panel').append(html);
-            seg_bind('inf_set_gender', function (g) { body_gender('inf_set_body', g); });
+            seg_bind('inf_set_gender');
+            $('#inf_set_bodyideas').on('click', '[data-body-idea]', function () { body_idea_toggle($('#inf_set_bodytext'), $(this).data('body-idea')); });
+            body_prebuilt_bind('inf_set_bodypre', $('#inf_set_bodytext'));
             $('#inf_set_save').on('click', function () {
                 var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val() };
                 $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
-                $.extend(body, body_values('inf_set_body', body.gender));
+                body.body_description = $('#inf_set_bodytext').val();
                 api('influencer_save_step', body, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
                 });
@@ -738,11 +891,14 @@ jQuery(function ($) {
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_ref_desc">Face Description</label><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc(faces[0] || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
-                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + '</div></div>' : '') +
+                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + (faces.length > 6 ? '<button type="button" class="inf-link inf-more" aria-expanded="false">Show More</button>' : '') + '</div></div>' : '') +
                 '</div>' +
                 '<div class="inf-wiz__view">' +
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
                 '<div class="inf-ref__row" id="inf_ref_row" hidden></div>' +
+                '<div class="inf-adjust" id="inf_ref_adjust" hidden><label class="visually-hidden" for="inf_ref_change">Adjust this image</label>' +
+                '<input type="text" class="form-control" id="inf_ref_change" maxlength="500" placeholder="Shorter hair, green eyes, a few years older">' +
+                '<button type="button" class="btn btn-secondary" id="inf_ref_apply" disabled>Adjust</button></div>' +
                 '</div></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_ref_back">Back</button>' +
                 '<span class="inf-wiz__meta" id="inf_ref_status"></span>' +
@@ -759,8 +915,9 @@ jQuery(function ($) {
             function busy(text) { $('#inf_ref_stage').html('<div class="inf-gen__busy"><span class="spinner-border" role="status"></span><p>' + esc(text) + '</p></div>'); }
             function paint(images) {
                 var $row = $('#inf_ref_row').empty().prop('hidden', images.length < 2);
+                $('#inf_ref_adjust').prop('hidden', !images.length);
                 if (!images.length) { stage(null); return; }
-                if (!selected || !images.some(function (im) { return im.id === selected; })) { selected = images[images.length - 1].id; }
+                if (!selected || !images.some(function (im) { return im.id === selected; })) { selected = Math.max.apply(null, images.map(function (im) { return im.id; })); }
                 images.forEach(function (img) {
                     var $t = $('<button type="button" class="inf-photo inf-photo--pick' + (img.id === selected ? ' is-on' : '') + '">').attr('data-id', img.id).append('<img src="' + esc(img.thumb_url) + '" alt="">');
                     $t.on('click', function () { selected = img.id; $('#inf_ref_row .inf-photo').removeClass('is-on'); $t.addClass('is-on'); stage(img); });
@@ -786,9 +943,34 @@ jQuery(function ($) {
                 });
             }
             $('#inf_ref_gen, #inf_ref_gen_primary').on('click', generate);
+            // Adjust: the selected image with one thing changed becomes a new candidate (the original stays in the row).
+            function adjust() {
+                var change = $('#inf_ref_change').val().trim();
+                if (change == '' || !selected) { return; }
+                if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
+                $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use, #inf_ref_apply, #inf_ref_change').prop('disabled', true);
+                busy('Sending');
+                function done(ok) {
+                    $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use, #inf_ref_change').prop('disabled', false);
+                    if (ok) { selected = 0; $('#inf_ref_change').val(''); }
+                    $('#inf_ref_apply').prop('disabled', $('#inf_ref_change').val().trim() == '');
+                    api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) { paint((o2 && o2.success) ? o2.images : []); });
+                }
+                api('influencer_reference_change', { id: inf.id, change: change, asset_id: selected }, function (o) {
+                    if (!o || !o.success) { err(o); done(false); return; }
+                    ref_stop = poll_job(o.job_id, function (j) { busy(status_text(j)); }, function (j) {
+                        if (j.status !== 'done') { toastr.error(j.error || 'The adjustment failed. Try wording it differently.'); }
+                        done(j.status === 'done');
+                    });
+                });
+            }
+            $('#inf_ref_change').on('input', function () { $('#inf_ref_apply').prop('disabled', this.value.trim() == ''); })
+                .on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); adjust(); } });
+            $('#inf_ref_apply').on('click', adjust);
             $('#inf_ref_use').on('click', function () {
                 if (!selected) { return; }
-                api('influencer_reference_pick', { id: inf.id, asset_id: selected }, function (o) { if (o && o.success) { inf = o.influencer; show('set'); } else { err(o); } });
+                var $b = $(this).prop('disabled', true);
+                api('influencer_reference_pick', { id: inf.id, asset_id: selected }, function (o) { $b.prop('disabled', false); if (o && o.success) { inf = o.influencer; show('body'); } else { err(o); } });
             });
         }
         function render_reference_photo() {
@@ -822,7 +1004,8 @@ jQuery(function ($) {
                  .on('drop', function (e) { e.preventDefault(); var f = e.originalEvent.dataTransfer.files[0]; if (f) { send(f); } });
             $('#inf_face_back').on('click', function () { go_back('reference'); });
             $('#inf_face_next').on('click', function () {
-                api('influencer_reference_pick', { id: inf.id, asset_id: inf.face_asset_id }, function (o) { if (o && o.success) { inf = o.influencer; show('set'); } else { err(o); } });
+                var $b = $(this).prop('disabled', true);
+                api('influencer_reference_pick', { id: inf.id, asset_id: inf.face_asset_id }, function (o) { $b.prop('disabled', false); if (o && o.success) { inf = o.influencer; show('body'); } else { err(o); } });
             });
         }
 
@@ -834,17 +1017,23 @@ jQuery(function ($) {
             var html = '<h2 class="inf-wiz__h">Training Set</h2>' +
                 '<p class="inf-wiz__p">' + size + ' square images from the reference, different angles, expressions and light.</p>' +
                 '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Steer the set (optional)</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
+                '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Her face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
                 '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_set_back">Back</button><span class="inf-wiz__meta" id="inf_set_status"></span>' +
-                '<button type="button" class="btn btn-secondary" id="inf_set_regen" hidden><i class="fa-solid fa-rotate"></i> Start over</button>' +
+                '<button type="button" class="btn btn-secondary" id="inf_set_regen" hidden><i class="fa-solid fa-rotate"></i> Regenerate Photos</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_set_go"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate ' + size + ' images</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_set_next" hidden><i class="fa-solid fa-bolt"></i> ' + (inf.active_model_id > 0 ? 'Retrain' : 'Train') + '</button></div>';
             $('#inf_panel').html(html);
             $('#inf_set_back').on('click', function () { go_back('set'); });
             function paint(st) {
                 var has = st.group_key !== '';
-                $('#inf_set_form').prop('hidden', has); $('#inf_set_prog, #inf_set_grid').prop('hidden', !has);
+                $('#inf_set_prog, #inf_set_grid').prop('hidden', !has);   // the Steer field stays: Regenerate Photos uses it too
+                // Out of date (face or body changed since): regenerating becomes the main action, training steps back.
+                var stale = !!st.stale && has && !(st.active > 0);
+                $('#inf_set_stale').prop('hidden', !stale);
+                $('#inf_set_regen').toggleClass('btn-primary', stale).toggleClass('btn-secondary', !stale);
+                $('#inf_set_next').toggleClass('btn-primary', !stale).toggleClass('btn-secondary', stale);
                 $('#inf_set_go').prop('hidden', has); $('#inf_set_regen').prop('hidden', !has);
                 $('#inf_set_next').prop('hidden', !st.complete);
                 if (!has) { return; }
@@ -861,6 +1050,7 @@ jQuery(function ($) {
                     if ($old.length && $old.attr('data-sig') === sig) { return; }
                     var $t = $('<div class="inf-photo inf-slot">').attr({ 'data-job': sl.job_id, 'data-slot': key, 'data-sig': sig });
                     if (sl.status === 'done' && sl.thumb_url) {
+                        $t.attr({ 'data-full': sl.display_url || sl.thumb_url, tabindex: 0, role: 'button', 'aria-label': 'Enlarge photo ' + sl.index });
                         $t.append('<img src="' + esc(sl.thumb_url) + '" alt="">');
                         $t.append('<button type="button" class="inf-photo__rm" title="Regenerate"><i class="fa-solid fa-rotate"></i></button>');
                     } else if (sl.status === 'failed' || sl.status === 'cancelled') {
@@ -879,17 +1069,21 @@ jQuery(function ($) {
             }
             function refresh() { api('influencer_training_set_status', { id: inf.id }, function (o) { if (o && o.success) { paint(o); } }); }
             refresh();
-            $('#inf_set_go').on('click', function () {
+            function start($b) {
                 if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
-                var $b = $(this).prop('disabled', true);
+                $b.prop('disabled', true);
+                clearTimeout(set_timer);
                 api('influencer_training_set_start', { id: inf.id, steer_text: $('#inf_steer').val() }, function (o) {
                     $b.prop('disabled', false);
-                    if (o && o.success) { inf.steer_text = $('#inf_steer').val(); inf.training_set_group = o.group_key; refresh(); } else { err(o); }
+                    if (o && o.success) { inf.steer_text = $('#inf_steer').val(); inf.training_set_group = o.group_key; $('#inf_set_grid').empty(); refresh(); } else { err(o); }
                 });
-            });
+            }
+            $('#inf_set_go').on('click', function () { start($(this)); });
+            // Regenerate: the current photos are set aside and all of them are made again from her face and body as they are now.
             $('#inf_set_regen').on('click', function () {
-                Swal.fire({ title: 'Start the set over?', text: 'The current images are set aside and ' + size + ' new ones are generated.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Start over', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
-                    .then(function (r) { if (r.isConfirmed) { inf.training_set_group = ''; clearTimeout(set_timer); $('#inf_set_grid').empty(); paint({ group_key: '', complete: false, slots: [] }); } });
+                var $b = $(this);
+                Swal.fire({ title: 'Regenerate the training photos?', text: 'All ' + size + ' photos are made again from her current face and body. The current ones are set aside.', icon: 'question', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Regenerate', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' })
+                    .then(function (r) { if (r.isConfirmed) { start($b); } });
             });
             // The finished set is what she is trained on: training starts here, with no second screen of the same photos.
             $('#inf_set_next').on('click', function () {
@@ -902,7 +1096,7 @@ jQuery(function ($) {
             });
         }
 
-        var RENDER = { name: render_name, photos: render_photos, input: render_name, reference: render_reference, set: render_set, review: render_set, training: render_training, done: render_done };
+        var RENDER = { name: render_name, photos: render_photos, input: render_name, reference: render_reference, body: render_body, set: render_set, review: render_set, training: render_training, done: render_done };
         window.INF_WIZ = { register: function (step, fn) { RENDER[step] = fn; }, get: function () { return inf; }, set: function (v) { inf = v; }, show: function (s) { show(s); }, back: go_back, steps: visible_steps, path: function () { return path; } };
 
         function show(step) {

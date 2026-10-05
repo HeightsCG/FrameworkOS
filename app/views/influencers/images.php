@@ -20,8 +20,9 @@
                 <div class="inf-label">Prebuilt</div>
                 <div class="inf-chips" id="inf_prompt_chips">
                     <?php foreach ($gp['image'] as $i => $t): ?>
-                    <button type="button" class="inf-chip inf-chip--text" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e($t); ?></button>
+                    <button type="button" class="inf-chip inf-chip--text<?php echo $i >= 6 ? ' is-extra' : ''; ?>" data-i="<?php echo (int) $i; ?>" title="<?php echo $e($t); ?>"><?php echo $e($t); ?></button>
                     <?php endforeach; ?>
+                    <?php if (count($gp['image']) > 6): ?><button type="button" class="inf-link inf-more" aria-expanded="false">Show More</button><?php endif; ?>
                 </div>
             </div>
 

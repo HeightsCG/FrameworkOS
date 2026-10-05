@@ -816,13 +816,14 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
+        $this->require_caption_for_shares($post, $shares);
         $post = $this->save_share_options($model, $creator_id, $post);
         if (!$model->publish_once($creator_id, $id)) {   // already published (double-click / retry): don't fan out again
             $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
         }
         if (!empty($post['on_cls'])) { PostNotifier::published($creator_id, $id); }   // socials-only posts don't notify followers
-        $this->share_post_to_social($user, $post, $shares, null);
-        $this->jsonSuccess(['message' => 'Published', 'state' => 'published']);
+        $share_error = $this->share_post_to_social($user, $post, $shares, null);
+        $this->jsonSuccess(['message' => 'Published', 'state' => 'published', 'share_error' => $share_error]);
     }
 
     public function post_scheduleAction(){
@@ -840,12 +841,13 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
+        $this->require_caption_for_shares($post, $shares);
         $post = $this->save_share_options($model, $creator_id, $post);
         $model->set_state($creator_id, $id, 'scheduled', $utc);
         // $utc is already 'Y-m-d H:i:s' in UTC — build the ISO directly (strtotime would
         // misread it in the server's America/New_York default zone and send a wrong time).
-        $this->share_post_to_social($user, $post, $shares, str_replace(' ', 'T', $utc) . 'Z');
-        $this->jsonSuccess(['message' => 'Scheduled', 'state' => 'scheduled']);
+        $share_error = $this->share_post_to_social($user, $post, $shares, str_replace(' ', 'T', $utc) . 'Z');
+        $this->jsonSuccess(['message' => 'Scheduled', 'state' => 'scheduled', 'share_error' => $share_error]);
     }
 
     public function post_save_draftAction(){
@@ -902,9 +904,11 @@ class ApiCreatorStudioController extends BaseApiController {
             if (in_array((string) $a['post_for_me_social_account_id'], $req, true)) { $n++; }
         }
         if ($n === 0) { $this->jsonError('Those accounts are not connected.'); }
+        $this->require_caption_for_shares($post, $accounts);
         $post = $this->save_share_options(new PostsModel(), $creator_id, $post);
-        $this->share_post_to_social($user, $post, $accounts, null);
-        $this->jsonSuccess(['message' => 'Shared to ' . $n . ' account' . ($n > 1 ? 's' : '') . '.']);
+        $share_error = $this->share_post_to_social($user, $post, $accounts, null);
+        if ($share_error !== '' && strpos($share_error, 'Not shared') === 0) { $this->jsonError($share_error); }
+        $this->jsonSuccess(['message' => 'Shared to ' . $n . ' account' . ($n > 1 ? 's' : '') . '.', 'share_error' => $share_error]);
     }
 
     /* ---------- Content Studio: posts list ---------- */
@@ -1232,8 +1236,16 @@ class ApiCreatorStudioController extends BaseApiController {
      * errors. Always sends the public caption + a SAFE preview image (the blurred
      * variant for subscriber posts) + a link back — never the subscriber media.
      */
-    private function share_post_to_social(array $user, array $post, array $account_ids, ?string $scheduled_iso = null): void{
-        SocialShareService::share($user, $post, $account_ids, $scheduled_iso);
+    private function share_post_to_social(array $user, array $post, array $account_ids, ?string $scheduled_iso = null): string{
+        if (empty($account_ids)) { return ''; }
+        $r = SocialShareService::share($user, $post, $account_ids, $scheduled_iso);
+        // What did not go out, in words the creator can act on ('' when everything was sent).
+        return (string) ($r['error'] ?? '') === '' ? '' : (empty($r['ok']) ? 'Not shared to your social accounts: ' : '') . (string) $r['error'];
+    }
+
+    /** Social platforms need words with the post: a post with no caption cannot be cross-posted. */
+    private function require_caption_for_shares(array $post, array $shares): void{
+        if (!empty($shares) && trim((string) ($post['caption'] ?? '')) === '') { $this->jsonError('Add a caption to share this post to your social accounts.'); }
     }
 
     /** Human display of a UTC datetime in the creator's timezone. */

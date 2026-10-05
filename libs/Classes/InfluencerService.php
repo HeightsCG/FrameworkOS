@@ -10,7 +10,7 @@ class InfluencerService {
     /** Wizard steps per path, in order. 'training' and 'done' are reached by the engine. */
     const STEPS = array(
         'photos'    => array('name', 'photos', 'training', 'done'),
-        'reference' => array('name', 'reference', 'set', 'training', 'done'),   // how the reference is made is chosen on the first step; training starts from the finished set
+        'reference' => array('name', 'reference', 'body', 'set', 'training', 'done'),   // how the reference is made is chosen on the first step; training starts from the finished set
     );
 
     /** Gender options (value => label). Required when creating an influencer; drives the subject word and pronouns in every prompt. */
@@ -114,36 +114,64 @@ class InfluencerService {
             'Nico', 'Elias', 'Jonah', 'Felix', 'Omar', 'Hugo', 'Silas', 'Tomas', 'Andre', 'Caleb', 'Idris', 'Mason'),
     );
 
-    /**
-     * Body settings: column => label, the choices (value => label), and the words each choice adds to a prompt.
-     * The face comes from the trained model; the body comes from these words, so they go on every image prompt,
-     * on the full-body reference images and on the full-body shots of the training set.
-     */
-    const BODY = array(
-        'body_height' => array('label' => 'Height', 'options' => array('' => 'Not Set', 'short' => 'Short', 'average' => 'Average', 'tall' => 'Tall'),
-            'words' => array('short' => 'short stature', 'average' => 'average height', 'tall' => 'tall, long legs')),
-        'body_build'  => array('label' => 'Build', 'options' => array('' => 'Not Set', 'thin' => 'Thin', 'average' => 'Average', 'athletic' => 'Athletic', 'muscular' => 'Muscular', 'curvy' => 'Curvy'),
-            'words' => array('thin' => 'thin, slender build', 'average' => 'average build', 'athletic' => 'athletic, toned build', 'muscular' => 'muscular build', 'curvy' => 'curvy build')),
-        'body_bust'   => array('label' => 'Bust', 'women_only' => true, 'options' => array('' => 'Not Set', 'small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'),
-            'words' => array('small' => 'small bust', 'medium' => 'medium bust', 'large' => 'large bust')),
+    /** Words a creator can tap to start a body description. Starting points only: the field is free text. */
+    const BODY_IDEAS = array('Tall', 'Petite', 'Slim', 'Athletic', 'Toned', 'Muscular', 'Curvy', 'Hourglass figure', 'Broad shoulders', 'Long legs', 'Narrow waist', 'Full bust', 'Small bust', 'Soft build');
+
+    /** Drop-in body descriptions for the Body step, per gender. Starting points: the field stays free text. */
+    const BODY_PROMPTS = array(
+        'woman' => array(
+            'Tall and slim, long legs, narrow waist, small bust, straight posture',
+            'Average height, athletic and toned, defined shoulders and arms, flat stomach, medium bust',
+            'Petite, slim, narrow shoulders, small bust, slender arms and legs',
+            'Curvy hourglass figure, full bust, narrow waist, wide hips, soft arms',
+            'Tall, fit gym build, strong legs and glutes, toned arms, visible abs, medium bust',
+            'Average height, soft natural build, medium bust, slight belly, full thighs',
+            'Plus size, full figure, large bust, wide hips, soft arms and stomach',
+            'Short, curvy, full bust, narrow waist, thick thighs',
+            'Tall, lean runner build, long limbs, small bust, narrow hips',
+            'Average height, slim with a narrow waist, large bust, slender legs',
+            'Muscular, broad shoulders, strong back and arms, powerful legs, small bust',
+            'Petite, athletic, toned legs, flat stomach, medium bust',
+        ),
+        'man' => array(
+            'Tall and lean, long legs, narrow waist, light muscle definition',
+            'Average height, athletic and toned, defined chest and arms, flat stomach',
+            'Tall, muscular gym build, broad shoulders, thick arms, narrow waist',
+            'Average height, slim, narrow shoulders, slender arms and legs',
+            'Stocky, broad chest and shoulders, strong arms, solid legs',
+            'Tall, heavy-set, big frame, soft stomach, thick arms',
+            'Short, compact and muscular, wide back, strong legs',
+            'Average height, soft natural build, slight belly, average arms',
+            'Lean runner build, long limbs, low body fat, narrow hips',
+            'Bodybuilder physique, very broad shoulders, large chest and arms, visible abs, thick legs',
+            'Tall, swimmer build, wide shoulders, long torso, narrow waist',
+            'Slim and wiry, lean arms, flat stomach, narrow frame',
+        ),
     );
 
-    /** A valid choice for a body column, or ''. */
-    public static function body_value($col, $value){
-        $v = strtolower(trim((string) $value));
-        return (isset(self::BODY[$col]) && $v !== '' && isset(self::BODY[$col]['options'][$v])) ? $v : '';
+    /** A body description as stored: one line, at most 600 characters. */
+    public static function body_text($text){
+        return mb_substr(trim(preg_replace('/\s+/', ' ', (string) $text), " ,"), 0, 600);
     }
 
-    /** Her body in prompt words ("tall, long legs, athletic, toned build"), '' when nothing is set. */
+    /**
+     * Her body in the creator's own words ("tall, long legs, narrow waist"), '' when not set. The face comes from
+     * the trained model; the body comes from these words, so they go on every image prompt, on her full-body
+     * reference and on the full-body shots of the training set.
+     */
     public static function body_phrase($infl){
-        if (!is_array($infl)) { return ''; }
-        $out = array();
-        foreach (self::BODY as $col => $def) {
-            if (!empty($def['women_only']) && self::noun($infl) !== 'woman') { continue; }
-            $v = (string) ($infl[$col] ?? '');
-            if ($v !== '' && isset($def['words'][$v])) { $out[] = $def['words'][$v]; }
+        return is_array($infl) ? self::body_text($infl['body_description'] ?? '') : '';
+    }
+
+    /** Her full-body reference image (the Full Body Front angle): the approved one, else the newest. 0 when none. */
+    public static function body_reference($creator_id, array $infl){
+        $best = 0;
+        foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle') as $r) {   // oldest first
+            if ((string) $r['angle'] !== 'full_front' || (string) $r['status'] !== 'ready' || (string) $r['moderation_status'] === 'blocked') { continue; }
+            if (!empty($r['approved'])) { return (int) $r['id']; }
+            $best = (int) $r['id'];
         }
-        return implode(', ', $out);
+        return $best;
     }
 
     /** What is added to every image prompt for her: the body words, then her own Always Add To Prompts text. */
@@ -174,12 +202,28 @@ class InfluencerService {
             'Phone photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, barely any makeup, grey t-shirt, sitting in a parked car in overcast daylight',
             'Phone photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, small gold hoop earrings, on a city sidewalk in late afternoon sun',
             'Phone photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, bare skin, plain white wall behind, window light from one side',
+            'Phone photo of a Latina woman in her mid 20s, long dark brown hair, brown eyes, full eyebrows, small beauty mark on the cheek, white tank top, on a balcony in morning light',
+            'Phone photo of a Black woman in her late 20s, shoulder-length box braids, dark brown eyes, warm smile, small nose stud, denim jacket, outside a cafe in daylight',
+            'Phone photo of an East Asian woman in her mid 20s, straight black hair in a low ponytail, dark eyes, soft round face, no makeup, oversized hoodie, at a desk by a window',
+            'Phone photo of a South Asian woman in her late 20s, long black hair with a middle part, dark brown eyes, thin gold necklace, plain t-shirt, in a living room with lamp light',
+            'Phone photo of a woman in her early 20s, short platinum pixie cut, grey eyes, light freckles, small silver hoops, black t-shirt, on a train platform in overcast light',
+            'Phone photo of a woman in her mid 30s, chestnut hair in a loose bun, hazel eyes, faint laugh lines, no makeup, linen shirt, in a garden in late afternoon sun',
+            'Phone photo of a woman in her mid 20s, copper red curly hair, pale skin with freckles, blue-green eyes, knit sweater, on a windy beach under a grey sky',
+            'Phone photo of a woman in her late 20s, honey blonde beach waves, tanned skin, brown eyes, sunglasses pushed up on the head, tank top, on a boardwalk in bright sun',
         ),
         'man' => array(
             'Phone photo of a man in his late 20s, short dark hair with a fade, brown eyes, trimmed beard, plain t-shirt, standing by a window in daylight, looking at the camera',
             'Phone photo of a man in his early 30s, sandy blond hair pushed back, blue eyes, light stubble, easy smile, sitting in a parked car in overcast daylight',
             'Phone photo of a man in his mid 20s, black curly hair, dark brown eyes, strong jawline, clean shaven, on a city sidewalk in late afternoon sun',
             'Phone photo of a man in his early 30s, auburn hair, green eyes, freckles, short beard, plain white wall behind, window light from one side',
+            'Phone photo of a Latino man in his late 20s, dark wavy hair, brown eyes, short stubble, thin silver chain, white t-shirt, on a balcony in morning light',
+            'Phone photo of a Black man in his early 30s, short cropped hair, dark brown eyes, neat full beard, grey hoodie, outside a gym in daylight',
+            'Phone photo of an East Asian man in his mid 20s, black hair with a textured fringe, dark eyes, clean shaven, denim jacket, on a train platform in overcast light',
+            'Phone photo of a South Asian man in his late 20s, thick black hair swept to the side, dark brown eyes, trimmed beard, plain shirt, in a living room with lamp light',
+            'Phone photo of a man in his early 40s, salt and pepper hair, grey-blue eyes, short grey stubble, faint lines by the eyes, navy sweater, in a kitchen in daylight',
+            'Phone photo of a man in his mid 20s, long brown hair tied back, hazel eyes, light beard, flannel shirt, on a hiking trail in late afternoon sun',
+            'Phone photo of a man in his late 20s, shaved head, dark eyes, heavy stubble, black t-shirt, tattoo on the neck, in a parking garage under flat light',
+            'Phone photo of a man in his early 30s, curly red hair, blue eyes, freckles, short red beard, knit sweater, on a windy beach under a grey sky',
         ),
     );
 
@@ -191,6 +235,14 @@ class InfluencerService {
         'photo of {subject} sitting on a cafe patio with a croissant, sunglasses pushed up, soft bokeh background, smiling',
         'gym mirror photo of {subject} in athletic wear, water bottle, bright overhead light, confident pose',
         'night out portrait of {subject}, string lights behind, subtle smile, shallow depth of field',
+        'car selfie of {subject} in the driver seat, seatbelt on, overcast daylight through the windscreen, relaxed half smile',
+        'photo of {subject} cooking in a small apartment kitchen, hair tied back, apron over a t-shirt, steam from a pan, window light',
+        'photo of {subject} on a hiking trail lookout, backpack on, wind jacket, mountains behind, squinting slightly in the sun',
+        'photo of {subject} by a hotel pool, sitting on the edge with feet in the water, towel over one shoulder, bright midday sun',
+        'photo of {subject} at an airport gate, carry-on beside the seat, headphones around the neck, coffee cup in hand, flat terminal light',
+        'photo of {subject} curled up on a sofa on a rainy day, blanket, mug in both hands, grey window light, looking at the camera',
+        'photo of {subject} at a farmers market, tote bag on the shoulder, holding up a bunch of flowers, busy stalls behind',
+        'photo of {subject} at a desk with a laptop, late evening, warm desk lamp, hair a little messy, tired smile',
     );
 
     /** Drop-in motion prompts for Generate Videos (image-to-video: the still supplies the look); {Subject} becomes "The woman" or "The man". */
@@ -201,6 +253,12 @@ class InfluencerService {
         '{Subject} takes a slow sip of a drink and glances up, steady camera, shallow depth of field',
         '{Subject} walks slowly toward the camera, clothes and hair moving, sun flare passing through',
         '{Subject} stretches and settles back with a relaxed smile, camera drifts in slowly, warm light',
+        '{Subject} tucks hair behind one ear and looks down, then up at the lens, static camera',
+        '{Subject} waves at the camera and blows a quick kiss, handheld phone feel, natural light',
+        '{Subject} adjusts sunglasses and tilts the head back toward the sun, slow orbit to the right',
+        '{Subject} spins once on the spot, clothes swinging out, then stops facing the camera, steady wide shot',
+        '{Subject} nods along to music and mouths a few words, slight camera sway, evening light',
+        '{Subject} leans in close to the lens with a playful grin, then leans back, handheld selfie feel',
     );
 
     /** Validate a gender input: 'woman' | 'man', or '' when it is neither (the caller rejects it). */
@@ -223,7 +281,7 @@ class InfluencerService {
     public static function prompts_for($gender): array {
         $n = ($gender === 'man') ? 'man' : 'woman';
         $fill = function ($list) use ($n) { return array_map(function ($p) use ($n) { return str_replace(array('{subject}', '{Subject}'), array('a ' . $n, 'The ' . $n), $p); }, $list); };
-        return array('face' => self::FACE_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
+        return array('face' => self::FACE_PROMPTS[$n], 'body' => self::BODY_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
     }
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. {body} is where her body words go (training_variation). */
@@ -352,9 +410,7 @@ class InfluencerService {
             'reference_model_key' => (string) ($infl['reference_model_key'] ?? ''),
             'steer_text'          => (string) ($infl['steer_text'] ?? ''),
             'prompt_defaults'     => (string) ($infl['prompt_defaults'] ?? ''),
-            'body_height'         => (string) ($infl['body_height'] ?? ''),
-            'body_build'          => (string) ($infl['body_build'] ?? ''),
-            'body_bust'           => (string) ($infl['body_bust'] ?? ''),
+            'body_description'    => (string) ($infl['body_description'] ?? ''),
             'negative_prompt'     => (string) ($infl['negative_prompt'] ?? ''),
             'persona_description'   => (string) ($infl['persona_description'] ?? ''),
             'persona_personality'   => (string) ($infl['persona_personality'] ?? ''),
@@ -428,7 +484,7 @@ class InfluencerService {
             'steps'   => self::STEPS,
             'aspect'  => Aspect::client(),
             'persona' => self::PERSONA,
-            'body'    => array_map(function ($d) { return array('label' => $d['label'], 'options' => $d['options'], 'women_only' => !empty($d['women_only'])); }, self::BODY),
+            'body_ideas' => self::BODY_IDEAS,
             'scene_max_lines' => InfluencerVideoActions::SCENE_MAX_LINES,
             'voice' => array('keywords' => InfluencerVoiceActions::KEYWORDS, 'tags' => InfluencerVoiceActions::TAGS, 'preview_min' => ElevenLabsService::PREVIEW_MIN,
                 'preview_max' => ElevenLabsService::PREVIEW_MAX, 'speech_max' => ElevenLabsService::SPEECH_MAX),

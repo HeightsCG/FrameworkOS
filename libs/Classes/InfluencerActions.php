@@ -34,7 +34,7 @@ class InfluencerActions {
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $f = array('wizard_step' => ($path === 'photos') ? 'photos' : 'reference', 'is_public' => !empty($is_public) ? 1 : 0);
         if ($path === 'reference') { $f['input_method'] = ($input_method === 'face_photo') ? 'face_photo' : 'text'; }
-        foreach (InfluencerService::BODY as $col => $def) { if (isset($body[$col])) { $f[$col] = InfluencerService::body_value($col, $body[$col]); } }
+        if (isset($body['body_description'])) { $f['body_description'] = InfluencerService::body_text($body['body_description']); }
         $m->update_fields($cid, $id, $f);
         return self::okr(array('influencer' => self::json($cid, $id)));
     }
@@ -70,9 +70,7 @@ class InfluencerActions {
         if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, 1000); }
         if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, 2000); }
         if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, 2000); }
-        foreach (InfluencerService::BODY as $col => $def) {
-            if (array_key_exists($col, $in)) { $f[$col] = InfluencerService::body_value($col, $in[$col]); }
-        }
+        if (array_key_exists('body_description', $in)) { $f['body_description'] = InfluencerService::body_text($in['body_description']); }
         foreach (InfluencerService::PERSONA as $col => $def) {
             if (array_key_exists($col, $in)) { $f[$col] = mb_substr(trim((string) $in[$col]), 0, (int) $def['max']); }
         }
@@ -246,13 +244,20 @@ class InfluencerActions {
      * build, age...). It becomes a reference candidate; approving it and rebuilding the training set is what
      * changes the trained model.
      */
-    public static function reference_change($cid, array $infl, $change){
+    public static function reference_change($cid, array $infl, $change, $asset_id = 0){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from your photos. Add photos with the new look and retrain.'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
         $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, 500);
         if ($change === '') { return self::fail('Say what should change.'); }
-        $base = InfluencerService::base_reference($cid, $infl);
+        // The image to change: the one named (a reference candidate or her face photo), else her current reference.
+        $base = 0;
+        if ((int) $asset_id > 0) {
+            $link = (new InfluencerImagesModel())->get_link($cid, (int) $infl['id'], (int) $asset_id);
+            if (!$link || !in_array((string) $link['role'], array('reference', 'face'), true)) { return self::fail('Pick one of the reference images.'); }
+            $base = (int) $asset_id;
+        }
+        if ($base <= 0) { $base = InfluencerService::base_reference($cid, $infl); }
         if ($base <= 0) { return self::fail('There is no reference image to change.'); }
         // One image decides everything trained after it, so it gets the edit model that holds the face best.
         $model = InfluencerConfig::model('nano_banana_pro_edit');
@@ -266,6 +271,58 @@ class InfluencerActions {
         return self::okr(array('job_id' => $job_id, 'base_asset_id' => $base));
     }
 
+    /** Her full-body reference as the wizard shows it: the image (or the run in progress) and what one run costs. */
+    public static function body_status($cid, array $infl){
+        $st = InfluencerImageActions::angle_set_status($cid, $infl);
+        $slot = null;
+        foreach ((array) ($st['slots'] ?? array()) as $s) { if ($s['slot'] === 'full_front') { $slot = $s; } }
+        return self::okr(array('body' => $slot, 'price' => (int) ($st['price_each'] ?? 0), 'body_description' => (string) ($infl['body_description'] ?? '')));
+    }
+
+    /**
+     * Make or adjust her full-body reference. $in: body_description (saved first), asset_id (the face image to build
+     * from, while no reference is approved yet), change (what to adjust on the current body image; '' = make a new one).
+     */
+    public static function body_generate($cid, array $infl, array $in){
+        if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
+        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
+        $m = new InfluencersModel();
+        if (array_key_exists('body_description', $in)) {
+            $m->update_fields($cid, $infl['id'], array('body_description' => InfluencerService::body_text($in['body_description'])));
+            $infl = $m->get_one($cid, $infl['id']);
+        }
+        $change  = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($in['change'] ?? ''))), 0, 500);
+        $current = InfluencerService::body_reference($cid, $infl);
+        if ($change !== '' && $current > 0) {
+            $input  = $current;
+            $n      = InfluencerService::noun($infl);
+            $prompt = 'Keep the exact same ' . $n . ' as in the image: identical face, hair, skin tone, clothing, pose, framing and background, full body head to toe in frame. '
+                . 'Change only this about ' . ($n === 'man' ? 'him' : 'her') . ': ' . rtrim($change, '.') . '. ' . InfluencerService::REALISM;
+        } else {
+            $input = 0;
+            if ((int) ($in['asset_id'] ?? 0) > 0) {
+                $link = (new InfluencerImagesModel())->get_link($cid, (int) $infl['id'], (int) $in['asset_id']);
+                if ($link && in_array((string) $link['role'], array('reference', 'face'), true)) { $input = (int) $in['asset_id']; }
+            }
+            if ($input <= 0) { $input = InfluencerService::base_reference($cid, $infl); }
+            if ($input <= 0) { return self::fail('Make the face reference first.'); }
+            $prompt = InfluencerService::angle_prompt($infl, 'full_front');
+        }
+        $model = InfluencerConfig::resolve_model('angle', '');
+        if (!$model) { return self::fail('No model is configured for the body reference.'); }
+        try {
+            $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'angle', array(
+                'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => $input,
+                'group_key' => 'ang_' . (int) $infl['id'], 'group_index' => array_search('full_front', array_keys(InfluencerService::ANGLES), true) + 1,
+                'params' => array('angle' => 'full_front', 'aspect' => InfluencerService::ANGLES['full_front']['aspect'], 'num_images' => 1, 'look_change' => $change),
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
+        if ($job_id <= 0) { return self::fail('Could not start the body reference.'); }
+        return self::okr(array('job_id' => $job_id));
+    }
+
     /** Approve a reference (a generated candidate or her face photo). */
     public static function reference_pick($cid, array $infl, $aid){
         $aid  = (int) $aid;
@@ -274,7 +331,7 @@ class InfluencerActions {
         $a = (new MediaAssetsModel())->get_one($cid, $aid);
         if (!$a || (string) $a['status'] !== 'ready') { return self::fail('That image is not ready yet.'); }
         $m = new InfluencersModel();
-        $m->update_fields($cid, $infl['id'], array('reference_asset_id' => $aid, 'wizard_step' => 'set'));
+        $m->update_fields($cid, $infl['id'], array('reference_asset_id' => $aid, 'wizard_step' => 'body'));   // the face is settled: her body comes next
         $m->transition($infl['id'], array('status' => 'draft'), "status = 'awaiting_reference'");
         return self::okr(array('influencer' => self::json($cid, $infl['id'])));
     }
@@ -297,16 +354,43 @@ class InfluencerActions {
         $group = 'ts_' . (int) $infl['id'] . '_' . bin2hex(random_bytes(4));
         $m->update_fields($cid, $infl['id'], array('training_set_group' => $group, 'wizard_step' => 'set'));
         $vars = InfluencerService::TRAINING_VARIATIONS;
+        $body_ref = InfluencerService::body_reference($cid, $infl);
         $ids  = array();
         for ($i = 1; $i <= $size; $i++) {
             $prompt = InfluencerService::realistic(InfluencerService::training_variation($infl, $i - 1) . ($steer !== '' ? ', ' . $steer : ''));
+            $params = array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square');
+            // The shots that show her body also get her full-body reference, so her build matches across the set.
+            if ($body_ref > 0 && strpos($vars[($i - 1) % count($vars)], '{body}') !== false) { $params['image_asset_ids'] = array($body_ref); }
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
                 'group_key' => $group, 'group_index' => $i,
-                'params' => array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square'),
+                'params' => $params,
             ));
         }
         return self::okr(array('group_key' => $group, 'job_ids' => $ids));
+    }
+
+    /**
+     * Were these training photos made from a face or body she no longer has? True when a photo was built from a
+     * different reference image, or when the shots that show her body lack her current body words or were made with a body reference she has since replaced.
+     */
+    public static function training_set_stale($cid, array $infl, array $jobs){
+        $ref  = (int) ($infl['reference_asset_id'] ?? 0);
+        $body = InfluencerService::body_phrase($infl);
+        $bref = InfluencerService::body_reference($cid, $infl);
+        $vars = InfluencerService::TRAINING_VARIATIONS;
+        foreach ($jobs as $j) {
+            if (in_array((string) $j['status'], array('failed', 'cancelled'), true)) { continue; }
+            if ($ref > 0 && (int) $j['input_asset_id'] !== $ref) { return true; }
+            $i = max(1, (int) $j['group_index']) - 1;
+            if (strpos($vars[$i % count($vars)], '{body}') === false) { continue; }   // only the shots that show her body
+            if ($body !== '' && stripos((string) $j['prompt'], $body) === false) { return true; }
+            $used = array_map('intval', (array) (InfluencerJobsModel::params($j)['image_asset_ids'] ?? array()));
+            // A set that used a body reference is out of date once she has a different one. A set made without any
+            // (before body references existed, or with the step skipped) is judged on the body words above.
+            if ($bref > 0 && !empty($used) && !in_array($bref, $used, true)) { return true; }
+        }
+        return false;
     }
 
     /** Progress of the current set: counts + every slot with its image or error. */
@@ -332,7 +416,8 @@ class InfluencerActions {
             $slots[] = $slot;
         }
         usort($slots, function ($a, $b) { return $a['index'] <=> $b['index']; });
-        return self::okr(array('group_key' => $group, 'size' => $size, 'done' => $done, 'failed' => $failed, 'active' => $active, 'slots' => $slots, 'complete' => ($done >= $size)));
+        return self::okr(array('group_key' => $group, 'size' => $size, 'done' => $done, 'failed' => $failed, 'active' => $active, 'slots' => $slots, 'complete' => ($done >= $size),
+            'stale' => self::training_set_stale($cid, $infl, $jobs->list_group($group))));
     }
 
     /** Retry a failed slot (same prompt + seed) or regenerate a finished one (new seed). */

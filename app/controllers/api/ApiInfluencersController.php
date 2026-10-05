@@ -61,7 +61,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? ''),
             (string) ($this->post['input_method'] ?? 'text'), (string) ($this->post['is_public'] ?? '0') === '1',
-            array_intersect_key((array) $this->post, InfluencerService::BODY)));
+            array('body_description' => $this->text('body_description', 600))));
     }
 
     /** Persist wizard inputs + the step the user is on (any subset of the settable fields). */
@@ -70,8 +70,8 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
-        foreach (array_merge(['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'], array_keys(InfluencerService::PERSONA)) as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
-        foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step', 'body_height', 'body_build', 'body_bust'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (array_merge(['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt', 'body_description'], array_keys(InfluencerService::PERSONA)) as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
+        foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         if (isset($this->post['share_accounts'])) {
             $sa = $this->post['share_accounts'];
             $in['share_accounts'] = is_string($sa) ? html_entity_decode($sa, ENT_QUOTES, 'UTF-8') : (array) $sa;
@@ -171,7 +171,32 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 500)));
+        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 500), (int) ($this->post['asset_id'] ?? 0)));
+    }
+
+    /** Her full-body reference: the image or the run in progress, and the price of one run. */
+    public function influencer_body_statusAction(){
+        $user = $this->ai_user(false);
+        $cid  = (int) $user['user_id'];
+        $this->answer(InfluencerActions::body_status($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0))));
+    }
+
+    /** Make her full-body reference from the body description, or adjust the current one. */
+    public function influencer_body_generateAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
+        $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', 500)];
+        if (isset($this->post['body_description'])) { $in['body_description'] = $this->text('body_description', 600); }
+        $this->answer(InfluencerActions::body_generate($cid, $infl, $in));
+    }
+
+    /** Approve her full-body reference so the other tools use it. */
+    public function influencer_body_approveAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
+        $this->answer(InfluencerImageActions::angle_approve($cid, $infl, (int) ($this->post['asset_id'] ?? 0), true));
     }
 
     public function influencer_training_set_startAction(){

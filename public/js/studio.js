@@ -1701,8 +1701,8 @@ jQuery(function ($) {
             }
             if (kind === 'update') { done(); peSnapshot(); toastr.success('Changes saved'); composerModal.hide(); afterComposer(); return; }
             if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Draft saved'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', shareOpts({ id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); composerModal.hide(); afterComposer(); } else fail(o); });
-            else ApiDataSvc.apiCall('post', 'post_publish', shareOpts({ id: composer.id, share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); composerModal.hide(); afterComposer(); } else fail(o); });
+            else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', shareOpts({ id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); if (o.share_error) { toastr.warning(o.share_error); } composerModal.hide(); afterComposer(); } else fail(o); });
+            else ApiDataSvc.apiCall('post', 'post_publish', shareOpts({ id: composer.id, share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); if (o.share_error) { toastr.warning(o.share_error); } composerModal.hide(); afterComposer(); } else fail(o); });
         });
     }
 

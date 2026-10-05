@@ -100,7 +100,7 @@ class ApiRoutes {
         'ApiInfluencersController' => [
             'influencer_list', 'influencer_get', 'influencer_create', 'influencer_save_step', 'influencer_delete', 'influencer_name_suggest',
             'influencer_images', 'influencer_upload', 'influencer_photo_from_gallery', 'influencer_image_remove', 'influencer_train', 'influencer_models',
-            'influencer_reference_generate', 'influencer_reference_pick', 'influencer_reference_change', 'influencer_training_set_start', 'influencer_training_set_status',
+            'influencer_reference_generate', 'influencer_reference_pick', 'influencer_reference_change', 'influencer_body_status', 'influencer_body_generate', 'influencer_body_approve', 'influencer_training_set_start', 'influencer_training_set_status',
             'influencer_training_set_retry', 'influencer_job_get', 'influencer_generate_image', 'influencer_jobs_list', 'influencer_job_retry',
             'influencer_prompt_auto', 'influencer_asset_url', 'influencer_asset_delete', 'influencer_generate_video', 'influencer_enhance',
         ],

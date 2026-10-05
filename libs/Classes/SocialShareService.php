@@ -56,6 +56,8 @@ class SocialShareService {
             if (empty($valid)) { return array('ok' => false, 'shared' => 0, 'error' => 'None of the selected social accounts are connected.'); }
 
             $promo = trim((string) $post['caption']);
+            // Post for Me refuses a post with no caption ("caption is required"), so say so instead of sending it.
+            if ($promo === '') { return array('ok' => false, 'shared' => 0, 'error' => 'The post has no caption. Add one to share it to social accounts.'); }
 
             $assets = (new PostsModel())->get_assets((int) $post['id']);
             $cover = null;

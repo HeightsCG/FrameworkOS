@@ -137,8 +137,18 @@
 .inf-look__note{ margin-right:auto; font-size:13px; color:var(--muted); }
 .inf-look .modal-footer .btn{ display:inline-flex; align-items:center; gap:.45rem; }
 .inf-look [hidden]{ display:none; }
-.inf-body{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:12px; }
-.inf-body [hidden]{ display:none; }
+/* Reference step: adjust an image in words, and the Body section under the face */
+.inf-adjust{ display:flex; gap:8px; }
+.inf-adjust[hidden]{ display:none; }
+.inf-adjust .form-control{ flex:1 1 auto; min-width:0; }
+.inf-adjust .btn{ flex:0 0 auto; }
+.inf-bodysec__go{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.inf-bodysec__go .btn{ display:inline-flex; align-items:center; gap:.45rem; }
+.inf-bodysec__go .inf-wiz__meta{ margin:0; }
+.inf-wiz__stage--body{ min-height:0; height:520px; }
+.inf-wiz__stage--body .inf-gen__main{ height:100%; cursor:zoom-in; }
+.inf-wiz__stage--body .inf-gen__main img{ max-height:100%; height:100%; width:auto; object-fit:contain; }
+.inf-wiz__form .inf-chips, .inf-about .inf-chips{ margin-top:6px; }
 .inf-sec__sub{ margin:2px 0 0; font-size:13px; color:var(--muted); line-height:1.4; }
 /* trained influencer: image defaults beside persona, one Save for both */
 .inf-about{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr); gap:16px 40px; align-items:start; margin-top:1.6rem; padding-top:1.4rem; border-top:1px solid var(--line); }
@@ -173,6 +183,24 @@ button.inf-photo--pick{ padding:0; }
 .inf-chip{ display:inline-flex; align-items:center; gap:.3rem; font-size:.8rem; padding:.3rem .65rem; border-radius:2px; border:1px solid var(--line); background:var(--surface); color:var(--t2); cursor:pointer; }
 .inf-chip:hover{ border-color:var(--acc); color:var(--acc-ink); }
 .inf-chip.is-on{ background:var(--vsoft); border-color:var(--acc); color:var(--acc-ink); }
+.inf-chips .inf-chip.is-extra{ display:none; }
+.inf-chips.is-open .inf-chip.is-extra{ display:block; }
+.inf-chips .inf-more{ align-self:flex-start; flex:0 0 100%; text-align:left; padding:4px 0; border:0; font-size:13px; }
+/* enlarge a photo */
+.inf-photo[data-full]{ cursor:zoom-in; }
+.inf-photo[data-full]:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
+.inf-zoom{ position:fixed; inset:0; z-index:2000; background:rgba(13, 13, 13, .92); display:flex; align-items:center; justify-content:center; padding:56px 72px; }
+.inf-zoom[hidden]{ display:none; }
+.inf-zoom img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:2px; }
+.inf-zoom__btn{ position:absolute; width:40px; height:40px; border-radius:50%; border:none; background:rgba(255, 255, 255, .14); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.inf-zoom__btn:hover{ background:rgba(255, 255, 255, .28); }
+.inf-zoom__btn:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+.inf-zoom__btn[hidden]{ display:none; }
+.inf-zoom__close{ right:16px; top:16px; }
+.inf-zoom__nav--prev{ left:16px; top:50%; transform:translateY(-50%); }
+.inf-zoom__nav--next{ right:16px; top:50%; transform:translateY(-50%); }
+.inf-zoom__n{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:13px; color:rgba(255, 255, 255, .7); }
+.inf-zoom__n[hidden]{ display:none; }
 .inf-chip--text{ width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; text-align:left; padding:.45rem .65rem; }   /* Prebuilt rows fill the column */
 
 /* option cards (model pickers by purpose) */
@@ -233,6 +261,10 @@ button.inf-photo--pick{ padding:0; }
 .inf-stills .inf-photo--pick.is-on::after{ content:"\f00c"; font-family:"Font Awesome 6 Free"; font-weight:900; position:absolute; right:6px; top:6px; width:22px; height:22px; border-radius:50%; background:var(--acc-btn); color: var(--on-acc); font-size:11px; display:flex; align-items:center; justify-content:center; box-shadow:0 0 0 2px #fff; }
 .inf-stills:has(.is-on) .inf-photo--pick:not(.is-on){ opacity:.55; }
 .inf-stills .inf-photo--pick:focus-visible{ outline:3px solid var(--acc); outline-offset:-3px; }
+.inf-note{ display:flex; align-items:flex-start; gap:8px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--acc); border-radius:2px; background:var(--vsoft); color:var(--acc-ink); font-size:13px; line-height:1.45; }
+.inf-note[hidden]{ display:none; }
+.inf-note i{ margin-top:2px; }
+#inf_set_form{ margin-bottom:14px; }
 .inf-setprog{ display:flex; align-items:center; gap:1rem; margin:.2rem 0 .9rem; }
 .inf-setprog__n{ font-size:.9rem; color:var(--muted); white-space:nowrap; }
 .inf-setprog__n strong{ font-size:1.1rem; color:var(--text); }
@@ -581,6 +613,7 @@ a.inf-link:hover{ text-decoration:underline; }
     .inf-look .modal-footer .btn{ flex:1 1 auto; justify-content:center; }
     .inf-look .form-control{ font-size:16px; }
 }
-@media (max-width:640px){ .inf-body{ grid-template-columns:1fr 1fr; } .inf-body .form-select{ font-size:16px; } }
+@media (max-width:640px){ .inf-wiz__stage--body{ height:420px; } .inf-adjust .form-control{ font-size:16px; } .inf-adjust .btn{ min-height:40px; } }
 @media (max-width:1280px){ .inf-photos--set{ grid-template-columns:repeat(5, minmax(0, 1fr)); } }
 @media (max-width:520px){ .inf-photos--set{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }
+@media (max-width:640px){ .inf-zoom{ padding:64px 8px; } .inf-zoom__nav--prev, .inf-zoom__nav--next{ top:auto; bottom:8px; transform:none; } }
