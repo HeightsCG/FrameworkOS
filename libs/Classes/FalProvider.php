@@ -22,7 +22,7 @@ class FalProvider implements InfluencerProvider {
     public static function capabilities(): array {
         return array(
             'ops'    => array('reference' => true, 'training_set' => true, 'image' => true, 'video' => true, 'enhance' => true, 'training' => true,
-                'replicate' => true, 'edit' => true, 'angle' => true),
+                'replicate' => true, 'edit' => true, 'angle' => true, 'motion' => true, 'replace' => true, 'scene' => true),
         );
     }
 
@@ -127,6 +127,32 @@ class FalProvider implements InfluencerProvider {
         $family = self::family($req);
         $in = (array) ($req['params'] ?? array());
         $in['prompt']   = (string) ($req['prompt'] ?? '');
+        $images = array_values((array) ($req['image_urls'] ?? array()));
+        $videos = array_values(array_filter(array((string) ($req['video_url'] ?? '')), 'strlen'));
+        if ($family === 'kling_motion') {
+            // Motion control: the character comes from image_url, the movement from video_url; length follows the video.
+            $in['image_url'] = (string) ($req['image_url'] ?? ($images[0] ?? ''));
+            $in['video_url'] = (string) ($req['video_url'] ?? '');
+            if ($in['prompt'] === '') { unset($in['prompt']); }
+            return $in;
+        }
+        if ($family === 'wan_ref') {
+            // Reference-to-video: references are addressed in the prompt by position ("Video 1", "Image 1").
+            if (!empty($images)) { $in['reference_image_urls'] = $images; }
+            if (!empty($videos)) { $in['reference_video_urls'] = $videos; }
+            $in['duration'] = max(2, min(30, (int) ($req['duration'] ?? 5)));
+            if (!empty($req['aspect_value'])) { $in['aspect_ratio'] = (string) $req['aspect_value']; }
+            if (!empty($req['seed'])) { $in['seed'] = (int) $req['seed']; }
+            return $in;
+        }
+        if ($family === 'seedance_ref') {
+            // Reference-to-video: references are addressed in the prompt as @Image1, @Video1.
+            if (!empty($images)) { $in['image_urls'] = $images; }
+            if (!empty($videos)) { $in['video_urls'] = $videos; }
+            $in['duration'] = (string) max(4, min(30, (int) ($req['duration'] ?? 5)));
+            if (!empty($req['aspect_value'])) { $in['aspect_ratio'] = (string) $req['aspect_value']; }
+            return $in;
+        }
         $in['duration'] = (string) ($req['duration'] ?? '5');
         if ($family === 'kling_i2v') {
             $in['start_image_url'] = (string) ($req['image_url'] ?? '');
@@ -307,6 +333,10 @@ class FalProvider implements InfluencerProvider {
         if (($code === 402 || $code === 403) && (strpos($lc, 'locked') !== false || strpos($lc, 'balance') !== false)) {
             error_log('[fal] account refused (treated as temporary): ' . $msg);
             return self::fail(self::UNAVAILABLE, 'unavailable', true, $code);
+        }
+        // Some video models refuse any realistic photo of a person as a reference. Say that, not the provider's wording.
+        if (strpos($lc, 'likenesses of real people') !== false) {
+            return self::fail('This model does not accept realistic photos of people as references. Try another model.', 'content_policy', false, $code);
         }
         if ($code === 401 || $code === 403) { return self::fail($msg, 'auth', false, $code); }
         if ($code === 422 || $code === 400) {

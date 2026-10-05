@@ -14,6 +14,23 @@ jQuery(function ($) {
      * =================================================================== */
     $(document).on('cs:detail', function (e, a) {
         var $box = $('#csDvAi').empty();
+        if (a && a.type === 'video' && a.status === 'ready') {
+            // Scrub the player above to a moment, then export it as an image (which opens here with Edit and Replicate).
+            $box.html('<label class="form-label cs-dv__label">Frames</label><div class="cs-dv__ai cs-dv__ai--one">' +
+                '<button type="button" class="btn btn-outline-secondary" id="csDvFrame"><i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame</button></div>');
+            $('#csDvFrame').on('click', function () {
+                var $b = $(this).prop('disabled', true), v = $('#csDetailBody video')[0];
+                $b.html('<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Exporting');
+                T.export_frame(a.id, v ? v.currentTime : 0, function (frame) {
+                    $b.prop('disabled', false).html('<i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame');
+                    if (!frame) { return; }
+                    toastr.success('Frame saved to your Library');
+                    $(document).trigger('cs:asset-added', [frame.id]);
+                    $(document).trigger('cs:open-asset', [frame.id]);
+                });
+            });
+            return;
+        }
         if (!a || a.type !== 'image' || a.status !== 'ready' || !CFG.can_ai) { return; }
         var blocked = a.moderation === 'blocked';
         $box.html(

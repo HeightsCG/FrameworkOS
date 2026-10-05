@@ -212,7 +212,8 @@ class InfluencerJobService {
             $att['endpoint'] = $endpoint;
             $req['endpoint'] = $endpoint;
             switch ($type) {
-                case 'video':    $r = $class::generate_video($req); break;
+                case 'video': case 'motion': case 'replace': case 'scene': case 'talking':
+                                 $r = $class::generate_video($req); break;
                 case 'training': $r = $class::train_model($req);    break;
                 default:         $r = $class::generate_image($req); break;
             }
@@ -581,8 +582,11 @@ class InfluencerJobService {
         }
         if ($type !== 'image' && $type !== 'training' && !empty($job['input_asset_id'])) {
             $a = $mm->get_one($job['creator_id'], $job['input_asset_id']);
-            if (!$a || (string) $a['status'] !== 'ready') { return array('error' => 'The source image is not ready'); }
+            if (!$a || (string) $a['status'] !== 'ready') { return array('error' => 'The source file is not ready'); }
             if ((string) $a['moderation_status'] === 'blocked') { return array('error' => 'That file was blocked by moderation and cannot be used as a source'); }
+            if ((string) $a['type'] === 'video') { $p['video_asset_id'] = (int) $a['id']; $a = null; }   // a source video rides in video_url (below)
+        }
+        if ($type !== 'image' && $type !== 'training' && !empty($job['input_asset_id']) && !empty($a)) {
             $key = (string) ($a['original_key'] ?: ($a['display_key'] ?: $a['thumb_key']));
             // A face-masked copy of the source (FaceMask::store) is sent in its place; the asset stays the recorded source.
             if (!empty($p['source_key']) && FaceMask::owns_key($job['creator_id'], (string) $p['source_key'])) { $key = (string) $p['source_key']; }
@@ -607,6 +611,20 @@ class InfluencerJobService {
             $req['image_urls'] = array_slice($req['image_urls'], 0, (int) $model['max_refs']);
         }
         if (in_array($type, array('replicate', 'edit', 'angle', 'carousel'), true) && empty($req['image_urls'])) { return array('error' => 'A source image is required'); }
+        if (!empty($p['video_asset_id'])) {   // motion reference / source video for replacement
+            $v = $mm->get_one($job['creator_id'], (int) $p['video_asset_id']);
+            if (!$v || (string) $v['type'] !== 'video' || (string) $v['status'] !== 'ready') { return array('error' => 'The source video is not ready'); }
+            if ((string) $v['moderation_status'] === 'blocked') { return array('error' => 'That video was blocked by moderation and cannot be used as a source'); }
+            $vu = S3Service::presigned_get_url((string) $v['original_key'], max($ttl, 3600));
+            if ($vu === '') { return array('error' => 'Could not sign the source video'); }
+            $req['video_url'] = $vu;
+        }
+        if (in_array($type, array('motion', 'replace', 'scene'), true)) {
+            $req['duration'] = (string) max(1, (int) ($p['duration'] ?? 5));
+            if ($type !== 'scene' && empty($req['video_url'])) { return array('error' => 'A source video is required'); }
+            if ($type === 'motion' && empty($req['image_url'])) { return array('error' => 'A first frame image is required'); }
+            if ($type !== 'motion' && empty($req['image_urls'])) { return array('error' => 'A reference image of the character is required'); }
+        }
         if ($type === 'video') {
             if (empty($req['image_url'])) { return array('error' => 'A still image is required for video'); }
             $durs = array_values((array) ($model['durations'] ?? array()));
@@ -736,6 +754,9 @@ class InfluencerJobService {
             case 'edit':         return ($infl ? $name . ' · ' : '') . 'edit · ' . mb_substr((string) (InfluencerJobsModel::params($job)['instruction'] ?? $job['prompt']), 0, 30);
             case 'replicate':    return $name . ' · replica';
             case 'carousel':     return $name . ' · carousel ' . (int) ($job['group_index'] ?? 0);
+            case 'motion':       return $name . ' · motion';
+            case 'replace':      return $name . ' · replaced';
+            case 'scene':        return $name . ' · scene';
             default:             return $name . ' · ' . mb_substr((string) $job['prompt'], 0, 30);
         }
     }

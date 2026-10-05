@@ -341,6 +341,9 @@ class InfluencerService {
                 'replicate'    => InfluencerConfig::picker_options('replicate'),
                 'edit'         => InfluencerConfig::picker_options('edit'),
                 'angle'        => InfluencerConfig::picker_options('angle'),
+                'motion'       => InfluencerConfig::picker_options('motion'),
+                'replace'      => InfluencerConfig::picker_options('replace'),
+                'scene'        => InfluencerConfig::picker_options('scene'),
                 'training_set' => InfluencerConfig::picker_options('training_set'),
                 'image'        => InfluencerConfig::picker_options('image'),
                 'video'        => InfluencerConfig::picker_options('video'),
@@ -361,6 +364,7 @@ class InfluencerService {
             'steps'   => self::STEPS,
             'aspect'  => Aspect::client(),
             'persona' => self::PERSONA,
+            'scene_max_lines' => InfluencerVideoActions::SCENE_MAX_LINES,
             'carousel' => array('min' => InfluencerImageActions::CAROUSEL_MIN, 'max' => InfluencerImageActions::CAROUSEL_MAX,
                 'focus' => array_map(function ($f) { return $f['label']; }, InfluencerImageActions::CAROUSEL_FOCUS)),
         );

@@ -235,6 +235,33 @@ class Tutorials {
             'Pick a scene and an influencer and click Generate. You get four variants.',
             'Give a thumbs up or down to each one, then use your favourite in a post.',
         )),
+        '27' => array('section' => 'influencers', 'title' => 'Motion Control', 'secs' => 0, 'steps' => array(
+            'Motion Control makes your influencer move like the person in any video.',
+            'Open Influencers, Generate Videos, then Motion Control.',
+            'Choose a motion video from your Library. It can be 3 to 30 seconds long.',
+            'Choose a first frame, or click Make First Frame to recreate the video\'s opening shot with her in it.',
+            'Pick 720p or 1080p and click Generate Video. The result is as long as the motion video.',
+        )),
+        '28' => array('section' => 'influencers', 'title' => 'Replace a Character in a Video', 'secs' => 0, 'steps' => array(
+            'Replace Character puts your influencer in place of one person in a video you own.',
+            'Open Influencers, Generate Videos, then Replace Character.',
+            'Choose a source video of up to 15 seconds and say who to replace.',
+            'Choose whether she keeps the video\'s outfit, and whether other people and on-screen text are left alone.',
+            'Confirm that you own the video or have the rights to use it, then click Replace Character.',
+        )),
+        '29' => array('section' => 'influencers', 'title' => 'Create a Dialogue Scene', 'secs' => 0, 'steps' => array(
+            'A scene is one continuous take where your influencer speaks the lines you write.',
+            'Open Influencers, Generate Videos, then Scene.',
+            'Add a second character if you want one: another influencer, or someone you describe.',
+            'Write each line, choose who says it, and add an acting cue or a pronunciation note where it helps.',
+            'Start with Draft to check the take, then generate it again as Final.',
+        )),
+        '30' => array('section' => 'studio', 'title' => 'Export a Frame From a Video', 'secs' => 0, 'steps' => array(
+            'Any moment of a video can become an image.',
+            'Open a video in your Library and scrub to the moment you want.',
+            'Click Export This Frame. The image is saved to your Library.',
+            'From there you can edit it or use it as the source for Replicate Photo.',
+        )),
     );
 
     /** One video with its URLs, or null when unknown or its file isn't uploaded yet. */

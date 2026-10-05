@@ -1205,6 +1205,7 @@ jQuery(function ($) {
             }
             $('#inf_lightbox_meta').text((a.type === 'video' ? 'Video' : 'Image') + (a.width && a.height ? ' · ' + a.width + '×' + a.height : ''));
             $('#inf_lightbox_edit').prop('hidden', a.type !== 'image');   // Edit By Instruction is for images
+            $('#inf_lightbox_frame').prop('hidden', a.type !== 'video');  // a video's current frame exports as an image
             $('#inf_lightbox').prop('hidden', false);
         }
         function close_lightbox() { $('#inf_lightbox').prop('hidden', true); var v = document.getElementById('inf_lightbox_video'); v.pause(); }
@@ -1221,6 +1222,19 @@ jQuery(function ($) {
             var a = current;
             close_lightbox();
             AiTools.edit({ id: a.id, display_url: a.preview_url || a.display_url, thumb_url: a.thumb_url, name: a.name }, function () { load(); });
+        });
+        // Export the frame the player is paused on (AiTools); it can go straight into Replicate Photo as the source.
+        $('#inf_lightbox_frame').on('click', function () {
+            if (!current || !window.AiTools) { return; }
+            var $b = $(this).prop('disabled', true), v = document.getElementById('inf_lightbox_video');
+            AiTools.export_frame(current.id, v.currentTime || 0, function (frame) {
+                $b.prop('disabled', false);
+                if (!frame) { return; }
+                v.pause();
+                Swal.fire({ title: 'Frame Saved', text: 'The frame is in your Library.', imageUrl: frame.thumb_url, imageHeight: 180, showCancelButton: true, confirmButtonText: 'Use As Source', cancelButtonText: 'Done',
+                    customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false, reverseButtons: true })
+                    .then(function (r) { if (r.isConfirmed) { window.location = '/influencers/replicate/' + inf.id + '/' + frame.id; } });
+            });
         });
         $('#inf_lightbox_delete').on('click', function () {
             if (!current) { return; }

@@ -337,7 +337,7 @@ class McpTools {
         $infl = array('type' => 'object', 'required' => array('influencer_id'), 'properties' => array('influencer_id' => array('type' => 'integer')));
         $t[] = array('name' => 'list_influencers', 'description' => 'List the creator\'s AI influencers with status, trigger word and counts. Status ready = trained and usable.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_influencer', 'description' => 'One influencer: status, path, wizard step, trigger word, prompt defaults, counts, cover image.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, replicate, edit, angle), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) and how many reference images it accepts (max_refs). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
+        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, replicate, edit, angle, motion, replace, scene), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) how many reference images it accepts (max_refs), and for per-second video models credits_per_second with min_seconds and max_seconds (credits shows the price at the shortest default length). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_influencer', 'description' => 'Create an influencer. path "photos" = train from 10-50 uploaded photos (add_influencer_photo); path "reference" = describe the face or upload one face photo, generate a reference, then a 10-image training set. gender (woman or man) is required so prompts describe the right person; ask the user rather than assuming.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'gender'),
             'properties' => array('name' => array('type' => 'string', 'description' => 'Unique per account'),
@@ -430,6 +430,26 @@ class McpTools {
             'properties' => array('influencer_id' => array('type' => 'integer'), 'template_id' => array('type' => 'integer'), 'aspect' => array('type' => 'string', 'enum' => self::shapes()))));
         $t[] = array('name' => 'vote_scene_variant', 'description' => 'Thumbs up (vote 1), thumbs down (vote -1) or clear (vote 0) on one image a scene template produced.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('asset_id', 'vote'), 'properties' => array('asset_id' => array('type' => 'integer'), 'vote' => array('type' => 'integer', 'enum' => array(1, 0, -1)))));
+        // ---- video built on her identity references: frame export, motion control, character replacement, dialogue scenes ----
+        $t[] = array('name' => 'extract_video_frame', 'description' => 'Export one frame of a library video as a new library image (seconds from the start; 0 = the first frame). Free. Use the result as the source for replicate_influencer_image or as a first frame.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('asset_id'), 'properties' => array('asset_id' => array('type' => 'integer'), 'seconds' => array('type' => 'number', 'minimum' => 0))));
+        $t[] = array('name' => 'generate_motion_video', 'description' => 'Motion Control: animate a first frame image of the influencer with the movement from a reference motion video (3 to 30 seconds; the result is as long as the reference). quality is 720p or 1080p. Costs AI credits per second (influencer_model_options, purpose motion). To make a matching first frame, extract frame 0 of the reference with extract_video_frame, then replicate_influencer_image in mode exact. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'video_asset_id', 'image_asset_id'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'video_asset_id' => array('type' => 'integer', 'description' => 'The reference motion video'),
+                'image_asset_id' => array('type' => 'integer', 'description' => 'The first frame (an image of the influencer)'), 'quality' => array('type' => 'string', 'enum' => array('720p', '1080p')),
+                'prompt' => array('type' => 'string'))));
+        $t[] = array('name' => 'replace_character_in_video', 'description' => 'Replace one person in a source video with the influencer, keeping the original background, lighting, camera and motion. The source can be up to 15 seconds. attested MUST be true: it records that the account owner owns the source video or has the rights to use it. Explicit source videos are refused. subject says who to replace when several people are visible; outfit keeps the video\'s clothing (video) or uses the reference\'s (reference). Costs AI credits per second (influencer_model_options, purpose replace). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'video_asset_id', 'attested'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'video_asset_id' => array('type' => 'integer'), 'attested' => array('type' => 'boolean', 'description' => 'True only when the user has confirmed they own or have rights to the source video'),
+                'subject' => array('type' => 'string'), 'outfit' => array('type' => 'string', 'enum' => array('video', 'reference')), 'lock_others' => array('type' => 'boolean', 'description' => 'Leave other people unchanged'),
+                'remove_text' => array('type' => 'boolean', 'description' => 'Remove on-screen text and subtitles'), 'model_key' => array('type' => 'string'))));
+        $t[] = array('name' => 'generate_scene_video', 'description' => 'A dialogue scene in one continuous take, up to 30 seconds, with one or two characters speaking. lines are spoken in order: each has speaker (1 or 2), text (the exact words), and optionally cue (acting direction) and say (a pronunciation note). The second character is another influencer (second=influencer, second_influencer_id) or a described extra (second=described, second_description). model_key wan_30_scene_final (Final, 1080p) or wan_30_scene_draft (Draft, 480p: check the take cheaply first). Costs AI credits per second (influencer_model_options, purpose scene). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'lines'),
+            'properties' => array('influencer_id' => array('type' => 'integer'),
+                'lines' => array('type' => 'array', 'items' => array('type' => 'object', 'required' => array('text'), 'properties' => array('speaker' => array('type' => 'integer', 'enum' => array(1, 2)), 'text' => array('type' => 'string'), 'cue' => array('type' => 'string'), 'say' => array('type' => 'string')))),
+                'setting' => array('type' => 'string'), 'second' => array('type' => 'string', 'enum' => array('none', 'influencer', 'described')), 'second_influencer_id' => array('type' => 'integer'),
+                'second_description' => array('type' => 'string'), 'second_gender' => array('type' => 'string', 'enum' => array('woman', 'man')), 'seconds' => array('type' => 'integer', 'minimum' => 4, 'maximum' => 30),
+                'aspect' => array('type' => 'string', 'enum' => array('9:16', '3:4', '1:1', '4:3')), 'model_key' => array('type' => 'string'))));
         $t[] = array('name' => 'write_influencer_prompt', 'description' => 'Have the studio write a scene prompt for an image of the influencer, or a motion prompt for a video (returned as text, nothing is rendered).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'hint' => array('type' => 'string'), 'kind' => array('type' => 'string', 'enum' => array('image', 'video'), 'description' => 'Default image'))));
@@ -808,7 +828,7 @@ class McpTools {
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
             case 'influencer_model_options': {
                 $out = array('enabled' => InfluencerConfig::enabled(), 'shapes' => Aspect::options());
-                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
+                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
                 // Flat-priced purposes carry no price of their own on the model: fill in what a run actually costs.
                 foreach (array('image', 'enhance') as $purpose) {
                     foreach ($out[$purpose] as $i => $o) { if ($o['credits'] === null) { $out[$purpose][$i]['credits'] = Plan::ai_price($purpose, array('model_key' => $o['key'])); } }
@@ -892,6 +912,26 @@ class McpTools {
                 return self::result(SceneTemplates::run($cid, self::user($cid), self::influencer_usable($cid, $a), (int) ($a['template_id'] ?? 0), (string) ($a['aspect'] ?? ''), '', 'studio'));
             }
             case 'vote_scene_variant':        return self::result(SceneTemplates::vote($cid, (int) ($a['asset_id'] ?? 0), (int) ($a['vote'] ?? 0)));
+            case 'extract_video_frame': {
+                self::requirePlan($cid, 'content', 'Frame export requires an active plan');
+                return self::result(InfluencerVideoActions::extract_frame($cid, self::user($cid), (int) ($a['asset_id'] ?? 0), (float) ($a['seconds'] ?? 0)));
+            }
+            case 'generate_motion_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('video_asset_id', 'image_asset_id', 'quality', 'prompt')));
+                return self::result(InfluencerVideoActions::motion_start($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'replace_character_in_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('video_asset_id', 'subject', 'outfit', 'lock_others', 'remove_text', 'model_key')));
+                $in['attested'] = isset($a['attested']) && $a['attested'] === true;   // only an explicit true counts
+                return self::result(InfluencerVideoActions::replace_start($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'generate_scene_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                $in = array_intersect_key($a, array_flip(array('lines', 'setting', 'second', 'second_influencer_id', 'second_description', 'second_gender', 'seconds', 'aspect', 'model_key')));
+                return self::result(InfluencerVideoActions::scene_start($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
             case 'generate_influencer_video': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::generate_video($cid, self::influencer_usable($cid, $a), $a, 'studio'));

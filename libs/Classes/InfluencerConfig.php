@@ -18,7 +18,7 @@
  *   infl_training_lora_scale / infl_training_zip_url_ttl / infl_training_zip_max_bytes / infl_training_lora_max_bytes
  *
  * Operations: reference | training_set | image | video | enhance | training, plus the metered
- * ones priced from provider cost (METERED_OPS): replicate | edit | angle.
+ * ones priced from provider cost (METERED_OPS): replicate | edit | angle | motion | replace | scene.
  */
 class InfluencerConfig {
 
@@ -38,6 +38,9 @@ class InfluencerConfig {
         'replicate'    => array('fal'),
         'edit'         => array('fal'),
         'angle'        => array('fal'),
+        'motion'       => array('fal'),
+        'replace'      => array('fal'),
+        'scene'        => array('fal'),
     );
 
     /**
@@ -56,6 +59,7 @@ class InfluencerConfig {
         '9:16' => 'portrait_16_9', '4:3' => 'landscape_4_3');
     const RATIO_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '4:5' => '4:5', '9:16' => '9:16', '4:3' => '4:3');
     const GROK_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '9:16' => '9:16', '4:3' => '4:3');   // no 4:5
+    const VIDEO_ASPECTS = array('9:16' => '9:16', '3:4' => '3:4', '1:1' => '1:1', '4:3' => '4:3');   // Seedance / Wan reference-to-video: no 4:5
     const SEEDREAM_ASPECTS = array('1:1' => array('width' => 2048, 'height' => 2048), '3:4' => array('width' => 1920, 'height' => 2560),
         '4:5' => array('width' => 1920, 'height' => 2400), '9:16' => array('width' => 2160, 'height' => 3840), '4:3' => array('width' => 2560, 'height' => 1920));
 
@@ -110,6 +114,42 @@ class InfluencerConfig {
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
             'price_usd' => 0.084, 'price_unit' => 'second',
             'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => array('5' => 300, '10' => 600), 'family' => 'kling_i2v'),
+        // -- motion control (a reference motion video + a first frame -> video); priced per second of the reference video --
+        'kling_v3_motion_std' => array('provider' => 'fal', 'op' => 'motion', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/motion-control'),
+            'label' => '720p', 'purpose' => 'Standard quality', 'price_usd' => 0.126, 'price_unit' => 'second', 'quality' => '720p',
+            'params' => array('character_orientation' => 'video', 'keep_original_sound' => true), 'family' => 'kling_motion', 'min_seconds' => 3, 'max_seconds' => 30),
+        'kling_v3_motion_pro' => array('provider' => 'fal', 'op' => 'motion', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/pro/motion-control'),
+            'label' => '1080p', 'purpose' => 'Highest quality', 'price_usd' => 0.168, 'price_unit' => 'second', 'quality' => '1080p',
+            'params' => array('character_orientation' => 'video', 'keep_original_sound' => true), 'family' => 'kling_motion', 'min_seconds' => 3, 'max_seconds' => 30),
+        // -- character replacement in a source video; priced per second of the source --
+        'wan_30_ref' => array('provider' => 'fal', 'op' => 'replace', 'endpoints' => array('fal' => 'alibaba/wan-3.0/reference-to-video'),
+            'label' => 'Wan 3.0', 'purpose' => 'Best at keeping the original scene', 'price_usd' => 0.10, 'price_unit' => 'second',
+            'params' => array('resolution' => '720p', 'aspect_ratio' => 'adaptive', 'audio' => true, 'enable_prompt_expansion' => false, 'enable_safety_checker' => false),
+            'family' => 'wan_ref', 'min_seconds' => 2, 'max_seconds' => 15, 'max_refs' => 6),
+        'seedance_20_ref' => array('provider' => 'fal', 'op' => 'replace', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/reference-to-video'),
+            'label' => 'Seedance 2.0', 'purpose' => 'Stronger likeness, costs more', 'price_usd' => 0.1814, 'price_unit' => 'second',
+            'params' => array('resolution' => '720p', 'aspect_ratio' => 'auto', 'generate_audio' => true),
+            'family' => 'seedance_ref', 'min_seconds' => 2, 'max_seconds' => 15, 'max_refs' => 6),
+        // -- long dialogue scene in a single take (character references + a script -> video with speech) --
+        'wan_30_scene_final' => array('provider' => 'fal', 'op' => 'scene', 'endpoints' => array('fal' => 'alibaba/wan-3.0/reference-to-video'),
+            'label' => 'Final', 'purpose' => 'Full quality, 1080p', 'price_usd' => 0.20, 'price_unit' => 'second',
+            'params' => array('resolution' => '1080p', 'audio' => true, 'enable_prompt_expansion' => false, 'enable_safety_checker' => false),
+            'family' => 'wan_ref', 'aspects' => self::VIDEO_ASPECTS, 'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 8),
+        'wan_30_scene_draft' => array('provider' => 'fal', 'op' => 'scene', 'endpoints' => array('fal' => 'alibaba/wan-3.0/reference-to-video'),
+            'label' => 'Draft', 'purpose' => 'Check the take first, 480p', 'price_usd' => 0.05, 'price_unit' => 'second',
+            'params' => array('resolution' => '480p', 'audio' => true, 'enable_prompt_expansion' => false, 'enable_safety_checker' => false),
+            'family' => 'wan_ref', 'aspects' => self::VIDEO_ASPECTS, 'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 8),
+        // Seedance (2.0 and 2.5) on fal refuses photorealistic reference images of people ("may contain likenesses of real
+        // people", partner_validation_failed; checked 2026-10-05), so it cannot take an influencer's references. The entries
+        // stay for when that changes: offer them again through PICKERS (or infl_pickers_scene / infl_pickers_replace).
+        'seedance_25_final' => array('provider' => 'fal', 'op' => 'scene', 'endpoints' => array('fal' => 'bytedance/seedance-2.5/reference-to-video'),
+            'label' => 'Final', 'purpose' => 'Full quality, 720p', 'price_usd' => 0.473, 'price_unit' => 'second',
+            'params' => array('resolution' => '720p', 'generate_audio' => true), 'family' => 'seedance_ref', 'aspects' => self::VIDEO_ASPECTS,
+            'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 8),
+        'seedance_25_draft' => array('provider' => 'fal', 'op' => 'scene', 'endpoints' => array('fal' => 'bytedance/seedance-2.5/reference-to-video'),
+            'label' => 'Draft', 'purpose' => 'Check the take first, 480p', 'price_usd' => 0.2205, 'price_unit' => 'second',
+            'params' => array('resolution' => '480p', 'generate_audio' => true), 'family' => 'seedance_ref', 'aspects' => self::VIDEO_ASPECTS,
+            'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 8),
         // -- enhance --
         'clarity_upscaler' => array('provider' => 'fal', 'op' => 'enhance', 'endpoints' => array('fal' => 'fal-ai/clarity-upscaler'),
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
@@ -132,6 +172,9 @@ class InfluencerConfig {
         'replicate'    => array('nano_banana_pro_edit', 'seedream_45_edit'),
         'edit'         => array('grok_edit', 'nano_banana_edit'),
         'angle'        => array('nano_banana_edit', 'nano_banana_pro_edit'),
+        'motion'       => array('kling_v3_motion_std', 'kling_v3_motion_pro'),
+        'replace'      => array('wan_30_ref'),
+        'scene'        => array('wan_30_scene_final', 'wan_30_scene_draft'),
     );
 
     const DEFAULTS = array(
@@ -145,6 +188,9 @@ class InfluencerConfig {
         'ceiling_image'               => 300,
         'ceiling_enhance'             => 300,
         'ceiling_video'               => 900,
+        'ceiling_motion'              => 2400,
+        'ceiling_replace'             => 2400,
+        'ceiling_scene'               => 2400,
         'ceiling_training'            => 3600,
         'training_steps'              => 1000,
         'training_set_size'           => 10,
@@ -168,6 +214,9 @@ class InfluencerConfig {
         'training_set' => array(5, 5, 10, 10, 15, 20, 30, 45, 60),
         'enhance'      => array(5, 5, 10, 10, 15, 20, 30, 45, 60),
         'video'        => array(15, 15, 30, 30, 60),
+        'motion'       => array(20, 20, 30, 30, 60),
+        'replace'      => array(20, 20, 30, 30, 60),
+        'scene'        => array(20, 20, 30, 30, 60),
         'training'     => array(30, 60, 60, 120),
     );
 
@@ -319,6 +368,9 @@ class InfluencerConfig {
                 'credits'   => isset($m['credits']) ? self::credits_for($m, '')
                     : (in_array((string) $purpose, self::METERED_OPS, true) ? self::metered_credits($m) : null),   // AI credits per run at the default length
                 'aspects'   => Aspect::supported($m),   // shapes it renders; empty = follows its source image
+                'min_seconds' => (int) ($m['min_seconds'] ?? 0), 'max_seconds' => (int) ($m['max_seconds'] ?? 0),   // length limits of a per-second model
+                'credits_per_second' => ((string) ($m['price_unit'] ?? '') === 'second' && in_array((string) $purpose, self::METERED_OPS, true)) ? (float) $m['price_usd'] * (float) self::get('credits_per_usd', self::CREDITS_PER_USD) : null,
+                'quality'   => (string) ($m['quality'] ?? ''),
                 'max_refs'  => (int) ($m['max_refs'] ?? 0),
                 'credits_by_duration' => (isset($m['credits']) && is_array($m['credits'])) ? array_map('intval', $m['credits']) : null,   // video: price per length
             );

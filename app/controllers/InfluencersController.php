@@ -158,6 +158,30 @@ class InfluencersController extends Controller {
         $this->view->render();
     }
 
+    /** Motion Control: her first frame, moved by a reference video. */
+    public function motionAction(){
+        $user = $this->gate();
+        $this->view->page = 'motion';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
+
+    /** Replace Character: her in place of one person in a source video. */
+    public function replaceAction(){
+        $user = $this->gate();
+        $this->view->page = 'replace';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
+
+    /** Scene: a dialogue scene in one take, with one or two characters. */
+    public function sceneAction(){
+        $user = $this->gate();
+        $this->view->page = 'scene';
+        $this->ready_influencer($user);
+        $this->view->render();
+    }
+
     /** References: her multi-angle reference set. */
     public function referencesAction(){
         $user = $this->gate();

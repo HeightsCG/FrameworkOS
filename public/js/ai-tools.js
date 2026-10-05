@@ -69,7 +69,8 @@ window.AiTools = (function ($) {
     /* =====================================================================
      * Library image picker: pick_image({ title, influencer }, function (asset) {})
      * =================================================================== */
-    var $picker = null, picker_cb = null, picker_assets = [], picker_filter = { search: '', influencer: 0 };
+    var $picker = null, picker_cb = null, picker_assets = [], picker_filter = { search: '', influencer: 0, type: 'image' };
+    function clock(secs) { secs = parseInt(secs, 10) || 0; return Math.floor(secs / 60) + ':' + ('0' + (secs % 60)).slice(-2); }
 
     function picker_build() {
         if ($picker) { return; }
@@ -113,24 +114,31 @@ window.AiTools = (function ($) {
     function picker_load() {
         picker_state('<span class="spinner-border spinner-border-sm text-primary"></span> Loading your library');
         $('#aiPickerGrid').empty();
-        var body = { type: 'image', search: picker_filter.search };
+        var video = picker_filter.type === 'video';
+        var body = { type: picker_filter.type, search: picker_filter.search };
         if (picker_filter.influencer) { body.influencer = picker_filter.influencer; }
         api('media_list', body, function (o) {
             if (!o || !o.success) { picker_state('<span class="ai-picker__err">Could not load your library. <button type="button" class="btn btn-link p-0" id="aiPickerRetry">Try Again</button></span>'); $('#aiPickerRetry').on('click', picker_load); return; }
             picker_assets = (o.assets || []).filter(function (a) { return a.status === 'ready' && a.thumb_url && a.moderation !== 'blocked'; });
-            if (!picker_assets.length) { picker_state(picker_filter.search ? 'No images match that search.' : 'No images in your library yet. Upload one to start.'); return; }
+            if (!picker_assets.length) {
+                picker_state(picker_filter.search ? 'Nothing matches that search.' : (video ? 'No videos in your library yet. Upload one in Content Studio.' : 'No images in your library yet. Upload one to start.'));
+                return;
+            }
             picker_state('');
             $('#aiPickerGrid').html(picker_assets.map(function (a) {
-                return '<button type="button" class="ai-picker__item" data-id="' + a.id + '" title="' + esc(a.name) + '"><img src="' + esc(a.thumb_url) + '" alt="' + esc(a.name) + '" loading="lazy"></button>';
+                return '<button type="button" class="ai-picker__item" data-id="' + a.id + '" title="' + esc(a.name) + '"><img src="' + esc(a.thumb_url) + '" alt="' + esc(a.name) + '" loading="lazy">' +
+                    (video ? '<span class="ai-picker__len"><i class="fa-solid fa-play" aria-hidden="true"></i> ' + clock(a.duration) + '</span>' : '') + '</button>';
             }).join(''));
         });
     }
+    /* opts: { title, influencer, type: 'image' (default) | 'video' }. Videos are picked from the Library only (uploads go through Content Studio). */
     function pick_image(opts, cb) {
         picker_build();
         opts = opts || {};
         picker_cb = cb;
-        picker_filter = { search: '', influencer: parseInt(opts.influencer, 10) || 0 };
-        $('#aiPickerTitle').text(opts.title || 'Choose an Image');
+        picker_filter = { search: '', influencer: parseInt(opts.influencer, 10) || 0, type: opts.type === 'video' ? 'video' : 'image' };
+        $('#aiPickerTitle').text(opts.title || (picker_filter.type === 'video' ? 'Choose a Video' : 'Choose an Image'));
+        $('#aiPickerUpload').prop('hidden', picker_filter.type === 'video');
         $('#aiPickerSearch').val('');
         bootstrap.Modal.getOrCreateInstance($picker[0]).show();
         picker_load();
@@ -234,7 +242,16 @@ window.AiTools = (function ($) {
         });
     }
 
+    /* Export the frame at `seconds` of a Library video as a new image: cb(asset) on success, cb(null) on failure (already reported). */
+    function export_frame(asset_id, seconds, cb) {
+        api('media_extract_frame', { asset_id: asset_id, seconds: Math.max(0, Number(seconds) || 0).toFixed(2) }, function (o) {
+            if (!o || !o.success) { err(o, 'Could not export that frame.'); cb(null); return; }
+            cb(o.asset);
+        });
+    }
+
     return {
+        export_frame: export_frame, clock: clock,
         esc: esc, api: api, err: err, credits_html: credits_html, can_afford: can_afford, poll_job: poll_job, status_text: status_text,
         pick_image: pick_image, edit: edit,
         set_balance: function (n) { balance = parseInt(n, 10) || 0; },

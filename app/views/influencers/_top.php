@@ -16,6 +16,8 @@ $nav = array(
 );
 /* Replicate Photo and Carousel are ways of generating images: they sit under Generate Images. */
 $image_modes = array('images' => 'From Prompt', 'replicate' => 'Replicate Photo', 'carousel' => 'Carousel');
+/* Likewise the ways of generating video sit under Generate Videos. */
+$video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control', 'replace' => 'Replace Character', 'scene' => 'Scene');
 ?>
 <div class="inf" id="inf" data-page="<?php echo $e($page); ?>">
 <?php if (!empty($this->needs_plan)): ?>
@@ -27,7 +29,7 @@ $image_modes = array('images' => 'From Prompt', 'replicate' => 'Replicate Photo'
     <nav class="inf-nav" aria-label="Influencer sections">
         <?php foreach ($nav as $n):
             $off = $n['needs'] && ($target <= 0 || !empty($this->needs_plan));
-            $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index') || ($n['key'] === 'images' && isset($image_modes[$page])); ?>
+            $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index') || ($n['key'] === 'images' && isset($image_modes[$page])) || ($n['key'] === 'videos' && isset($video_modes[$page])); ?>
             <?php if ($off): ?>
             <span class="inf-nav__item is-off" aria-disabled="true" title="Train an influencer first"><i class="fa-solid <?php echo $e($n['icon']); ?>"></i> <?php echo $e($n['label']); ?></span>
             <?php else: ?>
