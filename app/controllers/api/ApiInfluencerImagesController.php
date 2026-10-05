@@ -101,6 +101,14 @@ class ApiInfluencerImagesController extends BaseApiController {
 
     /* ---- carousel sets ---- */
 
+    /** Read a chosen seed image into a scene description for the Carousel form. */
+    public function influencer_carousel_readAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
+        $this->answer(InfluencerImageActions::carousel_read($cid, $infl, (int) ($this->post['seed_asset_id'] ?? 0)));
+    }
+
     public function influencer_carousel_startAction(){
         $user = $this->ai_user();
         set_time_limit(180);

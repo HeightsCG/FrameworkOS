@@ -387,6 +387,26 @@ class InfluencerImageActions {
         return self::okr(array('constants' => self::one_line($d['constants'] ?? '', 600), 'prompts' => array_slice($prompts, 0, (int) $count)));
     }
 
+    /**
+     * Read a seed image for the Carousel form: the scene in one or two plain sentences (outfit, place, props, pets,
+     * light), which the creator can edit before generating. Never describes the person's face or body: the
+     * carousel is of the influencer, not of whoever is in the seed.
+     */
+    public static function carousel_read($cid, array $infl, $asset_id){
+        $a = self::image($cid, (int) $asset_id);
+        if (!$a) { return self::fail('Pick a ready image as the seed.'); }
+        if (!ClaudeService::configured()) { return self::fail('Reading images is not available right now. Describe the scene yourself.'); }
+        $img = self::image_bytes($a);
+        if (!$img) { return self::fail('Could not open that image. Describe the scene yourself.'); }
+        $system = 'You describe the scene of a photo so it can be recreated with a different person. '
+            . 'Output ONLY one or two plain sentences, 20 to 45 words, no quotes, no preamble. '
+            . 'Cover: the outfit, the place, the props, any pets, and the light. '
+            . 'Do not describe the person\'s face, hair, skin, age or body, and do not name anyone.';
+        $r = ClaudeService::vision($system, 'Describe the scene.', $img['bytes'], $img['mime'], 220, 40, 'low');
+        if (empty($r['ok']) || trim((string) $r['text']) === '') { return self::fail('Could not read that image. Describe the scene yourself.'); }
+        return self::okr(array('scene' => self::one_line(BrandService::unquote((string) $r['text']), 600)));
+    }
+
     /** The prompt one slot is rendered with: how to read the reference images, then the shot. */
     private static function carousel_slot_prompt($shot, $has_seed, $with_her, $ref_count){
         $lead = '';

@@ -262,7 +262,7 @@ jQuery(function ($) {
             var out = [];
             $.each(jobs, function (i, j) {
                 if (j.status === 'done') { $.each(j.assets || [], function (k, a) { out.push({ job: j, asset: a }); }); }
-                else if (j.status === 'failed' || j.status === 'cancelled') { out.push({ job: j, asset: null }); }
+                // A failed or cancelled run leaves no tile: it was reported once when it happened, and a row of red boxes helps no one.
             });
             return out;
         }
@@ -356,6 +356,28 @@ jQuery(function ($) {
                 : '<span class="inf-source__empty"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose From Library Or Upload</span></span>').toggleClass('has-img', !!seed);
             $('#inf_car_clear').prop('hidden', !seed);
             fail('');
+            read_seed();
+        }
+        // A chosen seed is read into the Scene field (shown working on the image and by the field), ready to edit.
+        // Words the creator typed are never overwritten: only an empty field, or one this filled, is replaced.
+        var read_text = '';
+        function read_seed() {
+            var $t = $('#inf_car_text'), PH = 'Morning coffee on a balcony, white robe, potted plants, a small dog';
+            $('#inf_car_pick').removeClass('is-reading').removeAttr('aria-busy'); $('#inf_car_reading').prop('hidden', true);
+            if (!seed) { if ($t.val() === read_text) { $t.val(''); } read_text = ''; $t.prop('disabled', false).attr('placeholder', PH); return; }
+            var typed = String($t.val() || '').trim();
+            if (typed !== '' && typed !== read_text) { return; }
+            var asked = seed.id;
+            $('#inf_car_pick').addClass('is-reading').attr('aria-busy', 'true'); $('#inf_car_reading').prop('hidden', false);
+            $t.val('').prop('disabled', true).attr('placeholder', 'Writing the scene from your photo');
+            api('influencer_carousel_read', { id: inf.id, seed_asset_id: seed.id }, function (o) {
+                if (!seed || seed.id !== asked) { return; }
+                $('#inf_car_pick').removeClass('is-reading').removeAttr('aria-busy'); $('#inf_car_reading').prop('hidden', true);
+                $t.prop('disabled', false).attr('placeholder', PH);
+                if (o && o.success && o.scene) { read_text = o.scene; $t.val(o.scene); }
+                else if (o && (o.need_plan || o.need_credits || o.need_upgrade)) { err(o); }
+                else { read_text = ''; fail((o && o.message) || 'Could not read that image. Describe the scene yourself.'); }
+            });
         }
         $('#inf_car_pick').on('click', function () { T.pick_image({ title: 'Choose a Seed Image' }, set_seed); });
         $('#inf_car_clear').on('click', function () { set_seed(null); });

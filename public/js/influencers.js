@@ -1244,10 +1244,6 @@ jQuery(function ($) {
                         $t.on('click', function () { select(j, a); });
                         $s.append($t);
                     });
-                } else if (j.status === 'failed') {
-                    var $f = $('<button type="button" class="inf-strip__item inf-strip__item--failed" title="' + esc(j.error) + '"><i class="fa-solid fa-circle-exclamation"></i></button>');
-                    $f.on('click', function () { toastr.error(j.error || 'Generation failed'); });
-                    $s.append($f);
                 } else if (['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0) {
                     $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>');
                 }   // a finished job whose file was deleted shows nothing
@@ -1421,9 +1417,6 @@ jQuery(function ($) {
                         $t.on('click', function () { select(j, a); });
                         $s.append($t);
                     });
-                } else if (j.status === 'failed') {
-                    var $f = $('<button type="button" class="inf-strip__item inf-strip__item--failed" title="' + esc(j.error) + '"><i class="fa-solid fa-circle-exclamation"></i></button>');
-                    $f.on('click', function () { toastr.error(j.error || 'Generation failed'); }); $s.append($f);
                 } else if (['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0) { $s.append('<span class="inf-strip__item inf-strip__item--busy"><span class="spinner-border spinner-border-sm"></span></span>'); }
             });
             drop_broken('#inf_vstrip');

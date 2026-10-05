@@ -106,7 +106,7 @@ class ApiRoutes {
         ],
         'ApiInfluencerImagesController' => [
             'influencer_angle_status', 'influencer_angle_generate', 'influencer_angle_approve', 'influencer_replicate_prepare', 'influencer_replicate',
-            'media_edit', 'media_versions', 'media_edit_options', 'influencer_carousel_start', 'influencer_carousel_status', 'influencer_carousel_list',
+            'media_edit', 'media_versions', 'media_edit_options', 'influencer_carousel_read', 'influencer_carousel_start', 'influencer_carousel_status', 'influencer_carousel_list',
             'influencer_carousel_regenerate', 'influencer_carousel_to_post', 'scenes_list', 'scene_run', 'scene_vote',
         ],
         'ApiInfluencerVideosController' => [

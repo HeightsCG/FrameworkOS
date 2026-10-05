@@ -20,7 +20,7 @@
                 <button type="button" class="inf-link inf-source__clear" id="inf_car_clear" hidden>Remove Image</button>
             </div>
             <div class="inf-field">
-                <label class="inf-label" for="inf_car_text">Scene</label>
+                <div class="inf-field__row"><label class="inf-label" for="inf_car_text">Scene</label><span class="inf-working" id="inf_car_reading" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Reading the photo</span></div>
                 <textarea class="form-control" id="inf_car_text" maxlength="2000" rows="3" placeholder="Morning coffee on a balcony, white robe, potted plants, a small dog"></textarea>
                 <p class="inf-err" id="inf_car_err" role="alert" hidden></p>
             </div>

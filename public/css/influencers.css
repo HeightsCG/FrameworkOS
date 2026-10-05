@@ -166,6 +166,10 @@
 @media (prefers-reduced-motion:reduce){ .inf-next__item, .inf-next__go{ transition:none; } }
 /* Replicate Photo: the chosen photo is being read (face found, prompt written) */
 .inf-mask__stage.is-reading{ pointer-events:none; }
+.inf-source.is-reading{ position:relative; pointer-events:none; overflow:hidden; }
+.inf-source.is-reading::after{ content:"Reading the photo"; position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; padding-top:52px; background:rgba(17, 17, 17, .62); color:#fff; font-size:13px; font-weight:600; line-height:1.3; }
+.inf-source.is-reading::before{ content:""; position:absolute; left:50%; top:50%; z-index:3; width:24px; height:24px; margin:-26px 0 0 -12px; border:2px solid rgba(255, 255, 255, .35); border-top-color:#fff; border-radius:50%; animation:inf-reading .7s linear infinite; }
+.inf-source.is-reading .inf-source__change{ visibility:hidden; }
 .inf-mask__stage.is-reading::after{ content:"Reading the photo"; position:absolute; inset:0; z-index:2; display:flex; align-items:center; justify-content:center; padding-top:56px; background:rgba(17, 17, 17, .62); color:#fff; font-size:13px; font-weight:600; line-height:1.3; }
 .inf-mask__stage.is-reading::before{ content:""; position:absolute; left:50%; top:50%; z-index:3; width:26px; height:26px; margin:-26px 0 0 -13px; border:2px solid rgba(255, 255, 255, .35); border-top-color:#fff; border-radius:50%; animation:inf-reading .7s linear infinite; }
 @keyframes inf-reading{ to{ transform:rotate(360deg); } }

@@ -61,7 +61,7 @@ jQuery(function ($) {
             var out = [];
             $.each(jobs, function (i, j) {
                 if (j.status === 'done') { $.each(j.assets || [], function (k, a) { out.push({ job: j, asset: a }); }); }
-                else if (j.status === 'failed' || j.status === 'cancelled') { out.push({ job: j, asset: null }); }
+                // A failed or cancelled run leaves no tile: it was reported once when it happened, and a row of red boxes helps no one.
             });
             return out;
         }
