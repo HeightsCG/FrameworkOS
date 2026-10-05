@@ -253,6 +253,23 @@ jQuery(function ($) {
 
         function set_actions(html) { $('#inf_wiz_actions').html(html || ''); }
 
+        /* --- Body settings (height, build, bust): one row of selects, shared by Setup and the trained page --- */
+        function body_html(prefix, values, gender) {
+            var html = '<div class="inf-body" id="' + prefix + '">';
+            $.each(C.body || {}, function (col, def) {
+                var id = prefix + '_' + col, cur = String((values && values[col]) || '');
+                html += '<div class="inf-field" data-body-field="' + col + '"' + (def.women_only && gender === 'man' ? ' hidden' : '') + '><label class="inf-label" for="' + id + '">' + esc(def.label) + '</label>' +
+                    '<select class="form-select" id="' + id + '" data-body="' + col + '">' + $.map(def.options, function (label, value) { return '<option value="' + esc(value) + '"' + (value === cur ? ' selected' : '') + '>' + esc(label) + '</option>'; }).join('') + '</select></div>';
+            });
+            return html + '</div>';
+        }
+        function body_gender(prefix, gender) { $.each(C.body || {}, function (col, def) { if (def.women_only) { $('#' + prefix + ' [data-body-field="' + col + '"]').prop('hidden', gender === 'man'); } }); }
+        function body_values(prefix, gender) {
+            var out = {};
+            $('#' + prefix + ' [data-body]').each(function () { var col = $(this).data('body'); out[col] = ((C.body[col] || {}).women_only && gender === 'man') ? '' : $(this).val(); });
+            return out;
+        }
+
         /* --- Setup: name, gender (picks the name ideas and every prompt suggestion), what she is built from, gallery --- */
         var SOURCES = [
             { value: 'photos',     path: 'photos',    icon: 'fa-images',         label: 'Your Photos',       note: LIM.min_photos + ' to ' + LIM.max_photos + ' photos, highest likeness' },
@@ -267,10 +284,11 @@ jQuery(function ($) {
             var locked = !can_switch();
             var html = '<div class="inf-setup">' +
                 '<div class="inf-setup__col">' +
-                '<div class="inf-field"><label class="inf-label" for="inf_name">Name</label>' +
-                '<input type="text" class="form-control" id="inf_name" maxlength="120" value="' + esc(inf ? inf.name : '') + '">' +
-                '<div class="inf-chips" id="inf_name_chips" hidden></div></div>' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], gender) + '</div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_name">Name</label>' +
+                '<input type="text" class="form-control" id="inf_name" maxlength="120" value="' + esc(inf ? inf.name : '') + '"></div>' +
+                '<div class="inf-field" id="inf_name_ideas"><div class="inf-label">Suggestions</div><div class="inf-chips" id="inf_name_chips"></div></div>' +
+                body_html('inf_body', inf, gender) +
                 '<div class="inf-field"><div class="inf-label">Public Gallery</div>' + seg_html('inf_public_seg', [{ value: '1', label: 'Yes' }, { value: '0', label: 'No' }], String(inf ? (inf.is_public || 0) : 0)) + '</div>' +
                 '</div>' +
                 '<div class="inf-setup__col">' +
@@ -286,14 +304,16 @@ jQuery(function ($) {
                 '<div class="inf-wiz__foot inf-wiz__foot--end">' +
                 '<button type="button" class="btn btn-primary" id="inf_name_next">Continue <i class="fa-solid fa-arrow-right"></i></button></div>';
             $('#inf_panel').html(html);
+            // Name ideas follow the gender; before one is chosen, a few of each are offered so the row is never empty.
             function show_names(g) {
-                var names = ((CFG.names || {})[g]) || [];
+                var all = CFG.names || {}, names = g ? (all[g] || []) : (all.woman || []).slice(0, 3).concat((all.man || []).slice(0, 3));
                 $('#inf_name').attr('placeholder', names[0] || '');
-                $('#inf_name_chips').html(names.map(function (n) { return '<button type="button" class="inf-chip" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join('')).prop('hidden', !names.length);
+                $('#inf_name_chips').html(names.map(function (n) { return '<button type="button" class="inf-chip" data-name="' + esc(n) + '">' + esc(n) + '</button>'; }).join(''));
+                $('#inf_name_ideas').prop('hidden', !names.length);
             }
-            seg_bind('inf_gender', function (g) { gender = g; show_names(g); });
+            seg_bind('inf_gender', function (g) { gender = g; show_names(g); body_gender('inf_body', g); });
             seg_bind('inf_public_seg');
-            if (gender) { show_names(gender); }
+            show_names(gender);
             $('#inf_name_chips').on('click', '.inf-chip', function () { $('#inf_name').val($(this).data('name')).trigger('focus'); $('#inf_name_chips .inf-chip').removeClass('is-on'); $(this).addClass('is-on'); });
             $('#inf_source').on('click', '.inf-src:not(:disabled)', function () {
                 source = $(this).data('value');
@@ -307,6 +327,7 @@ jQuery(function ($) {
                 if (!gender) { toastr.error('Choose Woman or Man'); return; }
                 var $b = $(this).prop('disabled', true);
                 var body = { name: name, gender: gender, is_public: seg_value('inf_public_seg') };
+                $.extend(body, body_values('inf_body', gender));
                 if (src.path === 'reference') { body.input_method = src.value; }
                 if (!inf) {
                     body.path = src.path;
@@ -379,8 +400,12 @@ jQuery(function ($) {
         /* --- Trained: the photos her model learned from, and retraining from them --- */
         function render_training_photos() {
             var busy = inf.pending_model_id > 0, photos_path = path === 'photos';
+            // The section's one action sits in its header, beside the title.
+            var action = busy ? state_pill(inf) : (photos_path
+                ? '<div class="inf-sec__actions"><span class="inf-wiz__meta" id="inf_photos_cost"></span><button type="button" class="btn btn-secondary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div>'
+                : '<div class="inf-sec__actions"><button type="button" class="btn btn-secondary" id="inf_look_open"><i class="fa-solid fa-wand-magic-sparkles"></i> Change Look</button><button type="button" class="btn btn-secondary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div>');
             var html = '<section class="inf-sec">' +
-                '<div class="inf-sec__head"><h2 class="inf-sec__h">Training Photos</h2>' + (busy ? state_pill(inf) : '') + '</div>' +
+                '<div class="inf-sec__head"><div><h2 class="inf-sec__h">Training Photos</h2><p class="inf-sec__sub">What ' + esc(inf.name) + '\'s model learned from. Change these and retrain to change the look.</p></div>' + action + '</div>' +
                 (!busy && inf.last_error ? '<div class="inf-progress__err inf-sec__err">The last retrain failed: ' + esc(inf.last_error) + ' ' + esc(inf.name) + ' still uses the previous model.</div>' : '');
             if (busy) {
                 html += '<p class="inf-wiz__meta">' + esc(inf.name) + ' keeps generating with the current model until the new one is ready.</p>' +
@@ -390,20 +415,110 @@ jQuery(function ($) {
                 return;
             }
             if (!photos_path) {   // built from a reference: its training set is managed on the review step
-                html += '<div class="inf-photos inf-photos--sm" id="inf_set_view"></div>' +
-                        '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-secondary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+                html += '<div class="inf-photos inf-photos--sm" id="inf_set_view"></div></section>';
                 $('#inf_panel').append(html);
                 api('influencer_images', { id: inf.id, role: 'training' }, function (o) {
                     ((o && o.success) ? (o.images || []) : []).forEach(function (img) { $('#inf_set_view').append('<div class="inf-photo"><img src="' + esc(img.thumb_url) + '" alt="" loading="lazy"></div>'); });
                 });
                 $('#inf_ref_retrain').on('click', function () { show('review'); });
+                $('#inf_look_open').on('click', look_open);
                 return;
             }
-            html += photo_manager_html() +
-                '<div class="inf-wiz__foot"><span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
-                '<button type="button" class="btn btn-secondary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div></section>';
+            html += photo_manager_html() + '</section>';
             $('#inf_panel').append(html);
             photo_manager_bind();
+        }
+
+        /* --- Change Look: edit her reference image (hair, age, build...), then rebuild the training set from it and retrain --- */
+        var LOOK_IDEAS = ['Copper red hair', 'Platinum blonde hair', 'Hair cut to a short bob', 'A few years older', 'Light freckles'];
+        var look_stop = null, look_asset = 0;
+        function look_open() {
+            if (!$('#inf_look').length) {
+                $('body').append('<div class="modal fade" id="inf_look" tabindex="-1" aria-labelledby="inf_look_t" aria-hidden="true"><div class="modal-dialog modal-lg modal-dialog-centered"><div class="modal-content inf-look">' +
+                    '<div class="modal-header"><h2 class="modal-title inf-look__title" id="inf_look_t">Change Look</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+                    '<div class="modal-body">' +
+                    '<div class="inf-look__pair">' +
+                    '<figure class="inf-look__pane"><div class="inf-look__img" id="inf_look_now"></div><figcaption>Now</figcaption></figure>' +
+                    '<figure class="inf-look__pane"><div class="inf-look__img inf-look__img--next" id="inf_look_next"></div><figcaption>After</figcaption></figure>' +
+                    '</div>' +
+                    '<div class="inf-field"><label class="inf-label" for="inf_look_text">What Should Change</label>' +
+                    '<textarea class="form-control" id="inf_look_text" rows="2" maxlength="500" placeholder="' + esc(LOOK_IDEAS[0]) + '"></textarea>' +
+                    '<div class="inf-chips" id="inf_look_ideas">' + LOOK_IDEAS.map(function (t) { return '<button type="button" class="inf-chip">' + esc(t) + '</button>'; }).join('') + '</div></div>' +
+                    '<p class="inf-err" id="inf_look_err" role="alert" hidden></p>' +
+                    '</div>' +
+                    '<div class="modal-footer"><span class="inf-look__note" id="inf_look_note"></span>' +
+                    '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>' +
+                    '<button type="button" class="btn btn-secondary" id="inf_look_again" hidden><i class="fa-solid fa-rotate"></i> Try Again</button>' +
+                    '<button type="button" class="btn btn-primary" id="inf_look_go" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> Preview Change</button>' +
+                    '<button type="button" class="btn btn-primary" id="inf_look_use" hidden><i class="fa-solid fa-check"></i> Use This Look</button>' +
+                    '</div></div></div></div>');
+                $('#inf_look_text').on('input', look_sync);
+                $('#inf_look_ideas').on('click', '.inf-chip', function () { $('#inf_look_text').val($(this).text()).trigger('input').trigger('focus'); });
+                $('#inf_look_go, #inf_look_again').on('click', look_run);
+                $('#inf_look_use').on('click', look_use);
+                $('#inf_look').on('hidden.bs.modal', function () { if (look_stop) { look_stop(); look_stop = null; } });
+            }
+            look_asset = 0;
+            $('#inf_look_text').val('');
+            $('#inf_look_now').html('<span class="spinner-border spinner-border-sm" role="status"></span>');
+            look_next('idle');
+            function now(role, then) {
+                api('influencer_images', { id: inf.id, role: role }, function (o) {
+                    var cur = ((o && o.success) ? (o.images || []) : []).filter(function (im) { return im.id === inf.reference_asset_id; })[0];
+                    if (cur) { $('#inf_look_now').html('<img src="' + esc(cur.display_url || cur.thumb_url) + '" alt="' + esc(inf.name) + ' now">'); } else { then(); }
+                });
+            }
+            now('reference', function () { now('face', function () { $('#inf_look_now').html('<span class="inf-look__ph">No reference image</span>'); }); });
+            bootstrap.Modal.getOrCreateInstance($('#inf_look')[0]).show();
+        }
+        function look_error(msg) { $('#inf_look_err').text(msg || '').prop('hidden', !msg); }
+        /* The After pane: idle | busy | done (an image) */
+        function look_next(state, img, text) {
+            var busy = state === 'busy', done = state === 'done';
+            $('#inf_look_next').html(done ? '<img src="' + esc(img.display_url || img.thumb_url) + '" alt="' + esc(inf.name) + ' after the change">'
+                : (busy ? '<span class="inf-look__ph"><span class="spinner-border spinner-border-sm" role="status"></span> ' + esc(text || 'Working') + '</span>'
+                        : '<span class="inf-look__ph">Preview the change to see it here.</span>'));
+            $('#inf_look_go').prop('hidden', done); $('#inf_look_use, #inf_look_again').prop('hidden', !done);
+            $('#inf_look_text, #inf_look_ideas .inf-chip, #inf_look_again, #inf_look_use').prop('disabled', busy);
+            $('#inf_look_note').text(done ? 'Rebuilds ' + LIM.set_size + ' training photos, then retrain.' : '');
+            if (!busy) { look_sync(); } else { $('#inf_look_go').prop('disabled', true); }
+            if (state !== 'busy') { look_error(''); }
+        }
+        function look_sync() { $('#inf_look_go, #inf_look_again').prop('disabled', $('#inf_look_text').val().trim() == ''); }
+        function look_run() {
+            var change = $('#inf_look_text').val().trim();
+            if (change == '') { return; }
+            if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
+            look_asset = 0; look_next('busy', null, 'Sending');
+            api('influencer_reference_change', { id: inf.id, change: change }, function (o) {
+                if (!o || !o.success) { look_next('idle'); if (o && (o.need_plan || o.need_credits || o.need_upgrade)) { err(o); } else { look_error((o && o.message) || 'Could not start the change.'); } return; }
+                look_stop = poll_job(o.job_id, function (j) { look_next('busy', null, status_text(j)); }, function (j) {
+                    look_stop = null;
+                    if (j.status !== 'done') { look_next('idle'); look_error(j.error || 'The change failed. Try wording it differently.'); return; }
+                    api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) {
+                        var imgs = (o2 && o2.success) ? (o2.images || []) : [];
+                        if (!imgs.length) { look_next('idle'); look_error('The new image could not be loaded.'); return; }
+                        var img = imgs[imgs.length - 1];
+                        imgs.forEach(function (im) { if (im.id > img.id) { img = im; } });
+                        look_asset = img.id; look_next('done', img);
+                    });
+                });
+            });
+        }
+        function look_use() {
+            if (!look_asset) { return; }
+            var $b = $('#inf_look_use').prop('disabled', true);
+            api('influencer_reference_pick', { id: inf.id, asset_id: look_asset }, function (o) {
+                if (!o || !o.success) { $b.prop('disabled', false); look_error((o && o.message) || 'Could not use this image.'); return; }
+                inf = o.influencer;
+                api('influencer_training_set_start', { id: inf.id, steer_text: inf.steer_text || '' }, function (o2) {
+                    $b.prop('disabled', false);
+                    if (!o2 || !o2.success) { if (o2 && (o2.need_plan || o2.need_credits || o2.need_upgrade)) { err(o2); } else { look_error((o2 && o2.message) || 'Could not rebuild the training photos.'); } return; }
+                    inf.training_set_group = o2.group_key;
+                    bootstrap.Modal.getOrCreateInstance($('#inf_look')[0]).hide();
+                    show('set');   // the training photos rebuild here; Continue leads to Retrain
+                });
+            });
         }
 
         /* --- Trained: her defaults, share targets and automations (kept separate per influencer) --- */
@@ -427,6 +542,7 @@ jQuery(function ($) {
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2><p class="inf-sec__sub">Applied to every image generated with ' + her + '.</p></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
+                body_html('inf_set_body', inf, inf.gender) +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
@@ -435,10 +551,11 @@ jQuery(function ($) {
                 '</section></div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';
             $('#inf_panel').append(html);
-            seg_bind('inf_set_gender');
+            seg_bind('inf_set_gender', function (g) { body_gender('inf_set_body', g); });
             $('#inf_set_save').on('click', function () {
                 var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val() };
                 $('#inf_panel [data-persona]').each(function () { body[$(this).data('persona')] = $(this).val(); });
+                $.extend(body, body_values('inf_set_body', body.gender));
                 api('influencer_save_step', body, function (o) {
                     if (o && o.success) { inf = o.influencer; toastr.success('Saved'); } else { err(o); }
                 });

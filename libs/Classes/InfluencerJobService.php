@@ -717,7 +717,7 @@ class InfluencerJobService {
         // $topic is the scene AutoPostService picked from the saved prompt, verbatim; it is never rewritten here.
         $scene    = trim((string) $topic);
         $trigger  = (string) $model['trigger_word'];
-        $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
+        $defaults = InfluencerService::look_defaults($infl);
         // The creator's words go to the model as written: only the trigger word (the model's ID token) and the
         // influencer's own saved prompt defaults are added, the same as a hand-made render.
         // The trigger word goes first unless the defaults or the scene already carry it.

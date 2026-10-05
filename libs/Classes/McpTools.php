@@ -366,6 +366,7 @@ class McpTools {
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'name' => array('type' => 'string'), 'gender' => array('type' => 'string', 'enum' => array('woman', 'man')), 'source_description' => array('type' => 'string'),
                 'reference_model_key' => array('type' => 'string'), 'steer_text' => array('type' => 'string'), 'prompt_defaults' => array('type' => 'string'),
+                'body_height' => array('type' => 'string', 'enum' => array('', 'short', 'average', 'tall')), 'body_build' => array('type' => 'string', 'enum' => array('', 'thin', 'average', 'athletic', 'muscular', 'curvy')), 'body_bust' => array('type' => 'string', 'enum' => array('', 'small', 'medium', 'large'), 'description' => 'Women only. Body settings are added to every image prompt for the influencer.'),
                 'negative_prompt' => array('type' => 'string'), 'is_public' => array('type' => 'boolean'),
                 'persona_description' => array('type' => 'string'), 'persona_personality' => array('type' => 'string'), 'persona_speaking' => array('type' => 'string'),
                 'persona_niche' => array('type' => 'string'), 'persona_vulnerability' => array('type' => 'string'),
@@ -910,7 +911,7 @@ class McpTools {
                 return self::result(InfluencerActions::create($cid, (string) ($a['name'] ?? ''), (string) ($a['path'] ?? 'photos'), (string) ($a['gender'] ?? '')));
             }
             case 'update_influencer': {
-                $in = array_intersect_key($a, array_flip(array_merge(array('name', 'gender', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts'), array_keys(InfluencerService::PERSONA))));
+                $in = array_intersect_key($a, array_flip(array_merge(array('name', 'gender', 'source_description', 'reference_model_key', 'steer_text', 'prompt_defaults', 'negative_prompt', 'is_public', 'share_accounts'), array_keys(InfluencerService::PERSONA), array_keys(InfluencerService::BODY))));
                 return self::result(InfluencerActions::update($cid, self::influencer_usable($cid, $a), $in));
             }
             case 'delete_influencer':          return self::result(InfluencerActions::delete($cid, self::influencer($cid, $a)));

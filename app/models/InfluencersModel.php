@@ -81,6 +81,7 @@ class InfluencersModel extends Model {
     public function update_fields($creator_id, $id, array $f){
         $allowed = array('name', 'gender', 'path', 'input_method', 'is_public', 'source_description', 'reference_model_key',
             'steer_text', 'prompt_defaults', 'negative_prompt', 'face_asset_id', 'reference_asset_id',
+            'body_height', 'body_build', 'body_bust',
             'persona_description', 'persona_personality', 'persona_speaking', 'persona_niche', 'persona_vulnerability',
             'training_set_group', 'wizard_step', 'share_accounts', 'status', 'last_error');
         $data = array();

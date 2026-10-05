@@ -89,7 +89,7 @@ class InfluencerConfig {
         'nano_banana_pro_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/nano-banana-pro/edit'),
             'label' => 'Best match', 'purpose' => 'Closest to the source photo and her face',
             'price_usd' => 0.15, 'price_unit' => 'image', 'params' => array('resolution' => '2K'), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS,
-            'ops' => array('angle'), 'max_refs' => 8),
+            'ops' => array('angle', 'reference'), 'max_refs' => 8),   // 'reference': Change Look edits her reference image
         'seedream_45_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
             'label' => 'Budget', 'purpose' => 'Good likeness at a lower price',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10),

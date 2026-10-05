@@ -47,8 +47,9 @@ class InfluencerService {
     public static function angle_prompt(array $infl, $slot){
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
+        $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
         return 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: identical face, hair, skin tone and body. '
-            . $def['prompt'] . '. Plain light grey wall behind, flat daylight. ' . self::REALISM;
+            . $def['prompt'] . ($body !== '' ? ', ' . $body : '') . '. Plain light grey wall behind, flat daylight. ' . self::REALISM;
     }
 
     /** The one image that defines her: the approved reference, else her face photo, else her first training photo, else her newest render. 0 when none. */
@@ -112,6 +113,45 @@ class InfluencerService {
         'man'       => array('Leo', 'Mateo', 'Kai', 'Theo', 'Luca', 'Milo', 'Ezra', 'Julian', 'Marco', 'Adrian', 'Dante', 'Rafael',
             'Nico', 'Elias', 'Jonah', 'Felix', 'Omar', 'Hugo', 'Silas', 'Tomas', 'Andre', 'Caleb', 'Idris', 'Mason'),
     );
+
+    /**
+     * Body settings: column => label, the choices (value => label), and the words each choice adds to a prompt.
+     * The face comes from the trained model; the body comes from these words, so they go on every image prompt,
+     * on the full-body reference images and on the full-body shots of the training set.
+     */
+    const BODY = array(
+        'body_height' => array('label' => 'Height', 'options' => array('' => 'Not Set', 'short' => 'Short', 'average' => 'Average', 'tall' => 'Tall'),
+            'words' => array('short' => 'short stature', 'average' => 'average height', 'tall' => 'tall, long legs')),
+        'body_build'  => array('label' => 'Build', 'options' => array('' => 'Not Set', 'thin' => 'Thin', 'average' => 'Average', 'athletic' => 'Athletic', 'muscular' => 'Muscular', 'curvy' => 'Curvy'),
+            'words' => array('thin' => 'thin, slender build', 'average' => 'average build', 'athletic' => 'athletic, toned build', 'muscular' => 'muscular build', 'curvy' => 'curvy build')),
+        'body_bust'   => array('label' => 'Bust', 'women_only' => true, 'options' => array('' => 'Not Set', 'small' => 'Small', 'medium' => 'Medium', 'large' => 'Large'),
+            'words' => array('small' => 'small bust', 'medium' => 'medium bust', 'large' => 'large bust')),
+    );
+
+    /** A valid choice for a body column, or ''. */
+    public static function body_value($col, $value){
+        $v = strtolower(trim((string) $value));
+        return (isset(self::BODY[$col]) && $v !== '' && isset(self::BODY[$col]['options'][$v])) ? $v : '';
+    }
+
+    /** Her body in prompt words ("tall, long legs, athletic, toned build"), '' when nothing is set. */
+    public static function body_phrase($infl){
+        if (!is_array($infl)) { return ''; }
+        $out = array();
+        foreach (self::BODY as $col => $def) {
+            if (!empty($def['women_only']) && self::noun($infl) !== 'woman') { continue; }
+            $v = (string) ($infl[$col] ?? '');
+            if ($v !== '' && isset($def['words'][$v])) { $out[] = $def['words'][$v]; }
+        }
+        return implode(', ', $out);
+    }
+
+    /** What is added to every image prompt for her: the body words, then her own Always Add To Prompts text. */
+    public static function look_defaults($infl){
+        $body = self::body_phrase($infl);
+        $own  = trim((string) (is_array($infl) ? ($infl['prompt_defaults'] ?? '') : ''));
+        return trim($body . (($body !== '' && $own !== '') ? ', ' : '') . $own);
+    }
 
     /**
      * The look every image of an influencer should have: a real, unretouched photograph. Added to the
@@ -186,7 +226,7 @@ class InfluencerService {
         return array('face' => self::FACE_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
     }
 
-    /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. */
+    /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. {body} is where her body words go (training_variation). */
     const TRAINING_VARIATIONS = array(
         'same person, front-facing head and shoulders, neutral expression, flat daylight from a window, plain wall behind',
         'same person, three-quarter view turned slightly left, small smile, window light from one side, living room behind',
@@ -195,10 +235,17 @@ class InfluencerService {
         'same person, laughing mid-laugh with eyes crinkled, bright daylight, street behind slightly out of focus',
         'same person, looking over the shoulder at the camera, late afternoon sun, park behind',
         'same person, close-up of the face, serious expression, light from one side only, dim room',
-        'same person, upper body, arms crossed, overcast daylight, city street behind',
-        'same person, at home in a plain t-shirt, hair undone, soft expression, morning light, bedroom behind',
-        'same person, sunglasses pushed up on the head, big smile, harsh midday sun, beach behind',
+        'same person, full body standing, head to toe in frame, {body}plain fitted t-shirt and jeans, overcast daylight, city street behind',
+        'same person, from the waist up, {body}at home in a plain fitted t-shirt, hair undone, soft expression, morning light, bedroom behind',
+        'same person, from the knees up, {body}sunglasses pushed up on the head, big smile, harsh midday sun, beach behind',
     );
+
+    /** One training-set prompt for her: the variation with her body words filled in. */
+    public static function training_variation(array $infl, $i){
+        $vars = self::TRAINING_VARIATIONS;
+        $body = self::body_phrase($infl);
+        return str_replace('{body}', $body !== '' ? $body . ', ' : '', $vars[((int) $i) % count($vars)]);
+    }
 
     /* ---- steps ---- */
 
@@ -305,6 +352,9 @@ class InfluencerService {
             'reference_model_key' => (string) ($infl['reference_model_key'] ?? ''),
             'steer_text'          => (string) ($infl['steer_text'] ?? ''),
             'prompt_defaults'     => (string) ($infl['prompt_defaults'] ?? ''),
+            'body_height'         => (string) ($infl['body_height'] ?? ''),
+            'body_build'          => (string) ($infl['body_build'] ?? ''),
+            'body_bust'           => (string) ($infl['body_bust'] ?? ''),
             'negative_prompt'     => (string) ($infl['negative_prompt'] ?? ''),
             'persona_description'   => (string) ($infl['persona_description'] ?? ''),
             'persona_personality'   => (string) ($infl['persona_personality'] ?? ''),
@@ -378,6 +428,7 @@ class InfluencerService {
             'steps'   => self::STEPS,
             'aspect'  => Aspect::client(),
             'persona' => self::PERSONA,
+            'body'    => array_map(function ($d) { return array('label' => $d['label'], 'options' => $d['options'], 'women_only' => !empty($d['women_only'])); }, self::BODY),
             'scene_max_lines' => InfluencerVideoActions::SCENE_MAX_LINES,
             'voice' => array('keywords' => InfluencerVoiceActions::KEYWORDS, 'tags' => InfluencerVoiceActions::TAGS, 'preview_min' => ElevenLabsService::PREVIEW_MIN,
                 'preview_max' => ElevenLabsService::PREVIEW_MAX, 'speech_max' => ElevenLabsService::SPEECH_MAX),

@@ -60,7 +60,8 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_createAction(){
         $user = $this->ai_user();
         $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? ''),
-            (string) ($this->post['input_method'] ?? 'text'), (string) ($this->post['is_public'] ?? '0') === '1'));
+            (string) ($this->post['input_method'] ?? 'text'), (string) ($this->post['is_public'] ?? '0') === '1',
+            array_intersect_key((array) $this->post, InfluencerService::BODY)));
     }
 
     /** Persist wizard inputs + the step the user is on (any subset of the settable fields). */
@@ -70,7 +71,7 @@ class ApiInfluencersController extends BaseApiController {
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
         foreach (array_merge(['name', 'source_description', 'steer_text', 'prompt_defaults', 'negative_prompt'], array_keys(InfluencerService::PERSONA)) as $k) { if (isset($this->post[$k])) { $in[$k] = $this->text($k); } }
-        foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['gender', 'path', 'input_method', 'is_public', 'reference_model_key', 'step', 'body_height', 'body_build', 'body_bust'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         if (isset($this->post['share_accounts'])) {
             $sa = $this->post['share_accounts'];
             $in['share_accounts'] = is_string($sa) ? html_entity_decode($sa, ENT_QUOTES, 'UTF-8') : (array) $sa;
@@ -163,6 +164,14 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $this->answer(InfluencerActions::reference_pick($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
+    }
+
+    /** Change Look: a new reference candidate from the current one with one thing changed. */
+    public function influencer_reference_changeAction(){
+        $user = $this->ai_user();
+        $cid  = (int) $user['user_id'];
+        $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
+        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 500)));
     }
 
     public function influencer_training_set_startAction(){

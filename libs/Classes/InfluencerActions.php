@@ -20,7 +20,7 @@ class InfluencerActions {
 
     /* ---- create / settings ---- */
 
-    public static function create($cid, $name, $path, $gender = '', $input_method = 'text', $is_public = 0){
+    public static function create($cid, $name, $path, $gender = '', $input_method = 'text', $is_public = 0, array $body = array()){
         $name = mb_substr(trim((string) $name), 0, 120);
         $path = ($path === 'reference') ? 'reference' : 'photos';
         $gender = InfluencerService::gender($gender);
@@ -34,6 +34,7 @@ class InfluencerActions {
         if ($id <= 0) { return self::fail('You already have an influencer called ' . $name . '.'); }
         $f = array('wizard_step' => ($path === 'photos') ? 'photos' : 'reference', 'is_public' => !empty($is_public) ? 1 : 0);
         if ($path === 'reference') { $f['input_method'] = ($input_method === 'face_photo') ? 'face_photo' : 'text'; }
+        foreach (InfluencerService::BODY as $col => $def) { if (isset($body[$col])) { $f[$col] = InfluencerService::body_value($col, $body[$col]); } }
         $m->update_fields($cid, $id, $f);
         return self::okr(array('influencer' => self::json($cid, $id)));
     }
@@ -69,6 +70,9 @@ class InfluencerActions {
         if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, 1000); }
         if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, 2000); }
         if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, 2000); }
+        foreach (InfluencerService::BODY as $col => $def) {
+            if (array_key_exists($col, $in)) { $f[$col] = InfluencerService::body_value($col, $in[$col]); }
+        }
         foreach (InfluencerService::PERSONA as $col => $def) {
             if (array_key_exists($col, $in)) { $f[$col] = mb_substr(trim((string) $in[$col]), 0, (int) $def['max']); }
         }
@@ -230,6 +234,38 @@ class InfluencerActions {
         return self::okr(array('job_id' => $job_id));
     }
 
+    /** How a Change Look instruction is put to the edit model: same person and photo, only the named change. */
+    public static function look_prompt(array $infl, $change){
+        $n = InfluencerService::noun($infl);
+        return 'Keep the exact same ' . $n . ' as in the image: identical face, facial features, age, skin tone, expression, pose, framing, clothing and background. '
+            . 'Change only this about ' . ($n === 'man' ? 'him' : 'her') . ': ' . rtrim(trim((string) $change), '.') . '. ' . InfluencerService::REALISM;
+    }
+
+    /**
+     * Change Look: a new reference made from the current one with one thing changed (hair colour, hair length,
+     * build, age...). It becomes a reference candidate; approving it and rebuilding the training set is what
+     * changes the trained model.
+     */
+    public static function reference_change($cid, array $infl, $change){
+        if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
+        if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from your photos. Add photos with the new look and retrain.'); }
+        if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
+        $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, 500);
+        if ($change === '') { return self::fail('Say what should change.'); }
+        $base = InfluencerService::base_reference($cid, $infl);
+        if ($base <= 0) { return self::fail('There is no reference image to change.'); }
+        // One image decides everything trained after it, so it gets the edit model that holds the face best.
+        $model = InfluencerConfig::model('nano_banana_pro_edit');
+        // An edit model only: a text-to-image model would invent a different person.
+        if (!$model || !InfluencerConfig::serves($model, 'reference') || empty($model['max_refs'])) { return self::fail('No edit model is configured.'); }
+        $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
+            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => self::look_prompt($infl, $change), 'input_asset_id' => $base,
+            'params' => array('aspect_ratio' => '1:1', 'image_size' => 'square', 'num_images' => 1, 'look_change' => $change),
+        ));
+        if ($job_id <= 0) { return self::fail('Could not start the change.'); }
+        return self::okr(array('job_id' => $job_id, 'base_asset_id' => $base));
+    }
+
     /** Approve a reference (a generated candidate or her face photo). */
     public static function reference_pick($cid, array $infl, $aid){
         $aid  = (int) $aid;
@@ -263,7 +299,7 @@ class InfluencerActions {
         $vars = InfluencerService::TRAINING_VARIATIONS;
         $ids  = array();
         for ($i = 1; $i <= $size; $i++) {
-            $prompt = InfluencerService::realistic($vars[($i - 1) % count($vars)] . ($steer !== '' ? ', ' . $steer : ''));
+            $prompt = InfluencerService::realistic(InfluencerService::training_variation($infl, $i - 1) . ($steer !== '' ? ', ' . $steer : ''));
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
                 'group_key' => $group, 'group_index' => $i,
@@ -334,7 +370,7 @@ class InfluencerActions {
         if (!$model || (string) $model['status'] !== 'ready') { return self::fail($infl['name'] . '\'s active model is not ready.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
         if ($user_prompt === '') { return self::fail('Write a prompt first.'); }
-        $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
+        $defaults = InfluencerService::look_defaults($infl);   // her body words, then her own Always Add To Prompts
         $trigger  = (string) $model['trigger_word'];
         if ($defaults !== '' && $trigger !== '' && stripos($defaults, $trigger) !== false && stripos($user_prompt, $trigger) !== false) {
             $defaults = trim(str_ireplace($trigger, '', $defaults));
