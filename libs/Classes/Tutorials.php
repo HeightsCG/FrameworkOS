@@ -207,7 +207,7 @@ class Tutorials {
             'Open Influencers, then References.',
             'Click Generate Angle Set. You get three front close-ups, both profiles, a back view and two full body shots.',
             'Click Regenerate on any that do not look like her. The rest are used automatically.',
-            'Approved angles are used automatically in Replicate Photo, Carousel and video.',
+            'All of her angles are used automatically in Replicate Photo, Carousel and video.',
         )),
         '23' => array('section' => 'influencers', 'title' => 'Replicate a Photo', 'secs' => 0, 'steps' => array(
             'Replicate Photo recreates any photo with your influencer in it.',

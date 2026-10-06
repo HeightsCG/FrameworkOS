@@ -842,7 +842,8 @@ jQuery(function ($) {
         var upload_queue = [], upload_active = 0, UPLOAD_PAR = 3;
 
         function photos_load(cb) {
-            api('influencer_images', { id: inf.id, role: 'upload' }, function (o) { photos = (o && o.success) ? (o.images || []) : []; if (cb) { cb(); } });
+            // Photos path: the uploads she was trained from. Reference path: the training set made from her reference.
+            api('influencer_images', { id: inf.id, role: (path === 'photos') ? 'upload' : 'training' }, function (o) { photos = (o && o.success) ? (o.images || []) : []; if (cb) { cb(); } });
         }
         function photo_tile(img) {
             var $t = $('<div class="inf-photo">').attr('data-id', img.id);
