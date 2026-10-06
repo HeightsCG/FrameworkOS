@@ -334,8 +334,13 @@ jQuery(function ($) {
     });
 
     /* Enlarge a photo: any tile carrying data-full opens it large, with the other tiles of its grid to step through. */
-    var zoom = { list: [], at: 0 };
+    var zoom = { list: [], at: 0, host: null };
+    function zoom_list() {   /* re-read the grid each time: photos that finish while the viewer is open join the set */
+        if (zoom.host && document.body.contains(zoom.host)) { zoom.list = $(zoom.host).children('[data-full]').map(function () { return $(this).attr('data-full'); }).get(); }
+        return zoom.list;
+    }
     function zoom_show(i) {
+        if (!zoom_list().length) { zoom_close(); return; }
         zoom.at = (i + zoom.list.length) % zoom.list.length;
         $('#inf_zoom_img').attr('src', zoom.list[zoom.at]);
         $('#inf_zoom_n').text((zoom.at + 1) + ' of ' + zoom.list.length);
@@ -362,6 +367,7 @@ jQuery(function ($) {
             });
         }
         var $tiles = $(this).parent().children('[data-full]');
+        zoom.host = this.parentNode;
         zoom.list = $tiles.map(function () { return $(this).attr('data-full'); }).get();
         zoom.from = this;
         $('#inf_zoom').prop('hidden', false);
