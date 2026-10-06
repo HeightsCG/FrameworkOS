@@ -195,102 +195,102 @@ class Tutorials {
             'Your image is saved to your Library automatically. Click Use in a Post to start a post with it.',
         )),
         // AI influencer pipeline. Stubs: each appears once its <id>.mp4 is uploaded and 'secs' is set.
-        '21' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Persona', 'secs' => 0, 'steps' => array(
+        '21' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Persona', 'secs' => 30, 'steps' => array(
             'A persona tells every AI writer who your influencer is, so captions, messages and automations sound like one person.',
             'Open Influencers, click the menu on your influencer, then Settings.',
             'Under Persona, describe who she is in a paragraph or two.',
             'Fill in her personality, how she speaks, her niche and what makes her vulnerable.',
             'Click Save. New captions and replies are written in her voice from now on.',
         )),
-        '22' => array('section' => 'influencers', 'title' => 'Build Her Angle Reference Set', 'secs' => 0, 'steps' => array(
+        '22' => array('section' => 'influencers', 'title' => 'Build Her Angle Reference Set', 'secs' => 28, 'steps' => array(
             'Angle references keep your influencer looking the same from every side.',
             'Open Influencers, then References.',
             'Click Generate Angle Set. You get three front close-ups, both profiles, a back view and two full body shots.',
             'Click Regenerate on any that do not look like her. The rest are used automatically.',
             'All of her angles are used automatically in Replicate Photo, Carousel and video.',
         )),
-        '23' => array('section' => 'influencers', 'title' => 'Replicate a Photo', 'secs' => 0, 'steps' => array(
+        '23' => array('section' => 'influencers', 'title' => 'Replicate a Photo', 'secs' => 27, 'steps' => array(
             'Replicate Photo recreates any photo with your influencer in it.',
             'Open Influencers, Generate Images, then Replicate Photo.',
             'Choose a source photo from your Library or upload one. The face in it is hidden automatically.',
             'Pick Style to recreate the scene and pose, or Exact to swap her in and keep the composition.',
             'Edit the prompt if you want, choose a size, and click Replicate.',
         )),
-        '24' => array('section' => 'influencers', 'title' => 'Generate a Carousel', 'secs' => 0, 'steps' => array(
+        '24' => array('section' => 'influencers', 'title' => 'Generate a Carousel', 'secs' => 28, 'steps' => array(
             'A carousel is several shots of one moment, with the outfit and location held the same.',
             'Open Influencers, Generate Images, then Carousel.',
             'Add a seed image or describe the scene, then pick what should vary and how many images you want.',
             'Click Generate Carousel. Reorder, drop or regenerate any image.',
             'Click Use In Post to open a draft with the images in that order.',
         )),
-        '25' => array('section' => 'studio', 'title' => 'Edit an Image by Instruction', 'secs' => 0, 'steps' => array(
+        '25' => array('section' => 'studio', 'title' => 'Edit an Image by Instruction', 'secs' => 19, 'steps' => array(
             'Change one thing in a photo by describing it.',
             'Open an image in your Library and click Edit.',
             'Type the change, for example make the dress red, and click Apply Edit.',
             'The edit is saved as a new version. The original stays in your Library.',
         )),
-        '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 0, 'steps' => array(
+        '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 19, 'steps' => array(
             'Scenes are ready-made ideas you can run with any of your influencers.',
             'Open Content Studio, then Scenes.',
             'Pick a scene and an influencer and click Generate. You get four variants.',
             'Give a thumbs up or down to each one, then use your favourite in a post.',
         )),
-        '27' => array('section' => 'influencers', 'title' => 'Motion Control', 'secs' => 0, 'steps' => array(
+        '27' => array('section' => 'influencers', 'title' => 'Motion Control', 'secs' => 30, 'steps' => array(
             'Motion Control makes your influencer move like the person in any video.',
             'Open Influencers, Generate Videos, then Motion Control.',
             'Choose a motion video from your Library. It can be 3 to 30 seconds long.',
             'Choose a first frame, or click Make First Frame to recreate the video\'s opening shot with her in it.',
             'Pick 720p or 1080p and click Generate Video. The result is as long as the motion video.',
         )),
-        '28' => array('section' => 'influencers', 'title' => 'Replace a Character in a Video', 'secs' => 0, 'steps' => array(
+        '28' => array('section' => 'influencers', 'title' => 'Replace a Character in a Video', 'secs' => 28, 'steps' => array(
             'Replace Character puts your influencer in place of one person in a video you own.',
             'Open Influencers, Generate Videos, then Replace Character.',
             'Choose a source video of up to 15 seconds and say who to replace.',
             'Choose whether she keeps the video\'s outfit, and whether other people and on-screen text are left alone.',
             'Confirm that you own the video or have the rights to use it, then click Replace Character.',
         )),
-        '29' => array('section' => 'influencers', 'title' => 'Create a Dialogue Scene', 'secs' => 0, 'steps' => array(
+        '29' => array('section' => 'influencers', 'title' => 'Create a Dialogue Scene', 'secs' => 27, 'steps' => array(
             'A scene is one continuous take where your influencer speaks the lines you write.',
             'Open Influencers, Generate Videos, then Scene.',
             'Add a second character if you want one: another influencer, or someone you describe.',
             'Write each line, choose who says it, and add an acting cue or a pronunciation note where it helps.',
             'Start with Draft to check the take, then generate it again as Final.',
         )),
-        '30' => array('section' => 'studio', 'title' => 'Export a Frame From a Video', 'secs' => 0, 'steps' => array(
+        '30' => array('section' => 'studio', 'title' => 'Export a Frame From a Video', 'secs' => 18, 'steps' => array(
             'Any moment of a video can become an image.',
             'Open a video in your Library and scrub to the moment you want.',
             'Click Export This Frame. The image is saved to your Library.',
             'From there you can edit it or use it as the source for Replicate Photo.',
         )),
-        '31' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Voice', 'secs' => 0, 'steps' => array(
+        '31' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Voice', 'secs' => 31, 'steps' => array(
             'A voice lets your influencer speak in videos and audio.',
             'Open Influencers, then Voice.',
             'Under Design A Voice, describe her age and vibe, pick a keyword, and set her accent by city and country.',
             'Click Design Voice. Listen to the three candidates and save the one you like.',
             'To make audio, write a script, add audio tags or click Enhance, and click Generate Speech. Save the take you prefer to your Library.',
         )),
-        '32' => array('section' => 'influencers', 'title' => 'Make a Talking Video', 'secs' => 0, 'steps' => array(
+        '32' => array('section' => 'influencers', 'title' => 'Make a Talking Video', 'secs' => 23, 'steps' => array(
             'A talking video is a close-up of your influencer speaking your script.',
             'Open Influencers, Generate Videos, then Talking.',
             'Choose a close-up image with a clear face.',
             'Write the script, or switch to Audio File and choose one from your Library.',
             'Click Generate Video. Long scripts are rendered in parts and joined for you.',
         )),
-        '33' => array('section' => 'studio', 'title' => 'Edit Clips Together', 'secs' => 0, 'steps' => array(
+        '33' => array('section' => 'studio', 'title' => 'Edit Clips Together', 'secs' => 26, 'steps' => array(
             'The clip editor joins your videos and images into one finished video.',
             'In Content Studio, click Action, then New Edit.',
             'Add clips and stills, drag them into order, and trim each one.',
             'Add text and image overlays, and an audio track if you want one.',
             'Pick 9:16 or 3:4 and click Export. The finished video is saved to your Library.',
         )),
-        '34' => array('section' => 'studio', 'title' => 'Run a Launch Campaign', 'secs' => 0, 'steps' => array(
+        '34' => array('section' => 'studio', 'title' => 'Run a Launch Campaign', 'secs' => 27, 'steps' => array(
             'A launch campaign is a run of posts and messages that build up to one launch.',
             'Open Audience and click Launch Campaign.',
             'Say what you are launching, pick the launch time and how many days of anticipation you want.',
             'Click Write Drafts. Edit any post or message, or clear one to leave it out.',
             'Click Schedule Campaign. Every post and message is scheduled at once.',
         )),
-        '35' => array('section' => 'studio', 'title' => 'Caption Modes, Stories and AI Disclosure', 'secs' => 0, 'steps' => array(
+        '35' => array('section' => 'studio', 'title' => 'Caption Modes, Stories and AI Disclosure', 'secs' => 30, 'steps' => array(
             'When you write a post, pick a caption mode next to Write a Caption: Standard, Continuation, Comment Bait or Hook Overlay.',
             'Hook Overlay also gives you a short line to put on the video itself.',
             'In Distribution, tick an Instagram or Facebook account and switch on Post As Story to send 9:16 media as a Story.',

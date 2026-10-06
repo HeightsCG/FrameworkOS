@@ -3,6 +3,7 @@
       $her = ((string) ($infl['gender'] ?? 'woman') === 'man') ? 'his' : 'her'; ?>
 
 
+    <?php echo Tutorials::bar('22'); ?>
     <div class="inf-angles__bar" id="inf_ang_bar" hidden>
         <div class="inf-angles__go">
             <span class="inf-wiz__meta" id="inf_ang_cost"></span>

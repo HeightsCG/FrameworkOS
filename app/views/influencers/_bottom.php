@@ -15,6 +15,7 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'set_id'     => (int) ($this->set_id ?? 0),
     'gender'     => (string) (($this->influencer['gender'] ?? '') ?: 'woman'),
 ), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+window.TUT_BTN = <?php echo json_encode(array('21' => Tutorials::button('21')), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;   /* Watch How buttons for sections drawn by influencers.js */
 </script>
 <script src="/js/ai-tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/ai-tools.js'); ?>"></script>
 <?php if (in_array((string) ($this->page ?? ''), array('references', 'replicate', 'carousel'), true)): ?>

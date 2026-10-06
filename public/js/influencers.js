@@ -808,7 +808,7 @@ jQuery(function ($) {
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
-                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2></div></div>' +
+                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2></div>' + ((window.TUT_BTN || {})['21'] || '') + '</div>' +
                 '<div class="inf-about__fields inf-persona">' + persona_fields() + '</div>' +
                 '</section></div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';

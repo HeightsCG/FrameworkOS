@@ -17,7 +17,7 @@ jQuery(function ($) {
         if (a && a.type === 'video' && a.status === 'ready') {
             // Scrub the player above to a moment, then export it as an image (which opens here with Edit and Replicate).
             $box.html('<label class="form-label cs-dv__label">Frames</label><div class="cs-dv__ai cs-dv__ai--one">' +
-                '<button type="button" class="btn btn-outline-secondary" id="csDvFrame"><i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame</button></div>');
+                '<button type="button" class="btn btn-outline-secondary" id="csDvFrame"><i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame</button>' + ((window.TUT_BTN || {})['30'] || '') + '</div>');
             $('#csDvFrame').on('click', function () {
                 var $b = $(this).prop('disabled', true), v = $('#csDetailBody video')[0];
                 $b.html('<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Exporting');
@@ -36,7 +36,7 @@ jQuery(function ($) {
         $box.html(
             '<label class="form-label cs-dv__label">AI Tools</label>' +
             '<div class="cs-dv__ai">' +
-              '<button type="button" class="btn btn-outline-secondary" id="csDvEdit"' + (blocked ? ' disabled' : '') + '><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>' +
+              '<button type="button" class="btn btn-outline-secondary" id="csDvEdit"' + (blocked ? ' disabled' : '') + '><i class="fa-solid fa-pen" aria-hidden="true"></i> Edit</button>' + ((window.TUT_BTN || {})['25'] || '') +
               '<a class="btn btn-outline-secondary' + (blocked ? ' disabled' : '') + '" href="/influencers/replicate/0/' + a.id + '" id="csDvReplicate"' + (blocked ? ' aria-disabled="true" tabindex="-1"' : '') + '><i class="fa-solid fa-clone" aria-hidden="true"></i> Replicate</a>' +
             '</div>' +
             '<div id="csDvVersions"></div>');

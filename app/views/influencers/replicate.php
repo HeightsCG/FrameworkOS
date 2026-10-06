@@ -94,6 +94,7 @@
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_rmodel" aria-expanded="false"><span data-pop-label="#inf_rep_model .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_rsize" aria-expanded="false"><span data-pop-label="#inf_rep_size .inf-seg__opt.is-on">Size</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_rmore" aria-expanded="false" aria-label="More settings"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>
+                <?php echo Tutorials::button('23'); ?>
                 <span class="inf-cv__status" id="inf_rep_reading" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Reading the photo</span>
                 <span class="inf-cv__status" id="inf_busy" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> <span id="inf_busy_text">Generating</span></span>
                 <span class="inf-cv__cost" id="inf_rep_cost"></span>
