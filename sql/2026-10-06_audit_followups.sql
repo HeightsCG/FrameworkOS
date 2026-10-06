@@ -4,7 +4,7 @@
 -- Apply by hand:
 --   mysql -h 127.0.0.1 --protocol=TCP -u casivo contentos < sql/2026-10-06_audit_followups.sql
 --
--- Applied on dev: 2026-10-06. Both statements are safe on live rows.
+-- Applied on dev and prod: 2026-10-06.
 
 -- 1. The posts of one launch campaign are read and deleted by campaign_id (was a full scan of posts).
 ALTER TABLE posts ADD KEY idx_posts_campaign (campaign_id);

@@ -314,7 +314,7 @@ class InfluencerService {
         'same person, close-up of the face, the collar of a dark t-shirt just in frame, serious expression, light from one side only, dim room',
         'same person, full body standing, head to toe in frame, {body}plain fitted t-shirt and jeans, overcast daylight, city street behind',
         'same person, from the waist up, {body}at home in a plain fitted t-shirt, hair undone, soft expression, morning light, bedroom behind',
-        'same person, from the knees up, {body}sunglasses pushed up on the head, big smile, harsh midday sun, beach behind',
+        'same person, from the knees up, {body}wearing a loose linen shirt over a t-shirt and shorts, sunglasses pushed up on the head, big smile, harsh midday sun, beach promenade behind',
     );
 
     /** One training-set prompt for her: the variation with her body words filled in. */
@@ -322,6 +322,22 @@ class InfluencerService {
         $vars = self::TRAINING_VARIATIONS;
         $body = self::body_phrase($infl);
         return str_replace('{body}', $body !== '' ? $body . ', ' : '', $vars[((int) $i) % count($vars)]);
+    }
+
+    /**
+     * The same prompt with her body words taken out, and plain clothes named when none are: what a shot is rerun
+     * with after a model's content checker refused it (body words in a scene with no clothing named read as swimwear
+     * to the checker). Returns the prompt unchanged when there is nothing to take out.
+     */
+    public static function softened_prompt(array $infl, $prompt){
+        $out  = (string) $prompt;
+        $body = self::body_phrase($infl);
+        if ($body !== '') { $out = str_ireplace(array($body . ', ', ', ' . $body, $body), '', $out); }
+        if (!preg_match('/\b(wearing|t-shirt|shirt|sweater|hoodie|jacket|dress|jeans|shorts)\b/i', $out)) {
+            $out = preg_replace('/^(same person,[^,]*,)/i', '$1 wearing a plain t-shirt and jeans,', $out, 1, $n);
+            if (empty($n)) { $out = 'wearing a plain t-shirt and jeans, ' . $out; }
+        }
+        return trim((string) preg_replace('/\s*,(\s*,)+/', ',', $out));
     }
 
     /* ---- steps ---- */

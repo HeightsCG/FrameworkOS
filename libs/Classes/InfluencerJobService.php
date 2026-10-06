@@ -613,10 +613,37 @@ class InfluencerJobService {
         return true;
     }
 
+    /** Job types rerun once with her body words taken out when a model's content checker refuses the prompt. */
+    const SOFTEN_TYPES = array('training_set', 'angle');
+
+    /**
+     * A content checker refusing a training or angle shot is nearly always her body words meeting a scene with no
+     * clothing named: rerun the same job once on the same model with those words out (InfluencerService::softened_prompt).
+     * Same price, so credits are untouched. False when the type does not soften, it already did, or nothing changes.
+     */
+    private static function retry_softened(array $job, InfluencerJobsModel $m, $from){
+        if (!in_array((string) $job['type'], self::SOFTEN_TYPES, true) || (int) ($job['influencer_id'] ?? 0) <= 0) { return false; }
+        $p = InfluencerJobsModel::params($job);
+        if (!empty($p['softened'])) { return false; }
+        $infl = (new InfluencersModel())->get_one((int) $job['creator_id'], (int) $job['influencer_id']);
+        if (!$infl) { return false; }
+        $prompt = InfluencerService::softened_prompt($infl, (string) $job['prompt']);
+        if ($prompt === (string) $job['prompt']) { return false; }
+        $p['softened'] = true; $p['softened_from'] = (string) $job['prompt'];
+        $n = $m->transition($job['id'], $from, array('status' => 'queued', 'prompt' => $prompt, 'params_json' => json_encode($p),
+            'wait_reason' => null, 'error' => null, 'error_code' => null,
+            'provider_job_id' => null, 'provider_status_url' => null, 'provider_response_url' => null, 'provider_cancel_url' => null,
+            'submitted_at' => null, 'deadline_at' => null, 'poll_count' => 0));
+        if ($n !== 1) { return false; }
+        error_log('[influencer job] ' . (int) $job['id'] . ': ' . $job['model_key'] . ' refused on safety, retrying without her body words');
+        self::dispatch((int) $job['id'], 0);
+        return true;
+    }
+
     private static function fail_job($job, InfluencerJobsModel $m, $from, $code, $error){
         if (!$job) { return self::out('failed', true, null, (string) $error); }
-        if ((string) $code === 'content_policy' && self::retry_on_next_model($job, $m, $from)) {
-            return self::out('queued', false, 0, 'refused by the model, retrying on another');
+        if ((string) $code === 'content_policy' && (self::retry_softened($job, $m, $from) || self::retry_on_next_model($job, $m, $from))) {
+            return self::out('queued', false, 0, 'refused by the model, retrying');
         }
         $n = $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
             'error' => mb_substr((string) $error, 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));

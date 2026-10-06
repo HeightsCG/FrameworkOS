@@ -154,6 +154,36 @@ try { InfluencerJobService::create_job($poor, 0, 'edit', array('model_key' => 'g
 catch (PlanLimitException $e) { $threw = $e; }
 check('an account without a plan is refused with need_plan', $threw !== null && !empty($threw->limit['need_plan']));
 
+/* ---- a content checker refusal of a training/angle shot reruns once without her body words ---- */
+$im   = new InfluencersModel();
+$nova = $im->get_one($creator, 14);
+check('fixture: Nova (#14) exists',                (bool) $nova);
+if ($nova) {
+    $old_body = (string) ($nova['body_description'] ?? '');
+    $im->update_fields($creator, 14, array('body_description' => 'Tall and slim, large bust'));
+    $nova = $im->get_one($creator, 14);
+    $body = InfluencerService::body_phrase($nova);
+    InfluencerConfig::set_override('providers_angle', 'fake');
+    FakeAiProvider::$submit = 'reject'; FakeAiProvider::$status = 'running';
+    $sid = InfluencerJobService::create_job($creator, 14, 'angle', array('origin' => 'wizard', 'model_key' => 'nano_banana_edit',
+        'prompt' => 'same person, from the knees up, ' . $body . ', sunglasses pushed up on the head, big smile, beach behind', 'input_asset_id' => $src,
+        'params' => array('aspect_ratio' => '1:1', 'num_images' => 1, 'angle' => 'full_front')), false);
+    $made[] = $sid;
+    $sp = (int) $jobs->get_by_id($sid)['credits_charged'];
+    InfluencerJobService::step($sid, array('inline' => true));
+    $sj = $jobs->get_by_id($sid); $spp = InfluencerJobsModel::params($sj);
+    check('a refused shot is re-queued, not failed',    (string) $sj['status'] === 'queued' && !empty($spp['softened']), $sj['status'] . ' ' . $sj['error']);
+    check('the rerun prompt has her body words out',   $body !== '' && stripos((string) $sj['prompt'], $body) === false, (string) $sj['prompt']);
+    check('and names plain clothes',                   stripos((string) $sj['prompt'], 'wearing a plain t-shirt') !== false);
+    check('the rerun costs nothing extra',             (int) $sj['credits_charged'] === $sp && $bal() === $start - $sp, $bal() . ' vs ' . ($start - $sp));
+    (new JobsModel())->sql("DELETE FROM jobs WHERE dedupe_key LIKE :k", array(':k' => 'infl_job:' . (int) $sid . ':%'));
+    InfluencerJobService::step($sid, array('inline' => true));
+    $sj = $jobs->get_by_id($sid);
+    check('a second refusal fails it for real',        (string) $sj['status'] === 'failed' && (string) $sj['error_code'] === 'content_policy', $sj['status']);
+    check('and refunds once',                          $bal() === $start, $bal() . ' vs ' . $start);
+    $im->update_fields($creator, 14, array('body_description' => $old_body));
+}
+
 /* ---- tidy up: the test jobs and their ledger rows ---- */
 foreach ($made as $j) {
     $jobs->sql("DELETE FROM influencer_jobs WHERE id = :id AND creator_id = :c", array(':id' => (int) $j, ':c' => $creator));
