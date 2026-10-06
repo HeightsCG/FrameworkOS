@@ -182,6 +182,12 @@ class ApiInfluencerImagesController extends BaseApiController {
         $this->answer(SceneTemplates::delete((int) $user['user_id'], (int) ($this->post['id'] ?? 0)));
     }
 
+    /** A platform scene (or one of the creator's own) copied into the creator's own scenes, where it can be edited. */
+    public function scene_duplicateAction(){
+        $user = $this->ai_user();
+        $this->answer(SceneTemplates::duplicate((int) $user['user_id'], (int) ($this->post['id'] ?? 0)));
+    }
+
     /** Multipart thumbnail upload for one of the creator's own scenes (same sniff + re-encode as the admin path). */
     public function scene_thumbAction(){
         $user = $this->ai_user();

@@ -44,9 +44,9 @@ jQuery(function ($) {
         return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }, opts)).then(function (r) { return r.isConfirmed; });
     }
     function scene_view(which) {
+        if (which === 'empty') { which = 'grid'; }   // an empty grid still shows the New Scene card
         $('#infSceneLoading').prop('hidden', which !== 'loading');
         $('#infSceneError').prop('hidden', which !== 'error');
-        $('#infSceneEmpty').prop('hidden', which !== 'empty');
         $('#infScenes').prop('hidden', which !== 'grid');
         $('#infSceneBar').toggleClass('is-empty', which !== 'grid');
     }
@@ -97,26 +97,38 @@ jQuery(function ($) {
                 '<span class="inf-scene__img">' + (t.thumb_url ? '<img src="' + esc(t.thumb_url) + '" alt="" loading="lazy">' : '<i class="fa-solid fa-panorama" aria-hidden="true"></i>') +
                 (t.is_adult ? '<span class="inf-scene__adult">18+</span>' : '') + (off ? '<span class="inf-scene__off">Off</span>' : '') + '</span>' +
                 '<span class="inf-scene__body"><strong>' + esc(t.title) + '</strong><small>' + esc(t.category || 'Scene') + '</small></span></button>' +
-                (t.mine ? '<div class="dropdown inf-scene__menu"><button type="button" class="inf-scene__more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Scene actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>' +
-                    '<ul class="dropdown-menu dropdown-menu-end inf-scene__items">' +
+                ('<div class="dropdown inf-scene__menu"><button type="button" class="inf-scene__more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Scene actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>' +
+                    '<ul class="dropdown-menu dropdown-menu-end inf-scene__items">' + (t.mine ?
                     '<li><button type="button" class="dropdown-item" data-scene-act="edit">Edit</button></li>' +
                     '<li><button type="button" class="dropdown-item" data-scene-act="toggle">' + (t.is_active ? 'Turn Off' : 'Turn On') + '</button></li>' +
-                    '<li><button type="button" class="dropdown-item inf-scene__danger" data-scene-act="delete">Delete</button></li></ul></div>' : '') +
+                    '<li><button type="button" class="dropdown-item inf-scene__danger" data-scene-act="delete">Delete</button></li>' :
+                    '<li><button type="button" class="dropdown-item" data-scene-act="copy">Make A Copy</button></li>') +   // a platform scene is edited as your own copy
+                    '</ul></div>') +
                 '</div>';
-        }).join(''));
+        }).join('') +
+            // New Scene is a card in the grid, like New Influencer
+            '<div class="inf-scene__cell"><button type="button" class="inf-scene inf-scene--new" id="infSceneNew"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>New Scene</span></button></div>');
     }
     $('#infSceneRetry').on('click', scenes_load);
     $('#infSceneCats').on('click', '[data-cat]', function () { cat = String($(this).data('cat')); scenes_render(); });
     $('#infScenes').on('click', '.inf-scene', function () {
+        if ($(this).is('.inf-scene--new')) { edit_open(null); return; }
         var t = scene_find(parseInt($(this).data('scene'), 10));
         if (!t) { return; }
         if (t.mine && !t.is_active) { toastr.warning('Turn the scene on to run it.'); return; }
         run_open(t);
     });
-    $('#infSceneNew, #infSceneNewEmpty').on('click', function () { edit_open(null); });
     $('#infScenes').on('click', '[data-scene-act]', function () {
         var t = scene_find(parseInt($(this).closest('.inf-scene__cell').find('.inf-scene').data('scene'), 10)), act = $(this).attr('data-scene-act');
-        if (!t || !t.mine) { return; }
+        if (!t) { return; }
+        if (act === 'copy') {
+            api('scene_duplicate', { id: t.id }, function (o) {
+                if (!o || !o.success) { err(o, 'Could not copy the scene.'); return; }
+                scene_put(o.scene); toastr.success('Copied to your scenes'); edit_open(o.scene);
+            });
+            return;
+        }
+        if (!t.mine) { return; }
         if (act === 'edit') { edit_open(t); return; }
         if (act === 'toggle') {
             api('scene_set_active', { id: t.id, active: t.is_active ? 0 : 1 }, function (o) {

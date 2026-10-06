@@ -93,6 +93,26 @@ class SceneTemplates {
         return self::okr(array('id' => (int) $id, 'scene' => self::own_json($cid, (int) $id)));
     }
 
+    /**
+     * A copy of a scene the creator can see (a platform scene, or one of their own) as a new scene of their own,
+     * so a platform scene is edited as a copy. The thumbnail is copied to its own key: the copy and the original
+     * never share a file, so deleting or re-uploading on either leaves the other untouched.
+     */
+    public static function duplicate($cid, $id){
+        $m = new SceneTemplatesModel();
+        $t = $m->get_one((int) $id);
+        $visible = $t && empty($t['deleted_at']) && ((int) ($t['creator_id'] ?? 0) === (int) $cid || ($t['creator_id'] === null && !empty($t['is_active'])));
+        if (!$visible) { return self::fail('Scene not found.'); }
+        $new = (int) $m->create_own($cid, array('title' => (string) $t['title'], 'category' => (string) $t['category'], 'base_prompt' => (string) $t['base_prompt'],
+            'is_adult' => !empty($t['is_adult']), 'default_aspect' => (string) $t['default_aspect'], 'is_active' => true, 'sort_order' => 0));
+        if ($new <= 0) { return self::fail('Could not copy the scene.'); }
+        if (!empty($t['thumb_key'])) {
+            $key = 'scenes/' . $new . '/thumb_' . bin2hex(random_bytes(4)) . '.jpg';
+            if (S3Service::copy_private((string) $t['thumb_key'], $key, 'image/jpeg')) { $m->set_thumb($new, $key, (int) $cid); }
+        }
+        return self::okr(array('id' => $new, 'scene' => self::own_json($cid, $new)));
+    }
+
     public static function delete($cid, $id){
         $m = new SceneTemplatesModel();
         $t = $m->get_own($cid, (int) $id);

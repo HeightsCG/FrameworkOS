@@ -1090,6 +1090,10 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-scene__body{ display:flex; flex-direction:column; gap:2px; padding:8px 10px 10px; }
 .inf-scene__body strong{ font-size:14px; font-weight:600; color:var(--text); }
 .inf-scene__body small{ font-size:12px; color:var(--muted); }
+/* New Scene is a card in the grid, the same as New Influencer on Your Influencers */
+.inf-scene--new{ align-items:center; justify-content:center; gap:.5rem; aspect-ratio:3 / 4.55; border:1px dashed var(--muted2); background:transparent; color:var(--muted); font-weight:600; font-size:14px; }
+.inf-scene--new i{ font-size:20px; }
+.inf-scene--new:hover{ color:var(--acc-ink); border-color:var(--acc); background:var(--vsoft); }
 /* the creator's own scenes: a ⋯ menu on each own card, off cards dimmed */
 .inf-scene__cell{ position:relative; display:flex; min-width:0; }
 .inf-scene__cell.is-off .inf-scene__img > img, .inf-scene__cell.is-off .inf-scene__img > i, .inf-scene__cell.is-off .inf-scene__body{ opacity:.45; }

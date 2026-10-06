@@ -7,7 +7,6 @@
         <div class="inf-scene__bar" id="infSceneBar">
             <div class="inf-chips inf-scene__cats" id="infSceneCats" role="group" aria-label="Category"></div>
             <div class="inf-scene__tools">
-                <button type="button" class="btn btn-secondary" id="infSceneNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Scene</button>
                 <?php echo Tutorials::button('26'); ?>
             </div>
         </div>
@@ -18,12 +17,6 @@
                     <i class="fa-solid fa-circle-exclamation"></i>
                     <p>Could not load scenes.</p>
                     <button type="button" class="btn btn-secondary" id="infSceneRetry">Try Again</button>
-                </div>
-                <div class="inf-empty" id="infSceneEmpty" hidden>
-                    <span class="inf-empty__ic"><i class="fa-solid fa-panorama"></i></span>
-                    <h2 class="inf-empty__title">No Scenes Yet</h2>
-                    <p class="inf-empty__text">Save a scene of your own and run it with <?php echo $e($infl['name'] ?? 'your influencer'); ?>.</p>
-                    <button type="button" class="btn btn-secondary" id="infSceneNewEmpty"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Scene</button>
                 </div>
                 <div class="inf-scenes" id="infScenes" hidden></div>
             </section>

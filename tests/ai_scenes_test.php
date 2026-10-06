@@ -84,6 +84,15 @@ check('a creator cannot edit a platform scene',         empty(SceneTemplates::sa
 check('the admin scope cannot touch a creator\'s scene', $sm->set_active($id, false) === 0 && $sm->soft_delete($id) === 0 && (int) $sm->get_own($cid, $id)['is_active'] === 1);
 check('the platform scene prompt still follows the influencer', SceneTemplates::prompt_for($sm->get_one($pid), $infl) === 'photo of a ' . InfluencerService::noun($infl) . ' on a beach');
 
+/* ---- a platform scene is edited as the creator's own copy ---- */
+$dup = SceneTemplates::duplicate($cid, $pid);
+$did = (int) ($dup['id'] ?? 0); if ($did > 0) { $made[] = $did; }
+check('a platform scene can be copied into the creator\'s own', !empty($dup['ok']) && $did > 0 && $did !== $pid);
+check('the copy is the creator\'s, on, with the same prompt', $did > 0 && (int) $sm->get_own($cid, $did)['creator_id'] === $cid && (int) $sm->get_own($cid, $did)['is_active'] === 1 && (string) $sm->get_own($cid, $did)['base_prompt'] === (string) $sm->get_one($pid)['base_prompt'] && !empty($dup['scene']['mine']));
+check('the copy can be edited and the original cannot', $did > 0 && !empty(SceneTemplates::save($cid, $did, array('title' => 'My Beach', 'base_prompt' => 'photo of a {subject} on a beach at dusk', 'default_aspect' => '3:4'))['ok']) && (string) $sm->get_one($pid)['base_prompt'] === 'photo of a {subject} on a beach');
+check('another creator\'s own scene cannot be copied', empty(SceneTemplates::duplicate($other, $id)['ok']));
+check('an unknown scene cannot be copied',             empty(SceneTemplates::duplicate($cid, 999999999)['ok']));
+
 /* ---- the connector ---- */
 $r = McpTools::call('create_scene_template', $cid, array('title' => 'Connector Scene', 'category' => 'Test Own', 'prompt' => 'photo of a {subject} in a studio', 'aspect' => '1:1'));
 check('create_scene_template saves an own scene',       !empty($r['scene']['mine']) && $r['scene']['default_aspect'] === '1:1' && $r['id'] > 0, json_encode($r));
