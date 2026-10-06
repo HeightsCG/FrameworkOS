@@ -107,7 +107,7 @@ class FalProvider implements InfluencerProvider {
         // Flux 1.1 Pro Ultra: takes a ratio, not an image_size; raw mode gives the unprocessed, real-photo look.
         if ($family === 'flux_ultra') {
             $in['aspect_ratio']     = (is_string($shape) && strpos($shape, ':') !== false) ? $shape : '1:1';
-            $in['raw']              = true;
+            if (!isset($in['raw'])) { $in['raw'] = true; }
             $in['num_images']       = $n;
             $in['output_format']    = 'jpeg';
             $in['safety_tolerance'] = '6';

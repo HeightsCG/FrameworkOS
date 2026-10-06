@@ -114,9 +114,11 @@ class InfluencersModel extends Model {
         return parent::update('influencers', $data, 'id = :id' . ($where_extra !== '' ? ' AND ' . $where_extra : ''), $params);
     }
 
+    /** A deleted influencer gives its name back: the unique name key gets the row id appended, so the name can be used again. */
     public function soft_delete($creator_id, $id){
-        return parent::update('influencers', array('deleted_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
-            'id = :id AND creator_id = :c AND deleted_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
+        return parent::sql("UPDATE influencers SET deleted_at = :d, updated_at = :u, name_lc = CONCAT(LEFT(name_lc, 100), '#', id)
+             WHERE id = :id AND creator_id = :c AND deleted_at IS NULL",
+            array('d' => date('Y-m-d H:i:s'), 'u' => date('Y-m-d H:i:s'), 'id' => (int) $id, 'c' => (int) $creator_id));
     }
 
     public static function share_accounts(array $row){

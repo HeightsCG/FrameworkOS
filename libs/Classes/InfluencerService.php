@@ -201,7 +201,9 @@ class InfluencerService {
      * reference image and the training set, because those two decide how everything trained from them looks:
      * a polished, airbrushed set trains a polished, airbrushed model.
      */
-    const REALISM = 'Unretouched candid photograph taken on a phone camera, not a studio portrait. Real skin with visible pores, fine lines, faint blemishes and slightly uneven tone, stray flyaway hairs, natural facial asymmetry, ordinary uneven available light, true-to-life colour, slight sensor grain. No airbrushing, no beauty filter, no skin smoothing, no glow, no perfect symmetry, no CGI, render or illustration look.';
+    // Lifelike without being harsh: asking for blemishes, fine lines, flyaway hair and grain made faces look rough and
+    // unkempt, and asking for nothing made them airbrushed. This sits between the two.
+    const REALISM = 'Natural, true-to-life photograph of a real person taken on a phone: healthy skin with real texture, clean well-kept hair, flattering natural light, true-to-life colour, sharp focus on the eyes. No airbrushing, no beauty filter, no CGI, render or illustration look.';
 
     /** A prompt with the realism direction on the end (once). */
     public static function realistic($prompt){
