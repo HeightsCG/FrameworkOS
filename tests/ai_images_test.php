@@ -74,7 +74,6 @@ check('the angle job carries its slot and shape',       (string) $aj['type'] ===
 $slot_now = null; foreach ($st['slots'] as $sl) { if ($sl['slot'] === 'left_profile') { $slot_now = $sl; } }
 $want = !empty($slot_now['redo_free']) ? 0 : 30;
 check('an angle costs 30 credits, or nothing when it is a free redo', (int) $aj['credits_charged'] === $want && $bal() === $start - $want, 'charged ' . $aj['credits_charged'] . ', expected ' . $want);
-$start -= $want; $start += $want;
 InfluencerJobService::step($aj['id'], array('inline' => true));
 $sent = end(FakeImgProvider::$seen);
 check('her reference is the image sent',                count($sent['image_urls']) === 1 && $sent['aspect_ratio'] === '3:4' && $sent['aspect_value'] === '3:4');

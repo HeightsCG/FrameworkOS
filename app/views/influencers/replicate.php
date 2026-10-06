@@ -71,7 +71,7 @@
                 <div class="inf-pop__h">Size</div>
                 <div class="inf-seg" id="inf_rep_size" role="group" aria-label="Size"><?php echo Aspect::seg_buttons('inf-seg__opt', 'data-value'); ?></div>
             </div>
-            <div class="inf-pop" id="inf_pop_rmore" hidden>
+            <div class="inf-pop inf-pop--stay" id="inf_pop_rmore" hidden>
                 <div class="inf-pop__h">More Settings</div>
                 <div class="inf-field"><label class="inf-label" for="inf_rep_extra">Extra Instruction</label><input type="text" class="form-control" id="inf_rep_extra" maxlength="500" placeholder="Golden hour light"></div>
                 <div class="inf-field" style="margin-top:12px"><div class="inf-label">Images</div><div class="inf-seg" id="inf_rep_n" role="group" aria-label="Images">

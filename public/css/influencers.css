@@ -1034,3 +1034,25 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf .inf-line textarea.inf-line__text{ min-height:64px; }
 #inf_sc_second .inf-seg__opt:disabled{ display:none; }   /* no other influencer to add: the choice is not offered */
 .inf-line__rm:disabled{ visibility:hidden; }   /* the only line cannot be removed, so the control is not offered */
+
+/* Scene: the form is the work on this page, so it gets half of it; the other person's two fields share a row */
+.inf-gen[data-cv]:has(#inf_sc_form){ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
+#inf_sc_desc_wrap{ grid-template-columns:minmax(0, 1fr) 220px; }
+#inf_sc_desc_wrap > .inf-field--full{ grid-column:auto; }
+#inf_sc_form .inf-line{ grid-template-columns:140px minmax(0, 1fr) 32px; }
+#inf_sc_form .inf-line:has(> input[type="hidden"].inf-line__who){ grid-template-columns:minmax(0, 1fr) 32px; }
+@media (max-width:980px){ .inf-gen[data-cv]:has(#inf_sc_form){ grid-template-columns:1fr; } #inf_sc_desc_wrap{ grid-template-columns:1fr; } }
+
+/* ---- Scene on the canvas layout: the setting and the lines are written in the bar ---- */
+.inf .inf-cv__setting{ height:36px; border:0; border-bottom:1px solid var(--line2); border-radius:0; box-shadow:none; padding:4px 6px; font-size:14px; background:transparent; }
+.inf .inf-cv__setting:focus{ box-shadow:none; border-bottom-color:var(--acc); }
+.inf-cv__dock--scene .inf-lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:34vh; overflow-y:auto; }
+.inf-cv__dock--scene .inf-line{ padding:0; border:0; background:transparent; gap:4px 8px; }
+.inf .inf-cv__dock--scene .inf-line textarea.inf-line__text{ min-height:44px; border:0; box-shadow:none; background:transparent; font-size:15px; padding:6px; resize:none; }
+.inf-cv__dock--scene .inf-line + .inf-line{ border-top:1px solid var(--line2); padding-top:6px; }
+.inf-cv__dock--scene .inf-line__add{ padding:0 6px; font-size:12px; font-weight:500; color:var(--muted); }
+.inf-cv__dock--scene .inf-line__add:hover{ color:var(--acc-ink); }
+.inf-cv__dock--scene .inf-line__more{ padding:0 6px 6px; grid-template-columns:1fr 1fr; gap:8px; }
+#inf_pop_swho .inf-field, #inf_pop_swho .inf-grid{ margin-top:12px; }
+#inf_pop_swho #inf_sc_desc_wrap{ grid-template-columns:1fr; }
+#inf_pop_swho [hidden]{ display:none; }

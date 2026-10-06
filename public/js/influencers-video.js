@@ -244,7 +244,7 @@ jQuery(function ($) {
                 prep = o;
                 $('#inf_rp_prompt').val(o.prompt);
                 $('#inf_rp_len').text(o.seconds + ' seconds' + (o.people > 1 ? ' · ' + o.people + ' people seen' : '') + ' · the result is the same length');
-                $('#inf_rp_angles').text('Her reference image' + (o.angles > 0 ? ' and ' + o.angles + ' approved angle' + (o.angles === 1 ? '' : 's') : ', no approved angles yet'));
+                $('#inf_rp_angles').text('Her reference image' + (o.angles > 0 ? ' and ' + o.angles + ' angle' + (o.angles === 1 ? '' : 's') : ', no other angles yet'));
                 fail(o.errors.length ? o.errors.join(' ') : '');
                 cost();
             });

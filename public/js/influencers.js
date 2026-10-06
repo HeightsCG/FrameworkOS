@@ -254,7 +254,7 @@ jQuery(function ($) {
     function cv_labels() {
         $('[data-pop-label]').each(function () {
             var $src = $($(this).data('pop-label')).first(), t = ($src.text() || '').replace(/\s+/g, ' ').trim();
-            if (t) { $(this).text(t); }
+            if (t) { $(this).text(t === $(this).data('pop-none') ? $(this).data('pop-default') : ($(this).data('pop-prefix') || '') + t); }
         });
         // A chip that stands for a chosen picture shows that picture.
         $('[data-pop-thumb]').each(function () {
@@ -287,7 +287,7 @@ jQuery(function ($) {
         // A choice inside a chip's panel shows on the chip; picking an idea or a single-choice setting closes its panel.
         $(document).on('click', '.inf-pop .inf-opt, .inf-pop .inf-seg__opt, .inf-pop .inf-chip--text, .inf-pop .inf-photo--pick', function () {
             var $pop = $(this).closest('.inf-pop');
-            setTimeout(function () { cv_labels(); if (!$pop.is('#inf_pop_more')) { cv_close_pops(); } }, 0);
+            setTimeout(function () { cv_labels(); if (!$pop.is('#inf_pop_more, .inf-pop--stay')) { cv_close_pops(); } }, 0);   // panels with more than one thing to set stay open
         });
         // The viewer opens for a picked or newly made result, and stays closed once the creator closes it.
         $(document).on('click', '#inf_viewer_close', function () { $(this).closest('.inf-cv').addClass('is-viewer-closed'); });
