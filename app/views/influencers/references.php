@@ -1,29 +1,8 @@
 <?php require __DIR__ . '/_top.php'; ?>
 <?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); ?>
 
-    <header class="inf-head">
-        <div>
-            <h1 class="inf-head__title">References</h1>
-            <p class="inf-head__sub">Approved angles keep her looking the same in Replicate Photo, Carousel and video.</p>
-        </div>
-        <div class="inf-head__actions">
-            <?php echo Tutorials::button('22'); ?>
-            <label class="inf-who" for="inf_who">
-                <span class="inf-who__badge"><?php if (!empty($infl['cover_url'])): ?><img src="<?php echo $e($infl['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user"></i><?php endif; ?></span>
-                <select class="form-select inf-who__select" id="inf_who">
-                    <?php foreach ($ready as $r): ?>
-                    <option value="<?php echo (int) $r['id']; ?>"<?php echo ((int) $r['id'] === (int) $infl['id']) ? ' selected' : ''; ?>><?php echo $e($r['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </div>
-    </header>
 
     <div class="inf-angles__bar" id="inf_ang_bar" hidden>
-        <div class="inf-angles__base">
-            <span class="inf-angles__baseimg" id="inf_ang_base"></span>
-            <span><strong>Reference</strong><span class="inf-wiz__meta" id="inf_ang_count"></span></span>
-        </div>
         <div class="inf-angles__go">
             <span class="inf-wiz__meta" id="inf_ang_cost"></span>
             <button type="button" class="btn btn-primary" id="inf_ang_generate"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Angle Set</button>

@@ -1,9 +1,7 @@
 <?php require __DIR__ . '/_top.php'; ?>
 
     <header class="inf-head">
-        <div>
-            <p class="inf-head__sub">Create an influencer once, train once, then generate images and videos any time.</p>
-        </div>
+        <div></div>
         <div class="inf-head__actions">
             <a href="/influencers/create" class="btn btn-primary" id="inf_new_btn" hidden><i class="fa-solid fa-plus"></i> New Influencer</a>
         </div>

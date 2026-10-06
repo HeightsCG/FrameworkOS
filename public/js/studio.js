@@ -523,12 +523,12 @@ jQuery(function ($) {
     /* Not enough AI credits for an image: show the out-of-credits screen instead of the form. */
     CFG.ai = CFG.ai || { balance: 0, image_price: 0 };
     function fmtNum(n) { return (parseInt(n, 10) || 0).toLocaleString('en-US'); }
-    /* "50 credits · 3,750 left" beside Generate; updates after every image. */
-    /* "50 AI credits · 3,750 left", plus a Buy AI Credits link once two more runs would empty the balance. */
+    /* "50 AI credits" beside Generate (what the run costs), plus a Buy AI Credits link once two more runs would empty the balance. */
     function aiCostHtml(price) {
         var bal = parseInt(CFG.ai.balance, 10) || 0;
         var low = bal >= price && bal < price * 2;
-        return esc(fmtNum(price) + ' AI credits · ' + fmtNum(bal) + ' left') + (low ? ' · <a href="/account/billing?tab=credits">Running low. Buy AI Credits</a>' : '');
+        $('#app_ai_credits').text(fmtNum(bal));   // the balance is shown in the account menu, not beside each button
+        return esc(fmtNum(price) + ' AI credits') + (low ? ' · <a href="/account/billing?tab=credits">Running low. Buy AI Credits</a>' : '');
     }
     function genCost() {
         $('#csGenCost').html(aiCostHtml(parseInt(CFG.ai.image_price, 10) || 0));

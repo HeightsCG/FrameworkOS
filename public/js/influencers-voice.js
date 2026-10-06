@@ -52,7 +52,46 @@ jQuery(function ($) {
             $('#inf_vo_empty').prop('hidden', which !== 'empty');
             $('#inf_vo_list').prop('hidden', which !== 'list');
         }
+        /* ---- the two panels: Her Voices, then Text To Speech (which needs a voice) ---- */
+        var tab_chosen = false;
+        function show_tab(name) {
+            if (name === 'speech' && !voices.length) { name = 'voices'; }
+            if (name === 'voices') { setTimeout(function () { fill_design(false); }, 0); }
+            $('#inf_vo_tabs .inf-sub__item').each(function () { var on = $(this).data('tab') === name; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false'); });
+            $('#inf_vo_panel_voices').prop('hidden', name !== 'voices'); $('#inf_vo_panel_speech').prop('hidden', name !== 'speech');
+        }
+        function sync_tabs() {
+            var none = !voices.length;
+            $('#inf_vo_tab_speech').prop('disabled', none).attr('title', none ? 'Design a voice first' : null);
+            // First paint: straight to speaking when she has a voice, to designing one when she does not.
+            if (!tab_chosen) { tab_chosen = true; show_tab(none ? 'voices' : 'speech'); } else if (none) { show_tab('voices'); }
+        }
+        $('#inf_vo_tabs').on('click', '.inf-sub__item:not(:disabled)', function () { tab_chosen = true; show_tab($(this).data('tab')); });
+
+        /* ---- Design A Voice fills itself in from her persona; every field stays editable ---- */
+        var DEFAULT_PREVIEW = $('#inf_vd_text').val(), filled = false, filling = false;
+        function design_untouched() {
+            return $('#inf_vd_age').val().trim() == '' && $('#inf_vd_tone').val().trim() == '' && $('#inf_vd_city').val().trim() == '' && $('#inf_vd_country').val().trim() == '' && $('#inf_vd_text').val() === DEFAULT_PREVIEW;
+        }
+        function fill_design(force) {
+            if (filling || (!force && (filled || !design_untouched()))) { return; }
+            filling = true; filled = true;
+            var $f = $('#inf_vd_age, #inf_vd_keyword, #inf_vd_tone, #inf_vd_city, #inf_vd_country, #inf_vd_text').prop('disabled', true);
+            $('#inf_vd_filling').prop('hidden', false); $('#inf_vd_refill').prop('hidden', true); $('#inf_vd_go').prop('disabled', true);
+            api('influencer_voice_suggest', { id: inf.id }, function (o) {
+                filling = false; $f.prop('disabled', false);
+                $('#inf_vd_filling').prop('hidden', true); $('#inf_vd_refill').prop('hidden', false); $('#inf_vd_go').prop('disabled', false);
+                if (!o || !o.success) { return; }   // the form simply stays as it was, ready to fill by hand
+                $('#inf_vd_age').val(o.age_vibe || ''); $('#inf_vd_tone').val(o.tone || ''); $('#inf_vd_city').val(o.city || ''); $('#inf_vd_country').val(o.country || '');
+                if (o.keyword && $('#inf_vd_keyword option[value="' + o.keyword + '"]').length) { $('#inf_vd_keyword').val(o.keyword); }
+                if (o.preview_text) { $('#inf_vd_text').val(o.preview_text); }
+                $('#inf_vd_age, #inf_vd_text').removeClass('is-invalid').trigger('input');
+            });
+        }
+        $('#inf_vd_refill').on('click', function () { fill_design(true); });
+
         function render_voices() {
+            sync_tabs();
             $('#inf_vo_count').text(saved + ' of ' + cap + ' saved');
             $('#inf_vo_voice').prop('disabled', !voices.length).html(voices.length
                 ? voices.map(function (v) { return '<option value="' + v.id + '"' + (v.is_active ? ' selected' : '') + '>' + esc(v.name) + (v.is_active ? ' (active)' : '') + '</option>'; }).join('')

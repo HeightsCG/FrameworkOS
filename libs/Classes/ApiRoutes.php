@@ -114,7 +114,7 @@ class ApiRoutes {
             'influencer_replace_prepare', 'influencer_replace_start', 'influencer_scene_build', 'influencer_scene_start',
         ],
         'ApiInfluencerVoiceController' => [
-            'influencer_voices', 'influencer_voice_design', 'influencer_voice_save', 'influencer_voice_activate', 'influencer_voice_delete',
+            'influencer_voices', 'influencer_voice_suggest', 'influencer_voice_design', 'influencer_voice_save', 'influencer_voice_activate', 'influencer_voice_delete',
             'influencer_speech_enhance', 'influencer_speech_start', 'influencer_speech_save', 'influencer_speech_price',
             'influencer_talking_estimate', 'influencer_talking_start', 'influencer_talking_status',
         ],

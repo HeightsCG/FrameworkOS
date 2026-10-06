@@ -159,6 +159,8 @@ img,svg{vertical-align:middle;}
 .app-account-menu__item{display:flex; align-items:center; gap:.6rem; padding:.5rem .55rem; border-radius:7px; color:var(--t2); font-size:.87rem; font-weight:500;}
 .app-account-menu__item i{width:16px; text-align:center; color:var(--muted);}
 .app-account-menu__item:hover{background:#F6F6F6; color:var(--text);}
+.app-account-menu__num{margin-left:auto; font-weight:700; color:var(--text); font-variant-numeric:tabular-nums;}
+.app-account-menu__item--credits i{color:var(--acc);}
 .app-account-menu__sep{display:block; height:1px; background:var(--line2); margin:.35rem 0;}
 .app-account-menu__item--danger:hover{background:rgba(207,59,59,.07); color:var(--danger);}
 .app-account-menu__item--danger:hover i{color:var(--danger);}

@@ -65,19 +65,25 @@ class InfluencerImageActions {
      * 9. Multi-angle reference set
      * =================================================================== */
 
+    /** How many times each angle may be made again at no charge while its image has not been approved. */
+    const FREE_REDOS = 2;
+
     /** Every slot with its current image (approved or not), a running job, or the last error. */
     public static function angle_set_status($cid, array $infl){
         $by_img = array();
         foreach ((new InfluencerImagesModel())->list_for_influencer($cid, (int) $infl['id'], 'angle') as $r) { $by_img[(string) $r['angle']] = $r; }   // ordered oldest first: the newest wins
-        $by_job = array();
+        $by_job = array(); $redone = array();
         foreach ((new InfluencerJobsModel())->list_for_influencer($cid, (int) $infl['id'], 'angle', 80) as $j) {   // newest first
-            $slot = (string) (InfluencerJobsModel::params($j)['angle'] ?? '');
+            $jp   = InfluencerJobsModel::params($j);
+            $slot = (string) ($jp['angle'] ?? '');
             if ($slot !== '' && !isset($by_job[$slot])) { $by_job[$slot] = $j; }
+            if ($slot !== '' && !empty($jp['free_redo']) && !in_array((string) $j['status'], array('failed', 'cancelled'), true)) { $redone[$slot] = ($redone[$slot] ?? 0) + 1; }
         }
         $slots = array(); $approved = 0; $active = 0;
         foreach (InfluencerService::ANGLES as $slot => $def) {
             $row = array('slot' => $slot, 'label' => $def['label'], 'aspect' => $def['aspect'], 'status' => 'empty', 'approved' => false,
-                'asset_id' => 0, 'thumb_url' => '', 'display_url' => '', 'job_id' => 0, 'error' => '');
+                'asset_id' => 0, 'thumb_url' => '', 'display_url' => '', 'job_id' => 0, 'error' => '', 'redo_free' => false,
+                'free_left' => max(0, self::FREE_REDOS - (int) ($redone[$slot] ?? 0)));
             $j = $by_job[$slot] ?? null;
             if ($j && in_array((string) $j['status'], array('queued', 'submitting', 'running', 'landing'), true)) {
                 $row['status'] = 'working'; $row['job_id'] = (int) $j['id']; $active++;
@@ -86,6 +92,8 @@ class InfluencerImageActions {
                 $row['status'] = 'ready'; $row['approved'] = !empty($a['approved']); $row['asset_id'] = (int) $a['id'];
                 $row['thumb_url'] = MediaService::signed_url($a, 'thumb', $cid); $row['display_url'] = MediaService::signed_url($a, 'display', $cid);
                 if ($row['approved']) { $approved++; }
+                // An image she has not approved came out wrong: making it again is free, a couple of times.
+                $row['redo_free'] = !$row['approved'] && $row['free_left'] > 0;
             } elseif ($j && in_array((string) $j['status'], array('failed', 'cancelled'), true)) {
                 $row['status'] = 'failed'; $row['job_id'] = (int) $j['id']; $row['error'] = (string) $j['error'];
             }
@@ -121,12 +129,14 @@ class InfluencerImageActions {
         $ids = array();
         foreach ($slots as $slot) {
             if (($by[$slot]['status'] ?? '') === 'working') { continue; }
-            $def = InfluencerService::ANGLES[$slot];
+            $def  = InfluencerService::ANGLES[$slot];
+            $free = !empty($by[$slot]['redo_free']);
             try {
                 $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'angle', array(
                     'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => InfluencerService::angle_prompt($infl, $slot),
                     'input_asset_id' => $base, 'group_key' => 'ang_' . (int) $infl['id'], 'group_index' => array_search($slot, array_keys(InfluencerService::ANGLES), true) + 1,
-                    'params' => array('angle' => $slot, 'aspect' => $def['aspect'], 'num_images' => 1),
+                    'params' => array('angle' => $slot, 'aspect' => $def['aspect'], 'num_images' => 1, 'free_redo' => $free),
+                    'waive_credits' => $free,
                 ));
             } catch (PlanLimitException $e) {
                 return self::fail($e->getMessage(), array_merge($e->limit, array('job_ids' => $ids)));

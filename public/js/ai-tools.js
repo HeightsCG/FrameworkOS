@@ -44,12 +44,15 @@ window.AiTools = (function ($) {
         toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.');
     }
 
-    /* "110 AI credits · 2,350 left", plus a Buy link once the balance cannot cover two more runs (the Studio's rule). */
+    /* The balance is shown once, in the account menu at the top right: keep that number current. */
+    function show_balance() { $('#app_ai_credits').text(Number(balance).toLocaleString()); }
+    /* "110 AI credits": what this action costs, plus a Buy link once the balance cannot cover two more runs. */
     function credits_html(n) {
         n = parseInt(n, 10) || 0;
         var low = balance < n * 2;
-        return esc(Number(n).toLocaleString() + ' AI credits · ' + balance.toLocaleString() + ' left') +
-            (low ? ' <a class="ai-buy" href="/account/billing?tab=credits">' + (balance < n ? 'Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>' : '');
+        show_balance();
+        return esc(Number(n).toLocaleString() + ' AI credits') +
+            (low ? ' <a class="ai-buy" href="/account/billing?tab=credits">' + (balance < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>' : '');
     }
     function can_afford(n) { return balance >= (parseInt(n, 10) || 0); }
 

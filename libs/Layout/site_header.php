@@ -108,6 +108,12 @@
                             <span class="app-account-menu__em d-block"><?php echo htmlspecialchars(Session::get('user_email'), ENT_QUOTES, 'UTF-8'); ?></span>
                         </span>
                     </div>
+                    <?php /* The AI credit balance is shown here, once, instead of on every page that spends them. */
+                    if (Permissions::can_act_as_creator()):
+                        try { $ai_left = (int) (new AiCreditsModel())->get_balance((int) Permissions::creator_id()); } catch (\Throwable $e) { $ai_left = null; }
+                        if ($ai_left !== null): ?>
+                    <a href="/account/billing?tab=credits" class="app-account-menu__item app-account-menu__item--credits" role="menuitem"><i class="fa-solid fa-bolt"></i> AI Credits <strong class="app-account-menu__num" id="app_ai_credits"><?php echo number_format($ai_left); ?></strong></a>
+                    <?php endif; endif; ?>
                     <a href="/account/billing" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-credit-card"></i> Billing</a>
                     <?php if (Permissions::is_owner_creator()): ?>
                     <a href="/account/users" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-users"></i> Users</a>

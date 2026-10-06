@@ -87,31 +87,32 @@ jQuery(function ($) {
                 img = '<button type="button" class="inf-angle__img" data-view="' + esc(s.display_url) + '" aria-label="View ' + esc(s.label) + '"><img src="' + esc(s.thumb_url) + '" alt="' + esc(s.label) + '" loading="lazy"></button>';
                 st  = s.approved ? '<span class="inf-angle__st inf-angle__st--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Approved</span>' : '<span class="inf-angle__st">Needs approval</span>';
                 act = (s.approved ? '' : '<button type="button" class="btn btn-secondary btn-sm" data-approve="' + s.asset_id + '">Approve</button>') +
-                      '<button type="button" class="inf-link" data-reroll="' + esc(s.slot) + '">Reroll</button>';
+                      '<button type="button" class="inf-link" data-again="' + esc(s.slot) + '"' + (s.redo_free ? ' data-free="1"' : '') + '>Regenerate</button>';
             } else if (s.status === 'working' || busy_slots[s.slot]) {
                 img = '<span class="inf-angle__img inf-angle__img--ph"><span class="spinner-border spinner-border-sm text-primary" role="status"></span></span>';
                 st  = '<span class="inf-angle__st">Generating</span>';
             } else if (s.status === 'failed') {
-                img = '<span class="inf-angle__img inf-angle__img--ph inf-angle__img--bad"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i></span>';
+                // The empty frame is the button: one click on the slot makes it (no separate button under every tile).
+                img = '<button type="button" class="inf-angle__img inf-angle__img--ph inf-angle__img--make inf-angle__img--bad" data-make="' + esc(s.slot) + '" aria-label="Try ' + esc(s.label) + ' again"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span>Try Again</span></button>';
                 st  = '<span class="inf-angle__st inf-angle__st--bad" title="' + esc(s.error) + '">' + esc(s.error || 'Generation failed') + '</span>';
-                act = '<button type="button" class="btn btn-secondary btn-sm" data-make="' + esc(s.slot) + '">Try Again</button>';
             } else {
-                img = '<span class="inf-angle__img inf-angle__img--ph"><i class="fa-regular fa-image" aria-hidden="true"></i></span>';
-                st  = '<span class="inf-angle__st">Not generated</span>';
-                act = '<button type="button" class="btn btn-secondary btn-sm" data-make="' + esc(s.slot) + '">Generate</button>';
+                img = '<button type="button" class="inf-angle__img inf-angle__img--ph inf-angle__img--make" data-make="' + esc(s.slot) + '" aria-label="Generate ' + esc(s.label) + '"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Generate</span></button>';
+                st  = '';
             }
             return '<article class="inf-angle" data-slot="' + esc(s.slot) + '" data-shape="' + esc(s.aspect) + '">' + img +
-                '<div class="inf-angle__body"><h3 class="inf-angle__t">' + esc(s.label) + '</h3>' + st + '<div class="inf-angle__act">' + act + '</div></div></article>';
+                '<div class="inf-angle__body"><h3 class="inf-angle__t">' + esc(s.label) + '</h3>' + st + (act ? '<div class="inf-angle__act">' + act + '</div>' : '') + '</div></article>';
         }
         function render() {
             var missing = state.slots.filter(function (s) { return s.status === 'empty' || s.status === 'failed'; }).length;
-            $('#inf_ang_base').html('<img src="' + esc(state.reference.thumb_url) + '" alt="Her reference image">');
-            $('#inf_ang_count').text(state.approved + ' of ' + state.total + ' angles approved');
-            T.patch_children($('#inf_angles'), state.slots.map(card).join(''));
+            $('#inf_ang_bar').toggleClass('is-done', missing === 0);   // nothing left to make: the bar has nothing to say
+            // Two groups, each under its own heading: her face from six angles, her body from two.
+            var is_body = function (x) { return String(x.slot).indexOf('full_') === 0; };
+            var face = state.slots.filter(function (x) { return !is_body(x); }), body = state.slots.filter(is_body);
+            T.patch_children($('#inf_angles'), face.concat(body).map(card).join(''));   // all eight in one row on a wide screen: nothing to scroll to
             var total = missing * state.price_each;
             $('#inf_ang_generate').prop('hidden', missing === 0).prop('disabled', missing === 0 || !T.can_afford(total))
                 .html('<i class="fa-solid fa-wand-magic-sparkles"></i> ' + (missing === state.total ? 'Generate Angle Set' : 'Generate ' + missing + ' Missing'));
-            $('#inf_ang_cost').html(missing === 0 ? esc(Number(state.price_each).toLocaleString() + ' AI credits per reroll · ' + T.get_balance().toLocaleString() + ' left') : T.credits_html(total));
+            $('#inf_ang_cost').html(missing === 0 ? '' : T.credits_html(total));
         }
         function generate(slots) {
             $.each(slots.length ? slots : state.slots.filter(function (s) { return s.status === 'empty' || s.status === 'failed'; }).map(function (s) { return s.slot; }), function (i, k) { busy_slots[k] = true; });
@@ -125,9 +126,11 @@ jQuery(function ($) {
         $('#inf_ang_generate').on('click', function () { generate([]); });
         $('#inf_ang_retry').on('click', function () { load(); });
         $('#inf_angles').on('click', '[data-make]', function () { generate([String($(this).data('make'))]); });
-        $('#inf_angles').on('click', '[data-reroll]', function () {
-            var slot = String($(this).data('reroll'));
-            confirm_spend('Reroll This Angle?', state.price_each, function () { generate([slot]); });
+        // Regenerate: a new image for this angle. Free while the current one is not approved (it came out wrong); charged once it is.
+        $('#inf_angles').on('click', '[data-again]', function () {
+            var slot = String($(this).data('again'));
+            if ($(this).data('free')) { generate([slot]); return; }
+            confirm_spend('Regenerate This Angle?', state.price_each, function () { generate([slot]); });
         });
         $('#inf_angles').on('click', '[data-approve]', function () {
             var $b = $(this).prop('disabled', true);

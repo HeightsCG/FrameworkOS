@@ -79,6 +79,46 @@ class InfluencerVoiceActions {
      * Design candidate voices. $f: age_vibe, keyword, city, country, tone, preview_text (100 to 1000 characters).
      * Charged when it succeeds. Returns ['token' (to save a candidate), 'candidates' => [['index', 'url', 'duration']], 'prompt'].
      */
+    /**
+     * Fill in the Design A Voice form for her: age and vibe, tone, accent, social keyword and a preview line she
+     * would actually say, written from her persona (or, with no persona, from her name and gender). The creator
+     * can change any of it. Returns the same keys the form posts back. Never fails: plain defaults stand in when
+     * the writer is unavailable.
+     */
+    public static function suggest(array $infl){
+        $man  = InfluencerService::noun($infl) === 'man';
+        $base = array(
+            'age_vibe' => $man ? '27 year old, warm and easygoing, slightly husky' : '24 year old, warm and playful, slightly breathy',
+            'keyword'  => 'influencer', 'tone' => 'Relaxed, a little teasing', 'city' => '', 'country' => 'United States',
+            'preview_text' => 'Okay, I have to tell you something, and you are not allowed to laugh. I have been thinking about this all week and I finally decided to just say it.',
+            'written' => false,
+        );
+        if (!ClaudeService::configured()) { return self::okr($base); }
+        $persona = InfluencerService::persona_block($infl);
+        $system = 'You fill in a voice design form for a social media creator. Answer with ONLY a JSON object with these keys: '
+            . '"age_vibe" (age, then two or three words for how the voice sounds, for example "24 year old, warm and playful, slightly breathy"; under 80 characters), '
+            . '"keyword" (one of: ' . implode(', ', self::KEYWORDS) . '), '
+            . '"tone" (how ' . ($man ? 'he' : 'she') . ' talks, under 60 characters), '
+            . '"city" and "country" (where the accent is from, taken only from what is stated about the creator; leave city empty when it is not stated), '
+            . '"preview_text" (something ' . ($man ? 'he' : 'she') . ' would really say to followers, first person, 150 to 300 characters, plain sentences, no emoji, no hashtags). '
+            . 'Describe the voice only: never looks or body.';
+        $ask = 'The creator is a ' . ($man ? 'man' : 'woman') . ' called ' . (string) $infl['name'] . '.' . ($persona !== '' ? "\n" . $persona : ' Nothing else is known: pick a natural, likeable voice with a general American accent, leave "city" empty and use "United States" for "country".');
+        $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $ask)), 500, 30, 'low');
+        if (empty($r['ok'])) { return self::okr($base); }
+        $raw = (string) $r['text']; $a = strpos($raw, '{'); $b = strrpos($raw, '}');
+        $j = ($a !== false && $b !== false && $b > $a) ? json_decode(substr($raw, $a, $b - $a + 1), true) : null;
+        if (!is_array($j)) { return self::okr($base); }
+        $out = $base; $out['written'] = true;
+        foreach (array('age_vibe' => 200, 'tone' => 200, 'city' => 80, 'country' => 80) as $k => $max) {
+            if (isset($j[$k]) && is_string($j[$k]) && trim($j[$k]) !== '') { $out[$k] = mb_substr(self::one_line($j[$k]), 0, $max); }
+        }
+        $kw = strtolower(trim((string) ($j['keyword'] ?? '')));
+        if (in_array($kw, self::KEYWORDS, true)) { $out['keyword'] = $kw; }
+        $pt = trim(preg_replace('/\s+/', ' ', (string) ($j['preview_text'] ?? '')));
+        if (mb_strlen($pt) >= ElevenLabsService::PREVIEW_MIN && mb_strlen($pt) <= ElevenLabsService::PREVIEW_MAX) { $out['preview_text'] = $pt; }
+        return self::okr($out);
+    }
+
     public static function design($cid, array $user, array $infl, array $f){
         if (!ElevenLabsService::configured()) { return self::fail('Voice is not set up yet.'); }
         if (self::one_line($f['age_vibe'] ?? '') === '') { return self::fail('Describe her age and vibe.', array('field' => 'age_vibe')); }
@@ -174,11 +214,47 @@ class InfluencerVoiceActions {
             . (is_array($infl) && InfluencerService::persona_block($infl) !== '' ? ' The speaker: ' . self::one_line(InfluencerService::persona_block($infl), 800) : '');
         $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $text)), max(300, (int) (mb_strlen($text) / 2) + 200), 45, 'low');
         if (empty($r['ok']) || trim((string) $r['text']) === '') { return self::fail('Could not enhance the script right now.'); }
-        $out = trim((string) $r['text']);
-        // The words must be untouched: strip the tags and compare.
-        $bare = function ($s) { return preg_replace('/\s+/', ' ', trim(preg_replace('/\[[^\]\n]{1,40}\]/', '', (string) $s))); };
-        if ($bare($out) !== $bare($text)) { return self::fail('Enhance changed the wording, so it was not applied. Try again.'); }
-        return self::okr(array('text' => $out));
+        // The creator's words are never taken from the model's answer: only where it put its tags is. Each tag is put
+        // back into the ORIGINAL script at the same word position, so a respelled word or changed comma cannot slip in.
+        $placed = self::place_tags($text, (string) $r['text']);
+        if ($placed === null) { return self::fail('No tags were added to this script. Pick tags from the list below to add them yourself.'); }
+        return self::okr(array('text' => $placed));
+    }
+
+    /**
+     * Put the audio tags found in $tagged into $original at the same word positions. Only tags from TAGS are kept.
+     * Returns the original script with tags inserted, or null when the answer has no usable tags or is not
+     * recognisably the same script (its word count is too far from the original's).
+     */
+    public static function place_tags($original, $tagged){
+        $original = trim((string) $original);
+        $allowed = array();
+        foreach (self::TAGS as $group) { foreach ($group as $t) { $allowed[strtolower((string) $t)] = '[' . $t . ']'; } }
+        $parts = preg_split('/(\[[^\]\n]{1,40}\])/u', trim((string) $tagged), -1, PREG_SPLIT_DELIM_CAPTURE | PREG_SPLIT_NO_EMPTY);
+        $at = array(); $words = 0;
+        foreach ($parts as $part) {
+            if ($part !== '' && $part[0] === '[' && substr($part, -1) === ']') {
+                $key = strtolower(trim(substr($part, 1, -1)));
+                if (isset($allowed[$key])) { $at[] = array($words, $allowed[$key]); }
+                continue;
+            }
+            $words += preg_match_all('/[^\s\[\]]*[\p{L}\p{N}][^\s\[\]]*/u', $part);
+        }
+        if (empty($at)) { return null; }
+        // Where each word of the original starts (tags already in the script are not words).
+        preg_match_all('/\[[^\]\n]{1,40}\]|[^\s\[\]]*[\p{L}\p{N}][^\s\[\]]*/u', $original, $m, PREG_OFFSET_CAPTURE);
+        $starts = array();
+        foreach ($m[0] as $tok) { if ($tok[0][0] !== '[') { $starts[] = $tok[1]; } }
+        $n = count($starts);
+        if ($n === 0 || abs($n - $words) > max(2, (int) ceil($n * 0.15))) { return null; }
+        $out = $original;
+        foreach (array_reverse($at) as $pair) {   // from the end, so earlier offsets stay valid
+            list($i, $tag) = $pair;
+            $pos = ($i >= $n) ? strlen($out) : $starts[$i];
+            if (strpos(substr($original, max(0, $pos - strlen($tag) - 1), strlen($tag) + 1), $tag) !== false) { continue; }   // already tagged there
+            $out = ($i >= $n) ? rtrim($out) . ' ' . $tag : substr($out, 0, $pos) . $tag . ' ' . substr($out, $pos);
+        }
+        return ($out === $original) ? null : $out;
     }
 
     /** What a speech run of this script costs (all takes). */

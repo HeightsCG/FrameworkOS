@@ -1,21 +1,6 @@
 <?php require __DIR__ . '/_top.php'; ?>
 <?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); ?>
 
-    <header class="inf-head">
-        <div>
-            <p class="inf-head__sub">Everything generated for this influencer lives in your media library.</p>
-        </div>
-        <div class="inf-head__actions">
-            <label class="inf-who" for="inf_who">
-                <span class="inf-who__badge"><?php if (!empty($infl['cover_url'])): ?><img src="<?php echo $e($infl['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user"></i><?php endif; ?></span>
-                <select class="form-select inf-who__select" id="inf_who">
-                    <?php foreach ($ready as $r): ?>
-                    <option value="<?php echo (int) $r['id']; ?>"<?php echo ((int) $r['id'] === (int) $infl['id']) ? ' selected' : ''; ?>><?php echo $e($r['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-        </div>
-    </header>
 
     <div class="inf-gal__bar">
         <div class="inf-chips" id="inf_gal_roles" role="group" aria-label="Filter">
@@ -26,7 +11,6 @@
             <button type="button" class="inf-chip" data-role="training">Training set</button>
             <button type="button" class="inf-chip" data-role="upload">Uploads</button>
         </div>
-        <a class="inf-link" href="/studio#library-influencer-<?php echo (int) $infl['id']; ?>">Open in Content Studio</a>
     </div>
 
     <div class="inf-state-loading" id="inf_gal_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading gallery…</div>

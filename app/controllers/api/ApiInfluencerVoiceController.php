@@ -42,6 +42,12 @@ class ApiInfluencerVoiceController extends BaseApiController {
         $this->answer(InfluencerVoiceActions::voices((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0))));
     }
 
+    /** Fill in the Design A Voice form from her persona. */
+    public function influencer_voice_suggestAction(){
+        $user = $this->ai_user();
+        $this->answer(InfluencerVoiceActions::suggest($this->usable($user, (int) ($this->post['id'] ?? 0))));
+    }
+
     public function influencer_voice_designAction(){
         $user = $this->ai_user();
         set_time_limit(240);

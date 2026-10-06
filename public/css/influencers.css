@@ -652,3 +652,287 @@ a.inf-link:hover{ text-decoration:underline; }
 @media (max-width:640px){ .inf-zoom{ padding:64px 8px; } .inf-zoom__nav--prev, .inf-zoom__nav--next{ top:auto; bottom:8px; transform:none; } }
 @media (max-width:1180px){ .inf-next__grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
 @media (max-width:640px){ .inf-next__grid{ grid-template-columns:1fr; } }
+
+/* =====================================================================
+ * Workspace redesign (2026-10-05). One idea carries it: every page is about one influencer, so she heads the
+ * page (.inf-id) and everything below is a tool for her. Forms sit left, what they make sits right, and the
+ * surfaces around both stay quiet. Rules here come last on purpose: they refine the page styles above.
+ * =================================================================== */
+
+/* ---- who the page is about ---- */
+.inf-id{ display:flex; align-items:center; gap:16px; margin:0 0 16px; min-width:0; }
+.inf-id__face{ flex:0 0 auto; width:56px; height:70px; border-radius:2px; overflow:hidden; background:#EDEDED; border:1px solid var(--line); display:flex; align-items:center; justify-content:center; color:var(--muted2); font-size:20px; }
+.inf-id__face img{ width:100%; height:100%; object-fit:cover; display:block; }
+.inf-id__who{ display:flex; flex-direction:column; gap:4px; min-width:0; flex:1 1 auto; }
+.inf-id__name{ appearance:none; -webkit-appearance:none; max-width:100%; width:fit-content; margin:0 0 0 -8px; padding:2px 34px 2px 8px; border:1px solid transparent; border-radius:2px; background-color:transparent;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23707070' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 8px center; background-size:16px; font:inherit; font-size:26px; font-weight:700; letter-spacing:-.015em; line-height:1.2; color:var(--text); cursor:pointer; text-overflow:ellipsis; }
+.inf-id__name:hover{ background-color:#fff; border-color:var(--line); }
+.inf-id__name:focus-visible{ outline:none; background-color:#fff; border-color:var(--acc); box-shadow:0 0 0 3px var(--vsoft); }
+.inf-id__name[data-single]{ background-image:none; padding-right:8px; cursor:default; pointer-events:none; }
+.inf-id__meta{ display:flex; flex-wrap:wrap; gap:4px 16px; margin:0; font-size:13px; color:var(--muted); }
+.inf-id__ok{ color:var(--success); font-weight:600; }
+.inf-id__ok i{ font-size:.9em; }
+.inf-id__side{ display:flex; align-items:center; gap:12px; flex:0 0 auto; }
+.inf-id__credits{ display:inline-flex; align-items:center; gap:6px; font-size:13px; color:var(--muted); text-decoration:none; white-space:nowrap; }
+.inf-id__credits strong{ color:var(--text); font-weight:700; font-variant-numeric:tabular-nums; }
+.inf-id__credits i{ color:var(--acc); font-size:.85em; }
+.inf-id__credits:hover{ color:var(--text); }
+.inf-id__settings{ display:inline-flex; align-items:center; gap:.45rem; }
+.inf-nav--sub + .inf-id, .inf-nav + .inf-id{ margin-top:-4px; }
+.inf-id + .inf-sub{ margin-top:-4px; }
+
+/* ---- Your Influencers: each card says what she has made and takes you straight to work ---- */
+.inf-cards{ grid-template-columns:repeat(auto-fill, minmax(236px, 1fr)); gap:16px; }
+.inf-card:hover{ transform:none; box-shadow:none; border-color:var(--acc); }
+.inf-card__media{ aspect-ratio:4 / 5; }
+.inf-card__body{ flex-direction:column; align-items:stretch; gap:6px; padding:12px 12px 10px; }
+.inf-card__top{ display:flex; align-items:center; justify-content:space-between; gap:8px; min-width:0; }
+.inf-card__name{ font-size:16px; font-weight:700; letter-spacing:-.01em; }
+.inf-card__meta{ display:flex; gap:4px 14px; flex-wrap:wrap; margin:0; font-size:13px; color:var(--muted); }
+.inf-card__go{ display:flex; gap:2px; margin:6px -8px 0; padding-top:8px; border-top:1px solid var(--line2); }
+.inf-card__go a{ flex:1 1 0; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:32px; padding:0 6px; border-radius:2px; font-size:13px; font-weight:600; color:var(--t2); text-decoration:none; white-space:nowrap; }
+.inf-card__go a i{ font-size:.85em; color:var(--muted); }
+.inf-card__go a:hover{ background:var(--vsoft); color:var(--acc-ink); }
+.inf-card__go a:hover i{ color:var(--acc-ink); }
+.inf-card__go a:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--acc); }
+.inf-head{ align-items:center; }
+
+/* ---- generators: the form is a tool panel, the stage is the page ---- */
+.inf-gen{ grid-template-columns:400px minmax(0, 1fr); gap:20px; }
+.inf-gen--wide{ grid-template-columns:440px minmax(0, 1fr); }
+.inf-gen__form{ gap:16px; padding:16px 16px 0; }
+.inf-gen__form > .inf-gen__submit{ position:sticky; bottom:0; z-index:3; margin:4px -16px 0; padding:12px 16px; background:var(--surface); border-top:1px solid var(--line); border-radius:0 0 2px 2px; }
+.inf-gen__form > :last-child:not(.inf-gen__submit){ margin-bottom:16px; }
+.inf-gen__stage{ min-height:clamp(420px, calc(100vh - 330px), 760px); border-radius:2px; }
+.inf-gen__main img{ max-height:clamp(420px, calc(100vh - 330px), 760px); }
+.inf-gen__preview{ gap:12px; }
+.inf-strip{ gap:8px; }
+.inf-strip__item{ width:76px; height:96px; border-radius:2px; transition:border-color .12s; }
+.inf-strip__item:hover{ border-color:var(--muted2); }
+.inf-strip__item.is-on{ outline:2px solid var(--acc); outline-offset:1px; border-color:transparent; }
+.inf-strip__item:focus-visible{ outline:2px solid var(--acc); outline-offset:1px; }
+.inf-result{ border-radius:2px; padding:16px; }
+.inf-result__actions{ gap:8px; }
+
+/* ---- References: a contact sheet, not eight posters ---- */
+.inf-angles__bar{ padding:12px 16px; margin-bottom:16px; border-radius:2px; }
+.inf-angles{ grid-template-columns:repeat(auto-fill, minmax(178px, 1fr)); gap:12px; }
+.inf-angle{ border-radius:2px; }
+.inf-angle__img--ph{ background:repeating-linear-gradient(135deg, #F4F4F4 0 10px, #EFEFEF 10px 20px); font-size:18px; }
+.inf-angle__body{ min-height:0; gap:2px; padding:10px 12px 12px; }
+.inf-angle__t{ font-size:14px; }
+.inf-angle__st{ font-size:13px; }
+.inf-angle__act{ min-height:32px; padding-top:8px; gap:12px; }
+.inf-angle__act .btn{ padding:4px 10px; font-size:13px; }
+
+/* ---- Voice ---- */
+#inf_vo_tabs .inf-sub__item{ border:0; background:transparent; cursor:pointer; }
+#inf_vo_tabs .inf-sub__item.is-on{ background:var(--vsoft); }
+#inf_vo_tabs .inf-sub__item:disabled{ color:var(--muted2); cursor:not-allowed; }
+.inf-gen[hidden]{ display:none; }
+.inf-result:has(#inf_vo_takes:not([hidden])) #inf_vo_takes_empty{ display:none; }
+.inf-voices__empty{ padding:40px 16px; }
+.inf-gen__preview .inf-takes{ margin-top:0; }
+
+/* ---- Gallery: every picture at its own shape ---- */
+.inf-gal__bar{ margin-bottom:12px; }
+#inf_gal_roles{ gap:2px; }
+#inf_gal_roles .inf-chip{ height:32px; padding:0 12px; border:0; border-radius:2px; background:transparent; font-size:13px; font-weight:500; color:var(--muted); }
+#inf_gal_roles .inf-chip:hover{ background:var(--line2); color:var(--text); }
+#inf_gal_roles .inf-chip.is-on{ background:var(--vsoft); color:var(--acc-ink); font-weight:600; }
+.inf-gal{ display:block; columns:5 190px; column-gap:10px; }
+.inf-gal > *{ display:block; width:100%; margin:0 0 10px; break-inside:avoid; aspect-ratio:auto; height:auto; border-radius:2px; }
+.inf-gal > * > img{ position:static; width:100%; height:auto; aspect-ratio:auto; object-fit:initial; display:block; }
+.inf-gal > *:has(.inf-tile__ph){ aspect-ratio:3 / 4; }
+
+/* What is being made stays in view while the form scrolls. */
+.inf-gen__preview{ position:sticky; top:84px; align-self:start; }
+@media (max-width:1180px){ .inf-gen, .inf-gen--wide{ grid-template-columns:380px minmax(0, 1fr); } }
+@media (max-width:980px){
+    .inf-gen, .inf-gen--wide{ grid-template-columns:1fr; }
+    .inf-gen__stage{ min-height:320px; }
+    .inf-gen__form > .inf-gen__submit{ position:static; }
+    .inf-gen__preview{ position:static; }
+}
+@media (max-width:640px){
+    .inf-id{ flex-wrap:wrap; gap:12px; }
+    .inf-id__face{ width:44px; height:55px; }
+    .inf-id__name{ font-size:20px; }
+    .inf-id__side{ flex:1 1 100%; justify-content:space-between; }
+    .inf-id__settings{ min-height:40px; }
+    .inf-cards{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+    .inf-card__go a span, .inf-card__go a{ font-size:12px; }
+    .inf-card__go{ flex-wrap:wrap; }
+    .inf-angles{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .inf-gal{ columns:2; column-gap:8px; }
+    #inf_gal_roles{ flex-wrap:nowrap; overflow-x:auto; }
+    #inf_gal_roles .inf-chip{ height:40px; flex:0 0 auto; }
+}
+#inf_vo_design_card .inf-sec__head{ gap:12px; }
+#inf_vo_design_card .inf-sec__head .inf-link{ font-size:13px; margin-left:auto; }
+/* References: Face and Body groups; an empty frame is itself the Generate button */
+.inf-angles__h{ grid-column:1 / -1; margin:8px 0 0; font-size:14px; font-weight:700; color:var(--text); }
+.inf-angles__h:first-child{ margin-top:0; }
+.inf-angle[data-shape="9:16"] .inf-angle__img{ aspect-ratio:9 / 16; }
+.inf-angle[data-shape="9:16"] .inf-angle__img img{ object-fit:cover; }
+.inf-angle__img--make{ flex-direction:column; gap:6px; cursor:pointer; font-size:14px; color:var(--muted); transition:color .12s, background-color .12s; }
+.inf-angle__img--make span{ font-size:13px; font-weight:600; }
+.inf-angle__img--make:hover{ color:var(--acc-ink); background:var(--vsoft); }
+.inf-angle__img--make:active{ background:rgba(255, 106, 19, .16); }
+.inf-angle__img--make.inf-angle__img--bad{ color:var(--danger); }
+.inf-angle__body{ padding:8px 10px 10px; }
+.inf-angles__bar .inf-angles__base > span{ display:flex; flex-direction:row; align-items:baseline; gap:10px; }
+.inf-angle__free{ margin-left:4px; padding:1px 5px; border-radius:2px; background:var(--success-bg); color:var(--success); font-size:11px; font-weight:700; }
+
+/* =====================================================================
+ * Canvas-first generate pages (.inf-cv). What she has made fills the page; one bar at the bottom makes more.
+ * The page does not scroll: the canvas scrolls inside itself, the bar stays put, nothing resizes and pushes
+ * content off screen. Height is set by influencers.js to the space left under the page header.
+ * =================================================================== */
+.inf:has(.inf-cv){ max-width:none; }
+.inf:has(.inf-cv) .inf-nav{ margin-bottom:10px; }
+/* her header as one compact row, the modes at its right */
+.inf-id{ margin-bottom:12px; gap:12px; }
+.inf-id__face{ width:40px; height:50px; }
+.inf-id__name{ font-size:20px; }
+.inf-id__who{ gap:0; }
+.inf-id .inf-sub{ margin:0; }
+.inf-id__side{ min-width:0; }
+
+.inf-cv{ display:flex; flex-direction:column; gap:10px; height:var(--cv-h, 70vh); min-height:420px; }
+.inf-cv__body{ flex:1 1 auto; min-height:0; display:grid; grid-template-columns:minmax(0, 1fr); gap:12px; }
+.inf-cv:has(#inf_main:not([hidden])):not(.is-viewer-closed) .inf-cv__body, .inf-cv:has(#inf_video:not([hidden])):not(.is-viewer-closed) .inf-cv__body{ grid-template-columns:minmax(0, 1fr) minmax(320px, 34%); }
+.inf-cv__canvas{ min-height:0; overflow-y:auto; overscroll-behavior:contain; background:var(--surface); border:1px solid var(--line); border-radius:2px; padding:10px; }
+.inf-cv__grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:10px; overflow:visible; padding:0; }
+.inf-cv__grid .inf-strip__item{ width:auto; height:auto; aspect-ratio:3 / 4; border-radius:2px; border:1px solid var(--line); }
+.inf-cv__grid .inf-strip__item img{ transition:transform .18s; }
+.inf-cv__grid .inf-strip__item:hover img{ transform:scale(1.03); }
+.inf-cv__grid .inf-strip__item.is-on{ outline:3px solid var(--acc); outline-offset:-3px; }
+.inf-cv__grid .inf-strip__item--busy{ background:repeating-linear-gradient(135deg, #F4F4F4 0 10px, #EFEFEF 10px 20px); cursor:default; }
+.inf-cv__empty{ height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; text-align:center; color:var(--muted); padding:24px; }
+.inf-cv__empty[hidden]{ display:none; }
+.inf-cv__empty i{ font-size:28px; color:var(--muted2); margin-bottom:4px; }
+.inf-cv__empty h2{ margin:0; font-size:18px; font-weight:700; color:var(--text); }
+.inf-cv__empty p{ margin:0; font-size:14px; max-width:44ch; }
+.inf-cv__canvas:has(.inf-cv__grid > *) .inf-cv__empty{ display:none; }
+
+/* the selected image, beside the canvas */
+.inf-cv__viewer{ display:none; position:relative; min-height:0; flex-direction:column; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:2px; padding:10px; }
+.inf-cv:has(#inf_main:not([hidden])):not(.is-viewer-closed) .inf-cv__viewer, .inf-cv:has(#inf_video:not([hidden])):not(.is-viewer-closed) .inf-cv__viewer{ display:flex; }
+.inf-cv__stage{ flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; background:#111; border-radius:2px; overflow:hidden; position:relative; }
+.inf-cv__stage .inf-gen__main{ width:100%; height:100%; margin:0; }
+.inf-cv__stage .inf-gen__main img, .inf-cv__stage video{ max-width:100%; max-height:100%; width:auto; height:auto; object-fit:contain; }
+.inf-cv__close{ position:absolute; right:16px; top:16px; z-index:4; width:32px; height:32px; border:0; border-radius:50%; background:rgba(17, 17, 17, .6); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.inf-cv__close:hover{ background:rgba(17, 17, 17, .85); }
+.inf-cv__close:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+.inf-cv__stage .inf-gen__expand{ right:auto; left:8px; top:8px; }
+.inf-cv__actions{ flex:0 0 auto; }
+.inf-cv__actions[hidden]{ display:none; }
+.inf-cv__actions .inf-result__actions{ display:grid; grid-template-columns:repeat(auto-fit, minmax(132px, 1fr)); gap:6px; }
+.inf-cv__actions .btn{ display:inline-flex; align-items:center; justify-content:center; gap:.4rem; padding:6px 8px; font-size:13px; white-space:nowrap; }
+
+/* the bar that makes more */
+.inf-cv__dock{ flex:0 0 auto; position:relative; display:flex; flex-direction:column; gap:8px; padding:10px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 -1px 0 rgba(29, 29, 29, .02), 0 8px 24px -16px rgba(29, 29, 29, .35); }
+.inf-cv__dock:focus-within{ border-color:var(--acc); }
+.inf .inf-cv__prompt{ min-height:52px; height:52px; max-height:160px; resize:none; border:0; box-shadow:none; padding:4px 6px; font-size:15px; line-height:1.45; background:transparent; }
+.inf .inf-cv__prompt:focus{ box-shadow:none; }
+.inf-cv__bar{ display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+.inf-cvchip{ display:inline-flex; align-items:center; gap:6px; height:32px; padding:0 10px; border:1px solid var(--line); border-radius:2px; background:#fff; font-size:13px; font-weight:500; color:var(--t2); cursor:pointer; white-space:nowrap; transition:border-color .12s, color .12s, background-color .12s; }
+.inf-cvchip i{ font-size:.85em; color:var(--muted); }
+.inf-cvchip .fa-chevron-up{ font-size:.65em; }
+.inf-cvchip:hover{ border-color:var(--muted2); color:var(--text); }
+.inf-cvchip[aria-expanded="true"]{ border-color:var(--acc); background:var(--vsoft); color:var(--acc-ink); }
+.inf-cvchip[aria-expanded="true"] i{ color:var(--acc-ink); }
+.inf-cvchip:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.inf-cvchip:disabled, .inf-cvchip.is-busy{ color:var(--muted2); cursor:progress; }
+.inf-cv__sep{ width:1px; height:20px; background:var(--line); margin:0 4px; }
+.inf-cv__status{ display:inline-flex; align-items:center; gap:6px; margin-left:auto; font-size:13px; color:var(--muted); }
+.inf-cv__status[hidden]{ display:none; }
+.inf-cv__status .spinner-border{ width:.85em; height:.85em; border-width:.15em; }
+.inf-cv__cost{ margin-left:auto; font-size:13px; color:var(--muted); }
+.inf-cv__status:not([hidden]) + .inf-cv__cost{ margin-left:12px; }
+.inf-cv__go{ display:inline-flex; align-items:center; gap:.45rem; }
+
+/* what a chip opens */
+.inf-pop{ position:absolute; left:10px; bottom:calc(100% + 8px); z-index:20; width:min(420px, calc(100% - 20px)); max-height:min(60vh, 440px); overflow-y:auto; padding:12px; background:var(--surface); border:1px solid var(--line); border-radius:2px; box-shadow:0 16px 40px -18px rgba(29, 29, 29, .45); }
+.inf-pop[hidden]{ display:none; }
+.inf-pop--wide{ width:min(520px, calc(100% - 20px)); }
+.inf-pop__h{ display:flex; align-items:center; justify-content:space-between; margin:0 0 10px; font-size:14px; font-weight:700; color:var(--text); }
+.inf-pop__x{ width:28px; height:28px; border:0; border-radius:2px; background:transparent; color:var(--muted); cursor:pointer; }
+.inf-pop__x:hover{ background:var(--line2); color:var(--text); }
+.inf-pop .inf-chips{ gap:6px; }
+.inf-pop .inf-chip--text{ white-space:normal; line-height:1.4; padding:8px 10px; }
+.inf-pop--modal{ position:fixed; left:50%; top:50%; bottom:auto; transform:translate(-50%, -50%); z-index:1060; width:min(640px, calc(100vw - 32px)); max-height:min(76vh, 640px); padding:16px; }
+.inf-pop-backdrop{ position:fixed; inset:0; z-index:1055; background:rgba(17, 17, 17, .45); }
+
+@media (max-width:900px){
+    .inf-cv:has(#inf_main:not([hidden])):not(.is-viewer-closed) .inf-cv__body, .inf-cv:has(#inf_video:not([hidden])):not(.is-viewer-closed) .inf-cv__body{ grid-template-columns:minmax(0, 1fr); }
+    .inf-cv__viewer{ position:fixed; inset:0; z-index:1040; border:0; border-radius:0; }
+    .inf-id{ flex-wrap:wrap; }
+    .inf-id__side{ flex:1 1 100%; }
+}
+@media (max-width:640px){
+    .inf-cv__grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; }
+    .inf-cv__bar{ flex-wrap:nowrap; overflow-x:auto; padding-bottom:2px; }
+    .inf-cvchip{ height:40px; flex:0 0 auto; }
+    .inf-cv__sep{ display:none; }
+    .inf-cv__go{ flex:0 0 auto; min-height:40px; }
+    .inf .inf-cv__prompt{ font-size:16px; }
+    .inf-pop{ left:0; width:100%; }
+}
+@media (prefers-reduced-motion:reduce){ .inf-cv__grid .inf-strip__item img{ transition:none; } }
+.inf-angles__bar{ justify-content:flex-end; padding:0; margin-bottom:12px; background:transparent; border:0; }
+.inf-angles__bar.is-done{ display:none; }
+
+/* ---- one tab row, with the influencer switcher at its end; modes in one row beneath ---- */
+.inf-nav{ align-items:center; }
+.inf-nav__who{ display:inline-flex; align-items:center; gap:8px; margin-left:auto; padding-left:16px; flex:0 0 auto; }
+.inf-nav__face{ width:28px; height:28px; border-radius:50%; overflow:hidden; background:#EDEDED; display:flex; align-items:center; justify-content:center; color:var(--muted2); font-size:12px; flex:0 0 auto; }
+.inf-nav__face img{ width:100%; height:100%; object-fit:cover; display:block; }
+.inf-nav__name{ appearance:none; -webkit-appearance:none; height:32px; max-width:180px; padding:0 28px 0 8px; border:1px solid var(--line); border-radius:2px; background-color:#fff;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23707070' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='m4 6 4 4 4-4'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 8px center; background-size:14px; font:inherit; font-size:14px; font-weight:600; color:var(--text); cursor:pointer; text-overflow:ellipsis; }
+.inf-nav__name:hover{ border-color:var(--muted2); }
+.inf-nav__name:focus-visible{ outline:none; border-color:var(--acc); box-shadow:0 0 0 3px var(--vsoft); }
+.inf-nav--sub{ margin-bottom:8px; }
+.inf-sub{ margin-bottom:12px; }
+@media (max-width:640px){ .inf-nav__who{ position:sticky; right:0; background:var(--bg, #F5F5F5); padding-left:8px; } .inf-nav__name{ height:40px; font-size:16px; max-width:130px; } }
+
+/* canvas pages: the source picture chip (videos), the picker window, facts under the open video */
+.inf-cv__row{ display:flex; gap:10px; align-items:stretch; }
+.inf-cv__write{ flex:1 1 auto; min-width:0; }
+.inf-cv__source{ flex:0 0 auto; width:56px; height:70px; padding:0; border:1px dashed var(--muted2); border-radius:2px; background:#FAFAFA; overflow:hidden; cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center; }
+.inf-cv__source img{ width:100%; height:100%; object-fit:cover; display:block; }
+.inf-cv__source img[hidden], .inf-cv__sourceph[hidden]{ display:none; }
+.inf-cv__sourceph{ display:flex; flex-direction:column; align-items:center; gap:2px; font-size:10px; font-weight:600; line-height:1.15; text-align:center; padding:2px; }
+.inf-cv__sourceph i{ font-size:14px; }
+.inf-cv__source:hover{ border-color:var(--acc); color:var(--acc-ink); }
+.inf-cv__source[aria-expanded="true"]{ border:1px solid var(--acc); }
+.inf-cv__source:has(img:not([hidden])){ border-style:solid; border-color:var(--line); }
+.inf-cv__source:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.inf-pop--pick{ width:min(860px, calc(100vw - 32px)); }
+.inf-pop--pick .inf-stills{ grid-template-columns:repeat(auto-fill, minmax(104px, 1fr)); max-height:none; overflow:visible; }
+.inf-pop--pick .inf-stills__roles{ margin-bottom:10px; }
+.inf-cv__grid .inf-strip__item video, .inf-cv__grid .inf-strip__item img{ width:100%; height:100%; object-fit:cover; }
+.inf-cv__facts{ margin-bottom:8px; font-size:13px; }
+.inf-cv__facts .inf-grid{ row-gap:6px; }
+.inf-cv__facts .inf-result__text{ max-height:4.4em; overflow:auto; }
+.inf-head:has(> div:empty){ justify-content:flex-end; margin-bottom:12px; }
+
+/* ---- Every Influencers page uses the full width; the Gallery is the same even grid as the Generate Images canvas ---- */
+.inf{ max-width:none; }
+.inf-gal{ display:grid; columns:auto; grid-template-columns:repeat(auto-fill, minmax(168px, 1fr)); gap:10px; }
+.inf-gal > *{ margin:0; aspect-ratio:3 / 4; height:auto; width:auto; overflow:hidden; }
+.inf-gal > * > img{ width:100%; height:100%; object-fit:cover; }
+.inf-gal > *:has(.inf-tile__ph){ display:none; }   /* a file that never finished processing has nothing to show */
+@media (max-width:640px){ .inf-gal{ columns:auto; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:8px; } }
+
+/* References: all eight angles in one row on a wide screen (two rows of four below that), so the page does not scroll */
+.inf-angles{ grid-template-columns:repeat(8, minmax(0, 1fr)); gap:10px; }
+.inf-angle[data-shape="9:16"] .inf-angle__img{ aspect-ratio:3 / 4; background:#EDEDED; }
+.inf-angle[data-shape="9:16"] .inf-angle__img img{ object-fit:contain; }
+.inf-angle__t{ font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.inf-angle__act{ flex-wrap:wrap; gap:6px 10px; }
+@media (max-width:1380px){ .inf-angles{ grid-template-columns:repeat(4, minmax(0, 1fr)); } }
+@media (max-width:640px){ .inf-angles{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }

@@ -39,8 +39,21 @@ $video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control',
             <a href="<?php echo $e($n['href']); ?>" class="inf-nav__item<?php echo $on ? ' is-on' : ''; ?>"><i class="fa-solid <?php echo $e($n['icon']); ?>"></i> <?php echo $e($n['label']); ?></a>
             <?php endif; ?>
         <?php endforeach; ?>
+        <?php /* Which influencer the page is working with: a small switcher at the end of the tab row. */
+        $who = (is_array($this->influencer ?? null) && !in_array($page, array('index', 'create'), true) && empty($this->needs_plan)) ? $this->influencer : null;
+        if ($who): ?>
+        <span class="inf-nav__who">
+            <span class="inf-nav__face"><?php if (!empty($who['cover_url'])): ?><img src="<?php echo $e($who['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user" aria-hidden="true"></i><?php endif; ?></span>
+            <label class="visually-hidden" for="inf_who">Influencer</label>
+            <select class="inf-nav__name" id="inf_who">
+                <?php foreach ($ready as $r): ?>
+                <option value="<?php echo (int) $r['id']; ?>"<?php echo ((int) $r['id'] === (int) $who['id']) ? ' selected' : ''; ?>><?php echo $e($r['name']); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </span>
+        <?php endif; ?>
     </nav>
-<?php if ($sub_modes): /* The ways to generate (images or video) are pages of their own: a second row under the section tabs. */ ?>
+<?php if ($sub_modes): /* The ways to generate are pages of their own: one row under the section tabs. */ ?>
     <nav class="inf-sub" aria-label="How to generate">
         <?php foreach ($sub_modes as $mk => $ml): ?>
         <a class="inf-sub__item<?php echo $page === $mk ? ' is-on' : ''; ?>" href="/influencers/<?php echo $mk; ?>/<?php echo (int) $target; ?>"<?php echo $page === $mk ? ' aria-current="page"' : ''; ?>><?php echo $e($ml); ?></a>

@@ -36,7 +36,8 @@ class InfluencerJobService {
             $f['seed'] = random_int(1, 2147483647);   // always recorded so any result can be reproduced
         }
         // Pay for the run in AI credits up front (refunded if it fails or is cancelled).
-        $price = Plan::ai_price($type, $f);
+        // 'waive_credits': a run the creator is not charged for (a free redo of a result that came out wrong).
+        $price = !empty($f['waive_credits']) ? 0 : Plan::ai_price($type, $f);
         if ($price > 0) {
             $user = self::user($creator_id);
             if (!Plan::can_use_creator_features($user)) {
@@ -471,6 +472,7 @@ class InfluencerJobService {
                     $q = ImageQualityService::check($img['bytes'], (string) $img['mime']);
                     if (!$q['ok']) { throw new QualityException($q['issues'] !== '' ? $q['issues'] : 'visible anatomy errors'); }
                 }
+                if ((string) $job['type'] === 'angle') { $img['bytes'] = self::profile_facing($job, $img['bytes'], (string) $img['mime']); }
                 MediaIngestService::ingest_image($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label, $watermark, $aid);
             }
           } catch (\Throwable $e) {
@@ -520,6 +522,35 @@ class InfluencerJobService {
         }
         $m->transition($job['id'], $from, array('attempts_json' => json_encode($attempts)));
         return self::fail_job($m->get_by_id($job['id']), $m, $from, $code, $error);
+    }
+
+    /**
+     * A profile reference must face the way its slot says: Left Profile toward the left edge of the picture, Right
+     * Profile toward the right. Image models ignore that instruction about half the time, so the result is looked at
+     * and mirrored when it faces the wrong way. Returns the image bytes (unchanged for other slots, or when the
+     * direction cannot be told). Never throws.
+     */
+    public static function profile_facing(array $job, $bytes, $mime){
+        $want = array('left_profile' => 'left', 'right_profile' => 'right');
+        $slot = (string) (InfluencerJobsModel::params($job)['angle'] ?? '');
+        if (!isset($want[$slot]) || !ClaudeService::configured() || !function_exists('imageflip')) { return $bytes; }
+        try {
+            $r = ClaudeService::vision('You look at a portrait and say which way the person faces. Answer with ONE word only: left, right or front.',
+                'Toward which edge of the picture does the nose point? "left" = toward the left edge, "right" = toward the right edge, "front" = toward the camera.',
+                (string) $bytes, (string) $mime, 20, 30, 'low');
+            $seen = empty($r['ok']) ? '' : strtolower(trim(preg_replace('/[^a-z]/i', '', (string) $r['text'])));
+            if (!in_array($seen, array('left', 'right'), true) || $seen === $want[$slot]) { return $bytes; }
+            $im = @imagecreatefromstring((string) $bytes);
+            if (!$im) { return $bytes; }
+            imageflip($im, IMG_FLIP_HORIZONTAL);
+            ob_start();
+            if ($mime === 'image/png') { imagesavealpha($im, true); imagepng($im); } elseif ($mime === 'image/webp' && function_exists('imagewebp')) { imagewebp($im, null, 95); } else { imagejpeg($im, null, 95); }
+            $out = (string) ob_get_clean();
+            imagedestroy($im);
+            if ($out === '') { return $bytes; }
+            error_log('[influencer job] ' . (int) $job['id'] . ': ' . $slot . ' came back facing ' . $seen . ', mirrored');
+            return $out;
+        } catch (\Throwable $e) { return $bytes; }
     }
 
     /** Job types that may move to the next model of their picker when a model's safety check refuses the run. */

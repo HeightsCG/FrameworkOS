@@ -37,16 +37,16 @@ jQuery(function ($) {
         });
     }
     function money(n) { return '$' + (Math.round((n || 0) * 100) / 100).toFixed(2); }
-    /* "50 AI credits · 3,750 left" for a run that costs n; the balance comes from the page config and is kept current after each run */
+    /* "50 AI credits": what a run costs. The balance is not repeated on the page; it is in the account menu and kept current here. */
     function credits_text(n) {
-        var left = parseInt(C.ai_credits, 10) || 0;
-        return Number(n).toLocaleString() + ' AI credits \u00b7 ' + left.toLocaleString() + ' left';
+        $('#app_ai_credits').text((parseInt(C.ai_credits, 10) || 0).toLocaleString());   // the balance lives in the account menu
+        return Number(n).toLocaleString() + ' AI credits';
     }
     /* The cost line, plus a Buy AI Credits link once the balance can't cover two more runs (same rule as the Studio). */
     function credits_html(n) {
         var left = parseInt(C.ai_credits, 10) || 0;
         var low  = left < n * 2;
-        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?tab=credits">' + (left < n ? 'Buy AI Credits to Generate' : 'Running low. Buy AI Credits') + '</a>' : '');
+        return esc(credits_text(n)) + (low ? ' <a class="inf-buy-credits" href="/account/billing?tab=credits">' + (left < n ? 'Not enough left. Buy AI Credits' : 'Running low. Buy AI Credits') + '</a>' : '');
     }
     function spend_credits(n) { C.ai_credits = Math.max(0, (parseInt(C.ai_credits, 10) || 0) - n); }
     function price_of(type, n) { var p = (C.ai_prices || {})[type] || 0; return p * (n || 1); }
@@ -177,7 +177,6 @@ jQuery(function ($) {
             $('#inf_empty').prop('hidden', true); $('#inf_new_btn').prop('hidden', LIM.included === false);
             $cards.empty().prop('hidden', false);
             list.forEach(function (inf, i) { $cards.append(card(inf, first ? i : 0)); });
-            if (LIM.included !== false) { $cards.append('<a class="inf-card inf-card--new" href="/influencers/create" style="animation-delay:' + Math.min(list.length * 18, 360) + 'ms"><i class="fa-solid fa-plus"></i><span>New Influencer</span></a>'); }
             first = false;
             remember(list);
         }
@@ -190,7 +189,12 @@ jQuery(function ($) {
             var $c = $('<div class="inf-card' + (inf.locked ? ' inf-card--locked' : '') + '" tabindex="0">').attr('data-id', inf.id).css('animation-delay', Math.min(i * 18, 360) + 'ms');
             var media = inf.cover_url ? '<img src="' + esc(inf.cover_url) + '" alt="' + esc(inf.name) + '" loading="lazy">' : '<i class="fa-regular fa-user"></i>';
             $c.append('<div class="inf-card__media">' + media + '</div>');
-            $c.append('<div class="inf-card__body"><span class="inf-card__name">' + esc(inf.name) + '</span>' + (inf.locked ? '<span class="inf-state inf-state--locked"><i class="fa-solid fa-lock"></i> Locked</span>' : state_pill(inf)) + '</div>');
+            var made = inf.counts || {}, n_img = made.generated || 0, n_vid = made.video || 0;
+            $c.append('<div class="inf-card__body"><div class="inf-card__top"><span class="inf-card__name">' + esc(inf.name) + '</span>' + (inf.locked ? '<span class="inf-state inf-state--locked"><i class="fa-solid fa-lock"></i> Locked</span>' : state_pill(inf)) + '</div>' +
+                (ready ? '<p class="inf-card__meta"><span>' + Number(n_img).toLocaleString() + (n_img === 1 ? ' image' : ' images') + '</span><span>' + Number(n_vid).toLocaleString() + (n_vid === 1 ? ' video' : ' videos') + '</span></p>' +
+                         '<div class="inf-card__go"><a href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Images</a><a href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Videos</a><a href="/influencers/gallery/' + inf.id + '"><i class="fa-solid fa-images" aria-hidden="true"></i> Gallery</a></div>'
+                       : (inf.locked ? '' : '<p class="inf-card__meta"><span>Setup not finished</span></p><div class="inf-card__go"><a href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Continue Setup</a></div>')) +
+                '</div>');
             var menu = '<div class="dropdown">' +
                 '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
@@ -212,7 +216,7 @@ jQuery(function ($) {
                     .then(function (r) { if (r.isConfirmed) { window.location.href = '/account/billing'; } });
             }
             $c.on('click', function (e) {
-                if ($(e.target).closest('.dropdown').length) { return; }
+                if ($(e.target).closest('.dropdown, .inf-card__go a').length) { return; }
                 open_card();
             });
             $c.on('keydown', function (e) { if (e.key === 'Enter' && !$(e.target).closest('.dropdown').length) { open_card(); } });
@@ -228,6 +232,71 @@ jQuery(function ($) {
         $('#inf_retry').on('click', function () { load(false); });
         load(false);
     }
+
+    /* ---------------------------------------------------------------------
+     * Canvas-first pages (.inf-cv): fit the viewport so the page never scrolls, chips that open their setting,
+     * and the viewer beside the canvas for the selected result.
+     * ------------------------------------------------------------------- */
+    function cv_fit() {
+        $('[data-cv]').each(function () {
+            var top = this.getBoundingClientRect().top + window.scrollY;
+            var h = Math.max(420, window.innerHeight - top - 16);
+            this.style.setProperty('--cv-h', h + 'px');
+            // Whatever sits under the canvas (the page's own bottom padding, a footer) must not make the page scroll.
+            var over = document.documentElement.scrollHeight - window.innerHeight;
+            if (over > 0 && h - over >= 420) { this.style.setProperty('--cv-h', (h - over) + 'px'); }
+        });
+    }
+    function cv_labels() {
+        $('[data-pop-label]').each(function () {
+            var $src = $($(this).data('pop-label')).first(), t = ($src.text() || '').replace(/\s+/g, ' ').trim();
+            if (t) { $(this).text(t); }
+        });
+        // A chip that stands for a chosen picture shows that picture.
+        $('[data-pop-thumb]').each(function () {
+            var src = $($(this).data('pop-thumb')).first().attr('src') || '';
+            $(this).attr('src', src).prop('hidden', src === '').siblings('.inf-cv__sourceph').prop('hidden', src !== '');
+        });
+    }
+    function cv_close_pops(except) {
+        $('.inf-pop').not(except || null).prop('hidden', true);
+        $('[data-pop]').each(function () { if (!except || $(this).data('pop') !== except.id) { $(this).attr('aria-expanded', 'false'); } });
+        if (!except || !$(except).hasClass('inf-pop--modal')) { $('.inf-pop-backdrop').remove(); }
+    }
+    $(function () {
+        if (!$('[data-cv]').length) { return; }
+        cv_fit(); cv_labels();
+        $(window).on('resize', cv_fit);
+        setTimeout(cv_fit, 300);
+        $(document).on('click', '[data-pop]', function (e) {
+            e.stopPropagation();
+            var pop = document.getElementById($(this).data('pop')), open = pop.hidden;
+            cv_close_pops();
+            if (!open) { return; }
+            pop.hidden = false; $(this).attr('aria-expanded', 'true');
+            if ($(pop).hasClass('inf-pop--modal')) { $('<div class="inf-pop-backdrop">').appendTo('body').on('click', function () { cv_close_pops(); }); }
+            var $f = $(pop).find('button, input, select, textarea').filter(':visible').first(); if ($f.length) { $f.trigger('focus'); }
+        });
+        $(document).on('click', '[data-pop-close]', function () { cv_close_pops(); });
+        $(document).on('click', function (e) { if (!$(e.target).closest('.inf-pop, [data-pop]').length) { cv_close_pops(); } });
+        $(document).on('keydown', function (e) { if (e.key === 'Escape') { cv_close_pops(); } });
+        // A choice inside a chip's panel shows on the chip; picking an idea or a single-choice setting closes its panel.
+        $(document).on('click', '.inf-pop .inf-opt, .inf-pop .inf-seg__opt, .inf-pop .inf-chip--text, .inf-pop .inf-photo--pick', function () {
+            var $pop = $(this).closest('.inf-pop');
+            setTimeout(function () { cv_labels(); if (!$pop.is('#inf_pop_more')) { cv_close_pops(); } }, 0);
+        });
+        // The viewer opens for a picked or newly made result, and stays closed once the creator closes it.
+        $(document).on('click', '#inf_viewer_close', function () { $(this).closest('.inf-cv').addClass('is-viewer-closed'); });
+        $(document).on('click', '.inf-cv__grid .inf-strip__item', function () { $(this).closest('.inf-cv').removeClass('is-viewer-closed'); });
+        var shown = document.getElementById('inf_main_img') || document.getElementById('inf_video');
+        if (shown && window.MutationObserver) {
+            new MutationObserver(function () { $('.inf-cv').removeClass('is-viewer-closed'); cv_labels(); }).observe(shown, { attributes: true, attributeFilter: ['src'] });
+        }
+        // Settings the page fills in after loading (her images, the lengths a model offers) reach the chips too.
+        if (window.MutationObserver) { $('.inf-cv__dock .inf-pop').each(function () { new MutationObserver(cv_labels).observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); }); }
+        // The prompt grows with what is typed, up to a limit, instead of scrolling inside two lines.
+        $(document).on('input', '.inf-cv__prompt', function () { this.style.height = '52px'; this.style.height = Math.min(160, this.scrollHeight) + 'px'; });
+    });
 
     /* Prebuilt lists show their first six rows; Show More opens the rest. */
     $(document).on('click', '.inf-showmore', function () {
@@ -1225,7 +1294,7 @@ jQuery(function ($) {
         function merge(j) { var i = jobs.findIndex(function (x) { return x.id === j.id; }); if (i >= 0) { jobs[i] = j; } else { jobs.unshift(j); } }
 
         /* --- preview --- */
-        function busy(text) { $('#inf_idle, #inf_main').prop('hidden', true); $('#inf_busy').prop('hidden', false); $('#inf_busy_text').text(text); }
+        function busy(text) { $('#inf_busy').prop('hidden', false); $('#inf_busy_text').text(text); }   // the canvas and the selected image stay as they are while a run is made
         function show_current() {
             $('#inf_busy').prop('hidden', true);
             if (!current) { $('#inf_idle').prop('hidden', false); $('#inf_main, #inf_result').prop('hidden', true); return; }
@@ -1395,7 +1464,7 @@ jQuery(function ($) {
             });
         });
 
-        function busy(t) { $('#inf_vidle').prop('hidden', true); $('#inf_video').prop('hidden', true); $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }
+        function busy(t) { $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }   // the canvas and the open video stay as they are while a clip is made
         function show_current() {
             $('#inf_vbusy').prop('hidden', true);
             if (!current) { $('#inf_vidle').prop('hidden', false); $('#inf_video, #inf_vresult').prop('hidden', true); return; }

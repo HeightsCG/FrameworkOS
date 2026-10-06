@@ -3,14 +3,6 @@
 
     <div class="inf-gen" id="inf_gen">
         <form class="inf-gen__form" id="inf_rep_form" autocomplete="off" onsubmit="return false;">
-            <label class="inf-who inf-who--form" for="inf_who">
-                <span class="inf-who__badge"><?php if (!empty($infl['cover_url'])): ?><img src="<?php echo $e($infl['cover_url']); ?>" alt=""><?php else: ?><i class="fa-regular fa-user"></i><?php endif; ?></span>
-                <select class="form-select inf-who__select" id="inf_who">
-                    <?php foreach ($ready as $r): ?>
-                    <option value="<?php echo (int) $r['id']; ?>"<?php echo ((int) $r['id'] === (int) $infl['id']) ? ' selected' : ''; ?>><?php echo $e($r['name']); ?></option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
 
             <div class="inf-field">
                 <div class="inf-field__row"><div class="inf-label" id="inf_rep_src_label">Source Photo</div><?php echo Tutorials::button('23'); ?></div>
