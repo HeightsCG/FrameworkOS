@@ -531,7 +531,7 @@
                 <span class="cs-gen__cost" id="csVidCost"></span>
                 <button type="button" class="btn btn-primary" id="csVidRun"><i class="fa-solid fa-film"></i> Generate</button>
                 <a href="/account/billing?tab=credits" class="btn btn-primary" id="csVidBuy" hidden>Buy AI Credits</a>
-                <button type="button" class="btn btn-primary" id="csVidUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
+                <button type="button" class="btn btn-primary" id="csVidUse" hidden><i class="fa-solid fa-share-from-square"></i> Use In Post</button>
             </div>
         </div>
     </div>
@@ -588,7 +588,7 @@
                 <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
                 <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy AI Credits</a>
                 <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
-                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use in a Post</button>
+                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use In Post</button>
             </div>
         </div>
     </div>

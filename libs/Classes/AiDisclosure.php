@@ -66,7 +66,7 @@ class AiDisclosure {
         $t = ' ' . mb_strtolower(preg_replace('/\s+/', ' ', (string) $text)) . ' ';
         $t = str_replace(array("’", "`"), "'", $t);
         $adv   = "(?:(?:actually|really|even|truly|honestly|seriously|just|still|like|for real|low ?key)\\s+)?";
-        $thing = "(?:real|a real (?:person|girl|woman|guy|man|human|one)|human|a human|an? ai|ai|artificial|a bot|bot|a robot|robot|a chatbot|chatbot|automated|a machine|a program|fake|a person|a real person)";
+        $thing = "(?:real|a real (?:person|girl|woman|guy|man|human|one)|human|a human|an? ai|ai|artificial|a bot|bot|a robot|robot|a chatbot|chatbot|automated|a machine|a program|fake|a person|for real|(?:really|actually) you)";
         $patterns = array(
             "/\\b(?:are|r)\\s*(?:you|u|ya)\\s+{$adv}(?:a |an )?{$thing}\\b/u",
             "/\\bis\\s+(?:this|that|it)\\s+{$adv}(?:a |an )?{$thing}\\b/u",

@@ -2417,7 +2417,9 @@ jQuery(function ($) {
         $('#csSchedComments').prop('checked', rule ? rule.comments_enabled != 0 : true);
         $('#csSchedAi').prop('checked', rule ? (rule.ai_assist === undefined || rule.ai_assist != 0) : true);
         $('#csSchedCaption').val(rule ? (rule.caption_text || '') : '');
-        $('#csSchedCapMode').val(rule ? (rule.caption_mode || 'standard') : 'standard');
+        var cap_mode = rule ? (rule.caption_mode || 'standard') : 'standard';
+        if (!$('#csSchedCapMode option[value="' + cap_mode + '"]').length) { cap_mode = 'standard'; }   // a mode no longer offered to automations (Hook Overlay)
+        $('#csSchedCapMode').val(cap_mode);
         setSchedAi();
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.cadence = rule ? rule.cadence : 'daily';

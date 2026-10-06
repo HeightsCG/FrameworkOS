@@ -27,7 +27,7 @@
                     <button type="button" class="btn btn-secondary" id="inf_res_video"><i class="fa-solid fa-clapperboard"></i> Make Video</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance · <?php echo number_format(Plan::ai_price('enhance')); ?> AI Credits</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
-                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_message"><i class="fa-solid fa-comment-dots"></i> Send in a Message</button>
                     <button type="button" class="btn btn-secondary inf-btn--danger" id="inf_res_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
                 </div>

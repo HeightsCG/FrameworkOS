@@ -196,7 +196,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerImageActions::angle_approve($cid, $infl, (int) ($this->post['asset_id'] ?? 0), true));
+        $this->answer(InfluencerImageActions::angle_keep($cid, $infl, (int) ($this->post['asset_id'] ?? 0), true));
     }
 
     public function influencer_training_set_startAction(){

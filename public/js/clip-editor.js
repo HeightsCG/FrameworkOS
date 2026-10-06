@@ -277,7 +277,7 @@ jQuery(function ($) {
         } else if (P.status === 'done' && P.result) {
             $b.prop('hidden', false).html('<video controls playsinline preload="metadata" poster="' + esc(P.result.thumb_url) + '" src="' + esc(P.result.video_url) + '"></video>' +
                 '<div class="ce-export__row"><i class="fa-solid fa-circle-check" aria-hidden="true" style="color:var(--success)"></i><span>Exported · ' + P.result.width + '×' + P.result.height + ' · ' + P.result.duration + ' seconds · saved to your Library</span></div>' +
-                '<div class="ce-export__actions"><button type="button" class="btn btn-secondary btn-sm" id="ceUse"><i class="fa-solid fa-feather-pointed" aria-hidden="true"></i> Use in a Post</button>' +
+                '<div class="ce-export__actions"><button type="button" class="btn btn-secondary btn-sm" id="ceUse"><i class="fa-solid fa-feather-pointed" aria-hidden="true"></i> Use In Post</button>' +
                 '<a class="btn btn-secondary btn-sm" href="/studio"><i class="fa-solid fa-images" aria-hidden="true"></i> Open Library</a></div>');
         } else { $b.prop('hidden', true).empty(); }
         export_button();

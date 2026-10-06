@@ -647,6 +647,11 @@ class InfluencerJobService {
             if ((string) $job['type'] === 'talking' && (string) $job['group_key'] !== '') {
                 InfluencerVoiceActions::talking_part_finished($job);   // a talking video rendered in parts is joined once the last part lands
             }
+            if ((string) $job['type'] === 'replicate') {   // the masked copy of the source photo is only needed while the provider fetches it
+                $p = InfluencerJobsModel::params($job);
+                $mk = (string) ($p['source_key'] ?? '');
+                if ($mk !== '' && FaceMask::owns_key($job['creator_id'], $mk)) { S3Service::delete_key($mk); }
+            }
         } catch (\Throwable $e) {
             error_log('[influencer] after_terminal job ' . (int) $job['id'] . ': ' . $e->getMessage());
         }

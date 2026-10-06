@@ -209,21 +209,6 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
         </div>
     </div>
 </div>
-<style>
-/* Campaign image: the shared Library picker (ai-tools.js) opened from a 56x70 thumb. Belongs in audience.css. */
-.lc__image{ display:flex; align-items:center; gap:12px; min-width:0; }
-.lc__thumb{ flex:none; display:flex; align-items:center; justify-content:center; width:56px; height:70px; padding:0; border:1px dashed var(--line2, #cfcfcf); border-radius:2px; background:#FAFAFA; color:var(--muted); font-size:18px; cursor:pointer; overflow:hidden; }
-.lc__thumb:hover{ border-color:var(--acc); color:var(--acc-ink); }
-.lc__thumb:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
-.lc__thumb.has-img{ border-style:solid; border-color:var(--line); background:#111; }
-.lc__thumb.has-img i{ display:none; }
-.lc__thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
-.lc__thumb img[hidden]{ display:none; }
-.lc__imagename{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--t2); }
-.lc__image .btn{ flex:none; }
-#aiPicker{ z-index:1070; }
-#aiPicker ~ .modal-backdrop{ z-index:1065; }
-</style>
 <script src="/js/ai-tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/ai-tools.js'); ?>"></script>
 <script src="/js/launch-campaign.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/launch-campaign.js'); ?>"></script>
 <?php endif; ?>

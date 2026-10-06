@@ -79,7 +79,7 @@ check('a Story with no 9:16 media is skipped with a reason', empty($none['accoun
 check('the first-reply disclosure is never blank',      AiDisclosure::first_reply_text('  ') === AiDisclosure::DEFAULT_FIRST_REPLY && AiDisclosure::first_reply_text('<b>Heads up:</b> AI helps here') === 'Heads up: AI helps here');
 
 /* ---- inbox: is the fan asking, and what does the draft say ---- */
-foreach (array('are you real?', 'r u a bot', 'is this an AI', 'am i talking to a real person', 'wait are you actually real or fake', 'Is this really you?', 'do you write these yourself', 'bot or human?') as $q) {
+foreach (array('are you real?', 'r u a bot', 'is this an AI', 'am i talking to a real person', 'wait are you actually real or fake', 'Is this really you?', 'do you write these yourself', 'bot or human?', 'are you for real', 'are u even real', 'are you really you') as $q) {
     check('asks if real: "' . $q . '"', AiDisclosure::asks_if_real($q));
 }
 foreach (array('you look amazing today', 'what are you up to tonight', 'that real estate job sounds hard', 'send me the real one', 'are you going to the real madrid game?', 'is this the real deal or what', 'am i talking to the right person about tickets') as $q) {

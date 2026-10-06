@@ -32,7 +32,7 @@
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_edit"><i class="fa-solid fa-pen"></i> Edit</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_frame" hidden><i class="fa-regular fa-image"></i> Export Frame</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_download"><i class="fa-solid fa-download"></i> Download</button>
-            <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
             <button type="button" class="btn btn-secondary btn-sm" id="inf_lightbox_message"><i class="fa-solid fa-comment-dots"></i> Send in a Message</button>
             <button type="button" class="btn btn-secondary btn-sm inf-btn--danger" id="inf_lightbox_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
         </div>

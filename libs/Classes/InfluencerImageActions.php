@@ -167,13 +167,11 @@ class InfluencerImageActions {
     }
 
     /**
-     * LEGACY, gates nothing: identity inputs are every ready angle (InfluencerService::identity_refs), so there is no
-     * approval step for the angle set any more (the angle approve API action, MCP tool and page control are gone).
-     * Still called by the wizard's full-body step (ApiInfluencersController::influencer_body_approveAction via
-     * influencers.js "finish"); it only sets the `approved` flag and sets earlier takes of the same angle aside.
-     * Remove it together with that action, its ApiRoutes entry and the influencers.js call.
+     * Keep one take of an angle: the earlier takes of the same angle are set aside so the References page shows one
+     * image per angle. Identity inputs are not gated by this (identity_refs already uses the newest ready take of
+     * every angle); the wizard's Body step calls it when the creator continues with the body picture shown.
      */
-    public static function angle_approve($cid, array $infl, $aid, $approved = true){
+    public static function angle_keep($cid, array $infl, $aid, $approved = true){
         $im   = new InfluencerImagesModel();
         $link = $im->get_link($cid, (int) $infl['id'], (int) $aid);
         if (!$link || (string) $link['role'] !== 'angle' || !empty($link['is_excluded'])) { return self::fail('That is not one of her angle references.'); }

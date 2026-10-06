@@ -62,7 +62,7 @@
             <div class="inf-cv__actions" id="inf_result" hidden>
                 <div class="inf-result__actions inf-result__actions--only">
                     <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
-                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_frame"><i class="fa-regular fa-image"></i> Export Frame</button>
                 </div>
             </div>
