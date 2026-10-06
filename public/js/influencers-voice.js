@@ -56,9 +56,9 @@ jQuery(function ($) {
         var tab_chosen = false;
         function show_tab(name) {
             if (name === 'speech' && !voices.length) { name = 'voices'; }
-            if (name === 'voices') { setTimeout(function () { fill_design(false); }, 0); }
             $('#inf_vo_tabs .inf-sub__item').each(function () { var on = $(this).data('tab') === name; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false'); });
             $('#inf_vo_panel_voices').prop('hidden', name !== 'voices'); $('#inf_vo_panel_speech').prop('hidden', name !== 'speech');
+            $(window).trigger('resize');   // the panel just shown takes the space left on the page
         }
         function sync_tabs() {
             var none = !voices.length;
@@ -287,14 +287,19 @@ jQuery(function ($) {
                 if (my !== estimating) { return; }
                 if (!o || !o.success) { est = null; fail((o && o.message) || 'Could not price that.'); cost(); return; }
                 est = o;
-                if (source() === 'script') { $('#inf_tk_voice').text(o.has_voice ? 'Voice: ' + o.voice_name : 'Design A Voice First'); }
+                if (source() === 'script') {
+                    // With a voice: just say which one speaks (plain text, nothing to click). Without one: the one link that is needed.
+                    var $v = $('#inf_tk_voice').prop('hidden', false);
+                    if (o.has_voice) { $v.text('Spoken In ' + o.voice_name).removeAttr('href').addClass('is-text'); }
+                    else { $v.text('Design A Voice First').attr('href', $v.data('href')).removeClass('is-text'); }
+                }
                 if (o.too_long) { fail('That runs about ' + o.seconds + ' seconds. A talking video can be up to ' + o.max_seconds + ' seconds.'); }
                 else if (source() === 'script' && !o.has_voice) { fail(inf.name + ' has no voice yet. Design one first.'); }
                 cost();
             });
         }
         $('#inf_tk_image').on('click', function () {
-            T.pick_image({ title: 'Choose a Close-Up Image', influencer: inf.id }, function (a) {
+            T.pick_image({ title: 'Choose an Image Where the Face Is Clear', influencer: inf.id }, function (a) {
                 image = a;
                 $('#inf_tk_image').html('<img src="' + esc(a.thumb_url || a.display_url) + '" alt=""><span class="inf-source__change">Change Image</span>').addClass('has-img');
                 cost();

@@ -1,7 +1,7 @@
 <?php /* Result column shared by the video tool pages. $idle_text is the empty-stage line. */ ?>
         <section class="inf-gen__preview">
             <div class="inf-gen__stage" id="inf_stage">
-                <div class="inf-gen__idle" id="inf_idle"><i class="fa-solid fa-clapperboard"></i><p><?php echo $e($idle_text); ?></p></div>
+                <div class="inf-gen__idle" id="inf_idle"><i class="fa-solid fa-clapperboard"></i><?php if (!empty($idle_title)): ?><h2><?php echo $e($idle_title); ?></h2><?php endif; ?><p><?php echo $e($idle_text); ?></p></div>
                 <div class="inf-gen__busy" id="inf_busy" hidden><span class="spinner-border text-primary" role="status"></span><p id="inf_busy_text">Generating</p></div>
                 <video class="inf-gen__video" id="inf_video" controls playsinline hidden></video>
             </div>

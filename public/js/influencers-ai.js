@@ -85,9 +85,8 @@ jQuery(function ($) {
             var img, st, act = '';
             if (s.status === 'ready') {
                 img = '<button type="button" class="inf-angle__img" data-view="' + esc(s.display_url) + '" aria-label="View ' + esc(s.label) + '"><img src="' + esc(s.thumb_url) + '" alt="' + esc(s.label) + '" loading="lazy"></button>';
-                st  = s.approved ? '<span class="inf-angle__st inf-angle__st--ok"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Approved</span>' : '<span class="inf-angle__st">Needs approval</span>';
-                act = (s.approved ? '' : '<button type="button" class="btn btn-secondary btn-sm" data-approve="' + s.asset_id + '">Approve</button>') +
-                      '<button type="button" class="inf-link" data-again="' + esc(s.slot) + '"' + (s.redo_free ? ' data-free="1"' : '') + '>Regenerate</button>';
+                st  = '';   // an angle she has is in use; one that looks wrong is regenerated, which replaces it
+                act = '<button type="button" class="inf-link" data-again="' + esc(s.slot) + '"' + (s.redo_free ? ' data-free="1"' : '') + '>Regenerate</button>';
             } else if (s.status === 'working' || busy_slots[s.slot]) {
                 img = '<span class="inf-angle__img inf-angle__img--ph"><span class="spinner-border spinner-border-sm text-primary" role="status"></span></span>';
                 st  = '<span class="inf-angle__st">Generating</span>';
@@ -358,7 +357,7 @@ jQuery(function ($) {
         function set_seed(a) {
             seed = a ? { id: a.id, url: a.thumb_url || a.display_url } : null;
             $('#inf_car_pick').html(seed ? '<img src="' + esc(seed.url) + '" alt="Seed image"><span class="inf-source__change">Change Image</span>'
-                : '<span class="inf-source__empty"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose From Library Or Upload</span></span>').toggleClass('has-img', !!seed);
+                : '<span class="inf-source__empty"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span></span>').toggleClass('has-img', !!seed);
             $('#inf_car_clear').prop('hidden', !seed);
             fail('');
             read_seed();

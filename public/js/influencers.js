@@ -177,6 +177,8 @@ jQuery(function ($) {
             $('#inf_empty').prop('hidden', true); $('#inf_new_btn').prop('hidden', LIM.included === false);
             $cards.empty().prop('hidden', false);
             list.forEach(function (inf, i) { $cards.append(card(inf, first ? i : 0)); });
+            // Making a new one is a card in the grid, the same size as the others: no button row above taking space.
+            if (LIM.included !== false) { $cards.append('<a class="inf-card inf-card--new" href="/influencers/create"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>New Influencer</span></a>'); }
             first = false;
             remember(list);
         }
@@ -239,6 +241,8 @@ jQuery(function ($) {
      * ------------------------------------------------------------------- */
     function cv_fit() {
         $('[data-cv]').each(function () {
+            if (this.hidden || !this.offsetParent) { return; }   // a panel that is not shown is sized when it is
+            this.style.setProperty('--cv-h', '420px');             // measure from a known height, so a tall earlier value cannot inflate the page
             var top = this.getBoundingClientRect().top + window.scrollY;
             var h = Math.max(420, window.innerHeight - top - 16);
             this.style.setProperty('--cv-h', h + 'px');
@@ -294,6 +298,28 @@ jQuery(function ($) {
         }
         // Settings the page fills in after loading (her images, the lengths a model offers) reach the chips too.
         if (window.MutationObserver) { $('.inf-cv__dock .inf-pop').each(function () { new MutationObserver(cv_labels).observe(this, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] }); }); }
+        // Replicate Photo: the source button opens the Library when no photo is chosen, and the photo (with its face
+        // mask tools) once one is. Choosing a photo opens that window by itself, so the mask is seen being found.
+        $(document).on('click', '#inf_rep_srcbtn', function (e) {
+            e.stopPropagation();
+            if ($('#inf_rep_mask').prop('hidden')) { $('#inf_rep_pick').trigger('click'); return; }
+            var pop = document.getElementById('inf_pop_rsrc'), open = pop.hidden;
+            cv_close_pops();
+            if (open) { pop.hidden = false; $('<div class="inf-pop-backdrop">').appendTo('body').on('click', function () { cv_close_pops(); }); $(window).trigger('resize'); }
+        });
+        var rep_mask = document.getElementById('inf_rep_mask');
+        if (rep_mask && window.MutationObserver) {
+            new MutationObserver(function () {
+                cv_labels();
+                // After the click that chose the photo has finished (it would otherwise count as a click outside and close this again).
+                setTimeout(function () {
+                    var pop = document.getElementById('inf_pop_rsrc');
+                    if (!rep_mask.hidden && pop.hidden) { cv_close_pops(); pop.hidden = false; $('<div class="inf-pop-backdrop">').appendTo('body').on('click', function () { cv_close_pops(); }); $(window).trigger('resize'); }
+                }, 120);
+            }).observe(rep_mask, { attributes: true, attributeFilter: ['hidden'] });
+            var rep_img = document.getElementById('inf_rep_img');
+            if (rep_img) { new MutationObserver(cv_labels).observe(rep_img, { attributes: true, attributeFilter: ['src'] }); }
+        }
         // The prompt grows with what is typed, up to a limit, instead of scrolling inside two lines.
         $(document).on('input', '.inf-cv__prompt', function () { this.style.height = '52px'; this.style.height = Math.min(160, this.scrollHeight) + 'px'; });
     });

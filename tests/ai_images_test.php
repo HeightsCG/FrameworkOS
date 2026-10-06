@@ -70,7 +70,11 @@ $r = InfluencerImageActions::angle_set_generate($cid, $infl, array('left_profile
 check('generating one slot makes one job',              !empty($r['ok']) && count($r['job_ids']) === 1, json_encode($r));
 $aj = $jobs->get_by_id($r['job_ids'][0]); $queue_clean($aj['id']);
 check('the angle job carries its slot and shape',       (string) $aj['type'] === 'angle' && InfluencerJobsModel::params($aj)['angle'] === 'left_profile' && (int) $aj['input_asset_id'] === $base);
-check('an angle costs 30 credits',                      (int) $aj['credits_charged'] === 30 && $bal() === $start - 30);
+// An angle that already has an image is made again at no charge (twice per angle); a first one, or one past its free redos, costs 30.
+$slot_now = null; foreach ($st['slots'] as $sl) { if ($sl['slot'] === 'left_profile') { $slot_now = $sl; } }
+$want = !empty($slot_now['redo_free']) ? 0 : 30;
+check('an angle costs 30 credits, or nothing when it is a free redo', (int) $aj['credits_charged'] === $want && $bal() === $start - $want, 'charged ' . $aj['credits_charged'] . ', expected ' . $want);
+$start -= $want; $start += $want;
 InfluencerJobService::step($aj['id'], array('inline' => true));
 $sent = end(FakeImgProvider::$seen);
 check('her reference is the image sent',                count($sent['image_urls']) === 1 && $sent['aspect_ratio'] === '3:4' && $sent['aspect_value'] === '3:4');
@@ -115,7 +119,7 @@ check('only the creator\'s own keys can be signed',     FaceMask::owns_key(1, 'v
 
 /* ---- replicate: the job ---- */
 $src = 0;
-foreach ((array) $media->get_for_creator($cid, array('type' => 'image')) as $a) { if ((string) $a['status'] === 'ready' && (string) $a['moderation_status'] !== 'blocked' && (int) $a['id'] !== $base) { $src = (int) $a['id']; break; } }
+foreach ((array) $media->get_for_creator($cid, array('type' => 'image')) as $a) { if ((string) $a['status'] === 'ready' && (string) $a['moderation_status'] !== 'blocked' && (int) $a['id'] !== $base && !in_array((int) $a['id'], $refs, true)) { $src = (int) $a['id']; break; } }
 $r = InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $src, 'mode' => 'style', 'prompt' => $sp, 'face' => null, 'mask' => false, 'aspect' => '9:16', 'num_images' => 2));
 check('a replica job starts from a prepared prompt',    !empty($r['ok']) && $r['job_id'] > 0 && $r['masked'] === false, json_encode(array_diff_key($r, array('job' => 1))));
 $rj = $jobs->get_by_id($r['job_id']); $queue_clean($rj['id']);

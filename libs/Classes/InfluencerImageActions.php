@@ -92,8 +92,8 @@ class InfluencerImageActions {
                 $row['status'] = 'ready'; $row['approved'] = !empty($a['approved']); $row['asset_id'] = (int) $a['id'];
                 $row['thumb_url'] = MediaService::signed_url($a, 'thumb', $cid); $row['display_url'] = MediaService::signed_url($a, 'display', $cid);
                 if ($row['approved']) { $approved++; }
-                // An image she has not approved came out wrong: making it again is free, a couple of times.
-                $row['redo_free'] = !$row['approved'] && $row['free_left'] > 0;
+                // Making an angle again because it came out wrong is free, a couple of times per angle.
+                $row['redo_free'] = $row['free_left'] > 0;
             } elseif ($j && in_array((string) $j['status'], array('failed', 'cancelled'), true)) {
                 $row['status'] = 'failed'; $row['job_id'] = (int) $j['id']; $row['error'] = (string) $j['error'];
             }

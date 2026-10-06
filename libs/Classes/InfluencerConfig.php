@@ -75,19 +75,19 @@ class InfluencerConfig {
     const MODELS = array(
         // -- reference image (text -> image), reference path only --
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
-            'label' => 'Best likeness', 'purpose' => 'Sharper faces and skin, slower',
+            'label' => 'Best Likeness', 'purpose' => 'Sharper faces and skin, slower',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_schnell' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux/schnell'),
-            'label' => 'Quick draft', 'purpose' => 'Fast and cheap, good for testing',
+            'label' => 'Quick Draft', 'purpose' => 'Fast and cheap, good for testing',
             'price_usd' => 0.003, 'price_unit' => 'image', 'params' => array('num_inference_steps' => 4), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         // -- reference-based edits (image + prompt -> image): training set, face photo -> reference --
         'nano_banana_edit' => array('provider' => 'fal', 'op' => 'training_set', 'endpoints' => array('fal' => 'fal-ai/nano-banana/edit'),
-            'label' => 'Consistent likeness', 'purpose' => 'Keeps the same face across variations',
+            'label' => 'Consistent Likeness', 'purpose' => 'Keeps the same face across variations',
             'price_usd' => 0.039, 'price_unit' => 'image', 'params' => array(), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS,
             'ops' => array('edit', 'angle'), 'max_refs' => 8),
         // -- replicate a photo (source + identity references -> image) --
         'nano_banana_pro_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/nano-banana-pro/edit'),
-            'label' => 'Best match', 'purpose' => 'Closest to the source photo and her face',
+            'label' => 'Best Match', 'purpose' => 'Closest to the source photo and her face',
             'price_usd' => 0.15, 'price_unit' => 'image', 'params' => array('resolution' => '2K'), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS,
             'ops' => array('angle', 'reference'), 'max_refs' => 8),   // 'reference': Change Look edits her reference image
         'seedream_45_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
@@ -95,11 +95,11 @@ class InfluencerConfig {
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10),
         // -- edit by instruction (image + instruction -> image) --
         'grok_edit' => array('provider' => 'fal', 'op' => 'edit', 'endpoints' => array('fal' => 'xai/grok-imagine-image/edit'),
-            'label' => 'Precise edit', 'purpose' => 'Changes only what you ask for',
+            'label' => 'Precise Edit', 'purpose' => 'Changes only what you ask for',
             'price_usd' => 0.022, 'price_unit' => 'image', 'params' => array('resolution' => '2k'), 'family' => 'grok', 'aspects' => self::GROK_ASPECTS, 'max_refs' => 3),
         // -- generation with the trained weights --
         'flux_lora_quality' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
-            'label' => 'Best quality', 'purpose' => 'Most detail, best for final posts',
+            'label' => 'Best Quality', 'purpose' => 'Most detail, best for final posts',
             'price_usd' => 0.035, 'price_unit' => 'image',
             'params' => array('num_inference_steps' => 28, 'guidance_scale' => 3.5, 'acceleration' => 'none'), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         'flux_lora_fast' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/flux-lora'),
@@ -108,7 +108,7 @@ class InfluencerConfig {
             'params' => array('num_inference_steps' => 16, 'guidance_scale' => 3.5, 'acceleration' => 'regular'), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         // -- image -> video --
         'hailuo_02' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/minimax/hailuo-02/standard/image-to-video'),
-            'label' => 'Natural motion', 'purpose' => 'Smooth, budget friendly',
+            'label' => 'Natural Motion', 'purpose' => 'Smooth, budget friendly',
             'price_usd' => 0.045, 'price_unit' => 'second',
             'durations' => array('6', '10'), 'params' => array('resolution' => '768P', 'prompt_optimizer' => true), 'credits' => array('6' => 200, '10' => 340), 'family' => 'hailuo'),
         'kling_v3' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/image-to-video'),
@@ -159,7 +159,7 @@ class InfluencerConfig {
         // -- voice: ElevenLabs, called directly (ElevenLabsService), priced per 1,000 characters. price_usd is an estimate of
         //    the platform plan's cost per 1,000 characters: set infl_price_eleven_v3 / infl_price_eleven_voice_design to the real one. --
         'eleven_v3' => array('provider' => 'elevenlabs', 'op' => 'speech', 'endpoints' => array(),
-            'label' => 'Eleven v3', 'purpose' => 'Expressive speech with audio tags', 'price_usd' => 0.20, 'price_unit' => '1000_chars', 'params' => array()),
+            'label' => 'Eleven V3', 'purpose' => 'Expressive speech with audio tags', 'price_usd' => 0.20, 'price_unit' => '1000_chars', 'params' => array()),
         'eleven_voice_design' => array('provider' => 'elevenlabs', 'op' => 'voice_design', 'endpoints' => array(),
             'label' => 'Voice Design', 'purpose' => 'Three candidate voices from a description', 'price_usd' => 0.20, 'price_unit' => '1000_chars', 'params' => array()),
         // -- enhance --
@@ -169,7 +169,7 @@ class InfluencerConfig {
             'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8), 'family' => 'clarity'),
         // -- training --
         'flux_lora_fast_training' => array('provider' => 'fal', 'op' => 'training', 'endpoints' => array('fal' => 'fal-ai/flux-lora-fast-training'),
-            'label' => 'Standard training', 'purpose' => 'Flux LoRA, about 1000 steps',
+            'label' => 'Standard Training', 'purpose' => 'Flux LoRA, about 1000 steps',
             'price_usd' => 2.00, 'price_unit' => 'per_1000_steps', 'params' => array()),
     );
 

@@ -168,15 +168,15 @@ jQuery(function ($) {
             $('#inf_mo_image').html(source_html(a, 'fa-regular fa-image', 'Choose From Library Or Upload', 'Change Image')).toggleClass('has-img', !!a);
             run_check();
         }
-        $('#inf_mo_video').on('click', function () { T.pick_image({ type: 'video', title: 'Choose a Motion Video' }, set_video); });
-        $('#inf_mo_image').on('click', function () { if (!making) { T.pick_image({ title: 'Choose the First Frame' }, set_image); } });
+        $('#inf_mo_video').on('click', function () { T.pick_image({ type: 'video', title: 'Choose a Video to Copy the Movement From' }, set_video); });
+        $('#inf_mo_image').on('click', function () { if (!making) { T.pick_image({ title: 'Choose an Image of ' + inf.name }, set_image); } });
         seg_pick('inf_mo_quality', cost);
 
         /* Make First Frame: frame 0 of the motion video, recreated with her in it */
         $('#inf_mo_make').on('click', function () {
             if (!video || making) { return; }
             var p = ((C.pickers || {}).replicate || [])[0];
-            confirm_spend('Make the First Frame?', p ? p.credits : 0, function () {
+            confirm_spend('Make Her Starting Image From The Video?', p ? p.credits : 0, function () {
                 $('#inf_mo_make').prop('disabled', true);
                 $('#inf_mo_image').html('<span class="inf-source__empty"><span class="spinner-border spinner-border-sm text-primary" role="status"></span><span id="inf_mo_making">Reading the first moment of the video</span></span>').removeClass('has-img');
                 making = function () {}; cost();
@@ -304,6 +304,11 @@ jQuery(function ($) {
             var two = (second() === 'described' && seg_val('inf_sc_gender') === 'man') ? 'GUY' : 'GIRL';
             return second() === 'none' ? [word1 + ' 1'] : [word1 + ' 1', two + ' 2'];
         }
+        // What the speaker choice shows: real names, not the script's internal "GIRL 1 / GUY 2" labels.
+        function speaker_names() {
+            var other = second() === 'influencer' ? ($('#inf_sc_other option:selected').text() || 'The Other Influencer') : 'The Other Person';
+            return [inf.name, other];
+        }
         function model_key() { return String($('#inf_sc_model .inf-opt.is-on').data('key') || ''); }
         function price() { return (build && build.prices) ? (build.prices[model_key()] || 0) : 0; }
         function fail(msg) { $('#inf_sc_err').text(msg || '').prop('hidden', !msg); }
@@ -316,13 +321,20 @@ jQuery(function ($) {
             var L = labels();
             $('#inf_sc_lines').html(lines.map(function (l, i) {
                 var who = L.length > 1
-                    ? '<select class="form-select inf-line__who" data-f="speaker" aria-label="Speaker">' + L.map(function (name, k) { return '<option value="' + (k + 1) + '"' + (l.speaker === k + 1 ? ' selected' : '') + '>' + esc(name) + '</option>'; }).join('') + '</select>'
-                    : '<input type="text" class="form-control inf-line__who" value="' + esc(L[0]) + '" aria-label="Speaker" readonly tabindex="-1">';
+                    ? '<select class="form-select inf-line__who" data-f="speaker" aria-label="Speaker">' + L.map(function (name, k) { return '<option value="' + (k + 1) + '"' + (l.speaker === k + 1 ? ' selected' : '') + '>' + esc(speaker_names()[k] || name) + '</option>'; }).join('') + '</select>'
+                    : '<input type="hidden" class="inf-line__who" value="' + esc(L[0]) + '">';
                 return '<li class="inf-line" data-i="' + i + '">' + who +
-                    '<textarea class="form-control inf-line__text" data-f="text" rows="1" maxlength="500" placeholder="I have to tell you something" aria-label="Line ' + (i + 1) + '">' + esc(l.text) + '</textarea>' +
+                    '<textarea class="form-control inf-line__text" data-f="text" rows="1" maxlength="500" placeholder="' + esc(L.length > 1 ? 'What is said' : 'What ' + inf.name + ' says') + '" aria-label="Line ' + (i + 1) + '">' + esc(l.text) + '</textarea>' +
                     '<button type="button" class="inf-line__rm" data-rm title="Remove Line" aria-label="Remove line ' + (i + 1) + '"' + (lines.length === 1 ? ' disabled' : '') + '><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
-                    '<div class="inf-line__more"><input type="text" class="form-control" data-f="cue" maxlength="160" placeholder="Whispering, half smiling" aria-label="Acting cue" value="' + esc(l.cue) + '">' +
-                    '<input type="text" class="form-control" data-f="say" maxlength="200" placeholder="Nova as NOH-vah" aria-label="Pronunciation" value="' + esc(l.say) + '"></div></li>';
+                    // A line is just what is said. Direction (how it is said, how a word is pronounced) is there for those who
+                    // want it, behind one link, each with its own label.
+                    (function () {
+                        var open = l.open || String(l.cue || '') !== '' || String(l.say || '') !== '';
+                        return (open ? '' : '<button type="button" class="inf-link inf-line__add" data-more>Add Direction</button>') +
+                            '<div class="inf-line__more"' + (open ? '' : ' hidden') + '>' +
+                            '<label class="inf-line__lab">How It Is Said<input type="text" class="form-control" data-f="cue" maxlength="160" placeholder="Whispering, half smiling" value="' + esc(l.cue) + '"></label>' +
+                            '<label class="inf-line__lab">How To Pronounce A Word<input type="text" class="form-control" data-f="say" maxlength="200" placeholder="Nova as NOH-vah" value="' + esc(l.say) + '"></label></div>';
+                    })() + '</li>';
             }).join(''));
             $('#inf_sc_add').prop('hidden', lines.length >= MAX);
         }
@@ -355,6 +367,7 @@ jQuery(function ($) {
             if (this.tagName === 'TEXTAREA') { this.style.height = 'auto'; this.style.height = Math.min(160, this.scrollHeight + 2) + 'px'; }
             soon();
         });
+        $('#inf_sc_lines').on('click', '[data-more]', function () { var i = parseInt($(this).closest('.inf-line').data('i'), 10); lines[i].open = true; render_lines(); $('#inf_sc_lines .inf-line').eq(i).find('[data-f="cue"]').trigger('focus'); });
         $('#inf_sc_lines').on('click', '[data-rm]', function () { if (lines.length < 2) { return; } lines.splice(parseInt($(this).closest('.inf-line').data('i'), 10), 1); render_lines(); soon(); });
         $('#inf_sc_add').on('click', function () {
             if (lines.length >= MAX) { return; }

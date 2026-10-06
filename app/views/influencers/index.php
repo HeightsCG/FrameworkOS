@@ -1,11 +1,5 @@
 <?php require __DIR__ . '/_top.php'; ?>
 
-    <header class="inf-head">
-        <div></div>
-        <div class="inf-head__actions">
-            <a href="/influencers/create" class="btn btn-primary" id="inf_new_btn" hidden><i class="fa-solid fa-plus"></i> New Influencer</a>
-        </div>
-    </header>
 
     <?php if (empty($this->config['enabled'])): ?>
     <div class="alert alert-warning d-flex align-items-center gap-2 py-2" role="alert">

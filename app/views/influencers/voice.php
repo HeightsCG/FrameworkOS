@@ -8,9 +8,9 @@
         <button type="button" class="inf-sub__item" role="tab" id="inf_vo_tab_speech" data-tab="speech" aria-selected="false" aria-controls="inf_vo_panel_speech">Text To Speech</button>
     </nav>
 
-    <div class="inf-gen inf-gen--wide" id="inf_vo_panel_voices" role="tabpanel" aria-labelledby="inf_vo_tab_voices">
+    <div class="inf-gen inf-gen--wide" data-cv id="inf_vo_panel_voices" role="tabpanel" aria-labelledby="inf_vo_tab_voices">
         <form class="inf-gen__form" id="inf_vo_design_card" autocomplete="off" onsubmit="return false;">
-                <div class="inf-sec__head"><h2 class="inf-sec__h">Design A Voice</h2><span class="inf-working" id="inf_vd_filling" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Filling in from <?php echo $her; ?> persona</span><button type="button" class="inf-link" id="inf_vd_refill" hidden><i class="fa-solid fa-rotate-right" aria-hidden="true"></i> Fill In Again</button></div>
+                <div class="inf-sec__head"><h2 class="inf-sec__h">Design A Voice</h2><span class="inf-working" id="inf_vd_filling" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Generating</span><button type="button" class="inf-link" id="inf_vd_refill"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Generate</button></div>
                 <div class="inf-grid">
                     <div class="inf-field inf-field--full"><label class="inf-label" for="inf_vd_age">Age And Vibe</label><input type="text" class="form-control" id="inf_vd_age" maxlength="200" placeholder="24 year old, warm and playful, slightly breathy"><p class="inf-err" data-err="age_vibe" role="alert" hidden></p></div>
                     <div class="inf-field"><label class="inf-label" for="inf_vd_keyword">Social Keyword</label>
@@ -29,9 +29,13 @@
                     <button type="button" class="btn btn-secondary" id="inf_vd_go"><i class="fa-solid fa-sliders"></i> Design Voice</button>
                 </div>
                 <p class="inf-err" id="inf_vd_err" role="alert" hidden></p>
-                <ol class="inf-cands" id="inf_vd_cands" hidden></ol>
             </form>
         <section class="inf-gen__preview">
+            <?php /* The voices just designed appear here, beside the form, to listen to and save: never under it. */ ?>
+            <div class="inf-result inf-candcard" id="inf_vd_cands_card">
+                <div class="inf-sec__head"><h2 class="inf-sec__h">Listen And Save</h2></div>
+                <ol class="inf-cands" id="inf_vd_cands" hidden></ol>
+            </div>
             <div class="inf-result" id="inf_vo_voices_card">
                 <div class="inf-sec__head"><h2 class="inf-sec__h">Voices</h2><span class="inf-wiz__meta" id="inf_vo_count"></span></div>
                 <div class="inf-state-loading" id="inf_vo_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading voices…</div>
@@ -46,7 +50,7 @@
         </section>
     </div>
 
-    <div class="inf-gen inf-gen--wide" id="inf_vo_panel_speech" role="tabpanel" aria-labelledby="inf_vo_tab_speech" hidden>
+    <div class="inf-gen inf-gen--wide" data-cv id="inf_vo_panel_speech" role="tabpanel" aria-labelledby="inf_vo_tab_speech" hidden>
         <form class="inf-gen__form" id="inf_vo_form" autocomplete="off" onsubmit="return false;">
 
             <div class="inf-field">

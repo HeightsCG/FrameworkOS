@@ -936,3 +936,101 @@ a.inf-link:hover{ text-decoration:underline; }
 .inf-angle__act{ flex-wrap:wrap; gap:6px 10px; }
 @media (max-width:1380px){ .inf-angles{ grid-template-columns:repeat(4, minmax(0, 1fr)); } }
 @media (max-width:640px){ .inf-angles{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+
+/* canvas pages: native selects as chips; the Carousel canvas; a compact source chip */
+select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-right:26px; background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='%23707070' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round' d='m4 10 4-4 4 4'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:right 8px center; background-size:12px; font:inherit; font-size:13px; font-weight:500; }
+.inf-cv__canvas--car{ display:flex; flex-direction:column; gap:10px; }
+.inf-cv__canvas--car .inf-car__head{ flex:0 0 auto; margin:0; }
+.inf-cv__canvas--car .inf-car__empty{ flex:1 1 auto; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; }
+.inf-cv__canvas--car .inf-car__empty[hidden]{ display:none; }
+.inf-cv__canvas--car .inf-car{ flex:1 1 auto; align-content:start; }
+.inf-cv__canvas--car .inf-car__foot{ flex:0 0 auto; position:sticky; bottom:-10px; margin:0 -10px -10px; padding:10px; background:var(--surface); border-top:1px solid var(--line); }
+.inf-source.inf-cv__source{ min-height:0; }
+.inf-source.inf-cv__source{ width:56px; height:70px; padding:0; border:1px dashed var(--muted2); background:#FAFAFA; color:var(--muted); }
+.inf-source.inf-cv__source .inf-source__empty{ display:flex; flex-direction:column; align-items:center; gap:2px; padding:2px; font-size:10px; font-weight:600; line-height:1.15; text-align:center; }
+.inf-source.inf-cv__source .inf-source__empty i{ font-size:14px; }
+.inf-source.inf-cv__source.has-img{ border-style:solid; border-color:var(--line); }
+.inf-source.inf-cv__source img{ width:100%; height:100%; object-fit:cover; }
+.inf-source.inf-cv__source .inf-source__change{ display:none; }
+.inf-source.inf-cv__source.is-reading::after{ content:""; padding:0; }
+.inf-source.inf-cv__source.is-reading::before{ width:18px; height:18px; margin:-9px 0 0 -9px; }
+.inf-cv__dock > .inf-err{ margin:0; }
+.inf-cv__bar .tut-btn{ margin-left:0; }
+
+/* Replicate Photo: the source photo and its face-mask tools live in a window opened from the bar */
+.inf-pop--src{ width:min(520px, calc(100vw - 32px)); }
+.inf-pop--src > .inf-source{ display:none; }   /* the Library picker is opened from the bar's source button */
+.inf-pop--src .inf-mask__stage img{ max-height:min(52vh, 460px); }
+.inf-pop__foot{ display:flex; justify-content:flex-end; margin-top:12px; }
+.inf-cv__canvas--car .inf-car__empty{ border:0; }
+.inf-card--new{ min-height:0; padding:16px; border:1px dashed var(--muted2); border-radius:2px; animation:none; opacity:1; transform:none; }
+.inf-card--new:hover{ background:var(--vsoft); }
+.inf-card--new i{ font-size:20px; }
+.inf-card--new span{ font-size:14px; }
+
+/* ---- Tools whose form is too big for a bar (Motion Control, Talking, Replace Character, Scene, Voice):
+        same rules, two panes. The form scrolls inside itself with its button pinned; the results fill the rest
+        as a grid; the page itself does not scroll. ---- */
+.inf-gen[data-cv]{ height:var(--cv-h, 70vh); min-height:420px; align-items:stretch; }
+.inf-gen[data-cv] > .inf-gen__form{ min-height:0; overflow-y:auto; overscroll-behavior:contain; }
+.inf-gen[data-cv] > .inf-gen__preview{ position:static; align-self:stretch; min-height:0; display:flex; flex-direction:column; gap:10px; overflow:hidden; }
+.inf-gen[data-cv] .inf-gen__stage{ flex:0 0 54%; min-height:0; }
+.inf-gen[data-cv] .inf-gen__stage .inf-gen__main, .inf-gen[data-cv] .inf-gen__stage .inf-gen__main img, .inf-gen[data-cv] .inf-gen__stage .inf-gen__video{ max-height:100%; height:100%; width:auto; max-width:100%; object-fit:contain; }
+/* nothing selected: no black box. With results, the grid takes the whole pane; with none, a quiet empty state does. */
+.inf-gen[data-cv] .inf-gen__stage:has(> .inf-gen__idle:not([hidden])){ flex:1 1 auto; background:var(--surface); border:1px solid var(--line); }
+.inf-gen[data-cv] .inf-gen__stage:has(> .inf-gen__idle:not([hidden])) .inf-gen__idle{ color:var(--muted); }
+.inf-gen[data-cv] .inf-gen__preview:has(.inf-strip > *) .inf-gen__stage:has(> .inf-gen__idle:not([hidden])){ display:none; }
+.inf-gen[data-cv] .inf-strip{ flex:1 1 auto; min-height:0; overflow-y:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; align-content:start; padding:10px; background:var(--surface); border:1px solid var(--line); border-radius:2px; }
+.inf-gen[data-cv] .inf-strip:empty{ display:none; }
+.inf-gen[data-cv] .inf-strip__item{ width:auto; height:auto; aspect-ratio:3 / 4; }
+.inf-gen[data-cv] .inf-result{ flex:0 0 auto; padding:10px; }
+.inf-gen[data-cv] > .inf-gen__preview > .inf-result:only-child, .inf-gen[data-cv] > .inf-gen__preview > .inf-result:first-child:last-of-type{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+#inf_vo_panel_voices > .inf-gen__preview > .inf-result, #inf_vo_panel_speech > .inf-gen__preview > .inf-result{ flex:1 1 auto; min-height:0; overflow-y:auto; }
+@media (max-width:980px){
+    .inf-gen[data-cv]{ height:auto; }
+    .inf-gen[data-cv] > .inf-gen__form, .inf-gen[data-cv] > .inf-gen__preview{ overflow:visible; }
+    .inf-gen[data-cv] .inf-gen__stage{ flex:0 0 auto; min-height:300px; }
+}
+
+/* ---- Replace Character and Scene: say what the tool does, ask for things in the order they happen, fold away what is automatic ---- */
+.inf-gen__idle h2{ margin:4px 0 0; font-size:18px; font-weight:700; color:var(--text); }
+.inf-gen[data-cv] .inf-gen__idle p{ max-width:46ch; font-size:14px; line-height:1.5; }
+.inf-after{ display:flex; flex-direction:column; gap:16px; }
+#inf_rp_form:not(:has(#inf_rp_video.has-img)) .inf-after, #inf_rp_form:not(:has(#inf_rp_video.has-img)) .inf-gen__submit{ display:none; }   /* nothing to fill in until there is a video */
+#inf_rp_form:not(:has(#inf_rp_video.has-img)) #inf_rp_video{ min-height:220px; }
+.inf-opts:has(> .inf-opt:only-child){ display:none; }                 /* one model = no choice to make */
+.inf-field:has(> .inf-opts > .inf-opt:only-child){ display:none; }
+.inf-fold{ border-top:1px solid var(--line2); padding-top:10px; }
+.inf-fold > summary{ list-style:none; cursor:pointer; display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:var(--t2); }
+.inf-fold > summary::-webkit-details-marker{ display:none; }
+.inf-fold > summary::before{ content:"\f054"; font-family:"Font Awesome 6 Free"; font-weight:900; font-size:10px; color:var(--muted); transition:transform .12s; }
+.inf-fold[open] > summary::before{ transform:rotate(90deg); }
+.inf-fold > summary:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); border-radius:2px; }
+.inf-fold > .inf-field, .inf-fold > .inf-grid{ margin-top:12px; }
+/* one speaker: no speaker box, so the line takes the row */
+.inf-line:has(> input[type="hidden"].inf-line__who){ grid-template-columns:minmax(0, 1fr) 32px; }
+.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__text{ grid-column:1; }
+.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__rm{ grid-column:2; }
+.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__more{ grid-column:1 / 3; }
+/* Replace Character before a video is chosen: the picker is the form, so it takes the form's height */
+#inf_rp_form:not(:has(#inf_rp_video.has-img)) > .inf-field:first-of-type{ flex:1 1 auto; display:flex; flex-direction:column; }
+#inf_rp_form:not(:has(#inf_rp_video.has-img)) #inf_rp_video{ flex:1 1 auto; }
+#inf_rp_form:not(:has(#inf_rp_video.has-img)) > :last-child{ margin-bottom:16px; }
+
+/* Voice: the voices just designed sit at the top of the right pane, in view */
+.inf-candcard:not(:has(#inf_vd_cands:not([hidden]))){ display:none; }
+#inf_vo_panel_voices > .inf-gen__preview{ overflow-y:auto; }
+#inf_vo_panel_voices > .inf-gen__preview > .inf-result{ flex:0 0 auto; overflow:visible; }
+#inf_vo_panel_voices > .inf-gen__preview > #inf_vo_voices_card{ flex:1 0 auto; }
+.inf-candcard .inf-cands{ margin:0; padding:0; border-top:0; }
+#inf_tk_voice.is-text{ color:var(--muted); font-weight:500; cursor:default; text-decoration:none; }
+#inf_tk_voice[hidden]{ display:none; }
+
+/* Scene: a line is one box; direction is optional, behind a link, with labels */
+.inf-line__add{ grid-column:1 / -1; justify-self:start; font-size:13px; padding:0; }
+.inf-line__more{ grid-column:1 / -1 !important; grid-template-columns:1fr; gap:8px; }
+.inf-line__more[hidden]{ display:none; }
+.inf-line__lab{ display:flex; flex-direction:column; gap:4px; margin:0; font-size:13px; font-weight:500; color:var(--muted); }
+.inf .inf-line textarea.inf-line__text{ min-height:64px; }
+#inf_sc_second .inf-seg__opt:disabled{ display:none; }   /* no other influencer to add: the choice is not offered */
+.inf-line__rm:disabled{ visibility:hidden; }   /* the only line cannot be removed, so the control is not offered */

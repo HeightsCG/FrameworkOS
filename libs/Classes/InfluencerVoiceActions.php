@@ -399,7 +399,7 @@ class InfluencerVoiceActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if (!VideoTools::available()) { return self::fail('Talking video is not available right now.'); }
         $img = (new MediaAssetsModel())->get_one($cid, (int) ($in['image_asset_id'] ?? 0));
-        if (!$img || (string) $img['type'] !== 'image' || (string) $img['status'] !== 'ready' || (string) $img['moderation_status'] === 'blocked') { return self::fail('Pick a ready close-up image.'); }
+        if (!$img || (string) $img['type'] !== 'image' || (string) $img['status'] !== 'ready' || (string) $img['moderation_status'] === 'blocked') { return self::fail('Pick an image where the face is clear.'); }
         $model = InfluencerConfig::resolve_model('talking', '');
         if (!$model) { return self::fail('No lip sync model is configured.'); }
         $max_total = (int) InfluencerConfig::get('talking_max_seconds', 300);

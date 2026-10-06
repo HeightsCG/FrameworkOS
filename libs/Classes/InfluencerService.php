@@ -77,7 +77,9 @@ class InfluencerService {
         if ($base > 0) { $ids[] = $base; }
         $by = array();
         foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle') as $r) {
-            if (!empty($r['approved']) && (string) $r['status'] === 'ready' && (string) $r['moderation_status'] !== 'blocked') { $by[(string) $r['angle']] = (int) $r['id']; }
+            // Every angle she has is used: the newest ready image of each (the list is oldest first, so a later one replaces an earlier one).
+            // There is no separate approval step: an angle that looks wrong is regenerated, which replaces it.
+            if ((string) $r['status'] === 'ready' && (string) $r['moderation_status'] !== 'blocked') { $by[(string) $r['angle']] = (int) $r['id']; }
         }
         foreach (array_keys(self::ANGLES) as $slot) { if (isset($by[$slot])) { $ids[] = $by[$slot]; } }
         return array_slice(array_values(array_unique($ids)), 0, max(1, (int) $max));
@@ -165,13 +167,12 @@ class InfluencerService {
         return is_array($infl) ? self::body_text($infl['body_description'] ?? '') : '';
     }
 
-    /** Her full-body reference image (the Full Body Front angle): the approved one, else the newest. 0 when none. */
+    /** Her full-body reference image (the Full Body Front angle): the newest one. 0 when none. */
     public static function body_reference($creator_id, array $infl){
         $best = 0;
         foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle') as $r) {   // oldest first
             if ((string) $r['angle'] !== 'full_front' || (string) $r['status'] !== 'ready' || (string) $r['moderation_status'] === 'blocked') { continue; }
-            if (!empty($r['approved'])) { return (int) $r['id']; }
-            $best = (int) $r['id'];
+            $best = (int) $r['id'];   // the newest one
         }
         return $best;
     }
