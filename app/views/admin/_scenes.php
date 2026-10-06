@@ -6,7 +6,7 @@
         <button type="button" class="adm-btn adm-btn--ok" id="admSceneNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Scene</button>
     </div>
     <?php if (empty($scenes)): ?>
-        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-panorama"></i></span><p class="adm-empty__t">No Scene Templates</p><p class="adm-empty__x">Creators see templates in Content Studio, Scenes.</p></div>
+        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-panorama"></i></span><p class="adm-empty__t">No Scene Templates</p><p class="adm-empty__x">Creators see templates in Influencers, Generate Images, Scenes.</p></div>
     <?php else: ?>
     <div class="adm-table adm-table--scenes">
         <div class="adm-table__head"><span>Scene</span><span>Shape</span><span>Rating</span><span>Status</span><span></span></div>

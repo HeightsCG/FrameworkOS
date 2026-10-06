@@ -1,6 +1,6 @@
 <?php
 /**
- * The scene template library (Studio, Scenes): base prompts a creator runs with one of their
+ * The scene template library (Influencers, Generate Images, Scenes): base prompts a creator runs with one of their
  * influencers for four variants, then rates. Platform scenes are admin-managed and read-only for
  * creators; a creator also keeps scenes of their own (add, edit, turn off, delete). Adult templates
  * are listed only for accounts that opted in to adult content (user_accounts.adult_content_enabled),

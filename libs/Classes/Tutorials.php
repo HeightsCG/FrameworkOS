@@ -115,7 +115,7 @@ class Tutorials {
         )),
         '13' => array('section' => 'studio', 'title' => 'Content Studio Tour', 'secs' => 49, 'steps' => array(
             'This is Content Studio, home base for everything you publish.',
-            'Six tabs run across the top: Posts, Library, Calendar, Collections, Scheduler and Scenes.',
+            'Five tabs run across the top: Posts, Library, Calendar, Collections and Scheduler.',
             'Posts lists everything you\'ve made, with its status, audience, views, comments, earnings and shares.',
             'Search by caption, or filter to drafts, scheduled, published or archived.',
             'The three dot menu on any post lets you duplicate it, share it to your socials, archive it or remove it.',
@@ -124,7 +124,6 @@ class Tutorials {
             'Calendar shows what went out and what\'s coming up.',
             'Collections group related files so they\'re easy to find.',
             'Scheduler runs your automations and scheduled messages.',
-            'Scenes are ready-made ideas you can run with any of your influencers.',
             'And the Action button is your shortcut to create anything.',
         )),
         '14' => array('section' => 'studio', 'title' => 'Create and Publish a Post', 'secs' => 52, 'steps' => array(

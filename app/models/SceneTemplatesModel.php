@@ -1,6 +1,6 @@
 <?php
 /**
- * Scene templates: base prompts creators run with one of their influencers (Studio, Scenes).
+ * Scene templates: base prompts creators run with one of their influencers (Influencers, Generate Images, Scenes).
  * Platform scenes (creator_id NULL) are admin-managed and read-only for creators; a creator's own
  * scenes (creator_id = the owner account) are theirs to add, edit, turn off and delete. Adult
  * platform templates are only listed for viewers who opted in to adult content. Votes record a

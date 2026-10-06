@@ -213,6 +213,9 @@ class MediaAssetsModel extends Model {
             $join .= ' JOIN collection_assets fca ON fca.asset_id = a.id AND fca.collection_id = :col';
             $params['col'] = (int) $filters['collection'];
         }
+        if (!empty($filters['brand'])) {   // AI-made with no influencer in it (Generate Images / Videos in brand mode)
+            $where[] = "a.provenance = 'generated' AND COALESCE(a.gen_influencer_id, 0) = 0 AND NOT EXISTS (SELECT 1 FROM influencer_images bii WHERE bii.asset_id = a.id)";
+        }
         if (!empty($filters['influencer'])) {   // media attached to one AI influencer, optionally by role
             $join .= ' JOIN influencer_images fii ON fii.asset_id = a.id AND fii.influencer_id = :infl';
             $params['infl'] = (int) $filters['influencer'];

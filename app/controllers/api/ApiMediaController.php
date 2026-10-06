@@ -314,6 +314,7 @@ class ApiMediaController extends BaseApiController {
             'search'     => (string) ($this->post['search'] ?? ''),
             'influencer' => (int) ($this->post['influencer'] ?? 0),
             'role'       => (string) ($this->post['role'] ?? ''),
+            'brand'      => (int) ($this->post['brand'] ?? 0),   // generated with no influencer in it
         ];
         $rows = (new MediaAssetsModel())->get_for_creator($creator_id, $filters);
         $assets = [];

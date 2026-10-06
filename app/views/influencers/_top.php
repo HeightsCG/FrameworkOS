@@ -35,7 +35,7 @@ $video_modes = array('videos' => 'Image To Video', 'motion' => 'Motion Control',
       if (!empty($this->needs_plan) || (!$brand_mode && $target <= 0)) { $sub_modes = array(); } ?>
     <nav class="inf-nav<?php echo $sub_modes ? ' inf-nav--sub' : ''; ?>" aria-label="Influencer sections">
         <?php foreach ($nav as $n):
-            $off = !empty($this->needs_plan) || ($n['needs'] && $target <= 0);
+            $off = $n['key'] !== 'index' && (!empty($this->needs_plan) || ($n['needs'] && $target <= 0));
             $on  = ($page === $n['key']) || ($page === 'create' && $n['key'] === 'index') || ($n['key'] === 'images' && isset($image_modes[$page])) || ($n['key'] === 'videos' && isset($video_modes[$page])); ?>
             <?php if ($off): ?>
             <span class="inf-nav__item is-off" aria-disabled="true" title="<?php echo !empty($this->needs_plan) ? 'Choose a plan first' : 'Train an influencer first'; ?>"><i class="fa-solid <?php echo $e($n['icon']); ?>"></i> <?php echo $e($n['label']); ?></span>

@@ -1,4 +1,4 @@
-/* /admin, Scenes tab: the scene template library creators pick from in Content Studio, Scenes.
+/* /admin, Scenes tab: the scene template library creators pick from in Influencers, Generate Images, Scenes.
    Create and edit in one window (thumbnail included); row actions live in the row menu. */
 (function () {
     "use strict";

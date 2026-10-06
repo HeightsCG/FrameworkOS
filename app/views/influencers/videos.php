@@ -1,5 +1,8 @@
 <?php require __DIR__ . '/_top.php'; ?>
-<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config; $gp = InfluencerService::prompts_for((string) ($infl['gender'] ?? 'woman')); ?>
+<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config;
+      /* Brand mode (/influencers/videos/0): any Library image becomes a video with media_generate_video; no influencer prompts or facts. */
+      $brand = !empty($this->brand_mode);
+      $gp = $brand ? array('video' => array('Slow push-in, light shifting across the scene')) : InfluencerService::prompts_for((string) ($infl['gender'] ?? 'woman')); ?>
 
 
     <?php /* Canvas first, as on Generate Images: her videos fill the page; one bar at the bottom makes more. */ ?>
@@ -19,11 +22,13 @@
                     <video class="inf-gen__video" id="inf_video" controls playsinline hidden></video>
                 </div>
                 <div class="inf-cv__actions" id="inf_vresult" hidden>
+                    <?php if (!$brand): ?>
                     <div class="inf-cv__facts"><div class="inf-grid">
                     <div class="inf-field"><div class="inf-label">Model</div><div class="inf-result__model" id="inf_vres_model"></div></div>
                     <div class="inf-field"><div class="inf-label">Duration</div><div class="inf-result__model" id="inf_vres_dur"></div></div>
                     <div class="inf-field inf-field--full"><div class="inf-label">Motion</div><div class="inf-result__text" id="inf_vres_prompt"></div></div>
                 </div></div>
+                    <?php endif; ?>
                     <div class="inf-result__actions">
                     <button type="button" class="btn btn-secondary" id="inf_vres_download"><i class="fa-solid fa-download"></i> Download</button>
                     <button type="button" class="btn btn-secondary" id="inf_vres_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
@@ -40,6 +45,7 @@
                 <div class="inf-chips inf-stills__roles" id="inf_still_roles" role="group" aria-label="Filter images" hidden></div>
                 <div class="inf-photos inf-stills" id="inf_stills"><span class="inf-wiz__meta">Loading images…</span></div>
             </div>
+            <?php if (!$brand): ?>
             <div class="inf-pop inf-pop--modal" id="inf_pop_videas" role="dialog" aria-modal="true" aria-labelledby="inf_pop_videas_h" hidden>
                 <div class="inf-pop__h" id="inf_pop_videas_h">Ideas <button type="button" class="inf-pop__x" data-pop-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
                 <div class="inf-chips" id="inf_vprompt_chips">
@@ -48,6 +54,7 @@
                     <?php endforeach; ?>
                 </div>
             </div>
+            <?php endif; ?>
             <div class="inf-pop" id="inf_pop_vmodel" hidden>
                 <div class="inf-pop__h">Model</div>
                 <div class="inf-opts" id="inf_vmodel">
@@ -69,9 +76,11 @@
                 </div>
             </div>
             <div class="inf-cv__bar">
+                <?php if (!$brand): ?>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_videas" aria-expanded="false"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Ideas</button>
                 <button type="button" class="inf-cvchip" id="inf_vprompt_auto"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write It For Me</button>
                 <span class="inf-cv__sep" aria-hidden="true"></span>
+                <?php endif; ?>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_vmodel" aria-expanded="false"><span data-pop-label="#inf_vmodel .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_vdur" aria-expanded="false"><span data-pop-label="#inf_vdur .inf-seg__opt.is-on">Length</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <span class="inf-cv__status" id="inf_vbusy" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> <span id="inf_vbusy_text">Generating</span></span>

@@ -96,6 +96,14 @@ check('list_scene_templates includes the creator\'s own first', !empty($mcp['tem
 $defs = array_column(McpTools::definitions(), null, 'name');
 check('the connector lists create_scene_template',      isset($defs['create_scene_template']) && in_array('prompt', $defs['create_scene_template']['inputSchema']['required'], true));
 
+/* ---- the page: Scenes lives under Influencers, Generate Images (route + view + script), not in the Studio ---- */
+require_once $root . '/libs/Classes/Controller.php';
+require_once $root . '/app/controllers/InfluencersController.php';
+check('InfluencersController serves /influencers/scenes/<id>', method_exists('InfluencersController', 'scenesAction'));
+check('the Scenes view and script exist',                is_file($root . '/app/views/influencers/scenes.php') && is_file($root . '/public/js/influencers-scenes.js'));
+check('the image-mode row lists Scenes',                 strpos((string) file_get_contents($root . '/app/views/influencers/_top.php'), "'scenes' => 'Scenes'") !== false);
+check('the Studio no longer has a Scenes tab',           !is_file($root . '/app/views/studio/_scenes.php') && strpos((string) file_get_contents($root . '/app/views/studio/index.php'), 'csTabScenes') === false);
+
 /* ---- delete ---- */
 $r = SceneTemplates::delete($cid, $id);
 check('the owner deletes it',                           !empty($r['ok']) && $r['id'] === $id);
