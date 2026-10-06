@@ -186,7 +186,7 @@ class Tutorials {
             'Set the schedule, daily or weekly on the days you pick.',
             'Click Create message. It shows in Scheduler, and Send now sends it right away.',
         )),
-        '20' => array('section' => 'studio', 'title' => 'Generate Images with AI', 'secs' => 33, 'steps' => array(
+        '20' => array('section' => 'influencers', 'title' => 'Generate Images with AI', 'secs' => 33, 'steps' => array(
             'Need a fresh image with nobody in it? Open Influencers, then Generate Images, and choose No Influencer in the switcher at the top right.',
             'Describe what you want. The more specific, the better.',
             'Pick a size: portrait, feed, story, square or landscape.',
@@ -229,7 +229,7 @@ class Tutorials {
             'Type the change, for example make the dress red, and click Apply Edit.',
             'The edit is saved as a new version. The original stays in your Library.',
         )),
-        '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 25, 'steps' => array(
+        '26' => array('section' => 'influencers', 'title' => 'Use Scene Templates', 'secs' => 25, 'steps' => array(
             'Scenes are ready-made ideas you can run with any of your influencers.',
             'Open Influencers, Generate Images, then Scenes. Click New Scene to save an idea of your own; the platform scenes sit beside it.',
             'Pick a scene and click Generate. You get four variants of your influencer in it.',
