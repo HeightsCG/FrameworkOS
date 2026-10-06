@@ -268,7 +268,7 @@ class InfluencerJobService {
         return self::fail_job($m->get_by_id($job['id']), $m, 'submitting', $last['error_code'], $last['error']);
     }
 
-    /** Text to speech: render the takes now (InfluencerVoiceActions::render_takes) and finish the job. Takes are kept as previews until one is saved. */
+    /** Text to speech: render the takes now (InfluencerVoiceActions::render_takes), finish the job, and put every take in the Library (the creator paid for each; unwanted ones are deleted there). */
     private static function step_speech(array $job, InfluencerJobsModel $m, array $model){
         $r = InfluencerVoiceActions::render_takes($job);
         if (empty($r['ok'])) { return self::fail_job($m->get_by_id($job['id']), $m, 'submitting', 'provider', (string) $r['error']); }
@@ -279,6 +279,13 @@ class InfluencerJobService {
         $n = $m->transition($job['id'], 'submitting', array('status' => 'done', 'provider' => 'elevenlabs', 'result_json' => json_encode($result), 'cost_usd' => round($cost, 4),
             'submitted_at' => date('Y-m-d H:i:s'), 'finished_at' => date('Y-m-d H:i:s'), 'error' => null, 'error_code' => null));
         if ($n !== 1) { return self::out('submitting', false, 5, 'lost the transition'); }
+        $cid = (int) $job['creator_id'];
+        try {
+            $user = self::user($cid);
+            foreach (array_keys($r['takes']) as $i) { InfluencerVoiceActions::speech_save($cid, $user, (int) $job['id'], (int) $i); }
+        } catch (\Throwable $e) {
+            error_log('[influencer job] ' . (int) $job['id'] . ': could not save a take to the library: ' . $e->getMessage());   // the takes still play from their previews
+        }
         return self::out('done', true, null, 'rendered ' . count($r['takes']) . ' take(s)');
     }
 
@@ -941,7 +948,7 @@ class InfluencerJobService {
             );
         }
         $p = InfluencerJobsModel::params($job);
-        $takes = array();   // speech: the takes of this run, playable until one is saved to the Library
+        $takes = array();   // speech: the takes of this run, each already in the Library (asset_id) with a preview URL
         if ((string) $job['type'] === 'speech') {
             foreach ((array) ($result['takes'] ?? array()) as $i => $t) {
                 $takes[] = array('index' => (int) $i, 'duration' => (float) ($t['duration'] ?? 0), 'asset_id' => (int) ($t['asset_id'] ?? 0),

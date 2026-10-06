@@ -115,7 +115,7 @@ class Tutorials {
         )),
         '13' => array('section' => 'studio', 'title' => 'Content Studio Tour', 'secs' => 49, 'steps' => array(
             'This is Content Studio, home base for everything you publish.',
-            'Five tabs run across the top: Posts, Library, Calendar, Collections and Scheduler.',
+            'Six tabs run across the top: Posts, Library, Calendar, Collections, Scheduler and Scenes.',
             'Posts lists everything you\'ve made, with its status, audience, views, comments, earnings and shares.',
             'Search by caption, or filter to drafts, scheduled, published or archived.',
             'The three dot menu on any post lets you duplicate it, share it to your socials, archive it or remove it.',
@@ -124,6 +124,7 @@ class Tutorials {
             'Calendar shows what went out and what\'s coming up.',
             'Collections group related files so they\'re easy to find.',
             'Scheduler runs your automations and scheduled messages.',
+            'Scenes are ready-made ideas you can run with any of your influencers.',
             'And the Action button is your shortcut to create anything.',
         )),
         '14' => array('section' => 'studio', 'title' => 'Create and Publish a Post', 'secs' => 52, 'steps' => array(
@@ -231,7 +232,7 @@ class Tutorials {
         )),
         '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 19, 'steps' => array(
             'Scenes are ready-made ideas you can run with any of your influencers.',
-            'Open Content Studio, then Scenes.',
+            'Open Content Studio, then Scenes. Click New Scene to save an idea of your own; the platform scenes sit beside it.',
             'Pick a scene and an influencer and click Generate. You get four variants.',
             'Give a thumbs up or down to each one, then use your favourite in a post.',
         )),

@@ -65,25 +65,55 @@ jQuery(function ($) {
     $(document).on('click', '.cs-dv__version', function () { if (!$(this).hasClass('is-on')) { $(document).trigger('cs:open-asset', [parseInt($(this).data('version'), 10)]); } });
 
     /* =====================================================================
-     * Scenes tab
+     * Scenes tab: the creator's own scenes (add, edit, turn off, delete) beside the platform library
      * =================================================================== */
     var scenes = null, cat = '', $run = null, run_tpl = null, run_stop = null, run_assets = [], votes = {};
     var ASPECT = CFG.aspect || { keys: [], names: {} };
+    var edit_modal = null, thumb_file = null;
 
+    function confirm_box(opts) {
+        if (!window.Swal) { return Promise.resolve(window.confirm(opts.title)); }
+        return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }, opts)).then(function (r) { return r.isConfirmed; });
+    }
     function scene_view(which) {
         $('#csSceneLoading').prop('hidden', which !== 'loading');
         $('#csSceneError').prop('hidden', which !== 'error');
         $('#csSceneEmpty').prop('hidden', which !== 'empty');
         $('#csScenes, #csSceneBar').prop('hidden', which !== 'grid');
     }
+    function scene_find(id) {
+        var t = null;
+        $.each((scenes && scenes.templates) || [], function (i, x) { if (x.id === id) { t = x; } });
+        return t;
+    }
     function scenes_load() {
         scene_view('loading');
         api('scenes_list', {}, function (o) {
             if (!o || !o.success) { scene_view('error'); return; }
             scenes = o;
-            if (!(o.templates || []).length) { scene_view('empty'); return; }
-            scenes_render(); scene_view('grid');
+            scenes_show();
         });
+    }
+    /* the grid or the empty state, from what is in memory (no reload after a save or delete) */
+    function scenes_show() {
+        var cats = [];
+        scenes.templates = scenes.templates || [];
+        $.each(scenes.templates, function (i, t) { if (t.category !== '' && cats.indexOf(t.category) < 0) { cats.push(t.category); } });
+        scenes.categories = cats;
+        if (cat !== '' && cats.indexOf(cat) < 0) { cat = ''; }
+        if (!scenes.templates.length) { scene_view('empty'); return; }
+        scenes_render(); scene_view('grid');
+    }
+    /* a saved scene replaces its old row, or goes first (own scenes lead the list) */
+    function scene_put(s) {
+        var found = false;
+        $.each(scenes.templates, function (i, x) { if (x.id === s.id) { scenes.templates[i] = s; found = true; } });
+        if (!found) { scenes.templates.unshift(s); }
+        scenes_show();
+    }
+    function scene_drop(id) {
+        scenes.templates = scenes.templates.filter(function (x) { return x.id !== id; });
+        scenes_show();
     }
     function scenes_render() {
         var cats = scenes.categories || [];
@@ -92,19 +122,122 @@ jQuery(function ($) {
         })).join('') : '');
         var list = scenes.templates.filter(function (t) { return cat === '' || t.category === cat; });
         $('#csScenes').html(list.map(function (t) {
-            return '<button type="button" class="cs-scene" data-scene="' + t.id + '">' +
+            var off = t.mine && !t.is_active;
+            return '<div class="cs-scene__cell' + (off ? ' is-off' : '') + '">' +
+                '<button type="button" class="cs-scene" data-scene="' + t.id + '">' +
                 '<span class="cs-scene__img">' + (t.thumb_url ? '<img src="' + esc(t.thumb_url) + '" alt="" loading="lazy">' : '<i class="fa-solid fa-panorama" aria-hidden="true"></i>') +
-                (t.is_adult ? '<span class="cs-scene__adult">18+</span>' : '') + '</span>' +
-                '<span class="cs-scene__body"><strong>' + esc(t.title) + '</strong><small>' + esc(t.category || 'Scene') + '</small></span></button>';
+                (t.is_adult ? '<span class="cs-scene__adult">18+</span>' : '') + (off ? '<span class="cs-scene__off">Off</span>' : '') + '</span>' +
+                '<span class="cs-scene__body"><strong>' + esc(t.title) + '</strong><small>' + esc(t.category || 'Scene') + '</small></span></button>' +
+                (t.mine ? '<div class="dropdown cs-scene__menu"><button type="button" class="cs-scene__more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Scene actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>' +
+                    '<ul class="dropdown-menu dropdown-menu-end cs-scene__items">' +
+                    '<li><button type="button" class="dropdown-item" data-scene-act="edit">Edit</button></li>' +
+                    '<li><button type="button" class="dropdown-item" data-scene-act="toggle">' + (t.is_active ? 'Turn Off' : 'Turn On') + '</button></li>' +
+                    '<li><button type="button" class="dropdown-item cs-scene__danger" data-scene-act="delete">Delete</button></li></ul></div>' : '') +
+                '</div>';
         }).join(''));
     }
     $('#csTabScenes').on('shown.bs.tab', function () { if (!scenes) { scenes_load(); } });
     $('#csSceneRetry').on('click', scenes_load);
     $('#csSceneCats').on('click', '[data-cat]', function () { cat = String($(this).data('cat')); scenes_render(); });
     $('#csScenes').on('click', '.cs-scene', function () {
-        var id = parseInt($(this).data('scene'), 10), t = null;
-        $.each(scenes.templates, function (i, x) { if (x.id === id) { t = x; } });
-        if (t) { run_open(t); }
+        var t = scene_find(parseInt($(this).data('scene'), 10));
+        if (!t) { return; }
+        if (t.mine && !t.is_active) { toastr.warning('Turn the scene on to run it.'); return; }
+        run_open(t);
+    });
+    $('#csSceneNew, #csSceneNewEmpty').on('click', function () { edit_open(null); });
+    $('#csScenes').on('click', '[data-scene-act]', function () {
+        var t = scene_find(parseInt($(this).closest('.cs-scene__cell').find('.cs-scene').data('scene'), 10)), act = $(this).attr('data-scene-act');
+        if (!t || !t.mine) { return; }
+        if (act === 'edit') { edit_open(t); return; }
+        if (act === 'toggle') {
+            api('scene_set_active', { id: t.id, active: t.is_active ? 0 : 1 }, function (o) {
+                if (!o || !o.success) { err(o, 'Could not update the scene.'); return; }
+                scene_put(o.scene); toastr.success(o.scene.is_active ? 'Scene turned on' : 'Scene turned off');
+            });
+            return;
+        }
+        if (act === 'delete') {
+            confirm_box({ title: 'Delete this scene?', text: t.title + ' is removed from your scenes. Images already made from it stay in your library.', confirmButtonText: 'Delete' }).then(function (yes) {
+                if (!yes) { return; }
+                api('scene_delete', { id: t.id }, function (o) {
+                    if (!o || !o.success) { err(o, 'Could not delete the scene.'); return; }
+                    scene_drop(t.id); toastr.success('Scene deleted');
+                });
+            });
+        }
+    });
+
+    /* the editor: one window for New Scene and Edit (the thumbnail is uploaded after the fields save) */
+    function edit_errors_clear() { $('#csSceneEditForm [data-err]').prop('hidden', true).text(''); $('#csSceneEditForm .is-invalid').removeClass('is-invalid'); }
+    function edit_thumb(url) {
+        $('#csSceneEditThumbImg').attr('src', url || '').prop('hidden', !url);
+        $('#csSceneEditThumbBtn').toggleClass('has-img', !!url);
+        $('#csSceneEditThumbChoose').text(url ? 'Change Image' : 'Choose Image');
+    }
+    function edit_busy(on, text) {
+        $('#csSceneEditSave').prop('disabled', on).html(on ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Saving' : 'Save Scene');
+        $('#csSceneEditState').text(on ? (text || '') : '');
+    }
+    function edit_open(s) {
+        if (!$('#csSceneEdit').length) { return; }
+        edit_modal = edit_modal || bootstrap.Modal.getOrCreateInstance($('#csSceneEdit')[0]);
+        edit_errors_clear(); thumb_file = null; edit_busy(false);
+        $('#csSceneEditTitle').text(s ? 'Edit Scene' : 'New Scene');
+        $('#csSceneEditId').val(s ? s.id : 0);
+        $('#csSceneEditName').val(s ? s.title : '');
+        $('#csSceneEditCat').val(s ? s.category : '');
+        $('#csSceneEditCats').html(((scenes && scenes.categories) || []).map(function (c) { return '<option value="' + esc(c) + '">'; }).join(''));
+        $('#csSceneEditAspect').val(s ? s.default_aspect : (ASPECT.default_image || '3:4'));
+        $('#csSceneEditPrompt').val(s ? s.base_prompt : '');
+        $('#csSceneEditAdult').prop('checked', s ? !!s.is_adult : false);
+        $('#csSceneEditThumb').val('');
+        edit_thumb(s ? s.thumb_url : '');
+        edit_modal.show();
+    }
+    $('#csSceneEditThumbBtn, #csSceneEditThumbChoose').on('click', function () { $('#csSceneEditThumb').trigger('click'); });
+    $('#csSceneEditThumb').on('change', function () {
+        var f = this.files && this.files[0];
+        if (!f) { return; }
+        if (f.size > 15 * 1048576) { toastr.error('That image is too large. Images can be up to 15 MB.'); this.value = ''; return; }
+        thumb_file = f;
+        edit_thumb(URL.createObjectURL(f));
+    });
+    $('#csSceneEditForm').on('input change', '.form-control, .form-select', function () { $(this).removeClass('is-invalid').closest('.ai-field').find('[data-err]').prop('hidden', true); });
+    function edit_upload_thumb(id, done) {
+        if (!thumb_file) { done(null); return; }
+        var fd = new FormData(); fd.append('file', thumb_file); fd.append('id', id);
+        edit_busy(true, 'Uploading the thumbnail');
+        $.ajax({ url: '/api/scene_thumb', method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false })
+            .done(function (o) { if (o && o.success) { done(o.scene); } else { toastr.error((o && o.message) || 'The thumbnail could not be saved.'); done(false); } })
+            .fail(function () { toastr.error('The thumbnail could not be uploaded. Check your connection.'); done(false); });
+    }
+    $('#csSceneEditSave').on('click', function () {
+        edit_errors_clear(); edit_busy(true);
+        var id = parseInt($('#csSceneEditId').val(), 10) || 0;
+        var body = { id: id, title: $('#csSceneEditName').val(), category: $('#csSceneEditCat').val(), default_aspect: $('#csSceneEditAspect').val(),
+            base_prompt: $('#csSceneEditPrompt').val(), is_adult: $('#csSceneEditAdult').prop('checked') ? 1 : 0 };
+        api('scene_save', body, function (o) {
+            if (!o || !o.success) {
+                edit_busy(false);
+                var fields = { title: '#csSceneEditName', base_prompt: '#csSceneEditPrompt', default_aspect: '#csSceneEditAspect' }, shown = false;
+                ((o && o.errors) || []).forEach(function (er) {
+                    if (!fields[er.input]) { return; }
+                    $(fields[er.input]).addClass('is-invalid'); $('#csSceneEditForm [data-err="' + er.input + '"]').text(er.msg).prop('hidden', false);
+                    if (!shown) { $(fields[er.input]).trigger('focus'); shown = true; }
+                });
+                if (!shown) { err(o, 'Could not save the scene.'); }
+                return;
+            }
+            $('#csSceneEditId').val(o.id);
+            scene_put(o.scene);
+            edit_upload_thumb(o.id, function (with_thumb) {
+                if (with_thumb === false) { edit_busy(false); thumb_file = null; return; }   // the fields saved; the thumbnail can be tried again
+                if (with_thumb) { scene_put(with_thumb); }
+                edit_busy(false); edit_modal.hide();
+                toastr.success(id > 0 ? 'Scene updated' : 'Scene saved');
+            });
+        });
     });
 
     /* the run window: template + influencer -> four variants to rate */

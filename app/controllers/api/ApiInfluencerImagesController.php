@@ -157,4 +157,34 @@ class ApiInfluencerImagesController extends BaseApiController {
         $user = $this->ai_user(false);
         $this->answer(SceneTemplates::vote((int) $user['user_id'], (int) ($this->post['asset_id'] ?? 0), (int) ($this->post['vote'] ?? 0)));
     }
+
+    /* ---- the creator's own scenes (platform scenes are read-only here; ownership is checked on every id) ---- */
+
+    /** Create (id 0) or update one of the creator's own scenes. Field errors come back as errors[] like the admin dialog. */
+    public function scene_saveAction(){
+        $user = $this->ai_user();
+        $f = array('title' => $this->text('title', 120), 'category' => $this->text('category', 60), 'base_prompt' => $this->text('base_prompt', 4000),
+            'is_adult' => (string) ($this->post['is_adult'] ?? '0') === '1', 'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
+            'sort_order' => (int) ($this->post['sort_order'] ?? 0));
+        $r = SceneTemplates::save((int) $user['user_id'], (int) ($this->post['id'] ?? 0), $f);
+        if (empty($r['ok'])) { $this->jsonError((string) $r['error'], ['errors' => (array) ($r['errors'] ?? array())]); }
+        unset($r['ok'], $r['error']);
+        $this->jsonSuccess($r);
+    }
+
+    public function scene_set_activeAction(){
+        $user = $this->ai_user();
+        $this->answer(SceneTemplates::set_active((int) $user['user_id'], (int) ($this->post['id'] ?? 0), (string) ($this->post['active'] ?? '1') === '1'));
+    }
+
+    public function scene_deleteAction(){
+        $user = $this->ai_user();
+        $this->answer(SceneTemplates::delete((int) $user['user_id'], (int) ($this->post['id'] ?? 0)));
+    }
+
+    /** Multipart thumbnail upload for one of the creator's own scenes (same sniff + re-encode as the admin path). */
+    public function scene_thumbAction(){
+        $user = $this->ai_user();
+        $this->answer(SceneTemplates::thumb((int) $user['user_id'], (int) ($this->post['id'] ?? 0), $_FILES['file'] ?? null));
+    }
 }

@@ -108,6 +108,7 @@ class ApiRoutes {
             'influencer_angle_status', 'influencer_angle_generate', 'influencer_replicate_prepare', 'influencer_replicate',
             'media_edit', 'media_versions', 'media_edit_options', 'influencer_carousel_read', 'influencer_carousel_start', 'influencer_carousel_status', 'influencer_carousel_list',
             'influencer_carousel_regenerate', 'influencer_carousel_to_post', 'scenes_list', 'scene_run', 'scene_vote',
+            'scene_save', 'scene_set_active', 'scene_delete', 'scene_thumb',
         ],
         'ApiInfluencerVideosController' => [
             'media_extract_frame', 'influencer_motion_check', 'influencer_motion_first_frame', 'influencer_motion_start',

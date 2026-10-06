@@ -441,7 +441,11 @@ class McpTools {
             'type' => 'object', 'required' => array('set_id'), 'properties' => array('set_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'regenerate_carousel_slot', 'description' => 'Render one carousel slot again (job_id from get_carousel). A failed slot is retried; a finished one is replaced. Costs the slot\'s AI credits again.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'list_scene_templates', 'description' => 'The scene template library: ready-made scenes to run with an influencer. Adult templates are listed only for accounts that turned adult content on.', 'inputSchema' => $none);
+        $t[] = array('name' => 'list_scene_templates', 'description' => 'The scene template library: the creator\'s own scenes first (mine true, off ones included with is_active 0), then the platform scenes. Adult templates are listed only for accounts that turned adult content on.', 'inputSchema' => $none);
+        $t[] = array('name' => 'create_scene_template', 'description' => 'Save a scene of the creator\'s own. prompt must contain {subject} where the influencer goes.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('title', 'prompt'),
+            'properties' => array('title' => array('type' => 'string'), 'category' => array('type' => 'string'), 'prompt' => array('type' => 'string'),
+                'aspect' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Default shape, 3:4 when omitted'), 'is_adult' => array('type' => 'boolean'))));
         $t[] = array('name' => 'generate_from_scene_template', 'description' => 'Run a scene template with a trained influencer: four variants in one job. Costs AI credits per image like any influencer image. Returns a job id; poll get_influencer_job, then rate variants with vote_scene_variant.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'template_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'template_id' => array('type' => 'integer'), 'aspect' => array('type' => 'string', 'enum' => self::shapes()))));
@@ -478,10 +482,10 @@ class McpTools {
         $t[] = array('name' => 'list_voices', 'description' => 'The influencer\'s saved voices (the active one first) and how many more the account can save.', 'inputSchema' => $infl);
         $t[] = array('name' => 'set_active_voice', 'description' => 'Make one of the influencer\'s saved voices the active one (used for speech and talking videos).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'voice_id'), 'properties' => array('influencer_id' => array('type' => 'integer'), 'voice_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'generate_speech', 'description' => 'Text to speech with the influencer\'s active voice (Eleven v3). Audio tags in square brackets shape the delivery, e.g. [whispers], [laughs], [sighs], [excited], [pause]; pass enhance=true to have tags added automatically (no words are changed). Up to 3000 characters. Returns a job id: poll get_influencer_job for the takes (2 per run, each with a listen URL), then save_speech_take to keep one in the library as audio. Costs AI credits per character.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_speech', 'description' => 'Text to speech with the influencer\'s active voice (Eleven v3). Audio tags in square brackets shape the delivery, e.g. [whispers], [laughs], [sighs], [excited], [pause]; pass enhance=true to have tags added automatically (no words are changed). Up to 3000 characters. Returns a job id: poll get_influencer_job for the takes (2 per run, each with a listen URL and its library asset id; every take is saved to the library, delete the ones not wanted with delete_media). Costs AI credits per character.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'text'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'text' => array('type' => 'string'), 'enhance' => array('type' => 'boolean'), 'voice_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'save_speech_take', 'description' => 'Save one take of a finished generate_speech job to the library as an audio file. Returns the asset id.', 'inputSchema' => array(
+        $t[] = array('name' => 'save_speech_take', 'description' => 'Returns the library asset id of one take of a finished generate_speech job (takes are saved to the library automatically).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('job_id', 'take'), 'properties' => array('job_id' => array('type' => 'integer'), 'take' => array('type' => 'integer', 'description' => '0 or 1'))));
         $t[] = array('name' => 'generate_talking_video', 'description' => 'A talking video: a close-up image of the influencer lip-synced to speech, at 1080p. Pass script (spoken with the active voice first; separate paragraphs with a blank line, long scripts are rendered in parts and joined) or audio_asset_id (a library audio file). Up to 5 minutes. Costs AI credits per second of video plus the speech. Returns group_key: poll get_talking_video for the finished asset.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'image_asset_id'),
@@ -971,6 +975,11 @@ class McpTools {
                 return self::result(InfluencerImageActions::carousel_regenerate($cid, (int) ($a['job_id'] ?? 0)));
             }
             case 'list_scene_templates':      return SceneTemplates::for_user(self::user($cid));
+            case 'create_scene_template': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(SceneTemplates::save($cid, 0, array('title' => (string) ($a['title'] ?? ''), 'category' => (string) ($a['category'] ?? ''),
+                    'base_prompt' => (string) ($a['prompt'] ?? ''), 'default_aspect' => (string) ($a['aspect'] ?? Aspect::DEFAULT_IMAGE), 'is_adult' => !empty($a['is_adult']))));
+            }
             case 'generate_from_scene_template': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(SceneTemplates::run($cid, self::user($cid), self::influencer_usable($cid, $a), (int) ($a['template_id'] ?? 0), (string) ($a['aspect'] ?? ''), '', 'studio'));

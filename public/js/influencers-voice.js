@@ -220,10 +220,13 @@ jQuery(function ($) {
         function render_takes(job) {
             var list = (job && job.takes) || [];
             if (!list.length) { $('#inf_vo_takes').prop('hidden', true).empty(); return; }
+            // Every take is already in the Library; the row's one menu downloads or deletes it.
             $('#inf_vo_takes').prop('hidden', false).html(list.map(function (t) {
-                return '<div class="inf-take" data-job="' + job.id + '" data-take="' + t.index + '"><span class="inf-take__n">Take ' + (t.index + 1) + ' · ' + secs(t.duration) + '</span>' +
-                    '<audio controls preload="none" src="' + esc(t.url) + '"></audio>' +
-                    (t.asset_id ? '<span class="inf-voice__badge">In Library</span>' : '<button type="button" class="btn btn-secondary btn-sm" data-keep>Save To Library</button>') + '</div>';
+                return '<div class="inf-take" data-job="' + job.id + '" data-take="' + t.index + '" data-asset="' + (t.asset_id || 0) + '"><span class="inf-take__n">Take ' + (t.index + 1) + ' · ' + secs(t.duration) + '</span>' +
+                    '<audio controls controlslist="nodownload noplaybackrate" preload="none" src="' + esc(t.url) + '"></audio>' +
+                    (t.asset_id ? '<div class="dropdown"><button type="button" class="inf-take__menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
+                        '<ul class="dropdown-menu dropdown-menu-end"><li><button type="button" class="dropdown-item" data-take-download>Download</button></li>' +
+                        '<li><button type="button" class="dropdown-item text-danger" data-take-delete>Delete</button></li></ul></div>' : '<span></span>') + '</div>';
             }).join(''));
         }
         function watch(job_id) {
@@ -247,12 +250,18 @@ jQuery(function ($) {
                 watch(o.job_id);
             });
         });
-        $('#inf_vo_takes').on('click', '[data-keep]', function () {
-            var $t = $(this).closest('.inf-take'), $b = $(this).prop('disabled', true);
-            api('influencer_speech_save', { job_id: $t.data('job'), take: $t.data('take') }, function (o) {
-                if (!o || !o.success) { $b.prop('disabled', false); err(o, 'That take could not be saved.'); return; }
-                $b.replaceWith('<span class="inf-voice__badge">In Library</span>');
-                toastr.success('Saved to your Library');
+        $('#inf_vo_takes').on('click', '[data-take-download]', function () {
+            var id = $(this).closest('.inf-take').data('asset');
+            api('media_download', { id: id }, function (o) { if (o && o.success && o.url) { window.location = o.url; } else { err(o, 'Could not download that take.'); } });
+        });
+        $('#inf_vo_takes').on('click', '[data-take-delete]', function () {
+            var $t = $(this).closest('.inf-take'), id = $t.data('asset');
+            confirm_box('Delete This Take?', 'It is removed from your Library as well.', 'Delete', function () {
+                api('media_delete', { id: id }, function (o) {
+                    if (!o || !o.success) { err(o, 'Could not delete that take.'); return; }
+                    $t.remove(); if (!$('#inf_vo_takes .inf-take').length) { $('#inf_vo_takes').prop('hidden', true); }
+                    toastr.success('Take deleted');
+                });
             });
         });
 
