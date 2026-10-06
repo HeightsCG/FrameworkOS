@@ -303,13 +303,13 @@ class InfluencerService {
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. {body} is where her body words go (training_variation). */
     const TRAINING_VARIATIONS = array(
-        'same person, front-facing head and shoulders, neutral expression, flat daylight from a window, plain wall behind',
-        'same person, three-quarter view turned slightly left, small smile, window light from one side, living room behind',
-        'same person, three-quarter view turned slightly right, relaxed expression, warm evening lamp light indoors',
-        'same person, side profile, hair tucked behind the ear, overcast daylight outdoors',
-        'same person, laughing mid-laugh with eyes crinkled, bright daylight, street behind slightly out of focus',
-        'same person, looking over the shoulder at the camera, late afternoon sun, park behind',
-        'same person, close-up of the face, serious expression, light from one side only, dim room',
+        'same person, front-facing head and shoulders, wearing a plain grey t-shirt, neutral expression, flat daylight from a window, plain wall behind',
+        'same person, three-quarter view turned slightly left, wearing a white tank top, small smile, window light from one side, living room behind',
+        'same person, three-quarter view turned slightly right, wearing an oversized hoodie, relaxed expression, warm evening lamp light indoors',
+        'same person, side profile, hair tucked behind the ear, wearing a knit sweater, overcast daylight outdoors',
+        'same person, laughing mid-laugh with eyes crinkled, wearing a plain white t-shirt, bright daylight, street behind slightly out of focus',
+        'same person, looking over the shoulder at the camera, wearing a denim jacket, late afternoon sun, park behind',
+        'same person, close-up of the face, the collar of a dark t-shirt just in frame, serious expression, light from one side only, dim room',
         'same person, full body standing, head to toe in frame, {body}plain fitted t-shirt and jeans, overcast daylight, city street behind',
         'same person, from the waist up, {body}at home in a plain fitted t-shirt, hair undone, soft expression, morning light, bedroom behind',
         'same person, from the knees up, {body}sunglasses pushed up on the head, big smile, harsh midday sun, beach behind',
