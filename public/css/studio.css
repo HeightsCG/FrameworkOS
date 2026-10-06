@@ -304,43 +304,11 @@
     .cs-cal__cell--week{ min-height:120px; }
 }
 
-/* ===================== GENERATE IMAGE ===================== */
-.cs-gen{ display:flex; flex-direction:column; gap:1rem; }
-.cs-gen__field{ display:flex; flex-direction:column; gap:.35rem; }
-.cs-gen__field label{ font-size:.82rem; font-weight:600; color:var(--t2); }
-.cs-gen__field .form-control, .cs-gen__field .form-select{ border-radius:var(--r-sm); }
-.cs-gen__brand{ display:flex; align-items:flex-start; gap:.5rem; font-size:.88rem; line-height:1.4; color:var(--t2); background:var(--vsoft); border-radius:var(--r-sm); padding:.6rem .75rem; cursor:pointer; margin:0; }
-.cs-gen__brand input{ margin-top:.15rem; flex:none; }
-.cs-gen__preview{ border-radius:var(--r-sm); overflow:hidden; border:1px solid var(--line); }
-.cs-gen__preview img{ display:block; width:100%; }
-.cs-gen__status{ display:flex; align-items:center; gap:.5rem; font-size:.88rem; color:var(--t2); }
-.cs-gen__status.is-error{ color:var(--danger); }
-.cs-gen__result{ display:flex; flex-direction:column; gap:.7rem; }
-#csVidInputs{ display:flex; flex-direction:column; gap:1.1rem; }
-.cs-vid__images{ display:grid; grid-template-columns:repeat(auto-fill,84px); grid-auto-rows:84px; gap:.5rem; max-height:calc(84px * 2 + .5rem + 6px); overflow-y:auto; padding:3px; }
-.cs-vid__img{ position:relative; width:84px; height:84px; padding:0; border:1px solid var(--line); border-radius:var(--r-sm); overflow:hidden; background:var(--surface-2, #F2F2F2); cursor:pointer; }
-.cs-vid__img img{ width:100%; height:100%; object-fit:cover; display:block; }
-.cs-vid__img:hover{ border-color:var(--acc); }
-.cs-vid__img:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
-.cs-vid__img.is-on{ border:2px solid var(--acc); box-shadow:0 0 0 3px var(--vsoft); }
-.cs-vid__none{ font-size:.88rem; color:var(--muted); margin:0; }
-.cs-vid__row{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-@media (max-width:640px){ .cs-vid__row{ grid-template-columns:1fr; } }
-.cs-gen__preview video{ display:block; width:100%; max-height:420px; background:#000; }
-.cs-gen__cost{ margin-right:auto; font-size:.85rem; color:var(--muted); }
+/* ===================== SCHEDULER: the cost line in the automation editor ===================== */
 .cs-ae__credits{ margin-top:1.4rem; padding:.8rem 1rem; background:var(--vsoft); border-radius:var(--r-sm, 4px); font-size:.88rem; color:var(--t2); line-height:1.5; }
 .cs-ae__credits b{ color:var(--text); font-weight:600; }
 .cs-ae__credits a{ font-weight:600; }
 .cs-ae__credits.is-low{ background:var(--warning-bg); }
-.cs-gen__empty{ display:flex; flex-direction:column; align-items:center; text-align:center; padding:1.6rem 1rem 1.2rem; }
-.cs-gen__empty-ic{ width:48px; height:48px; border-radius:50%; display:flex; align-items:center; justify-content:center; background:var(--vsoft); color:var(--acc-ink); font-size:1.2rem; margin-bottom:.9rem; }
-.cs-gen__empty-title{ font-size:1.05rem; font-weight:600; color:var(--text); margin:0 0 .35rem; }
-.cs-gen__empty-text{ font-size:.9rem; color:var(--muted); margin:0; max-width:34ch; line-height:1.5; }
-.cs-gen__saved{ display:flex; align-items:center; gap:.5rem; font-size:.92rem; font-weight:600; color:var(--t2); margin:0; }
-.cs-gen__saved i{ color:#1a9d55; }
-.cs-gen__resultbtns{ display:flex; gap:.6rem; flex-wrap:wrap; }
-.cs-gen__hint{ font-size:.82rem; color:var(--muted); margin:0; }
-
 /* ===================== PREVIEW CAROUSEL ===================== */
 .cs-pv__media--carousel .cs-pv__slide{ position:absolute; inset:0; opacity:0; transition:opacity .18s ease; }
 .cs-pv__media--carousel .cs-pv__slide.is-on{ opacity:1; }
@@ -917,7 +885,7 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
     .cs-tabs .nav-link i, .cs-tabs .nav-link svg{ display:none; }
 }
 
-/* ---- AI additions (studio-ai.js): drawer tools + versions, Scenes tab ---- */
+/* ---- AI additions (studio-ai.js): drawer tools + versions ---- */
 .cs-dv__ai{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; margin-bottom:.9rem; }
 .cs-dv__ai--one{ grid-template-columns:1fr; }
 .cs-dv__audio{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:1rem; width:100%; min-height:180px; padding:1.2rem; background:#111; color:#fff; font-size:1.8rem; }
@@ -933,78 +901,6 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
 .cs-dv__version:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
 .cs-dv__version.is-on{ background:var(--vsoft); border-color:var(--acc); color:var(--acc-ink); font-weight:600; cursor:default; }
 
-.cs-scene__cats{ display:flex; flex-wrap:wrap; gap:.4rem; }
-.cs-scenes{ display:grid; grid-template-columns:repeat(auto-fill, minmax(176px, 1fr)); gap:.9rem; }
-.cs-scene{ display:flex; flex-direction:column; padding:0; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); overflow:hidden; text-align:left; cursor:pointer; }
-.cs-scene:hover{ border-color:var(--acc); }
-.cs-scene:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
-.cs-scene__img{ position:relative; display:flex; align-items:center; justify-content:center; aspect-ratio:3 / 4; background:#F0F0F0; color:var(--muted2); font-size:1.6rem; }
-.cs-scene__img img{ width:100%; height:100%; object-fit:cover; display:block; }
-.cs-scene__adult{ position:absolute; left:.45rem; top:.45rem; padding:.1rem .4rem; font-size:.68rem; font-weight:700; color:#fff; background:rgba(13,13,13,.72); border-radius:2px; }
-.cs-scene__body{ display:flex; flex-direction:column; gap:.1rem; padding:.65rem .75rem .75rem; }
-.cs-scene__body strong{ font-size:.9rem; font-weight:600; color:var(--text); }
-.cs-scene__body small{ font-size:.78rem; color:var(--muted); }
-/* the creator's own scenes: New Scene in the toolbar, a ⋯ menu on each own card, off cards dimmed */
-.cs-scene__tools{ display:flex; align-items:center; gap:.6rem; margin-left:auto; }
-.cs-scene__tools .btn{ display:inline-flex; align-items:center; gap:.4rem; }
-.cs-scene__cell{ position:relative; display:flex; min-width:0; }
-.cs-scene__cell .cs-scene{ flex:1 1 auto; width:100%; }
-.cs-scene__cell.is-off .cs-scene{ opacity:.55; }
-.cs-scene__off{ position:absolute; left:.45rem; bottom:.45rem; padding:.1rem .4rem; font-size:.68rem; font-weight:700; color:#fff; background:rgba(13,13,13,.72); border-radius:2px; }
-.cs-scene__menu{ position:absolute; right:.4rem; top:.4rem; z-index:2; }
-.cs-scene__more{ width:22px; height:22px; padding:0; border:0; border-radius:var(--r-sm); background:rgba(18, 18, 18, .6); color:#fff; font-size:.7rem; display:flex; align-items:center; justify-content:center; cursor:pointer; }
-.cs-scene__more:hover, .cs-scene__more[aria-expanded="true"]{ background:rgba(18, 18, 18, .85); }
-.cs-scene__more:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
-.cs-scene__items{ font-size:.86rem; min-width:160px; border:1px solid var(--line); border-radius:var(--r-sm); box-shadow:0 8px 24px -8px rgba(29, 29, 29, .2); padding:.3rem 0; }
-.cs-scene__items .dropdown-item{ padding:.45rem .9rem; }
-.cs-scene__items .dropdown-item:active{ background:var(--vsoft); color:var(--acc-ink); }
-.cs-scene__danger{ color:var(--danger); }
-/* the scene editor (#csSceneEdit) */
-.cs-sedit{ display:flex; flex-direction:column; gap:16px; }
-.cs-sedit__row{ display:grid; grid-template-columns:minmax(0, 1.4fr) minmax(0, 1fr); gap:16px; }
-.cs-sedit__foot{ display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; }
-.cs-sedit__thumb{ display:flex; flex-direction:column; gap:4px; }
-.cs-sedit__image{ display:flex; align-items:center; gap:12px; }
-.cs-sedit__pick{ flex:none; display:flex; align-items:center; justify-content:center; width:56px; height:70px; padding:0; border:1px dashed var(--line2, #cfcfcf); border-radius:2px; background:#FAFAFA; color:var(--muted); font-size:18px; cursor:pointer; overflow:hidden; }
-.cs-sedit__pick:hover{ border-color:var(--acc); color:var(--acc-ink); }
-.cs-sedit__pick:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
-.cs-sedit__pick.has-img{ border-style:solid; border-color:var(--line); background:#111; }
-.cs-sedit__pick.has-img i{ display:none; }
-.cs-sedit__pick img{ width:100%; height:100%; object-fit:cover; display:block; }
-.cs-sedit__pick img[hidden]{ display:none; }
-.cs-sedit__switch{ display:flex; align-items:center; gap:8px; font-size:14px; padding-left:0; margin:0 0 8px; }
-.cs-sedit__switch .form-check-input{ margin:0; float:none; }
-
-.cs-srun__form{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1.4fr); gap:16px; align-items:end; }
-.cs-srun__seg{ display:flex; border:1px solid var(--line); border-radius:2px; overflow:hidden; background:#fff; }
-.cs-srun__seg .cs-seg__opt{ flex:1 1 0; min-width:0; display:inline-flex; align-items:center; justify-content:center; gap:6px; height:38px; padding:0 6px; border:0; border-left:1px solid var(--line); background:transparent; font-size:13px; font-weight:500; color:var(--muted); cursor:pointer; }
-.cs-srun__seg .cs-seg__opt:first-child{ border-left:0; }
-.cs-srun__seg .cs-seg__opt:hover:not(:disabled){ color:var(--text); }
-.cs-srun__seg .cs-seg__opt.is-on{ background:var(--vsoft); color:var(--acc-ink); font-weight:600; box-shadow:inset 0 0 0 1px var(--acc); }
-.cs-srun__seg .cs-seg__opt:disabled{ color:var(--muted2); cursor:not-allowed; opacity:.55; }
-.cs-srun__seg .cs-seg__opt:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--acc); }
-.cs-srun__none{ padding:2rem 1rem; }
-.cs-srun__grid{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; margin-top:20px; }
-.cs-srun__item{ margin:0; border:1px solid var(--line); border-radius:var(--r-sm); overflow:hidden; background:#fff; }
-.cs-srun__item img{ width:100%; display:block; }
-.cs-srun__item figcaption{ display:flex; align-items:center; gap:4px; padding:8px; }
-.cs-srun__vote{ width:32px; height:32px; border:1px solid var(--line); border-radius:2px; background:#fff; color:var(--t2); cursor:pointer; display:flex; align-items:center; justify-content:center; }
-.cs-srun__vote:hover{ border-color:var(--acc); color:var(--acc-ink); }
-.cs-srun__vote:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
-.cs-srun__vote.is-on{ background:var(--vsoft); border-color:var(--acc); color:var(--acc-ink); }
-.cs-srun__use{ margin-left:auto; white-space:nowrap; }
-@media (max-width:640px){
-    .cs-scenes{ grid-template-columns:repeat(2, minmax(0, 1fr)); gap:.6rem; }
-    .cs-scene__tools{ margin-left:0; flex:1 1 100%; }
-    .cs-scene__more{ width:32px; height:32px; font-size:.85rem; }
-    .cs-sedit__row{ grid-template-columns:1fr; }
-    .cs-sedit .form-control, .cs-sedit .form-select{ font-size:16px; }
-    .cs-srun__form{ grid-template-columns:1fr; }
-    .cs-srun__grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
-    .cs-srun__use{ margin-left:0; flex:1 1 100%; }
-    .cs-srun__item figcaption{ flex-wrap:wrap; }
-    .cs-srun__vote{ width:40px; height:40px; }
-}
 /* composer: caption mode and the Hook Overlay line */
 #csComposer .cs-pe__capmode{ width:auto; height:28px; min-height:28px; padding:0 28px 0 8px; font-size:13px; border-radius:2px; background-position:right 8px center; }
 #csComposer .cs-pe__hook{ display:flex; align-items:center; gap:12px; margin-top:8px; padding:8px 12px; border:1px solid var(--line); border-radius:2px; background:rgba(29, 29, 29, .02); font-size:13px; }

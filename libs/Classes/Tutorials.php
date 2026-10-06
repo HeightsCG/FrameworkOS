@@ -188,12 +188,12 @@ class Tutorials {
             'Click Create message. It shows in Scheduler, and Send now sends it right away.',
         )),
         '20' => array('section' => 'studio', 'title' => 'Generate Images with AI', 'secs' => 24, 'steps' => array(
-            'Need a fresh image? Click Action, then Generate Image.',
+            'Need a fresh image with nobody in it? Open Influencers, then Generate Images, and choose No Influencer in the switcher at the top right.',
             'Describe what you want. The more specific, the better.',
-            'Pick a shape: square, portrait or landscape.',
-            'Leave Use my brand checked so your colors, voice and keywords steer the look.',
+            'Pick a size: portrait, feed, story, square or landscape.',
+            'Leave Use My Brand on so your colors, voice and keywords steer the look.',
             'Click Generate. It takes up to a minute.',
-            'Your image is saved to your Library automatically. Click Use in a Post to start a post with it.',
+            'Your image is saved to your Library automatically. Click Use In Post to start a post with it.',
         )),
         // AI influencer pipeline. Stubs: each appears once its <id>.mp4 is uploaded and 'secs' is set.
         '21' => array('section' => 'influencers', 'title' => 'Give Your Influencer a Persona', 'secs' => 30, 'steps' => array(
@@ -232,8 +232,8 @@ class Tutorials {
         )),
         '26' => array('section' => 'studio', 'title' => 'Use Scene Templates', 'secs' => 19, 'steps' => array(
             'Scenes are ready-made ideas you can run with any of your influencers.',
-            'Open Content Studio, then Scenes. Click New Scene to save an idea of your own; the platform scenes sit beside it.',
-            'Pick a scene and an influencer and click Generate. You get four variants.',
+            'Open Influencers, Generate Images, then Scenes. Click New Scene to save an idea of your own; the platform scenes sit beside it.',
+            'Pick a scene and click Generate. You get four variants of your influencer in it.',
             'Give a thumbs up or down to each one, then use your favourite in a post.',
         )),
         '27' => array('section' => 'influencers', 'title' => 'Motion Control', 'secs' => 30, 'steps' => array(

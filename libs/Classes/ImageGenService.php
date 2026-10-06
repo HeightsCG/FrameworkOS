@@ -13,6 +13,18 @@ class ImageGenService {
 
     const BUDGET_SECONDS = 170;
 
+    /** Starting points for the Ideas chip on Generate Images in brand mode (no person in the picture). */
+    const IDEAS = array(
+        'Sunset over a calm lake, golden hour, soft haze',
+        'Flat lay of a morning coffee, open notebook and reading glasses on a marble counter',
+        'Neon-lit city street after rain, reflections on wet asphalt',
+        'Minimal product shot of a skincare bottle on a stone slab, soft daylight',
+        'Cozy reading nook with a wool blanket, warm lamp light and a rainy window',
+        'Tropical beach with turquoise water and an empty hammock between palms',
+        'Close-up of fresh pastries on a wooden board, dusted with sugar',
+        'Mountain road at dawn, mist in the valley, long shadows',
+    );
+
     /** Normalises a shape key (a ratio, or the older square|portrait|landscape) to a ratio the brand model renders. */
     public static function dimensions($key){
         $model = self::model_for();

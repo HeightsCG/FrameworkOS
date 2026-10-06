@@ -3,9 +3,10 @@
  * AI influencers (/influencers). The destinations: the influencer gallery (index), the
  * create wizard (/influencers/create[/<id>]), Generate Images (/influencers/images/<id>),
  * Generate Videos (/influencers/videos/<id>) and the per-influencer Gallery
- * (/influencers/gallery/<id>), plus Replicate Photo, Generate Carousel and References
- * (/influencers/replicate|carousel|references/<id>). Creator-only, gated on the ai_tools plan flag like the
- * Studio's AI actions. Collaborators act on the owner's account via Permissions::creator_id().
+ * (/influencers/gallery/<id>), plus Replicate Photo, Generate Carousel, Scenes and References
+ * (/influencers/replicate|carousel|scenes|references/<id>). Generate Images and Generate Videos also serve
+ * id 0 (brand mode: no influencer in the picture). Creator-only, gated on the ai_tools plan flag.
+ * Collaborators act on the owner's account via Permissions::creator_id().
  */
 class InfluencersController extends Controller {
 
@@ -99,8 +100,10 @@ class InfluencersController extends Controller {
         $id = $this->id_from_url();
         $infl = $id > 0 ? (new InfluencersModel())->get_one((int) $user['user_id'], $id) : null;
         if (!$infl) {
-            $ready = (new InfluencersModel())->list_ready((int) $user['user_id']);
-            if (!empty($ready)) { header('Location: /influencers/' . strtolower(str_replace('Action', '', Main::method_name())) . '/' . (int) $ready[0]['id']); exit; }
+            $action = strtolower(str_replace('Action', '', Main::method_name()));
+            $ready  = (new InfluencersModel())->list_ready((int) $user['user_id']);
+            if (!empty($ready)) { header('Location: /influencers/' . $action . '/' . (int) $ready[0]['id']); exit; }
+            if (in_array($action, array('images', 'videos'), true)) { header('Location: /influencers/' . $action . '/0'); exit; }   // no trained influencer yet: brand images and videos still work
             header('Location: /influencers'); exit;
         }
         if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { header('Location: /influencers'); exit; }   // over the plan's limit
@@ -109,19 +112,38 @@ class InfluencersController extends Controller {
         return $infl;
     }
 
-    /** Generate Images, scoped to one trained influencer. */
+    /**
+     * Brand mode: /influencers/images/0 and /influencers/videos/0 generate with no influencer in the picture
+     * (the brand image model, media_generate / media_generate_video). Served even when nothing is trained.
+     */
+    private function brand_mode($user){
+        if ((string) (Main::get_url()[2] ?? '') !== '0') { return false; }
+        $brand = (new CreatorBrandModel())->get_for_user((int) $user['user_id']);
+        $this->view->influencer = null;
+        $this->view->brand_mode = true;
+        $this->view->brand = array(
+            'has_brand'   => (!empty($brand['brand_name']) || !empty($brand['colors']) || !empty($brand['voice']) || !empty($brand['keywords'])),
+            'brand_name'  => (string) ($brand['brand_name'] ?? ''),
+            'image_price' => Plan::ai_price('image'),
+            'model'       => ImageGenService::model_for(),   // the fixed brand model: its shapes drive the Size picker
+            'ideas'       => ImageGenService::IDEAS,
+        );
+        return true;
+    }
+
+    /** Generate Images, scoped to one trained influencer, or brand images at /influencers/images/0. */
     public function imagesAction(){
         $user = $this->gate();
         $this->view->page = 'images';
-        $this->ready_influencer($user);
+        if (!$this->brand_mode($user)) { $this->ready_influencer($user); }
         $this->view->render();
     }
 
-    /** Generate Videos from a still of her; /influencers/videos/<id>/<asset_id> preselects the still. */
+    /** Generate Videos from a still of her (or any Library image at /influencers/videos/0); /influencers/videos/<id>/<asset_id> preselects the still. */
     public function videosAction(){
         $user = $this->gate();
         $this->view->page = 'videos';
-        $infl = $this->ready_influencer($user);
+        if (!$this->brand_mode($user)) { $this->ready_influencer($user); }
         $aid  = (int) (Main::get_url()[3] ?? 0);
         $this->view->still_asset_id = 0;
         if ($aid > 0) {
@@ -156,6 +178,14 @@ class InfluencersController extends Controller {
         $set  = (int) (Main::get_url()[3] ?? 0);
         $row  = $set > 0 ? (new CarouselSetsModel())->get_one((int) $user['user_id'], $set) : null;
         $this->view->set_id = ($row && (int) $row['influencer_id'] === (int) $infl['id']) ? $set : 0;
+        $this->view->render();
+    }
+
+    /** Scenes: the platform scene library and the creator's own scenes, run with this influencer as the subject. */
+    public function scenesAction(){
+        $user = $this->gate();
+        $this->view->page = 'scenes';
+        $this->ready_influencer($user);
         $this->view->render();
     }
 

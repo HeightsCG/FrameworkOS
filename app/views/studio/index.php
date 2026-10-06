@@ -26,12 +26,6 @@
                 <ul class="dropdown-menu dropdown-menu-end cs-create__menu">
                     <li class="cs-create__label">Content</li>
                     <li><button type="button" class="dropdown-item" id="csNewPostBtn"><span class="cs-create__ic"><i class="fa-solid fa-feather-pointed"></i></span><span><strong>New Post</strong><small>Write, schedule &amp; publish</small></span></button></li>
-                    <?php if (!empty($this->can_ai)): ?>
-                    <li><button type="button" class="dropdown-item" id="csGenerateBtn"><span class="cs-create__ic"><i class="fa-solid fa-wand-magic-sparkles"></i></span><span><strong>Generate Image</strong><small>Create an on-brand image with AI</small></span></button></li>
-                    <li><button type="button" class="dropdown-item" id="csGenVideoBtn"><span class="cs-create__ic"><i class="fa-solid fa-film"></i></span><span><strong>Generate Video</strong><small>Bring one of your images to life</small></span></button></li>
-                    <li><a class="dropdown-item" href="/influencers/replicate" id="csReplicateBtn"><span class="cs-create__ic"><i class="fa-solid fa-clone"></i></span><span><strong>Replicate Photo</strong><small>Recreate a photo with your influencer</small></span></a></li>
-                    <li><a class="dropdown-item" href="/influencers/carousel" id="csCarouselBtn"><span class="cs-create__ic"><i class="fa-solid fa-layer-group"></i></span><span><strong>Generate Carousel</strong><small>Several shots of one moment</small></span></a></li>
-                    <?php endif; ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNew"><span class="cs-create__ic"><i class="fa-solid fa-robot"></i></span><span><strong>New Automation</strong><small>Auto-generate &amp; post on a schedule</small></span></button></li>
                     <?php if (!empty($this->inbox['can'])): ?>
                     <li><button type="button" class="dropdown-item" id="csSchedNewMsg"><span class="cs-create__ic"><i class="fa-solid fa-paper-plane"></i></span><span><strong>New Scheduled Message</strong><small>Message your fans on a schedule</small></span></button></li>
@@ -65,7 +59,6 @@
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCalendar" data-bs-toggle="tab" data-bs-target="#csPaneCalendar" type="button" role="tab"><i class="fa-solid fa-calendar-days"></i> Calendar</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabCollections" data-bs-toggle="tab" data-bs-target="#csPaneCollections" type="button" role="tab"><i class="fa-solid fa-folder"></i> Collections</button></li>
         <li class="nav-item" role="presentation"><button class="nav-link" id="csTabScheduler" data-bs-toggle="tab" data-bs-target="#csPaneScheduler" type="button" role="tab"><i class="fa-solid fa-robot"></i> Scheduler</button></li>
-        <?php if (!empty($this->can_ai)): ?><li class="nav-item" role="presentation"><button class="nav-link" id="csTabScenes" data-bs-toggle="tab" data-bs-target="#csPaneScenes" type="button" role="tab"><i class="fa-solid fa-panorama"></i> Scenes</button></li><?php endif; ?>
     </ul>
 
     <div class="tab-content cs-tabcontent">
@@ -210,8 +203,6 @@
                 </div>
             </div>
         </div>
-
-<?php if (!empty($this->can_ai)) { require __DIR__ . '/_scenes.php'; } ?>
 
         <!-- ============ SCHEDULER ============ -->
         <div class="tab-pane fade" id="csPaneScheduler" role="tabpanel">
@@ -483,117 +474,6 @@
         </div>
     </div>
 </div>
-<!-- ============ GENERATE IMAGE ============ -->
-<div class="modal fade" id="csGenVideo" tabindex="-1" aria-hidden="true" aria-labelledby="csVidTitle">
-    <div class="modal-dialog modal-dialog-centered modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="csVidTitle"><i class="fa-solid fa-film"></i> Generate a video</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="cs-gen">
-                    <div class="cs-gen__empty" id="csVidEmpty" hidden>
-                        <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
-                        <h3 class="cs-gen__empty-title">Not enough AI credits</h3>
-                        <p class="cs-gen__empty-text">This video uses <span id="csVidPriceEmpty"></span> AI credits. Buy more to start generating.</p>
-                    </div>
-                    <div id="csVidInputs">
-                        <div class="cs-gen__field">
-                            <label for="csVidWho">Who's in it</label>
-                            <select class="form-select" id="csVidWho"></select>
-                        </div>
-                        <div class="cs-gen__field">
-                            <label>Image</label>
-                            <div class="cs-vid__images" id="csVidImages" role="radiogroup" aria-label="Image to animate"></div>
-                            <p class="cs-vid__none" id="csVidNone" hidden>Add or generate an image first, then turn it into a video.</p>
-                        </div>
-                        <div class="cs-gen__field">
-                            <label for="csVidPrompt">Describe the motion</label>
-                            <textarea class="form-control" id="csVidPrompt" rows="2" placeholder="Slow push-in, hair moving in the wind"></textarea>
-                        </div>
-                        <div class="cs-vid__row">
-                            <div class="cs-gen__field">
-                                <label for="csVidModel">Style</label>
-                                <select class="form-select" id="csVidModel"></select>
-                            </div>
-                            <div class="cs-gen__field">
-                                <label for="csVidLength">Length</label>
-                                <select class="form-select" id="csVidLength"></select>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="cs-gen__status" id="csVidStatus" hidden></div>
-                    <div class="cs-gen__preview" id="csVidPreview" hidden><video id="csVidPreviewVideo" controls playsinline></video></div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <span class="cs-gen__cost" id="csVidCost"></span>
-                <button type="button" class="btn btn-primary" id="csVidRun"><i class="fa-solid fa-film"></i> Generate</button>
-                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csVidBuy" hidden>Buy AI Credits</a>
-                <button type="button" class="btn btn-primary" id="csVidUse" hidden><i class="fa-solid fa-share-from-square"></i> Use In Post</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="modal fade" id="csGenerate" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate an image</h5>
-                <?php echo Tutorials::button('20', 'data-push'); ?>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div class="cs-gen">
-                    <div class="cs-gen__empty" id="csGenEmpty" hidden>
-                        <span class="cs-gen__empty-ic"><i class="fa-solid fa-coins"></i></span>
-                        <h3 class="cs-gen__empty-title">Not enough AI credits</h3>
-                        <p class="cs-gen__empty-text">Each image uses <span id="csGenPrice"></span> AI credits. Buy more to start generating.</p>
-                    </div>
-                    <div id="csGenInputs">
-                        <div class="cs-gen__field">
-                            <label for="csGenWho">Who's in it</label>
-                            <select class="form-select" id="csGenWho"></select>
-                        </div>
-                        <div class="cs-gen__field">
-                            <label for="csGenPrompt">Describe the image</label>
-                            <textarea class="form-control" id="csGenPrompt" rows="3" placeholder="Sunset over Lake Eola, golden hour"></textarea>
-                        </div>
-                        <div class="cs-gen__field">
-                            <label for="csGenSize">Shape</label>
-                            <select class="form-select" id="csGenSize">
-                                <?php foreach (Aspect::options(ImageGenService::model_for()) as $ao): if (!$ao['supported']) { continue; } ?>
-                                <option value="<?php echo $ao['key']; ?>"<?php echo $ao['key'] === Aspect::DEFAULT_IMAGE ? ' selected' : ''; ?>><?php echo $ao['name'] . ' ' . $ao['label']; ?></option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <label class="cs-gen__brand" id="csGenBrandRow" hidden>
-                            <input type="checkbox" class="form-check-input" id="csGenBrand" checked>
-                            <span>Use my brand <strong id="csGenBrandName"></strong> — its colours, voice, and keywords steer the look.</span>
-                        </label>
-                    </div>
-                    <div class="cs-gen__preview" id="csGenPreview" hidden>
-                        <img id="csGenPreviewImg" alt="Generated image">
-                    </div>
-                    <div class="cs-gen__status" id="csGenStatus" hidden></div>
-                    <div class="cs-gen__result" id="csGenResult" hidden>
-                        <p class="cs-gen__saved"><i class="fa-solid fa-circle-check"></i> <span id="csGenSavedMsg">Saved to your Library.</span></p>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <span class="cs-gen__cost" id="csGenCost"></span>
-                <button type="button" class="btn btn-primary" id="csGenRun"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate</button>
-                <a href="/account/billing?tab=credits" class="btn btn-primary" id="csGenBuy" hidden>Buy AI Credits</a>
-                <button type="button" class="btn btn-outline-secondary" id="csGenEdit" hidden><i class="fa-solid fa-rotate"></i> Regenerate</button>
-                <button type="button" class="btn btn-primary" id="csGenUse" hidden><i class="fa-solid fa-share-from-square"></i> Use In Post</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 <!-- ============ SCHEDULER — automation form ============ -->
 <div class="modal fade cs-ae-modal" id="csSchedulerModal" tabindex="-1" aria-hidden="true" aria-labelledby="csSchedModalTitle">
     <div class="modal-dialog cs-ae">

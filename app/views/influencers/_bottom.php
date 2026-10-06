@@ -14,6 +14,8 @@ window.INF_CONFIG = <?php echo json_encode(array(
     'source'     => $this->source_asset ?? null,
     'set_id'     => (int) ($this->set_id ?? 0),
     'gender'     => (string) (($this->influencer['gender'] ?? '') ?: 'woman'),
+    'brand_mode' => !empty($this->brand_mode),
+    'brand'      => !empty($this->brand_mode) ? array('has_brand' => !empty($this->brand['has_brand']), 'brand_name' => (string) ($this->brand['brand_name'] ?? ''), 'image_price' => (int) ($this->brand['image_price'] ?? 0)) : null,
 ), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
 window.TUT_BTN = <?php echo json_encode(array('21' => Tutorials::button('21')), JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT); ?>;   /* Watch How buttons for sections drawn by influencers.js */
 </script>
@@ -21,6 +23,12 @@ window.TUT_BTN = <?php echo json_encode(array('21' => Tutorials::button('21')), 
 <?php if (in_array((string) ($this->page ?? ''), array('references', 'replicate', 'carousel'), true)): ?>
 <?php if ((string) $this->page === 'carousel'): ?><script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script><?php endif; ?>
 <script src="/js/influencers-ai.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-ai.js'); ?>"></script>
+<?php endif; ?>
+<?php if ((string) ($this->page ?? '') === 'scenes'): ?>
+<script src="/js/influencers-scenes.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-scenes.js'); ?>"></script>
+<?php endif; ?>
+<?php if (!empty($this->brand_mode)): ?>
+<script src="/js/influencers-brand.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-brand.js'); ?>"></script>
 <?php endif; ?>
 <?php if (in_array((string) ($this->page ?? ''), array('voice', 'talking'), true)): ?>
 <script src="/js/influencers-voice.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/influencers-voice.js'); ?>"></script>
