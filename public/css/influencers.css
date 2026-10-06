@@ -234,7 +234,7 @@ button.inf-photo--pick{ padding:0; }
 .inf-chip--text{ width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; text-align:left; padding:.45rem .65rem; }   /* Prebuilt rows fill the column */
 
 /* option cards (model pickers by purpose) */
-.inf-opts{ display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:.6rem; }
+.inf-opts{ display:grid; grid-auto-flow:column; grid-auto-columns:minmax(0, 1fr); gap:.6rem; }   /* every option on one row */
 .inf-opt{ display:flex; flex-direction:column; align-items:flex-start; gap:.15rem; text-align:left; padding:.7rem .85rem; border:1px solid var(--line); border-radius:2px; background:#fff; cursor:pointer; }
 .inf-opt:hover{ border-color:var(--muted2); }
 .inf-opt.is-on{ background:var(--vsoft); box-shadow:inset 0 0 0 1px var(--acc); border-color:var(--acc); }
@@ -323,6 +323,7 @@ button.inf-photo--pick{ padding:0; }
 @media (max-width:640px){
     .inf-grid{ grid-template-columns:1fr; }
     .inf-wiz__panel{ padding:1.1rem 1rem; }
+    .inf-opts{ grid-auto-flow:row; grid-auto-columns:auto; grid-template-columns:1fr; }
 }
 
 /* ---- Generate Images / Videos ---- */
