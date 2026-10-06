@@ -194,18 +194,18 @@ jQuery(function ($) {
             var made = inf.counts || {}, n_img = made.generated || 0, n_vid = made.video || 0;
             $c.append('<div class="inf-card__body"><div class="inf-card__top"><span class="inf-card__name">' + esc(inf.name) + '</span>' + (inf.locked ? '<span class="inf-state inf-state--locked"><i class="fa-solid fa-lock"></i> Locked</span>' : state_pill(inf)) + '</div>' +
                 (ready ? '<p class="inf-card__meta"><span>' + Number(n_img).toLocaleString() + (n_img === 1 ? ' image' : ' images') + '</span><span>' + Number(n_vid).toLocaleString() + (n_vid === 1 ? ' video' : ' videos') + '</span></p>' +
-                         '<div class="inf-card__go"><a href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Images</a><a href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i> Videos</a><a href="/influencers/gallery/' + inf.id + '"><i class="fa-solid fa-images" aria-hidden="true"></i> Gallery</a></div>'
+                         ''
                        : (inf.locked ? '' : '<p class="inf-card__meta"><span>Setup not finished</span></p><div class="inf-card__go"><a href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right" aria-hidden="true"></i> Continue Setup</a></div>')) +
                 '</div>');
             var menu = '<div class="dropdown">' +
-                '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
+                '<button type="button" class="inf-card__menu" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More"><i class="fa-solid fa-ellipsis"></i></button>' +
                 '<ul class="dropdown-menu dropdown-menu-end">' +
-                (ready ? '<li><a class="dropdown-item" href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate images</a></li>' +
-                         '<li><a class="dropdown-item" href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard"></i> Generate Video</a></li>' +
+                (ready ? '<li><a class="dropdown-item" href="/influencers/images/' + inf.id + '"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Images</a></li>' +
+                         '<li><a class="dropdown-item" href="/influencers/videos/' + inf.id + '"><i class="fa-solid fa-clapperboard"></i> Generate Videos</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/gallery/' + inf.id + '"><i class="fa-solid fa-images"></i> Gallery</a></li>' +
                          '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-sliders"></i> Settings</a></li>' +
                          (inf.pending_model_id > 0 ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '/retrain" data-act="retrain"><i class="fa-solid fa-rotate"></i> Retrain</a></li>')
-                       : (inf.locked ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right"></i> Continue setup</a></li>')) +
+                       : (inf.locked ? '' : '<li><a class="dropdown-item" href="/influencers/create/' + inf.id + '"><i class="fa-solid fa-arrow-right"></i> Continue Setup</a></li>')) +
                 '<li><hr class="dropdown-divider"></li>' +
                 '<li><button type="button" class="dropdown-item text-danger" data-act="delete"><i class="fa-solid fa-trash"></i> Delete</button></li>' +
                 '</ul></div>';
@@ -271,6 +271,8 @@ jQuery(function ($) {
         if (!$('[data-cv]').length) { return; }
         cv_fit(); cv_labels();
         $(window).on('resize', cv_fit);
+        var panel = document.getElementById('inf_panel');
+        if (panel && window.MutationObserver) { new MutationObserver(function () { cv_fit(); }).observe(panel, { childList: true }); }
         setTimeout(cv_fit, 300);
         $(document).on('click', '[data-pop]', function (e) {
             e.stopPropagation();
@@ -403,18 +405,19 @@ jQuery(function ($) {
         }
         // Whole body descriptions to start from (per gender); picking one fills the field, which stays editable.
         function body_prebuilt() { return ((C.prompts || {})[inf.gender] || {}).body || []; }
-        function body_prebuilt_html(id) {
-            var list = body_prebuilt();
+        // Prebuilt descriptions open in a window from a link beside the field's label; picking one fills the field.
+        function prebuilt_link(id, list) { return list.length ? '<button type="button" class="inf-link" data-pop="' + id + '_pop" aria-expanded="false">Prebuilt</button>' : ''; }
+        function prebuilt_pop(id, list) {
             if (!list.length) { return ''; }
-            return '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips" id="' + id + '">' + list.map(function (t, i) {
-                return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>';
-            }).join('') + (list.length > 6 ? '<button type="button" class="inf-link inf-showmore" aria-expanded="false">Show More</button>' : '') + '</div></div>';
+            return '<div class="inf-pop inf-pop--modal" id="' + id + '_pop" hidden><div class="inf-pop__h">Prebuilt<button type="button" class="inf-pop__x" data-pop-close aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>' +
+                '<div class="inf-chips" id="' + id + '">' + list.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text' + (t.name ? ' inf-chip--named' : '') + '" data-i="' + i + '">' + (t.name ? '<strong>' + esc(t.name) + '</strong><span>' + esc(t.text) + '</span>' : esc(t)) + '</button>'; }).join('') + '</div></div>';
         }
+        function body_prebuilt_html(id) { return prebuilt_pop(id, body_prebuilt()); }
         function body_prebuilt_bind(id, $field) { $('#' + id).on('click', '.inf-chip--text', function () { $field.val(body_prebuilt()[$(this).data('i')]).trigger('input').trigger('focus'); }); }
         function body_section_html() {
             return '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
-                '<div class="inf-field"><label class="inf-label" for="inf_body_text">Body Description</label>' +
+                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_body_text">Body Description</label>' + prebuilt_link('inf_body_pre', body_prebuilt()) + '</div>' +
                 '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '<div class="inf-chips" id="inf_body_ideas">' + body_ideas_html() + '</div></div>' +
                 body_prebuilt_html('inf_body_pre') +
@@ -1007,8 +1010,8 @@ jQuery(function ($) {
             var html = '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
-                '<div class="inf-field"><label class="inf-label" for="inf_ref_desc">Face Description</label><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc(faces[0] || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
-                (faces.length ? '<div class="inf-field"><div class="inf-label">Prebuilt</div><div class="inf-chips">' + faces.map(function (t, i) { return '<button type="button" class="inf-chip inf-chip--text' + (i >= 6 ? ' is-extra' : '') + '" data-i="' + i + '" title="' + esc(t) + '">' + esc(t) + '</button>'; }).join('') + (faces.length > 6 ? '<button type="button" class="inf-link inf-showmore" aria-expanded="false">Show More</button>' : '') + '</div></div>' : '') +
+                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
+                prebuilt_pop('inf_ref_pre', faces) +
                 '</div>' +
                 '<div class="inf-wiz__view">' +
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
@@ -1024,7 +1027,7 @@ jQuery(function ($) {
                 '<button type="button" class="btn btn-primary" id="inf_ref_use" hidden><i class="fa-solid fa-check"></i> Use This Reference</button></div>';
             $('#inf_panel').html(html);
             opts_bind('inf_ref_model');
-            $('#inf_panel').off('click.infpre').on('click.infpre', '.inf-chip--text', function () { $('#inf_ref_desc').val(faces[$(this).data('i')]).trigger('focus'); });
+            $('#inf_panel').off('click.infpre').on('click.infpre', '.inf-chip--text', function () { if (!$(this).closest('#inf_ref_pre').length) { return; } $('#inf_ref_desc').val(faces[$(this).data('i')].text).trigger('input').trigger('focus'); });
             $('#inf_ref_back').on('click', function () { go_back('reference'); });
             var selected = inf.reference_asset_id || 0;
             var IDLE = $('#inf_ref_stage').html();

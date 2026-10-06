@@ -293,21 +293,29 @@ jQuery(function ($) {
      * Scene: dialogue in one take
      * =================================================================== */
     function init_scene() {
-        var lines = [{ speaker: 1, text: '', cue: '', say: '' }], build = null, building = false, sending = false, typing = null, seq = 0;
+        var lines = [], build = null, building = false, sending = false, typing = null, seq = 0;
         var MAX = parseInt(C.scene_max_lines, 10) || 20;
         var R = results('scene', cost);
-        var word1 = (CFG.gender === 'man') ? 'GUY' : 'GIRL';
-
         function second() { return String(seg_val('inf_sc_second') || 'none'); }
-        function labels() {
-            if (build && build.cast && build.cast.length) { return build.cast.map(function (c) { return c.label; }); }
-            var two = (second() === 'described' && seg_val('inf_sc_gender') === 'man') ? 'GUY' : 'GIRL';
-            return second() === 'none' ? [word1 + ' 1'] : [word1 + ' 1', two + ' 2'];
-        }
-        // What the speaker choice shows: real names, not the script's internal "GIRL 1 / GUY 2" labels.
+        // The names the script is written with. Someone described has no name, so the script calls them Him or Her.
         function speaker_names() {
-            var other = second() === 'influencer' ? ($('#inf_sc_other option:selected').text() || 'The Other Influencer') : 'The Other Person';
+            var other = second() === 'influencer' ? ($('#inf_sc_other option:selected').text() || 'Her') : (seg_val('inf_sc_gender') === 'man' ? 'Him' : 'Her');
             return [inf.name, other];
+        }
+        function same(a, b) { return String(a).trim().toLowerCase() === String(b).trim().toLowerCase(); }
+        // The script is read row by row: "Name: words" says who speaks (a row without a name stays with whoever spoke last),
+        // and words in brackets at the start are how the line is said.
+        function parse() {
+            var two = second() !== 'none', names = speaker_names(), cur = 1, out = [];
+            $.each(String($('#inf_sc_script').val() || '').split(/\n+/), function (i, raw) {
+                var t = raw.trim(), m = t.match(/^([^:()]{1,40}):\s*(.*)$/), cue = '';
+                if (m && same(m[1], names[0])) { cur = 1; t = m[2]; }
+                else if (m && two && (same(m[1], names[1]) || /^(him|her|he|she|the other person)$/i.test(m[1].trim()))) { cur = 2; t = m[2]; }
+                m = t.match(/^\(([^)]{1,160})\)\s*(.*)$/);
+                if (m) { cue = m[1].trim(); t = m[2]; }
+                if (t.trim() !== '') { out.push({ speaker: two ? cur : 1, text: t.trim(), cue: cue, say: '' }); }
+            });
+            lines = out;
         }
         function model_key() { return String($('#inf_sc_model .inf-opt.is-on').data('key') || ''); }
         function price() { return (build && build.prices) ? (build.prices[model_key()] || 0) : 0; }
@@ -318,29 +326,15 @@ jQuery(function ($) {
             $('#inf_sc_go').prop('disabled', !build || building || sending || R.busy() || !has_text() || !T.can_afford(price()));
         }
         function render_lines() {
-            var L = labels();
-            $('#inf_sc_lines').html(lines.map(function (l, i) {
-                var who = L.length > 1
-                    ? '<select class="form-select inf-line__who" data-f="speaker" aria-label="Speaker">' + L.map(function (name, k) { return '<option value="' + (k + 1) + '"' + (l.speaker === k + 1 ? ' selected' : '') + '>' + esc(speaker_names()[k] || name) + '</option>'; }).join('') + '</select>'
-                    : '<input type="hidden" class="inf-line__who" value="' + esc(L[0]) + '">';
-                return '<li class="inf-line" data-i="' + i + '">' + who +
-                    '<textarea class="form-control inf-line__text" data-f="text" rows="1" maxlength="500" placeholder="' + esc(L.length > 1 ? 'What is said' : 'What ' + inf.name + ' says') + '" aria-label="Line ' + (i + 1) + '">' + esc(l.text) + '</textarea>' +
-                    '<button type="button" class="inf-line__rm" data-rm title="Remove Line" aria-label="Remove line ' + (i + 1) + '"' + (lines.length === 1 ? ' disabled' : '') + '><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>' +
-                    // A line is just what is said. Direction (how it is said, how a word is pronounced) is there for those who
-                    // want it, behind one link, each with its own label.
-                    (function () {
-                        var open = l.open || String(l.cue || '') !== '' || String(l.say || '') !== '';
-                        return (open ? '' : '<button type="button" class="inf-link inf-line__add" data-more>Add Direction</button>') +
-                            '<div class="inf-line__more"' + (open ? '' : ' hidden') + '>' +
-                            '<label class="inf-line__lab">How It Is Said<input type="text" class="form-control" data-f="cue" maxlength="160" placeholder="Whispering, half smiling" value="' + esc(l.cue) + '"></label>' +
-                            '<label class="inf-line__lab">How To Pronounce A Word<input type="text" class="form-control" data-f="say" maxlength="200" placeholder="Nova as NOH-vah" value="' + esc(l.say) + '"></label></div>';
-                    })() + '</li>';
-            }).join(''));
-            $('#inf_sc_add').prop('hidden', lines.length >= MAX);
+            var two = second() !== 'none', n = speaker_names();
+            $('#inf_sc_names').prop('hidden', !two).html(two ? n.map(function (name) { return '<button type="button" class="inf-cvchip" data-name="' + esc(name) + '">' + esc(name) + '</button>'; }).join('') : '');
+            $('#inf_sc_script').attr('placeholder', two
+                ? n[0] + ': Okay, I have to tell you something.\n' + n[1] + ': (laughing) What is it?'
+                : 'Okay, I have to tell you something.\n(whispering) You cannot tell anyone.');
+            parse();
         }
         function body() {
-            var two = second() !== 'none';
-            return { id: inf.id, lines: JSON.stringify(lines.map(function (l) { return { speaker: two ? l.speaker : 1, text: l.text, cue: l.cue, say: l.say }; })), setting: $('#inf_sc_setting').val(),
+            return { id: inf.id, lines: JSON.stringify(lines), setting: $('#inf_sc_setting').val(),
                 second: second(), second_influencer_id: $('#inf_sc_other').val() || 0, second_description: $('#inf_sc_desc').val(), second_gender: seg_val('inf_sc_gender'),
                 seconds: $('#inf_sc_secs').val(), aspect: seg_val('inf_sc_size'), model_key: model_key() };
         }
@@ -352,34 +346,27 @@ jQuery(function ($) {
                 if (my !== seq) { return; }
                 building = false;
                 if (!o || !o.success) { build = null; fail((o && o.message) || 'Could not put the scene together.'); cost(); return; }
-                var had = labels().join('|');
                 build = o; fail('');
                 $('#inf_sc_secs option[value="0"]').text('Fit The Script (' + o.suggested_seconds + ' seconds)');
-                if (labels().join('|') !== had) { $('#inf_sc_lines .inf-line__who option').each(function () { $(this).text(labels()[parseInt(this.value, 10) - 1] || this.text); }); }
                 cost();
             });
         }
         function soon() { clearTimeout(typing); typing = setTimeout(rebuild, 600); cost(); }
 
-        $('#inf_sc_lines').on('input change', '[data-f]', function () {
-            var i = parseInt($(this).closest('.inf-line').data('i'), 10), f = $(this).data('f');
-            lines[i][f] = (f === 'speaker') ? (parseInt(this.value, 10) || 1) : this.value;
-            if (this.tagName === 'TEXTAREA') { this.style.height = 'auto'; this.style.height = Math.min(160, this.scrollHeight + 2) + 'px'; }
+        $('#inf_sc_script').on('input', function () {
+            parse();
+            if (lines.length > MAX) { fail('A scene can have up to ' + MAX + ' lines.'); build = null; clearTimeout(typing); cost(); return; }
             soon();
         });
-        $('#inf_sc_lines').on('click', '[data-more]', function () { var i = parseInt($(this).closest('.inf-line').data('i'), 10); lines[i].open = true; render_lines(); $('#inf_sc_lines .inf-line').eq(i).find('[data-f="cue"]').trigger('focus'); });
-        $('#inf_sc_lines').on('click', '[data-rm]', function () { if (lines.length < 2) { return; } lines.splice(parseInt($(this).closest('.inf-line').data('i'), 10), 1); render_lines(); soon(); });
-        $('#inf_sc_add').on('click', function () {
-            if (lines.length >= MAX) { return; }
-            var last = lines[lines.length - 1], two = second() !== 'none';
-            lines.push({ speaker: two ? (last.speaker === 1 ? 2 : 1) : 1, text: '', cue: '', say: '' });   // a conversation alternates
-            render_lines();
-            $('#inf_sc_lines .inf-line').last().find('textarea').trigger('focus');
+        // With two people in the scene, a name button starts that person's next line.
+        $('#inf_sc_names').on('click', '[data-name]', function () {
+            var box = document.getElementById('inf_sc_script'), v = box.value.replace(/\s+$/, '');
+            box.value = v + (v === '' ? '' : '\n') + $(this).data('name') + ': ';
+            box.focus(); box.setSelectionRange(box.value.length, box.value.length); box.scrollTop = box.scrollHeight;
         });
         seg_pick('inf_sc_second', function (v) {
             $('#inf_sc_other_wrap').prop('hidden', v !== 'influencer');
             $('#inf_sc_desc_wrap').prop('hidden', v !== 'described');
-            if (v === 'none') { $.each(lines, function (i, l) { l.speaker = 1; }); }
             build = null; render_lines(); soon();
         });
         seg_pick('inf_sc_gender', function () { build = null; render_lines(); soon(); });

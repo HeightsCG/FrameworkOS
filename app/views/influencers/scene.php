@@ -2,33 +2,9 @@
 <?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); $cfg = (array) $this->config;
       $others = array_values(array_filter($ready, function ($r) use ($infl) { return (int) $r['id'] !== (int) $infl['id']; })); ?>
 
-    <?php /* Canvas first, as on Generate Images: her scenes fill the page; the scene is written in one bar at the bottom. */ ?>
-    <div class="inf-cv" id="inf_gen" data-cv>
-        <div class="inf-cv__body">
-            <section class="inf-cv__canvas" aria-label="Scenes">
-                <div class="inf-cv__empty" id="inf_idle">
-                    <i class="fa-solid fa-clapperboard" aria-hidden="true"></i>
-                    <h2>A Scene Where <?php echo $e($infl['name']); ?> Speaks</h2>
-                    <p>Say where it happens and write what is said. The scene is filmed in one take with the words spoken.</p>
-                </div>
-                <div class="inf-strip inf-cv__grid" id="inf_strip"></div>
-            </section>
-            <aside class="inf-cv__viewer" id="inf_viewer" aria-label="Selected scene">
-                <button type="button" class="inf-cv__close" id="inf_viewer_close" aria-label="Close"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>
-                <div class="inf-cv__stage" id="inf_stage">
-                    <video class="inf-gen__video" id="inf_video" controls playsinline hidden></video>
-                </div>
-                <div class="inf-cv__actions" id="inf_result" hidden>
-                    <div class="inf-result__actions inf-result__actions--only">
-                        <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
-                        <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
-                        <button type="button" class="btn btn-secondary" id="inf_res_frame"><i class="fa-regular fa-image"></i> Export Frame</button>
-                    </div>
-                </div>
-            </aside>
-        </div>
-
-        <form class="inf-cv__dock inf-cv__dock--scene" id="inf_sc_form" autocomplete="off" onsubmit="return false;">
+    <?php /* A scene is a script, so the page is the script: one box to write it in, the video beside it. */ ?>
+    <div class="inf-script" id="inf_gen" data-cv>
+        <form class="inf-script__page" id="inf_sc_form" autocomplete="off" onsubmit="return false;">
             <div class="inf-pop inf-pop--wide inf-pop--stay" id="inf_pop_swho" hidden>
                 <div class="inf-pop__h">Who Else Is In The Scene</div>
                 <div class="inf-seg" id="inf_sc_second" role="group" aria-label="Second character">
@@ -59,14 +35,16 @@
                 <div class="inf-seg" id="inf_sc_size" role="group" aria-label="Size"><?php echo Aspect::seg_buttons('inf-seg__opt', 'data-value', Aspect::DEFAULT_VIDEO, InfluencerConfig::resolve_model('scene', '')); ?></div>
             </div>
 
-            <label class="visually-hidden" for="inf_sc_setting">Where it happens</label>
-            <input type="text" class="form-control inf-cv__setting" id="inf_sc_setting" maxlength="800" placeholder="Where it happens: a parked car at dusk, phone on the dashboard">
-            <ol class="inf-lines" id="inf_sc_lines"></ol>
+            <label class="inf-label" for="inf_sc_setting">Where It Happens</label>
+            <input type="text" class="form-control" id="inf_sc_setting" maxlength="800" placeholder="A parked car at dusk, phone on the dashboard">
+            <div class="inf-script__head">
+                <label class="inf-label" for="inf_sc_script">What Is Said</label>
+                <span class="inf-script__names" id="inf_sc_names" hidden></span>
+            </div>
+            <textarea class="form-control inf-script__text" id="inf_sc_script" maxlength="12000"></textarea>
             <p class="inf-err" id="inf_sc_err" role="alert" hidden></p>
             <div class="inf-cv__bar">
-                <button type="button" class="inf-cvchip" id="inf_sc_add"><i class="fa-solid fa-plus" aria-hidden="true"></i> Add Another Line</button>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_swho" aria-expanded="false"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> <span data-pop-label="#inf_sc_second .inf-seg__opt.is-on" data-pop-prefix="With " data-pop-none="No One" data-pop-default="Add Someone Else">Add Someone Else</span></button>
-                <span class="inf-cv__sep" aria-hidden="true"></span>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_squal" aria-expanded="false"><span data-pop-label="#inf_sc_model .inf-opt.is-on .inf-opt__t">Quality</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <select class="inf-cvchip inf-cvchip--select" aria-label="Length" id="inf_sc_secs"><option value="0">Fit The Script</option><?php for ($n = 4; $n <= 30; $n++): ?><option value="<?php echo $n; ?>"><?php echo $n; ?> seconds</option><?php endfor; ?></select>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_ssize" aria-expanded="false"><span data-pop-label="#inf_sc_size .inf-seg__opt.is-on">Size</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
@@ -76,6 +54,20 @@
                 <button type="button" class="btn btn-primary inf-cv__go" id="inf_sc_go" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Scene</button>
             </div>
         </form>
+        <aside class="inf-script__side" aria-label="Scene video">
+            <div class="inf-script__stage" id="inf_stage">
+                <div class="inf-script__idle" id="inf_idle"><i class="fa-solid fa-clapperboard" aria-hidden="true"></i></div>
+                <video class="inf-gen__video" id="inf_video" controls playsinline hidden></video>
+            </div>
+            <div class="inf-cv__actions" id="inf_result" hidden>
+                <div class="inf-result__actions inf-result__actions--only">
+                    <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use in a Post</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_frame"><i class="fa-regular fa-image"></i> Export Frame</button>
+                </div>
+            </div>
+            <div class="inf-strip" id="inf_strip"></div>
+        </aside>
     </div>
 
 <?php require __DIR__ . '/_bottom.php'; ?>

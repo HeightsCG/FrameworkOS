@@ -50,6 +50,8 @@
 .inf-card__body{ display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.7rem .8rem; }
 .inf-card__name{ font-weight:600; font-size:.95rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .inf-card__menu{ position:absolute; right:.45rem; top:.45rem; z-index:2; width:30px; height:30px; border-radius:var(--r-sm); border:none; background:rgba(18, 18, 18, .55); color:#fff; display:flex; align-items:center; justify-content:center; font-size:.85rem; cursor:pointer; }
+.inf-card:has(> .dropdown){ overflow:visible; }   /* the menu opens over the card's edge; the picture clips itself */
+.inf-card:has(.dropdown-menu.show){ z-index:5; }
 .inf-card > .dropdown{ position:static; }   /* the menu button anchors to the card's top-right, not below it (the card clips overflow) */
 .inf-card__menu:hover{ background:rgba(18, 18, 18, .8); }
 .inf-card .dropdown-menu{ font-size:.86rem; border-radius:var(--r-sm); border:1px solid var(--line); box-shadow:var(--sh); }
@@ -559,25 +561,8 @@ a.inf-link:hover{ text-decoration:underline; }
 .inf-attest .form-check-input{ margin-top:.15rem; }
 .inf-attest.is-missing{ border-color:var(--danger); background:var(--danger-bg); }
 
-.inf-lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:.6rem; counter-reset:line; }
-.inf-line{ position:relative; display:grid; grid-template-columns:104px minmax(0,1fr) 32px; gap:.45rem .5rem; padding:.65rem; border:1px solid var(--line); border-radius:2px; background:#FAFAFA; }
-.inf-line__text{ grid-column:2; }
-.inf-line__more{ grid-column:1 / 3; display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
-.inf-line__rm{ grid-column:3; grid-row:1; width:32px; height:40px; border:0; background:transparent; color:var(--muted); cursor:pointer; border-radius:2px; }
-.inf-line__rm:hover{ color:var(--danger); background:var(--danger-bg); }
-.inf-line__rm:focus-visible{ outline:none; box-shadow:0 0 0 2px var(--acc); }
-.inf-line__rm:disabled{ opacity:.35; cursor:not-allowed; }
-.inf .inf-line .form-control, .inf .inf-line .form-select{ font-size:13px; padding:0 10px; }
-.inf .inf-line textarea.form-control{ min-height:40px; height:auto; padding:9px 10px; }
 @media (max-width:1180px){ .inf-gen--wide{ grid-template-columns:400px minmax(0,1fr); } }
 @media (max-width:980px){ .inf-gen--wide{ grid-template-columns:1fr; } }
-@media (max-width:640px){
-    .inf-line{ grid-template-columns:minmax(0,1fr) 40px; }
-    .inf-line__who{ grid-column:1; }
-    .inf-line__text{ grid-column:1 / 3; }
-    .inf-line__more{ grid-column:1 / 3; grid-template-columns:1fr; }
-    .inf-line__rm{ grid-column:2; grid-row:1; width:40px; }
-    .inf .inf-line .form-control, .inf .inf-line .form-select{ font-size:16px; }
 }
 
 /* ---- voice + talking video (influencers-voice.js) ---- */
@@ -1007,11 +992,6 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-fold[open] > summary::before{ transform:rotate(90deg); }
 .inf-fold > summary:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); border-radius:2px; }
 .inf-fold > .inf-field, .inf-fold > .inf-grid{ margin-top:12px; }
-/* one speaker: no speaker box, so the line takes the row */
-.inf-line:has(> input[type="hidden"].inf-line__who){ grid-template-columns:minmax(0, 1fr) 32px; }
-.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__text{ grid-column:1; }
-.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__rm{ grid-column:2; }
-.inf-line:has(> input[type="hidden"].inf-line__who) .inf-line__more{ grid-column:1 / 3; }
 /* Replace Character before a video is chosen: the picker is the form, so it takes the form's height */
 #inf_rp_form:not(:has(#inf_rp_video.has-img)) > .inf-field:first-of-type{ flex:1 1 auto; display:flex; flex-direction:column; }
 #inf_rp_form:not(:has(#inf_rp_video.has-img)) #inf_rp_video{ flex:1 1 auto; }
@@ -1026,33 +1006,60 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 #inf_tk_voice.is-text{ color:var(--muted); font-weight:500; cursor:default; text-decoration:none; }
 #inf_tk_voice[hidden]{ display:none; }
 
-/* Scene: a line is one box; direction is optional, behind a link, with labels */
-.inf-line__add{ grid-column:1 / -1; justify-self:start; font-size:13px; padding:0; }
-.inf-line__more{ grid-column:1 / -1 !important; grid-template-columns:1fr; gap:8px; }
-.inf-line__more[hidden]{ display:none; }
-.inf-line__lab{ display:flex; flex-direction:column; gap:4px; margin:0; font-size:13px; font-weight:500; color:var(--muted); }
-.inf .inf-line textarea.inf-line__text{ min-height:64px; }
 #inf_sc_second .inf-seg__opt:disabled{ display:none; }   /* no other influencer to add: the choice is not offered */
-.inf-line__rm:disabled{ visibility:hidden; }   /* the only line cannot be removed, so the control is not offered */
 
-/* Scene: the form is the work on this page, so it gets half of it; the other person's two fields share a row */
-.inf-gen[data-cv]:has(#inf_sc_form){ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); }
-#inf_sc_desc_wrap{ grid-template-columns:minmax(0, 1fr) 220px; }
-#inf_sc_desc_wrap > .inf-field--full{ grid-column:auto; }
-#inf_sc_form .inf-line{ grid-template-columns:140px minmax(0, 1fr) 32px; }
-#inf_sc_form .inf-line:has(> input[type="hidden"].inf-line__who){ grid-template-columns:minmax(0, 1fr) 32px; }
-@media (max-width:980px){ .inf-gen[data-cv]:has(#inf_sc_form){ grid-template-columns:1fr; } #inf_sc_desc_wrap{ grid-template-columns:1fr; } }
-
-/* ---- Scene on the canvas layout: the setting and the lines are written in the bar ---- */
-.inf .inf-cv__setting{ height:36px; border:0; border-bottom:1px solid var(--line2); border-radius:0; box-shadow:none; padding:4px 6px; font-size:14px; background:transparent; }
-.inf .inf-cv__setting:focus{ box-shadow:none; border-bottom-color:var(--acc); }
-.inf-cv__dock--scene .inf-lines{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; max-height:34vh; overflow-y:auto; }
-.inf-cv__dock--scene .inf-line{ padding:0; border:0; background:transparent; gap:4px 8px; }
-.inf .inf-cv__dock--scene .inf-line textarea.inf-line__text{ min-height:44px; border:0; box-shadow:none; background:transparent; font-size:15px; padding:6px; resize:none; }
-.inf-cv__dock--scene .inf-line + .inf-line{ border-top:1px solid var(--line2); padding-top:6px; }
-.inf-cv__dock--scene .inf-line__add{ padding:0 6px; font-size:12px; font-weight:500; color:var(--muted); }
-.inf-cv__dock--scene .inf-line__add:hover{ color:var(--acc-ink); }
-.inf-cv__dock--scene .inf-line__more{ padding:0 6px 6px; grid-template-columns:1fr 1fr; gap:8px; }
 #inf_pop_swho .inf-field, #inf_pop_swho .inf-grid{ margin-top:12px; }
 #inf_pop_swho #inf_sc_desc_wrap{ grid-template-columns:1fr; }
 #inf_pop_swho [hidden]{ display:none; }
+
+/* ---- Scene: the page is the script. One box to write in, filling the height; the video stands beside it ---- */
+.inf-script{ display:grid; grid-template-columns:minmax(0, 1fr) clamp(260px, calc((var(--cv-h, 70vh) - 110px) * 9 / 16), 400px); gap:12px; height:var(--cv-h, 70vh); min-height:420px; }
+.inf-script__page{ position:relative; min-height:0; display:flex; flex-direction:column; gap:8px; padding:16px; background:var(--surface); border:1px solid var(--line); border-radius:2px; }
+.inf-script__page > .inf-label{ margin:0; }
+.inf-script__head{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; min-height:28px; }
+.inf-script__head .inf-label{ margin:0; }
+.inf-script__names{ display:flex; gap:6px; }
+.inf-script__names[hidden]{ display:none; }
+.inf-script__names .inf-cvchip{ height:28px; }
+.inf .inf-script__text{ flex:1 1 auto; min-height:120px; width:100%; resize:none; padding:12px 14px; font-size:16px; line-height:1.7; }
+.inf-script__page > .inf-err{ margin:0; }
+.inf-script__page > .inf-cv__bar{ margin-top:4px; }
+.inf-script__page > .inf-pop{ left:16px; bottom:64px; }
+.inf-script__side{ min-height:0; display:flex; flex-direction:column; gap:8px; }
+.inf-script__stage{ flex:1 1 auto; min-height:0; display:flex; align-items:center; justify-content:center; background:#111; border-radius:2px; overflow:hidden; }
+.inf-script__stage video{ width:100%; height:100%; max-height:none; object-fit:contain; }
+.inf-script__stage video[hidden]{ display:none; }
+.inf-script__idle{ color:#555; font-size:32px; }
+.inf-script__idle[hidden]{ display:none; }
+.inf-script__side .inf-strip{ flex:0 0 auto; }
+.inf-script__side .inf-strip__item{ width:54px; height:72px; }
+@media (max-width:980px){
+    .inf-script{ grid-template-columns:1fr; height:auto; }
+    .inf .inf-script__text{ min-height:240px; }
+    .inf-script__stage{ aspect-ratio:9 / 16; max-height:70vh; }
+}
+
+/* ---- Create steps with a picture beside the form (Face, Body) fit the window: the picture takes the height, nothing runs below the fold ---- */
+.inf-head:has(.inf-back) > div{ display:flex; align-items:baseline; gap:14px; }
+.inf-head:has(.inf-back) .inf-back{ margin:0; }
+.inf-head:has(.inf-back){ margin-bottom:12px; }
+@media (min-width:981px){
+    #inf_panel:has(> .inf-wiz__split){ height:var(--cv-h, 70vh); min-height:420px; display:flex; flex-direction:column; padding:16px; }
+    #inf_panel > .inf-wiz__split{ flex:1 1 auto; min-height:0; align-items:stretch; }
+    #inf_panel > .inf-wiz__split > .inf-wiz__form{ min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:2px; }
+    #inf_panel > .inf-wiz__split > .inf-wiz__view{ min-height:0; }
+    #inf_panel > .inf-wiz__split .inf-wiz__stage{ flex:1 1 auto; min-height:0; height:auto; }
+    #inf_panel > .inf-wiz__split .inf-wiz__stage .inf-gen__main{ height:100%; }
+    #inf_panel > .inf-wiz__split .inf-wiz__stage .inf-gen__main img{ max-height:100%; height:100%; width:auto; max-width:100%; object-fit:contain; }
+    #inf_panel:has(> .inf-wiz__split) > .inf-wiz__foot{ flex:0 0 auto; margin-top:12px; padding-top:12px; }
+    #inf_panel > .inf-wiz__split .inf-wiz__desc{ flex:1 1 auto; min-height:120px; }
+    #inf_panel > .inf-wiz__split > .inf-wiz__form > .inf-field:has(.inf-wiz__desc){ flex:1 1 auto; display:flex; flex-direction:column; min-height:0; }
+}
+
+/* Prebuilt window: each one has a name and its description, two to a row */
+.inf-pop--modal .inf-chips:has(.inf-chip--named){ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.inf-pop--modal:has(.inf-chip--named){ width:min(860px, calc(100vw - 32px)); }
+.inf-pop .inf-chip--named{ display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; padding:10px 12px; height:auto; max-width:none; }
+.inf-chip--named strong{ font-size:14px; font-weight:700; color:var(--text); }
+.inf-chip--named span{ font-size:13px; line-height:1.45; font-weight:400; color:var(--t2); white-space:normal; }
+@media (max-width:640px){ .inf-pop--modal .inf-chips:has(.inf-chip--named){ grid-template-columns:1fr; } }

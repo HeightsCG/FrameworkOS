@@ -10,7 +10,7 @@
 
     <section class="inf-wiz" id="inf_wizard">
         <ol class="inf-steps" id="inf_steps"></ol>
-        <div class="inf-wiz__panel" id="inf_panel"></div>
+        <div class="inf-wiz__panel" id="inf_panel" data-cv></div>
     </section>
 
 <?php require __DIR__ . '/_bottom.php'; ?>

@@ -198,35 +198,35 @@ class InfluencerService {
         return (stripos($p, 'no airbrushing') !== false) ? $p : $p . '. ' . self::REALISM;
     }
 
-    /** Drop-in face descriptions for the reference step (text input), per gender. */
+    /** Faces to start from on the reference step, per gender: a short name the list shows, and the description it fills in. */
     const FACE_PROMPTS = array(
         'woman' => array(
-            'Phone photo of a woman in her mid 20s, long dark wavy hair a little messy, warm brown eyes, freckles across the nose, no makeup, standing by a kitchen window in daylight, looking at the camera',
-            'Phone photo of a woman in her late 20s, blonde shoulder-length hair, blue eyes, light smile, barely any makeup, grey t-shirt, sitting in a parked car in overcast daylight',
-            'Phone photo of a woman in her early 30s, black curly hair, dark brown eyes, defined cheekbones, small gold hoop earrings, on a city sidewalk in late afternoon sun',
-            'Phone photo of a woman in her mid 20s, auburn straight hair with bangs, green eyes, small nose, bare skin, plain white wall behind, window light from one side',
-            'Phone photo of a Latina woman in her mid 20s, long dark brown hair, brown eyes, full eyebrows, small beauty mark on the cheek, white tank top, on a balcony in morning light',
-            'Phone photo of a Black woman in her late 20s, shoulder-length box braids, dark brown eyes, warm smile, small nose stud, denim jacket, outside a cafe in daylight',
-            'Phone photo of an East Asian woman in her mid 20s, straight black hair in a low ponytail, dark eyes, soft round face, no makeup, oversized hoodie, at a desk by a window',
-            'Phone photo of a South Asian woman in her late 20s, long black hair with a middle part, dark brown eyes, thin gold necklace, plain t-shirt, in a living room with lamp light',
-            'Phone photo of a woman in her early 20s, short platinum pixie cut, grey eyes, light freckles, small silver hoops, black t-shirt, on a train platform in overcast light',
-            'Phone photo of a woman in her mid 30s, chestnut hair in a loose bun, hazel eyes, faint laugh lines, no makeup, linen shirt, in a garden in late afternoon sun',
-            'Phone photo of a woman in her mid 20s, copper red curly hair, pale skin with freckles, blue-green eyes, knit sweater, on a windy beach under a grey sky',
-            'Phone photo of a woman in her late 20s, honey blonde beach waves, tanned skin, brown eyes, sunglasses pushed up on the head, tank top, on a boardwalk in bright sun',
+            'Girl Next Door'      => 'Woman, 24. Long chestnut hair, a little messy, tucked behind one ear. Warm brown eyes, light freckles across the nose and cheeks, soft round cheeks, natural full brows. Bare skin, relaxed half smile, looking straight at the camera. Daylight from a window.',
+            'Beach Blonde'        => 'Woman, 26. Sun-lightened blonde waves past the shoulders, darker at the roots. Blue eyes, tanned skin with a few sun freckles, slim nose, wide easy smile showing teeth. Hair slightly salty and windblown. Bright open shade outdoors.',
+            'Dark And Striking'   => 'Woman, 27. Jet black hair, long and straight, centre part. Dark almond eyes, high cheekbones, sharp jawline, full lips, strong arched brows. Calm, direct look with the mouth closed. Soft light from one side.',
+            'Curly And Bright'    => 'Woman, 25. Big dark brown curls to the shoulders. Deep brown skin, dark eyes, round cheeks, wide bright smile, small gold nose stud. Head tilted slightly, laughing. Outdoors in late afternoon sun.',
+            'Redhead'             => 'Woman, 23. Copper red hair, loose and wavy, mid length. Pale skin covered in freckles, green eyes, light lashes, small upturned nose, faint smile. No makeup. Overcast daylight.',
+            'Fitness Girl'        => 'Woman, 28. Honey brown hair pulled back in a high ponytail, a few strands loose. Hazel eyes, lightly tanned skin, defined jaw, healthy flush on the cheeks, confident closed-mouth smile. A little sweat at the hairline. Morning light.',
+            'Soft And Sweet'      => 'Woman, 22. Shoulder-length light brown hair with wispy bangs. Big grey-blue eyes, fair skin, small nose, round face, pink cheeks, shy smile. Looks young and gentle. Soft indoor light by a window.',
+            'Glam Brunette'       => 'Woman, 29. Thick dark brown hair in loose blowout waves. Olive skin, brown eyes, full lips, long lashes, defined brows, small beauty mark above the lip. Light everyday makeup, slight knowing smile. Warm evening light.',
+            'Edgy Short Hair'     => 'Woman, 25. Platinum blonde pixie cut, dark roots showing. Grey eyes, sharp cheekbones, straight brows, small silver hoop in one ear, tiny stud in the nose. Serious look, chin slightly down. Flat daylight.',
+            'Elegant Thirties'    => 'Woman, 34. Dark blonde hair in a low loose bun, a few strands framing the face. Blue-grey eyes, fine lines at the corners when she smiles, slim face, straight nose. Calm, warm expression. Late afternoon light.',
+            'Tan And Dark Eyed'   => 'Woman, 26. Very long dark brown hair, glossy, slight wave at the ends. Golden tan skin, large dark brown eyes, thick lashes, full brows, soft wide smile. Thin gold chain at the neck. Morning light on a balcony.',
+            'Cute And Sporty'     => 'Woman, 24. Straight black hair cut to the collarbone, tucked behind both ears. Fair skin, dark eyes, soft round face, small nose, dimples when she smiles. No makeup, cheerful open smile. Bright daylight.',
         ),
         'man' => array(
-            'Phone photo of a man in his late 20s, short dark hair with a fade, brown eyes, trimmed beard, plain t-shirt, standing by a window in daylight, looking at the camera',
-            'Phone photo of a man in his early 30s, sandy blond hair pushed back, blue eyes, light stubble, easy smile, sitting in a parked car in overcast daylight',
-            'Phone photo of a man in his mid 20s, black curly hair, dark brown eyes, strong jawline, clean shaven, on a city sidewalk in late afternoon sun',
-            'Phone photo of a man in his early 30s, auburn hair, green eyes, freckles, short beard, plain white wall behind, window light from one side',
-            'Phone photo of a Latino man in his late 20s, dark wavy hair, brown eyes, short stubble, thin silver chain, white t-shirt, on a balcony in morning light',
-            'Phone photo of a Black man in his early 30s, short cropped hair, dark brown eyes, neat full beard, grey hoodie, outside a gym in daylight',
-            'Phone photo of an East Asian man in his mid 20s, black hair with a textured fringe, dark eyes, clean shaven, denim jacket, on a train platform in overcast light',
-            'Phone photo of a South Asian man in his late 20s, thick black hair swept to the side, dark brown eyes, trimmed beard, plain shirt, in a living room with lamp light',
-            'Phone photo of a man in his early 40s, salt and pepper hair, grey-blue eyes, short grey stubble, faint lines by the eyes, navy sweater, in a kitchen in daylight',
-            'Phone photo of a man in his mid 20s, long brown hair tied back, hazel eyes, light beard, flannel shirt, on a hiking trail in late afternoon sun',
-            'Phone photo of a man in his late 20s, shaved head, dark eyes, heavy stubble, black t-shirt, tattoo on the neck, in a parking garage under flat light',
-            'Phone photo of a man in his early 30s, curly red hair, blue eyes, freckles, short red beard, knit sweater, on a windy beach under a grey sky',
+            'Guy Next Door'       => 'Man, 27. Short brown hair, slightly messy on top. Brown eyes, light stubble, friendly open face, straight nose, easy closed-mouth smile. Looking straight at the camera. Daylight from a window.',
+            'Surfer Blond'        => 'Man, 26. Sun-bleached blond hair to the ears, pushed back, a little salty. Blue eyes, tanned skin, light scruff, wide relaxed grin. Squinting slightly in the sun. Bright open shade outdoors.',
+            'Dark And Sharp'      => 'Man, 29. Black hair, short on the sides and longer on top, swept back. Dark eyes, strong jaw, defined cheekbones, heavy brows, clean shaven. Serious, direct look. Soft light from one side.',
+            'Bearded And Warm'    => 'Man, 31. Short cropped black hair, neat full beard. Deep brown skin, dark eyes, broad nose, wide warm smile showing teeth. Laughing a little. Outdoors in late afternoon sun.',
+            'Redhead'             => 'Man, 28. Curly red hair, short red beard. Pale freckled skin, blue eyes, light lashes, crooked half smile. Overcast daylight.',
+            'Gym Guy'             => 'Man, 28. Dark brown hair in a short fade. Hazel eyes, lightly tanned skin, thick neck, square jaw, short stubble, confident smirk. A little sweat at the hairline. Morning light.',
+            'Clean Cut'           => 'Man, 24. Light brown hair, neat side part. Grey-blue eyes, fair skin, smooth clean-shaven face, slim nose, polite smile. Looks young and tidy. Soft indoor light by a window.',
+            'Rugged'              => 'Man, 35. Shaggy dark hair to the collar, thick uneven beard. Weathered tan skin, green eyes, lines across the forehead, small scar through one eyebrow. Steady look, no smile. Warm evening light.',
+            'Shaved Head'         => 'Man, 30. Shaved head, heavy dark stubble. Dark eyes, strong brow, wide jaw, small tattoo on the side of the neck. Chin slightly down, serious look. Flat daylight.',
+            'Silver Fox'          => 'Man, 44. Salt and pepper hair, short and neat, grey in the stubble. Grey-blue eyes, lines at the corners of the eyes, slim face, calm half smile. Late afternoon light.',
+            'Tan And Dark Eyed'   => 'Man, 27. Thick dark wavy hair, medium length. Golden tan skin, dark brown eyes, full brows, short stubble, soft wide smile. Thin silver chain at the neck. Morning light on a balcony.',
+            'Long Hair'           => 'Man, 26. Long brown hair tied back, a few strands loose around the face. Hazel eyes, light beard, straight nose, relaxed smile. Outdoors in open shade.',
         ),
     );
 
@@ -284,7 +284,9 @@ class InfluencerService {
     public static function prompts_for($gender): array {
         $n = ($gender === 'man') ? 'man' : 'woman';
         $fill = function ($list) use ($n) { return array_map(function ($p) use ($n) { return str_replace(array('{subject}', '{Subject}'), array('a ' . $n, 'The ' . $n), $p); }, $list); };
-        return array('face' => self::FACE_PROMPTS[$n], 'body' => self::BODY_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
+        $faces = array();
+        foreach (self::FACE_PROMPTS[$n] as $name => $text) { $faces[] = array('name' => $name, 'text' => $text); }
+        return array('face' => $faces, 'body' => self::BODY_PROMPTS[$n], 'image' => $fill(self::IMAGE_PROMPTS), 'video' => $fill(self::VIDEO_PROMPTS));
     }
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. {body} is where her body words go (training_variation). */
