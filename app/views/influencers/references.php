@@ -1,5 +1,6 @@
 <?php require __DIR__ . '/_top.php'; ?>
-<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array()); ?>
+<?php $infl = $this->influencer; $ready = (array) ($this->ready ?? array());
+      $her = ((string) ($infl['gender'] ?? 'woman') === 'man') ? 'his' : 'her'; ?>
 
 
     <div class="inf-angles__bar" id="inf_ang_bar" hidden>
@@ -10,11 +11,11 @@
     </div>
 
     <div class="inf-state-loading" id="inf_ang_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading references…</div>
-    <div class="inf-state-error" id="inf_ang_error" hidden>Could not load her references. <button type="button" class="inf-link" id="inf_ang_retry">Try Again</button></div>
+    <div class="inf-state-error" id="inf_ang_error" hidden>Could not load <?php echo $her; ?> references. <button type="button" class="inf-link" id="inf_ang_retry">Try Again</button></div>
     <div class="inf-empty" id="inf_ang_noref" hidden>
         <span class="inf-empty__ic"><i class="fa-regular fa-id-badge"></i></span>
         <h2 class="inf-empty__title">No Reference Image Yet</h2>
-        <p class="inf-empty__text">Angles are made from her reference image.</p>
+        <p class="inf-empty__text">Angles are made from <?php echo $her; ?> reference image.</p>
         <a href="/influencers/create/<?php echo (int) $infl['id']; ?>" class="btn btn-primary">Open Settings</a>
     </div>
     <div class="inf-angles" id="inf_angles" hidden></div>

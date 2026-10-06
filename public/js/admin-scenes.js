@@ -7,6 +7,7 @@
     var $ = window.jQuery, modal = bootstrap.Modal.getOrCreateInstance(modal_el), thumb_file = null;
 
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
+    function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function bad(msg) { toastr.error(msg || 'Something went wrong. Please try again.'); }
     function back_to_tab() { window.location = '/admin?tab=scenes'; }
     function confirm_box(opts) {
@@ -15,7 +16,7 @@
     }
     function clear_errors() { $('#admSceneForm [data-err]').prop('hidden', true).text(''); $('#admSceneForm .is-invalid').removeClass('is-invalid'); }
     function set_thumb(url) {
-        $('#admSceneThumbBtn').html(url ? '<img src="' + url + '" alt=""><span class="adm-scene__change">Change Image</span>' : '<i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span>').toggleClass('has-img', !!url);
+        $('#admSceneThumbBtn').html(url ? '<img src="' + esc(url) + '" alt=""><span class="adm-scene__change">Change Image</span>' : '<i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span>').toggleClass('has-img', !!url);
     }
     function busy(on, text) {
         $('#admSceneSave').prop('disabled', on).html(on ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Saving' : 'Save Scene');

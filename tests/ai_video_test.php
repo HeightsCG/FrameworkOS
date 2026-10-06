@@ -79,7 +79,7 @@ if (!empty($f['ok'])) {
     $fa = $media->get_one($cid, (int) $f['asset_id']);
     check('the frame is a ready image the size of the video', (string) $fa['type'] === 'image' && (string) $fa['status'] === 'ready' && (int) $fa['width'] > 0
         && abs((int) $fa['width'] / (int) $fa['height'] - (int) $video['width'] / max(1, (int) $video['height'])) < 0.02, $fa['width'] . 'x' . $fa['height'] . ' vs ' . $video['width'] . 'x' . $video['height']);
-    check('the frame records the video it came from',   (int) $fa['source_asset_id'] === $vid && (string) $fa['provenance'] === ((string) $video['provenance'] === 'uploaded' ? 'uploaded' : 'generated'));
+    check('the frame records the video it came from',   (int) $fa['source_asset_id'] === $vid && (string) $fa['provenance'] === (in_array((string) $video['provenance'], MediaAssetsModel::PROVENANCE, true) ? (string) $video['provenance'] : 'generated'), $fa['provenance'] . ' vs ' . $video['provenance']);
     check('exporting a frame costs nothing',            $bal() === $start);
 }
 check('a frame from an image is refused',               empty(InfluencerVideoActions::extract_frame($cid, $user, $image, 0)['ok']));

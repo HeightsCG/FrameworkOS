@@ -50,6 +50,8 @@ class SceneTemplates {
         $tpl = (new SceneTemplatesModel())->get_one((int) $template_id);
         if (!$tpl || empty($tpl['is_active'])) { return self::fail('That scene is not available.'); }
         if (!empty($tpl['is_adult']) && !self::shows_adult($user)) { return self::fail('That scene is not available.'); }
+        // A model the caller named must do image generation: it is refused, never swapped for the default and re-priced.
+        if ((string) $model_key !== '') { $m_err = ''; if (!InfluencerImageActions::model_for('image', $model_key, $m_err)) { return self::fail($m_err); } }
         $r = InfluencerActions::generate_image($cid, $infl, array(
             'prompt' => self::prompt_for($tpl, $infl), 'model_key' => (string) $model_key, 'num_images' => self::VARIANTS,
             'aspect' => ($aspect !== '') ? $aspect : (string) $tpl['default_aspect'],

@@ -47,25 +47,7 @@ class AiDisclosure {
         return ($t !== '') ? mb_substr($t, 0, 200) : self::DEFAULT_LINE;
     }
 
-    /**
-     * A caption with the disclosure line on its own last line, inside the platform's length limit
-     * ($limit 0 = no limit): the caption is shortened, the line never is.
-     */
-    public static function caption_with_line($caption, $line, $limit = 0){
-        $caption = trim((string) $caption); $line = self::line($line);
-        if ($caption !== '' && mb_stripos($caption, $line) !== false) { return $caption; }   // already says it
-        if ($caption === '') { return $line; }
-        $sep = "\n\n";
-        if ((int) $limit > 0 && mb_strlen($caption . $sep . $line) > (int) $limit) {
-            $room = (int) $limit - mb_strlen($sep . $line) - 1;
-            if ($room < 10) { return mb_substr($line, 0, (int) $limit); }
-            $cut = mb_substr($caption, 0, $room);
-            $sp  = mb_strrpos($cut, ' ');
-            if ($sp !== false && $sp > $room * 0.6) { $cut = mb_substr($cut, 0, $sp); }
-            $caption = rtrim($cut, " \t\n,.;:") . '…';
-        }
-        return $caption . $sep . $line;
-    }
+    /* The caption with the line on it, fitted to a platform's limit, is SocialShareService::caption_with_line(). */
 
     /* ---- inbox ---- */
 
@@ -75,16 +57,20 @@ class AiDisclosure {
         return ($t !== '') ? mb_substr($t, 0, 300) : self::DEFAULT_FIRST_REPLY;
     }
 
-    /** Is the fan asking whether they are talking to a real person, an AI or a bot? */
+    /**
+     * Is the fan asking whether they are talking to a real person, an AI or a bot? The question has to be
+     * about the speaker ("are you real", "is this a bot", "am i talking to a real person"): a bare "real"
+     * elsewhere in the sentence ("the real madrid game") is not one.
+     */
     public static function asks_if_real($text){
         $t = ' ' . mb_strtolower(preg_replace('/\s+/', ' ', (string) $text)) . ' ';
         $t = str_replace(array("’", "`"), "'", $t);
-        $who   = "(?:are|r|is|was|am i (?:talking|speaking|chatting) (?:to|with))";
-        $thing = "(?:real|a real (?:person|girl|woman|guy|man|human)|human|a human|an? ai|ai|artificial|a bot|bot|a robot|robot|a chatbot|chatbot|automated|a machine|a program|fake|a person|actually (?:you|real|a person))";
+        $adv   = "(?:(?:actually|really|even|truly|honestly|seriously|just|still|like|for real|low ?key)\\s+)?";
+        $thing = "(?:real|a real (?:person|girl|woman|guy|man|human|one)|human|a human|an? ai|ai|artificial|a bot|bot|a robot|robot|a chatbot|chatbot|automated|a machine|a program|fake|a person|a real person)";
         $patterns = array(
-            "/\\b(?:are|r)\\s*(?:you|u|ya)\\b[^.?!]{0,40}\\b{$thing}\\b/u",
-            "/\\bis\\s+(?:this|that|it)\\b[^.?!]{0,30}\\b{$thing}\\b/u",
-            "/\\bam i (?:talking|speaking|chatting|texting) (?:to|with)\\b[^.?!]{0,30}\\b{$thing}\\b/u",
+            "/\\b(?:are|r)\\s*(?:you|u|ya)\\s+{$adv}(?:a |an )?{$thing}\\b/u",
+            "/\\bis\\s+(?:this|that|it)\\s+{$adv}(?:a |an )?{$thing}\\b/u",
+            "/\\bam i (?:talking|speaking|chatting|texting) (?:to|with)\\s+{$adv}(?:a |an )?{$thing}\\b/u",
             "/\\b(?:you|u)(?:'re| are)?\\s+(?:a |an )?(?:bot|ai|robot|chatbot)\\b[^.!]{0,20}\\?/u",
             "/\\b(?:real person|real human|actual person|bot or (?:real|human)|human or (?:bot|ai)|ai or (?:real|human)|real or (?:fake|ai|bot))\\b/u",
             "/\\b(?:is|was) (?:this|that) (?:really|actually) you\\b/u",
@@ -104,22 +90,32 @@ class AiDisclosure {
             || (bool) preg_match("/\\b(?:an? ai|ai)\\s+(?:helper|assistant|writes|answers|replies|is (?:writing|answering|replying))\\b/u", $t);
     }
 
-    /** Does the reply claim to be a real person or deny being AI? */
+    /**
+     * Does the reply claim to be a real person or deny being AI? A denial is about the self: "i'm not a bot",
+     * "i'm (a) real (person)", "i'm human". "real" used as an adverb or adjective of something else ("i'm real
+     * happy", "i'm a real sucker for sunsets") is not a denial, and "of course it's me" is one only when the
+     * sentence is about being real, human, a bot or AI.
+     */
     public static function denies_ai($text){
         $t = ' ' . mb_strtolower(preg_replace('/\s+/', ' ', (string) $text)) . ' ';
         $t = str_replace(array("’", "`"), "'", $t);
+        // After a bare "real" / "human": the end of the clause, or a filler word; never another content word.
+        $end = "(?=\\s*(?:[.!?,;:)\"']|$|(?:lol|lmao|haha|ha|babe|bb|hun|hon|honey|love|sweetie|tho|though|btw|fr|ok|okay|promise|i promise|i swear|trust me|here|rn)\\b))";
+        $adv = "(?:(?:a|an|100%|totally|completely|definitely|very|really|actually|truly|honestly|literally)\\s+)*";
         return (bool) preg_match("/\\b(?:i'm|i am|im)\\s+(?:not|no)\\s+(?:an? )?(?:ai|bot|robot|chatbot|machine|program|fake|automated)\\b/u", $t)
             || (bool) preg_match("/\\b(?:not|no|never)\\s+(?:an? )?(?:ai|bot|robot|chatbot)\\b[^.?!]{0,20}\\b(?:here|me|i promise|promise|lol|haha|silly)\\b/u", $t)
-            || (bool) preg_match("/\\b(?:i'm|i am|im|it's|its|this is)\\s+(?:a |100% |totally |completely |definitely |very |really |actually )*(?:real|a real (?:person|girl|woman|guy|man|human)|human|a human|flesh and blood|really me|actually me)\\b/u", $t)
-            || (bool) preg_match("/\\b(?:of course|yes|yep|yeah|obviously)[, ]+(?:i'm|i am|im|it's|its)\\s+(?:real|me|human)\\b/u", $t);
+            || (bool) preg_match("/\\b(?:i'm|i am|im)\\s+{$adv}(?:a real (?:person|girl|woman|guy|man|human|one)\\b|real{$end}|human{$end}|flesh and blood\\b)/u", $t)
+            || (bool) preg_match("/\\b(?:of course|yes|yep|yeah|obviously)[, ]+(?:i'm|i am|im)\\s+(?:real|human)\\b/u", $t)
+            || ((bool) preg_match("/\\b(?:of course|yes|yep|yeah|obviously)[, ]+(?:it's|its|this is)\\s+(?:really |actually )?me\\b/u", $t)
+                && (bool) preg_match("/\\b(?:real|human|bot|ai|robot|fake|automated)\\b/u", $t));
     }
 
     /**
-     * Must this draft wait for the creator? Yes when the fan asked whether they are talking to a real
-     * person and the draft does not confirm it is AI, and always when a draft denies being AI.
+     * Must this draft wait for the creator? Only when the fan asked whether they are talking to a real
+     * person: then a draft that does not confirm it is AI, or that denies it, is held.
      */
     public static function should_hold($fan_text, $draft){
-        if (self::denies_ai($draft)) { return true; }
-        return self::asks_if_real($fan_text) && !self::confirms_ai($draft);
+        if (!self::asks_if_real($fan_text)) { return false; }
+        return self::denies_ai($draft) || !self::confirms_ai($draft);
     }
 }

@@ -7,8 +7,22 @@
  */
 class ClipEditActions {
 
+    /** An export still 'rendering' after this long is taken as stopped (the queue worker died) and marked failed. */
+    const STALE_MINUTES = 20;
+    const STALE_ERROR   = 'The export stopped. Try again.';
+
     private static function fail($error, array $extra = array()){ return array_merge(array('ok' => false, 'error' => (string) $error), $extra); }
     private static function okr(array $payload = array()){ return array_merge(array('ok' => true, 'error' => ''), $payload); }
+
+    /** The project row, with a render that has been going for too long flipped to failed (persisted) first. */
+    private static function load($cid, $id){
+        $m = new EditProjectsModel();
+        $p = $m->get_one($cid, (int) $id);
+        if ($p && (string) $p['status'] === 'rendering' && strtotime((string) $p['updated_at']) < time() - self::STALE_MINUTES * 60) {
+            if ((int) $m->fail_stale_render($cid, (int) $id, self::STALE_MINUTES, self::STALE_ERROR) > 0) { $p = $m->get_one($cid, (int) $id); }
+        }
+        return $p;
+    }
 
     /** What the editor needs to show one Library file. */
     public static function asset_json($cid, array $a){
@@ -45,7 +59,7 @@ class ClipEditActions {
     }
 
     public static function get($cid, $id){
-        $p = (new EditProjectsModel())->get_one($cid, (int) $id);
+        $p = self::load($cid, (int) $id);
         if (!$p) { return self::fail('Edit not found.'); }
         return self::okr(array('project' => self::project_json($cid, $p), 'fonts' => self::font_list()));
     }
@@ -91,10 +105,10 @@ class ClipEditActions {
         return $n ? self::okr(array('id' => (int) $id)) : self::fail('Edit not found.');
     }
 
-    /** Start an export: the saved timeline is checked, the project marked rendering, and the render queued. */
+    /** Start an export: the saved timeline is checked, the project marked rendering, and the render queued. A stale render is replaced. */
     public static function export($cid, $id){
         $m = new EditProjectsModel();
-        $p = $m->get_one($cid, (int) $id);
+        $p = self::load($cid, (int) $id);
         if (!$p) { return self::fail('Edit not found.'); }
         if (!ClipRenderer::available()) { return self::fail('Exporting is not available right now.'); }
         $norm = ClipRenderer::normalize($cid, EditProjectsModel::timeline($p));
@@ -108,8 +122,9 @@ class ClipEditActions {
         return self::okr(array('project' => self::project_json($cid, $m->get_one($cid, (int) $id), false), 'seconds' => $norm['duration']));
     }
 
+    /** The project's state for polling. A render older than STALE_MINUTES comes back failed so the page stops waiting. */
     public static function status($cid, $id){
-        $p = (new EditProjectsModel())->get_one($cid, (int) $id);
+        $p = self::load($cid, (int) $id);
         if (!$p) { return self::fail('Edit not found.'); }
         return self::okr(array('project' => self::project_json($cid, $p, false)));
     }

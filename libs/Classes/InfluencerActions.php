@@ -82,7 +82,12 @@ class InfluencerActions {
         if (isset($in['step'])) {
             $steps = InfluencerService::steps_for($f['path'] ?? (string) $infl['path']);
             $step  = (string) $in['step'];
-            if (in_array($step, $steps, true) && !in_array($step, array('training', 'done'), true)) { $f['wizard_step'] = $step; }
+            if (in_array($step, $steps, true) && !in_array($step, array('training', 'done'), true)) {
+                // Once a training set exists the wizard never rewinds behind where the data is (Setup's Continue
+                // stores 'reference' on an influencer that already has a reference and a set).
+                $floor = !empty($infl['training_set_group']) ? array_search(InfluencerService::resume_step($infl), $steps, true) : false;
+                if ($floor === false || array_search($step, $steps, true) >= $floor) { $f['wizard_step'] = $step; }
+            }
         }
         if (!empty($f)) {
             $r = $m->update_fields($cid, $infl['id'], $f);
@@ -305,8 +310,9 @@ class InfluencerActions {
         if ($input <= 0) { $input = InfluencerService::base_reference($cid, $infl); }
         if ($input <= 0) { return self::fail('Make the face reference first.'); }
         $prompt = InfluencerService::angle_prompt($infl, 'full_front');
-        $model  = InfluencerConfig::resolve_model('angle', 'seedream_45_edit');
-        if (!$model) { return self::fail('No model is configured for the body reference.'); }
+        // The one model that renders the described build (Nano Banana keeps the body it guesses): no silent fallback to another.
+        $model  = InfluencerConfig::model('seedream_45_edit');
+        if (!$model || !InfluencerConfig::serves($model, 'angle')) { return self::fail('No model is configured for the body reference.'); }
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'angle', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => $input,
@@ -396,10 +402,10 @@ class InfluencerActions {
         $group = (string) ($infl['training_set_group'] ?? '');
         $size  = (int) InfluencerConfig::get('training_set_size', 10);
         if ($group === '') { return self::okr(array('group_key' => '', 'size' => $size, 'done' => 0, 'failed' => 0, 'active' => 0, 'slots' => array(), 'complete' => false)); }
-        $jobs = new InfluencerJobsModel();
+        $jobs = (new InfluencerJobsModel())->list_group($group);   // loaded once per poll: the slots and the stale check share it
         $mm   = new MediaAssetsModel();
         $slots = array(); $done = 0; $failed = 0; $active = 0;
-        foreach ($jobs->list_group($group) as $j) {
+        foreach ($jobs as $j) {
             $slot = array('job_id' => (int) $j['id'], 'index' => (int) $j['group_index'], 'status' => (string) $j['status'], 'wait_reason' => (string) $j['wait_reason'],
                 'seed' => (int) $j['seed'], 'prompt' => (string) $j['prompt'], 'error' => (string) $j['error'], 'asset_id' => 0, 'thumb_url' => '', 'display_url' => '');
             $aid = (int) $j['result_asset_id'];
@@ -415,7 +421,7 @@ class InfluencerActions {
         }
         usort($slots, function ($a, $b) { return $a['index'] <=> $b['index']; });
         return self::okr(array('group_key' => $group, 'size' => $size, 'done' => $done, 'failed' => $failed, 'active' => $active, 'slots' => $slots, 'complete' => ($done >= $size),
-            'stale' => self::training_set_stale($cid, $infl, $jobs->list_group($group))));
+            'stale' => self::training_set_stale($cid, $infl, $jobs)));
     }
 
     /** Retry a failed slot (same prompt + seed) or regenerate a finished one (new seed). */

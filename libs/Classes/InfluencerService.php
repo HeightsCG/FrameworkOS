@@ -360,9 +360,17 @@ class InfluencerService {
         if (in_array($stored, array('training', 'done'), true)) { $stored = $max; }
         $si = array_search($stored, $steps, true); $mi = array_search($max, $steps, true);
         if ($si === false) { return $max; }
-        // Jobs in flight for this step keep the user on the furthest step.
-        $in_flight = (new InfluencerJobsModel())->has_pending((int) $infl['id']);
-        return ($in_flight || $si > $mi) ? $max : $stored;
+        // Work in flight owns the step: a set being made opens on the set, a body reference rendering on the body,
+        // a face (or Face Adjust) on the reference. The photos path has one step, so any run keeps it there.
+        $jobs = new InfluencerJobsModel();
+        if ($path === 'photos') {
+            if ($jobs->has_pending((int) $infl['id'])) { return $max; }
+        } else {
+            if ($jobs->has_pending((int) $infl['id'], 'training_set')) { return 'set'; }
+            if ($jobs->has_pending((int) $infl['id'], 'angle'))        { return 'body'; }
+            if ($jobs->has_pending((int) $infl['id'], 'reference'))    { return 'reference'; }
+        }
+        return ($si > $mi) ? $max : $stored;
     }
 
     /** Per-role counts + training-set completion for the resume rule and the cards. */

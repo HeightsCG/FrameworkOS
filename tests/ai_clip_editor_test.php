@@ -104,6 +104,32 @@ else {
     }
     check('the project can be exported again',          !empty(ClipEditActions::export($cid, $pid)['ok']));
     (new JobsModel())->sql("DELETE FROM jobs WHERE dedupe_key LIKE :k", array(':k' => 'clip_render:' . $pid . ':%'));
+
+    /* a render that never finishes (the worker died) is given up after 20 minutes, and a new export can start */
+    $m->sql("UPDATE edit_projects SET updated_at = :t WHERE id = :id", array(':t' => date('Y-m-d H:i:s', time() - (ClipEditActions::STALE_MINUTES + 1) * 60), ':id' => $pid));
+    $st = ClipEditActions::status($cid, $pid);
+    check('a render stuck for over 20 minutes is reported failed', $st['project']['status'] === 'failed' && $st['project']['error'] === ClipEditActions::STALE_ERROR && (string) $m->get_one($cid, $pid)['status'] === 'failed', json_encode($st['project']));
+    $ex = ClipEditActions::export($cid, $pid);
+    check('a stalled project can be exported again',    !empty($ex['ok']) && $ex['project']['status'] === 'rendering' && ClipEditActions::status($cid, $pid)['project']['status'] === 'rendering');
+    (new JobsModel())->sql("DELETE FROM jobs WHERE dedupe_key LIKE :k", array(':k' => 'clip_render:' . $pid . ':%'));
+
+    /* a GIF still: ffmpeg's gif demuxer has no -loop, so it goes in as a looped stream */
+    $gif_tmp = tempnam(sys_get_temp_dir(), 'cgif'); @unlink($gif_tmp); $gif_tmp .= '.gif';
+    MediaService::run_with_timeout(escapeshellarg(MediaService::bin('ffmpeg')) . ' -y -loglevel error -f lavfi -i testsrc=size=64x64:rate=5 -t 1 ' . escapeshellarg($gif_tmp), 30);
+    $gif_id = is_file($gif_tmp) ? (int) $mm->add($cid, 'gif', 'test.gif', 'image/gif', 'processing') : 0;
+    $gif_key = $gif_id > 0 ? MediaService::key($cid, $gif_id, 'original', 'gif') : '';
+    if ($gif_id > 0 && S3Service::put_private($gif_key, $gif_tmp, 'image/gif')) {
+        $mm->set_ready($cid, $gif_id, array('original_key' => $gif_key, 'width' => 64, 'height' => 64, 'bytes' => (int) filesize($gif_tmp), 'moderation_status' => 'clean'));
+        $gn = ClipRenderer::normalize($cid, array('clips' => array(array('asset_id' => $gif_id, 'duration' => 1.5))));
+        check('a GIF is accepted as a still',            empty($gn['errors']) && $gn['timeline']['clips'][0]['type'] === 'image' && $gn['duration'] === 1.5, json_encode($gn['errors']));
+        $gr = ClipRenderer::render($cid, $gn, '9:16');
+        $gp = !empty($gr['ok']) ? VideoTools::probe($gr['path']) : null;
+        check('a GIF still renders to video',            $gp && $gp['width'] === 1080 && $gp['height'] === 1920 && abs($gp['duration'] - 1.5) < 0.3 && $gp['has_audio'], json_encode($gr));
+        if (!empty($gr['path']) && is_file($gr['path'])) { @unlink($gr['path']); }
+        S3Service::delete_key($gif_key);
+    } else { check('fixture: a GIF could be made and stored', false); }
+    if ($gif_id > 0) { $mm->sql("DELETE FROM media_assets WHERE id = :id AND creator_id = :c", array(':id' => $gif_id, ':c' => $cid)); }
+    @unlink($gif_tmp);
 }
 check('exports cost no AI credits',                     (int) (new AiCreditsModel())->get_balance($cid) === $credits);
 check('a project can be deleted',                       !empty(ClipEditActions::delete($cid, $pid)['ok']) && empty(ClipEditActions::get($cid, $pid)['ok']));

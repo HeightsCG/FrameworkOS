@@ -37,12 +37,13 @@ class InfluencerJobService {
         }
         // Pay for the run in AI credits up front (refunded if it fails or is cancelled).
         // 'waive_credits': a run the creator is not charged for (a free redo of a result that came out wrong).
+        // The plan gate holds for every run, paid or free: a waived run is still an AI run.
+        $user = self::user($creator_id);
+        if (!Plan::can_use_creator_features($user)) {
+            throw new PlanLimitException('Choose a plan to generate with AI.', array('need_plan' => true));
+        }
         $price = !empty($f['waive_credits']) ? 0 : Plan::ai_price($type, $f);
         if ($price > 0) {
-            $user = self::user($creator_id);
-            if (!Plan::can_use_creator_features($user)) {
-                throw new PlanLimitException('Choose a plan to generate with AI.', array('need_plan' => true));
-            }
             Plan::grant_monthly($user);
             $credits = new AiCreditsModel();
             $after = $credits->apply_delta($creator_id, -$price, 'spend', ucfirst(str_replace('_', ' ', (string) $type)) . ' run');
@@ -175,7 +176,17 @@ class InfluencerJobService {
         }
 
         $type  = (string) $job['type'];
-        $model = InfluencerConfig::resolve_model(self::op_for($type), (string) $job['model_key']);
+        $op    = self::op_for($type);
+        $key   = (string) $job['model_key'];
+        if ($key !== '') {
+            // The job runs on the model it was made (and paid) for; it is never swapped for the op's default behind the creator's back.
+            $model = InfluencerConfig::model($key);
+            if (!$model || !InfluencerConfig::serves($model, $op)) {
+                return self::fail_job($job, $m, 'submitting', 'validation', 'Model ' . $key . ' does not serve ' . $op);
+            }
+        } else {
+            $model = InfluencerConfig::resolve_model($op, '');
+        }
         if (!$model) { return self::fail_job($job, $m, 'submitting', 'validation', 'No model is configured for ' . $type); }
 
 

@@ -58,7 +58,13 @@ class FaceMask {
         return $out;
     }
 
-    /** Store a masked source where the job engine can sign it for the provider. Returns the S3 key or ''. */
+    /**
+     * Store a masked source where the job engine can sign it for the provider. Returns the S3 key or ''.
+     * TODO: these vault/<cid>/tmp/mask_*.jpg copies are never deleted. The only place that knows when the job is over
+     * is InfluencerJobService::after_terminal($job): add there, for type 'replicate', a
+     * `S3Service::delete_key($p['source_key'])` when `FaceMask::owns_key($job['creator_id'], $p['source_key'])`
+     * (params_json carries source_key; the masked copy is only needed while the provider fetches it).
+     */
     public static function store($creator_id, $jpeg_bytes){
         if ((string) $jpeg_bytes === '') { return ''; }
         $key = 'vault/' . (int) $creator_id . '/tmp/mask_' . bin2hex(random_bytes(8)) . '.jpg';

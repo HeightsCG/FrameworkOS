@@ -2,7 +2,7 @@
 $(function () {
     var $modal = $('#lcModal');
     if (!$modal.length) { return; }
-    var opts = null, busy = false;
+    var opts = null, busy = false, asset = null;   // asset: the Library image every post carries (optional)
 
     function parse(r) { try { return (typeof r === 'string') ? JSON.parse(r) : r; } catch (e) { return null; } }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -52,9 +52,19 @@ $(function () {
         });
     }
 
+    function set_asset(a) {
+        asset = (a && a.id) ? a : null;
+        $('#lcPickImg').attr('src', asset ? asset.thumb_url : '').prop('hidden', !asset);
+        $('#lcPick').toggleClass('has-img', !!asset);
+        $('#lcPickName').text(asset ? asset.name : '');
+        $('#lcPickChoose').text(asset ? 'Change Image' : 'Choose Image');
+        $('#lcPickClear').prop('hidden', !asset);
+    }
+
     function setup() {
         return {
             what: $('#lcWhat').val().trim(), launch_at: $('#lcAt').val(), days: $('#lcDays').val(), influencer_id: $('#lcInfl').val() || 0,
+            asset_id: asset ? asset.id : 0,
             destination: $('#lcDest').val() || 'cls', promo_code: $('#lcCode').val().trim(), promo_percent: $('#lcPct').val() || 0, promo_days: $('#lcValid').val() || 7,
             segments: $('#lcSegs input:checked').map(function () { return this.value; }).get(),
             share_accounts: $('#lcAccs input:checked').map(function () { return this.value; }).get()
@@ -91,6 +101,12 @@ $(function () {
         this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '');
         $('#lcPct, #lcValid').prop('disabled', this.value == '');
     });
+    // The shared Library picker (ai-tools.js) opens over this window; the chosen image goes on every post.
+    $('#lcPick, #lcPickChoose').on('click', function () {
+        if (!window.AiTools) { toastr.error('The image picker did not load. Reload the page and try again.'); return; }
+        AiTools.pick_image({ title: 'Choose an Image' }, set_asset);
+    });
+    $('#lcPickClear').on('click', function () { set_asset(null); });
 
     $('#lcWrite').on('click', function () {
         var s = setup();
@@ -124,6 +140,7 @@ $(function () {
             toastr.success(o.message || 'Campaign scheduled');
             if (o.share_errors && o.share_errors.length) { toastr.warning('Some cross-posts were not scheduled: ' + o.share_errors[0]); }
             $('#lcWhat, #lcCode, #lcPct').val(''); $('#lcPct, #lcValid').prop('disabled', true);
+            set_asset(null);
             stage('form');
         });
     });

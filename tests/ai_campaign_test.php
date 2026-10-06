@@ -56,11 +56,24 @@ check('an unreadable time is refused',                  LaunchCampaign::to_ts(''
 check('fallback: the code is mentioned only when live',  strpos(LaunchCampaign::fallback(array('kind' => 'live', 'type' => 'post'), 'my new set', 'NOVA20'), 'NOVA20') !== false
     && strpos(LaunchCampaign::fallback(array('kind' => 'announcement', 'type' => 'post'), 'my new set', 'NOVA20'), 'NOVA20') === false);
 list($items, $err) = LaunchCampaign::clean_items(array(
-    array('key' => 'a', 'kind' => 'announcement', 'type' => 'post', 'at' => gmdate('Y-m-d\TH:i', time() + 7200), 'text' => 'Big news &amp; more'),
+    array('key' => 'a', 'kind' => 'announcement', 'type' => 'post', 'at' => gmdate('Y-m-d\TH:i', time() + 7200), 'text' => '  Big news & more '),
     array('key' => 'b', 'kind' => 'live', 'type' => 'message', 'at' => gmdate('Y-m-d\TH:i', time() + 9000), 'text' => '   '),
     array('key' => 'c', 'kind' => 'live', 'type' => 'message', 'at' => gmdate('Y-m-d\TH:i', time() - 9000), 'text' => 'Out now'),
 ), 'UTC', time());
 check('a blank piece is dropped, the rest kept',        $err === '' && count($items) === 2 && $items[0]['text'] === 'Big news & more');
+check('text is taken as given (the web action decodes entities, not clean_items)', LaunchCampaign::clean_items(array(array('type' => 'post', 'at' => gmdate('Y-m-d\TH:i', time() + 7200), 'text' => 'a &amp; b')), 'UTC', time())[0][0]['text'] === 'a &amp; b');
+
+/* ---- text-only campaigns cannot go to platforms that take media only ---- */
+$conn = array(
+    array('platform' => 'instagram', 'post_for_me_social_account_id' => 'ig1'),
+    array('platform' => 'tiktok_business', 'post_for_me_social_account_id' => 'tt1'),
+    array('platform' => 'x', 'post_for_me_social_account_id' => 'x1'),
+    array('platform' => 'youtube', 'post_for_me_social_account_id' => 'yt1'),
+);
+check('Instagram and TikTok need media, X does not',    LaunchCampaign::media_needed($conn, array('ig1', 'tt1', 'x1')) === array('Instagram', 'TikTok'));
+check('nothing needed for X alone or for no accounts',  LaunchCampaign::media_needed($conn, array('x1')) === array() && LaunchCampaign::media_needed($conn, array()) === array());
+check('an account that is not connected is ignored',    LaunchCampaign::media_needed($conn, array('nope')) === array());
+check('SocialShareService knows which platforms take media only', SocialShareService::needs_media('Instagram') && SocialShareService::needs_media('pinterest') && !SocialShareService::needs_media('facebook'));
 check('a piece timed in the past goes out with the first batch', $items[1]['at'] >= time() + 60);
 list($none, $err) = LaunchCampaign::clean_items(array(array('type' => 'post', 'at' => '', 'text' => 'x')), 'UTC', time());
 check('a piece with no time is refused',                $err !== '' && empty($none));
@@ -74,32 +87,39 @@ $launch = time() + 4 * 86400;
 $code = 'TESTLC' . strtoupper(substr(md5((string) microtime(true)), 0, 5));
 $drafts = array();
 foreach (LaunchCampaign::slots($launch, 2, time()) as $sl) { $drafts[] = array('key' => $sl['key'], 'kind' => $sl['kind'], 'type' => $sl['type'], 'at' => LaunchCampaign::local($sl['at'], $tz), 'text' => 'Test campaign piece ' . $sl['key']); }
-$bad = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 0));
-check('a promo code needs a discount',                  empty($bad['success']));
-$r = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'days' => 2, 'segments' => array('followers'), 'share_accounts' => array(),
-    'promo_code' => $code, 'promo_percent' => 20, 'promo_days' => 3, 'also_cls' => true));
-check('the campaign is created',                        !empty($r['success']) && (int) ($r['campaign_id'] ?? 0) > 0, json_encode($r));
-$k = (int) ($r['campaign_id'] ?? 0);
-if ($k > 0) {
-    $posts = $db->rows("SELECT state, scheduled_at, caption, on_cls FROM posts WHERE campaign_id = :k ORDER BY scheduled_at", array('k' => $k));
-    $msgs  = $db->rows("SELECT status, send_at, segments FROM scheduled_broadcasts WHERE campaign_id = :k ORDER BY send_at", array('k' => $k));
-    check('5 posts scheduled (announcement, 2 days, countdown, live)', count($posts) === 5 && count(array_filter($posts, function ($p) { return $p['state'] === 'scheduled' && (int) $p['on_cls'] === 1; })) === 5, (string) count($posts));
-    check('3 messages scheduled to followers',          count($msgs) === 3 && $msgs[0]['status'] === 'scheduled' && $msgs[0]['segments'] === 'followers', (string) count($msgs));
-    check('the live post is at the launch time (UTC)',  abs(strtotime(end($posts)['scheduled_at'] . ' UTC') - $launch) < 60);
-    $promo = $db->rows("SELECT percent_off, expires_at FROM creator_promo_codes WHERE user_id = 1 AND code = :c", array('c' => $code));
-    check('the promo code exists and expires 3 days after launch', count($promo) === 1 && (int) $promo[0]['percent_off'] === 20 && abs(strtotime($promo[0]['expires_at'] . ' UTC') - ($launch + 3 * 86400)) < 60);
-    $dup = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 20));
-    check('the same promo code cannot be made twice',   empty($dup['success']));
+$k = 0;
+try {
+    $bad = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 0));
+    check('a promo code needs a discount',                  empty($bad['success']));
+    $r = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'days' => 2, 'segments' => array('followers'), 'share_accounts' => array(),
+        'influencer_id' => 999999999, 'promo_code' => $code, 'promo_percent' => 20, 'promo_days' => 3, 'also_cls' => true));
+    check('the campaign is created',                        !empty($r['success']) && (int) ($r['campaign_id'] ?? 0) > 0, json_encode($r));
+    $k = (int) ($r['campaign_id'] ?? 0);
+    if ($k > 0) {
+        $row   = (new LaunchCampaignsModel())->get_one(1, $k);
+        check('an influencer that is not the creator\'s is not stored', $row && (int) $row['influencer_id'] === 0);
+        $posts = $db->rows("SELECT state, scheduled_at, caption, on_cls FROM posts WHERE campaign_id = :k ORDER BY scheduled_at", array('k' => $k));
+        $msgs  = $db->rows("SELECT status, send_at, segments FROM scheduled_broadcasts WHERE campaign_id = :k ORDER BY send_at", array('k' => $k));
+        check('5 posts scheduled (announcement, 2 days, countdown, live)', count($posts) === 5 && count(array_filter($posts, function ($p) { return $p['state'] === 'scheduled' && (int) $p['on_cls'] === 1; })) === 5, (string) count($posts));
+        check('3 messages scheduled to followers',          count($msgs) === 3 && $msgs[0]['status'] === 'scheduled' && $msgs[0]['segments'] === 'followers', (string) count($msgs));
+        check('the live post is at the launch time (UTC)',  abs(strtotime(end($posts)['scheduled_at'] . ' UTC') - $launch) < 60);
+        $promo = $db->rows("SELECT percent_off, expires_at FROM creator_promo_codes WHERE user_id = 1 AND code = :c", array('c' => $code));
+        check('the promo code exists and expires 3 days after launch', count($promo) === 1 && (int) $promo[0]['percent_off'] === 20 && abs(strtotime($promo[0]['expires_at'] . ' UTC') - ($launch + 3 * 86400)) < 60);
+        $dup = LaunchCampaign::confirm(1, $user, array('items' => $drafts, 'launch_at' => LaunchCampaign::local($launch, $tz), 'promo_code' => $code, 'promo_percent' => 20));
+        check('the same promo code cannot be made twice',   empty($dup['success']));
 
-    /* ---- the sender ---- */
-    check('nothing is sent before its time',            count(array_filter((new LaunchCampaignsModel())->due_broadcasts(200), function ($b) use ($k) { return (int) $b['campaign_id'] === $k; })) === 0);
-    $cm = new LaunchCampaignsModel(); $all = $cm->broadcasts_for(1, $k);
-    check('a message can be claimed only once',         $cm->claim_broadcast((int) $all[0]['id']) && !$cm->claim_broadcast((int) $all[0]['id']));
-    $cm->fail_broadcast((int) $all[0]['id'], 'test');
-    check('cancelling stops the unsent ones',           (int) $cm->cancel_broadcasts(1, $k) === 2 && count(array_filter($cm->broadcasts_for(1, $k), function ($b) { return $b['status'] === 'scheduled'; })) === 0);
-    $db->wipe($k);
+        /* ---- the sender ---- */
+        check('nothing is sent before its time',            count(array_filter((new LaunchCampaignsModel())->due_broadcasts(200), function ($b) use ($k) { return (int) $b['campaign_id'] === $k; })) === 0);
+        $cm = new LaunchCampaignsModel(); $all = $cm->broadcasts_for(1, $k);
+        check('a message can be claimed only once',         $cm->claim_broadcast((int) $all[0]['id']) && !$cm->claim_broadcast((int) $all[0]['id']));
+        $cm->fail_broadcast((int) $all[0]['id'], 'test');
+        check('cancelling stops the unsent ones',           (int) $cm->cancel_broadcasts(1, $k) === 2 && count(array_filter($cm->broadcasts_for(1, $k), function ($b) { return $b['status'] === 'scheduled'; })) === 0);
+    }
+} finally {
+    // Whatever happened above, the rows this run made for creator 1 are removed.
+    if ($k > 0) { $db->wipe($k); }
+    $db->drop_promo($code);
 }
-$db->drop_promo($code);
 check('no test rows left behind',                       count($db->rows("SELECT id FROM posts WHERE caption LIKE 'Test campaign piece %'")) === 0);
 
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n";

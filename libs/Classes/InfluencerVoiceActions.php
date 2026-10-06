@@ -298,7 +298,7 @@ class InfluencerVoiceActions {
             $dur  = ($path !== '') ? (float) VideoTools::probe($path)['duration'] : 0.0;
             if ($path !== '') { @unlink($path); }
             $key = self::tmp_key($cid, 'take');
-            if (!S3Service::put_private_bytes($key, $r['bytes'], 'audio/mpeg')) { return array('ok' => false, 'error' => 'The speech could not be stored.'); }
+            if (!S3Service::put_private_bytes($key, $r['bytes'], 'audio/mpeg')) { foreach ($takes as $t) { S3Service::delete_key($t['key']); } return array('ok' => false, 'error' => 'The speech could not be stored.'); }
             $takes[] = array('key' => $key, 'duration' => round($dur, 2));
         }
         return array('ok' => true, 'takes' => $takes);
@@ -464,18 +464,23 @@ class InfluencerVoiceActions {
         $aspect = Aspect::for_model($model, Aspect::nearest((int) $img['width'], (int) $img['height']), Aspect::DEFAULT_VIDEO);
         $group  = 'talk_' . (int) $infl['id'] . '_' . bin2hex(random_bytes(5));
         $ids = array();
-        foreach ($parts as $i => $p) {
-            try {
+        try {
+            foreach ($parts as $i => $p) {
                 $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'talking', array(
                     'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => ($script !== '') ? $script : 'Lip sync to an audio file', 'input_asset_id' => (int) $img['id'],
                     'group_key' => $group, 'group_index' => $i + 1,
                     'params' => array('duration' => max(1, (int) ceil($p['duration'])), 'audio_key' => $p['key'], 'aspect' => $aspect, 'parts' => count($parts),
                         'audio_asset_id' => (int) ($in['audio_asset_id'] ?? 0), 'speech_credits' => ($i === 0) ? $speech_paid : 0),
                 ));
-            } catch (PlanLimitException $e) {
-                if (empty($ids)) { $refund_speech(); }
-                return self::fail($e->getMessage(), $e->limit);
             }
+        } catch (\Throwable $e) {
+            // Either every part starts or none does: the parts already queued are cancelled (which gives their credits
+            // back), the temporary speech audio is removed and the speech is refunded. (The balance can change between
+            // the check above and here.)
+            foreach ($ids as $jid) { InfluencerJobService::cancel_job($cid, (int) $jid); }
+            foreach ($parts as $p) { S3Service::delete_key($p['key']); }
+            $refund_speech();
+            return self::fail($e->getMessage(), ($e instanceof PlanLimitException) ? $e->limit : array());
         }
         return self::okr(array('group_key' => $group, 'job_ids' => $ids, 'parts' => count($parts), 'seconds' => (int) ceil(array_sum(array_column($parts, 'duration'))),
             'status' => self::talking_status($cid, $group)));
@@ -486,10 +491,11 @@ class InfluencerVoiceActions {
         $jobs = array();
         foreach ((new InfluencerJobsModel())->list_group((string) $group_key) as $j) { if ((int) $j['creator_id'] === (int) $cid && (string) $j['type'] === 'talking') { $jobs[] = $j; } }
         if (empty($jobs)) { return array('state' => 'missing', 'parts' => 0, 'done' => 0, 'asset' => null, 'error' => 'Not found.', 'group_key' => (string) $group_key); }
-        $done = 0; $failed = ''; $final = 0;
+        $done = 0; $failed = ''; $final = 0; $failed_how = '';
         foreach ($jobs as $j) {
             if ((string) $j['status'] === 'done') { $done++; }
-            if (in_array((string) $j['status'], array('failed', 'cancelled'), true) && $failed === '') { $failed = (string) $j['error']; }
+            // The part that really failed explains the group; its siblings were only cancelled because of it.
+            if (in_array((string) $j['status'], array('failed', 'cancelled'), true) && ($failed === '' || ($failed_how === 'cancelled' && (string) $j['status'] === 'failed'))) { $failed = (string) $j['error']; $failed_how = (string) $j['status']; }
             $r = InfluencerJobsModel::result($j);
             if (!empty($r['final_asset_id'])) { $final = (int) $r['final_asset_id']; }
             if (!empty($r['join_error']) && $failed === '') { $failed = (string) $r['join_error']; }
@@ -511,9 +517,21 @@ class InfluencerVoiceActions {
             'job_ids' => array_map(function ($j) { return (int) $j['id']; }, $jobs));
     }
 
+    /** The rendered parts of a group leave the Library (and her gallery): the joined video takes their place, or the video failed. */
+    private static function drop_part_assets($cid, $influencer_id, array $all){
+        $mm = new MediaAssetsModel(); $im = new InfluencerImagesModel();
+        foreach ($all as $j) {
+            if ((string) $j['status'] !== 'done' || (int) $j['result_asset_id'] <= 0) { continue; }
+            $im->detach($cid, (int) $influencer_id, (int) $j['result_asset_id']);
+            $mm->soft_delete($cid, (int) $j['result_asset_id']);
+        }
+    }
+
     /**
      * Called by the job engine when one part of a talking video finishes. Once every part is done the clips are
-     * joined into the final video and the parts are removed from the Library. A failed part gives the speech back.
+     * joined into the final video and the parts are removed from the Library. A failed part gives the speech back,
+     * cancels the parts still waiting or rendering (which refunds them) and removes the parts that already landed:
+     * the Library never keeps orphan pieces of a video that will not be finished.
      */
     public static function talking_part_finished(array $job){
         $cid  = (int) $job['creator_id'];
@@ -521,11 +539,23 @@ class InfluencerVoiceActions {
         $all  = array();
         foreach ($jobs->list_group((string) $job['group_key']) as $j) { if ((string) $j['type'] === 'talking' && (int) $j['creator_id'] === $cid) { $all[] = $j; } }
         if (empty($all)) { return; }
-        // Speech made for a video that never rendered is refunded (once, with the part that carried it).
-        if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
+        $broken = false;
+        foreach ($all as $j) { if (in_array((string) $j['status'], array('failed', 'cancelled'), true)) { $broken = true; } }
+        if ($broken) {
+            // Speech made for a video that never rendered is refunded (once, with the part that carried it).
+            $live = array();   // a part whose cancel lost a race (it had just started landing) keeps its audio until it lands
             foreach ($all as $j) {
                 $sp = (int) (InfluencerJobsModel::params($j)['speech_credits'] ?? 0);
                 if ($sp > 0) { (new AiCreditsModel())->refund_once($cid, $sp, 'talking speech ' . (string) $job['group_key']); }
+                if ((int) $j['id'] !== (int) $job['id'] && in_array((string) $j['status'], array('queued', 'submitting', 'running'), true)) {
+                    if (empty(InfluencerJobService::cancel_job($cid, (int) $j['id'])['ok'])) { $live[] = (int) $j['id']; }
+                }
+            }
+            // Parts that landed (before, or after a sibling failed) are removed, and so is the temporary speech audio.
+            self::drop_part_assets($cid, (int) $job['influencer_id'], $all);
+            foreach ($all as $j) {
+                if (in_array((int) $j['id'], $live, true)) { continue; }
+                $k = (string) (InfluencerJobsModel::params($j)['audio_key'] ?? ''); if ($k !== '' && FaceMask::owns_key($cid, $k) && strpos($k, '/tmp/') !== false) { S3Service::delete_key($k); }
             }
             return;
         }

@@ -143,7 +143,7 @@ class LaunchCampaign {
             if (!is_array($it)) { continue; }
             $type = (($it['type'] ?? '') === 'message') ? 'message' : 'post';
             $kind = isset(self::KINDS[(string) ($it['kind'] ?? '')]) ? (string) $it['kind'] : 'anticipation';
-            $text = trim(html_entity_decode((string) ($it['text'] ?? ''), ENT_QUOTES, 'UTF-8'));
+            $text = trim((string) ($it['text'] ?? ''));   // the web action decodes POST entities before this, like the other actions
             if ($text === '') { continue; }   // a piece left blank is not created
             $at = self::to_ts($it['at'] ?? '', $tz);
             if ($at <= 0) { return array(array(), 'One of the pieces has no time.'); }
@@ -154,6 +154,21 @@ class LaunchCampaign {
         if (empty($out)) { return array(array(), 'There is nothing to schedule.'); }
         if (count($out) > 40) { return array(array(), 'That is too many pieces for one campaign.'); }
         return array($out, '');
+    }
+
+    /**
+     * The names of the platforms among $shares (social account ids) that refuse a post without media, each once.
+     * $accounts: the creator's connected rows (platform, post_for_me_social_account_id). Pure.
+     */
+    public static function media_needed(array $accounts, array $shares){
+        $shares = array_map('strval', $shares); $out = array();
+        foreach ($accounts as $a) {
+            $platform = strtolower((string) ($a['platform'] ?? ''));
+            if (in_array((string) ($a['post_for_me_social_account_id'] ?? ''), $shares, true) && SocialShareService::needs_media($platform)) {
+                $out[SocialShareService::NEEDS_MEDIA[$platform]] = true;
+            }
+        }
+        return array_keys($out);
     }
 
     /**
@@ -179,7 +194,15 @@ class LaunchCampaign {
             $a = (new MediaAssetsModel())->get_one($cid, $asset_id);
             if (!$a || (string) $a['status'] !== 'ready' || !empty($a['deleted_at'])) { return self::fail('That media is not ready to post.'); }
             if ((string) ($a['moderation_status'] ?? '') === 'blocked') { return self::fail('That media was blocked by our content check.'); }
+        } elseif (!empty($shares)) {
+            // Text-only posts cannot go to platforms that take media only.
+            $need = self::media_needed((new SocialAccountsModel())->get_connected_for_user($cid), $shares);
+            if (!empty($need)) { return self::fail('Add an image to the campaign: ' . implode(', ', $need) . ' posts need media.'); }
         }
+
+        // The persona the campaign is written as: only an influencer of this creator.
+        $infl_id = (int) ($in['influencer_id'] ?? 0);
+        if ($infl_id > 0 && !(new InfluencersModel())->get_one($cid, $infl_id)) { $infl_id = 0; }
 
         // Optional promo code, valid until some days after the launch.
         $promo_id = 0; $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($in['promo_code'] ?? '')));
@@ -197,7 +220,7 @@ class LaunchCampaign {
         }
 
         $cm = new LaunchCampaignsModel();
-        $campaign_id = $cm->create($cid, array('influencer_id' => (int) ($in['influencer_id'] ?? 0), 'destination' => $dest,
+        $campaign_id = $cm->create($cid, array('influencer_id' => $infl_id, 'destination' => $dest,
             'launch_at' => gmdate('Y-m-d H:i:s', $launch), 'anticipation_days' => (int) ($in['days'] ?? 0), 'promo_code_id' => $promo_id));
         if ($campaign_id <= 0) { return self::fail('Could not create the campaign.'); }
 

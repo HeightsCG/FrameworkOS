@@ -139,6 +139,8 @@ class SocialShareService {
             $id = (string) $a['id']; $platform = strtolower((string) $a['platform']);
             if (in_array($id, $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true)) {
                 if (empty($tall)) { $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: Stories need 9:16 media.'; continue; }
+                // The Story still goes out; the creator is told it cannot carry the disclosure line.
+                if ($ai) { $out['notes'][] = 'Stories have no caption, so the ' . ucfirst($platform) . ' Story carries no AI disclosure line.'; }
                 $out['accounts'][] = $id;
                 $out['account_configurations'][] = array('social_account_id' => $id, 'configuration' => array(
                     'placement' => 'stories',
@@ -254,6 +256,11 @@ class SocialShareService {
 
     /** Platforms whose carousels can mix photos and videos; the rest take several photos or one video. */
     const MIXED_MEDIA = array('instagram', 'facebook', 'threads');
+
+    /** Platforms that refuse a post without media (Post for Me platform key => name shown to the creator). */
+    const NEEDS_MEDIA = array('instagram' => 'Instagram', 'tiktok' => 'TikTok', 'tiktok_business' => 'TikTok', 'youtube' => 'YouTube', 'pinterest' => 'Pinterest');
+
+    public static function needs_media($platform): bool { return isset(self::NEEDS_MEDIA[strtolower((string) $platform)]); }
 
     /** The slice of the uploaded items one platform accepts (the cover is always first). */
     public static function media_for($platform, array $items): array {

@@ -47,6 +47,12 @@ class InfluencerVideoActions {
         if ($tmp === '') { return self::fail('Could not read a frame from that video.'); }
         $bytes = (string) @file_get_contents($tmp);
         @unlink($tmp);
+        if ($bytes === '') { return self::fail('Could not read a frame from that video.'); }
+        // The same storage check the audio and video ingest paths make: the frame is a new Library file.
+        $gb = Plan::limit($user, 'storage_gb');
+        if ($gb !== null && (int) $gb > 0 && ((int) (new MediaAssetsModel())->total_bytes($cid) + strlen($bytes)) > (int) $gb * 1073741824) {
+            return self::fail('Not enough storage left on your plan for this image', array('need_upgrade' => true));
+        }
         $name = preg_replace('/\.[A-Za-z0-9]{2,5}$/', '', (string) ($v['display_name'] ?: $v['filename']));
         try {
             $r = MediaIngestService::ingest_image($cid, $user, $bytes, 'jpg', 'image/jpeg', 'Frame · ' . mb_substr($name, 0, 40), false);
@@ -55,8 +61,8 @@ class InfluencerVideoActions {
         }
         $aid = (int) $r['asset_id'];
         $mm  = new MediaAssetsModel();
-        // A frame is as AI-made as the video it came from.
-        $mm->set_lineage($cid, $aid, array('provenance' => ((string) $v['provenance'] === 'uploaded') ? 'uploaded' : 'generated', 'source_asset_id' => (int) $v['id'],
+        // A frame is as AI-made as the video it came from: it carries the video's own provenance (uploaded, generated or edited).
+        $mm->set_lineage($cid, $aid, array('provenance' => in_array((string) $v['provenance'], MediaAssetsModel::PROVENANCE, true) ? (string) $v['provenance'] : 'generated', 'source_asset_id' => (int) $v['id'],
             'model_key' => (string) $v['gen_model_key'], 'influencer_id' => (int) $v['gen_influencer_id']));
         $a = $mm->get_one($cid, $aid);
         return self::okr(array('asset_id' => $aid, 'seconds' => round(max(0, (float) $seconds), 2),

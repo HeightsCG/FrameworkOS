@@ -53,12 +53,6 @@ class ApiInfluencerImagesController extends BaseApiController {
         $this->answer(InfluencerImageActions::angle_set_generate((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $slots, (string) ($this->post['model_key'] ?? ''), 'studio'));
     }
 
-    public function influencer_angle_approveAction(){
-        $user = $this->ai_user();
-        $this->answer(InfluencerImageActions::angle_approve((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)),
-            (int) ($this->post['asset_id'] ?? 0), (string) ($this->post['approved'] ?? '1') !== '0'));
-    }
-
     /* ---- replicate a photo ---- */
 
     public function influencer_replicate_prepareAction(){
@@ -133,6 +127,7 @@ class ApiInfluencerImagesController extends BaseApiController {
         $this->jsonSuccess(['sets' => $out]);
     }
 
+    /** The influencer plan lock is checked inside carousel_regenerate (it loads her from the slot's job), as on the connector path. */
     public function influencer_carousel_regenerateAction(){
         $user = $this->ai_user();
         $this->answer(InfluencerImageActions::carousel_regenerate((int) $user['user_id'], (int) ($this->post['job_id'] ?? 0)));

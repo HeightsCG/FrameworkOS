@@ -64,6 +64,10 @@ class ApiAudienceController extends BaseApiController {
         foreach (['launch_at', 'destination', 'promo_code'] as $k) { $in[$k] = (string) ($this->post[$k] ?? ''); }
         foreach (['days', 'influencer_id', 'asset_id', 'promo_percent', 'promo_days'] as $k) { $in[$k] = (int) ($this->post[$k] ?? 0); }
         $in['items']          = is_array($this->post['items'] ?? null) ? array_values($this->post['items']) : [];
+        foreach ($in['items'] as &$it) {   // the edited texts are POST input: decode entities here, as the other actions do
+            if (is_array($it) && isset($it['text'])) { $it['text'] = html_entity_decode((string) $it['text'], ENT_QUOTES, 'UTF-8'); }
+        }
+        unset($it);
         $in['share_accounts'] = is_array($this->post['share_accounts'] ?? null) ? $this->post['share_accounts'] : [];
         $in['segments']       = is_array($this->post['segments'] ?? null) ? $this->post['segments'] : ['followers'];
         $in['also_cls']       = true;

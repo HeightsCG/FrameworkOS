@@ -57,6 +57,16 @@ class EditProjectsModel extends Model {
             'id = :id AND render_token = :t', array('id' => (int) $id, 't' => (string) $token));
     }
 
+    /**
+     * A project left 'rendering' for more than $minutes (the worker died) is marked failed. The render_token stays,
+     * so a worker that is in fact still on it can still finish by token. Returns rows changed (1 when it was stale).
+     */
+    public function fail_stale_render($creator_id, $id, $minutes, $error){
+        return parent::update('edit_projects', array('status' => 'failed', 'error' => mb_substr((string) $error, 0, 500), 'updated_at' => date('Y-m-d H:i:s')),
+            "id = :id AND creator_id = :c AND status = 'rendering' AND updated_at < :cut AND deleted_at IS NULL",
+            array('id' => (int) $id, 'c' => (int) $creator_id, 'cut' => date('Y-m-d H:i:s', time() - max(1, (int) $minutes) * 60)));
+    }
+
     public function soft_delete($creator_id, $id){
         return parent::update('edit_projects', array('deleted_at' => date('Y-m-d H:i:s')), 'id = :id AND creator_id = :c AND deleted_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
     }

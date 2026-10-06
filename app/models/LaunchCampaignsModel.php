@@ -10,7 +10,7 @@ class LaunchCampaignsModel extends Model {
             'influencer_id'     => ((int) ($f['influencer_id'] ?? 0) > 0) ? (int) $f['influencer_id'] : null,
             'destination'       => (($f['destination'] ?? 'cls') === 'fanvue') ? 'fanvue' : 'cls',
             'launch_at'         => (string) $f['launch_at'],
-            'anticipation_days' => max(0, min(14, (int) ($f['anticipation_days'] ?? 0))),
+            'anticipation_days' => max(0, min(LaunchCampaign::MAX_DAYS, (int) ($f['anticipation_days'] ?? 0))),
             'promo_code_id'     => ((int) ($f['promo_code_id'] ?? 0) > 0) ? (int) $f['promo_code_id'] : null,
             'created_at'        => date('Y-m-d H:i:s'),
         ));

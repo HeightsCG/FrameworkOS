@@ -39,10 +39,10 @@ class ApiInfluencerVideosController extends BaseApiController {
         $this->jsonSuccess($r);
     }
 
-    /* ---- frame extraction (any Library video; no AI, no charge) ---- */
+    /* ---- frame extraction (any Library video; a paid plan like the other generators, no AI credits) ---- */
 
     public function media_extract_frameAction(){
-        $user = $this->require_creator('content', false);
+        $user = $this->ai_user();
         set_time_limit(180);
         $this->answer(InfluencerVideoActions::extract_frame((int) $user['user_id'], $user, (int) ($this->post['asset_id'] ?? 0), (float) ($this->post['seconds'] ?? 0)));
     }

@@ -97,6 +97,24 @@ $e = InfluencerVoiceActions::talking_estimate($cid, $infl, array('script' => str
 check('the estimate prices video and speech',           !empty($e['ok']) && $e['seconds'] === 20 && $e['video'] === 1400 && $e['speech'] === InfluencerConfig::credits_from_usd(0.20 * 300 / 1000) && $e['total'] === $e['video'] + $e['speech']);
 check('a script over five minutes is flagged',          !empty(InfluencerVoiceActions::talking_estimate($cid, $infl, array('script' => str_repeat('a', 5000)))['too_long']));
 check('status of an unknown talking video',             InfluencerVoiceActions::talking_status($cid, 'talk_nope')['state'] === 'missing');
+
+/* ---- talking video: one failed part takes its siblings down (rows only, nothing is sent anywhere) ---- */
+$jm = new InfluencerJobsModel(); $mm = new MediaAssetsModel();
+$gk = 'talk_test_' . bin2hex(random_bytes(4));
+$part_asset = (int) $mm->add($cid, 'video', 'part.mp4', 'video/mp4', 'processing', 'generated');
+$mm->set_ready($cid, $part_asset, array('original_key' => '', 'bytes' => 0));
+$j1 = $jm->create($cid, (int) $infl['id'], 'talking', array('group_key' => $gk, 'group_index' => 1, 'params' => array('parts' => 3)));
+$j2 = $jm->create($cid, (int) $infl['id'], 'talking', array('group_key' => $gk, 'group_index' => 2, 'params' => array('parts' => 3)));
+$j3 = $jm->create($cid, (int) $infl['id'], 'talking', array('group_key' => $gk, 'group_index' => 3, 'params' => array('parts' => 3)));
+$jm->sql("UPDATE influencer_jobs SET status = 'done', result_asset_id = :a WHERE id = :id", array(':a' => $part_asset, ':id' => $j1));
+$jm->sql("UPDATE influencer_jobs SET status = 'failed', error = 'The model refused' WHERE id = :id", array(':id' => $j2));
+InfluencerVoiceActions::talking_part_finished($jm->get_by_id($j2));
+$ts = InfluencerVoiceActions::talking_status($cid, $gk);
+check('a failed part cancels the parts still waiting',  (string) $jm->get_by_id($j3)['status'] === 'cancelled' && (string) $jm->get_by_id($j1)['status'] === 'done');
+check('a landed part of a failed video leaves the Library', $mm->get_one($cid, $part_asset) === null);
+check('the group reports the real failure, not the cancellation', $ts['state'] === 'failed' && $ts['error'] === 'The model refused', json_encode($ts));
+$jm->sql("DELETE FROM influencer_jobs WHERE group_key = :g", array(':g' => $gk));
+$mm->sql("DELETE FROM media_assets WHERE id = :id AND creator_id = :c", array(':id' => $part_asset, ':c' => $cid));
 check('nothing above was charged',                      (int) $credits->get_balance($cid) === $start);
 
 /* ---- audio files ---- */

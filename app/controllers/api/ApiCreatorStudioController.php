@@ -1233,8 +1233,9 @@ class ApiCreatorStudioController extends BaseApiController {
     /**
      * Cross-post the PROMOTIONAL version of a post to the selected connected
      * social accounts. Best-effort — never fails the publish/schedule if sharing
-     * errors. Always sends the public caption + a SAFE preview image (the blurred
-     * variant for subscriber posts) + a link back — never the subscriber media.
+     * errors. Always sends the public caption + SAFE media (the blurred variant for
+     * subscriber posts) — never the subscriber media, and no link back (outbound
+     * links suppress reach; the profile URL lives in the bio).
      */
     private function share_post_to_social(array $user, array $post, array $account_ids, ?string $scheduled_iso = null): string{
         if (empty($account_ids)) { return ''; }

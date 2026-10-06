@@ -417,13 +417,10 @@ class McpTools {
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
         // ---- images built on her identity references: angle set, replicate, edit, carousel, scene templates ----
-        $t[] = array('name' => 'generate_angle_set', 'description' => 'Generate the influencer\'s multi-angle reference set from the approved reference: 3 front close-ups, left profile, right profile, back view, full body front, full body back. Send slots to (re)make specific ones (front_close_1, front_close_2, front_close_3, left_profile, right_profile, back, full_front, full_back); omit it to fill every empty slot. Each image costs AI credits (see influencer_model_options, purpose angle). Returns job ids; poll get_angle_set. Approved angles are used as identity inputs by replicate_influencer_image and generate_carousel.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_angle_set', 'description' => 'Generate the influencer\'s multi-angle reference set from the approved reference: 3 front close-ups, left profile, right profile, back view, full body front, full body back. Send slots to (re)make specific ones (front_close_1, front_close_2, front_close_3, left_profile, right_profile, back, full_front, full_back); omit it to fill every empty slot. Each image costs AI credits (see influencer_model_options, purpose angle). Returns job ids; poll get_angle_set. Every ready angle is used as an identity input by replicate_influencer_image and generate_carousel (there is no approval step; regenerating a slot replaces its image, with two free redos per slot).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'slots' => array('type' => 'array', 'items' => array('type' => 'string')), 'model_key' => array('type' => 'string'))));
-        $t[] = array('name' => 'get_angle_set', 'description' => 'The influencer\'s angle reference set: every slot with its image, whether it is approved, a running job or the last error.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'approve_angle_reference', 'description' => 'Approve (or with approved=false, un-approve) one angle reference image. Only approved ones are used as identity inputs.', 'inputSchema' => array(
-            'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
-            'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'), 'approved' => array('type' => 'boolean'))));
+        $t[] = array('name' => 'get_angle_set', 'description' => 'The influencer\'s angle reference set: every slot with its image (all ready ones are identity inputs), a running job or the last error, and how many free redos it has left.', 'inputSchema' => $infl);
         $t[] = array('name' => 'replicate_influencer_image', 'description' => 'Recreate a source photo with the influencer in it. mode "style" recreates the scene and pose from a description of the source (pass prompt to use your own wording, else it is written from the photo); mode "exact" swaps the influencer into the photo and keeps the composition. The face in the source is found and masked automatically so the source person\'s features do not carry over (mask=false to skip). Costs AI credits per image (influencer_model_options, purpose replicate). Returns a job id; poll get_influencer_job for the asset ids.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'source_asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'source_asset_id' => array('type' => 'integer', 'description' => 'A library image (upload one with upload_image_from_url first)'),
@@ -953,10 +950,6 @@ class McpTools {
                 return self::result(InfluencerImageActions::angle_set_generate($cid, self::influencer_usable($cid, $a), (array) ($a['slots'] ?? array()), (string) ($a['model_key'] ?? ''), 'studio'));
             }
             case 'get_angle_set':             return self::result(InfluencerImageActions::angle_set_status($cid, self::influencer($cid, $a)));
-            case 'approve_angle_reference': {
-                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
-                return self::result(InfluencerImageActions::angle_approve($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0), !array_key_exists('approved', $a) || !empty($a['approved'])));
-            }
             case 'replicate_influencer_image': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 $in = array_intersect_key($a, array_flip(array('source_asset_id', 'mode', 'prompt', 'instruction', 'aspect', 'num_images', 'model_key', 'mask')));

@@ -68,3 +68,6 @@ CREATE TABLE IF NOT EXISTS scheduled_broadcasts (
     KEY idx_sb_due (status, send_at),
     KEY idx_sb_creator (creator_id, send_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- The posts of one campaign are read and deleted by campaign_id. Applied on dev: 2026-10-06.
+ALTER TABLE posts ADD KEY idx_posts_campaign (campaign_id);

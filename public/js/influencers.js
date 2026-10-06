@@ -593,7 +593,7 @@ jQuery(function ($) {
                 '<p class="inf-progress__x">' + (retrain
                     ? 'This usually takes a few minutes. Until it finishes, ' + esc(inf.name) + ' keeps generating with the current model, then switches to the new one on her own. You can leave this page.'
                     : 'This usually takes a few minutes. You can leave this page; the card shows the progress and the influencer is ready to use as soon as it finishes.') + '</p>' +
-                '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back to influencers</a></div>' +
+                '<div class="inf-progress__actions"><a href="/influencers" class="btn btn-secondary">Back To Influencers</a></div>' +
                 '</div>';
             $('#inf_panel').html(html);
             watch();
@@ -650,7 +650,7 @@ jQuery(function ($) {
                 { href: '/influencers/references/' + inf.id, icon: 'fa-id-badge',            title: 'Build References', text: 'Angles of ' + his + ' face and body that keep ' + her + ' consistent.' },
                 { href: '/influencers/voice/' + inf.id,      icon: 'fa-microphone-lines',    title: 'Design A Voice',   text: 'Give ' + her + ' a voice for speech and talking videos.' }
             ];
-            $('#inf_panel').append('<section class="inf-sec inf-next"><div class="inf-sec__head"><div><h2 class="inf-sec__h">' + who + ' Is Ready</h2><p class="inf-sec__sub">Choose what to make next. The settings below can be changed any time.</p></div></div>' +
+            $('#inf_panel').append('<section class="inf-sec inf-next"><div class="inf-sec__head"><div><h2 class="inf-sec__h">' + who + ' Is Ready</h2></div></div>' +
                 '<div class="inf-next__grid">' + items.map(function (it) {
                     return '<a class="inf-next__item" href="' + it.href + '"><span class="inf-next__ic"><i class="fa-solid ' + it.icon + '" aria-hidden="true"></i></span>' +
                         '<span class="inf-next__body"><span class="inf-next__t">' + it.title + '</span><span class="inf-next__x">' + it.text + '</span></span>' +
@@ -666,7 +666,7 @@ jQuery(function ($) {
                 ? '<div class="inf-sec__actions"><span class="inf-wiz__meta" id="inf_photos_cost"></span><button type="button" class="btn btn-secondary" id="inf_photos_train" disabled><i class="fa-solid fa-rotate"></i> Retrain</button></div>'
                 : '<div class="inf-sec__actions"><button type="button" class="btn btn-secondary" id="inf_look_open"><i class="fa-solid fa-wand-magic-sparkles"></i> Change Look</button><button type="button" class="btn btn-secondary" id="inf_ref_retrain"><i class="fa-solid fa-rotate"></i> Retrain</button></div>');
             var html = '<section class="inf-sec">' +
-                '<div class="inf-sec__head"><div><h2 class="inf-sec__h">Training Photos</h2><p class="inf-sec__sub">What ' + esc(inf.name) + '\'s model learned from. Change these and retrain to change the look.</p></div>' + action + '</div>' +
+                '<div class="inf-sec__head"><div><h2 class="inf-sec__h">Training Photos</h2></div>' + action + '</div>' +
                 (!busy && inf.last_error ? '<div class="inf-progress__err inf-sec__err">The last retrain failed: ' + esc(inf.last_error) + ' ' + esc(inf.name) + ' still uses the previous model.</div>' : '');
             if (busy) {
                 html += '<p class="inf-wiz__meta">' + esc(inf.name) + ' keeps generating with the current model until the new one is ready.</p>' +
@@ -798,9 +798,8 @@ jQuery(function ($) {
             return html;
         }
         function render_settings() {
-            var she = (inf.gender === 'man') ? 'he' : 'she', her = (inf.gender === 'man') ? 'him' : 'her';
             var html = '<div class="inf-about">' +
-                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2><p class="inf-sec__sub">Applied to every image generated with ' + her + '.</p></div></div>' +
+                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
@@ -809,7 +808,7 @@ jQuery(function ($) {
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
-                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2><p class="inf-sec__sub">Who ' + she + ' is when AI writes captions, replies and campaign posts for ' + her + '.</p></div></div>' +
+                '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2></div></div>' +
                 '<div class="inf-about__fields inf-persona">' + persona_fields() + '</div>' +
                 '</section></div>' +
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';
@@ -967,7 +966,6 @@ jQuery(function ($) {
         }
         function render_photos() {
             var html = '<h2 class="inf-wiz__h">Add Photos</h2>' +
-                '<p class="inf-wiz__p">Different angles, expressions and lighting, sharp and well lit, only this person in frame.</p>' +
                 photo_manager_html() +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_photos_back">Back</button>' +
                 '<span class="inf-wiz__meta" id="inf_photos_cost"></span>' +
@@ -1086,7 +1084,6 @@ jQuery(function ($) {
         }
         function render_reference_photo() {
             var html = '<h2 class="inf-wiz__h">Face Photo</h2>' +
-                '<p class="inf-wiz__p">One clear, front-facing photo of the face. It becomes the reference for the training set.</p>' +
                 '<div class="inf-ref" id="inf_face_out" ' + (inf.face_asset_id ? '' : 'hidden') + '><div class="inf-ref__row" id="inf_face_row"></div></div>' +
                 '<div class="inf-drop" id="inf_face_drop"><i class="fa-solid fa-cloud-arrow-up"></i><span><strong>Drop a photo here</strong> or <button type="button" class="inf-link" id="inf_face_pick">choose a file</button></span><small>JPG, PNG or WebP, up to 15 MB</small></div>' +
                 '<input type="file" id="inf_face_file" accept="image/jpeg,image/png,image/webp" hidden>' +
@@ -1124,14 +1121,14 @@ jQuery(function ($) {
         var set_timer = null;
         function render_set() {
             clearTimeout(set_timer);
-            var size = LIM.set_size;
+            var size = LIM.set_size, his = (inf.gender === 'man') ? 'His' : 'Her';
             var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
-                '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Her face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
+                '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + his + ' face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
                 '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_set_back">Back</button><span class="inf-wiz__meta" id="inf_set_status"></span>' +
                 '<button type="button" class="btn btn-secondary" id="inf_set_regen" hidden><i class="fa-solid fa-rotate"></i> Regenerate Photos</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_set_go"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate ' + size + ' images</button>' +
+                '<button type="button" class="btn btn-primary" id="inf_set_go"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate ' + size + ' Images</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_set_next" hidden><i class="fa-solid fa-bolt"></i> ' + (inf.active_model_id > 0 ? 'Retrain' : 'Train') + '</button></div>';
             $('#inf_panel').html(html);
             $('#inf_set_back').on('click', function () { go_back('set'); });

@@ -84,7 +84,10 @@ $again = InfluencerImageActions::angle_set_generate($cid, $infl, array('left_pro
 check('a slot already generating is not started twice', empty($again['ok']));
 $drop($aj['id']);
 check('cancelled angle run is refunded',                $bal() === $start);
-check('approving a non-angle image is refused',         empty(InfluencerImageActions::angle_approve($cid, $infl, $base)['ok']));
+check('there is no approval step: status reports ready slots, never an approved flag', isset($st['ready']) && !isset($st['approved']) && !array_key_exists('approved', $st['slots'][0]));
+check('a wrong model key for an angle is refused, not swapped', empty(($r = InfluencerImageActions::angle_set_generate($cid, $infl, array('left_profile'), 'grok_edit'))['ok']) && strpos($r['error'], 'does not do angle') !== false, json_encode($r));
+check('the default model is used when no key is given',  InfluencerImageActions::model_for('angle', '')['key'] === 'nano_banana_edit' && InfluencerImageActions::model_for('replicate', 'seedream_45_edit')['key'] === 'seedream_45_edit');
+check('an unknown model key is refused',                 InfluencerImageActions::model_for('replicate', 'no_such_model', $m_err) === null && $m_err !== '');
 
 /* ---- replicate: prompts ---- */
 $seen = array('features' => 'long dark wavy hair, brown eyes, light olive skin', 'outfit' => 'a white linen shirt and blue jeans.', 'setting' => 'a beach boardwalk at sunrise, soft warm light');
@@ -98,6 +101,9 @@ check('loose descriptions still read as one sentence',  strpos($loose, 'model in
 check('a man gets "He"',                                strpos(InfluencerImageActions::style_prompt(array('gender' => 'man') + $infl, $seen), 'He is posing EXACTLY') !== false);
 $ep = InfluencerImageActions::exact_prompt($infl, $seen);
 check('Exact prompt swaps and keeps the composition',   strpos($ep, 'Replace the person in @img1 with the model in @img2') === 0 && strpos($ep, 'Keep the pose, outfit, composition, background, lighting and camera angle of @img1 exactly') !== false);
+// @img tokens become "image N" and a legend opens the prompt, numbered in order whatever order the labels came in.
+$wk = InfluencerImageActions::with_image_key('Put the face from @img2 into @img 1.', array(2 => 'the model.', 1 => 'the source photo'));
+check('with_image_key rewrites tokens and leads with the legend in order', $wk === 'Image 1 is the source photo. Image 2 is the model. Put the face from image 2 into image 1.', $wk);
 
 /* ---- replicate: face mask ---- */
 check('a face box is clamped to the image',             FaceMask::clean_box(array('x' => 0.9, 'y' => 0.9, 'w' => 0.5, 'h' => 0.5)) === array('x' => 0.9, 'y' => 0.9, 'w' => 0.1, 'h' => 0.1));
@@ -115,6 +121,9 @@ $c_b = imagecolorat($bm, 100, 150); imagedestroy($bm);
 check('a brush stroke masks where it was painted',      abs((($c_b >> 16) & 0xFF) - 128) < 12);
 check('nothing to mask returns nothing',                FaceMask::apply($red, null, array()) === '');
 check('only the creator\'s own keys can be signed',     FaceMask::owns_key(1, 'vault/1/tmp/mask_a.jpg') && !FaceMask::owns_key(1, 'vault/2/tmp/mask_a.jpg') && !FaceMask::owns_key(1, 'vault/1/../2/x.jpg'));
+$cs = FaceMask::clean_strokes(array(array('x' => 1.5, 'y' => -0.2, 'r' => 0.9), array('x' => 0.5, 'y' => 0.5, 'r' => 0), array('x' => 'a', 'y' => 0.1, 'r' => 0.1), 'junk', array('x' => 0.1, 'y' => 0.1)));
+check('brush strokes are clamped and junk is dropped',  count($cs) === 2 && $cs[0] === array('x' => 1.0, 'y' => 0.0, 'r' => 0.5) && $cs[1]['r'] === 0.005, json_encode($cs));
+check('brush strokes are capped at 4000',               count(FaceMask::clean_strokes(array_fill(0, 4500, array('x' => 0.5, 'y' => 0.5, 'r' => 0.05)))) === 4000);
 
 /* ---- replicate: the job ---- */
 $src = 0;
@@ -134,10 +143,23 @@ $key = (string) (InfluencerJobsModel::params($rj)['source_key'] ?? '');
 check('the masked copy is stored under her vault',      FaceMask::owns_key($cid, $key) && (int) $rj['input_asset_id'] === $src);
 $drop($rj['id']); if ($key !== '') { S3Service::delete_key($key); }
 check('a missing source is refused',                    empty(InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => 0, 'prompt' => 'x', 'mask' => false))['ok']));
+// A model the caller names must be a replicate model: a wrong key is refused, never silently swapped for the default and re-priced.
+$r = InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $src, 'mode' => 'style', 'prompt' => $sp, 'face' => null, 'mask' => false, 'model_key' => 'grok_edit'));
+check('a replica with an edit-only model key is refused', empty($r['ok']) && strpos($r['error'], 'does not do replicate') !== false && $bal() === $start, json_encode($r));
+check('a replica with an unknown model key is refused',  empty(InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $src, 'prompt' => $sp, 'mask' => false, 'model_key' => 'nope'))['ok']));
+check('her own reference cannot be the source',          empty(($r = InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $base, 'prompt' => $sp, 'mask' => false)))['ok']) && strpos($r['error'], 'reference images') !== false, json_encode($r));
+// Extra Instruction rides along in Style mode too (not only Exact), when the prepared prompt does not already carry it.
+$r = InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $src, 'mode' => 'style', 'prompt' => InfluencerImageActions::style_prompt($infl, $seen), 'instruction' => 'add a red hat', 'face' => null, 'mask' => false));
+check('Style mode appends the extra instruction',       !empty($r['ok']) && strpos($r['prompt'], 'natural skin texture. add a red hat.') !== false, json_encode(array_diff_key($r, array('job' => 1))));
+if (!empty($r['ok'])) { $queue_clean($r['job_id']); $drop($r['job_id']); }
+$r = InfluencerImageActions::replicate($cid, $infl, array('source_asset_id' => $src, 'mode' => 'style', 'prompt' => $sp, 'instruction' => 'make it golden hour', 'face' => null, 'mask' => false));
+check('an instruction already in the prompt is not repeated', !empty($r['ok']) && substr_count($r['prompt'], 'make it golden hour') === 1);
+if (!empty($r['ok'])) { $queue_clean($r['job_id']); $drop($r['job_id']); }
 
 /* ---- edit ---- */
 check('the instruction is wrapped as specified',        InfluencerImageActions::edit_prompt('make the shirt red') === 'Maintain the photo exactly as shown in the reference. Only change the following: make the shirt red');
 check('an empty instruction is refused',                empty(InfluencerImageActions::edit_image($cid, $src, '  ')['ok']));
+check('an edit with a replicate-only model key is refused', empty(($r = InfluencerImageActions::edit_image($cid, $src, 'make the shirt red', 'seedream_45_edit'))['ok']) && strpos($r['error'], 'does not do edit') !== false, json_encode($r));
 $r = InfluencerImageActions::edit_image($cid, $src, 'make the shirt red');
 check('an edit job starts',                             !empty($r['ok']));
 $ej = $jobs->get_by_id($r['job_id']); $queue_clean($ej['id']);
@@ -166,6 +188,8 @@ foreach (array($v0, $v1, $v2) as $v) { $media->sql("DELETE FROM media_assets WHE
 check('carousel size is 2 to 10',                       empty(InfluencerImageActions::carousel_start($cid, $infl, array('count' => 1, 'seed_text' => 'x'))['ok']) && empty(InfluencerImageActions::carousel_start($cid, $infl, array('count' => 11, 'seed_text' => 'x'))['ok']));
 check('a carousel needs a seed',                        empty(InfluencerImageActions::carousel_start($cid, $infl, array('count' => 3))['ok']));
 check('shots without her need a seed image',            empty(InfluencerImageActions::carousel_start($cid, $infl, array('count' => 3, 'focus' => 'without_her', 'seed_text' => 'a kitchen'))['ok']));
+check('a carousel with an edit-only model key is refused', empty(($r = InfluencerImageActions::carousel_start($cid, $infl, array('count' => 3, 'seed_text' => 'a kitchen', 'model_key' => 'grok_edit')))['ok']) && strpos($r['error'], 'does not do replicate') !== false, json_encode($r));
+check('regenerating a job that is not a carousel slot is refused', empty(InfluencerImageActions::carousel_regenerate($cid, 0)['ok']));
 check('all five focuses exist',                         array_keys(InfluencerImageActions::CAROUSEL_FOCUS) === array('angles', 'expressions', 'poses', 'details', 'without_her'));
 check('nothing was charged by refused requests',        $bal() === $start);
 $to = InfluencerImageActions::carousel_to_post($cid, array($src, $base, $src));
@@ -187,6 +211,7 @@ check('an adult-enabled account sees both',             in_array($t1, $ids(array
 check('{subject} follows the influencer',               SceneTemplates::prompt_for($sm->get_one($t1), $infl) === 'photo of a ' . InfluencerService::noun($infl) . ' at a cafe');
 check('an older shape name is stored as a ratio',       (string) $sm->get_one($t2)['default_aspect'] === '3:4');
 check('an adult template cannot be run by an SFW account', empty(SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 0), $infl, $t2)['ok']));
+check('a scene with a non-image model key is refused',  empty(($r = SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 1), $infl, $t1, '', 'grok_edit'))['ok']) && strpos($r['error'], 'does not do image') !== false, json_encode($r));
 $sm->set_active($t1, false);
 check('an inactive template is not listed or runnable', !in_array($t1, $ids(array('adult_content_enabled' => 1)), true) && empty(SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1)['ok']));
 check('voting on an image not from a scene is refused', empty(SceneTemplates::vote($cid, $src, 1)['ok']));

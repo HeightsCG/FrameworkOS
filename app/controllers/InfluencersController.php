@@ -79,6 +79,7 @@ class InfluencersController extends Controller {
     /** Path chooser (no id) or the wizard for one influencer. */
     public function createAction(){
         $user = $this->gate();
+        header('Cache-Control: no-store');   // the wizard opens at the step the data says: a back/bfcache restore must not show a stale one
         $this->view->page = 'create';
         $id = $this->id_from_url();
         $this->view->influencer = null;

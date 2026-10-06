@@ -49,10 +49,28 @@ jQuery(function ($) {
         api('edit_project_save', { id: id, name: $('#ceName').val(), aspect: P.aspect, timeline: JSON.stringify(TL) }, function (o) {
             saving = false;
             if (!o || !o.success) { dirty = true; saved_text('Not saved'); err(o, 'The edit could not be saved.'); if (cb) { cb(false); } return; }
-            if (!dirty) { saved_text('Saved'); }
+            if (!dirty) { saved_text('Saved'); apply_saved(o.project.timeline || {}); }
             problems(o.project.problems || []);
             if (cb) { cb(true); }
         });
+    }
+    /* The server tidies the timeline on save (drops files no longer in the Library, clamps times, fills blank ends). What is
+       on screen then follows what was stored, so the preview never shows an edit that will not export. Only rows the
+       creator is still filling in (a text row with no words yet) are kept as they are; nothing is redrawn when it already matches. */
+    function canon(tl) {
+        return JSON.stringify({
+            clips: tl.clips.map(function (c) { return c.type === 'video' ? [c.asset_id, 'video', r2(num(c.start, 0)), r2(num(c.end, 0)), !!c.mute] : [c.asset_id, 'image', r2(num(c.duration, 3))]; }),
+            texts: tl.texts.map(function (x) { return [String(x.text).trim(), x.font, x.size, x.position, String(x.color).toUpperCase(), r2(num(x.start, 0)), r2(num(x.end, 0)), !!x.shadow]; }),
+            overlays: tl.overlays.map(function (o) { return [o.asset_id, o.anchor, Math.round(num(o.scale, 25)), r2(num(o.start, 0)), r2(num(o.end, 0))]; }),
+            audio: tl.audio ? [tl.audio.asset_id, Math.round(num(tl.audio.volume, 100))] : null
+        });
+    }
+    function apply_saved(srv) {
+        var next = { clips: srv.clips || [], texts: [], overlays: srv.overlays || [], audio: srv.audio || null }, si = 0, kept = srv.texts || [];
+        $.each(TL.texts, function (i, x) { if (String(x.text).trim() === '') { next.texts.push(x); } else if (kept[si]) { next.texts.push(kept[si++]); } });
+        if (canon(next) === canon(TL)) { return; }
+        TL = next; selected = Math.max(0, Math.min(selected, TL.clips.length - 1));
+        render_clips(); render_texts(); render_overlays(); render_audio(); render_stage(); render_total();
     }
     function problems(list) {
         $('#ceProblems').prop('hidden', !list.length).html(list.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join(''));
@@ -200,7 +218,7 @@ jQuery(function ($) {
     $('#ceAddOverlay').on('click', function () {
         if (TL.overlays.length >= 10) { return; }
         T.pick_image({ title: 'Choose a PNG Image' }, function (a) {
-            if (!/\.png$/i.test(String(a.filename || a.name || ''))) { toastr.error('Image overlays need to be PNG files.'); return; }
+            if (String(a.mime || '').toLowerCase() !== 'image/png' && !/\.png$/i.test(String(a.filename || a.name || ''))) { toastr.error('Image overlays need to be PNG files.'); return; }
             assets[a.id] = { id: a.id, type: 'image', name: a.name, thumb_url: a.thumb_url, preview_url: a.thumb_url, png: true };
             TL.overlays.push({ asset_id: a.id, anchor: 'top_right', scale: 25, start: 0, end: total() });
             render_overlays(); touch();

@@ -226,9 +226,10 @@ class MediaIngestService {
             throw new RuntimeException('Could not store the audio');
         }
         @unlink($path);
-        $mm->set_ready($cid, $aid, array('original_key' => $key, 'bytes' => $bytes, 'duration_sec' => (int) ceil((float) $probe['duration']),
+        $duration = is_array($probe) ? (int) ceil((float) ($probe['duration'] ?? 0)) : 0;   // no ffprobe (VideoTools unavailable): length unknown
+        $mm->set_ready($cid, $aid, array('original_key' => $key, 'bytes' => $bytes, 'duration_sec' => $duration,
             'moderation_status' => 'n_a'));
-        return array('asset_id' => $aid, 'type' => 'audio', 'duration_sec' => (int) ceil((float) $probe['duration']));
+        return array('asset_id' => $aid, 'type' => 'audio', 'duration_sec' => $duration);
     }
 
     /** Video from a URL (MCP path): poster first, then the download, then ingest_video_file(). */

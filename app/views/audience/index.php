@@ -174,6 +174,15 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
                         <div class="lc__label">Also Post To</div>
                         <div class="lc__checks" id="lcAccs"></div>
                     </div>
+                    <div class="lc__field lc__field--full">
+                        <div class="lc__label" id="lcImageLabel">Image</div>
+                        <div class="lc__image" role="group" aria-labelledby="lcImageLabel">
+                            <button type="button" class="lc__thumb" id="lcPick" aria-label="Choose Image"><img id="lcPickImg" alt="" hidden><i class="fa-regular fa-image" aria-hidden="true"></i></button>
+                            <span class="lc__imagename" id="lcPickName"></span>
+                            <button type="button" class="btn btn-secondary btn-sm" id="lcPickChoose">Choose Image</button>
+                            <button type="button" class="btn btn-ghost btn-sm" id="lcPickClear" hidden>Remove</button>
+                        </div>
+                    </div>
                     <div class="lc__field">
                         <label class="lc__label" for="lcCode">Promo Code</label>
                         <input type="text" class="form-control" id="lcCode" maxlength="24" placeholder="LAUNCH20" autocomplete="off">
@@ -200,6 +209,22 @@ foreach ($audience as $f) { $revenue += (int) $f['spend_credits']; }
         </div>
     </div>
 </div>
+<style>
+/* Campaign image: the shared Library picker (ai-tools.js) opened from a 56x70 thumb. Belongs in audience.css. */
+.lc__image{ display:flex; align-items:center; gap:12px; min-width:0; }
+.lc__thumb{ flex:none; display:flex; align-items:center; justify-content:center; width:56px; height:70px; padding:0; border:1px dashed var(--line2, #cfcfcf); border-radius:2px; background:#FAFAFA; color:var(--muted); font-size:18px; cursor:pointer; overflow:hidden; }
+.lc__thumb:hover{ border-color:var(--acc); color:var(--acc-ink); }
+.lc__thumb:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.lc__thumb.has-img{ border-style:solid; border-color:var(--line); background:#111; }
+.lc__thumb.has-img i{ display:none; }
+.lc__thumb img{ width:100%; height:100%; object-fit:cover; display:block; }
+.lc__thumb img[hidden]{ display:none; }
+.lc__imagename{ flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; color:var(--t2); }
+.lc__image .btn{ flex:none; }
+#aiPicker{ z-index:1070; }
+#aiPicker ~ .modal-backdrop{ z-index:1065; }
+</style>
+<script src="/js/ai-tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/ai-tools.js'); ?>"></script>
 <script src="/js/launch-campaign.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/launch-campaign.js'); ?>"></script>
 <?php endif; ?>
 <script src="/js/audience.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/audience.js'); ?>"></script>

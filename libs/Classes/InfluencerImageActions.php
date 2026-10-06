@@ -53,6 +53,21 @@ class InfluencerImageActions {
 
     private static function one_line($s, $max = 600){ return mb_substr(trim(preg_replace('/\s+/', ' ', (string) $s)), 0, $max); }
 
+    /**
+     * The catalog model a run uses. No key = the picker default for $op. A key the caller named must exist and do
+     * $op: it is never swapped for the default behind their back (a wrong key from the connector would otherwise be
+     * silently re-priced). Returns the model, or null with $error set.
+     */
+    public static function model_for($op, $key, &$error = ''){
+        $key = (string) $key;
+        if ($key !== '') {
+            $m = InfluencerConfig::model($key);
+            if (!$m || !InfluencerConfig::serves($m, $op)) { $error = 'That model does not do ' . str_replace('_', ' ', (string) $op) . '.'; return null; }
+            return $m;
+        }
+        return InfluencerConfig::resolve_model($op, '');
+    }
+
     /** A description as a bare phrase to drop into a sentence: no leading "She is wearing" / "A woman with", no capital, no full stop. */
     private static function phrase($s, $max = 400){
         $s = self::one_line($s, $max);
@@ -65,10 +80,14 @@ class InfluencerImageActions {
      * 9. Multi-angle reference set
      * =================================================================== */
 
-    /** How many times each angle may be made again at no charge while its image has not been approved. */
+    /**
+     * Two free redos per slot: an angle that already has an image may be made again twice at no charge (it came out
+     * wrong); the third and later redos are charged. There is no approval step: every ready angle is an identity
+     * input (InfluencerService::identity_refs), and a redo simply replaces the slot's image.
+     */
     const FREE_REDOS = 2;
 
-    /** Every slot with its current image (approved or not), a running job, or the last error. */
+    /** Every slot with its current image, a running job, or the last error. */
     public static function angle_set_status($cid, array $infl){
         $by_img = array();
         foreach ((new InfluencerImagesModel())->list_for_influencer($cid, (int) $infl['id'], 'angle') as $r) { $by_img[(string) $r['angle']] = $r; }   // ordered oldest first: the newest wins
@@ -79,9 +98,9 @@ class InfluencerImageActions {
             if ($slot !== '' && !isset($by_job[$slot])) { $by_job[$slot] = $j; }
             if ($slot !== '' && !empty($jp['free_redo']) && !in_array((string) $j['status'], array('failed', 'cancelled'), true)) { $redone[$slot] = ($redone[$slot] ?? 0) + 1; }
         }
-        $slots = array(); $approved = 0; $active = 0;
+        $slots = array(); $ready = 0; $active = 0;
         foreach (InfluencerService::ANGLES as $slot => $def) {
-            $row = array('slot' => $slot, 'label' => $def['label'], 'aspect' => $def['aspect'], 'status' => 'empty', 'approved' => false,
+            $row = array('slot' => $slot, 'label' => $def['label'], 'aspect' => $def['aspect'], 'status' => 'empty',
                 'asset_id' => 0, 'thumb_url' => '', 'display_url' => '', 'job_id' => 0, 'error' => '', 'redo_free' => false,
                 'free_left' => max(0, self::FREE_REDOS - (int) ($redone[$slot] ?? 0)));
             $j = $by_job[$slot] ?? null;
@@ -89,10 +108,9 @@ class InfluencerImageActions {
                 $row['status'] = 'working'; $row['job_id'] = (int) $j['id']; $active++;
             } elseif (isset($by_img[$slot]) && (string) $by_img[$slot]['status'] === 'ready') {
                 $a = $by_img[$slot];
-                $row['status'] = 'ready'; $row['approved'] = !empty($a['approved']); $row['asset_id'] = (int) $a['id'];
+                $row['status'] = 'ready'; $row['asset_id'] = (int) $a['id']; $ready++;
                 $row['thumb_url'] = MediaService::signed_url($a, 'thumb', $cid); $row['display_url'] = MediaService::signed_url($a, 'display', $cid);
-                if ($row['approved']) { $approved++; }
-                // Making an angle again because it came out wrong is free, a couple of times per angle.
+                // Making an angle again because it came out wrong is free: two free redos per slot (FREE_REDOS), then charged.
                 $row['redo_free'] = $row['free_left'] > 0;
             } elseif ($j && in_array((string) $j['status'], array('failed', 'cancelled'), true)) {
                 $row['status'] = 'failed'; $row['job_id'] = (int) $j['id']; $row['error'] = (string) $j['error'];
@@ -102,22 +120,22 @@ class InfluencerImageActions {
         $model = InfluencerConfig::resolve_model('angle', '');
         $base  = InfluencerService::base_reference($cid, $infl);
         $ba    = $base > 0 ? (new MediaAssetsModel())->get_one($cid, $base) : null;
-        return self::okr(array('slots' => $slots, 'approved' => $approved, 'active' => $active, 'total' => count($slots),
+        return self::okr(array('slots' => $slots, 'ready' => $ready, 'active' => $active, 'total' => count($slots),
             'price_each' => $model ? Plan::ai_price('angle', array('model_key' => $model['key'])) : 0,
             'reference' => $ba ? array('asset_id' => $base, 'thumb_url' => MediaService::signed_url($ba, 'thumb', $cid)) : null));
     }
 
     /**
      * Generate angle references. $slots: slot keys to (re)make; empty = every slot that has no image yet.
-     * A slot that already has an image is rerolled: the new image shows in its place, and an approved old one stays
-     * in use as an identity input until the new one is approved.
+     * A slot that already has an image is rerolled: once the new image is ready it replaces the old one as that
+     * angle's identity input (the newest ready image of each angle is used; the old one stays in use until then).
      */
     public static function angle_set_generate($cid, array $infl, array $slots = array(), $model_key = '', $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $base = InfluencerService::base_reference($cid, $infl);
         if ($base <= 0) { return self::fail($infl['name'] . ' has no reference image yet.'); }
-        $model = InfluencerConfig::resolve_model('angle', (string) $model_key);
-        if (!$model) { return self::fail('No model is configured for angle references.'); }
+        $m_err = ''; $model = self::model_for('angle', $model_key, $m_err);
+        if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No model is configured for angle references.'); }
         $st = self::angle_set_status($cid, $infl);
         $by = array();
         foreach ($st['slots'] as $s) { $by[$s['slot']] = $s; }
@@ -148,7 +166,13 @@ class InfluencerImageActions {
         return self::okr(array('job_ids' => $ids, 'count' => count($ids)));
     }
 
-    /** Approve (or un-approve) one angle reference; only approved ones are used as identity inputs. */
+    /**
+     * LEGACY, gates nothing: identity inputs are every ready angle (InfluencerService::identity_refs), so there is no
+     * approval step for the angle set any more (the angle approve API action, MCP tool and page control are gone).
+     * Still called by the wizard's full-body step (ApiInfluencersController::influencer_body_approveAction via
+     * influencers.js "finish"); it only sets the `approved` flag and sets earlier takes of the same angle aside.
+     * Remove it together with that action, its ApiRoutes entry and the influencers.js call.
+     */
     public static function angle_approve($cid, array $infl, $aid, $approved = true){
         $im   = new InfluencerImagesModel();
         $link = $im->get_link($cid, (int) $infl['id'], (int) $aid);
@@ -255,8 +279,11 @@ class InfluencerImageActions {
         if (!$src) { return self::fail('Pick a ready image as the source.'); }
         $refs = InfluencerService::identity_refs($cid, $infl);
         if (empty($refs)) { return self::fail($infl['name'] . ' has no reference image yet.'); }
-        $model = InfluencerConfig::resolve_model('replicate', (string) ($in['model_key'] ?? ''));
-        if (!$model) { return self::fail('No replicate model is configured.'); }
+        // The source must be a photo of someone else: her own reference as @img1 would collapse into her first angle
+        // once the image list is de-duplicated, and "image 2" would then name the wrong picture.
+        if (in_array((int) $src['id'], $refs, true)) { return self::fail('That photo is one of ' . $infl['name'] . '\'s reference images. Pick a photo of someone else to put ' . InfluencerService::pronouns($infl)[1] . ' into.'); }
+        $m_err = ''; $model = self::model_for('replicate', $in['model_key'] ?? '', $m_err);
+        if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No replicate model is configured.'); }
         $mode   = (($in['mode'] ?? '') === 'exact') ? 'exact' : 'style';
         $extra  = self::one_line($in['instruction'] ?? '', 500);
         $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
@@ -268,7 +295,8 @@ class InfluencerImageActions {
             if (empty($prep['ok'])) { return $prep; }
             if ($prompt === '') { $prompt = (string) $prep['prompt']; }
             if ($face === null) { $face = $prep['face']; }
-        } elseif ($mode === 'exact' && $extra !== '' && stripos($prompt, rtrim($extra, '.')) === false) {
+        } elseif ($extra !== '' && stripos($prompt, rtrim($extra, '.')) === false) {
+            // Extra Instruction rides along in both modes when the edited prompt does not already carry it.
             $prompt .= ' ' . rtrim($extra, '.') . '.';
         }
         $strokes = FaceMask::clean_strokes($in['strokes'] ?? array());
@@ -333,8 +361,8 @@ class InfluencerImageActions {
         $instruction = mb_substr(trim((string) $instruction), 0, 1500);
         if ($instruction === '') { return self::fail('Describe the change you want.'); }
         if ((string) $model_key === '') { $first = self::edit_models($src); $model_key = (string) ($first[0]['key'] ?? ''); }   // unless asked, the model that keeps this image's shape
-        $model = InfluencerConfig::resolve_model('edit', (string) $model_key);
-        if (!$model) { return self::fail('No edit model is configured.'); }
+        $m_err = ''; $model = self::model_for('edit', $model_key, $m_err);
+        if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No edit model is configured.'); }
         $link = (new InfluencerImagesModel())->influencer_for_asset($cid, (int) $src['id']);   // an edit of her image stays in her gallery
         $infl_id = 0;
         if ($link) {
@@ -449,8 +477,8 @@ class InfluencerImageActions {
         if (!$with_her && !$seed) { return self::fail('Shots without her need a seed image to keep the location and props consistent.'); }
         $refs = $with_her ? InfluencerService::identity_refs($cid, $infl) : array();
         if ($with_her && empty($refs)) { return self::fail($infl['name'] . ' has no reference image yet.'); }
-        $model = InfluencerConfig::resolve_model('replicate', (string) ($in['model_key'] ?? ''));
-        if (!$model) { return self::fail('No carousel model is configured.'); }
+        $m_err = ''; $model = self::model_for('replicate', $in['model_key'] ?? '', $m_err);
+        if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No carousel model is configured.'); }
         // Nothing is planned or spent when the account cannot pay for the whole set.
         $user  = InfluencerJobService::user($cid);
         if (!Plan::can_use_creator_features($user)) { return self::fail('Choose a plan to generate with AI.', array('need_plan' => true)); }
@@ -489,8 +517,12 @@ class InfluencerImageActions {
         $slots = array(); $done = 0; $active = 0; $failed = 0;
         foreach ((new InfluencerJobsModel())->list_group((string) $set['group_key']) as $j) {
             if ((int) $j['creator_id'] !== (int) $cid) { continue; }
+            $jp = InfluencerJobsModel::params($j);
+            // The slot's own model and price: after a safety fallback a slot runs on a cheaper model than the set's.
             $slot = array('job_id' => (int) $j['id'], 'index' => (int) $j['group_index'], 'status' => (string) $j['status'], 'error' => (string) $j['error'],
-                'shot' => (string) (InfluencerJobsModel::params($j)['shot'] ?? ''), 'asset_id' => 0, 'thumb_url' => '', 'display_url' => '');
+                'error_code' => (string) $j['error_code'], 'model_key' => (string) $j['model_key'], 'credits' => Plan::ai_price('carousel', array('model_key' => (string) $j['model_key'])),
+                'tried_models' => array_values(array_map('strval', (array) ($jp['tried_models'] ?? array()))), 'fallback_from' => (string) ($jp['fallback_from'] ?? ''),
+                'shot' => (string) ($jp['shot'] ?? ''), 'asset_id' => 0, 'thumb_url' => '', 'display_url' => '');
             $aid = (int) $j['result_asset_id'];
             $a = ((string) $j['status'] === 'done' && $aid > 0) ? $mm->get_one($cid, $aid) : null;
             if ($a && (string) $a['status'] === 'ready') {
@@ -513,6 +545,11 @@ class InfluencerImageActions {
         $jobs = new InfluencerJobsModel();
         $job  = $jobs->get_one($cid, (int) $job_id);
         if (!$job || (string) $job['type'] !== 'carousel' || !empty($job['superseded_by'])) { return self::fail('That slot is not part of a carousel.'); }
+        // The same plan gate as every other generate path: a slot of a locked influencer is not rendered again.
+        $infl = (new InfluencersModel())->get_one($cid, (int) $job['influencer_id']);
+        if (!$infl) { return self::fail('Influencer not found.'); }
+        $user = InfluencerJobService::user($cid);
+        if (Plan::is_locked($user, 'influencers', (int) $infl['id'])) { return self::fail(Plan::locked_message($user, 'influencers'), array('need_upgrade' => true, 'locked' => true)); }
         if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
             $r = InfluencerJobService::retry($cid, (int) $job['id']);
             return empty($r['ok']) ? self::fail((string) $r['error'], !empty($r['need_credits']) ? array('need_credits' => true) : array()) : self::okr(array('job_id' => (int) $job['id']));

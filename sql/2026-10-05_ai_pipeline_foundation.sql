@@ -40,10 +40,13 @@ UPDATE media_assets a
        a.parent_asset_id   = IF(ii.role = 'enhanced', j.input_asset_id, NULL)
  WHERE ii.role IN ('reference','training','generated','video','enhanced');
 
--- Backfill: brand images and automation renders (named by the code that made them).
+-- Backfill: brand images and automation renders (named by the code that made them: 'Generated · <prompt>',
+-- 'Scheduled · <topic>'). RISK: these rows have no job link, so the filename is the only qualifier; a creator's own
+-- upload that happens to carry that exact prefix would be relabelled as AI-made. Check the matches on prod first:
+--   SELECT id, creator_id, filename FROM media_assets WHERE provenance = 'uploaded' AND (filename LIKE 'Generated · %' OR filename LIKE 'Scheduled · %');
 UPDATE media_assets
    SET provenance = 'generated'
- WHERE provenance = 'uploaded' AND (filename LIKE 'Generated%' OR filename LIKE 'Scheduled%');
+ WHERE provenance = 'uploaded' AND (filename LIKE 'Generated · %' OR filename LIKE 'Scheduled · %');
 
 -- ---------------------------------------------------------------------------------------------
 -- influencer_jobs: new run types; a plain Library edit has no influencer

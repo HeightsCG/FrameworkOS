@@ -69,6 +69,9 @@ $by = array(); foreach ($s['account_configurations'] as $ac) { $by[$ac['social_a
 check('an Instagram Story is placed as a story',        ($by['ig1']['placement'] ?? '') === 'stories');
 check('a Story takes only the 9:16 media',              array_column($by['ig1']['media'] ?? array(), 'url') === array('u1', 'u3'));
 check('a platform without Stories posts to the feed as usual', !isset($by['tt1']) && in_array('tt1', $s['accounts'], true));
+check('an AI post sent as a Story says the Story carries no disclosure', count($s['notes']) === 1 && strpos($s['notes'][0], 'Instagram Story') !== false && strpos($s['notes'][0], 'no AI disclosure') !== false, implode(' | ', $s['notes']));
+$plain = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai' => false, 'stories' => array('ig1')));
+check('no such note when the post is not AI',           empty($plain['notes']));
 $none = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'u2', 'video' => false, 'tall' => false)), array('stories' => array('ig1')));
 check('a Story with no 9:16 media is skipped with a reason', empty($none['accounts']) && count($none['notes']) === 1 && strpos($none['notes'][0], '9:16') !== false);
 
@@ -79,19 +82,26 @@ check('the first-reply disclosure is never blank',      AiDisclosure::first_repl
 foreach (array('are you real?', 'r u a bot', 'is this an AI', 'am i talking to a real person', 'wait are you actually real or fake', 'Is this really you?', 'do you write these yourself', 'bot or human?') as $q) {
     check('asks if real: "' . $q . '"', AiDisclosure::asks_if_real($q));
 }
-foreach (array('you look amazing today', 'what are you up to tonight', 'that real estate job sounds hard', 'send me the real one') as $q) {
+foreach (array('you look amazing today', 'what are you up to tonight', 'that real estate job sounds hard', 'send me the real one', 'are you going to the real madrid game?', 'is this the real deal or what', 'am i talking to the right person about tickets') as $q) {
     check('not a question about being real: "' . $q . '"', !AiDisclosure::asks_if_real($q));
 }
 check('"I am an AI assistant" confirms it',             AiDisclosure::confirms_ai("Fair question. I'm an AI assistant that helps with replies here."));
 check('"replies here may be automated" confirms it',    AiDisclosure::confirms_ai('Some replies here may be automated.'));
 check('"of course I\'m real" denies it',                AiDisclosure::denies_ai("of course i'm real babe") && !AiDisclosure::confirms_ai("of course i'm real babe"));
 check('"I\'m not a bot" denies it',                     AiDisclosure::denies_ai("lol I'm not a bot"));
+foreach (array("yes i'm a real person lol", "i'm human, promise", "i am 100% real", "of course it's me, not a bot", "im real.") as $d) {
+    check('denies it: "' . $d . '"', AiDisclosure::denies_ai($d));
+}
+foreach (array("i'm a real sucker for sunsets", "it's real talk tho", "im real happy you came", "haha of course it's me", "i'm really into hiking", "that's a real human moment", 'just got back from the gym') as $d) {
+    check('not a denial: "' . $d . '"', !AiDisclosure::denies_ai($d));
+}
 check('small talk neither confirms nor denies',         !AiDisclosure::confirms_ai('just got back from the gym') && !AiDisclosure::denies_ai('just got back from the gym'));
 
 /* ---- inbox: hold for approval ---- */
 check('asked + dodged = held for the creator',          AiDisclosure::should_hold('are you a real person?', 'haha why do you ask'));
 check('asked + confirms AI = sent',                     !AiDisclosure::should_hold('are you a real person?', "Honest answer: I'm an AI assistant helping with messages here."));
-check('a denial is always held, even unasked',          AiDisclosure::should_hold('good morning', "morning! and yes i'm a real person lol"));
+check('asked + denies = held',                          AiDisclosure::should_hold('are you a real person?', "yes i'm a real person lol"));
+check('a denial is not held when nobody asked',         !AiDisclosure::should_hold('good morning', "morning! and yes i'm a real person lol"));
 check('ordinary chat is not held',                      !AiDisclosure::should_hold('good morning', 'morning! how did you sleep'));
 
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n";

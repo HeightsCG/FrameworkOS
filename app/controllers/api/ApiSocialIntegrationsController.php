@@ -52,8 +52,9 @@ class ApiSocialIntegrationsController extends BaseApiController {
         $model  = new SocialAccountsModel();
         $acct   = $pfm_id !== '' ? $model->get_by_pfm_id($pfm_id) : null;
         if (!$acct || (int) $acct['user_id'] !== (int) $user['user_id']) { $this->jsonError('That account was not found.'); }
-        $model->set_ai_disclosure_text((int) $user['user_id'], $pfm_id, html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8'));
-        $this->jsonSuccess(['line' => AiDisclosure::line($this->post['text'] ?? '')]);
+        $text = html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $model->set_ai_disclosure_text((int) $user['user_id'], $pfm_id, $text);
+        $this->jsonSuccess(['line' => AiDisclosure::line($text)]);
     }
 
     public function disconnect_accountAction(){

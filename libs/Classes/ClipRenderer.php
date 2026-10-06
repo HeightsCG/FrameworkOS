@@ -235,7 +235,10 @@ class ClipRenderer {
             } else {
                 $path = $fetch($a['original_key'] ?: $a['display_key'], pathinfo((string) ($a['original_key'] ?: $a['display_key']), PATHINFO_EXTENSION) ?: 'jpg');
                 if ($path === '') { return $done(array('ok' => false, 'error' => 'An image could not be read from your Library.')); }
-                $inputs .= ' -loop 1 -framerate ' . self::FPS . ' -t ' . $c['duration'] . ' -i ' . escapeshellarg($path);
+                // A GIF goes through ffmpeg's gif demuxer, which has no -loop option: the stream is looped instead, so an
+                // animated GIF keeps moving for the still's length and a single-frame one holds.
+                $is_gif = strtolower(pathinfo($path, PATHINFO_EXTENSION)) === 'gif';
+                $inputs .= ($is_gif ? ' -stream_loop -1' : ' -loop 1 -framerate ' . self::FPS) . ' -t ' . $c['duration'] . ' -i ' . escapeshellarg($path);
                 $filters[] = '[' . $n . ':v:0]' . $fit . ',trim=duration=' . $c['duration'] . ',setpts=PTS-STARTPTS[v' . $i . ']';
                 $filters[] = 'anullsrc=r=48000:cl=stereo,atrim=duration=' . $c['duration'] . '[a' . $i . ']';
             }

@@ -125,18 +125,11 @@ jQuery(function ($) {
         $('#inf_ang_generate').on('click', function () { generate([]); });
         $('#inf_ang_retry').on('click', function () { load(); });
         $('#inf_angles').on('click', '[data-make]', function () { generate([String($(this).data('make'))]); });
-        // Regenerate: a new image for this angle. Free while the current one is not approved (it came out wrong); charged once it is.
+        // Regenerate: a new image for this angle, which replaces the current one. Two free redos per slot (it came out wrong); charged after that.
         $('#inf_angles').on('click', '[data-again]', function () {
             var slot = String($(this).data('again'));
             if ($(this).data('free')) { generate([slot]); return; }
             confirm_spend('Regenerate This Angle?', state.price_each, function () { generate([slot]); });
-        });
-        $('#inf_angles').on('click', '[data-approve]', function () {
-            var $b = $(this).prop('disabled', true);
-            api('influencer_angle_approve', { id: inf.id, asset_id: $b.data('approve'), approved: 1 }, function (o) {
-                if (!o || !o.success) { $b.prop('disabled', false); err(o, 'Could not approve that image.'); return; }
-                load(true);
-            });
         });
         $('#inf_angles').on('click', '[data-view]', function () { lightbox($(this).data('view')); });
         load();
@@ -300,10 +293,14 @@ jQuery(function ($) {
                 api('media_edit_options', {}, function (r) { if (r && r.success) { T.set_balance(r.ai_credits); } cost(); });
                 if (j.status === 'done' && j.assets && j.assets.length) { select(j.assets[0]); }
                 else { stage(current ? 'main' : 'idle'); if (current) { $('#inf_result').prop('hidden', false); } render_strip(); toastr.error((j.error || 'The replica failed.') + ' Your AI credits were returned.');
-                    // A safety refusal is often specific to one model: line up the other one so trying again is one click.
+                    // A safety refusal is often specific to one model. The server already moves a refused run to the next
+                    // model on its own (params.tried_models lists the ones that refused): when that happened, every model
+                    // has said no, so switching the picker would only promise a retry that cannot work.
                     if (j.error_code === 'content_policy') {
+                        var tried = (j.params && j.params.tried_models) || [];
                         var $other = $('#inf_rep_model .inf-opt').not('.is-on').not(':disabled').first();
-                        if ($other.length) { $other.trigger('click'); fail((j.error || 'This model refused the photo.') + ' ' + $other.find('.inf-opt__t').text() + ' is now selected: click Replicate Photo to try it.'); }
+                        if (tried.length) { fail('Both models refused this photo. Try a different source photo or plainer wording.'); }
+                        else if ($other.length) { $other.trigger('click'); fail((j.error || 'This model refused the photo.') + ' ' + $other.find('.inf-opt__t').text() + ' is now selected: click Replicate Photo to try it.'); }
                         else { fail(j.error || 'This model refused the photo.'); }
                     } }
                 cost();
@@ -405,7 +402,9 @@ jQuery(function ($) {
             if (s.asset_id) {
                 body = '<button type="button" class="inf-car__img" data-view="' + esc(s.display_url) + '" aria-label="View image ' + (pos + 1) + '"><img src="' + esc(s.thumb_url) + '" alt="' + esc(s.shot) + '" loading="lazy"></button>';
             } else if (s.status === 'failed') {
-                body = '<span class="inf-car__img inf-car__img--bad" title="' + esc(s.error) + '"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + esc(s.error || 'Generation failed') + '</span></span>';
+                // A slot the server already moved to the other model (tried_models) was refused by both: say so, rather than the last model's message alone.
+                var why = (s.error_code === 'content_policy' && (s.tried_models || []).length) ? 'Both models refused this shot. Try a plainer scene.' : (s.error || 'Generation failed');
+                body = '<span class="inf-car__img inf-car__img--bad" title="' + esc(why) + '"><i class="fa-solid fa-triangle-exclamation" aria-hidden="true"></i><span>' + esc(why) + '</span></span>';
             } else {
                 body = '<span class="inf-car__img inf-car__img--ph"><span class="spinner-border spinner-border-sm text-primary" role="status"></span><span>' + esc(s.status === 'queued' ? 'Queued' : 'Generating') + '</span></span>';
             }
@@ -456,7 +455,8 @@ jQuery(function ($) {
         $('#inf_car_grid').on('click', '[data-regen]', function () {
             var s = by_index(parseInt($(this).closest('.inf-car__item').data('index'), 10));
             if (!s) { return; }
-            confirm_spend('Regenerate This Image?', (model_price(set.model_key)), function () {
+            // The slot's own price (carousel_status): after a safety fallback a slot runs on a cheaper model than the set's.
+            confirm_spend('Regenerate This Image?', (s.credits != null ? s.credits : model_price(set.model_key)), function () {
                 api('influencer_carousel_regenerate', { job_id: s.job_id }, function (o) {
                     if (!o || !o.success) { err(o, 'Could not regenerate that image.'); return; }
                     load_set(set.id, true);

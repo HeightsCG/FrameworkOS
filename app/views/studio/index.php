@@ -764,7 +764,7 @@
                         </div>
                         <div class="cs-ae__field cs-ae__reveal" id="csSchedCapModeWrap">
                             <label class="cs-ae__label" for="csSchedCapMode">Caption Mode</label>
-                            <select class="form-select" id="csSchedCapMode"><?php foreach (BrandService::CAPTION_MODES as $mk => $ml): ?><option value="<?php echo $mk; ?>"><?php echo htmlspecialchars($ml, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select>
+                            <select class="form-select" id="csSchedCapMode"><?php foreach (BrandService::CAPTION_MODES as $mk => $ml): if ($mk === 'hook_overlay') { continue; } /* automations never place the on-video line the caption would pay off */ ?><option value="<?php echo $mk; ?>"><?php echo htmlspecialchars($ml, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?></select>
                         </div>
                         <div class="cs-ae__field cs-ae__reveal" id="csSchedCaptionWrap" hidden>
                             <label class="cs-ae__label" for="csSchedCaption">Caption</label>

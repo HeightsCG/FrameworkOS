@@ -164,7 +164,7 @@ jQuery(function ($) {
             return '<figure class="cs-srun__item" data-asset="' + a.id + '"><img src="' + esc(a.display_url || a.thumb_url) + '" alt="">' +
                 '<figcaption><button type="button" class="cs-srun__vote' + (v === 1 ? ' is-on' : '') + '" data-vote="1" aria-pressed="' + (v === 1 ? 'true' : 'false') + '" aria-label="Thumbs up" title="Thumbs Up"><i class="fa-' + (v === 1 ? 'solid' : 'regular') + ' fa-thumbs-up" aria-hidden="true"></i></button>' +
                 '<button type="button" class="cs-srun__vote' + (v === -1 ? ' is-on' : '') + '" data-vote="-1" aria-pressed="' + (v === -1 ? 'true' : 'false') + '" aria-label="Thumbs down" title="Thumbs Down"><i class="fa-' + (v === -1 ? 'solid' : 'regular') + ' fa-thumbs-down" aria-hidden="true"></i></button>' +
-                '<button type="button" class="btn btn-secondary btn-sm cs-srun__use" data-use>Use in a Post</button></figcaption></figure>';
+                '<button type="button" class="btn btn-secondary btn-sm cs-srun__use" data-use>Use In Post</button></figcaption></figure>';
         }).join(''));
     }
     function run_open(t) {
