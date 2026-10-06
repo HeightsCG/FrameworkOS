@@ -395,14 +395,6 @@ jQuery(function ($) {
 
         /* --- Body: her build in the creator's own words, and a full-body reference image made from it that can be adjusted --- */
         var body_stop = null;
-        function body_ideas_html() { return (C.body_ideas || []).map(function (t) { return '<button type="button" class="inf-chip" data-body-idea="' + esc(t) + '">' + esc(t) + '</button>'; }).join(''); }
-        // Tapping an idea adds it to the text (or takes it out again); the field stays free text.
-        function body_idea_toggle($field, word) {
-            var parts = $field.val().split(',').map(function (x) { return x.trim(); }).filter(function (x) { return x != ''; });
-            var at = parts.map(function (x) { return x.toLowerCase(); }).indexOf(String(word).toLowerCase());
-            if (at >= 0) { parts.splice(at, 1); } else { parts.push(word); }
-            $field.val(parts.join(', ')).trigger('input');
-        }
         // Whole body descriptions to start from (per gender); picking one fills the field, which stays editable.
         function body_prebuilt() { return ((C.prompts || {})[inf.gender] || {}).body || []; }
         // Prebuilt descriptions open in a window from a link beside the field's label; picking one fills the field.
@@ -419,15 +411,11 @@ jQuery(function ($) {
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_body_text">Body Description</label>' + prebuilt_link('inf_body_pre', body_prebuilt()) + '</div>' +
                 '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
-                '<div class="inf-chips" id="inf_body_ideas">' + body_ideas_html() + '</div></div>' +
+                '</div>' +
                 body_prebuilt_html('inf_body_pre') +
-                '<div class="inf-bodysec__go"><button type="button" class="btn btn-secondary" id="inf_body_gen" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="inf_body_gen_t">Generate Body Reference</span></button><span class="inf-wiz__meta" id="inf_body_cost"></span></div>' +
                 '</div>' +
                 '<div class="inf-wiz__view">' +
                 '<div class="inf-gen__stage inf-wiz__stage inf-wiz__stage--body" id="inf_body_stage"></div>' +
-                '<div class="inf-adjust" id="inf_body_adjust" hidden><label class="visually-hidden" for="inf_body_change">Adjust the body reference</label>' +
-                '<input type="text" class="form-control" id="inf_body_change" maxlength="500" placeholder="Slimmer waist, more muscular arms">' +
-                '<button type="button" class="btn btn-secondary" id="inf_body_apply" disabled>Adjust</button></div>' +
                 '<p class="inf-err" id="inf_body_err" role="alert" hidden></p>' +
                 '</div></div>';
         }
@@ -435,8 +423,11 @@ jQuery(function ($) {
         function render_body() {
             if (body_stop) { body_stop(); body_stop = null; }
             $('#inf_panel').html(body_section_html() +
+                // Every action of the step sits in this one row. Until there is a body reference, making it is the main action
+                // and the step can be skipped; once there is one, Continue is the main action.
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_body_back">Back</button>' +
-                '<button type="button" class="btn btn-primary" id="inf_body_next">Continue <i class="fa-solid fa-arrow-right"></i></button></div>');
+                '<button type="button" class="btn btn-primary inf-wiz__foot-end" id="inf_body_gen" disabled><i class="fa-solid fa-wand-magic-sparkles"></i> <span id="inf_body_gen_t">Generate Body Reference</span></button>' +
+                '<button type="button" class="btn btn-secondary" id="inf_body_next">Skip</button></div>');
             var body = body_section_bind(function () { return inf.reference_asset_id || inf.face_asset_id || 0; });
             body.ready(!!(inf.reference_asset_id || inf.face_asset_id));
             $('#inf_body_back').on('click', function () { if (body_stop) { body_stop(); body_stop = null; } go_back('body'); });
@@ -460,11 +451,10 @@ jQuery(function ($) {
             }
             function sync() {
                 $('#inf_body_gen').prop('disabled', working || !face_ready);
-                $('#inf_body_gen_t').text(cur && cur.asset_id ? 'Generate Another' : 'Generate Body Reference');
-                $('#inf_body_cost').text(price > 0 ? Number(price).toLocaleString() + ' AI credits' : '');
-                $('#inf_body_adjust').prop('hidden', !(cur && cur.asset_id));
-                $('#inf_body_apply').prop('disabled', working || $('#inf_body_change').val().trim() == '');
-                $('#inf_body_change').prop('disabled', working);
+                var has = !!(cur && cur.asset_id);
+                $('#inf_body_gen_t').text(has ? 'Regenerate' : 'Generate Body Reference');
+                $('#inf_body_gen').toggleClass('btn-primary', !has).toggleClass('btn-secondary', has);
+                $('#inf_body_next').toggleClass('btn-primary', has).toggleClass('btn-secondary', !has).html(has ? 'Continue <i class="fa-solid fa-arrow-right"></i>' : 'Skip');
             }
             function load(then) {
                 api('influencer_body_status', { id: inf.id }, function (o) {
@@ -498,15 +488,11 @@ jQuery(function ($) {
                         return;
                     }
                     inf.body_description = $('#inf_body_text').val();
-                    if (change) { $('#inf_body_change').val(''); }
                     watch(o.job_id);
                 });
             }
-            $('#inf_body_ideas').on('click', '[data-body-idea]', function () { body_idea_toggle($('#inf_body_text'), $(this).data('body-idea')); });
             body_prebuilt_bind('inf_body_pre', $('#inf_body_text'));
             $('#inf_body_gen').on('click', function () { run(''); });
-            $('#inf_body_change').on('input', sync).on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#inf_body_apply').trigger('click'); } });
-            $('#inf_body_apply').on('click', function () { var c = $('#inf_body_change').val().trim(); if (c != '') { run(c); } });
             stage('idle'); load();
             return {
                 ready: function (on) { face_ready = !!on; if (!working) { stage('idle'); } sync(); },
@@ -812,7 +798,7 @@ jQuery(function ($) {
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
-                '<div class="inf-chips" id="inf_set_bodyideas">' + body_ideas_html() + '</div></div>' +
+                '</div>' +
                 body_prebuilt_html('inf_set_bodypre') +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
@@ -823,7 +809,6 @@ jQuery(function ($) {
                 '<div class="inf-wiz__foot inf-wiz__foot--end"><button type="button" class="btn btn-primary" id="inf_set_save">Save Changes</button></div>';
             $('#inf_panel').append(html);
             seg_bind('inf_set_gender');
-            $('#inf_set_bodyideas').on('click', '[data-body-idea]', function () { body_idea_toggle($('#inf_set_bodytext'), $(this).data('body-idea')); });
             body_prebuilt_bind('inf_set_bodypre', $('#inf_set_bodytext'));
             $('#inf_set_save').on('click', function () {
                 var body = { id: inf.id, gender: seg_value('inf_set_gender') || inf.gender, prompt_defaults: $('#inf_set_defaults').val(), negative_prompt: $('#inf_set_negative').val() };
@@ -1022,7 +1007,7 @@ jQuery(function ($) {
                 '</div></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_ref_back">Back</button>' +
                 '<span class="inf-wiz__meta" id="inf_ref_status"></span>' +
-                '<button type="button" class="btn btn-secondary" id="inf_ref_gen" hidden><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Another</button>' +
+                '<button type="button" class="btn btn-secondary" id="inf_ref_gen" hidden><i class="fa-solid fa-wand-magic-sparkles"></i> Regenerate</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_ref_gen_primary"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate Reference</button>' +
                 '<button type="button" class="btn btn-primary" id="inf_ref_use" hidden><i class="fa-solid fa-check"></i> Use This Reference</button></div>';
             $('#inf_panel').html(html);
@@ -1134,9 +1119,7 @@ jQuery(function ($) {
         function render_set() {
             clearTimeout(set_timer);
             var size = LIM.set_size;
-            var html = '<h2 class="inf-wiz__h">Training Set</h2>' +
-                '<p class="inf-wiz__p">' + size + ' square images from the reference, different angles, expressions and light.</p>' +
-                '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Steer the set (optional)</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
+            var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
                 '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> Her face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
                 '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +
@@ -1148,13 +1131,14 @@ jQuery(function ($) {
             $('#inf_set_back').on('click', function () { go_back('set'); });
             function paint(st) {
                 var has = st.group_key !== '';
-                $('#inf_set_prog, #inf_set_grid').prop('hidden', !has);   // the Steer field stays: Regenerate Photos uses it too
+                $('#inf_set_prog, #inf_set_grid').prop('hidden', !has);
+                $('#inf_set_form').prop('hidden', has);   // asked once, before the photos are made; Regenerate Photos reuses what was typed
                 // Out of date (face or body changed since): regenerating becomes the main action, training steps back.
                 var stale = !!st.stale && has && !(st.active > 0);
                 $('#inf_set_stale').prop('hidden', !stale);
                 $('#inf_set_regen').toggleClass('btn-primary', stale).toggleClass('btn-secondary', !stale);
                 $('#inf_set_next').toggleClass('btn-primary', !stale).toggleClass('btn-secondary', stale);
-                $('#inf_set_go').prop('hidden', has); $('#inf_set_regen').prop('hidden', !has);
+                $('#inf_set_go').prop('hidden', has); $('#inf_set_regen').prop('hidden', !has || st.active > 0);   // nothing to regenerate while they are still being made
                 $('#inf_set_next').prop('hidden', !st.complete);
                 if (!has) { return; }
                 $('#inf_set_done').text(st.done); $('#inf_set_bar').css('width', (st.done / st.size * 100) + '%').toggleClass('is-met', st.complete);

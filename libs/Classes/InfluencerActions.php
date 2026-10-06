@@ -276,7 +276,11 @@ class InfluencerActions {
         $st = InfluencerImageActions::angle_set_status($cid, $infl);
         $slot = null;
         foreach ((array) ($st['slots'] ?? array()) as $s) { if ($s['slot'] === 'full_front') { $slot = $s; } }
-        return self::okr(array('body' => $slot, 'price' => (int) ($st['price_each'] ?? 0), 'body_description' => (string) ($infl['body_description'] ?? '')));
+        // A body picture made from an earlier face is not shown: the step starts again from the face she has now.
+        if ($slot && $slot['status'] === 'ready' && (int) $slot['asset_id'] !== InfluencerService::body_reference($cid, $infl)) {
+            $slot = array_merge($slot, array('status' => 'empty', 'asset_id' => 0, 'thumb_url' => '', 'display_url' => ''));
+        }
+        return self::okr(array('body' => $slot, 'price' => 0, 'body_description' => (string) ($infl['body_description'] ?? '')));
     }
 
     /**
@@ -291,30 +295,24 @@ class InfluencerActions {
             $m->update_fields($cid, $infl['id'], array('body_description' => InfluencerService::body_text($in['body_description'])));
             $infl = $m->get_one($cid, $infl['id']);
         }
-        $change  = mb_substr(trim(preg_replace('/\s+/', ' ', (string) ($in['change'] ?? ''))), 0, 500);
-        $current = InfluencerService::body_reference($cid, $infl);
-        if ($change !== '' && $current > 0) {
-            $input  = $current;
-            $n      = InfluencerService::noun($infl);
-            $prompt = 'Keep the exact same ' . $n . ' as in the image: identical face, hair, skin tone, clothing, pose, framing and background, full body head to toe in frame. '
-                . 'Change only this about ' . ($n === 'man' ? 'him' : 'her') . ': ' . rtrim($change, '.') . '. ' . InfluencerService::REALISM;
-        } else {
-            $input = 0;
-            if ((int) ($in['asset_id'] ?? 0) > 0) {
-                $link = (new InfluencerImagesModel())->get_link($cid, (int) $infl['id'], (int) $in['asset_id']);
-                if ($link && in_array((string) $link['role'], array('reference', 'face'), true)) { $input = (int) $in['asset_id']; }
-            }
-            if ($input <= 0) { $input = InfluencerService::base_reference($cid, $infl); }
-            if ($input <= 0) { return self::fail('Make the face reference first.'); }
-            $prompt = InfluencerService::angle_prompt($infl, 'full_front');
+        // The body comes from her description, built from her face each time: editing a finished body picture changed
+        // almost nothing, so a change is made by changing the description and making the picture again.
+        $input = 0;
+        if ((int) ($in['asset_id'] ?? 0) > 0) {
+            $link = (new InfluencerImagesModel())->get_link($cid, (int) $infl['id'], (int) $in['asset_id']);
+            if ($link && in_array((string) $link['role'], array('reference', 'face'), true)) { $input = (int) $in['asset_id']; }
         }
-        $model = InfluencerConfig::resolve_model('angle', '');
+        if ($input <= 0) { $input = InfluencerService::base_reference($cid, $infl); }
+        if ($input <= 0) { return self::fail('Make the face reference first.'); }
+        $prompt = InfluencerService::angle_prompt($infl, 'full_front');
+        $model  = InfluencerConfig::resolve_model('angle', 'seedream_45_edit');
         if (!$model) { return self::fail('No model is configured for the body reference.'); }
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'angle', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => $input,
                 'group_key' => 'ang_' . (int) $infl['id'], 'group_index' => array_search('full_front', array_keys(InfluencerService::ANGLES), true) + 1,
-                'params' => array('angle' => 'full_front', 'aspect' => InfluencerService::ANGLES['full_front']['aspect'], 'num_images' => 1, 'look_change' => $change),
+                'params' => array('angle' => 'full_front', 'aspect' => InfluencerService::ANGLES['full_front']['aspect'], 'num_images' => 1),
+                'waive_credits' => true,   // part of building her: not charged
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);

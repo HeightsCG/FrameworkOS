@@ -144,9 +144,6 @@
 .inf-adjust[hidden]{ display:none; }
 .inf-adjust .form-control{ flex:1 1 auto; min-width:0; }
 .inf-adjust .btn{ flex:0 0 auto; }
-.inf-bodysec__go{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-.inf-bodysec__go .btn{ display:inline-flex; align-items:center; gap:.45rem; }
-.inf-bodysec__go .inf-wiz__meta{ margin:0; }
 .inf-wiz__stage--body{ min-height:0; height:520px; }
 .inf-wiz__stage--body .inf-gen__main{ height:100%; cursor:zoom-in; }
 .inf-wiz__stage--body .inf-gen__main img{ max-height:100%; height:100%; width:auto; object-fit:contain; }
@@ -1063,3 +1060,8 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-chip--named strong{ font-size:14px; font-weight:700; color:var(--text); }
 .inf-chip--named span{ font-size:13px; line-height:1.45; font-weight:400; color:var(--t2); white-space:normal; }
 @media (max-width:640px){ .inf-pop--modal .inf-chips:has(.inf-chip--named){ grid-template-columns:1fr; } }
+
+/* the step's actions sit together at the right end of the row */
+.inf-wiz__foot-end{ margin-left:auto; }
+
+.inf-grid[hidden]{ display:none; }

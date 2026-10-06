@@ -82,6 +82,7 @@ img,svg{vertical-align:middle;}
 .app-signout i{width:18px; text-align:center; font-size:15px; color:var(--muted);}
 .app-signout:hover{background:rgba(207,59,59,.07); color:var(--danger);}
 .app-signout:hover i{color:var(--danger);}
+.app-account-menu .app-account-menu__narrow{display:none;}   /* shown only where the left menu's Sign out is hidden */
 .app-copy{padding:.65rem .7rem .1rem; font-size:.71rem; color:var(--muted2);}
 
 /* ---------- Main ---------- */
@@ -199,6 +200,7 @@ img,svg{vertical-align:middle;}
     .app-nav{display:none; position:absolute; top:100%; left:0; right:0; z-index:80; flex-direction:column; gap:2px; padding:.5rem .6rem .7rem; background:var(--surface); border-bottom:1px solid var(--line); box-shadow:0 22px 40px -20px rgba(28, 28, 28, .3);}
     .app-nav.is-open{display:flex;}
     .app-nav__label, .app-sidebar__spacer, .app-nav__soon, .app-copy, .app-signout{display:none;}
+    .app-account-menu .app-account-menu__narrow{display:flex;}
     .app-account__name, .app-account__chev{display:none;}
     .app-topbar{padding:0 16px;}
     .app-content{padding:1.7rem 16px 2rem;}

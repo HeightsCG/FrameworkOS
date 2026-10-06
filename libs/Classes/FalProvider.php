@@ -51,7 +51,7 @@ class FalProvider implements InfluencerProvider {
         if ($f !== '') { return $f; }
         $ep = (string) ($req['endpoint'] ?? '');
         foreach (array('nano-banana' => 'nano_banana', 'clarity-upscaler' => 'clarity', 'seedream' => 'seedream', 'grok-imagine' => 'grok',
-                       'flux-pro' => 'flux_pro', 'kling-video' => 'kling_i2v', 'hailuo' => 'hailuo') as $needle => $family) {
+                       'v1.1-ultra' => 'flux_ultra', 'flux-pro' => 'flux_pro', 'kling-video' => 'kling_i2v', 'hailuo' => 'hailuo') as $needle => $family) {
             if (strpos($ep, $needle) !== false) { return $family; }
         }
         return 'flux';
@@ -102,6 +102,15 @@ class FalProvider implements InfluencerProvider {
             if (trim((string) ($req['negative_prompt'] ?? '')) !== '') { $in['negative_prompt'] = (string) $req['negative_prompt']; }
             if ($in['prompt'] === '') { unset($in['prompt']); }
             $in['enable_safety_checker'] = false;
+            return $in;
+        }
+        // Flux 1.1 Pro Ultra: takes a ratio, not an image_size; raw mode gives the unprocessed, real-photo look.
+        if ($family === 'flux_ultra') {
+            $in['aspect_ratio']     = (is_string($shape) && strpos($shape, ':') !== false) ? $shape : '1:1';
+            $in['raw']              = true;
+            $in['num_images']       = $n;
+            $in['output_format']    = 'jpeg';
+            $in['safety_tolerance'] = '6';
             return $in;
         }
         // Flux family (flux-lora, flux/schnell, flux-pro/v1.1): image_size preset + num_images.

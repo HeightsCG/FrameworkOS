@@ -41,7 +41,7 @@ class InfluencerService {
         'left_profile'  => array('label' => 'Left Profile',     'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the LEFT edge of the picture; the camera sees the left cheek and left ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'right_profile' => array('label' => 'Right Profile',    'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the RIGHT edge of the picture; the camera sees the right cheek and right ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'back'          => array('label' => 'Back View',        'aspect' => '3:4', 'prompt' => 'Seen from directly behind, head and shoulders, the back of the head and hair, face not visible'),
-        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Full body, standing straight facing the camera, arms relaxed at the sides, head to toe in frame, plain fitted t-shirt and jeans'),
+        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Wide full-length photo taken from several steps back with the camera level at chest height: the whole body from the top of the head to the sneakers on the floor, standing straight facing the camera, arms relaxed at the sides, plain fitted t-shirt and jeans'),
         'full_back'     => array('label' => 'Full Body Back',   'aspect' => '9:16', 'prompt' => 'Full body seen from directly behind, standing straight, arms relaxed at the sides, head to toe in frame, plain fitted t-shirt and jeans'),
     );
 
@@ -50,8 +50,12 @@ class InfluencerService {
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
         $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
-        return 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: identical face, hair, skin tone and body. '
-            . $def['prompt'] . ($body !== '' ? ', ' . $body : '') . '. Plain light grey wall behind, flat daylight. ' . self::REALISM;
+        // Her reference is a face, so it cannot fix her body: with a build described, the words decide it and are stated as the thing that must show.
+        $keep = ($body !== '') ? 'identical face, hair and skin tone' : 'identical face, hair, skin tone and body';
+        $full = (strpos((string) $slot, 'full_') === 0);
+        return ($full ? $def['prompt'] . '. ' : '') . 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: ' . $keep . '. '
+            . ($full ? '' : $def['prompt'] . '. ') . ($body !== '' ? ucfirst(self::pronouns($infl)[2]) . ' body, which must be clearly visible in the picture: ' . $body . '. ' : '')
+            . 'Plain light grey wall behind, flat daylight. ' . self::REALISM;
     }
 
     /** The one image that defines her: the approved reference, else her face photo, else her first training photo, else her newest render. 0 when none. */
@@ -118,9 +122,6 @@ class InfluencerService {
             'Nico', 'Elias', 'Jonah', 'Felix', 'Omar', 'Hugo', 'Silas', 'Tomas', 'Andre', 'Caleb', 'Idris', 'Mason'),
     );
 
-    /** Words a creator can tap to start a body description. Starting points only: the field is free text. */
-    const BODY_IDEAS = array('Tall', 'Petite', 'Slim', 'Athletic', 'Toned', 'Muscular', 'Curvy', 'Hourglass figure', 'Broad shoulders', 'Long legs', 'Narrow waist', 'Full bust', 'Small bust', 'Soft build');
-
     /** Drop-in body descriptions for the Body step, per gender. Starting points: the field stays free text. */
     const BODY_PROMPTS = array(
         'woman' => array(
@@ -173,6 +174,17 @@ class InfluencerService {
         foreach ((new InfluencerImagesModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle') as $r) {   // oldest first
             if ((string) $r['angle'] !== 'full_front' || (string) $r['status'] !== 'ready' || (string) $r['moderation_status'] === 'blocked') { continue; }
             $best = (int) $r['id'];   // the newest one
+        }
+        if ($best <= 0) { return 0; }
+        // A body made from a face she no longer has is not hers any more: after the face reference changes, there is no
+        // body reference until it is made again.
+        $face = max((int) ($infl['reference_asset_id'] ?? 0), 0) ?: (int) ($infl['face_asset_id'] ?? 0);
+        if ($face > 0) {
+            foreach ((new InfluencerJobsModel())->list_for_influencer($creator_id, (int) $infl['id'], 'angle', 80) as $j) {   // newest first
+                if ((int) $j['result_asset_id'] !== $best) { continue; }
+                if ((int) $j['input_asset_id'] > 0 && (int) $j['input_asset_id'] !== $face) { return 0; }
+                break;
+            }
         }
         return $best;
     }
@@ -489,7 +501,6 @@ class InfluencerService {
             'steps'   => self::STEPS,
             'aspect'  => Aspect::client(),
             'persona' => self::PERSONA,
-            'body_ideas' => self::BODY_IDEAS,
             'scene_max_lines' => InfluencerVideoActions::SCENE_MAX_LINES,
             'voice' => array('keywords' => InfluencerVoiceActions::KEYWORDS, 'tags' => InfluencerVoiceActions::TAGS, 'preview_min' => ElevenLabsService::PREVIEW_MIN,
                 'preview_max' => ElevenLabsService::PREVIEW_MAX, 'speech_max' => ElevenLabsService::SPEECH_MAX),

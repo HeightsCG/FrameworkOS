@@ -120,8 +120,9 @@
                     <?php endif; ?>
                     <a href="/account/settings" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-gear"></i> Settings</a>
                     <a href="/support" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-life-ring"></i> Support</a>
-                    <span class="app-account-menu__sep"></span>
-                    <a href="#" class="app-account-menu__item app-account-menu__item--danger app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
+                    <?php /* Sign out lives in the left menu; that link is hidden when the menu collapses, so it is offered here only then. */ ?>
+                    <span class="app-account-menu__sep app-account-menu__narrow"></span>
+                    <a href="#" class="app-account-menu__item app-account-menu__item--danger app-account-menu__narrow app-logout" role="menuitem"><i class="fa-solid fa-arrow-right-from-bracket"></i> Sign out</a>
                 </div>
             </div>
         </header>

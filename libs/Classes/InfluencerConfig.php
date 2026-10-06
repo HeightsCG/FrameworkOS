@@ -74,8 +74,12 @@ class InfluencerConfig {
      */
     const MODELS = array(
         // -- reference image (text -> image), reference path only --
+        // Ultra in raw mode is the one that reads as a real photo (skin texture, uneven light); the plain Pro model airbrushes.
+        'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1-ultra'),
+            'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo',
+            'price_usd' => 0.06, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_ultra', 'aspects' => self::RATIO_ASPECTS),
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
-            'label' => 'Best Likeness', 'purpose' => 'Sharper faces and skin, slower',
+            'label' => 'Polished', 'purpose' => 'Smoother, more retouched look',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_schnell' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux/schnell'),
             'label' => 'Quick Draft', 'purpose' => 'Fast and cheap, good for testing',
@@ -92,7 +96,8 @@ class InfluencerConfig {
             'ops' => array('angle', 'reference'), 'max_refs' => 8),   // 'reference': Change Look edits her reference image
         'seedream_45_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
             'label' => 'Budget', 'purpose' => 'Good likeness at a lower price',
-            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10),
+            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10,
+            'ops' => array('angle')),   // 'angle': her full-body reference, where the described build has to show (Nano Banana keeps the body it guesses)
         // -- edit by instruction (image + instruction -> image) --
         'grok_edit' => array('provider' => 'fal', 'op' => 'edit', 'endpoints' => array('fal' => 'xai/grok-imagine-image/edit'),
             'label' => 'Precise Edit', 'purpose' => 'Changes only what you ask for',
@@ -175,7 +180,7 @@ class InfluencerConfig {
 
     /** Model keys offered in each picker, in display order (first = default). */
     const PICKERS = array(
-        'reference'    => array('flux_pro_11', 'flux_schnell'),
+        'reference'    => array('flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),
         'training_set' => array('nano_banana_edit'),
         'image'        => array('flux_lora_quality', 'flux_lora_fast'),
         'video'        => array('hailuo_02', 'kling_v3'),
