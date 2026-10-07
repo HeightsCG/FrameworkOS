@@ -441,6 +441,9 @@ class ApiMediaController extends BaseApiController {
         $model      = new MediaAssetsModel();
         $a          = $model->get_one($creator_id, $id);
         if (!$a) { $this->jsonError('That file was not found.'); }
+        if ($model->sold_asset_ids([$id], $creator_id)) {   // buyers keep what they paid for
+            $this->jsonError('This file has been bought (in a post, message, or bundle), so it cannot be removed. Buyers keep it.');
+        }
         $model->soft_delete($creator_id, $id);
         (new CollectionsModel())->remove_asset_everywhere($id);
         $r = (new PostsModel())->detach_asset($creator_id, $id);
@@ -472,13 +475,19 @@ class ApiMediaController extends BaseApiController {
             $this->jsonSuccess(['message' => count($owned) . ' file(s) added.']);
         }
         if ($action === 'delete') {
-            $col = new CollectionsModel();
-            $tot = array('affected' => 0, 'unpublished' => 0);
+            $col  = new CollectionsModel();
+            $tot  = array('affected' => 0, 'unpublished' => 0);
+            $sold = $model->sold_asset_ids($owned, $creator_id);   // buyers keep what they paid for: skipped
+            $n    = 0;
             foreach ($owned as $id) {
-                $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id);
+                if (in_array($id, $sold, true)) { continue; }
+                $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id); $n++;
                 $r = (new PostsModel())->detach_asset($creator_id, $id); $tot['affected'] += $r['affected']; $tot['unpublished'] += $r['unpublished'];
             }
-            $this->jsonSuccess(['message' => count($owned) . ' file(s) removed.' . $this->detach_note($tot), 'unpublished' => $tot['unpublished']]);
+            if ($n === 0) { $this->jsonError(count($sold) . ' file(s) have been bought, so they cannot be removed. Buyers keep them.'); }
+            $msg = $n . ' file(s) removed.' . $this->detach_note($tot);
+            if ($sold) { $msg .= ' ' . count($sold) . ' bought file(s) kept for buyers.'; }
+            $this->jsonSuccess(['message' => $msg, 'unpublished' => $tot['unpublished']]);
         }
         $this->jsonError('Unknown action.');
     }

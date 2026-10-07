@@ -152,8 +152,10 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->require_creator();
         $user_id = Permissions::creator_id();
 
-        $title = trim((string) ($this->post['title'] ?? ''));
-        $url   = trim((string) ($this->post['url'] ?? ''));
+        // POST text arrives HTML-encoded (clean_post_data); store it plain so /go redirects to the real URL.
+        $dec   = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $title = $dec('title');
+        $url   = $dec('url');
         $id    = (int) ($this->post['id'] ?? 0);
 
         if ($title === '') {
@@ -276,13 +278,15 @@ class ApiCreatorStudioController extends BaseApiController {
         $user    = $this->require_creator('manage');
         $user_id = (int) $user['user_id'];   // owner account (collaborator acts on it)
 
-        $name             = trim((string) ($this->post['name'] ?? ''));
+        // POST text arrives HTML-encoded (clean_post_data); store it plain, the pages escape it once when shown.
+        $dec              = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $name             = $dec('name');
         $billing_interval = (string) ($this->post['billing_interval'] ?? 'month');
         if (!in_array($billing_interval, ['week', 'month', 'year'], true)) {
             $billing_interval = 'month';
         }
-        $description      = trim((string) ($this->post['description'] ?? ''));
-        $perks            = trim((string) ($this->post['perks'] ?? ''));
+        $description      = $dec('description');
+        $perks            = $dec('perks');
         $id               = (int) ($this->post['id'] ?? 0);
 
         if ($name === '') {
@@ -757,22 +761,25 @@ class ApiCreatorStudioController extends BaseApiController {
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
-        if ($id > 0) {
-            $model->update_fields($creator_id, $id, $fields);
-        } else {
-            $id = (int) $model->create_draft($creator_id, $caption, $audience);
-            $model->update_fields($creator_id, $id, $fields);
-        }
         // PPV integrity: once a post has buyers you may ADD media but not remove what
-        // they paid for. (Adding is fine; removals are blocked.)
-        if ($audience === 'ppv') {
+        // they paid for, and it stays pay-per-view. Checked before anything is written.
+        if ($id > 0) {
             $sold = (new PpvUnlocksModel())->stats_for_posts([$id]);
             if (!empty($sold[$id]['unlocks'])) {
+                if ($audience !== 'ppv') {
+                    $this->jsonError('This post has buyers. Content and price can be added to, not taken away.');
+                }
                 $current = array_map(function ($a) { return (int) $a['asset_id']; }, $model->get_assets($id));
                 if (array_diff($current, $asset_ids)) {
                     $this->jsonError('This post has buyers — you can add media but not remove what they paid for.');
                 }
             }
+        }
+        if ($id > 0) {
+            $model->update_fields($creator_id, $id, $fields);
+        } else {
+            $id = (int) $model->create_draft($creator_id, $caption, $audience);
+            $model->update_fields($creator_id, $id, $fields);
         }
         $model->set_assets($creator_id, $id, $asset_ids, $cover_id);
         $post = $model->get_one($creator_id, $id);
@@ -885,7 +892,13 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
-        (new PostsModel())->delete_post($creator_id, $id);
+        $model      = new PostsModel();
+        $sold       = (new PpvUnlocksModel())->stats_for_posts([$id]);
+        if (!empty($sold[$id]['unlocks']) && $model->get_one($creator_id, $id)) {   // buyers keep it: archive instead
+            $model->set_state($creator_id, $id, 'archived');
+            $this->jsonSuccess(['message' => 'This post has sold, so it was archived instead of deleted. Buyers keep it.', 'archived' => true]);
+        }
+        $model->delete_post($creator_id, $id);
         $this->jsonSuccess(['message' => 'Post removed']);
     }
 
@@ -1017,14 +1030,18 @@ class ApiCreatorStudioController extends BaseApiController {
         $ids = array_values(array_filter(array_map('intval', $ids)));
         if (empty($ids)) { $this->jsonError('No posts were selected.'); }
         $model = new PostsModel();
-        $done = 0;
+        $sold  = ($action === 'delete') ? (new PpvUnlocksModel())->stats_for_posts($ids) : [];   // buyers keep sold posts: archive those instead
+        $done = 0; $kept = 0;
         foreach ($ids as $id) {
             if (!$model->get_one($creator_id, $id)) { continue; }
             if ($action === 'archive') { $model->set_state($creator_id, $id, 'archived'); $done++; }
+            elseif ($action === 'delete' && !empty($sold[$id]['unlocks'])) { $model->set_state($creator_id, $id, 'archived'); $kept++; }
             elseif ($action === 'delete') { $model->delete_post($creator_id, $id); $done++; }
         }
-        if ($done === 0) { $this->jsonError('Nothing to update.'); }
-        $this->jsonSuccess(['message' => $done . ' post' . ($done > 1 ? 's' : '') . ($action === 'delete' ? ' removed' : ' archived')]);
+        if ($done === 0 && $kept === 0) { $this->jsonError('Nothing to update.'); }
+        $msg = $done . ' post' . ($done > 1 ? 's' : '') . ($action === 'delete' ? ' removed' : ' archived');
+        if ($kept > 0) { $msg = ($done > 0 ? $msg . '. ' : '') . $kept . ' sold post' . ($kept > 1 ? 's were' : ' was') . ' archived instead; buyers keep ' . ($kept > 1 ? 'them' : 'it') . '.'; }
+        $this->jsonSuccess(['message' => $msg]);
     }
 
     /* ---------- Payouts (Stripe Connect) ---------- */

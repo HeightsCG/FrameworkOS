@@ -1,3 +1,5 @@
+if (window.toastr) { toastr.options.escapeHtml = true; }   // names and messages land in toasts as text, never markup
+
 $(document).ready(function() {
     $('#acctBtn').on('click', function (e) {
         var open = $('#acctMenu').toggleClass('is-open').hasClass('is-open');
@@ -303,7 +305,7 @@ $(document).ready(function() {
             ApiDataSvc.apiCall('post', 'block_user', { user_id: id }, function (resp) {
                 var o = null; try { o = JSON.parse(resp); } catch (err) {}
                 if (o && o.success) {
-                    if (window.toastr) { toastr.success('Blocked ' + $('<div>').text(name).html()); }
+                    if (window.toastr) { toastr.success('Blocked ' + name); }
                     $(document).trigger('cls:blocked', [id]);
                     if (redirect) { window.location = redirect; }
                 } else if (o && o.need_login) { window.location = '/'; }

@@ -31,10 +31,10 @@ class LiveAccess {
         return $now < $open ? 'early' : ($now > $close ? 'closed' : 'open');
     }
 
-    /** True when the signed-in person runs this creator's account (the creator, or a member of their team). */
+    /** True when the signed-in person runs this creator's account (the creator, or a Manager on their team, as the event / service workspaces require). */
     public static function is_host($creator_id): bool
     {
-        return Permissions::creator_id() === (int) $creator_id && (int) $creator_id > 0 && Permissions::can_act_as_creator();
+        return Permissions::creator_id() === (int) $creator_id && (int) $creator_id > 0 && Permissions::can_act_as_creator() && Permissions::team_allows('manage');
     }
 
     /**

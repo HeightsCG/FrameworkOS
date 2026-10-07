@@ -40,7 +40,7 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
             </div>
         </div>
         <div class="adm-uhead__acts">
-            <?php if (!$this->is_me && !$deleted && empty($u['is_admin'])): ?>
+            <?php if (!$this->is_me && !$deleted && !$disabled && empty($u['is_admin'])): ?>
             <button type="button" class="adm-btn" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>"><i class="fa-solid fa-user-secret"></i> Sign In as User</button>
             <?php endif; ?>
             <button type="button" class="adm-btn" data-act="password"><i class="fa-solid fa-key"></i> Send Password Reset</button>

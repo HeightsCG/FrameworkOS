@@ -372,7 +372,7 @@ $last12 = array_slice($this->series, -12);
                         <div class="dropdown">
                             <button type="button" class="adm-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Actions for @<?php echo $e($u['u_name']); ?>"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
                             <ul class="dropdown-menu dropdown-menu-end adm-menu">
-                                <li><button type="button" class="dropdown-item" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>">Sign in as user</button></li>
+                                <?php if (!$dis): ?><li><button type="button" class="dropdown-item" data-impersonate="<?php echo (int) $u['user_id']; ?>" data-handle="<?php echo $e($u['u_name']); ?>">Sign in as user</button></li><?php endif; ?>
                                 <li><button type="button" class="dropdown-item<?php echo $dis ? '' : ' adm-menu__danger'; ?>" data-status="<?php echo $dis ? 'Active' : 'Disabled'; ?>"><?php echo $dis ? 'Reactivate' : 'Suspend…'; ?></button></li>
                             </ul>
                         </div>

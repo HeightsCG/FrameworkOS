@@ -45,8 +45,10 @@ class LiveController extends Controller {
         $p  = $services->purchase_by_id($id);
         $sv = $p ? $services->get_by_id((int) $p['service_id']) : null;
         if (!$sv || (string) ($sv['delivery_method'] ?? '') !== 'cls_video' || !LiveKit::enabled()) { Errors::page_not_found(); return; }
-        $this->keep_on_own_domain((int) $sv['creator_id']);
         $host = LiveAccess::is_host((int) $sv['creator_id']);
+        // only the host and the buyer of a paid booking may see this page (the same rule LiveAccess::check applies to the join)
+        if (!$host && !((int) $p['buyer_id'] === (int) Session::get('user_id') && (string) $p['status'] === 'paid')) { Errors::page_not_found(); return; }
+        $this->keep_on_own_domain((int) $sv['creator_id']);
         $handle = Notify::handle_of((int) $sv['creator_id']);
         $this->show(array(
             'kind' => 'booking', 'id' => (int) $p['id'],

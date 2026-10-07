@@ -28,7 +28,7 @@ class ApiLiveController extends BaseApiController {
         }
         $room = $r['room'];
         if (!empty($r['guest'])) {
-            $name = trim(preg_replace('/\s+/', ' ', strip_tags(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8'))));
+            $name = trim(preg_replace('/\s+/', ' ', str_replace(array('"', "'", '<', '>'), '', strip_tags(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8')))));
             if ($name === '') { $this->jsonError('Enter your name.', ['need_name' => true]); }
             $name = mb_substr($name, 0, 40);
         } else {

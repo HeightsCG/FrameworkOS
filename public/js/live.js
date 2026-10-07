@@ -7,12 +7,13 @@
     var root = document.getElementById('lv');
     if (!root || !window.LivekitClient) { return; }
     var LK = window.LivekitClient;
+    if (window.toastr) { toastr.options.escapeHtml = true; }   // the guest frame has no site.js
     var kind = root.getAttribute('data-kind'), id = parseInt(root.getAttribute('data-id'), 10);
     var is_host = root.getAttribute('data-host') === '1';
     var is_guest = root.getAttribute('data-guest') === '1', needs_pw = root.getAttribute('data-needs-pw') === '1';
     function el(x) { return document.getElementById(x); }
     function parse(r) { if (r && typeof r === 'object') { return r; } try { return JSON.parse(r); } catch (e) { return {}; } }
-    function esc(s) { var d = document.createElement('div'); d.textContent = s == null ? '' : String(s); return d.innerHTML; }
+    function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function initials(name) { return String(name || '?').trim().split(/\s+/).slice(0, 2).map(function (w) { return w.charAt(0).toUpperCase(); }).join('') || '?'; }
     function show(section) { ['lvLobby', 'lvCall', 'lvEnd'].forEach(function (s) { el(s).hidden = s !== section; }); }
     function note(text, cls) { var n = el('lvNote'); n.hidden = !text; n.className = 'lv-note' + (cls ? ' lv-note--' + cls : ''); n.textContent = text || ''; }
@@ -682,7 +683,7 @@
             }
             if (!rm) { return; }
             var who2 = rm.getAttribute('data-remove'), name = rm.getAttribute('data-name');
-            Swal.fire({ title: 'Remove ' + name + '?', text: 'They will be taken out of this call and can’t rejoin it.', showCancelButton: true, confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779', confirmButtonText: 'Remove', cancelButtonText: 'Cancel', reverseButtons: true })
+            Swal.fire({ titleText: 'Remove ' + name + '?', text: 'They will be taken out of this call and can’t rejoin it.', showCancelButton: true, confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779', confirmButtonText: 'Remove', cancelButtonText: 'Cancel', reverseButtons: true })
                 .then(function (res) {
                     if (!res.isConfirmed) { return; }
                     ApiDataSvc.apiCall('post', 'live_remove', { kind: kind, id: id, identity: who2 }, function (data) {

@@ -240,12 +240,8 @@ class ApiPostsController extends BaseApiController {
         $viewer = (int) Session::get('user_id');
         $post   = (new PostsModel())->get_by_id((int) ($this->post['id'] ?? 0));
         if (!$post) { echo json_encode(['success' => false]); exit; }
-        // Entitled to see it? Owner/free/subscriber via post_engagement_ok; PPV needs an unlock.
+        // Entitled to see it? Owner/free/subscriber via post_engagement_ok; PPV needs an unlock (checked in there too).
         $can_view = $this->post_engagement_ok($post, $viewer);
-        if (!$can_view && ($post['audience'] ?? '') === 'ppv' && $viewer > 0
-            && (new PpvUnlocksModel())->has_unlocked((int) $post['id'], $viewer)) {
-            $can_view = true;
-        }
         if (!$can_view) {
             $this->jsonSuccess(['views' => (int) $post['views']]);
         }
@@ -642,6 +638,10 @@ class ApiPostsController extends BaseApiController {
     private function post_engagement_ok(array $post, int $viewer_id, bool $owner_counts = true): bool{
         if (!$post || ($post['state'] ?? '') !== 'published') { return false; }
         $creator_id = (int) $post['creator_id'];
+        // same visibility gates as post_detail: socials-only, suspended/Free seller, moderation (no owner exemption).
+        if (empty($post['on_cls'])) { return false; }
+        if ($this->seller_suspended($creator_id)) { return false; }
+        if (!$this->moderation_ok((int) $post['id'], $viewer_id)) { return false; }
         if ($owner_counts && $viewer_id === $creator_id) { return true; }
         if ($viewer_id > 0 && $viewer_id !== $creator_id && (new BlocksModel())->either_blocked($viewer_id, $creator_id)) { return false; }
         if (($post['audience'] ?? 'free') === 'free') { return true; }

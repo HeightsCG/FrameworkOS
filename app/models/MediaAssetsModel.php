@@ -191,6 +191,23 @@ class MediaAssetsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /** The subset of these asset ids someone has paid for (PPV post, priced message, or bundle) — buyers keep them, so they can't be removed. */
+    public function sold_asset_ids(array $ids, $creator_id){
+        $ids = array_values(array_filter(array_map('intval', $ids)));
+        if (!$ids) { return array(); }
+        $in = implode(',', $ids);
+        $r  = parent::select(
+            "SELECT DISTINCT ma.id FROM media_assets ma
+             WHERE ma.creator_id = :c AND ma.id IN ($in)
+               AND (EXISTS (SELECT 1 FROM post_assets pa JOIN ppv_unlocks pu ON pu.post_id = pa.post_id WHERE pa.asset_id = ma.id)
+                 OR EXISTS (SELECT 1 FROM message_assets msa JOIN message_unlocks mu ON mu.message_id = msa.message_id WHERE msa.asset_id = ma.id)
+                 OR EXISTS (SELECT 1 FROM bundle_items bi JOIN bundle_unlocks bu ON bu.bundle_id = bi.bundle_id WHERE bi.asset_id = ma.id))",
+            array('c' => (int) $creator_id));
+        $out = array();
+        foreach ((array) $r as $row) { $out[] = (int) $row['id']; }
+        return $out;
+    }
+
     /**
      * Vault listing with usage counts + optional filters. Returns rows including a
      * `usage_count` (number of posts referencing the asset). Filters:

@@ -49,7 +49,10 @@ class ServicesModel extends Model {
     /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
     private static function web_link($url){
         $url = trim((string) $url);
-        return preg_match('#^https?://#i', $url) ? mb_substr($url, 0, 500) : '';
+        $url = mb_substr($url, 0, 500);
+        // a real http(s) url only: nothing that could break out of an attribute or a mailto body
+        if (!preg_match('#^https?://#i', $url) || !filter_var($url, FILTER_VALIDATE_URL) || preg_match('/["<>\s]/', $url)) { return ''; }
+        return $url;
     }
 
     public function update_service($creator_id, $id, array $f){

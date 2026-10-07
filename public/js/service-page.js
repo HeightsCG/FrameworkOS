@@ -12,7 +12,7 @@
     function toast(ok, msg) { if (window.toastr) { toastr[ok ? 'success' : 'error'](msg); } }
     function confirm_action(o) {
         if (!window.Swal) { return Promise.resolve(window.confirm(o.title)); }
-        return Swal.fire({ title: o.title, text: o.text, showCancelButton: true, reverseButtons: true, focusCancel: true,
+        return Swal.fire({ titleText: o.title, text: o.text, showCancelButton: true, reverseButtons: true, focusCancel: true,
             confirmButtonText: o.button, cancelButtonText: o.cancel || 'Keep It', confirmButtonColor: o.color || '#e5484d', cancelButtonColor: '#6b6779' })
             .then(function (r) { return r.isConfirmed; });
     }

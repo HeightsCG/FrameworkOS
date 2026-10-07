@@ -20,6 +20,7 @@ class ApiAdminController extends BaseApiController {
         $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
         if (!$u || (int) ($u['deleted'] ?? 0) === 1) { $this->jsonError('User not found'); }
         if (!empty($u['is_admin'])) { $this->jsonError('You can\'t sign in as another admin.'); }
+        if ((string) ($u['user_status'] ?? '') !== 'Active') { $this->jsonError('That account is suspended.'); }   // the seat check would sign the admin out too
         $arows = $this->userModel->get_user_by_id($me);
         $admin = (is_array($arows) && count($arows) === 1) ? $arows[0] : array('user_id' => $me, 'u_name' => '');
         (new AuditModel())->record($me, 'admin_impersonate', array('user_id' => $uid), array('message' => 'Signed in as @' . $u['u_name']), $this->get_ip_address());

@@ -139,7 +139,10 @@ class EventsModel extends Model {
     /** Buyer-facing links must be http(s); anything else (javascript:, data:) is dropped. */
     private static function web_link($url){
         $url = trim((string) $url);
-        return preg_match('#^https?://#i', $url) ? mb_substr($url, 0, 500) : '';
+        $url = mb_substr($url, 0, 500);
+        // a real http(s) url only: nothing that could break out of an attribute or a mailto body
+        if (!preg_match('#^https?://#i', $url) || !filter_var($url, FILTER_VALIDATE_URL) || preg_match('/["<>\s]/', $url)) { return ''; }
+        return $url;
     }
 
     public function update_event($creator_id, $id, array $f){
@@ -186,6 +189,12 @@ class EventsModel extends Model {
     public function get_public($id){
         $r = parent::select("SELECT * FROM events WHERE id = :id AND status = 'published'", array('id' => (int) $id));
         return (is_array($r) && count($r)) ? $r[0] : null;
+    }
+
+    /** An event by id whatever its status (a ticket holder can still cancel after the creator hid the event). */
+    public function get_by_id($id){
+        $r = parent::select("SELECT * FROM events WHERE id = :id", array('id' => (int) $id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
     /** Published, non-past-ended events for a creator's profile (soonest first). */

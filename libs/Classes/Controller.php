@@ -77,6 +77,12 @@ class Controller {
             $message = Plan::SEAT_LOCKED_MESSAGE;
         }
         if ($message === '') { Session::set('team_role', $row['team_role'] ?? null); return; }   // pick up role changes
+        if (UserSession::impersonating()) {   // the impersonated account is gone or suspended: back to the admin, not signed out
+            $imp = UserSession::end_impersonation();
+            $back = (string) ($imp['return'] ?? '');
+            header('Location: ' . ($back !== '' && strpos($back, '/') === 0 ? $back : '/admin'));
+            exit;
+        }
         Session::destroy();
         if (strtolower((string) Main::controller_name()) === 'apicontroller' || strpos((string) ($_SERVER['REQUEST_URI'] ?? ''), '/api/') === 0) {
             header('Content-Type: application/json');

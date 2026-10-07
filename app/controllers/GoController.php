@@ -24,7 +24,8 @@ class GoController extends Controller {
         }
 
         // Only follow http/https destinations (defence-in-depth against a bad stored value).
-        $dest = trim((string) $link['url']);
+        // Links saved before links were stored plain still carry &amp; etc.: decode defensively.
+        $dest = trim(html_entity_decode((string) $link['url'], ENT_QUOTES, 'UTF-8'));
         if (!preg_match('#^https?://#i', $dest)) {
             header('Location: /', true, 302);
             exit;

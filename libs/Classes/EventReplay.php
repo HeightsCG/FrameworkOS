@@ -27,7 +27,12 @@ class EventReplay {
         if ($viewer_id <= 0) { return ''; }
         if (LiveAccess::is_host((int) $ev['creator_id'])) { return 'host'; }
         if ((new ReplayUnlocksModel())->has((int) $ev['id'], $viewer_id)) { return 'bought'; }
-        if ($info['free_attendees'] && (new EventsModel())->going_registration((int) $ev['id'], $viewer_id)) { return 'attendee'; }
+        if ($info['free_attendees']) {
+            // only a ticket taken before the event ended counts as attending (a sign-up after the fact is not)
+            $reg = (new EventsModel())->going_registration((int) $ev['id'], $viewer_id);
+            $ended_at = strtotime((string) (!empty($ev['end_at']) ? $ev['end_at'] : $ev['start_at']) . ' UTC');
+            if ($reg && $ended_at !== false && strtotime((string) $reg['created_at'] . ' UTC') < $ended_at) { return 'attendee'; }
+        }
         return '';
     }
 

@@ -194,7 +194,7 @@ class NotificationsModel extends Model {
         if ($button_label !== '' && $button_url !== '') {
             $button = '<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 4px;">'
                     . '<tr><td style="border-radius:8px; background:#CD4C00;">'
-                    . '<a href="' . $button_url . '" target="_blank" '
+                    . '<a href="' . htmlspecialchars(html_entity_decode((string) $button_url, ENT_QUOTES, 'UTF-8'), ENT_QUOTES, 'UTF-8') . '" target="_blank" '
                     . 'style="display:inline-block; padding:13px 26px; font-family:Arial,Helvetica,sans-serif; '
                     . 'font-size:15px; font-weight:600; line-height:1; color:#ffffff; text-decoration:none; border-radius:8px;">'
                     . htmlspecialchars($button_label, ENT_QUOTES, 'UTF-8')

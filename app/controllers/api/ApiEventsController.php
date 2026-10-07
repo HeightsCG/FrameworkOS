@@ -93,6 +93,9 @@ class ApiEventsController extends BaseApiController {
         $model = new EventsModel();
         $ev = $model->get_public($id);
         if (!$ev) { $this->jsonError('Event not found'); }
+        // registration closes once the event has ended (the profile page's is_past rule): a late sign-up must not unlock the replay
+        $ended_at = strtotime((string) (!empty($ev['end_at']) ? $ev['end_at'] : $ev['start_at']) . ' UTC');
+        if ($ended_at !== false && $ended_at < time()) { $this->jsonError('This event has ended.'); }
         $creator_id = (int) $ev['creator_id'];
         if ($creator_id === $me) { $this->jsonError('This is your own event.'); }
         if ((new BlocksModel())->either_blocked($me, $creator_id)) { $this->jsonError('Event not found'); }
@@ -147,8 +150,8 @@ class ApiEventsController extends BaseApiController {
         $me = (int) Session::get('user_id');
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
         $model = new EventsModel();
-        $ev = $model->get_public((int) ($this->post['event_id'] ?? 0));
-        if (!$ev) { $this->jsonError('Event not found'); }
+        $ev = $model->get_by_id((int) ($this->post['event_id'] ?? 0));   // hidden (draft) too: a ticket holder keeps their refund
+        if (!$ev || !in_array((string) $ev['status'], array('published', 'draft'), true)) { $this->jsonError('Event not found'); }
         $reg = $model->going_registration((int) $ev['id'], $me);
         if (!$reg) { $this->jsonSuccess(['refunded' => 0]); }
         $before_start = strtotime((string) $ev['start_at'] . ' UTC') > time();
@@ -331,9 +334,11 @@ class ApiEventsController extends BaseApiController {
         header('Content-Disposition: attachment; filename="' . $slug . '-attendees.csv"');
         $out = fopen('php://output', 'w');
         fputcsv($out, ['Name', 'Handle', 'Email', 'Registered', 'Paid', 'Status'], ',', '"', '');
+        // a cell starting like a formula (= + - @ tab cr) is quoted so a spreadsheet shows it as text
+        $cell = function ($v) { $v = (string) $v; return ($v !== '' && strpos("=+-@\t\r", $v[0]) !== false) ? "'" . $v : $v; };
         foreach ((new EventsModel())->attendees((int) $ev['id']) as $a) {
             $j = $this->attendee_json($a, $tz);
-            fputcsv($out, [$j['name'], $j['handle'] !== '' ? '@' . $j['handle'] : '', (string) $a['email'], $j['registered'], $j['paid'], $j['status_label']], ',', '"', '');
+            fputcsv($out, [$cell($j['name']), $j['handle'], $cell((string) $a['email']), $j['registered'], $j['paid'], $j['status_label']], ',', '"', '');
         }
         fclose($out);
         exit;
@@ -391,6 +396,10 @@ class ApiEventsController extends BaseApiController {
         if ((string) $ev['status'] === 'canceled') { $this->jsonError('This event was canceled.'); }
         $live = ((string) ($this->post['live'] ?? '0')) === '1';
         $this->plan_to_turn_on($user, $live);
+        // hiding a sold event would strand its ticket holders while the creator is still paid: cancel refunds them instead
+        if (!$live && (string) $ev['status'] === 'published' && (new EventsModel())->has_paid_going((int) $ev['id'])) {
+            $this->jsonError('This event has paid attendees. Cancel it instead so they are refunded.');
+        }
         (new EventsModel())->set_status($owner, (int) $ev['id'], $live ? 'published' : 'draft');
         $this->jsonSuccess(['live' => $live, 'message' => $live ? 'Event is live' : 'Event is hidden']);
     }

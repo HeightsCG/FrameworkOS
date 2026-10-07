@@ -106,9 +106,11 @@ class ApiServicesController extends BaseApiController {
         header('Content-Disposition: attachment; filename="' . $slug . '-buyers.csv"');
         $out = fopen('php://output', 'w');
         fputcsv($out, ['Name', 'Handle', 'Email', 'Booked', 'Paid', 'Status'], ',', '"', '');
+        // a cell starting like a formula (= + - @ tab cr) is quoted so a spreadsheet shows it as text
+        $cell = function ($v) { $v = (string) $v; return ($v !== '' && strpos("=+-@\t\r", $v[0]) !== false) ? "'" . $v : $v; };
         foreach ((new ServicesModel())->all_buyers((int) $sv['id']) as $b) {
             $j = $this->buyer_json($b, $tz);
-            fputcsv($out, [$j['name'], $j['handle'] !== '' ? '@' . $j['handle'] : '', (string) $b['email'], $j['booked'], $j['paid'], $j['status_label']], ',', '"', '');
+            fputcsv($out, [$cell($j['name']), $j['handle'], $cell((string) $b['email']), $j['booked'], $j['paid'], $j['status_label']], ',', '"', '');
         }
         fclose($out);
         exit;
