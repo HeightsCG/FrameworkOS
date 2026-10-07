@@ -441,7 +441,7 @@ class McpTools {
             'type' => 'object', 'required' => array('set_id'), 'properties' => array('set_id' => array('type' => 'integer'))));
         $t[] = array('name' => 'regenerate_carousel_slot', 'description' => 'Render one carousel slot again (job_id from get_carousel). A failed slot is retried; a finished one is replaced. Costs the slot\'s AI credits again.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('job_id'), 'properties' => array('job_id' => array('type' => 'integer'))));
-        $t[] = array('name' => 'list_scene_templates', 'description' => 'The scene template library: the creator\'s own scenes first (mine true, off ones included with is_active 0), then the platform scenes. Adult templates are listed only for accounts that turned adult content on.', 'inputSchema' => $none);
+        $t[] = array('name' => 'list_scene_templates', 'description' => 'The creator\'s scenes (all their own: off ones included with is_active 0). A new account starts with its own copies of the starter scenes; adult ones only for accounts that turned adult content on.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_scene_template', 'description' => 'Save a scene of the creator\'s own. prompt must contain {subject} where the influencer goes.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('title', 'prompt'),
             'properties' => array('title' => array('type' => 'string'), 'category' => array('type' => 'string'), 'prompt' => array('type' => 'string'),

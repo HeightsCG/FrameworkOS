@@ -1,10 +1,11 @@
 <?php
 /**
  * The scene template library (Influencers, Generate Images, Scenes): base prompts a creator runs with one of their
- * influencers for four variants, then rates. Platform scenes are admin-managed and read-only for
- * creators; a creator also keeps scenes of their own (add, edit, turn off, delete). Adult templates
- * are listed only for accounts that opted in to adult content (user_accounts.adult_content_enabled),
- * the same switch that gates adult posts. Shared by the web API, /admin and the Claude connector.
+ * influencers for four variants, then rates. Every scene on the page is the creator's own (add, edit, turn off,
+ * delete). The rows with creator_id NULL are the STARTER scenes, managed on /admin: an account gets its own copies
+ * of them the first time it opens Scenes (seed), and from then on they are ordinary scenes of its own. Adult starters
+ * are copied only for accounts that opted in to adult content (user_accounts.adult_content_enabled), the same switch
+ * that gates adult posts. Shared by the web API, /admin and the Claude connector.
  */
 class SceneTemplates {
 
@@ -35,13 +36,15 @@ class SceneTemplates {
     }
 
     /**
-     * Templates this account may pick, own first: ['templates' => [...], 'categories' => [...]]. An admin viewing the
-     * Scenes page ($admin) also gets the platform scenes' prompts and the off ones, since they manage the library there too.
+     * The account's scenes: ['templates' => [...], 'categories' => [...]]. All of them are the creator's own (edit, turn off,
+     * delete); an account that has none yet first gets its own copies of the starter scenes.
      */
-    public static function for_user($user, $admin = false){
+    public static function for_user($user){
+        $cid = (int) ($user['user_id'] ?? 0);
+        self::seed($cid, $user);
         $out = array(); $cats = array();
-        foreach ((new SceneTemplatesModel())->list_for_creator((int) ($user['user_id'] ?? 0), self::shows_adult($user), (bool) $admin) as $r) {
-            $out[] = self::json($r, (bool) $admin);
+        foreach ((new SceneTemplatesModel())->list_for_creator($cid) as $r) {
+            $out[] = self::json($r);
             if ((string) $r['category'] !== '' && !in_array((string) $r['category'], $cats, true)) { $cats[] = (string) $r['category']; }
         }
         return array('templates' => $out, 'categories' => $cats);
@@ -106,14 +109,38 @@ class SceneTemplates {
         $t = $m->get_one((int) $id);
         $visible = $t && empty($t['deleted_at']) && ((int) ($t['creator_id'] ?? 0) === (int) $cid || ($t['creator_id'] === null && !empty($t['is_active'])));
         if (!$visible) { return self::fail('Scene not found.'); }
-        $new = (int) $m->create_own($cid, array('title' => (string) $t['title'], 'category' => (string) $t['category'], 'base_prompt' => (string) $t['base_prompt'],
-            'is_adult' => !empty($t['is_adult']), 'default_aspect' => (string) $t['default_aspect'], 'is_active' => true, 'sort_order' => 0));
+        $new = self::copy_into($cid, $t);
         if ($new <= 0) { return self::fail('Could not copy the scene.'); }
+        return self::okr(array('id' => $new, 'scene' => self::own_json($cid, $new)));
+    }
+
+    /** A row (starter or own) copied as a new scene of the creator's own, thumbnail included. Returns the new id, 0 on failure. */
+    private static function copy_into($cid, array $t){
+        $m = new SceneTemplatesModel();
+        $new = (int) $m->create_own($cid, array('title' => (string) $t['title'], 'category' => (string) $t['category'], 'base_prompt' => (string) $t['base_prompt'],
+            'is_adult' => !empty($t['is_adult']), 'default_aspect' => (string) $t['default_aspect'], 'is_active' => true, 'sort_order' => (int) ($t['sort_order'] ?? 0)));
+        if ($new <= 0) { return 0; }
         if (!empty($t['thumb_key'])) {
             $key = 'scenes/' . $new . '/thumb_' . bin2hex(random_bytes(4)) . '.jpg';
             if (S3Service::copy_private((string) $t['thumb_key'], $key, 'image/jpeg')) { $m->set_thumb($new, $key, (int) $cid); }
         }
-        return self::okr(array('id' => $new, 'scene' => self::own_json($cid, $new)));
+        return $new;
+    }
+
+    /**
+     * The starter scenes (the rows managed on /admin, creator_id NULL) copied into an account the first time it looks at
+     * its scenes, so they are the creator's own from day one: edit, turn off, delete. Runs once: an account that has ever
+     * had a scene row (deleted ones included) is left alone, so deleting every scene does not bring them back.
+     * Adult starters are copied only for accounts that have adult content on.
+     */
+    public static function seed($cid, $user){
+        $cid = (int) $cid;
+        if ($cid <= 0) { return 0; }
+        $m = new SceneTemplatesModel();
+        if ($m->has_any($cid)) { return 0; }
+        $n = 0;
+        foreach ($m->list_active(self::shows_adult($user)) as $t) { if (self::copy_into($cid, $t) > 0) { $n++; } }
+        return $n;
     }
 
     public static function delete($cid, $id){

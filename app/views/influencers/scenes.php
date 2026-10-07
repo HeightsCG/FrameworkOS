@@ -1,7 +1,7 @@
 <?php require __DIR__ . '/_top.php'; ?>
 <?php $infl = $this->influencer; ?>
 
-    <?php /* Scenes: the platform scene library beside the creator's own, run with this influencer as the subject. The grid
+    <?php /* Scenes: the creator's own scenes (starter copies included), run with this influencer as the subject. The grid
              scrolls inside the canvas so the page itself does not scroll, like the other Generate Images pages. */ ?>
     <div class="inf-cv" id="inf_scenes_page" data-cv>
         <div class="inf-scene__bar" id="infSceneBar">

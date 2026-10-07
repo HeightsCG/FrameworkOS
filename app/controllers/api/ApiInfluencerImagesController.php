@@ -142,9 +142,8 @@ class ApiInfluencerImagesController extends BaseApiController {
     /* ---- scene template library ---- */
 
     public function scenes_listAction(){
-        $user  = $this->ai_user(false);
-        $admin = Permissions::is_admin();   // an admin edits / turns off / deletes the platform scenes right here (admin_scene_* actions)
-        $this->jsonSuccess(SceneTemplates::for_user($user, $admin) + array('is_admin' => $admin));
+        $user = $this->ai_user(false);
+        $this->jsonSuccess(SceneTemplates::for_user($user));
     }
 
     public function scene_runAction(){
@@ -159,7 +158,7 @@ class ApiInfluencerImagesController extends BaseApiController {
         $this->answer(SceneTemplates::vote((int) $user['user_id'], (int) ($this->post['asset_id'] ?? 0), (int) ($this->post['vote'] ?? 0)));
     }
 
-    /* ---- the creator's own scenes (platform scenes are read-only here; ownership is checked on every id) ---- */
+    /* ---- the creator's own scenes (ownership is checked on every id) ---- */
 
     /** Create (id 0) or update one of the creator's own scenes. Field errors come back as errors[] like the admin dialog. */
     public function scene_saveAction(){

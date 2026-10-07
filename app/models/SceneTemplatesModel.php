@@ -85,19 +85,22 @@ class SceneTemplatesModel extends Model {
     public function set_active_own($cid, $id, $active){ return $this->set_active($id, $active, (int) $cid); }
 
     /**
-     * What a creator sees on the Scenes tab: ALL their own scenes (off ones too, so they can turn one
-     * back on), then the active platform scenes (adult ones only when $show_adult). Each row carries mine.
+     * What a creator sees on the Scenes tab: their own scenes, all of them (off ones too, so they can turn one
+     * back on). Every scene there is theirs: the starter scenes are copied into the account (SceneTemplates::seed).
      */
-    public function list_for_creator($cid, $show_adult, $all_platform = false){
-        $adult  = $show_adult ? '' : ' AND is_adult = 0';
-        $active = $all_platform ? '' : ' AND is_active = 1';   // an admin managing the library here sees the off platform scenes too
+    public function list_for_creator($cid){
         $rows = (array) parent::select(
-            "SELECT * FROM scene_templates
-             WHERE deleted_at IS NULL AND (creator_id = :cid OR (creator_id IS NULL $active $adult))
-             ORDER BY (creator_id IS NULL) ASC, category ASC, sort_order ASC, id ASC", array('cid' => (int) $cid));
-        foreach ($rows as &$r) { $r['mine'] = ((int) $r['creator_id'] > 0 && (int) $r['creator_id'] === (int) $cid); }
+            "SELECT * FROM scene_templates WHERE deleted_at IS NULL AND creator_id = :cid
+             ORDER BY category ASC, sort_order ASC, id ASC", array('cid' => (int) $cid));
+        foreach ($rows as &$r) { $r['mine'] = true; }
         unset($r);
         return $rows;
+    }
+
+    /** Has this account ever had a scene row (deleted ones count)? Decides whether the starter scenes still need copying in. */
+    public function has_any($cid){
+        $r = parent::select("SELECT id FROM scene_templates WHERE creator_id = :cid LIMIT 1", array('cid' => (int) $cid));
+        return is_array($r) && count($r) === 1;
     }
 
     /** Every platform template with its vote totals, for /admin. */
