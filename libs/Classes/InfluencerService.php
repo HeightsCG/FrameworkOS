@@ -479,6 +479,9 @@ class InfluencerService {
         return $out;
     }
 
+    /** How long a signed URL for the creator's own influencer images lives: a wizard page stays open far longer than the 10-minute default. */
+    const URL_TTL = 14400;
+
     /** Ready, signed image rows for a role (wizard grids, still pickers). */
     public static function images_json($creator_id, $influencer_id, $role = '', $include_excluded = false){
         $out = array();
@@ -487,8 +490,8 @@ class InfluencerService {
                 'id' => (int) $a['id'], 'role' => (string) $a['role'], 'job_id' => (int) $a['job_id'], 'result_index' => (int) $a['result_index'],
                 'sort_order' => (int) $a['sort_order'], 'is_excluded' => (int) $a['is_excluded'], 'status' => (string) $a['status'],
                 'type' => (string) $a['type'], 'width' => (int) $a['width'], 'height' => (int) $a['height'], 'duration' => (int) $a['duration_sec'],
-                'thumb_url'   => ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id) : '',
-                'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id) : '',
+                'thumb_url'   => ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id, self::URL_TTL) : '',
+                'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id, self::URL_TTL) : '',
                 'moderation'  => (string) $a['moderation_status'],
             );
         }

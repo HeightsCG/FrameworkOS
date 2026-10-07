@@ -941,8 +941,8 @@ class InfluencerJobService {
             $assets[] = array(
                 'id' => (int) $a['id'], 'type' => (string) $a['type'], 'status' => (string) $a['status'],
                 'width' => (int) $a['width'], 'height' => (int) $a['height'], 'duration' => (int) $a['duration_sec'],
-                'thumb_url'   => ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id) : '',
-                'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id) : '',
+                'thumb_url'   => ($a['status'] === 'ready') ? MediaService::signed_url($a, 'thumb', $creator_id, InfluencerService::URL_TTL) : '',
+                'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id, InfluencerService::URL_TTL) : '',
                 'video_url'   => ($a['status'] === 'ready' && $a['type'] === 'video') ? MediaService::signed_variant($a, 'original', 900) : '',
                 'moderation'  => (string) $a['moderation_status'],
             );

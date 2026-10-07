@@ -1021,7 +1021,12 @@ jQuery(function ($) {
             $('#inf_ref_back').on('click', function () { go_back('reference'); });
             var selected = inf.reference_asset_id || 0;
             var IDLE = $('#inf_ref_stage').html();
-            function stage(img) { $('#inf_ref_stage').html(img ? '<figure class="inf-gen__main"><img src="' + esc(img.display_url || img.thumb_url) + '" alt=""></figure>' : IDLE); }
+            function stage(img) {
+                $('#inf_ref_stage').html(img ? '<figure class="inf-gen__main"><img src="' + esc(img.display_url || img.thumb_url) + '" alt=""></figure>' : IDLE);
+                // a signed URL that expired while the page sat open: fetch fresh ones once and show the same image again
+                if (img) { $('#inf_ref_stage img').one('error', function () { if (refreshed) { return; } refreshed = true; api('influencer_images', { id: inf.id, role: 'reference' }, function (o) { if (o && o.success && o.images.length) { paint(o.images); } }); }); }
+            }
+            var refreshed = false;
             function busy(text) { $('#inf_ref_stage').html('<div class="inf-gen__busy"><span class="spinner-border" role="status"></span><p>' + esc(text) + '</p></div>'); }
             function paint(images) {
                 var $row = $('#inf_ref_row').empty().prop('hidden', images.length < 2);
