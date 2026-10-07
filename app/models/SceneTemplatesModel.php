@@ -88,11 +88,12 @@ class SceneTemplatesModel extends Model {
      * What a creator sees on the Scenes tab: ALL their own scenes (off ones too, so they can turn one
      * back on), then the active platform scenes (adult ones only when $show_adult). Each row carries mine.
      */
-    public function list_for_creator($cid, $show_adult){
-        $adult = $show_adult ? '' : ' AND is_adult = 0';
+    public function list_for_creator($cid, $show_adult, $all_platform = false){
+        $adult  = $show_adult ? '' : ' AND is_adult = 0';
+        $active = $all_platform ? '' : ' AND is_active = 1';   // an admin managing the library here sees the off platform scenes too
         $rows = (array) parent::select(
             "SELECT * FROM scene_templates
-             WHERE deleted_at IS NULL AND (creator_id = :cid OR (creator_id IS NULL AND is_active = 1 $adult))
+             WHERE deleted_at IS NULL AND (creator_id = :cid OR (creator_id IS NULL $active $adult))
              ORDER BY (creator_id IS NULL) ASC, category ASC, sort_order ASC, id ASC", array('cid' => (int) $cid));
         foreach ($rows as &$r) { $r['mine'] = ((int) $r['creator_id'] > 0 && (int) $r['creator_id'] === (int) $cid); }
         unset($r);

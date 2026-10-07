@@ -37,7 +37,11 @@ jQuery(function ($) {
 
     var scenes = null, cat = '', $run = null, run_tpl = null, run_stop = null, run_assets = [], votes = {};
     var ASPECT = C.aspect || { keys: [], names: {}, default_image: '3:4' };
-    var edit_modal = null, thumb_file = null;
+    var edit_modal = null, thumb_file = null, edit_platform = false;   // edit_platform: the editor holds a platform scene (admin only)
+
+    /* Own scenes are the creator's to manage; an admin also manages the platform scenes here, through the admin_scene_* actions. */
+    function can_manage(t) { return !!t.mine || !!(scenes && scenes.is_admin); }
+    function ep(t, name) { return (t.mine ? '' : 'admin_') + name; }
 
     function confirm_box(opts) {
         if (!window.Swal) { return Promise.resolve(window.confirm(opts.title)); }
@@ -91,16 +95,17 @@ jQuery(function ($) {
         })).join('') : '');
         var list = scenes.templates.filter(function (t) { return cat === '' || t.category === cat; });
         $('#infScenes').html(list.map(function (t) {
-            var off = t.mine && !t.is_active;
+            var off = can_manage(t) && !t.is_active;
             return '<div class="inf-scene__cell' + (off ? ' is-off' : '') + '">' +
                 '<button type="button" class="inf-scene" data-scene="' + t.id + '">' +
                 '<span class="inf-scene__img">' + (t.thumb_url ? '<img src="' + esc(t.thumb_url) + '" alt="" loading="lazy">' : '<i class="fa-solid fa-panorama" aria-hidden="true"></i>') +
                 (t.is_adult ? '<span class="inf-scene__adult">18+</span>' : '') + (off ? '<span class="inf-scene__off">Off</span>' : '') + '</span>' +
                 '<span class="inf-scene__body"><strong>' + esc(t.title) + '</strong><small>' + esc(t.category || 'Scene') + '</small></span></button>' +
                 ('<div class="dropdown inf-scene__menu"><button type="button" class="inf-scene__more" data-bs-toggle="dropdown" data-bs-popper-config=\'{"strategy":"fixed"}\' aria-expanded="false" aria-label="Scene actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>' +
-                    '<ul class="dropdown-menu dropdown-menu-end inf-scene__items">' + (t.mine ?
+                    '<ul class="dropdown-menu dropdown-menu-end inf-scene__items">' + (can_manage(t) ?
                     '<li><button type="button" class="dropdown-item" data-scene-act="edit">Edit</button></li>' +
                     '<li><button type="button" class="dropdown-item" data-scene-act="toggle">' + (t.is_active ? 'Turn Off' : 'Turn On') + '</button></li>' +
+                    (t.mine ? '' : '<li><button type="button" class="dropdown-item" data-scene-act="copy">Make A Copy</button></li>') +
                     '<li><button type="button" class="dropdown-item inf-scene__danger" data-scene-act="delete">Delete</button></li>' :
                     '<li><button type="button" class="dropdown-item" data-scene-act="copy">Make A Copy</button></li>') +   // a platform scene is edited as your own copy
                     '</ul></div>') +
@@ -115,7 +120,7 @@ jQuery(function ($) {
         if ($(this).is('.inf-scene--new')) { edit_open(null); return; }
         var t = scene_find(parseInt($(this).data('scene'), 10));
         if (!t) { return; }
-        if (t.mine && !t.is_active) { toastr.warning('Turn the scene on to run it.'); return; }
+        if (!t.is_active) { toastr.warning('Turn the scene on to run it.'); return; }
         run_open(t);
     });
     $('#infScenes').on('click', '[data-scene-act]', function () {
@@ -128,19 +133,20 @@ jQuery(function ($) {
             });
             return;
         }
-        if (!t.mine) { return; }
+        if (!can_manage(t)) { return; }
         if (act === 'edit') { edit_open(t); return; }
         if (act === 'toggle') {
-            api('scene_set_active', { id: t.id, active: t.is_active ? 0 : 1 }, function (o) {
+            api(ep(t, 'scene_set_active'), { id: t.id, active: t.is_active ? 0 : 1 }, function (o) {
                 if (!o || !o.success) { err(o, 'Could not update the scene.'); return; }
                 scene_put(o.scene); toastr.success(o.scene.is_active ? 'Scene turned on' : 'Scene turned off');
             });
             return;
         }
         if (act === 'delete') {
-            confirm_box({ title: 'Delete this scene?', text: t.title + ' is removed from your scenes. Images already made from it stay in your library.', confirmButtonText: 'Delete' }).then(function (yes) {
+            var where = t.mine ? 'your scenes' : 'the platform library, for every creator';
+            confirm_box({ title: 'Delete this scene?', text: t.title + ' is removed from ' + where + '. Images already made from it stay in the library.', confirmButtonText: 'Delete' }).then(function (yes) {
                 if (!yes) { return; }
-                api('scene_delete', { id: t.id }, function (o) {
+                api(ep(t, 'scene_delete'), { id: t.id }, function (o) {
                     if (!o || !o.success) { err(o, 'Could not delete the scene.'); return; }
                     scene_drop(t.id); toastr.success('Scene deleted');
                 });
@@ -163,7 +169,8 @@ jQuery(function ($) {
         if (!$('#infSceneEdit').length) { return; }
         edit_modal = edit_modal || bootstrap.Modal.getOrCreateInstance($('#infSceneEdit')[0]);
         edit_errors_clear(); thumb_file = null; edit_busy(false);
-        $('#infSceneEditTitle').text(s ? 'Edit Scene' : 'New Scene');
+        edit_platform = !!(s && !s.mine && scenes && scenes.is_admin);
+        $('#infSceneEditTitle').text(s ? (edit_platform ? 'Edit Platform Scene' : 'Edit Scene') : 'New Scene');
         $('#infSceneEditId').val(s ? s.id : 0);
         $('#infSceneEditName').val(s ? s.title : '');
         $('#infSceneEditCat').val(s ? s.category : '');
@@ -188,7 +195,7 @@ jQuery(function ($) {
         if (!thumb_file) { done(null); return; }
         var fd = new FormData(); fd.append('file', thumb_file); fd.append('id', id);
         edit_busy(true, 'Uploading the thumbnail');
-        $.ajax({ url: ApiDataSvc.baseUrl + 'scene_thumb', method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false })
+        $.ajax({ url: ApiDataSvc.baseUrl + (edit_platform ? 'admin_scene_thumb' : 'scene_thumb'), method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false })
             .done(function (o) { if (o && o.success) { done(o.scene); } else { toastr.error((o && o.message) || 'The thumbnail could not be saved.'); done(false); } })
             .fail(function () { toastr.error('The thumbnail could not be uploaded. Check your connection.'); done(false); });
     }
@@ -197,7 +204,8 @@ jQuery(function ($) {
         var id = parseInt($('#infSceneEditId').val(), 10) || 0;
         var body = { id: id, title: $('#infSceneEditName').val(), category: $('#infSceneEditCat').val(), default_aspect: $('#infSceneEditAspect').val(),
             base_prompt: $('#infSceneEditPrompt').val(), is_adult: $('#infSceneEditAdult').prop('checked') ? 1 : 0 };
-        api('scene_save', body, function (o) {
+        if (edit_platform) { var cur = scene_find(id); body.is_active = (cur && cur.is_active) ? 1 : 0; }   // admin_scene_save would otherwise turn an off scene back on
+        api(edit_platform ? 'admin_scene_save' : 'scene_save', body, function (o) {
             if (!o || !o.success) {
                 edit_busy(false);
                 var fields = { title: '#infSceneEditName', base_prompt: '#infSceneEditPrompt', default_aspect: '#infSceneEditAspect' }, shown = false;

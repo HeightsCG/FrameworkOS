@@ -142,8 +142,9 @@ class ApiInfluencerImagesController extends BaseApiController {
     /* ---- scene template library ---- */
 
     public function scenes_listAction(){
-        $user = $this->ai_user(false);
-        $this->jsonSuccess(SceneTemplates::for_user($user));
+        $user  = $this->ai_user(false);
+        $admin = Permissions::is_admin();   // an admin edits / turns off / deletes the platform scenes right here (admin_scene_* actions)
+        $this->jsonSuccess(SceneTemplates::for_user($user, $admin) + array('is_admin' => $admin));
     }
 
     public function scene_runAction(){

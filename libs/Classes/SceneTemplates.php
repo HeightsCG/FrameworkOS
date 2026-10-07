@@ -34,11 +34,14 @@ class SceneTemplates {
         return $out;
     }
 
-    /** Templates this account may pick, own first: ['templates' => [...], 'categories' => [...]]. */
-    public static function for_user($user){
+    /**
+     * Templates this account may pick, own first: ['templates' => [...], 'categories' => [...]]. An admin viewing the
+     * Scenes page ($admin) also gets the platform scenes' prompts and the off ones, since they manage the library there too.
+     */
+    public static function for_user($user, $admin = false){
         $out = array(); $cats = array();
-        foreach ((new SceneTemplatesModel())->list_for_creator((int) ($user['user_id'] ?? 0), self::shows_adult($user)) as $r) {
-            $out[] = self::json($r);
+        foreach ((new SceneTemplatesModel())->list_for_creator((int) ($user['user_id'] ?? 0), self::shows_adult($user), (bool) $admin) as $r) {
+            $out[] = self::json($r, (bool) $admin);
             if ((string) $r['category'] !== '' && !in_array((string) $r['category'], $cats, true)) { $cats[] = (string) $r['category']; }
         }
         return array('templates' => $out, 'categories' => $cats);
