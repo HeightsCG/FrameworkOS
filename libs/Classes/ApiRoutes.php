@@ -10,7 +10,7 @@ class ApiRoutes {
         'ApiAuthController' => [
             'register', 'login', 'logout', 'impersonate_stop', 'forgot', 'reset', 'verify_email',
             'resend_verification', 'change_password', 'mfa_totp_begin', 'mfa_totp_confirm', 'mfa_totp_disable', 'mfa_email_send_enroll',
-            'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes', 'mfa_verify', 'mfa_send_login_code',
+            'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes', 'mfa_verify', 'mfa_send_login_code', 'google_disconnect',
         ],
         'ApiProfileController' => [
             'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'block_user', 'unblock_user',

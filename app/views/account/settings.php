@@ -143,6 +143,16 @@
                 </div>
 
                 <div class="acct-card">
+                    <h3 class="acct-card__title">Google Sign-In</h3>
+                    <p class="acct-card__desc"><?php echo $this->google_linked ? 'You can sign in to this account with Google.' : 'Connect your Google account to sign in with it.'; ?></p>
+                    <?php if ($this->google_linked): ?>
+                    <button type="button" class="btn btn-secondary" id="google_disconnect">Disconnect Google</button>
+                    <?php else: ?>
+                    <a class="btn btn-secondary" href="/account/google_start">Connect Google</a>
+                    <?php endif; ?>
+                </div>
+
+                <div class="acct-card">
                     <h3 class="acct-card__title">Two-factor authentication</h3>
                     <p class="acct-card__desc">Add a second step at sign-in to keep your account secure.</p>
 
@@ -1644,6 +1654,24 @@ $(function () {
 
     var params = new URLSearchParams(window.location.search);
     if (params.get('connected') === '1') { toastr.success('Account connected'); }
+    if (params.get('google_connected') === '1') { toastr.success('Google connected'); }
+    if (params.get('google_link_error')) {
+        var gerr = { taken: 'That Google account is already connected to another account.', session: 'Sign in again, then connect Google.', unavailable: 'Google sign-in isn\u2019t available right now.' };
+        toastr.error(gerr[params.get('google_link_error')] || 'Google could not be connected');
+    }
+    $('#google_disconnect').on('click', function () {
+        Swal.fire({ titleText: 'Disconnect Google?', text: 'You will sign in with your email and password instead.', input: 'password', inputPlaceholder: 'Current Password',
+            inputAttributes: { autocomplete: 'current-password' }, showCancelButton: true, reverseButtons: true, confirmButtonText: 'Disconnect', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
+        .then(function (r) {
+            if (!r.isConfirmed) { return; }
+            ApiDataSvc.apiCall('post', 'google_disconnect', { current_password: r.value || '' }, function (data) {
+                var o = JSON.parse(data);
+                if (!o.success) { toastr.error(o.message); return; }
+                toastr.success(o.message);
+                window.location = '/account/settings?section=security';
+            });
+        });
+    });
     if (params.get('error') === '1') { toastr.error('Connection was not completed'); }
     if (params.get('fanvue_connected') === '1') { toastr.success('Fanvue connected'); }
     if (params.get('fanvue_error')) {

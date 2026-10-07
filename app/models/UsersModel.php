@@ -396,6 +396,11 @@ class UsersModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** Google sign-in off for this account: it keeps its password (Google-made accounts set one with Forgot Password). */
+    public function unlink_google($user_id){
+        return parent::update('user_accounts', array('google_sub' => null, 'updated_at' => date('Y-m-d H:i:s')), 'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
     /** Link Google to an account. Google has verified the address, so the account's email counts as verified too. */
     public function link_google($user_id, $sub){
         return parent::update('user_accounts', array('google_sub' => (string) $sub, 'email_verified' => 1, 'updated_at' => date('Y-m-d H:i:s')),

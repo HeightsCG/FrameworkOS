@@ -17,7 +17,7 @@ class UserSession {
     const IMPERSONATION_BLOCKED = array(
         'change_password', 'change_username', 'delete_my_account',
         'mfa_totp_begin', 'mfa_totp_confirm', 'mfa_totp_disable', 'mfa_email_send_enroll', 'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes',
-        'mcp_token_generate', 'mcp_token_revoke',
+        'mcp_token_generate', 'mcp_token_revoke', 'google_disconnect',
         'buy_credits', 'confirm_credit_purchase', 'confirm_ai_credit_purchase', 'save_autoreplenishment',
         'billing_card_setup', 'billing_card_save', 'billing_change_plan', 'billing_confirm', 'billing_cancel', 'billing_resume', 'billing_set_pack', 'billing_set_slots',
         'subscribe_plan', 'cancel_creator_subscription', 'ppv_unlock', 'bundle_unlock', 'message_unlock', 'event_register', 'service_purchase',

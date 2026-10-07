@@ -195,6 +195,7 @@ class AccountController extends Controller {
         $this->view->my_subscriptions = (new CreatorSubscriptionsModel())->get_for_subscriber($user['user_id']);
 
         $mfaModel = new MfaModel();
+        $this->view->google_linked     = (string) ($user['google_sub'] ?? '') !== '';
         $this->view->mfa_totp_enabled  = !empty($user['mfa_totp_enabled']);
         $this->view->mfa_email_enabled = !empty($user['mfa_email_enabled']);
         $this->view->mfa_backup_count  = $mfaModel->count_unused_backup($user['user_id']);
@@ -319,18 +320,22 @@ class AccountController extends Controller {
 
     /** /account/google_start: remember state + PKCE verifier, then off to Google's account chooser. */
     public function google_startAction(){
-        if ((int) Session::get('user_id') > 0) { Header('Location: /'); exit; }
-        if (!GoogleAuth::configured()) { Header('Location: /?auth=login&google_error=unavailable'); exit; }
+        if (UserSession::impersonating()) { Header('Location: /'); exit; }
+        $me = (int) Session::get('user_id');
+        if (!GoogleAuth::configured()) { Header('Location: ' . ($me > 0 ? '/account/settings?section=security&google_link_error=unavailable' : '/?auth=login&google_error=unavailable')); exit; }
         list($url, $state, $verifier) = GoogleAuth::authorize_url();
-        Session::set('google_oauth', array('state' => $state, 'verifier' => $verifier, 'started' => time()));
+        $flow = array('state' => $state, 'verifier' => $verifier, 'started' => time());
+        if ($me > 0) { $flow['link'] = $me; }   // signed in: connecting Google to this account (Settings > Security), not signing in
+        Session::set('google_oauth', $flow);
         Header('Location: ' . $url);
         exit;
     }
 
     /**
-     * /account/google_callback: who signed in with Google → their account. Matched by Google's account id, else
-     * linked to the one account with that (Google-verified) email, else a new account. Then the same gate as a
-     * password login (suspended, seat lock, second factor) via LoginGate.
+     * /account/google_callback. Signed in (flow link): the Google id is attached to this account, nothing else.
+     * Signed out: the account carrying this Google id, else a new account. An existing account with the same email
+     * is never linked from here, verified or not: its owner signs in with their password and connects Google in
+     * Settings. Then the same gate as a password login (suspended, seat lock, second factor) via LoginGate.
      */
     public function google_callbackAction(){
         $fail = function ($why) { Header('Location: /?auth=login&google_error=' . $why); exit; };
@@ -354,27 +359,34 @@ class AccountController extends Controller {
         if (empty($g['email_verified']) || !filter_var($g['email'], FILTER_VALIDATE_EMAIL)) { $fail('unverified'); }
 
         $users = $this->userModel;
-        $user  = $users->get_by_google_sub($g['sub']);
-        $new   = false;
+
+        // Connect Google from Settings: attach the Google id to the signed-in account. No sign-in happens here.
+        if (!empty($flow['link'])) {
+            $me   = (int) Session::get('user_id');
+            $back = function ($q) { Header('Location: /account/settings?section=security&' . $q); exit; };
+            if ($me <= 0 || $me !== (int) $flow['link']) { $back('google_link_error=session'); }
+            $other = $users->get_by_google_sub($g['sub']);
+            if ($other && (int) $other['user_id'] !== $me) { $back('google_link_error=taken'); }
+            $users->link_google($me, $g['sub']);
+            $back('google_connected=1');
+        }
+
+        $user = $users->get_by_google_sub($g['sub']);
+        $new  = false;
         if (!$user) {
-            $user = $users->get_one_by_email($g['email']);
-            if ($user) {
-                if ((string) ($user['google_sub'] ?? '') !== '') { $fail('other'); }   // that account is linked to a different Google account
-                $users->link_google((int) $user['user_id'], $g['sub']);
-            } else {
-                if ($users->email_exists($g['email'])) { $fail('google'); }   // several accounts share the address: never guess which
-                $first = $g['given_name'] !== '' ? $g['given_name'] : explode('@', $g['email'])[0];
-                $last  = $g['family_name'];
-                $handle_from = preg_match('/\p{L}/u', $first . $last) ? array($first, $last) : array(explode('@', $g['email'])[0], '');   // a name with no letters ("000"): build the handle from the email
-                $uid = (int) $users->create_user($users->generate_unique_username($handle_from[0], $handle_from[1]), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
-                if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
-                $users->link_google($uid, $g['sub']);
-                $users->record_first_touch($uid);
-                SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
-                $new = true;
-                $user = array('user_id' => $uid);
-            }
-            $rows = $users->get_user_by_id((int) $user['user_id']);
+            // No account carries this Google id. One with the same email (verified or not) is never linked from here:
+            // its owner signs in with their password and connects Google in Settings. Otherwise it is a new account.
+            if ($users->email_exists($g['email'])) { $fail('exists'); }
+            $first = $g['given_name'] !== '' ? $g['given_name'] : explode('@', $g['email'])[0];
+            $last  = $g['family_name'];
+            $handle_from = preg_match('/\p{L}/u', $first . $last) ? array($first, $last) : array(explode('@', $g['email'])[0], '');   // a name with no letters ("000"): build the handle from the email
+            $uid = (int) $users->create_user($users->generate_unique_username($handle_from[0], $handle_from[1]), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
+            if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
+            $users->link_google($uid, $g['sub']);
+            $users->record_first_touch($uid);
+            SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
+            $new = true;
+            $rows = $users->get_user_by_id($uid);
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
             if (!$user) { $fail('google'); }
         }

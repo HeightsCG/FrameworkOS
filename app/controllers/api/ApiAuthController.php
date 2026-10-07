@@ -536,6 +536,20 @@ class ApiAuthController extends BaseApiController {
     }
 
     /** Shared disable path for a method; re-authenticates with the current password. */
+    /** Settings > Security: Google sign-in off for this account. Needs the current password, like disabling a second factor. */
+    public function google_disconnectAction(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { $this->jsonError('Not authorized'); }
+        $rows = $this->userModel->get_user_by_id($uid);
+        $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$user) { $this->jsonError('Account not found'); }
+        if ((string) ($this->post['current_password'] ?? '') === '' || !password_verify((string) $this->post['current_password'], (string) $user['p_word'])) {
+            $this->jsonError('Your current password is incorrect');
+        }
+        $this->userModel->unlink_google($uid);
+        $this->jsonSuccess(['message' => 'Google disconnected']);
+    }
+
     private function disable_mfa_method(string $method): array{
         $response = ['success' => false, 'message' => 'Something went wrong'];
 

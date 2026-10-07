@@ -273,6 +273,7 @@
             expired: 'That Google sign-in took too long or was already used. Try again.',
             unverified: 'Your Google account’s email isn’t verified, so it can’t be used to sign in.',
             other: 'That account is linked to a different Google account. Sign in with your email and password.',
+            exists: 'An account with this email already exists. Sign in with your email and password, then connect Google in Settings.',
             suspended: 'This account has been suspended. Contact support if you believe this is a mistake.',
             seat: 'Your team seat is over the account owner’s plan limit. Ask the owner to upgrade.',
             busy: 'Too many attempts. Please try again later.',
