@@ -241,7 +241,7 @@ class InfluencerActions {
     public static function look_prompt(array $infl, $change){
         $n = InfluencerService::noun($infl);
         return 'Keep the exact same ' . $n . ' as in the image: identical face, facial features, age, skin tone, expression, pose, framing, clothing and background. '
-            . 'Change only this about ' . ($n === 'man' ? 'him' : 'her') . ': ' . rtrim(trim((string) $change), '.') . '. ' . InfluencerService::REALISM;
+            . 'Change only this about ' . ($n === 'man' ? 'him' : 'her') . ': ' . rtrim(trim((string) $change), '.') . '. ' . InfluencerService::rendering();
     }
 
     /**

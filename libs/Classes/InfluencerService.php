@@ -41,21 +41,27 @@ class InfluencerService {
         'left_profile'  => array('label' => 'Left Profile',     'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the LEFT edge of the picture; the camera sees the left cheek and left ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'right_profile' => array('label' => 'Right Profile',    'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the RIGHT edge of the picture; the camera sees the right cheek and right ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'back'          => array('label' => 'Back View',        'aspect' => '3:4', 'prompt' => 'Seen from directly behind, head and shoulders, the back of the head and hair, face not visible'),
-        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Wide full-length photo taken from several steps back with the camera level at chest height: the whole body from the top of the head to the sneakers on the floor, standing straight facing the camera, arms relaxed at the sides, plain fitted t-shirt and jeans'),
-        'full_back'     => array('label' => 'Full Body Back',   'aspect' => '9:16', 'prompt' => 'Full body seen from directly behind, standing straight, arms relaxed at the sides, head to toe in frame, plain fitted t-shirt and jeans'),
+        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Wide full-length photo taken from several steps back with the camera level at chest height: the whole body from the top of the head to the sneakers on the floor, standing straight facing the camera, arms relaxed at the sides, {outfit}'),
+        'full_back'     => array('label' => 'Full Body Back',   'aspect' => '9:16', 'prompt' => 'Full body seen from directly behind, standing straight, arms relaxed at the sides, head to toe in frame, {outfit}'),
     );
+
+    /** What she wears in the body shots: the build she was given has to be visible, so as little as a photo on her page would show. */
+    public static function body_outfit(array $infl){
+        return (self::noun($infl) === 'man') ? 'a fitted tank top and athletic shorts' : 'a fitted crop top and short shorts';
+    }
 
     /** The prompt for one angle slot. */
     public static function angle_prompt(array $infl, $slot){
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
+        $def['prompt'] = str_replace('{outfit}', self::body_outfit($infl), (string) $def['prompt']);
         $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
         // Her reference is a face, so it cannot fix her body: with a build described, the words decide it and are stated as the thing that must show.
         $keep = ($body !== '') ? 'identical face, hair and skin tone' : 'identical face, hair, skin tone and body';
         $full = (strpos((string) $slot, 'full_') === 0);
         return ($full ? $def['prompt'] . '. ' : '') . 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: ' . $keep . '. '
             . ($full ? '' : $def['prompt'] . '. ') . ($body !== '' ? ucfirst(self::pronouns($infl)[2]) . ' body, which must be clearly visible in the picture: ' . $body . '. ' : '')
-            . 'Plain light grey wall behind, flat daylight. ' . self::REALISM;
+            . 'Plain light grey wall behind, flat daylight. ' . self::rendering();
     }
 
     /** The one image that defines her: the approved reference, else her face photo, else her first training photo, else her newest render. 0 when none. */
@@ -216,10 +222,10 @@ class InfluencerService {
     const REALISM  = 'Natural photo of a real person taken on a good phone: natural daylight, true colour, real skin texture kept rather than smoothed, tidy hair, natural proportions, an easy everyday expression. An unretouched snapshot, not a glamour portrait, illustration or render.';
     const POLISHED = 'Clean editorial photograph of a real person: soft even light, true colour, lightly retouched skin that keeps its texture, natural proportions. No illustration or render look.';
 
-    /** Which rendering block a model key gets: the catalog's `style` ('candid' | 'polished'), candid when unset. */
+    /** Which rendering block a model key gets: the catalog's `style` ('candid' | 'polished'); polished when unset, the look Daniel approved. */
     public static function rendering($model_key = ''){
         $m = ($model_key !== '') ? InfluencerConfig::model((string) $model_key) : null;
-        return ($m && (string) ($m['style'] ?? '') === 'polished') ? self::POLISHED : self::REALISM;
+        return ($m && (string) ($m['style'] ?? '') === 'candid') ? self::REALISM : self::POLISHED;
     }
 
     /** A prompt with the rendering direction for $model_key on the end (once). */
@@ -330,7 +336,7 @@ class InfluencerService {
         'same person, laughing mid-laugh with eyes crinkled, wearing a plain white t-shirt, bright daylight, street behind slightly out of focus',
         'same person, looking over the shoulder at the camera, wearing a denim jacket, late afternoon sun, park behind',
         'same person, close-up of the face, the collar of a dark t-shirt just in frame, serious expression, light from one side only, dim room',
-        'same person, full body standing, head to toe in frame, {body}plain fitted t-shirt and jeans, overcast daylight, city street behind',
+        'same person, full body standing, head to toe in frame, {body}{outfit}, overcast daylight, city street behind',
         'same person, from the waist up, {body}at home in a plain fitted t-shirt, hair undone, soft expression, morning light, bedroom behind',
         'same person, from the knees up, {body}wearing a loose linen shirt over a t-shirt and shorts, sunglasses pushed up on the head, big smile, harsh midday sun, beach promenade behind',
     );
@@ -339,7 +345,7 @@ class InfluencerService {
     public static function training_variation(array $infl, $i){
         $vars = self::TRAINING_VARIATIONS;
         $body = self::body_phrase($infl);
-        return str_replace('{body}', $body !== '' ? $body . ', ' : '', $vars[((int) $i) % count($vars)]);
+        return str_replace(array('{body}', '{outfit}'), array($body !== '' ? $body . ', ' : '', self::body_outfit($infl)), $vars[((int) $i) % count($vars)]);
     }
 
     /**
