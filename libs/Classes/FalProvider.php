@@ -201,6 +201,7 @@ class FalProvider implements InfluencerProvider {
         $endpoint = trim($endpoint, "/ \t");
         if ($endpoint === '') { return self::fail('No endpoint configured for this model', 'validation', false); }
         if (self::api_key() === '') { return self::fail('fal.ai is not configured (fal_api_key)', 'auth', false); }
+        if (Main::get_environment() === 'development') { error_log('[fal submit] ' . $endpoint . ' ' . json_encode($input, JSON_UNESCAPED_SLASHES)); }   // dev: the exact request body
         $r = self::request('POST', self::QUEUE . $endpoint, $input, 30);
         if (!$r['ok']) { return self::map_error($r); }
         $j = (array) $r['json'];

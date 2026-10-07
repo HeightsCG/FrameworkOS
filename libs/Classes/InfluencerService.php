@@ -203,13 +203,31 @@ class InfluencerService {
      */
     // Lifelike without being harsh: asking for blemishes, fine lines, flyaway hair and grain made faces look rough and
     // unkempt, and asking for nothing made them airbrushed. This sits between the two.
-    const REALISM = 'Natural, true-to-life photograph of a real person taken on a phone: healthy skin with real texture, clean well-kept hair, flattering natural light, true-to-life colour, sharp focus on the eyes. No airbrushing, no beauty filter, no CGI, render or illustration look.';
+    /**
+     * Rendering direction, kept apart from the description of the person (what they look like is the creator's text;
+     * these say only how the picture was taken). Neither block asks for beauty, glamour or flawless skin, which a model
+     * reads as a retouched portrait; neither lists flaws either, which it reads just as literally and turns into an
+     * unkempt, tired-looking person (redness, shadows, stray hair). Real = an ordinary, put-together person photographed
+     * without retouching.
+     *   REALISM  : an unretouched phone photo (Most Realistic; also the body, Change Look and training-set shots, so the
+     *              trained identity carries real skin and natural light).
+     *   POLISHED : a clean, lightly retouched editorial photo (Polished and Quick Draft keep the look they had).
+     */
+    const REALISM  = 'Natural photo of a real person taken on a good phone: natural daylight, true colour, real skin texture kept rather than smoothed, tidy hair, natural proportions, an easy everyday expression. An unretouched snapshot, not a glamour portrait, illustration or render.';
+    const POLISHED = 'Clean editorial photograph of a real person: soft even light, true colour, lightly retouched skin that keeps its texture, natural proportions. No illustration or render look.';
 
-    /** A prompt with the realism direction on the end (once). */
-    public static function realistic($prompt){
+    /** Which rendering block a model key gets: the catalog's `style` ('candid' | 'polished'), candid when unset. */
+    public static function rendering($model_key = ''){
+        $m = ($model_key !== '') ? InfluencerConfig::model((string) $model_key) : null;
+        return ($m && (string) ($m['style'] ?? '') === 'polished') ? self::POLISHED : self::REALISM;
+    }
+
+    /** A prompt with the rendering direction for $model_key on the end (once). */
+    public static function realistic($prompt, $model_key = ''){
         $p = rtrim(trim((string) $prompt), " .,;");
-        if ($p === '') { return self::REALISM; }
-        return (stripos($p, 'no airbrushing') !== false) ? $p : $p . '. ' . self::REALISM;
+        $r = self::rendering($model_key);
+        if ($p === '') { return $r; }
+        return (strpos($p, rtrim(self::REALISM, '.')) !== false || strpos($p, rtrim(self::POLISHED, '.')) !== false) ? trim((string) $prompt) : $p . '. ' . $r;
     }
 
     /** Faces to start from on the reference step, per gender: a short name the list shows, and the description it fills in. */

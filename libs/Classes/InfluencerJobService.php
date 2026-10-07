@@ -200,6 +200,11 @@ class InfluencerJobService {
             return self::fail_job($job, $m, 'submitting', 'validation', $e->getMessage());
         }
         if (isset($req['error'])) { return self::fail_job($job, $m, 'submitting', 'validation', (string) $req['error']); }
+        if (Main::get_environment() === 'development') {   // dev: the prompt as sent, to compare renders against wording changes
+            error_log('[influencer prompt] job ' . (int) $job['id'] . ' ' . $type . ' ' . (string) $job['model_key'] . ' -> ' . (string) ($req['endpoint'] ?? '')
+                . ' aspect=' . (string) ($req['aspect'] ?? $req['aspect_ratio'] ?? '') . ' seed=' . (int) ($req['seed'] ?? 0)
+                . ' params=' . json_encode($req['params'] ?? array()) . ' prompt=' . json_encode((string) ($req['prompt'] ?? '')));
+        }
         $job = $m->get_by_id($job['id']);   // build_request may have stored params (zip key)
 
         $providers = InfluencerConfig::providers_for(self::op_for($type));

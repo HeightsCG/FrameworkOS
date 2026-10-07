@@ -75,14 +75,17 @@ class InfluencerConfig {
     const MODELS = array(
         // -- reference image (text -> image), reference path only --
         // Ultra in raw mode is the one that reads as a real photo (skin texture, uneven light); the plain Pro model airbrushes.
+        // `style` picks the rendering sentence put after the face description (InfluencerService::rendering): candid = an
+        // unedited phone photo, polished = a lightly retouched editorial one. The model's own prior still leans toward even,
+        // symmetric faces; raw mode and the candid wording pull against it, they cannot switch it off.
         'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1-ultra'),
-            'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo',
+            'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo', 'style' => 'candid',
             'price_usd' => 0.06, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_ultra', 'aspects' => self::RATIO_ASPECTS),
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
-            'label' => 'Polished', 'purpose' => 'Smoother, more retouched look',
+            'label' => 'Polished', 'purpose' => 'Smoother, more retouched look', 'style' => 'polished',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_schnell' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux/schnell'),
-            'label' => 'Quick Draft', 'purpose' => 'Fast and cheap, good for testing',
+            'label' => 'Quick Draft', 'purpose' => 'Fast and cheap, good for testing', 'style' => 'polished',
             'price_usd' => 0.003, 'price_unit' => 'image', 'params' => array('num_inference_steps' => 4), 'family' => 'flux', 'aspects' => self::FLUX_ASPECTS),
         // -- reference-based edits (image + prompt -> image): training set, face photo -> reference --
         'nano_banana_edit' => array('provider' => 'fal', 'op' => 'training_set', 'endpoints' => array('fal' => 'fal-ai/nano-banana/edit'),

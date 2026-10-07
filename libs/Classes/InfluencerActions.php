@@ -230,7 +230,7 @@ class InfluencerActions {
         $model = InfluencerConfig::resolve_model('reference', (string) $infl['reference_model_key']);
         if (!$model) { return self::fail('No reference model is configured.'); }
         $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
-            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => InfluencerService::realistic($desc),
+            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => InfluencerService::realistic($desc, (string) $model['key']),   // her description, then the preset's rendering sentence
             'params' => array('image_size' => 'square', 'num_images' => 1),
         ));
         if ($job_id <= 0) { return self::fail('Could not start the reference image.'); }
