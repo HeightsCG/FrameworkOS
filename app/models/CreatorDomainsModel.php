@@ -13,14 +13,14 @@ class CreatorDomainsModel extends Model {
     }
 
     /**
-     * The live domain for a hostname plus its creator's handle, or null. 'verified' counts: TXT proved ownership,
-     * and a request for it reaching us through the gateway proves the routing too.
+     * The live domain for a hostname plus its creator's handle, or null. Only 'active' counts: its DNS points at
+     * the gateway, so sessions are never handed to a host that resolves elsewhere ('verified' = TXT only).
      */
     public function get_live_by_hostname($host){
         $rows = parent::select(
             "SELECT d.*, u.u_name, u.role_id FROM creator_domains d
              JOIN user_accounts u ON u.user_id = d.user_id AND u.deleted = 0 AND u.user_status = 'Active'
-             WHERE d.hostname = :h AND d.status IN ('verified','active') AND d.deleted = 0",
+             WHERE d.hostname = :h AND d.status = 'active' AND d.deleted = 0",
             array('h' => strtolower((string) $host)));
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }

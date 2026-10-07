@@ -65,28 +65,31 @@ class Bootstrap
             header('Location: /' . implode('/', array_slice($url, 1)), true, 301);
             exit;
         }
-        $path = CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/');
-        $base = CustomDomains::platform_base();
-        $uid  = (int) Session::get('user_id');
-        $to   = ($uid > 0 && !UserSession::impersonating())
-            ? CustomDomains::handoff_url($uid, (string) parse_url($base, PHP_URL_HOST), $base, $path)
-            : $base . $path;
-        header('Location: ' . $to, true, 302);
+        // The platform's own pages: their platform session (cookie on the platform host) is still in the browser,
+        // so a plain redirect does; a domain session is never turned into a platform one.
+        header('Location: ' . CustomDomains::platform_base() . CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/'), true, 302);
         exit;
     }
 
-    /** /_handoff?t=…: sign in the user a one-time token was minted for on this host, then go where they were headed. */
+    /**
+     * /_handoff?t=…: sign in the user a one-time token was minted for on this host, then go where they were headed.
+     * The session is a fan one, bound to this host (domain_scope): only CustomDomains::FAN_ACTIONS work, the wallet
+     * only pays this creator, staff status and team roles are off, and it lapses after DOMAIN_SESSION_TTL.
+     */
     private function redeem_handoff(): void
     {
         header('X-Robots-Tag: noindex');
-        $r = (new CreatorDomainsModel())->redeem_handoff((string) ($_GET['t'] ?? ''), CustomDomains::request_host());
+        $host = CustomDomains::request_host();
+        $r = (new CreatorDomainsModel())->redeem_handoff((string) ($_GET['t'] ?? ''), $host);
         $path = '/';
         if ($r) {
             $rows = (new UsersModel())->get_user_by_id($r['user_id']);
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            if ($user && LoginGate::blocked($user) === '') {
+            if ($user && LoginGate::blocked($user) === '' && empty($user['is_admin'])) {   // staff browse creator domains signed out
                 session_regenerate_id(true);
                 UserSession::start($user);   // they already passed sign-in (and any second factor) on the other host
+                Session::set('domain_scope', $host);
+                Session::set('domain_scope_at', time());
             }
             $path = CustomDomains::safe_path($r['path']);
         }
@@ -106,7 +109,7 @@ class Bootstrap
         $first = strtolower((string) (Main::get_url()[0] ?? ''));
         if (in_array($first, array('api', 'mcp', 'go', 'mail-image', 'domain-check'), true)) { return; }
         Session::destroyValue('domain_return');
-        if (time() - (int) ($ret['at'] ?? 0) > 1800 || UserSession::impersonating()) { return; }
+        if (time() - (int) ($ret['at'] ?? 0) > 1800 || UserSession::impersonating() || Permissions::is_admin()) { return; }   // staff never carry a session to a creator's domain
         $host = (string) ($ret['host'] ?? '');
         if (CustomDomains::live($host) === null) { return; }
         header('Location: ' . CustomDomains::handoff_url((int) Session::get('user_id'), $host, 'https://' . $host, CustomDomains::safe_path($ret['path'] ?? '/')), true, 302);
@@ -146,6 +149,15 @@ class Bootstrap
         ini_set('session.cookie_secure',   $isHttps ? '1' : '0');
         ini_set('session.cookie_samesite', 'Lax');
         Session::init();
+
+        // A session handed to a creator's domain only works on that host and only for a while. Presented anywhere
+        // else (the platform host, another domain) or after its time, it is dropped before anything reads it.
+        $scope = (string) Session::get('domain_scope');
+        if ($scope !== '' && (!$custom || $scope !== (string) $custom['hostname'] || time() - (int) Session::get('domain_scope_at') > CustomDomains::DOMAIN_SESSION_TTL)) {
+            Session::destroy();
+            Session::init();
+            session_regenerate_id(true);
+        }
 
         // One-time sign-in carried over from another host (platform <-> custom domain). Before the canonical
         // redirect, so the token is redeemed on the host it was minted for.
@@ -219,6 +231,7 @@ class Bootstrap
         if (isset($url[0]) && $url[0] === 'api') {
             header('X-Robots-Tag: noindex');
             $action = isset($url[1]) ? strtolower(preg_replace('/[^A-Za-z0-9_]/', '', $url[1])) : '';
+            if ($custom && !in_array($action, CustomDomains::FAN_ACTIONS, true)) { Errors::page_not_found(); return; }   // a creator's domain only serves fan actions
             $class  = ($action !== '') ? ApiRoutes::controller_for($action) : null;
             $method = $action . 'Action';
             if ($class !== null && class_exists($class) && method_exists($class, $method)) {

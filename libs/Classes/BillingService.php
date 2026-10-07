@@ -327,9 +327,6 @@ class BillingService {
                 break;
             case 'pack':
                 $f += array('pack_dollars' => (int) $fx['pack'], 'pack_price_cents' => (int) $fx['pack_cents'], 'pack_started_at' => gmdate('Y-m-d H:i:s'), 'pack_dollars_next' => null);
-                if (!empty($fx['start_schedule'])) {
-                    $f += array('status' => 'active', 'current_period_start' => $fx['period_start'], 'current_period_end' => $fx['period_end'], 'next_charge_at' => $fx['period_end']);
-                }
                 $ai->set_bucket($uid, 'pack', PlanTiers::pack_credits($fx['pack']), number_format(PlanTiers::pack_credits($fx['pack'])) . ' AI credits (monthly)', (bool) PlanTiers::BILLING['pack_carry_over']);
                 break;
             case 'renewal':
@@ -625,14 +622,14 @@ class BillingService {
     }
 
     /**
-     * Recurring AI credit pack. Adding one charges it now and grants the credits; it renews on the
-     * account's billing date (Free accounts get their own monthly date). Changing or removing it
-     * applies on the next billing date.
+     * Recurring AI credit pack (paid plans only). Adding one charges it now and grants the credits; it renews
+     * on the account's billing date. Changing or removing it applies on the next billing date.
      */
     public static function set_pack($user_id, $dollars): array
     {
         $uid = (int) $user_id; $acct = self::account($uid); $d = (int) $dollars;
         if ($d !== 0 && !in_array($d, PlanTiers::AI_PACKS, true)) { return array('status' => 'failed', 'message' => 'Choose a valid credit pack.'); }
+        if (!self::is_paid($acct)) { return array('status' => 'failed', 'message' => 'Choose a plan to buy AI credits.'); }
         if ((string) $acct['status'] === 'past_due') { return array('status' => 'failed', 'message' => 'Update your card to settle your last payment first.'); }
         $have = (int) $acct['pack_dollars'];
         if ($have > 0) {
@@ -642,11 +639,10 @@ class BillingService {
             return array('status' => 'scheduled', 'message' => $next === null ? 'No change to your monthly credits.' : ($d === 0 ? 'Your monthly credits stop on ' . $when . '.' : 'Your monthly credits change to ' . number_format(PlanTiers::pack_credits($d)) . ' on ' . $when . '.'));
         }
         if ($d === 0) { return array('status' => 'failed', 'message' => 'You have no recurring pack.'); }
-        $scheduled = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = gmdate('Y-m-d H:i:s');
-        $fx = array('pack' => $d, 'pack_cents' => $d * 100, 'start_schedule' => !$scheduled, 'period_start' => $start, 'period_end' => self::add_period($start));
+        $fx = array('pack' => $d, 'pack_cents' => $d * 100);
         $lines = array(array(number_format(PlanTiers::pack_credits($d)) . ' AI credits (monthly)', $d * 100));
-        return self::charge($uid, 'pack', $lines, $fx, $start, $scheduled ? (string) $acct['next_charge_at'] : $fx['period_end'], 'pack-' . $uid . '-' . bin2hex(random_bytes(6)));
+        return self::charge($uid, 'pack', $lines, $fx, $start, (string) $acct['next_charge_at'], 'pack-' . $uid . '-' . bin2hex(random_bytes(6)));
     }
 
     /** After the page confirmed an authentication, record the PaymentIntent's outcome. */

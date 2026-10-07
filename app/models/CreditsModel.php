@@ -218,6 +218,7 @@ class CreditsModel extends Model {
         $buyer_id = (int) $buyer_id; $creator_id = (int) $creator_id; $charge = (int) $charge; $net = max(0, (int) $net);
         if ($charge <= 0 || $buyer_id === $creator_id) { return false; }
         if (class_exists('UserSession') && UserSession::impersonating()) { return false; }   // an admin signed in as someone never spends their wallet
+        if (class_exists('CustomDomains') && CustomDomains::session_scoped() && $creator_id !== CustomDomains::owner_id()) { return false; }   // on a creator's domain the wallet only pays that creator
         $this->db->beginTransaction();
         try {
             $ids = array_unique(array($buyer_id, $creator_id)); sort($ids);

@@ -37,6 +37,7 @@ $(function () {
     var stripe = Stripe('<?php echo $e($this->stripe_pk); ?>');
     var card_elements = null;     // Payment Element for saving a card (SetupIntent)
     var pending = null;           // the action waiting on the disclosure modal: {endpoint, body, ok}
+    var has_plan = <?php echo $has_plan ? 'true' : 'false'; ?>;   // Free gets no AI-credit purchase controls
 
     function parse(data) { try { return JSON.parse(data); } catch (e) { return { success: false, message: 'Something went wrong' }; } }
     function reload_after(ms) { setTimeout(function () { window.location.href = '/account/billing'; }, ms || 1100); }
@@ -275,7 +276,7 @@ $(function () {
         var $t = $('.btabs__tab'), i = $t.index(this) + (e.key === 'ArrowRight' ? 1 : -1);
         var $n = $t.eq((i + $t.length) % $t.length); show_tab($n.data('tab')); $n.trigger('focus');
     });
-    var first = qs.get('tab') || (qs.get('buy') ? 'credits' : (qs.get('add') ? 'plan' : ''));
+    var first = qs.get('tab') || (qs.get('buy') ? (has_plan ? 'credits' : 'plan') : (qs.get('add') ? 'plan' : ''));
     if (!first) { try { first = localStorage.getItem('cls_billing_tab') || 'plan'; } catch (e) { first = 'plan'; } }
     show_tab(first);
     if (qs.get('pay')) { pay_pending(qs.get('pay')); }
@@ -283,7 +284,7 @@ $(function () {
 
     /* ---- one-time AI credits (existing flow) ---- */
     var credit_elements = null;
-    if (qs.get('buy') === 'credits') { $('#credits_modal').modal('show'); }   // "Buy credits" links from the generate screens
+    if (qs.get('buy') === 'credits' && has_plan) { $('#credits_modal').modal('show'); }   // "Buy credits" links from the generate screens; Free lands on the plan tab instead
     $('#credit_packs').on('click', '.pack', function () {
         var dollars = $(this).data('dollars');
         $('#credit_packs .pack').removeClass('is-on'); $(this).addClass('is-on');
@@ -529,6 +530,7 @@ $(function () {
             <?php endif; ?>
 
             <h2 class="ccard__title">Buy AI Credits</h2>
+            <?php if ($has_plan): ?>
             <div class="copts" role="radiogroup" aria-label="How many AI credits">
                 <?php foreach ($packs as $d): ?>
                 <button type="button" class="copt<?php echo $d === $pick ? ' is-on' : ''; ?>" role="radio" aria-checked="<?php echo $d === $pick ? 'true' : 'false'; ?>" data-dollars="<?php echo $d; ?>" data-credits="<?php echo PlanTiers::pack_credits($d); ?>">
@@ -538,6 +540,12 @@ $(function () {
             </div>
             <label class="ccard__repeat"><input type="checkbox" class="form-check-input" id="credit_repeat" data-current="<?php echo (int) $monthly; ?>" <?php echo $past_due ? 'disabled' : ''; ?>> Repeat every month</label>
             <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo number_format(PlanTiers::pack_credits($pick)); ?> AI Credits for $<?php echo $pick; ?></button>
+            <?php else: /* Free: AI tools need a plan, so no packs to buy; the balance and history above and below still show */ ?>
+            <div class="ccard__monthly">
+                <span>AI credits come with a plan.</span>
+                <button type="button" class="btn btn-primary" onclick="$('.btabs__tab[data-tab=plan]').trigger('click')">Choose a Plan</button>
+            </div>
+            <?php endif; ?>
 
             <h2 class="ccard__title">What AI Credits Buy</h2>
             <table class="ai-prices">
@@ -658,6 +666,7 @@ $(function () {
     </div>
 </div>
 
+<?php if ($has_plan): ?>
 <div class="modal fade" id="credits_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
@@ -681,3 +690,4 @@ $(function () {
         </div>
     </div>
 </div>
+<?php endif; ?>

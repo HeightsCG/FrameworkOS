@@ -410,13 +410,28 @@ class AccountController extends Controller {
      * Signed in here already: straight back, signed in there. Otherwise sign in here first (password, Google,
      * second factor all as usual); Bootstrap::return_to_custom_domain carries them back afterwards.
      */
+    /**
+     * /account/domain_login?host=&path=: Sign In pressed on a creator's domain. Signed out: sign in here, then
+     * return_to_custom_domain carries the session over. Signed in: a confirm page (the handoff is a POST with the
+     * CSRF token, never a bare link, so nobody is sent to a creator's host by a link they clicked elsewhere).
+     * Staff are never handed over: they browse creator domains signed out.
+     */
     public function domain_loginAction(){
-        $host = CustomDomains::normalize($_GET['host'] ?? '');
-        $path = CustomDomains::safe_path($_GET['path'] ?? '/');
-        if (CustomDomains::live($host) === null) { Header('Location: /'); exit; }
-        if ((int) Session::get('user_id') > 0 && !UserSession::impersonating()) {
-            Header('Location: ' . CustomDomains::handoff_url((int) Session::get('user_id'), $host, 'https://' . $host, $path));
-            exit;
+        $host = CustomDomains::normalize($_REQUEST['host'] ?? '');
+        $path = CustomDomains::safe_path($_REQUEST['path'] ?? '/');
+        $d    = CustomDomains::live($host);
+        if ($d === null) { Header('Location: /'); exit; }
+        $me = (int) Session::get('user_id');
+        if ($me > 0 && !UserSession::impersonating()) {
+            if (Permissions::is_admin()) { Header('Location: /'); exit; }
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && CSRF::validate()) {
+                Header('Location: ' . CustomDomains::handoff_url($me, $host, 'https://' . $host, $path));
+                exit;
+            }
+            $this->view->public_page(Main::app_path() . '/app/views/account/domain_continue.php',
+                array('title' => 'Continue to ' . $host, 'description' => '', 'noindex' => true),
+                array('host' => $host, 'path' => $path, 'handle' => (string) $d['u_name'], 'me_handle' => (string) Session::get('u_name')));
+            return;
         }
         Session::set('domain_return', array('host' => $host, 'path' => $path, 'at' => time()));
         Header('Location: /?auth=login');

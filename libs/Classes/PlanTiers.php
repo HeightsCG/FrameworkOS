@@ -80,7 +80,7 @@ class PlanTiers {
     const TIERS = array(
         'free'    => array('key' => 'free',    'rank' => 0, 'name' => 'Free',    'tagline' => 'Discover and follow your favorite creators.', 'price' => 0,   'stripe_price_id' => '', 'match' => array(),          'recommended' => false,
             'ai_credits_grant' => 'once', 'features' => array('inbox_ai' => false),
-            'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 0, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),   // Free includes no AI credits, ever: it buys them
+            'limits' => array('fee_percent' => 20, 'seats' => 1,  'influencers' => -1, 'ai_credits' => 0, 'automations' => -1,  'storage_gb' => 5,   'socials' => 0, 'sub_tiers' => 0)),   // Free includes no AI credits (AI tools need a plan)
         'creator' => array('key' => 'creator', 'rank' => 1, 'name' => 'Creator', 'tagline' => 'Go solo, get paid.',             'price' => 49,  'stripe_price_id' => '', 'match' => array('creator'), 'recommended' => true,
             'ai_credits_grant' => 'monthly', 'features' => array('inbox_ai' => true),
             'limits' => array('fee_percent' => 10, 'seats' => 1,  'influencers' => 1,  'ai_credits' => 500, 'automations' => 5,  'storage_gb' => 25,  'socials' => 0, 'sub_tiers' => 0)),
@@ -248,7 +248,7 @@ class PlanTiers {
     {
         $v = $tier['limits'][(string) $key] ?? 0;
         if ((string) $key === 'ai_credits') {
-            if ((int) $v <= 0) { return 'Buy as needed'; }
+            if ((int) $v <= 0) { return 'With a plan'; }
             return number_format((int) $v) . (self::grants_once($tier) ? ' to start' : ' / month');
         }
         return self::fmt_limit($key, $v);

@@ -22,6 +22,34 @@ class CustomDomains {
     /** Routes that work on a custom domain as-is (AJAX, link clicks, email images, crawlers, the handoff). */
     const PASSTHROUGH = array('api', 'go', 'mail-image', 'robots.txt', 'sitemap.xml', '_handoff', 'live');   // live: CLS Video calls (LiveController keeps them to this creator's own)
 
+    /**
+     * The only API actions a session on a creator's domain may call: what a fan does on that creator's page.
+     * The domain is the creator's (they control its DNS), so a session there never reaches billing, account,
+     * studio or admin actions, and CreditsModel::pay() only pays this creator. Everything else is the platform's.
+     */
+    const FAN_ACTIONS = array(
+        'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add', 'post_comment_delete', 'post_view',
+        'ppv_unlock', 'bundle_unlock', 'promo_preview', 'join_free_plan', 'subscribe_plan', 'cancel_creator_subscription', 'reactivate_creator_subscription',
+        'follow_creator', 'unfollow_creator', 'event_register', 'event_cancel', 'event_replay_buy', 'event_replay_watch', 'service_purchase',
+        'live_join', 'live_hand', 'live_tip', 'live_status', 'live_offers', 'live_waiting',
+        'block_user', 'unblock_user', 'report_submit', 'notifications_list', 'notifications_unread_count', 'notifications_mark_read',
+        'logout', 'heartbeat', 'set_timezone',
+    );
+
+    /** A session handed to a creator's domain lives this long without a fresh handoff. */
+    const DOMAIN_SESSION_TTL = 604800;   // 7 days
+
+    /** Is the current session one that was handed to a creator's domain (fan scope)? */
+    public static function session_scoped(): bool {
+        return (string) Session::get('domain_scope') !== '';
+    }
+
+    /** The creator this domain belongs to, or 0 off a custom domain. */
+    public static function owner_id(): int {
+        $d = self::current();
+        return $d ? (int) $d['user_id'] : 0;
+    }
+
     private static $current = false;   // memo: false = not resolved yet, null = not a custom domain
 
     /* ---- hostnames ---- */

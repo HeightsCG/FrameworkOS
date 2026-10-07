@@ -49,10 +49,10 @@ class ApiBillingController extends BaseApiController {
                 'today_zero' => (int) $q['today'] === 0, 'card_needed' => !empty($q['card_needed'])]);
         }
         if (isset($this->post['pack'])) {
+            if (!BillingService::is_paid($acct)) { $this->jsonError('Choose a plan to buy AI credits.', ['need_plan' => true]); }   // same gate as billing_set_pack
             $d = (int) $this->post['pack'];
             if (!in_array($d, PlanTiers::AI_PACKS, true)) { $this->jsonError('Choose a valid credit pack.'); }
-            $sched = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
-            $next  = $sched ? (string) $acct['next_charge_at'] : BillingService::add_period(gmdate('Y-m-d H:i:s'));
+            $next  = (string) $acct['next_charge_at'];
             $this->jsonSuccess(['mode' => 'pack', 'today' => BillingService::money($d * 100), 'lines' => $fmt(array(array(number_format(PlanTiers::pack_credits($d)) . ' AI credits (monthly)', $d * 100))),
                 'recurring' => BillingService::money($d * 100) . ' / month for ' . number_format(PlanTiers::pack_credits($d)) . ' AI credits', 'next_at' => date('M j, Y', strtotime($next . ' UTC')),
                 'has_card' => (string) ($acct['stripe_payment_method_id'] ?? '') !== '', 'card' => $this->billing_state($user)['card']]);
