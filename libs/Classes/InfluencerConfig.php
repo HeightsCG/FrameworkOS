@@ -76,11 +76,12 @@ class InfluencerConfig {
         // -- reference image (text -> image), reference path only --
         // `style` picks the rendering sentence put after the face description (InfluencerService::rendering): candid = an
         // unretouched phone photo, polished = a lightly retouched editorial one.
-        // Pro 1.1, not Ultra (2026-10-07): Ultra, raw or not, kept giving the over-bright, symmetric AI face; Pro 1.1 made the
-        // picture Daniel held up as the real-looking one. Same endpoint as Polished, told to render an unretouched snapshot
-        // instead of an editorial one. The key keeps its name (stored on influencers and jobs).
+        // Pro 1.1 with the editorial wording (2026-10-07): Ultra, raw or not, and the candid wording all gave an over-bright,
+        // symmetric AI face or a dishevelled one; the Polished recipe (this endpoint + POLISHED) made the picture Daniel
+        // held up as what "most realistic" should give. So the two presets now share one recipe; drop one when the UI
+        // is next touched. The key keeps its name (stored on influencers and jobs).
         'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
-            'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo', 'style' => 'candid',
+            'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo', 'style' => 'polished',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Polished', 'purpose' => 'Smoother, more retouched look', 'style' => 'polished',
