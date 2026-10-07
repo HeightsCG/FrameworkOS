@@ -56,11 +56,17 @@ class InfluencerService {
         if (!$def) { return ''; }
         $def['prompt'] = str_replace('{outfit}', self::body_outfit($infl), (string) $def['prompt']);
         $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
-        // Her reference is a face, so it cannot fix her body: with a build described, the words decide it and are stated as the thing that must show.
+        // Her reference is a face, so it cannot fix her body. An edit model copies the body it guesses from the face unless told
+        // the reference holds no body at all; so the build is stated first, as the thing being made, and the face second.
         $keep = ($body !== '') ? 'identical face, hair and skin tone' : 'identical face, hair, skin tone and body';
         $full = (strpos((string) $slot, 'full_') === 0);
-        return ($full ? $def['prompt'] . '. ' : '') . 'Keep the exact same ' . self::noun($infl) . ' as in the reference image: ' . $keep . '. '
-            . ($full ? '' : $def['prompt'] . '. ') . ($body !== '' ? ucfirst(self::pronouns($infl)[2]) . ' body, which must be clearly visible in the picture: ' . $body . '. ' : '')
+        $noun = self::noun($infl); $pr = self::pronouns($infl);
+        $build = ($body !== '')
+            ? 'The reference image shows only this ' . $noun . '\'s face and hair; ' . $pr[2] . ' body is not in it. Build ' . $pr[2] . ' body from these words, and it must be clearly visible in the picture: ' . $body . '. '
+            : '';
+        return ($full ? $def['prompt'] . '. ' : '') . $build
+            . 'Keep the exact same ' . $noun . ' as in the reference image: ' . $keep . '. '
+            . ($full ? '' : $def['prompt'] . '. ')
             . 'Plain light grey wall behind, flat daylight. ' . self::rendering();
     }
 
