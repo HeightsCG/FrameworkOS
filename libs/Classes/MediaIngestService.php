@@ -39,6 +39,37 @@ class MediaIngestService {
      * True when an image is (near) uniformly black: what fal returns instead of an error when
      * its content checker fires, and never something a person meant to publish. Samples a grid.
      */
+    /**
+     * Fine sensor grain over a render, as a phone camera leaves it: breaks the perfectly clean surface that marks an
+     * image as generated, without touching the person. Used on training material only, so the trained model learns a
+     * photographed look. $amount: grain strength 1-100 (the overlay's opacity). Returns the bytes unchanged when GD
+     * can't read them.
+     */
+    public static function film_grain($bytes, $mime = 'image/jpeg', $amount = 14) {
+        if (!function_exists('imagecreatefromstring')) { return $bytes; }
+        $im = @imagecreatefromstring($bytes);
+        if (!$im) { return $bytes; }
+        $w = imagesx($im); $h = imagesy($im);
+        $tile = 256; $noise = imagecreatetruecolor($tile, $tile);
+        for ($y = 0; $y < $tile; $y++) {
+            for ($x = 0; $x < $tile; $x++) {
+                $v = 128 + mt_rand(-64, 64);   // mid grey with a wide spread: at low opacity it reads as grain, not fog
+                imagesetpixel($noise, $x, $y, imagecolorallocate($noise, $v, $v, $v));
+            }
+        }
+        $pct = max(1, min(100, (int) $amount));
+        for ($y = 0; $y < $h; $y += $tile) {
+            for ($x = 0; $x < $w; $x += $tile) {
+                imagecopymerge($im, $noise, $x, $y, 0, 0, min($tile, $w - $x), min($tile, $h - $y), $pct);
+            }
+        }
+        imagedestroy($noise);
+        ob_start();
+        if ($mime === 'image/png') { imagepng($im, null, 6); } else { imagejpeg($im, null, 92); }
+        $out = ob_get_clean(); imagedestroy($im);
+        return ($out !== '' && $out !== false) ? $out : $bytes;
+    }
+
     public static function is_blank_image($bytes){
         if (!function_exists('imagecreatefromstring') || (string) $bytes === '') { return false; }
         $im = @imagecreatefromstring($bytes);

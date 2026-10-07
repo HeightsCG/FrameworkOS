@@ -227,6 +227,12 @@ class InfluencerService {
      */
     const REALISM  = 'Natural photo of a real person taken on a good phone: natural daylight, true colour, real skin texture kept rather than smoothed, tidy hair, natural proportions, an easy everyday expression. An unretouched snapshot, not a glamour portrait, illustration or render.';
     const POLISHED = 'Clean editorial photograph of a real person: soft even light, true colour, lightly retouched skin that keeps its texture, natural proportions. No illustration or render look.';
+    /**
+     * CAPTURE: how a real phone picture is taken, said about the camera and the light, never about the person. The
+     * training set and body shots use it: an edit model given "clean, even, retouched" returns a glossy render, and a
+     * model trained on those renders can only make more of them. Nothing here makes the person plainer.
+     */
+    const CAPTURE  = 'A real photograph, candid and unposed: the light in the room as it is, with real shadows and slightly uneven exposure, a little natural grain, ordinary everyday framing, true colour, fine skin texture and single hair strands visible at full size. Nothing retouched, no studio lighting, no editorial finish. A photograph only: never an illustration, painting, anime, render, screenshot or a picture shown on a device.';
 
     /** Which rendering block a model key gets: the catalog's `style` ('candid' | 'polished'); polished when unset, the look Daniel approved. */
     public static function rendering($model_key = ''){

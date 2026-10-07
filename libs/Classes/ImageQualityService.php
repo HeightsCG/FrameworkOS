@@ -55,6 +55,28 @@ class ImageQualityService {
         return $out !== '' ? $out : $bytes;
     }
 
+    const PHOTO_SYSTEM = 'You check whether an image is a photograph. Answer with JSON only.';
+    const PHOTO_ASK = 'Is this image a photograph of a real person, as a camera would have taken it? Answer {"photo": true} for a photograph (AI-generated photographs count). Answer {"photo": false, "why": "..."} if it is an illustration, painting, anime or cartoon, a 3D render, a collage, a screenshot, or a picture shown inside a phone, screen or frame.';
+
+    /**
+     * Training material must be a photograph: an edit model sometimes answers a prompt with an illustration or a picture
+     * on a phone screen, and one such image in a training set teaches the model that look. Fails open like check().
+     * @return array ['photo'=>bool, 'why'=>string, 'checked'=>bool]
+     */
+    public static function photo_check($bytes, $mime = 'image/jpeg'): array {
+        try {
+            if (!(int) InfluencerConfig::get('quality_check', 1) || !ClaudeService::configured()) { return array('photo' => true, 'why' => '', 'checked' => false); }
+            $res = ClaudeService::vision(self::PHOTO_SYSTEM, self::PHOTO_ASK, self::downscale($bytes, $mime), 'image/jpeg', 200, 40, 'low');
+            if (empty($res['ok'])) { error_log('[quality] photo check: ' . $res['error']); return array('photo' => true, 'why' => '', 'checked' => false); }
+            $j = self::json($res['text']);
+            if (!is_array($j) || !array_key_exists('photo', $j)) { return array('photo' => true, 'why' => '', 'checked' => false); }
+            return array('photo' => !empty($j['photo']), 'why' => mb_substr(trim((string) ($j['why'] ?? '')), 0, 160), 'checked' => true);
+        } catch (\Throwable $e) {
+            error_log('[quality] photo check: ' . $e->getMessage());
+            return array('photo' => true, 'why' => '', 'checked' => false);
+        }
+    }
+
     private static function json($text) {
         $t = trim((string) $text);
         if (preg_match('/\{.*\}/s', $t, $m)) { $t = $m[0]; }

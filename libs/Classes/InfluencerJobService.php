@@ -495,7 +495,14 @@ class InfluencerJobService {
                     $q = ImageQualityService::check($img['bytes'], (string) $img['mime']);
                     if (!$q['ok']) { throw new QualityException($q['issues'] !== '' ? $q['issues'] : 'visible anatomy errors'); }
                 }
+                if ($qa && in_array((string) $job['type'], array('reference', 'training_set', 'angle'), true)) {   // training material must be a photograph, or it is re-rolled
+                    $pc = ImageQualityService::photo_check($img['bytes'], (string) $img['mime']);
+                    if (!$pc['photo']) { throw new QualityException('not a photograph' . ($pc['why'] !== '' ? ' (' . $pc['why'] . ')' : '')); }
+                }
                 if ((string) $job['type'] === 'angle') { $img['bytes'] = self::profile_facing($job, $img['bytes'], (string) $img['mime']); }
+                // Training material gets fine sensor grain: a render's perfectly clean surface is the strongest "AI" tell, and a
+                // model trained on clean renders can only make more of them. Finished content is left as the model made it.
+                if (in_array((string) $job['type'], array('reference', 'training_set', 'angle'), true)) { $img['bytes'] = MediaIngestService::film_grain($img['bytes'], (string) $img['mime'], (int) InfluencerConfig::get('training_grain', 14)); }
                 MediaIngestService::ingest_image($cid, $user, $img['bytes'], $img['ext'], $img['mime'], $label, $watermark, $aid);
             }
           } catch (\Throwable $e) {

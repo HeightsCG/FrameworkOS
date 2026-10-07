@@ -102,7 +102,7 @@ class InfluencerConfig {
         'seedream_45_edit' => array('provider' => 'fal', 'op' => 'replicate', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
             'label' => 'Budget', 'purpose' => 'Good likeness at a lower price',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10,
-            'ops' => array('angle')),   // 'angle': her full-body reference, where the described build has to show (Nano Banana keeps the body it guesses)
+            'ops' => array('angle', 'training_set')),   // 'angle': her full-body reference, where the described build has to show (Nano Banana keeps the body it guesses); 'training_set': candidate for the training shots (A/B 2026-10-07)
         // -- edit by instruction (image + instruction -> image) --
         'grok_edit' => array('provider' => 'fal', 'op' => 'edit', 'endpoints' => array('fal' => 'xai/grok-imagine-image/edit'),
             'label' => 'Precise Edit', 'purpose' => 'Changes only what you ask for',
@@ -186,7 +186,7 @@ class InfluencerConfig {
     /** Model keys offered in each picker, in display order (first = default). */
     const PICKERS = array(
         'reference'    => array('flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),
-        'training_set' => array('nano_banana_edit'),
+        'training_set' => array('seedream_45_edit', 'nano_banana_edit'),   // Seedream first (2026-10-07 A/B): real light and grain where Nano Banana returns a glossy render
         'image'        => array('flux_lora_quality', 'flux_lora_fast'),
         'video'        => array('hailuo_02', 'kling_v3'),
         'enhance'      => array('clarity_upscaler'),
