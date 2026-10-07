@@ -76,12 +76,12 @@ class InfluencerConfig {
         // -- reference image (text -> image), reference path only --
         // `style` picks the rendering sentence put after the face description (InfluencerService::rendering): candid = an
         // unretouched phone photo, polished = a lightly retouched editorial one.
-        // Ultra WITHOUT raw mode (2026-10-07): raw gave flat, grainy, harsher faces that read as AI next to the Pro 1.1 output
-        // Daniel held up as the real-looking one; the wording change alone did not close that gap. The key keeps its name
-        // (stored on influencers and jobs).
-        'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1-ultra'),
+        // Pro 1.1, not Ultra (2026-10-07): Ultra, raw or not, kept giving the over-bright, symmetric AI face; Pro 1.1 made the
+        // picture Daniel held up as the real-looking one. Same endpoint as Polished, told to render an unretouched snapshot
+        // instead of an editorial one. The key keeps its name (stored on influencers and jobs).
+        'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo', 'style' => 'candid',
-            'price_usd' => 0.06, 'price_unit' => 'image', 'params' => array('raw' => false), 'family' => 'flux_ultra', 'aspects' => self::RATIO_ASPECTS),
+            'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Polished', 'purpose' => 'Smoother, more retouched look', 'style' => 'polished',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
