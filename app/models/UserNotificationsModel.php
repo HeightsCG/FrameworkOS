@@ -14,6 +14,13 @@ class UserNotificationsModel extends Model {
         return is_array($rows) && count($rows) > 0;
     }
 
+    /** True when anyone got a notification with this title whose body contains $needle in the last $hours. */
+    public function recent_with_title_about($title, $needle, $hours){
+        $rows = parent::select("SELECT id FROM notifications WHERE title = :t AND LOCATE(:n, body) > 0 AND created_at >= :since LIMIT 1",
+            array('t' => (string) $title, 'n' => (string) $needle, 'since' => date('Y-m-d H:i:s', time() - (int) $hours * 3600)));
+        return is_array($rows) && count($rows) > 0;
+    }
+
     /** Deliver an in-platform notification (respects the user's per-category in-platform pref). */
     public function push($user_id, $category, $title, $body = '', $link = '', $icon = ''){
         $user_id = (int) $user_id;

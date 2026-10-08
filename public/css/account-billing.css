@@ -275,3 +275,4 @@
     .blist__body--inline, .ccard__monthly{ flex-wrap:wrap; }
     .ccard__repeat{ width:auto; align-items:flex-start; }
 }
+.ccard__note{ margin:.6rem 0 0; font-size:.82rem; color:var(--muted, #8a8797); }

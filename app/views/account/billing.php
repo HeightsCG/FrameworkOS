@@ -107,10 +107,10 @@ $(function () {
         $('#disc_terms').text(q.mode === 'downgrade'
             ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
             : (q.today_zero && q.card_needed === false)
-            ? 'Nothing is charged today, and your promo keeps this plan free every month. Cancel anytime from Billing.'
+            ? 'Nothing is charged today, and your promo keeps this plan free every month. Cancel anytime from Billing. Plan charges are final and non-refundable.'
             : q.today_zero
             ? 'Nothing is charged today. Then ' + q.recurring + ', charged to your card on ' + q.next_at + ' and monthly after that. Cancel anytime from Billing before then and you won\u2019t be charged.'
-            : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period.');
+            : 'Then ' + q.recurring + ', billed monthly on the same date. Next charge on ' + q.next_at + '. Cancel anytime from Billing; you keep what you paid for until the end of the period. Plan charges are final and non-refundable.');
         if (quote_body && quote_body.pack) { $('#disc_terms').text($('#disc_terms').text() + ' AI credits are non-refundable.'); }
         show_card(q);
     }
@@ -564,6 +564,7 @@ $(function () {
             </div>
             <label class="ccard__repeat"><input type="checkbox" class="form-check-input" id="credit_repeat" data-current="<?php echo (int) $monthly; ?>" <?php echo $past_due ? 'disabled' : ''; ?>> Repeat every month</label>
             <button type="button" class="btn btn-primary ccard__btn" id="credit_go" data-has-pack="<?php echo $pack > 0 ? 1 : 0; ?>">Buy <?php echo number_format(PlanTiers::pack_credits($pick)); ?> AI Credits for $<?php echo $pick; ?></button>
+            <p class="ccard__note">AI credit purchases are final and non-refundable.</p>
             <?php else: /* Free: AI tools need a plan, so no packs to buy; the balance and history above and below still show */ ?>
             <div class="ccard__monthly">
                 <span>AI credits come with a plan.</span>

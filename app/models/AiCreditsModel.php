@@ -42,6 +42,42 @@ class AiCreditsModel extends Model {
         return max(0, -(int) ((is_array($rows) && count($rows)) ? $rows[0]['n'] : 0));
     }
 
+    /** The card purchase a PaymentIntent paid for (user_id, credits, paid_cents), or null. */
+    public function purchase_by_payment_intent($payment_intent_id){
+        $r = parent::select("SELECT user_id, credits, NULL AS paid_cents FROM ai_credit_transactions WHERE stripe_payment_intent_id = :pi AND type = 'purchase' LIMIT 1", array('pi' => (string) $payment_intent_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /**
+     * Credits of a refunded or disputed PaymentIntent already handled: reversal rows are keyed "<pi>:rev<handled>", where
+     * handled is the running share settled (all of it once a reversal was clamped, so a shortfall is final).
+     */
+    public function reversed_for_payment_intent($user_id, $payment_intent_id){
+        $key = (string) $payment_intent_id . ':rev';
+        $r = parent::select("SELECT COALESCE(MAX(CAST(SUBSTRING(stripe_payment_intent_id, :from) AS UNSIGNED)), 0) AS n FROM ai_credit_transactions
+             WHERE user_id = :u AND LEFT(stripe_payment_intent_id, :len) = :k",
+            array('from' => strlen($key) + 1, 'u' => (int) $user_id, 'len' => strlen($key), 'k' => $key));
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['n'] : 0;
+    }
+
+    /** MySQL named lock (held by this model's connection), as debit_for_payout uses. */
+    public function named_lock($key, $wait = 10){
+        $got = parent::select("SELECT GET_LOCK(:k, :w) AS l", array('k' => (string) $key, 'w' => (int) $wait));
+        return !empty($got[0]['l']);
+    }
+
+    public function named_unlock($key){
+        parent::select("SELECT RELEASE_LOCK(:k) AS r", array('k' => (string) $key));
+    }
+
+    /** A zero-credit ledger row that marks a reversal settled when the balance had nothing left to take. */
+    public function mark_reversal($user_id, $key, $description){
+        return (int) parent::insert('ai_credit_transactions', array(
+            'user_id' => (int) $user_id, 'type' => 'adjust', 'credits' => 0, 'balance_after' => (int) $this->get_balance($user_id),
+            'description' => mb_substr((string) $description, 0, 255), 'stripe_payment_intent_id' => (string) $key, 'created_at' => date('Y-m-d H:i:s'),
+        ));
+    }
+
     /** Credit a completed purchase, idempotent by Stripe PaymentIntent id. Returns the new balance. */
     public function has_payment_intent($payment_intent_id){
         $r = parent::select("SELECT id FROM ai_credit_transactions WHERE stripe_payment_intent_id = :pi LIMIT 1", array('pi' => (string) $payment_intent_id));

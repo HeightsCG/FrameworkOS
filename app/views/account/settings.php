@@ -657,7 +657,7 @@
                             </button>
                             <?php endforeach; ?>
                         </div>
-                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout.<?php if ($this->is_owner_creator): ?> These are wallet credits for buying content.<?php if (Plan::has_paid_plan($this->user)): ?> To create images and videos, <a href="/account/billing?tab=credits">buy AI credits</a>.<?php endif; ?><?php endif; ?></p>
+                        <p class="wallet__fee-note">A <?php echo rtrim(rtrim(number_format(Main::credit_fee_percent(), 2), '0'), '.'); ?>% processing fee is added at checkout. Credit purchases are final and non-refundable.<?php if ($this->is_owner_creator): ?> These are wallet credits for buying content.<?php if (Plan::has_paid_plan($this->user)): ?> To create images and videos, <a href="/account/billing?tab=credits">buy AI credits</a>.<?php endif; ?><?php endif; ?></p>
                     </div>
 
                     <?php if ($this->is_owner_creator): $ps = $this->payout_status; $pb = $this->payout_balance; ?>

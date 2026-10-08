@@ -281,6 +281,7 @@ class PagesController extends Controller {
             array('q' => 'Is there a free plan?', 'a' => 'Yes. Everyone starts with a Free account: it costs nothing, needs no card, and lets you follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio, which include your page, memberships, pay-per-view, publishing and payouts.'),
             array('q' => 'What is the platform take rate?', 'a' => self::fee_sentence()),
             array('q' => 'Can I buy AI credits on any plan?', 'a' => 'AI tools are part of Creator and Studio, which include AI credits every month. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
+            array('q' => 'Are plans and credits refundable?', 'a' => 'No. Plan charges and credit purchases are final and non-refundable. You can cancel a plan at any time and keep it until the end of the paid period.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
         foreach (PlanTiers::addons() as $ad) {

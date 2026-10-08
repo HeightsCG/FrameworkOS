@@ -790,6 +790,36 @@ class StripeService {
         }
     }
 
+    /** An invoice on a connected account (a fan membership's), or null when it can't be read. */
+    public static function connect_invoice($account_id, $invoice_id)
+    {
+        if ((string) $account_id === '' || (string) $invoice_id === '') { return null; }
+        try {
+            return self::client()->invoices->retrieve((string) $invoice_id, array(), array('stripe_account' => (string) $account_id));
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_invoice: ' . $e->getMessage());
+            return null;
+        }
+    }
+
+    /** The id of the invoice a connected-account PaymentIntent paid (newer API versions drop charge.invoice), or ''. */
+    public static function connect_invoice_for_payment($account_id, $payment_intent_id): string
+    {
+        if ((string) $account_id === '' || (string) $payment_intent_id === '') { return ''; }
+        try {
+            $list = self::client()->invoicePayments->all(
+                array('payment' => array('type' => 'payment_intent', 'payment_intent' => (string) $payment_intent_id), 'limit' => 1),
+                array('stripe_account' => (string) $account_id)
+            );
+            $p = $list->data[0] ?? null;
+            if (!$p) { return ''; }
+            return is_object($p->invoice) ? (string) $p->invoice->id : (string) $p->invoice;
+        } catch (\Throwable $e) {
+            error_log('[stripe] connect_invoice_for_payment: ' . $e->getMessage());
+            return '';
+        }
+    }
+
     /**
      * The platform's fee on fan memberships, from Stripe's application fees (net of any refunded part), bucketed by
      * month ('Y-m' => cents) plus 'all'. Fees are only taken on connected-account charges, i.e. memberships.

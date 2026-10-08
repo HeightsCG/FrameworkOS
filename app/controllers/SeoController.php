@@ -159,6 +159,7 @@ class SeoController extends Controller {
         $l[] = '## Facts';
         foreach (PagesController::quotable_facts() as $fact) { $l[] = '- ' . $fact; }
         $l[] = '- ' . $site . ' publishes to nine social networks: ' . self::NETWORKS . ', plus Fanvue cross-posting.';
+        $l[] = '- Plan charges and credit purchases on ' . $site . ' are final and non-refundable; a plan can be canceled at any time and runs to the end of the paid period.';
         $l[] = '- Payouts go to your bank: earnings collect as credits (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and you cash them out to your own bank account on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum.';
         $l[] = '- ' . $site . ' has a Claude connector (MCP server) so a creator can run their account from Claude: posts, messages, analytics and more.';
         $l[] = '';

@@ -33,7 +33,7 @@ $doc = array(
             'If you think a charge is wrong, contact us at {contact} before disputing it with your bank. If you file a chargeback, we may suspend your account while it is resolved.',
         )),
         array('Creator plans', array(
-            'Creator plans are monthly subscriptions. Current plans, prices and platform fees are shown on our pricing page at /pricing. Plans renew each month until you cancel. When you cancel, your plan stays active until the end of the paid period and does not renew.',
+            'Creator plans are monthly subscriptions. Current plans, prices and platform fees are shown on our pricing page at /pricing. Plans renew each month until you cancel. Plan charges are final and non-refundable, unless the law requires otherwise. When you cancel, your plan stays active until the end of the paid period and does not renew.',
             'Paid plans include a monthly allowance of AI credits for AI features; unused monthly allowances do not carry over. The Free plan includes no AI credits. Additional AI credits can be bought on any plan, do not expire, and are non-refundable.',
             'We take a platform fee from each sale a creator makes. The fee depends on the creator\'s plan and is shown on the pricing page. Creators are paid their net earnings to their bank account after completing payout setup. Payout details, holds and reserves are covered in the Creator Terms.',
             'We may change plan prices or fees with at least 30 days\' notice. A change takes effect at your next renewal after the notice period.',

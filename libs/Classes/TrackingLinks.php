@@ -76,14 +76,15 @@ class TrackingLinks {
 
     /**
      * Log a conversion for a link known by id (carried through checkout metadata, for the payment webhook where there
-     * is no cookie). Same ownership checks and dedupe as attribute(). Never throws.
+     * is no cookie). Same ownership checks and dedupe as attribute(); $replace sets the amount on an event already
+     * logged (the invoice says what the fan really paid). Never throws.
      */
-    public static function attribute_link($link_id, $creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0): void {
+    public static function attribute_link($link_id, $creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0, $replace = false): void {
         try {
             if ((int) $link_id <= 0 || (int) $creator_id <= 0 || (int) $user_id === (int) $creator_id) { return; }
             $link = (new TrackingLinksModel())->get_by_id((int) $link_id);
             if (!$link || (int) $link['creator_id'] !== (int) $creator_id) { return; }
-            self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id);
+            self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id, $replace);
         } catch (\Throwable $e) {
             error_log('[tracking_links] ' . $kind . ' (link): ' . $e->getMessage());
         }
@@ -101,9 +102,12 @@ class TrackingLinks {
     }
 
     /** Record once per link + kind + user + ref (a reloaded success page and the webhook never both count). */
-    private static function log(array $link, $kind, $user_id, $amount, $ref_table, $ref_id): void {
+    private static function log(array $link, $kind, $user_id, $amount, $ref_table, $ref_id, $replace = false): void {
         $m = new TrackingLinksModel();
-        if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) { return; }
+        if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) {
+            if ($replace) { $m->update_amount((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id, (int) $amount); }
+            return;
+        }
         $m->record_event((int) $link['id'], (int) $link['creator_id'], (string) $kind, (int) $user_id, (int) $amount, (string) $ref_table, (int) $ref_id);
     }
 }

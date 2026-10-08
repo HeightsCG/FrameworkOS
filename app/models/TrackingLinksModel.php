@@ -73,6 +73,14 @@ class TrackingLinksModel extends Model {
         return is_array($rows) && count($rows) > 0;
     }
 
+    /** Set the amount on an already logged event (the webhook learned what the fan really paid). */
+    public function update_amount($link_id, $kind, $user_id, $ref_table, $ref_id, $amount){
+        return parent::update('tracking_link_events', array('amount_credits' => (int) $amount),
+            'link_id = :l AND kind = :k AND user_id <=> :u AND ref_table <=> :t AND ref_id <=> :r',
+            array('l' => (int) $link_id, 'k' => (string) $kind, 'u' => (int) $user_id > 0 ? (int) $user_id : null,
+                  't' => $ref_table !== null && (string) $ref_table !== '' ? (string) $ref_table : null, 'r' => (int) $ref_id > 0 ? (int) $ref_id : null));
+    }
+
     /** The creator's links with counts per kind and revenue since $start_utc (all time when ''). */
     public function stats($creator_id, $start_utc = ''){
         $since = $start_utc !== '' ? ' AND e.created_at >= :s' : '';

@@ -183,7 +183,7 @@ class CreatorSubscriptionsModel extends Model {
         }
 
         $existing = parent::select(
-            "SELECT id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
+            "SELECT id, stripe_subscription_id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
             array('s' => (int) $subscriber_id, 'p' => (int) $plan['id'])
         );
         $data = array(
@@ -227,6 +227,16 @@ class CreatorSubscriptionsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** The fan's latest paid membership with this creator by their Stripe customer on the creator's account, or null. */
+    public function get_paid_by_customer($creator_id, $stripe_customer_id){
+        if ((string) $stripe_customer_id === '') { return null; }
+        $rows = parent::select(
+            "SELECT cs.*, p.name AS plan_name FROM creator_subscriptions cs LEFT JOIN creator_plans p ON p.id = cs.plan_id
+             WHERE cs.creator_id = :c AND cs.stripe_customer_id = :cu AND cs.is_free = 0 ORDER BY cs.updated_at DESC LIMIT 1",
+            array('c' => (int) $creator_id, 'cu' => (string) $stripe_customer_id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
     /** True exactly once per Stripe subscription: the first success-page visit that records it. */
     public function claim_checkout_recorded($stripe_subscription_id){
         if ((string) $stripe_subscription_id === '') { return false; }
@@ -249,6 +259,13 @@ class CreatorSubscriptionsModel extends Model {
             'stripe_subscription_id = :sid',
             array('sid' => (string) $stripe_subscription_id)
         );
+    }
+
+    /** End a membership unless it already ended: the affected-row count is the once-only gate (0 = someone else did). */
+    public function cancel_open_by_stripe_id($stripe_subscription_id){
+        $now = date('Y-m-d H:i:s');
+        return parent::update('creator_subscriptions', array('status' => 'canceled', 'canceled_at' => $now, 'updated_at' => $now, 'cancel_at_period_end' => 0),
+            "stripe_subscription_id = :sid AND status <> 'canceled'", array('sid' => (string) $stripe_subscription_id));
     }
 
     /** A subscription scoped to its owner (the subscriber), or null. */

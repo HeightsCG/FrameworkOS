@@ -148,11 +148,18 @@ endpoint feeds the payout history in Settings > Wallet > Cash Out and the "Bank 
 1. Stripe dashboard (live mode) > Developers > Webhooks > Add endpoint.
 2. Endpoint URL: `https://www.creatorlinkstudio.com/webhook/stripe_connect`
 3. Under "Listen to", choose **Events on connected accounts** (not "Events on your account").
-4. Select these events: `payout.created`, `payout.updated`, `payout.paid`, `payout.failed`, `payout.canceled`,
-   AND the fan-membership events, because memberships are subscriptions on the creator's connected account and only
-   reach a connected-accounts destination: `customer.subscription.created`, `customer.subscription.updated`,
-   `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`, `charge.dispute.created`.
-   (The platform destination at /webhook/stripe keeps its own list for platform-account charges.)
+4. Select these events. Fan memberships are subscriptions on the creator's connected account, so their events only
+   reach a connected-accounts destination:
+   - `payout.created`, `payout.updated`, `payout.paid`, `payout.failed`, `payout.canceled`: the bank payout history in Cash Out, and the "Bank payout failed" notice.
+   - `customer.subscription.created`: records the membership if the fan closed the tab before the success page, and credits its tracking link.
+   - `customer.subscription.updated`: keeps status, renewal date and cancel-at-period-end in sync.
+   - `customer.subscription.deleted`: ends the membership and tells the fan and the creator.
+   - `invoice.payment_succeeded`: reactivates a past-due membership, sends the renewal notice, and on the first invoice sets the tracking link amount to what the fan actually paid.
+   - `invoice.payment_failed`: marks the membership past due (no access) and asks the fan to update their card.
+   - `charge.refunded`: a full refund of a membership charge cancels the subscription in Stripe first, then ends the membership and tells both sides. If the cancel fails, the admins get a notice and the endpoint answers 500 so Stripe retries. A partial refund is only logged.
+   - `charge.dispute.created`: logs the chargeback (admin Recent sales). It pauses nobody here: a membership charge is not in credit_transactions or billing_charges, which are the only places the pause looks.
+
+   The platform destination at /webhook/stripe keeps its own list (below).
 5. Add the endpoint, open it, reveal the **Signing secret** (`whsec_...`) and add it to `app/config/app.ini`
    under `[production]`:
 
@@ -165,3 +172,16 @@ endpoint feeds the payout history in Settings > Wallet > Cash Out and the "Bank 
    the endpoint answers 200 (an unknown test account is logged and acknowledged).
 
 Until the key is deployed the endpoint answers 500 "not configured"; Stripe retries those deliveries, so nothing is lost.
+
+### Platform destination events
+
+The endpoint at `https://www.creatorlinkstudio.com/webhook/stripe` ("Events on your account", secret
+`stripe_webhook_secret`) handles platform charges: wallet top-ups, AI credit packs and creator plan charges.
+
+- `payment_intent.succeeded`: adds the credits of a top-up or AI credit pack (once, shared with the page), and settles a creator plan charge.
+- `payment_intent.payment_failed`: marks a creator plan charge failed.
+- `payment_intent.requires_action`: marks a creator plan charge as waiting for the card holder (3D Secure).
+- `charge.refunded`: takes the refunded share of a top-up or AI credit pack back out of the buyer's wallet. Never below zero, never twice; if the wallet can't cover it, the shortfall is written off and that payment is settled.
+- `charge.dispute.created`: takes back the disputed share of a top-up's or credit pack's credits the same way and logs the chargeback. It pauses the account only for a wallet top-up (found in credit_transactions) or a creator plan charge (found in billing_charges); an AI credit pack dispute pauses nobody.
+- `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`: kept from before; memberships now arrive on the Connect endpoint, so these rarely fire here.
+
