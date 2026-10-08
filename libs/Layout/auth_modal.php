@@ -105,6 +105,10 @@
                             <label for="register_p_word_confirm">Confirm password</label>
                         </div>
                     </div>
+                    <?php /* honeypot: off-screen, never shown; a bot that fills it gets a "success" and no account (ApiAuthController::registerAction) */ ?>
+                    <div aria-hidden="true" style="position:absolute; left:-9999px; top:0; width:1px; height:1px; overflow:hidden;">
+                        <input type="text" id="register_company" name="company" tabindex="-1" autocomplete="off" placeholder="Company">
+                    </div>
                     <div class="col-md-12">
                         <button type="button" id="do_register" class="cos-submit">Create Account</button>
                         <p class="cos-legal">By creating an account you agree to the <a href="/terms" target="_blank" rel="noopener">Terms of Service</a> and <a href="/privacy" target="_blank" rel="noopener">Privacy Policy</a>.</p>

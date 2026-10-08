@@ -119,6 +119,7 @@ class ApiSeoContentController extends BaseApiController {
         $m = new SeoArticlesModel(); $id = (int) ($this->post['id'] ?? 0); $a = $m->get($id);
         if (!$a) { $this->jsonError('Article not found'); }
         $m->set_status($id, 'archived'); $this->link_keyword($a, 'queued', null);
+        try { IndexNow::ping(array('/blog/' . $a['slug'], '/blog')); } catch (\Throwable $e) { error_log('[seo] indexnow: ' . $e->getMessage()); }   // the URL now 404s: search engines should re-check it
         $this->jsonSuccess(['message' => 'Discarded']);
     }
 

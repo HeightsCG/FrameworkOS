@@ -58,11 +58,20 @@ class IndexNow {
         return $out;
     }
 
+    /** The creator's public page (and the home feed it appears in), as the sitemap lists it. */
+    public static function creator($creator_id): int {
+        $rows = (new UsersModel())->get_user_by_id((int) $creator_id);
+        $u = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+        if (!$u || (string) ($u['u_name'] ?? '') === '') { return 0; }
+        return self::ping(array('/@' . rawurlencode((string) $u['u_name']), '/'));
+    }
+
     /**
      * Submit absolute URLs (max 10,000 per call). Relative paths are resolved against the site base.
+     * $force skips the "sent recently" filter (a deploy re-announces every sitemap URL at once).
      * Returns the HTTP status, or 0 when skipped/failed.
      */
-    public static function ping(array $urls): int {
+    public static function ping(array $urls, $force = false): int {
         $base = rtrim(SeoMeta::base(), '/');
         $host = parse_url($base, PHP_URL_HOST) ?: '';
         $list = array();
@@ -76,7 +85,7 @@ class IndexNow {
         $list = array_values(array_unique($list));
         if (empty($list) || !self::enabled()) { return 0; }
 
-        $list = self::drop_recent($list);
+        $list = $force ? $list : self::drop_recent($list);
         if (empty($list)) { return 0; }
 
         $body = json_encode(array(
@@ -99,8 +108,9 @@ class IndexNow {
         $err  = curl_error($ch);
         curl_close($ch);
 
-        if ($code >= 200 && $code < 300) { error_log('[indexnow] ' . count($list) . ' url(s) accepted (' . $code . ')'); }
-        else { error_log('[indexnow] failed (' . $code . ') ' . ($err !== '' ? $err : substr((string) $out, 0, 200))); }
+        $shown = implode(' ', array_slice($list, 0, 3)) . (count($list) > 3 ? ' +' . (count($list) - 3) : '');
+        if ($code >= 200 && $code < 300) { error_log('[indexnow] ' . count($list) . ' url(s) accepted (' . $code . '): ' . $shown); }
+        else { error_log('[indexnow] failed (' . $code . ') for ' . $shown . ' ' . ($err !== '' ? $err : substr((string) $out, 0, 200))); }
         return $code;
     }
 }

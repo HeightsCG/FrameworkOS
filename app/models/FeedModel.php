@@ -18,6 +18,9 @@ class FeedModel extends Model {
         // Blocks hide a creator's posts from the blocked viewer, and the viewer's own blocks hide creators they blocked.
         $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
         $params    = $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array();
+        // demo accounts stay out of everyone else's feed; the demo user still sees their own posts.
+        $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
+        if ($viewer_id > 0) { $params['demo_viewer'] = $viewer_id; }
         // Cover = the post's is_cover asset, else its first ready asset by sort order.
         // Pulled as correlated scalar subqueries (the ON-clause form trips a MySQL
         // "unknown column" error on the joined alias).
@@ -37,7 +40,7 @@ class FeedModel extends Model {
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
         return parent::select($sql, $params);
@@ -56,10 +59,11 @@ class FeedModel extends Model {
         $viewer_id = (int) $viewer_id;
         $block_sql = $viewer_id > 0 ? ' AND ' . BlocksModel::exclude_sql('p.creator_id', 'bv1', 'bv2') : '';
         $params    = array('since' => $since_id);
-        if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; }
+        if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; $params['demo_viewer'] = $viewer_id; }
+        $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
-                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql
+                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, $params);
@@ -82,7 +86,7 @@ class FeedModel extends Model {
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free'
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND ua.is_demo = 0 AND " . Plan::paid_sql('ua') . "
                   AND EXISTS (SELECT 1 FROM post_assets pa WHERE pa.post_id = p.id)
                   AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                                    WHERE pa.post_id = p.id AND ma.deleted_at IS NULL

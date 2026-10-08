@@ -124,7 +124,8 @@ class SeoMeta {
         $out[] = '<title>' . $e($full) . '</title>';
         $out[] = '<meta name="description" content="' . $e($desc) . '">';
         $out[] = '<link rel="canonical" href="' . $e($url) . '">';
-        $out[] = '<meta name="robots" content="' . (!empty($m['noindex']) ? 'noindex, follow' : 'index, follow, max-image-preview:large') . '">';
+        $robots = trim((string) ($m['robots'] ?? ''));   // e.g. 'noindex, nofollow' for demo profiles
+        $out[] = '<meta name="robots" content="' . ($robots !== '' ? $e($robots) : (!empty($m['noindex']) ? 'noindex, follow' : 'index, follow, max-image-preview:large')) . '">';
         $out[] = '<meta property="og:type" content="' . $type . '">';
         $out[] = '<meta property="og:site_name" content="' . $e($site) . '">';
         $out[] = '<meta property="og:title" content="' . $e($og_title) . '">';

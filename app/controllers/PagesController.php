@@ -27,6 +27,9 @@ class PagesController extends Controller {
     /** Where legal and privacy requests go (shown on /terms and /privacy). */
     const LEGAL_CONTACT = 'support@creatorlinkstudio.com';
 
+    /** Below this many listed creators the directory copy doesn't quote the number. */
+    const DIRECTORY_COUNT_MIN = 10;
+
     /** Competitor facts used by /compare/* and the best-of page. Every row has a source + checked date.
      *  Fact-checked 2026-09-21 against the source URLs below; see task-7-report.md for the exact
      *  sentence relied on per row. Rows OnlyFans could not verify directly (its site is behind a
@@ -201,7 +204,9 @@ class PagesController extends Controller {
 
     /** Feature pages under /features/<slug> (FeaturePages::PAGES). */
     public static function feature_pages(): array {
-        return FeaturePages::PAGES;
+        // {fee_sentence} in the constant is filled from the plan config here, so the numbers never go stale in the text.
+        $fee = self::fee_sentence();
+        return json_decode(str_replace('{fee_sentence}', addcslashes($fee, '"\\'), json_encode(FeaturePages::PAGES, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), true);
     }
 
     public function featuresAction(){
@@ -274,7 +279,7 @@ class PagesController extends Controller {
         $ai_first = PlanTiers::lowest_including('influencers');
         $faq  = array(
             array('q' => 'Is there a free plan?', 'a' => 'Yes. Everyone starts with a Free account: it costs nothing, needs no card, and lets you follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio, which include your page, memberships, pay-per-view, publishing and payouts.'),
-            array('q' => 'What is the platform take rate?', 'a' => 'A flat percentage of what fans pay you, set by your plan and shown on this page. It falls as you move up.'),
+            array('q' => 'What is the platform take rate?', 'a' => self::fee_sentence()),
             array('q' => 'Can I buy AI credits on any plan?', 'a' => 'AI tools are part of Creator and Studio, which include AI credits every month. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
             array('q' => 'Can I change plans later?', 'a' => 'Yes, up or down at any time from Billing. Moving between paid plans prorates. Moving to Free takes effect when your paid period ends. Anything over the new limits is kept and locked, never deleted.'),
         );
@@ -303,7 +308,7 @@ class PagesController extends Controller {
 
     /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        return trim(self::plan_price_sentence() . ' Free needs no card and is the account everyone starts with, to follow, subscribe and buy. Selling starts on Creator; Studio lowers the take rate further and adds more AI influencers and team seats. ' . self::addon_sentence());
+        return trim(self::plan_price_sentence() . ' Free needs no card and is the account everyone starts with, to follow, subscribe and buy; it cannot sell and pays no fee. Selling starts on Creator, and the platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
@@ -353,15 +358,36 @@ class PagesController extends Controller {
         foreach (self::pricing_rows() as $r) {
             $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100) . '/mo';
         }
-        return 'Plans: ' . implode(', ', $bits) . '. Everyone starts with a Free account to follow, subscribe and buy; selling starts on Creator, and Studio lowers the take rate further.';
+        return 'Plans: ' . implode(', ', $bits) . '. Everyone starts with a Free account to follow, subscribe and buy; selling starts on Creator. Platform fee: ' . self::fee_short() . '.';
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
+    /** The plans that sell: paid, not retired. Free is the fan account and has no fee because it sells nothing. */
+    public static function selling_tiers(): array {
+        $out = array();
+        foreach (PlanTiers::all() as $t) { if ((int) ($t['price'] ?? 0) > 0 && empty($t['retired'])) { $out[] = $t; } }
+        return $out;
+    }
+
+    /** "10% on Creator, 3% on Studio" — the fee per selling plan, from config, never a range that includes Free. */
+    public static function fee_short(): string {
+        $bits = array();
+        foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% on ' . $t['name']; }
+        return implode(', ', $bits);
+    }
+
+    /** The quotable fee sentence (pricing FAQ, payouts page, llms.txt, the drafter's facts): numbers, plan prices, what Free is. */
+    public static function fee_sentence(): string {
+        $bits = array();
+        foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on the ' . $t['name'] . ' plan ($' . number_format((int) $t['price']) . '/month)'; }
+        $last = array_pop($bits);
+        $list = (count($bits) > 0) ? implode(', ', $bits) . ' and ' . $last : $last;
+        return Main::site_name() . '\'s platform fee is ' . $list . '. Free accounts are for fans and cannot sell, so they pay no platform fee. Card processing fees are separate.';
+    }
+
     public static function our_facts(): array {
-        $tiers = PlanTiers::all(); $fees = array();
-        foreach ($tiers as $t) { $fees[] = (int) $t['limits']['fee_percent']; }
         return array(
-            'fee'       => min($fees) . '% to ' . max($fees) . '% by plan (falls as you grow)',
+            'fee'       => self::fee_short() . ' (Free is for fans and cannot sell)',
             'payout'    => 'Direct to your bank account',
             'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
             'socials'   => 'Publishes to 9 social networks from one studio',
@@ -471,9 +497,10 @@ class PagesController extends Controller {
         $label = $cat === '' ? '' : DirectoryService::CATEGORIES[$cat];
         $base  = '/creators' . ($cat !== '' ? '/' . $cat : '');
         $title = $cat === '' ? 'Creator Directory: Find Creators to Follow and Support' : $label . ' Creators to Follow and Support';
+        $show_n = $total >= self::DIRECTORY_COUNT_MIN;
         $desc  = $cat === ''
-            ? 'Browse creators on ' . Main::site_name() . ': memberships, posts, services and events from ' . $total . ' creators, sorted by who\'s active.'
-            : 'Browse ' . $total . ' ' . strtolower($label) . ' creator' . ($total === 1 ? '' : 's') . ' on ' . Main::site_name() . ' and follow, subscribe or book them from their page.';
+            ? 'Browse creators on ' . Main::site_name() . ': memberships, posts, services and events from ' . ($show_n ? $total . ' creators' : 'creators') . ', sorted by who\'s active.'
+            : 'Browse ' . ($show_n ? $total . ' ' : '') . strtolower($label) . ' creators on ' . Main::site_name() . ' and follow, subscribe or book them from their page.';
         $extra = array();
         if ($page > 1)      { $extra[] = '<link rel="prev" href="' . Sections::e(SeoMeta::base() . $base . ($page > 2 ? '?page=' . ($page - 1) : '')) . '">'; }
         if ($page < $pages) { $extra[] = '<link rel="next" href="' . Sections::e(SeoMeta::base() . $base . '?page=' . ($page + 1)) . '">'; }
@@ -489,6 +516,6 @@ class PagesController extends Controller {
         );
         $this->page('creators', array('path' => $base . ($page > 1 ? '?page=' . $page : ''), 'title' => $title . ($page > 1 ? ' (Page ' . $page . ')' : ''), 'description' => $desc,
             'jsonld' => $jsonld, 'extra' => $extra, 'noindex' => $total === 0),
-            array('creators' => $creators, 'counts' => $counts, 'cat' => $cat, 'label' => $label, 'page' => $page, 'pages' => $pages, 'total' => $total, 'base' => $base));
+            array('creators' => $creators, 'counts' => $counts, 'show_counts' => $show_n, 'cat' => $cat, 'label' => $label, 'page' => $page, 'pages' => $pages, 'total' => $total, 'base' => $base));
     }
 }

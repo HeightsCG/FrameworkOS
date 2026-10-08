@@ -71,6 +71,10 @@
             var s = b.getAttribute('data-status');
             confirmAction({ title: s === 'Disabled' ? 'Suspend this account?' : 'Reactivate this account?', text: s === 'Disabled' ? 'They are signed out and blocked from signing in.' : 'They can sign in again.', icon: s === 'Disabled' ? 'warning' : 'question', confirmButtonText: s === 'Disabled' ? 'Suspend' : 'Reactivate', confirmButtonColor: s === 'Disabled' ? '#e5484d' : '#FF6A13' })
                 .then(function (ok) { if (ok) { call('admin_set_user_status', { user_id: user_id, status: s }, b); } });
+        } else if (act === 'demo') {
+            var d = b.getAttribute('data-demo');
+            confirmAction({ title: d === '1' ? 'Mark this account as demo?' : 'Remove the demo flag?', text: d === '1' ? 'It is hidden from the creator directory, sitemap, home feed and search, and its page is not indexed.' : 'It shows in public listings again.', icon: 'question', confirmButtonText: d === '1' ? 'Mark as Demo' : 'Unmark Demo' })
+                .then(function (ok) { if (ok) { call('admin_set_demo', { user_id: user_id, is_demo: d }, b); } });
         } else if (act === 'plan') {
             var c = b.getAttribute('data-cancel');
             confirmAction({ title: c === '1' ? 'Cancel this plan at the end of the period?' : 'Resume this plan?', text: c === '1' ? 'The plan stays active until the current period ends, then stops renewing.' : 'The plan will keep renewing.', confirmButtonText: c === '1' ? 'Cancel Plan' : 'Resume Plan', confirmButtonColor: c === '1' ? '#e5484d' : '#FF6A13' })

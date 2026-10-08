@@ -137,6 +137,7 @@ class SeoDrafter {
         $site = Main::site_name(); $base = SeoMeta::base();
         $lines = array("Product: $site ($base). A creator platform: one public page at $base/@handle with posts, membership tiers, pay-per-view posts, content bundles, services, events and tracked links; a studio that publishes to nine social networks with AI captions; an inbox with AI replies; payouts to the creator's bank; fans pay memberships by card and everything else with a credit wallet (\$1 = 10 credits).");
         foreach (PagesController::our_facts() as $k => $v) { $lines[] = ucfirst($k) . ': ' . $v; }
+        $lines[] = 'Platform fee, exactly: ' . PagesController::fee_sentence() . ' Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
         foreach (PagesController::pricing_rows() as $r) {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());
             if (empty($t['name'])) { continue; }

@@ -364,6 +364,13 @@ class AdminModel extends Model {
         return $ok;
     }
 
+    /** Flag / unflag a demo account (kept out of the directory, sitemap, feed and search; profile noindex). */
+    public function set_demo($user_id, $is_demo){
+        return parent::update('user_accounts',
+            array('is_demo' => $is_demo ? 1 : 0),
+            'user_id = :id', array('id' => (int) $user_id));
+    }
+
     /** Set an asset's moderation decision. */
     public function set_moderation($asset_id, $status){
         if (!in_array($status, array('approved', 'blocked', 'flagged', 'pending'), true)) { return false; }

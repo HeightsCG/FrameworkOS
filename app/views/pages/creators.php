@@ -1,5 +1,5 @@
 <?php
-/** Creator directory (/creators, /creators/<category>). Vars: $creators, $counts, $cat, $label, $page, $pages, $total, $base. */
+/** Creator directory (/creators, /creators/<category>). Vars: $creators, $counts, $show_counts, $cat, $label, $page, $pages, $total, $base. */
 $e = function ($s) { return Sections::e($s); };
 $site = Main::site_name();
 
@@ -14,10 +14,12 @@ echo Sections::open('white');
 // Category chips: only categories that have listed creators, so no chip leads to an empty page.
 if (!empty($counts)) {
     echo '<nav class="dir-cats" aria-label="Categories">';
-    echo '<a class="dir-cat' . ($cat === '' ? ' is-on' : '') . '" href="/creators"' . ($cat === '' ? ' aria-current="page"' : '') . '>All <span>' . (int) array_sum($counts) . '</span></a>';
+    // chip numbers only once the directory is big enough to quote (PagesController::DIRECTORY_COUNT_MIN).
+    $n = function ($c) use ($show_counts) { return $show_counts ? ' <span>' . (int) $c . '</span>' : ''; };
+    echo '<a class="dir-cat' . ($cat === '' ? ' is-on' : '') . '" href="/creators"' . ($cat === '' ? ' aria-current="page"' : '') . '>All' . $n(array_sum($counts)) . '</a>';
     foreach (DirectoryService::CATEGORIES as $slug => $name) {
         if (empty($counts[$slug])) { continue; }
-        echo '<a class="dir-cat' . ($cat === $slug ? ' is-on' : '') . '" href="/creators/' . $e($slug) . '"' . ($cat === $slug ? ' aria-current="page"' : '') . '>' . $e($name) . ' <span>' . (int) $counts[$slug] . '</span></a>';
+        echo '<a class="dir-cat' . ($cat === $slug ? ' is-on' : '') . '" href="/creators/' . $e($slug) . '"' . ($cat === $slug ? ' aria-current="page"' : '') . '>' . $e($name) . $n($counts[$slug]) . '</a>';
     }
     echo '</nav>';
 }

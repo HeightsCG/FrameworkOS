@@ -3,7 +3,7 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title">Join Free. Sell When You're Ready.</h1>
-    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts, and the fee falls as you grow.</p>
+    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts; the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>.</p>
 <?php
 ?>
 <div class="sx-plans">

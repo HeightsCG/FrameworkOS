@@ -15,7 +15,7 @@ echo Sections::panel_hero(array(
 ));
 echo Sections::open('white', 'How to judge a platform');
 echo Sections::cards(array(
-    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. A fee that falls as you grow matters once you pass a few thousand a month.'),
+    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', which matters once you pass a few thousand a month.'),
     array('icon' => 'package', 'title' => 'What you can sell', 'text' => 'Subscriptions only, or also pay-per-view, bundles, services and events.'),
     array('icon' => 'send', 'title' => 'Where your fans are', 'text' => 'A platform that publishes to your socials brings people in; one that does not makes you do it by hand.'),
     array('icon' => 'shield', 'title' => 'Ownership and payouts', 'text' => 'Can you export your audience and media if you leave, and how long is the payout hold?'),

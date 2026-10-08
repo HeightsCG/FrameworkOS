@@ -30,7 +30,7 @@ class SearchModel extends Model {
                     cp.avatar_url AS avatar
              FROM user_accounts u
              LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
-             WHERE u.deleted = 0 AND u.user_status <> 'Disabled' AND u.role_id = :r AND " . Plan::paid_sql('u') . "
+             WHERE u.deleted = 0 AND u.user_status <> 'Disabled' AND u.is_demo = 0 AND u.role_id = :r AND " . Plan::paid_sql('u') . "
                AND (u.u_name LIKE :q1 OR cp.display_name LIKE :q2 OR TRIM(CONCAT(u.first_name, ' ', u.last_name)) LIKE :q3)
              $block_sql
              ORDER BY (u.u_name LIKE :pref) DESC, u.u_name ASC
@@ -65,7 +65,7 @@ class SearchModel extends Model {
              FROM posts p
              JOIN user_accounts u ON u.user_id = p.creator_id
              LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
-             WHERE p.state = 'published' AND p.on_cls = 1 AND u.deleted = 0 AND u.user_status <> 'Disabled' AND " . Plan::paid_sql('u') . " AND p.caption LIKE :q$block_sql
+             WHERE p.state = 'published' AND p.on_cls = 1 AND u.deleted = 0 AND u.user_status <> 'Disabled' AND u.is_demo = 0 AND " . Plan::paid_sql('u') . " AND p.caption LIKE :q$block_sql
              ORDER BY p.published_at DESC, p.id DESC
              LIMIT 30",
             array_merge(array('q' => $like), $viewer_id > 0 ? array('bv1' => $viewer_id, 'bv2' => $viewer_id) : array())

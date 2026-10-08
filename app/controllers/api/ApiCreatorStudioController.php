@@ -33,6 +33,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'location'     => $plain('location'),
         ]);
 
+        try { IndexNow::creator((int) Permissions::creator_id()); } catch (\Throwable $e) { error_log('[indexnow] profile: ' . $e->getMessage()); }
         $this->jsonSuccess(['message' => 'Profile saved']);
     }
 

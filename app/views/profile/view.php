@@ -87,6 +87,7 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
         'twitter_card' => $has_avatar ? 'summary' : 'summary_large_image',
         'extra' => array('<meta property="profile:username" content="' . htmlspecialchars($handle, ENT_QUOTES, 'UTF-8') . '">'),
         'jsonld' => $seo_ld,
+        'robots' => !empty($user['is_demo']) ? 'noindex, nofollow' : '',
     )); ?>
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">

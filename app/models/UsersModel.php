@@ -137,6 +137,7 @@ class UsersModel extends Model {
                 AND u.deleted = 0
                 AND u.user_status = 'Active'
                 AND u.email_verified = 1
+                AND u.is_demo = 0
                 AND " . Plan::paid_sql('u') . "
                 AND u.u_name <> ''
                 AND NOT EXISTS (SELECT 1 FROM creator_domains d WHERE d.user_id = u.user_id AND d.deleted = 0 AND d.status = 'active')

@@ -48,6 +48,20 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['status' => $status, 'message' => $status === 'Disabled' ? 'Account suspended' : 'Account reactivated']);
     }
 
+    /** Mark / unmark a demo account so it never reads as a real creator in public listings. */
+    public function admin_set_demoAction(){
+        $this->admin_guard();
+        $me   = (int) Session::get('user_id');
+        $uid  = (int) ($this->post['user_id'] ?? 0);
+        $demo = (string) ($this->post['is_demo'] ?? '');
+        if ($uid <= 0 || !in_array($demo, ['0', '1'], true)) { $this->jsonError('Invalid request'); }
+        if ($uid === $me) { $this->jsonError('You cannot mark your own account as demo.'); }
+        $rows = $this->userModel->get_user_by_id($uid);
+        if (!is_array($rows) || count($rows) !== 1) { $this->jsonError('User not found'); }
+        (new AdminModel())->set_demo($uid, $demo === '1');
+        $this->jsonSuccess(['is_demo' => (int) $demo, 'message' => $demo === '1' ? 'Marked as demo account' : 'Demo flag removed']);
+    }
+
     /** Approve or block a piece of content in the moderation queue. */
     public function admin_moderateAction(){
         $this->admin_guard();

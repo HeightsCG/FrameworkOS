@@ -23,21 +23,24 @@
 
         var token = new URLSearchParams(window.location.search).get('token') || '';
 
-        function show_result(ok, message) {
+        // A good link signs them in: follow the server's `redirect`. A dead one offers a resend (expired) or sign-in (already used).
+        function show_result(ok, message, response) {
             $('#verify_spinner').hide();
             $('#verify_message').text(message);
             if (ok) {
+                var go = (response && response.redirect) ? response.redirect : '/';
                 $('#verify_icon').html('&#10003;').addClass('is-ok');
-                $('#verify_signin').show();
-                setTimeout(function() { window.location = '/'; }, 2500);
+                $('#verify_continue').attr('href', go).show();
+                setTimeout(function() { window.location = go; }, 1200);
             } else {
                 $('#verify_icon').html('&times;').addClass('is-err');
+                if (response && response.expired) { $('#verify_resend').show(); }
                 $('#verify_signin').show();
             }
         }
 
         if (token === '') {
-            show_result(false, 'This verification link is missing its token.');
+            show_result(false, 'This verification link is missing its token.', null);
             return;
         }
 
@@ -45,10 +48,23 @@
             var response = null;
             try { response = JSON.parse(data); } catch (e) { response = null; }
             if (response && response.success) {
-                show_result(true, response.message);
+                show_result(true, response.message, response);
             } else {
-                show_result(false, response ? response.message : 'Something went wrong.');
+                show_result(false, response ? response.message : 'Something went wrong.', response);
             }
+        });
+
+        $('#do_resend').on('click', function() {
+            var email = ($('#resend_email').val() || '').trim();
+            if (email === '') { toastr.error('Enter your email'); return; }
+            ApiDataSvc.apiCall('post', 'resend_verification', { u_name: email }, function(data) {
+                var obj = null;
+                try { obj = JSON.parse(data); } catch (e) { obj = null; }
+                if (obj && obj.success) { toastr.success(obj.message); } else { toastr.error(obj ? obj.message : 'Something went wrong.'); }
+            });
+        });
+        $(document).on('keydown', '#resend_email', function(e) {
+            if (e.keyCode === 13) { $('#do_resend').trigger('click'); }
         });
 
     });
@@ -70,7 +86,15 @@
         <div id="verify_spinner" class="verify-spinner"></div>
         <div id="verify_icon" class="verify-icon" style="display:none;"></div>
         <p id="verify_message" class="text-muted mb-3">Verifying your email&hellip;</p>
-        <a id="verify_signin" href="/" class="btn btn-primary" style="display:none;">Go to sign in</a>
+        <div id="verify_resend" class="mb-3" style="display:none;">
+            <div class="form-floating mb-2">
+                <input type="email" id="resend_email" class="form-control" placeholder="Email" autocomplete="email">
+                <label for="resend_email">Email</label>
+            </div>
+            <button type="button" id="do_resend" class="btn btn-primary">Resend Verification</button>
+        </div>
+        <a id="verify_continue" href="/" class="btn btn-primary" style="display:none;">Continue</a>
+        <a id="verify_signin" href="/?auth=login" class="btn btn-outline-secondary" style="display:none;">Sign In</a>
     </div>
     <script>
         // Reveal the icon slot once we have a result (kept hidden while spinning).

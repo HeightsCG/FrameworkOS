@@ -16,6 +16,7 @@ class PostNotifier {
             // Socials-only posts (on_cls = 0) never appear on the platform, so followers aren't told.
             $post = (new PostsModel())->get_by_id($post_id);
             if ($post && empty($post['on_cls'])) { return; }
+            try { IndexNow::creator($creator_id); } catch (\Throwable $e) { error_log('[indexnow] post ' . $post_id . ': ' . $e->getMessage()); }   // their page changed: tell search engines
             $ids = self::audience_ids($creator_id);
             if (empty($ids)) { return; }
             if (count($ids) > self::INLINE_MAX && class_exists('DatabaseJobQueue')) {

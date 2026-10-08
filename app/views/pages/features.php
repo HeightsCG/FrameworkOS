@@ -46,7 +46,7 @@ $groups = array(
         array('user-plus', 'Team seats', 'Invite collaborators to work on your account.'),
         array('plug', 'Claude connector', 'Run your account from Claude: posts, messages, analytics and more.'),
         array('download', 'Export everything', 'Export your subscribers, content and brand any time.'),
-        array('shield', 'A fee that falls as you grow', 'A flat platform fee that drops on higher plans.'),
+        array('shield', 'A fee that falls as you grow', 'Platform fee of ' . PagesController::fee_short() . '; Free is for fans and cannot sell.'),
     )),
 );
 $jump = '<nav class="sx-jump" aria-label="Feature sections">';

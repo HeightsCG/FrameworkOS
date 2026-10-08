@@ -34,6 +34,7 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
                     <span class="adm-pill"><?php echo $e($u['role_name'] ?: 'User'); ?></span>
                     <?php if ($tier !== ''): ?><span class="adm-pill adm-pill--violet"><?php echo $e($tier); ?> plan</span><?php endif; ?>
                     <?php if (!empty($u['is_admin'])): ?><span class="adm-pill adm-pill--violet">Admin</span><?php endif; ?>
+                    <?php if (!empty($u['is_demo'])): ?><span class="adm-pill adm-pill--warn">Demo</span><?php endif; ?>
                     <?php if ($deleted): ?><span class="adm-pill adm-pill--bad">Deleted</span><?php elseif ($disabled): ?><span class="adm-pill adm-pill--bad">Suspended</span><?php else: ?><span class="adm-pill adm-pill--ok">Active</span><?php endif; ?>
                     <?php if (empty($u['email_verified'])): ?><span class="adm-pill adm-pill--warn">Email not verified</span><?php endif; ?>
                 </div>
@@ -47,6 +48,7 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
             <button type="button" class="adm-btn" data-act="mfa_reset"><i class="fa-solid fa-shield-halved"></i> Reset Two-Step</button>
             <?php if (!$this->is_me && !$deleted): ?>
             <button type="button" class="adm-btn <?php echo $disabled ? 'adm-btn--ok' : 'adm-btn--danger'; ?>" data-act="status" data-status="<?php echo $disabled ? 'Active' : 'Disabled'; ?>"><?php echo $disabled ? 'Reactivate' : 'Suspend'; ?></button>
+            <button type="button" class="adm-btn" data-act="demo" data-demo="<?php echo !empty($u['is_demo']) ? '0' : '1'; ?>"><?php echo !empty($u['is_demo']) ? 'Unmark Demo' : 'Mark as Demo'; ?></button>
             <?php endif; ?>
             <button type="button" class="adm-btn adm-btn--primary" data-act="adjust"><i class="fa-solid fa-plus-minus"></i> Adjust Balance</button>
         </div>

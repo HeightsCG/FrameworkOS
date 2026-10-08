@@ -101,7 +101,7 @@ class CreatorProfileModel extends Model {
     private function directory_where(): string {
         return "cp.directory_listed = 1
             AND cp.directory_media_ok = SHA1(CONCAT(COALESCE(cp.avatar_url, ''), '|', COALESCE(cp.cover_url, '')))
-            AND u.deleted = 0 AND u.user_status = 'Active' AND r.role_name = 'Creator' AND u.u_name <> '' AND COALESCE(cp.avatar_url, '') <> ''
+            AND u.deleted = 0 AND u.user_status = 'Active' AND u.is_demo = 0 AND r.role_name = 'Creator' AND u.u_name <> '' AND COALESCE(cp.avatar_url, '') <> ''
             AND " . Plan::paid_sql('u') . "
             AND EXISTS (SELECT 1 FROM posts p JOIN post_assets pa ON pa.post_id = p.id JOIN media_assets ma ON ma.id = pa.asset_id
                         WHERE p.creator_id = u.user_id AND p.state = 'published' AND p.on_cls = 1

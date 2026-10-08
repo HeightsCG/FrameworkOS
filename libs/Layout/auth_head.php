@@ -229,15 +229,23 @@
                 last_name:  $('#register_last_name').val(),
                 user_email: $('#register_user_email').val(),
                 p_word:     $('#register_p_word').val(),
-                p_word_confirm: $('#register_p_word_confirm').val()
+                p_word_confirm: $('#register_p_word_confirm').val(),
+                company:    $('#register_company').val(),   // honeypot: empty for people
+                'return':   cls_after_login() !== '/' ? cls_after_login() : location.pathname   // where the verification link lands them
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
-                    // Account created but not yet usable: send them to sign in with a heads-up to verify.
+                    // Account created but not yet usable: the link in the email signs them in. Back to Sign In meanwhile.
                     $('#register_form').hide();
                     $('#forgot_form').hide();
                     $('#login_form').show();
-                    toastr.success(obj.message);
+                    if (obj.email_failed) {
+                        resend_identifier = $('#register_user_email').val();   // the email never left: offer Resend right here
+                        $('#resend_verify_wrap').show();
+                        toastr.warning(obj.message);
+                    } else {
+                        toastr.success(obj.message);
+                    }
                 } else {
                     toastr.error(obj.message);
                 }

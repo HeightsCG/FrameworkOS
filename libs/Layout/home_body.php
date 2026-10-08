@@ -39,7 +39,7 @@ echo Sections::rows(array(
     array('title' => 'Publish everywhere at once', 'text' => 'Upload once in the studio. AI writes the caption in your brand voice, and the post goes to your page and your social accounts at the same time.',
           'points' => array('Nine social networks from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
     array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's fee, and you cash out to your bank anytime.",
-          'points' => array('A platform fee that falls as you grow', 'Export your audience and content any time', 'An inbox with AI replies in your voice')),
+          'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice')),
 ));
 echo Sections::close();
 

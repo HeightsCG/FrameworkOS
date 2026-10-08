@@ -28,7 +28,7 @@ echo Sections::cards(array(
         'You post to several social networks and want one studio that publishes to all of them',
         'You sell more than subscriptions: pay-per-view, bundles, services, events and links',
         'You want AI to draft captions and DM replies in your voice, with your approval',
-        'You want a fee that falls as you grow rather than a flat rate')),
+        'You want ' . PagesController::fee_short() . ' instead of a flat 20%')),
 ), 2);
 echo Sections::close();
 

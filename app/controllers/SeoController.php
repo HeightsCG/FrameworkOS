@@ -34,12 +34,9 @@ class SeoController extends Controller {
         echo implode("\n", $lines), "\n";
     }
 
-    public function sitemapAction(){
-        if (CustomDomains::current()) { $this->custom_domain_crawl('sitemap'); return; }
+    /** Every URL the sitemap lists (home, product pages, creator pages with content, blog), as loc/lastmod/changefreq/priority rows. */
+    public static function sitemap_entries(): array {
         $base = Main::get_base_domain();
-        header('Content-Type: application/xml; charset=utf-8');
-        header('Cache-Control: public, max-age=3600');
-
         $urls   = array();
         $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0');
 
@@ -67,6 +64,14 @@ class SeoController extends Controller {
             }
         } catch (\Throwable $e) { error_log('[seo] sitemap articles: ' . $e->getMessage()); }
 
+        return $urls;
+    }
+
+    public function sitemapAction(){
+        if (CustomDomains::current()) { $this->custom_domain_crawl('sitemap'); return; }
+        header('Content-Type: application/xml; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        $urls = self::sitemap_entries();
         echo '<?xml version="1.0" encoding="UTF-8"?>', "\n";
         echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', "\n";
         foreach ($urls as $u) {
@@ -105,7 +110,7 @@ class SeoController extends Controller {
     public static function public_pages(): array {
         $pages = array(
             array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
-            array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' The take rate falls as you grow. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
+            array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' Platform fee: ' . PagesController::fee_short() . '. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
@@ -140,7 +145,7 @@ class SeoController extends Controller {
         $l = array();
         $l[] = '# ' . $site;
         $l[] = '';
-        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and payouts to your bank. Plans are monthly; the platform take rate falls as the plan grows.';
+        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and payouts to your bank. Plans are monthly; the platform fee is ' . PagesController::fee_short() . '; Free is for fans and cannot sell.';
         $l[] = '';
         $l[] = '## Plans';
         $l[] = '- ' . PagesController::plan_cost_answer();

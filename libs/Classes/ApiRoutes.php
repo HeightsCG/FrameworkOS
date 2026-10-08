@@ -76,7 +76,7 @@ class ApiRoutes {
         'ApiAdminController' => [
             'admin_impersonate', 'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
             'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email',
-            'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel',
+            'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
         ],
         'ApiTeamController' => [
             'team_invite', 'team_set_role', 'team_set_status', 'team_remove',

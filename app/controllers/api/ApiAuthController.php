@@ -33,9 +33,31 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError((string) ($pw_error));
         }
 
+        // Sign-up throttle, like login: per connection and per address. Every well-formed attempt counts.
+        $ip    = $this->get_ip_address();
+        $email = (string) $this->post['user_email'];
+        if ($this->loginAttemptsModel->count_recent($ip, 'register', 60) >= 5) {
+            $this->jsonError('Too many sign-ups from this connection. Try again later.');
+        }
+        if ($this->loginAttemptsModel->count_recent_for($email, 'register', 60) >= 3) {
+            $this->jsonError('Too many sign-ups for this email. Try again later.');
+        }
+        $this->loginAttemptsModel->record($ip, $email, 'register');
+
+        // Honeypot: a hidden "company" field nobody sees (auth_modal.php). Filled in = a bot, which gets the normal reply and no account.
+        if ((string) ($this->post['company'] ?? '') !== '') {
+            error_log('[register] honeypot filled from ' . $ip . ' for ' . $email);
+            $this->jsonSuccess(['message' => 'Account created — check your email to verify your account.']);
+        }
+
         if ($this->userModel->email_exists($this->post['user_email'])) {
             $this->jsonError('Could not create an account with those details');
         }
+
+        // Where the verification link lands them once it has signed them in: the page they were on (same-site path only).
+        $return = html_entity_decode((string) ($this->post['return'] ?? ''), ENT_QUOTES, 'UTF-8');
+        if ($return === '') { $return = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH); }
+        Session::set('signup_return', CustomDomains::safe_path($return));
 
         $u_name = $this->userModel->generate_unique_username($this->post['first_name'], $this->post['last_name']);
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
@@ -61,9 +83,17 @@ class ApiAuthController extends BaseApiController {
         $token       = $this->userModel->set_email_verify_token($user_id);
         $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
         $to_name     = trim($this->post['first_name'] . ' ' . $this->post['last_name']);
-        $this->notificationsModel->send_verification_email($this->post['user_email'], $to_name, $verify_link, $u_name);
+        $sent = $this->notificationsModel->send_verification_email($this->post['user_email'], $to_name, $verify_link, $u_name);
+        if (!$sent) {
+            // The account exists but the link never left: tell the user (the panel offers Resend) and the admins.
+            error_log('[register] verification email failed for user_id=' . $user_id . ' (' . $email . ')');
+            try {
+                Notify::many($this->userModel->admin_ids(), 'system', 'Verification email failed', 'The sign-up email to ' . $email . ' (user #' . $user_id . ') could not be sent.', '/admin/user/' . $user_id, 'fa-envelope');
+            } catch (\Throwable $e) { error_log('[register] admin notice: ' . $e->getMessage()); }
+            $this->jsonSuccess(['message' => 'Account created, but we couldn\'t send the verification email. Use Resend Verification to try again.', 'email_failed' => true]);
+        }
 
-        $this->jsonSuccess(['message' => 'Account created — check your email to verify your account, then sign in.']);
+        $this->jsonSuccess(['message' => 'Account created — check your email to verify your account.']);
     }
 
     public function loginAction(){
@@ -198,9 +228,13 @@ class ApiAuthController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Your password has been updated']);
     }
 
-    /** Confirm a new account's email from the link in the verification email. */
+    /**
+     * Confirm a new account's email from the link in the verification email. A good link proves the address,
+     * so it also signs them in (same checks as a password login) and says where to go next (`redirect`).
+     * `expired` in a failed reply means the page may offer a resend; `already_used` means sign in instead.
+     */
     public function verify_emailAction(){
-        $response = ['success' => false, 'message' => 'This verification link is invalid or has expired.'];
+        $response = ['success' => false, 'message' => 'This verification link is invalid or has expired.', 'expired' => true];
 
         $token = (string) ($this->post['token'] ?? '');
         if ($token === '') {
@@ -216,19 +250,40 @@ class ApiAuthController extends BaseApiController {
         }
         $user = $rows[0];
 
-        // Idempotent: a scanner or an earlier click may already have confirmed it.
+        // A used link never signs anyone in again: a scanner or an earlier click already confirmed it.
         if ((int) ($user['email_verified'] ?? 0) === 1) {
-            $this->jsonSuccess(['message' => 'Your email is already verified. You can sign in.']);
+            $this->jsonError('This link was already used. Sign in to continue.', ['already_used' => true]);
         }
 
         $expires = (string) ($user['email_verify_expires'] ?? '');
         if ($expires === '' || strtotime($expires) < time()) {
             error_log('[verify_email] token expired for user_id=' . (int) $user['user_id'] . ' (expires=' . $expires . ')');
-            $this->jsonError('This verification link has expired. Sign in to request a new one.');
+            $this->jsonError('This link has expired. Enter your email and we will send a new one.', ['expired' => true]);
         }
 
         $this->userModel->mark_email_verified((int) $user['user_id']);
-        $this->jsonSuccess(['message' => 'Your email is verified. You can now sign in.']);
+        $user['email_verified'] = 1;
+
+        // Sign them in, the way a password login would.
+        $blocked = LoginGate::blocked($user);
+        if ($blocked === 'suspended') {
+            $this->jsonError(LoginGate::SUSPENDED_MESSAGE);
+        }
+        if ($blocked === 'seat') {
+            $this->jsonError(Plan::SEAT_LOCKED_MESSAGE);
+        }
+
+        $return = CustomDomains::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
+        Session::destroyValue('signup_return');
+        $done = LoginGate::finish($user);
+        if (isset($done['mfa'])) {
+            $m = array_keys(array_filter($done['mfa']));
+            $this->jsonSuccess(['message' => 'Your email is verified. Enter your verification code to finish signing in.', 'mfa_required' => true, 'methods' => $done['mfa'], 'redirect' => '/?auth=mfa&m=' . implode(',', $m)]);
+        }
+
+        $role     = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
+        $redirect = (int) $done['reset_pw'] === 1 ? '/account/force_reset' : ($role === 'Creator' ? '/setup' : $return);
+        $this->jsonSuccess(['message' => 'Your email is verified. Signing you in…', 'redirect' => $redirect]);
     }
 
     /** Resend the verification email for an unconfirmed account. Generic response (no account enumeration). */
