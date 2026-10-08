@@ -18,6 +18,7 @@ $opts = getopt('', array('keyword-id::', 'seed'));
 $lock = fopen(sys_get_temp_dir() . '/cls-seo-draft.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo date('c'), " another run is active\n"; exit(0); }
 
+CronRuns::start('seo_draft');
 $keywords = new SeoKeywordsModel();
 $seed = array(
     // keyword, monthly volume, difficulty, priority, topic cluster (SeoDrafter::CLUSTERS)
@@ -55,7 +56,7 @@ $seed = array(
 );
 $added = $keywords->seed($seed);
 if ($added > 0) { echo date('c'), " seeded $added keyword(s)\n"; }
-if (isset($opts['seed'])) { exit(0); }
+if (isset($opts['seed'])) { CronRuns::finish('seo_draft', true, 'seeded'); exit(0); }
 
 $stale = $keywords->requeue_stale(30);
 if ($stale > 0) { echo date('c'), " requeued $stale stale drafting keyword(s)\n"; }
@@ -63,11 +64,12 @@ if ($stale > 0) { echo date('c'), " requeued $stale stale drafting keyword(s)\n"
 $kw = null;
 if (!empty($opts['keyword-id'])) { $kw = $keywords->get((int) $opts['keyword-id']); }
 else { $kw = $keywords->next_queued(); }
-if (!$kw) { echo date('c'), " nothing queued\n"; exit(0); }
-if (!ClaudeService::configured()) { echo date('c'), " Claude not configured\n"; exit(1); }
+if (!$kw) { echo date('c'), " nothing queued\n"; CronRuns::finish('seo_draft', true, 'nothing queued'); exit(0); }
+if (!ClaudeService::configured()) { echo date('c'), " Claude not configured\n"; CronRuns::finish('seo_draft', false, 'Claude not configured'); exit(1); }
 
 echo date('c'), " drafting \"{$kw['keyword']}\" (#{$kw['id']})\n";
 $t0 = microtime(true);
 $r  = SeoDrafter::draft($kw);
 printf("%s %s in %.1fs%s\n", date('c'), $r['ok'] ? "drafted article #{$r['article_id']}" : 'FAILED', microtime(true) - $t0, $r['ok'] ? '' : ' — ' . $r['error']);
+CronRuns::finish('seo_draft', (bool) $r['ok'], $r['ok'] ? 'article #' . $r['article_id'] : (string) $r['error']);
 exit($r['ok'] ? 0 : 1);

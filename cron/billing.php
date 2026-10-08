@@ -27,6 +27,7 @@ spl_autoload_register(function ($class) use ($root) {
 // One run at a time.
 $lock = fopen(sys_get_temp_dir() . '/cls-billing.lock', 'c');
 if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { exit(0); }
+CronRuns::start('billing');
 
 $now   = gmdate('Y-m-d H:i:s');
 $accts = new BillingAccountsModel();
@@ -39,4 +40,5 @@ foreach (array_merge($accts->due($now, 200), $accts->retries_due($now, 200)) as 
         fwrite(STDOUT, date('c') . ' user ' . (int) $a['user_id'] . ': error ' . $e->getMessage() . "\n");
     }
 }
+CronRuns::finish('billing', true);
 exit(0);

@@ -28,6 +28,7 @@ spl_autoload_register(function ($class) use ($root) {
 
 const PAGES_PER_ACCOUNT = 3;   // 3 × 50 = the 150 most recent posts per account per run
 
+CronRuns::start('social_metrics');
 $only     = isset($argv[1]) ? (string) $argv[1] : '';
 $accounts = new SocialAccountsModel();
 $metrics  = new SocialPostMetricsModel();
@@ -36,7 +37,7 @@ $rows = $only !== ''
     ? array_filter(array($accounts->get_by_pfm_id($only)))
     : (array) $accounts->select("SELECT * FROM user_social_accounts WHERE status = 'connected' ORDER BY user_id, platform");
 
-if (empty($rows)) { exit(0); }
+if (empty($rows)) { CronRuns::finish('social_metrics', true, 'no accounts'); exit(0); }
 
 $post_maps = array();
 foreach ($rows as $acct) {
@@ -64,4 +65,5 @@ foreach ($rows as $acct) {
         . ($err !== '' ? " — {$err}" : '') . "\n");
 }
 
+CronRuns::finish('social_metrics', true, count($rows) . ' account(s)');
 exit(0);

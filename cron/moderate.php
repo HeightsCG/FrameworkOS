@@ -6,6 +6,9 @@
  *
  *   * / 2 * * * *  /opt/homebrew/opt/php@8.2/bin/php /private/var/www/contentos.cvk/framework/cron/moderate.php >> /tmp/cls-moderate.log 2>&1
  *
+ * Prod crontab (remove the space in "* /2"; it only keeps this comment valid PHP):
+ *   * /2 * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/moderate.php >> /var/www/creatorlinkstudio.com/www/cron/moderate.log 2>&1
+ *
  * Idle and instant when nothing is pending. Only ready images are considered.
  */
 
@@ -21,9 +24,10 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 
+CronRuns::start('moderate');
 $media = new MediaAssetsModel();
 $due   = $media->due_for_moderation(20);
-if (empty($due)) { exit(0); }
+if (empty($due)) { CronRuns::finish('moderate', true, 'nothing due'); exit(0); }
 
 foreach ($due as $a) {
     $id  = (int) $a['id'];
@@ -61,4 +65,5 @@ foreach ($due as $a) {
         . (!empty($res['minors']) ? ' [SEXUAL/MINORS — BLOCKED]' : '') . "\n");
 }
 
+CronRuns::finish('moderate', true, count($due) . ' image(s)');
 exit(0);

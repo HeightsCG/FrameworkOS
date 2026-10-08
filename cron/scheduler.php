@@ -5,6 +5,9 @@
  *
  *   * * * * * /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/cron/scheduler.php >> /tmp/cls-scheduler.log 2>&1
  *
+ * Prod crontab:
+ *   * * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/scheduler.php >> /var/www/creatorlinkstudio.com/www/cron/scheduler.log 2>&1
+ *
  * Idle and near-instant when nothing is due. Generation only runs for actually-due rules.
  */
 
@@ -26,6 +29,7 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 
+CronRuns::start('scheduler');
 $rulesM = new SchedulerRulesModel();
 $runsM  = new SchedulerRunsModel();
 $usersM = new UsersModel();
@@ -88,7 +92,7 @@ try {
 
 $now = gmdate('Y-m-d H:i:s');
 $due = $rulesM->due_rules($now);
-if (empty($due)) { exit(0); }
+if (empty($due)) { CronRuns::finish('scheduler', true, 'nothing due'); exit(0); }
 
 foreach ($due as $rule) {
     // Advance next_run_at BEFORE executing, so an overlapping tick (or the next
@@ -117,4 +121,5 @@ foreach ($due as $rule) {
     }
 }
 
+CronRuns::finish('scheduler', true, count($due) . ' rule(s)');
 exit(0);

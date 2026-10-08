@@ -9,7 +9,8 @@
  *   ... --rewrite     rewrite every article that still drifts through the drafter (Claude), one call per article
  *   ... --quiet       no admin notice (for ad-hoc runs)
  *   ... --slug=<slug> only that article (try a rewrite on one before running it on all)
- *   Prod crontab: 30 9 * * * (after the 09:00 article)
+ *   Prod crontab (after the 09:00 article; no --quiet, the admin notice is the point):
+ *   30 9 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php >> /tmp/cls-seo-fact-check.log 2>&1
  */
 if (php_sapi_name() !== 'cli') { exit(1); }
 if (!getenv('APPLICATION_ENV')) { putenv('APPLICATION_ENV=development'); }
@@ -23,6 +24,7 @@ spl_autoload_register(function ($class) use ($root) {
 });
 $opts = getopt('', array('fix-fee', 'rewrite', 'quiet', 'slug::'));   // --slug=<slug> limits the article pass to one article
 $site = Main::site_name();
+CronRuns::start('seo_fact_check');
 
 // ---- what is true now, from config
 $fee_short = PagesController::fee_short();
@@ -106,7 +108,7 @@ foreach (SeoController::public_pages() as $p) {
     if (!empty($issues)) { $flagged[] = $path . ': ' . implode('; ', $issues); }
 }
 
-if (empty($flagged)) { echo date('c'), " plans, prices and fee are consistent everywhere\n"; exit(0); }
+if (empty($flagged)) { echo date('c'), " plans, prices and fee are consistent everywhere\n"; CronRuns::finish('seo_fact_check', true, 'consistent'); exit(0); }
 echo date('c'), ' ', count($flagged), " place(s) drifted:\n";
 foreach ($flagged as $f) { echo '  ', $f, "\n"; }
 if (!isset($opts['quiet'])) {
@@ -115,4 +117,5 @@ if (!isset($opts['quiet'])) {
             implode("\n", array_slice($flagged, 0, 12)) . (count($flagged) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-fee (fee wording) or --rewrite (full rewrite).", '/admin?tab=content');
     } catch (\Throwable $e) { error_log('[seo] fact check notice: ' . $e->getMessage()); }
 }
+CronRuns::finish('seo_fact_check', false, count($flagged) . ' place(s) drifted');
 exit(1);

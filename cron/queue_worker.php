@@ -6,6 +6,9 @@
  * never overlaps two instances of the same label. `--once` runs at most one job (for testing).
  *
  *   /opt/homebrew/opt/php@8.2/bin/php /var/www/contentos.cvk/framework/cron/queue_worker.php >> /tmp/cls-queue.log 2>&1
+ *
+ * Prod crontab (every minute):
+ *   * * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/queue_worker.php >> /var/www/creatorlinkstudio.com/www/cron/queue_worker.log 2>&1
  */
 
 if (php_sapi_name() !== 'cli') { exit(1); }
@@ -46,6 +49,7 @@ $handlers = [
     'clip_render'    => 'ClipRenderJob',
 ];
 
+CronRuns::start('queue_worker');
 $queue     = new DatabaseJobQueue();
 $worker_id = substr(gethostname() . ':' . getmypid(), 0, 64);
 $released  = $queue->release_stale(900);
@@ -77,4 +81,5 @@ while (true) {
     $done++;
     if ($once || $done >= $max_jobs) { break; }
 }
+CronRuns::finish('queue_worker', true, $done . ' job(s)');
 exit(0);

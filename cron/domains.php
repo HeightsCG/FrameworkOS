@@ -5,7 +5,7 @@
  * sign-in target (it comes back on the next run, or at once with Verify in Settings). Also clears spent
  * session-handoff tokens.
  *
- *   17 4 * * *  APPLICATION_ENV=production php /path/to/framework/cron/domains.php >> /tmp/cls-domains.log 2>&1
+ *   17 4 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/domains.php >> /tmp/cls-domains.log 2>&1
  */
 
 if (php_sapi_name() !== 'cli') { exit(1); }
@@ -19,6 +19,7 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 date_default_timezone_set('UTC');
+CronRuns::start('domains');
 
 $model = new CreatorDomainsModel();
 foreach ($model->list_to_recheck() as $row) {
@@ -27,3 +28,4 @@ foreach ($model->list_to_recheck() as $row) {
     if ($r['status'] !== $row['status']) { echo gmdate('c'), ' ', $row['hostname'], ' ', $row['status'], ' -> ', $r['status'], "\n"; }
 }
 $model->purge_handoffs();
+CronRuns::finish('domains', true);
