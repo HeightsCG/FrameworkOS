@@ -159,6 +159,15 @@ class Main {
         Session::destroy();
     }
 
+    /** <sub>.<domain> from /var/www/<domain>/<sub>; '' when the parent directory is not a domain name. */
+    public static function host_from_path(): string
+    {
+        $sub    = basename(self::app_path());
+        $domain = basename(dirname(self::app_path()));
+        if ($sub === '' || strpos($domain, '.') === false || !preg_match('/^[a-z0-9.-]+$/i', $sub . $domain)) { return ''; }
+        return strtolower($sub . '.' . $domain);
+    }
+
     public static function get_base_domain(): string
     {
         $cfg = self::get_config();
@@ -174,9 +183,10 @@ class Main {
                 }
             }
         }
-        // No request (cron, queue worker) or an unknown Host: the canonical host first (www on prod, so
-        // IndexNow pings and emailed links skip the 301), else this environment's domain, else the brand domain.
-        $host = trim((string) ($cfg[$env]['canonical_host'] ?? ''));
+        // No request (cron, queue worker) or an unknown Host: the host is the install path, nothing is
+        // configured. /var/www/<domain>/<sub> is served as <sub>.<domain> (framework.contentos.cvk,
+        // www.creatorlinkstudio.com). Config is only the last resort for a checkout outside that layout.
+        $host = self::host_from_path();
         if ($host === '') { $host = (string) ($cfg[$env]['domain'] ?? ''); }
         if ($host === '') { $host = (string) ($cfg['global']['public_domain'] ?? ''); }
         return (($env === 'development') ? self::site_protocol() : 'https://') . $host;
