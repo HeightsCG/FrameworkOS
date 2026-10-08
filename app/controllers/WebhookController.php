@@ -138,6 +138,88 @@ class WebhookController extends Controller {
             exit;
         }
 
+        $this->handle_account_event($event, $subs);
+
+        http_response_code(200);
+        echo 'ok';
+        exit;
+    }
+
+    /**
+     * Stripe Connect webhook: payout.* events from creators' connected accounts, so the
+     * cash-out history shows each bank payout and its outcome. A separate endpoint in the
+     * Stripe dashboard ("listen to events on connected accounts"), so it has its own
+     * signing secret (stripe_connect_webhook_secret). See docs/ops.md.
+     */
+    public function stripe_connectAction(){
+        $payload = file_get_contents('php://input');
+        $sig     = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        $secret = '';
+        try { $secret = (string) Main::config(Main::get_environment(), 'stripe_connect_webhook_secret'); } catch (\Throwable $e) {}
+        if ($secret === '') {
+            error_log('[stripe connect webhook] stripe_connect_webhook_secret not configured');
+            http_response_code(500);
+            echo 'not configured';
+            exit;
+        }
+
+        try {
+            $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
+        } catch (\Throwable $e) {
+            http_response_code(400);
+            echo 'invalid signature';
+            exit;
+        }
+
+        $types = array('payout.created', 'payout.updated', 'payout.paid', 'payout.failed', 'payout.canceled');
+        if (!in_array($event->type, $types, true)) {
+            // Fan memberships are subscriptions on the creator's connected account, so their subscription, invoice
+            // and dispute events arrive here (a "connected accounts" destination), not on the platform endpoint.
+            $this->handle_account_event($event, new CreatorSubscriptionsModel());
+            http_response_code(200);
+            echo 'ok';
+            exit;
+        }
+        if (in_array($event->type, $types, true)) {
+            $obj     = $event->data->object;
+            $account = (string) ($event->account ?? '');
+            $model   = new PayoutsModel();
+            $creator = $model->creator_for_account($account);
+            if ($creator <= 0) {
+                // an account we no longer know (disconnected or another environment): acknowledge so Stripe stops retrying.
+                error_log('[stripe connect webhook] ' . $event->type . ' for unknown account ' . $account);
+            } else {
+                // true only for the first delivery (of any payout.* type) that records the failure.
+                if ($model->upsert_from_event($creator, $obj)) {
+                    $row = $model->get_by_payout_id((string) $obj->id);
+                    $why = trim((string) ($row['failure_message'] ?? ($obj->failure_message ?? '')));
+                    $cur = strtoupper((string) ($row['currency'] ?? ($obj->currency ?? 'usd')));
+                    $amt = ($cur === 'USD' ? '$' : $cur . ' ') . number_format(((int) ($row['amount_cents'] ?? $obj->amount)) / 100, 2);
+                    Notify::send($creator, 'credits', 'Bank payout failed',
+                        'Your ' . $amt . ' payout to your bank did not go through.' . ($why !== '' ? ' ' . $why : '') . ' Check your bank details and contact support if it keeps happening.',
+                        '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
+                }
+            }
+        }
+
+        http_response_code(200);
+        echo 'ok';
+        exit;
+    }
+
+    /**
+     * Record or update a subscription from its Stripe object. Creating (not just
+     * updating) matters when the fan closed the tab before the success redirect —
+     * the checkout still succeeded, so the membership must be captured here.
+     */
+    /**
+     * Subscription, invoice and dispute events, from either endpoint: fan memberships live on the creator's
+     * connected account (checkout is created with stripe_account), so Stripe delivers them to the connected-accounts
+     * destination; the platform destination sees them only for platform-account charges.
+     */
+    private function handle_account_event($event, $subs): void {
+        $obj = $event->data->object;
         switch ($event->type) {
             case 'customer.subscription.created':
             case 'customer.subscription.updated':
@@ -181,72 +263,8 @@ class WebhookController extends Controller {
                 }
                 break;
         }
-
-        http_response_code(200);
-        echo 'ok';
-        exit;
     }
 
-    /**
-     * Stripe Connect webhook: payout.* events from creators' connected accounts, so the
-     * cash-out history shows each bank payout and its outcome. A separate endpoint in the
-     * Stripe dashboard ("listen to events on connected accounts"), so it has its own
-     * signing secret (stripe_connect_webhook_secret). See docs/ops.md.
-     */
-    public function stripe_connectAction(){
-        $payload = file_get_contents('php://input');
-        $sig     = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
-
-        $secret = '';
-        try { $secret = (string) Main::config(Main::get_environment(), 'stripe_connect_webhook_secret'); } catch (\Throwable $e) {}
-        if ($secret === '') {
-            error_log('[stripe connect webhook] stripe_connect_webhook_secret not configured');
-            http_response_code(500);
-            echo 'not configured';
-            exit;
-        }
-
-        try {
-            $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
-        } catch (\Throwable $e) {
-            http_response_code(400);
-            echo 'invalid signature';
-            exit;
-        }
-
-        $types = array('payout.created', 'payout.updated', 'payout.paid', 'payout.failed', 'payout.canceled');
-        if (in_array($event->type, $types, true)) {
-            $obj     = $event->data->object;
-            $account = (string) ($event->account ?? '');
-            $model   = new PayoutsModel();
-            $creator = $model->creator_for_account($account);
-            if ($creator <= 0) {
-                // an account we no longer know (disconnected or another environment): acknowledge so Stripe stops retrying.
-                error_log('[stripe connect webhook] ' . $event->type . ' for unknown account ' . $account);
-            } else {
-                // true only for the first delivery (of any payout.* type) that records the failure.
-                if ($model->upsert_from_event($creator, $obj)) {
-                    $row = $model->get_by_payout_id((string) $obj->id);
-                    $why = trim((string) ($row['failure_message'] ?? ($obj->failure_message ?? '')));
-                    $cur = strtoupper((string) ($row['currency'] ?? ($obj->currency ?? 'usd')));
-                    $amt = ($cur === 'USD' ? '$' : $cur . ' ') . number_format(((int) ($row['amount_cents'] ?? $obj->amount)) / 100, 2);
-                    Notify::send($creator, 'credits', 'Bank payout failed',
-                        'Your ' . $amt . ' payout to your bank did not go through.' . ($why !== '' ? ' ' . $why : '') . ' Check your bank details and contact support if it keeps happening.',
-                        '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
-                }
-            }
-        }
-
-        http_response_code(200);
-        echo 'ok';
-        exit;
-    }
-
-    /**
-     * Record or update a subscription from its Stripe object. Creating (not just
-     * updating) matters when the fan closed the tab before the success redirect —
-     * the checkout still succeeded, so the membership must be captured here.
-     */
     private function sync_subscription($subs, $obj){
         $status = $this->normalize_status((string) $obj->status);
         $period = $obj->current_period_end ?? null;
@@ -293,6 +311,11 @@ class WebhookController extends Controller {
             Notify::send($creator, 'subscriptions', 'New subscriber', (Notify::name_of($subscriber) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');
             InboxAutomationService::trigger($creator, $subscriber, 'new_subscriber');
             if (!empty($meta['promo_id'])) { (new CreatorPromoCodesModel())->redeem((int) $meta['promo_id']); }
+            // the /go link carried through checkout: same kind, user and ref as the success page, so it counts once
+            if ((int) ($meta['tl_link_id'] ?? 0) > 0 && (int) ($meta['tl_user_id'] ?? 0) === $subscriber) {
+                $cents = (int) ($obj->items->data[0]->price->unit_amount ?? $plan['price_cents']);
+                TrackingLinks::attribute_link((int) $meta['tl_link_id'], $creator, 'subscription', $subscriber, (string) $obj->status === 'trialing' ? 0 : (int) round($cents / 10), 'creator_plans', (int) $plan['id']);   // credits ($1 = 10); 0 on a trial
+            }
         }
         if ($status !== 'active' || $cape) {
             $subs->update_by_stripe_id((string) $obj->id, $status, $period, $cape);

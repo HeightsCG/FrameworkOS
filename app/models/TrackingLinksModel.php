@@ -14,6 +14,12 @@ class TrackingLinksModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
     }
 
+    /** A live link by id (any owner), or null. */
+    public function get_by_id($id){
+        $rows = parent::select("SELECT * FROM tracking_links WHERE id = :id AND deleted = 0", array('id' => (int) $id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
     /** Is this code taken (deleted links keep theirs, so an old URL never lands on someone else)? */
     public function code_exists($code){
         $rows = parent::select("SELECT 1 FROM tracking_links WHERE code = :code", array('code' => strtolower((string) $code)));

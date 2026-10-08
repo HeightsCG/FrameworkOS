@@ -525,6 +525,9 @@ class ApiPostsController extends BaseApiController {
         $cancel  = $back . '?sub=cancel';
         $meta    = ['subscriber_id' => (string) $user_id, 'creator_id' => (string) $creator_id, 'plan_id' => (string) $plan['id']];
         if ($promo_id > 0) { $meta['promo_id'] = (string) $promo_id; }
+        // the fan's /go tracking link for this creator, so the payment webhook can credit it when the fan never returns
+        $tl_link_id = TrackingLinks::current_link_id($creator_id, $user_id);
+        if ($tl_link_id > 0) { $meta['tl_link_id'] = (string) $tl_link_id; $meta['tl_user_id'] = (string) $user_id; }
 
         // Free trial: compute the actual trial-end date from the plan's value + unit
         // (e.g. "+2 week", "+1 month") and hand Stripe a trial_end timestamp — no day

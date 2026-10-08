@@ -55,18 +55,55 @@ class TrackingLinks {
      */
     public static function attribute($creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0): void {
         try {
-            $c = json_decode((string) ($_COOKIE[self::COOKIE] ?? ''), true);
-            if (!is_array($c) || !self::valid_code($c['code'] ?? '')) { return; }
-            if ((int) ($c['t'] ?? 0) < time() - self::DAYS * 86400) { return; }
-            $owner = (int) ($c['creator_id'] ?? 0);
-            if ($owner <= 0 || ((int) $creator_id > 0 && (int) $creator_id !== $owner) || (int) $user_id === $owner) { return; }
-            $m = new TrackingLinksModel();
-            $link = $m->get_by_code((string) $c['code']);
-            if (!$link || (int) $link['creator_id'] !== $owner) { return; }
-            if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) { return; }
-            $m->record_event((int) $link['id'], $owner, (string) $kind, (int) $user_id, (int) $amount, (string) $ref_table, (int) $ref_id);
+            $link = self::cookie_link($creator_id, $user_id);
+            if ($link) { self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id); }
         } catch (\Throwable $e) {
             error_log('[tracking_links] ' . $kind . ': ' . $e->getMessage());
         }
+    }
+
+    /** The id of the link in the visitor's cls_tl cookie when it is $creator_id's (checkout metadata), or 0. Never throws. */
+    public static function current_link_id($creator_id, $user_id = 0): int {
+        try {
+            if ((int) $creator_id <= 0) { return 0; }
+            $link = self::cookie_link($creator_id, $user_id);
+            return $link ? (int) $link['id'] : 0;
+        } catch (\Throwable $e) {
+            error_log('[tracking_links] current: ' . $e->getMessage());
+            return 0;
+        }
+    }
+
+    /**
+     * Log a conversion for a link known by id (carried through checkout metadata, for the payment webhook where there
+     * is no cookie). Same ownership checks and dedupe as attribute(). Never throws.
+     */
+    public static function attribute_link($link_id, $creator_id, $kind, $user_id, $amount = 0, $ref_table = '', $ref_id = 0): void {
+        try {
+            if ((int) $link_id <= 0 || (int) $creator_id <= 0 || (int) $user_id === (int) $creator_id) { return; }
+            $link = (new TrackingLinksModel())->get_by_id((int) $link_id);
+            if (!$link || (int) $link['creator_id'] !== (int) $creator_id) { return; }
+            self::log($link, $kind, $user_id, $amount, $ref_table, $ref_id);
+        } catch (\Throwable $e) {
+            error_log('[tracking_links] ' . $kind . ' (link): ' . $e->getMessage());
+        }
+    }
+
+    /** The live link in the cls_tl cookie, when it is $creator_id's (0 = any) and the visitor isn't its owner, or null. */
+    private static function cookie_link($creator_id, $user_id) {
+        $c = json_decode((string) ($_COOKIE[self::COOKIE] ?? ''), true);
+        if (!is_array($c) || !self::valid_code($c['code'] ?? '')) { return null; }
+        if ((int) ($c['t'] ?? 0) < time() - self::DAYS * 86400) { return null; }
+        $owner = (int) ($c['creator_id'] ?? 0);
+        if ($owner <= 0 || ((int) $creator_id > 0 && (int) $creator_id !== $owner) || (int) $user_id === $owner) { return null; }
+        $link = (new TrackingLinksModel())->get_by_code((string) $c['code']);
+        return ($link && (int) $link['creator_id'] === $owner) ? $link : null;
+    }
+
+    /** Record once per link + kind + user + ref (a reloaded success page and the webhook never both count). */
+    private static function log(array $link, $kind, $user_id, $amount, $ref_table, $ref_id): void {
+        $m = new TrackingLinksModel();
+        if ($m->has_event((int) $link['id'], (string) $kind, (int) $user_id, (string) $ref_table, (int) $ref_id)) { return; }
+        $m->record_event((int) $link['id'], (int) $link['creator_id'], (string) $kind, (int) $user_id, (int) $amount, (string) $ref_table, (int) $ref_id);
     }
 }

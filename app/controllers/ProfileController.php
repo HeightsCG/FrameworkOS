@@ -509,7 +509,12 @@ class ProfileController extends Controller {
         $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session + array('sub_status' => (string) ($session['subscription_status'] ?? '')));
         // Reloading the success URL must not re-count the discount code or re-send the notices.
         if (!$subs->claim_checkout_recorded((string) ($session['subscription_id'] ?? ''))) { return true; }
-        TrackingLinks::attribute((int) $creator['user_id'], 'subscription', (int) $viewer_id, (string) ($session['subscription_status'] ?? '') === 'trialing' ? 0 : (int) round((int) ($session['amount_total'] ?? 0) / 10), 'creator_plans', (int) $plan['id']);   // what the card paid, in credits ($1 = 10); 0 on a trial
+        $tl_amount = (string) ($session['subscription_status'] ?? '') === 'trialing' ? 0 : (int) round((int) ($session['amount_total'] ?? 0) / 10);   // what the card paid, in credits ($1 = 10); 0 on a trial
+        if ((int) ($meta['tl_link_id'] ?? 0) > 0) {   // the link chosen at checkout, the same one the webhook would credit
+            TrackingLinks::attribute_link((int) $meta['tl_link_id'], (int) $creator['user_id'], 'subscription', (int) $viewer_id, $tl_amount, 'creator_plans', (int) $plan['id']);
+        } else {
+            TrackingLinks::attribute((int) $creator['user_id'], 'subscription', (int) $viewer_id, $tl_amount, 'creator_plans', (int) $plan['id']);
+        }
         $cname = Notify::name_of((int) $creator['user_id']); $chandle = Notify::handle_of((int) $creator['user_id']);
         Notify::send((int) $viewer_id, 'subscriptions', 'You\'re subscribed to ' . ($cname !== '' ? $cname : $plan['name']), $plan['name'] . ' · $' . number_format(((int) $plan['price_cents']) / 100, 2) . ' per ' . (string) ($plan['billing_interval'] ?? 'month') . '. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
         Notify::send((int) $creator['user_id'], 'subscriptions', 'New subscriber', (Notify::name_of((int) $viewer_id) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');

@@ -148,7 +148,11 @@ endpoint feeds the payout history in Settings > Wallet > Cash Out and the "Bank 
 1. Stripe dashboard (live mode) > Developers > Webhooks > Add endpoint.
 2. Endpoint URL: `https://www.creatorlinkstudio.com/webhook/stripe_connect`
 3. Under "Listen to", choose **Events on connected accounts** (not "Events on your account").
-4. Select these five events: `payout.created`, `payout.updated`, `payout.paid`, `payout.failed`, `payout.canceled`.
+4. Select these events: `payout.created`, `payout.updated`, `payout.paid`, `payout.failed`, `payout.canceled`,
+   AND the fan-membership events, because memberships are subscriptions on the creator's connected account and only
+   reach a connected-accounts destination: `customer.subscription.created`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.payment_succeeded`, `invoice.payment_failed`, `charge.dispute.created`.
+   (The platform destination at /webhook/stripe keeps its own list for platform-account charges.)
 5. Add the endpoint, open it, reveal the **Signing secret** (`whsec_...`) and add it to `app/config/app.ini`
    under `[production]`:
 
