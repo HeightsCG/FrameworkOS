@@ -57,9 +57,11 @@ $(function () {
             });
             h += '</div>';
             if ((o.subreddits || []).length) {
-                h += '<h3 class="ide-theme__t ide-subs__t">Subreddits To Watch</h3><ul class="ide-subs">';
+                h += '<h3 class="ide-theme__t ide-subs__t">Communities To Watch</h3><ul class="ide-subs">';
                 o.subreddits.forEach(function (s) {
-                    h += '<li><a href="https://www.reddit.com/r/' + encodeURIComponent(s.name) + '/" target="_blank" rel="noopener">r/' + esc(s.name) + '</a><span class="ide-subs__n">' + Number(s.members || 0).toLocaleString() + ' members</span>' + (s.why ? '<p>' + esc(s.why) + '</p>' : '') + '</li>';
+                    var s_url = s.url || ('https://www.reddit.com/r/' + encodeURIComponent(s.name) + '/');
+                    var s_label = s.label || ('r/' + s.name);
+                    h += '<li><a href="' + esc(s_url) + '" target="_blank" rel="noopener">' + esc(s_label) + '</a><span class="ide-subs__n">' + Number(s.members || 0).toLocaleString() + ' ' + esc(s.unit || 'members') + '</span>' + (s.why ? '<p>' + esc(s.why) + '</p>' : '') + '</li>';
                 });
                 h += '</ul>';
             }

@@ -1,19 +1,25 @@
 <?php
 /**
  * The free tools' background run (queued by /api/tool_run, handled by cron/queue_worker.php as 'tool_run').
- *   fan-questions: Reddit (official API, client-credentials app) finds the niche's communities and the questions people
- *                  ask there; Claude turns them into post ideas by theme plus subreddits to watch.
+ *   fan-questions: YouTube (Data API v3, youtube_api_key) finds the niche's channels and the questions people ask in video
+ *                  titles and comments; Reddit (official API, approved app keys) is the fallback source. Claude turns them
+ *                  into post ideas by theme plus communities to watch.
  *   persona-tool:  Claude writes five AI influencer persona concepts.
  * A public run ({lead_id}) emails the result to the lead; an Ideas run ({run_id}) stores it on tool_runs for /ideas.
- * app.ini [global]: reddit_client_id, reddit_client_secret, reddit_user_agent (a "script" app at reddit.com/prefs/apps).
- * Without them, outside production, a marked fixture (tests/fixtures/reddit_questions.json) stands in.
+ * app.ini [global]: youtube_api_key (primary), or reddit_client_id, reddit_client_secret, reddit_user_agent (an approved
+ * "script" app at reddit.com/prefs/apps). On a development box with neither, the marked fixture
+ * (tests/fixtures/reddit_questions.json) stands in.
  */
 class ToolRunJob {
 
     const REDDIT_AUTH = 'https://www.reddit.com/api/v1/access_token';
     const REDDIT_API  = 'https://oauth.reddit.com';
+    const YOUTUBE_API = 'https://www.googleapis.com/youtube/v3';
     const FIXTURE     = '/tests/fixtures/reddit_questions.json';
     const MAX_QUESTIONS = 150;
+
+    /** Test hook: a [global] config array that replaces app.ini. */
+    public static $cfg_override = null;
 
     /** Where both emails send people: sign up as a creator, tagged with the tool. */
     public static function start_url(string $ref): string {
@@ -70,10 +76,21 @@ class ToolRunJob {
 
     // ---- fan questions ----
 
-    /** Reddit questions for the niche, turned into ideas. Returns ['result' => [...], 'log' => string]. */
+    /** Questions for the niche from the configured source, turned into ideas. Returns ['result' => [...], 'log' => string]. */
     public static function fan_questions(string $niche): array {
-        $src = self::reddit($niche);
-        if (empty($src['questions'])) { throw new RuntimeException('reddit: no questions found (' . $src['log'] . '), retry later'); }   // never ask Claude to invent them
+        if (self::youtube_key() !== '') { $src = static::youtube($niche); }
+        elseif (self::reddit_keys()) { $src = self::reddit($niche); }
+        elseif (self::fixture_allowed()) {   // a development box with no source configured: the marked fixture stands in
+            $f = json_decode((string) @file_get_contents(Main::app_path() . self::FIXTURE), true);
+            if (!is_array($f)) { throw new RuntimeException('no question source configured'); }
+            $subs = array();
+            foreach ((array) $f['subreddits'] as $s) { $subs[] = self::community('r/' . $s['name'], 'https://www.reddit.com/r/' . rawurlencode($s['name']) . '/', 'members') + array('name' => (string) $s['name'], 'members' => (int) $s['members'], 'description' => (string) $s['description']); }
+            $src = array('subreddits' => $subs, 'questions' => array_slice((array) $f['questions'], 0, self::MAX_QUESTIONS), 'log' => 'no source configured, fixture used');
+        } else {
+            self::alert_missing_keys();
+            throw new RuntimeException('no question source configured');
+        }
+        if (empty($src['questions'])) { throw new RuntimeException('no questions found (' . $src['log'] . '), retry later'); }   // never ask Claude to invent them
         $result = self::ideas($niche, $src['subreddits'], $src['questions']);
         $result['niche'] = $niche;
         $result['questions_read'] = count($src['questions']);
@@ -82,74 +99,81 @@ class ToolRunJob {
         return array('result' => $result, 'log' => $src['log'] . ', ' . count($src['questions']) . ' questions, ' . $ideas . ' ideas');
     }
 
+    private static function cfg(): array {
+        if (is_array(self::$cfg_override)) { return self::$cfg_override; }
+        $cfg = Main::get_config();
+        return (array) ($cfg['global'] ?? array());
+    }
+
+    /** The YouTube Data API v3 key from app.ini. */
+    public static function youtube_key(): string {
+        return trim((string) (self::cfg()['youtube_api_key'] ?? ''));
+    }
+
     /** Reddit keys are set in app.ini. */
     public static function reddit_keys(): bool {
-        $cfg = Main::get_config();
-        return trim((string) ($cfg['global']['reddit_client_id'] ?? '')) !== '' && trim((string) ($cfg['global']['reddit_client_secret'] ?? '')) !== '';
+        $c = self::cfg();
+        return trim((string) ($c['reddit_client_id'] ?? '')) !== '' && trim((string) ($c['reddit_client_secret'] ?? '')) !== '';
     }
 
-    /** The fixture stands in only on a development box without keys (app.ini env, when set, must agree). */
+    /** The fixture may stand in only on a development box (app.ini env, when set, must agree). */
     private static function fixture_allowed(): bool {
-        $cfg = Main::get_config();
-        $ini = (string) ($cfg['global']['env'] ?? '');
-        return !self::reddit_keys() && Main::get_environment() === 'development' && ($ini === '' || $ini === 'development');
+        $ini = (string) (self::cfg()['env'] ?? '');
+        return Main::get_environment() === 'development' && ($ini === '' || $ini === 'development');
     }
 
-    /** Fan Questions can run: keys set, or the dev fixture. Otherwise admins hear about it (once a day). */
+    /** Fan Questions can run with a YouTube key, Reddit keys, or the dev fixture. */
     public static function fan_questions_ready(): bool {
-        if (self::reddit_keys() || self::fixture_allowed()) { return true; }
-        self::alert_missing_keys();
-        return false;
+        return self::youtube_key() !== '' || self::reddit_keys() || self::fixture_allowed();
     }
 
-    /** One "Reddit credentials missing" notification per day to every admin (marker row in login_attempts). */
+    /** One "no question source" notification per day to every admin (marker row in login_attempts). */
     public static function alert_missing_keys(): void {
         try {
             $la = new LoginAttemptsModel();
             if ($la->count_recent_for('system', 'alert:reddit', 1440) > 0) { return; }
             $la->record('', 'system', 'alert:reddit');
             foreach ((new UsersModel())->admin_ids() as $aid) {
-                Notify::send((int) $aid, 'system', 'Reddit credentials missing', 'Add reddit_client_id, reddit_client_secret and reddit_user_agent to app.ini. The Fan Question Finder and Ideas are off until then.', '/admin', 'fa-triangle-exclamation');
+                Notify::send((int) $aid, 'system', 'Fan Question Finder has no source', 'Add youtube_api_key (a YouTube Data API v3 key from Google Cloud) to app.ini. Reddit keys work too if Reddit approved an app.', '/admin', 'fa-triangle-exclamation');
             }
         } catch (\Throwable $e) { error_log('[tool_run] alert: ' . $e->getMessage()); }
     }
 
-    /** ['subreddits' => [[name, members, description]], 'questions' => [titles], 'log' => string] */
-    private static function reddit(string $niche): array {
-        $cfg = Main::get_config();
-        $id = trim((string) ($cfg['global']['reddit_client_id'] ?? ''));
-        $secret = trim((string) ($cfg['global']['reddit_client_secret'] ?? ''));
-        if ($id === '' || $secret === '') {
-            if (!self::fixture_allowed()) { self::alert_missing_keys(); throw new RuntimeException('reddit: no credentials (set reddit_client_id and reddit_client_secret in app.ini)'); }
-            error_log('[tool_run] reddit: no credentials, fixture used');
-            $f = json_decode((string) @file_get_contents(Main::app_path() . self::FIXTURE), true);
-            if (!is_array($f)) { throw new RuntimeException('reddit: no credentials and no fixture'); }
-            return array('subreddits' => (array) $f['subreddits'], 'questions' => array_slice((array) $f['questions'], 0, self::MAX_QUESTIONS), 'log' => 'reddit: no credentials, fixture used');
-        }
-        $ua = trim((string) ($cfg['global']['reddit_user_agent'] ?? ''));
-        if ($ua === '') { $ua = 'web:creatorlinkstudio:1.0 (lead tools)'; }
+    /** The fields every community row carries: label (what to print), url (link), unit (members or subscribers). */
+    private static function community(string $label, string $url, string $unit): array {
+        return array('label' => $label, 'url' => $url, 'unit' => $unit);
+    }
 
-        $tok = self::http(self::REDDIT_AUTH, $ua, array('post' => 'grant_type=client_credentials', 'auth' => $id . ':' . $secret));
+    /** ['subreddits' => [[name, members, description, label, url, unit]], 'questions' => [titles], 'log' => string] */
+    private static function reddit(string $niche): array {
+        $c = self::cfg();
+        $id = trim((string) ($c['reddit_client_id'] ?? ''));
+        $secret = trim((string) ($c['reddit_client_secret'] ?? ''));
+        $ua = trim((string) ($c['reddit_user_agent'] ?? ''));
+        if ($ua === '') { $ua = 'web:creatorlinkstudio:1.0 (lead tools)'; }
+        $tok = static::http(self::REDDIT_AUTH, $ua, array('post' => 'grant_type=client_credentials', 'auth' => $id . ':' . $secret));
         $token = (string) ($tok['access_token'] ?? '');
         if ($token === '') { throw new RuntimeException('reddit: token request failed'); }
 
         $subs = array();
-        $found = self::http(self::REDDIT_API . '/subreddits/search?raw_json=1&limit=25&include_over_18=false&q=' . rawurlencode($niche), $ua, array('token' => $token));
-        foreach ((array) ($found['data']['children'] ?? array()) as $c) {
-            $d = (array) ($c['data'] ?? array());
+        $found = static::http(self::REDDIT_API . '/subreddits/search?raw_json=1&limit=25&include_over_18=false&q=' . rawurlencode($niche), $ua, array('token' => $token));
+        foreach ((array) ($found['data']['children'] ?? array()) as $ch) {
+            $d = (array) ($ch['data'] ?? array());
             if (!empty($d['over18']) || ($d['subreddit_type'] ?? '') !== 'public' || (int) ($d['subscribers'] ?? 0) < 1000) { continue; }
-            $subs[] = array('name' => (string) $d['display_name'], 'members' => (int) $d['subscribers'], 'description' => mb_substr(trim((string) ($d['public_description'] ?? '')), 0, 200));
+            $name = (string) $d['display_name'];
+            $subs[] = array('name' => $name, 'members' => (int) $d['subscribers'], 'description' => mb_substr(trim((string) ($d['public_description'] ?? '')), 0, 200))
+                    + self::community('r/' . $name, 'https://www.reddit.com/r/' . rawurlencode($name) . '/', 'members');
             if (count($subs) >= 6) { break; }
         }
 
         $questions = array(); $seen = array();
         foreach ($subs as $s) {
             foreach (array('/new?limit=50', '/top?t=week&limit=50') as $list) {
-                $page = self::http(self::REDDIT_API . '/r/' . rawurlencode($s['name']) . $list . '&raw_json=1', $ua, array('token' => $token));
-                foreach ((array) ($page['data']['children'] ?? array()) as $c) {
-                    $t = trim(preg_replace('/\s+/', ' ', (string) ($c['data']['title'] ?? '')));
+                $page = static::http(self::REDDIT_API . '/r/' . rawurlencode($s['name']) . $list . '&raw_json=1', $ua, array('token' => $token));
+                foreach ((array) ($page['data']['children'] ?? array()) as $ch) {
+                    $t = trim(preg_replace('/\s+/', ' ', (string) ($ch['data']['title'] ?? '')));
                     $k = mb_strtolower($t);
-                    if ($t === '' || isset($seen[$k]) || !empty($c['data']['over_18']) || !self::is_question($t)) { continue; }
+                    if ($t === '' || isset($seen[$k]) || !empty($ch['data']['over_18']) || !self::is_question($t)) { continue; }
                     $seen[$k] = 1; $questions[] = $t;
                     if (count($questions) >= self::MAX_QUESTIONS) { break 3; }
                 }
@@ -158,13 +182,94 @@ class ToolRunJob {
         return array('subreddits' => $subs, 'questions' => $questions, 'log' => 'reddit: ' . count($subs) . ' subreddits');
     }
 
+    /** Same shape as reddit(): channels stand in for communities. Quota: search 100 units, each commentThreads 1, channels 1. */
+    public static function youtube(string $niche): array {
+        $key = self::youtube_key();
+        $ua = 'web:creatorlinkstudio:1.0 (lead tools)';
+        $api = function (string $path, array $q) use ($key, $ua): array {
+            return static::http(self::YOUTUBE_API . '/' . $path . '?' . http_build_query($q + array('key' => $key), '', '&', PHP_QUERY_RFC3986), $ua, array());
+        };
+        $found = $api('search', array('part' => 'snippet', 'type' => 'video', 'q' => $niche, 'maxResults' => 12, 'order' => 'relevance', 'safeSearch' => 'strict',
+            'relevanceLanguage' => 'en', 'publishedAfter' => gmdate('Y-m-d\TH:i:s\Z', time() - 180 * 86400)));
+        $videos = array(); $channels = array();
+        foreach ((array) ($found['items'] ?? array()) as $it) {
+            $vid = (string) ($it['id']['videoId'] ?? '');
+            if ($vid === '') { continue; }
+            $cid = (string) ($it['snippet']['channelId'] ?? '');
+            $videos[] = array('id' => $vid, 'title' => (string) ($it['snippet']['title'] ?? ''));
+            if ($cid !== '' && !isset($channels[$cid]) && count($channels) < 6) { $channels[$cid] = (string) ($it['snippet']['channelTitle'] ?? ''); }
+        }
+
+        $questions = array(); $seen = array();
+        $add = function (string $t) use (&$questions, &$seen): void {
+            $k = mb_strtolower($t);
+            if (isset($seen[$k]) || count($questions) >= self::MAX_QUESTIONS) { return; }
+            $seen[$k] = 1; $questions[] = $t;
+        };
+        foreach ($videos as $v) {
+            $t = self::comment_question(html_entity_decode($v['title'], ENT_QUOTES, 'UTF-8'), true);
+            if ($t !== '') { $add($t); }
+        }
+        foreach ($videos as $v) {
+            if (count($questions) >= self::MAX_QUESTIONS) { break; }
+            $page = $api('commentThreads', array('part' => 'snippet', 'videoId' => $v['id'], 'maxResults' => 50, 'order' => 'relevance', 'textFormat' => 'plainText'));
+            if (isset($page['_http_error'])) { continue; }   // 403 or 404: comments are disabled on that video
+            foreach ((array) ($page['items'] ?? array()) as $it) {
+                $t = self::comment_question((string) ($it['snippet']['topLevelComment']['snippet']['textOriginal'] ?? ''));
+                if ($t === '') { continue; }
+                $add($t);
+                if (count($questions) >= self::MAX_QUESTIONS) { break; }
+            }
+        }
+
+        $subs = array();
+        if ($channels) {
+            $info = $api('channels', array('part' => 'snippet,statistics', 'id' => implode(',', array_keys($channels))));
+            $byid = array();
+            foreach ((array) ($info['items'] ?? array()) as $it) { $byid[(string) ($it['id'] ?? '')] = $it; }
+            foreach ($channels as $cid => $title) {
+                $it = $byid[$cid] ?? array();
+                $label = trim((string) ($it['snippet']['title'] ?? '')) !== '' ? (string) $it['snippet']['title'] : $title;
+                $subs[] = array('name' => $label, 'members' => (int) ($it['statistics']['subscriberCount'] ?? 0), 'description' => mb_substr(trim((string) ($it['snippet']['description'] ?? '')), 0, 200))
+                        + self::community($label, 'https://www.youtube.com/channel/' . $cid, 'subscribers');
+            }
+        }
+        return array('subreddits' => $subs, 'questions' => $questions, 'log' => 'youtube: ' . count($subs) . ' channels');
+    }
+
+    /**
+     * A YouTube comment (or, with $title, a video title) worth keeping as a fan question: asks outright with "?" (a title
+     * may lead with a question word instead), 5 to 30 words, no links, handles, hashtags or emoji chatter, not shouted.
+     * Returns the asking sentence, or '' when it is not one.
+     */
+    public static function comment_question(string $raw, bool $title = false): string {
+        $t = trim(preg_replace('/\s+/', ' ', $raw));
+        if (preg_match('#https?://|www\.|@|\#\w#i', $t)) { return ''; }
+        if (preg_match_all('/[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}]/u', $t) > 1) { return ''; }   // meme chatter
+        $t = trim(preg_replace('/[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE0F}]/u', '', $t));
+        $t = trim(preg_replace('/([!?.])\1+/', '$1', $t));   // "??" and "!!!"
+        $words = preg_split('/\s+/', $t);
+        if (count($words) < 5 || count($words) > 30 || mb_strlen($t) > 160) { return ''; }
+        $caps = 0; foreach ($words as $w) { if (mb_strlen($w) > 2 && mb_strtoupper($w) === $w && preg_match('/[A-Z]/', $w)) { $caps++; } }
+        if ($caps > 2) { return ''; }   // shouting
+        if (preg_match('/\b(bro|bruh|lol|lmao|omg|wtf|sis|sister|gonna ignore|ain\'t)\b/i', $t)) { return ''; }
+        $first = preg_split('/[.!?]\s+/', $t)[0];   // the question itself, not the chat before or after it
+        $sentence = strpos($t, '?') !== false ? '' : $first;
+        if (strpos($t, '?') === false && (!$title || !preg_match('/^(how|what|why|when|where|which|who|is|are|can|could|should|does|do|did|has|have|any|anyone|would|will)\b/i', $t))) { return ''; }   // a comment must ask outright; a video title may lead with a question word
+        if (strpos($t, '?') !== false) {   // keep the sentence that asks, when the comment has several
+            foreach (preg_split('/(?<=[.!?])\s+/', $t) as $part) { if (strpos($part, '?') !== false && count(preg_split('/\s+/', $part)) >= 5) { $sentence = $part; break; } }
+            if ($sentence === '') { return ''; }
+        }
+        return trim($sentence);
+    }
+
     private static function is_question(string $t): bool {
         return strpos($t, '?') !== false
             || (bool) preg_match('/^(how|what|why|when|where|which|who|is|are|can|could|should|does|do|did|has|have|any|anyone|would|will|tips|help)\b/i', $t);
     }
 
-    /** GET (or POST with 'post') JSON from Reddit. $o: post, auth (basic user:pass), token (bearer). */
-    private static function http(string $url, string $ua, array $o): array {
+    /** GET (or POST with 'post') JSON. $o: post, auth (basic user:pass), token (bearer). A failed call returns ['_http_error' => code]. */
+    protected static function http(string $url, string $ua, array $o): array {
         $ch = curl_init($url);
         $headers = array('Accept: application/json');
         if (!empty($o['token'])) { $headers[] = 'Authorization: bearer ' . $o['token']; }
@@ -176,8 +281,8 @@ class ToolRunJob {
             if (stripos($line, 'retry-after:') === 0) { $wait[] = (int) trim(substr($line, 12)); }
             return strlen($line);
         });
-        // a 429 or 5xx (or a dropped connection) is retried up to 3 times: 2s, 4s, 8s, or Retry-After when Reddit sends it (capped at 30s);
-        // one run stops retrying after 120s of waiting in total so a bad hour at Reddit cannot pin the queue worker
+        // a 429 or 5xx (or a dropped connection) is retried up to 3 times: 2s, 4s, 8s, or Retry-After when the host sends it (capped at 30s);
+        // one run stops retrying after 120s of waiting in total so a bad hour at the host cannot pin the queue worker
         static $slept = 0;
         for ($try = 0; $try <= 3; $try++) {
             $wait = array();
@@ -186,11 +291,11 @@ class ToolRunJob {
             if (!$retry || $try === 3 || $slept >= 120) { break; }
             $pause = !empty($wait) && $wait[0] > 0 ? min(30, $wait[0]) : (2 << $try);
             $slept += $pause;
-            error_log('[tool_run] reddit http ' . $code . ' ' . preg_replace('/\?.*/', '', $url) . ', retry in ' . $pause . 's');
+            error_log('[tool_run] http ' . $code . ' ' . preg_replace('/\?.*/', '', $url) . ', retry in ' . $pause . 's');
             sleep($pause);
         }
         curl_close($ch);
-        if ($raw === false || $code >= 400) { error_log('[tool_run] reddit http ' . $code . ' ' . preg_replace('/\?.*/', '', $url)); return array(); }
+        if ($raw === false || $code >= 400) { error_log('[tool_run] http ' . $code . ' ' . preg_replace('/\?.*/', '', $url)); return array('_http_error' => $code); }
         $d = json_decode((string) $raw, true);
         return is_array($d) ? $d : array();
     }
@@ -200,13 +305,13 @@ class ToolRunJob {
         $system = 'You help a content creator plan posts. You turn real questions people ask online into short post ideas. '
                 . 'Plain, friendly language. Never promise income, followers or results. Never use em dashes or en dashes. Reply with JSON only.';
         $user = "Niche: $niche\n\nCommunities (name, members, description):\n";
-        foreach ($subs as $s) { $user .= '- r/' . $s['name'] . ' (' . number_format((int) $s['members']) . ' members): ' . $s['description'] . "\n"; }
+        foreach ($subs as $s) { $user .= '- ' . self::label($s) . ' (' . number_format((int) $s['members']) . ' ' . self::unit($s) . '): ' . $s['description'] . "\n"; }
         $user .= "\nRecent questions people asked there:\n";
         foreach ($questions as $q) { $user .= '- ' . $q . "\n"; }
         $user .= "\nWrite 30 to 40 post ideas a creator in this niche could make, grouped into 4 to 6 themes. Each idea is one line under 120 characters, "
                . "written as the post itself (a title or hook), answering or building on the questions above. "
                . "Then, for each community listed above (and only those), one sentence on why it is worth watching.\n"
-               . 'JSON shape: {"themes":[{"name":"Theme name","ideas":["..."]}],"subreddits":[{"name":"exact name without r/","why":"..."}]}';
+               . 'JSON shape: {"themes":[{"name":"Theme name","ideas":["..."]}],"communities":[{"name":"exact label as listed","why":"..."}]}';
         $data = null;
         for ($try = 1; $try <= 2 && $data === null; $try++) {
             $r = ClaudeService::chat($system, array(array('role' => 'user', 'content' => $user)), 4000, 150, 'low');
@@ -223,13 +328,18 @@ class ToolRunJob {
             if (!empty($ideas) && self::clean($t['name'] ?? '') !== '') { $themes[] = array('name' => self::clean($t['name']), 'ideas' => $ideas); }
         }
         $why = array();
-        foreach ((array) ($data['subreddits'] ?? array()) as $s) { $why[mb_strtolower(preg_replace('#^/?r/#i', '', (string) ($s['name'] ?? '')))] = self::clean($s['why'] ?? ''); }
+        foreach ((array) ($data['communities'] ?? $data['subreddits'] ?? array()) as $s) { $why[mb_strtolower(preg_replace('#^/?r/#i', '', (string) ($s['name'] ?? '')))] = self::clean($s['why'] ?? ''); }
         $watch = array();
-        foreach ($subs as $s) {   // members come from Reddit, never from the model
-            $watch[] = array('name' => (string) $s['name'], 'members' => (int) $s['members'], 'why' => $why[mb_strtolower((string) $s['name'])] ?? '');
+        foreach ($subs as $s) {   // members come from the source, never from the model
+            $label = self::label($s);
+            $watch[] = array('name' => (string) $s['name'], 'members' => (int) $s['members'], 'why' => $why[mb_strtolower(preg_replace('#^/?r/#i', '', $label))] ?? '',
+                             'label' => $label, 'url' => (string) ($s['url'] ?? ''), 'unit' => self::unit($s));
         }
         return array('themes' => $themes, 'subreddits' => $watch);
     }
+
+    private static function label(array $s): string { return (string) ($s['label'] ?? '') !== '' ? (string) $s['label'] : 'r/' . $s['name']; }
+    private static function unit(array $s): string { return (string) ($s['unit'] ?? '') !== '' ? (string) $s['unit'] : 'members'; }
 
     /** Model text for an email or the page: one line, no dashes the house style forbids. */
     private static function clean($s): string {
@@ -306,10 +416,11 @@ class ToolRunJob {
             $o .= '</ul>';
         }
         if (!empty($r['subreddits'])) {
-            $o .= '<p style="' . self::H . '">Subreddits To Watch</p><ul style="margin:0 0 6px; padding-left:20px;">';
+            $o .= '<p style="' . self::H . '">Communities To Watch</p><ul style="margin:0 0 6px; padding-left:20px;">';
             foreach ((array) $r['subreddits'] as $s) {
-                $o .= '<li style="' . self::LI . '"><a href="https://www.reddit.com/r/' . rawurlencode($s['name']) . '/" style="color:#C2410C;">r/' . self::h($s['name']) . '</a>, '
-                    . number_format((int) $s['members']) . ' members' . ((string) $s['why'] !== '' ? '. ' . self::h($s['why']) : '') . '</li>';
+                $url = (string) ($s['url'] ?? '') !== '' ? (string) $s['url'] : 'https://www.reddit.com/r/' . rawurlencode($s['name']) . '/';
+                $o .= '<li style="' . self::LI . '"><a href="' . self::h($url) . '" style="color:#C2410C;">' . self::h(self::label($s)) . '</a>, '
+                    . number_format((int) $s['members']) . ' ' . self::h(self::unit($s)) . ((string) $s['why'] !== '' ? '. ' . self::h($s['why']) : '') . '</li>';
             }
             $o .= '</ul>';
         }

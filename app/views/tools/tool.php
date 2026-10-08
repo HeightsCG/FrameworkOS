@@ -13,7 +13,7 @@ $start = '/?auth=register&role=creator&ref=' . rawurlencode($tool['source']);
 <?php
 ob_start();
 ?>
-<?php if (!empty($unavailable)): /* no Reddit keys on this server: no form, no lead taken */ ?>
+<?php if (!empty($unavailable)): /* no question source (YouTube or Reddit key) on this server: no form, no lead taken */ ?>
 <div class="tl-done" role="status">
     <span class="tl-done__ic"><?php echo Sections::icon('clock', 24); ?></span>
     <h2 class="ct-h">Briefly Unavailable</h2>
@@ -80,7 +80,7 @@ if ($persona) {
 } else {
     echo Sections::open('alt', 'How It Works', 'Real questions make better posts than guesses. This tool finds them for you.');
     echo Sections::cards(array(
-        array('icon' => 'search', 'title' => 'Find The Communities', 'text' => 'We look up the biggest public communities about your niche and leave adult ones out.'),
+        array('icon' => 'search', 'title' => 'Find The Communities', 'text' => 'We look up the biggest public communities and channels about your niche and leave adult ones out.'),
         array('icon' => 'message', 'title' => 'Read The Questions', 'text' => 'We read up to 150 recent posts that ask a question, from this week and the newest.'),
         array('icon' => 'sparkles', 'title' => 'Get Post Ideas', 'text' => 'You get 30 to 40 ideas grouped by theme, plus the communities worth watching, by email.'),
     ), 3);

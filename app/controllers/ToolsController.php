@@ -55,7 +55,7 @@ class ToolsController extends Controller {
         if ($slug === 'fan-questions') {
             return array(
                 array('q' => 'What does the Fan Question Finder do?', 'a' => 'It finds the biggest online communities about your niche, reads the recent questions people asked there, and emails you 30 to 40 post ideas grouped by theme, plus the communities worth watching.'),
-                array('q' => 'Where do the questions come from?', 'a' => 'Public posts on Reddit, read through its official API. Only post titles that ask a question are used, and adult communities are left out.'),
+                array('q' => 'Where do the questions come from?', 'a' => 'Public YouTube videos and comments about your niche, read through the official YouTube Data API, with Reddit as a second source where available. Only questions are used, and adult content is left out.'),
                 array('q' => 'Is it free?', 'a' => 'Yes. You can run it three times a day with the same email address.'),
                 array('q' => 'How long does it take?', 'a' => 'A few minutes. Your ideas arrive by email, so you can close the page.'),
                 array('q' => 'Can I run it inside ' . $site . '?', 'a' => 'Yes. On the ' . $plans . ' plans it is called Ideas. You can run it as often as you like and turn any idea into a draft post in one click.'),
