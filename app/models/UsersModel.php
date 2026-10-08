@@ -470,6 +470,11 @@ class UsersModel extends Model {
         parent::update('user_accounts', $f, 'user_id = :uid', array('uid' => (int) $user_id));
     }
 
+    /** Founding creator flag (Founding::activate / lapse). */
+    public function set_founding($user_id, $on){
+        return parent::update('user_accounts', array('is_founding' => $on ? 1 : 0), 'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
     /** Clean ?plan= / ?role= / ?ref= values: plan creator|studio, role creator|fan, ref a handle; anything else is ''. */
     public static function signup_params($in): array {
         $in   = is_array($in) ? $in : array();

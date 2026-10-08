@@ -14,6 +14,7 @@ class SetupController extends Controller {
 
     public function indexAction(){
         $plan = in_array((string) ($_GET['plan'] ?? ''), array('creator', 'studio'), true) ? (string) $_GET['plan'] : '';
+        if ((int) Session::get('user_id') === 0) { self::bounce(); }   // signed out: sign in, then back here
         if (!Permissions::can_act_as_creator()) {
             // signed up as a creator without accepting the Creator Agreement (Google): accept it in Settings first.
             $rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));

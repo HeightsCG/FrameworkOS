@@ -16,7 +16,7 @@ class PurchasesController extends Controller {
         $user_id = (int) Session::get('user_id');
         $rows = (new UsersModel())->get_user_by_id($user_id);
         $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-        if (!$user) { header('Location: /'); exit; }
+        if (!$user) { self::bounce(); }
 
         $name = trim(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? ''));
         $this->view->display_name = $name !== '' ? $name : ('@' . ($user['u_name'] ?? ''));

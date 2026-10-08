@@ -21,6 +21,7 @@ class ApiRoutes {
             'billing_set_slots', 'billing_set_pack', 'billing_confirm', 'billing_pending', 'buy_ai_credits', 'confirm_ai_credit_purchase',
             'buy_credits', 'confirm_credit_purchase', 'save_autoreplenishment', 'start_payout_onboarding', 'payout_login_link', 'request_payout',
             'disconnect_payout_account',
+            'founding_testimonial_save',
         ],
         'ApiPostsController' => [
             'feed', 'feed_new', 'post_detail', 'post_like', 'post_comments', 'post_comment_add',
@@ -74,10 +75,12 @@ class ApiRoutes {
             'search',
         ],
         'ApiAdminController' => [
+            'admin_leads_csv',
             'admin_impersonate', 'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
             'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email',
             'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
             'admin_set_cross_promo_plans', 'admin_niche_save', 'admin_niche_set_active', 'admin_niche_move',
+            'admin_founding_testimonial', 'admin_founding_refuse',
         ],
         'ApiTeamController' => [
             'team_invite', 'team_set_role', 'team_set_status', 'team_remove',
@@ -125,6 +128,12 @@ class ApiRoutes {
         ],
         'ApiClipEditorController' => [
             'edit_project_list', 'edit_project_create', 'edit_project_get', 'edit_project_save', 'edit_project_delete', 'edit_project_export', 'edit_project_status',
+        ],
+        'ApiToolsController' => [
+            'tool_run', 'tool_run_status',
+        ],
+        'ApiAffiliatesController' => [
+            'affiliate_apply', 'affiliate_payout_request', 'admin_affiliate_set', 'admin_affiliate_payout', 'admin_affiliates_csv',
         ],
         'ApiAdminScenesController' => [
             'admin_scene_save', 'admin_scene_set_active', 'admin_scene_delete', 'admin_scene_thumb',

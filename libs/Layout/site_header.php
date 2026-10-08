@@ -58,6 +58,9 @@
             <?php if (Permissions::can_act_as_creator() || !Permissions::is_team_member()): /* Free accounts see the creator pages too; each opens behind an upgrade cover (Plan::COVERS) */ ?>
             <a href="/dashboard" class="app-nav-item<?php echo ($this->controller === 'dashboard' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-chart-line"></i> Analytics</a>
             <a href="/studio" class="app-nav-item<?php echo ($this->controller === 'studio' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-photo-film"></i> Content Studio</a>
+            <?php if (Permissions::can_act_as_creator()): ?>
+            <a href="/ideas" class="app-nav-item<?php echo ($this->controller === 'ideas' ? ' app-nav-item-active' : ''); ?>"><i class="fa-regular fa-lightbulb"></i> Ideas</a>
+            <?php endif; ?>
             <a href="/influencers" class="app-nav-item<?php echo ($this->controller === 'influencers' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-user-astronaut"></i> Influencers</a>
             <a href="/audience" class="app-nav-item<?php echo ($this->controller === 'audience' ? ' app-nav-item-active' : ''); ?>"><i class="fa-solid fa-users"></i> Audience</a>
             <?php if (Permissions::team_allows('manage')): ?>
@@ -132,6 +135,9 @@
                     <a href="/account/users" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-users"></i> Users</a>
                     <?php endif; ?>
                     <a href="/account/settings" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-gear"></i> Settings</a>
+                    <?php if (Affiliates::menu_visible((int) Session::get('user_id'))): /* approved affiliates only (/affiliates), checked once a minute */ ?>
+                    <a href="/affiliates/dashboard" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-handshake"></i> Affiliates</a>
+                    <?php endif; ?>
                     <a href="/support" class="app-account-menu__item" role="menuitem"><i class="fa-solid fa-life-ring"></i> Support</a>
                     <?php /* Sign out lives in the left menu; that link is hidden when the menu collapses, so it is offered here only then. */ ?>
                     <span class="app-account-menu__sep app-account-menu__narrow"></span>

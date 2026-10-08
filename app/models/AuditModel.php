@@ -24,6 +24,7 @@ class AuditModel extends Model {
         'admin_niche_save'           => 'Added or renamed a directory niche',
         'admin_niche_set_active'     => 'Turned a directory niche on or off',
         'admin_niche_move'           => 'Reordered the directory niches',
+        'admin_leads_csv'            => 'Exported leads',
         'support_reply'              => 'Replied to a support request',
         'support_close'              => 'Closed or reopened a support request',
         'seo_keyword_add'            => 'Added a blog keyword',

@@ -1,0 +1,48 @@
+/* Ideas (/ideas): run bar, the result (themes of ideas + subreddits), past runs (events.css table). */
+.ide-run{ display:flex; gap:8px; margin-bottom:24px; max-width:720px; }
+.ide-run__input{ flex:1 1 auto; height:40px; border-radius:var(--r-sm); border-color:#E5E5E5; font-size:14px; }
+.ide-run__input:focus{ border-color:var(--acc); box-shadow:0 0 0 3px rgba(255, 106, 19, .18); }
+.ide-run__btn{ flex:none; height:40px; padding:0 16px; }
+.ide-run__btn .spinner-border{ width:14px; height:14px; border-width:2px; }
+
+.ide-h{ margin:0 0 12px; font-size:16px; font-weight:700; color:var(--text); }
+.ide-list{ --ev-cols:minmax(200px,1.6fr) 90px 190px 120px 40px; }
+
+.ide-result{ margin-bottom:32px; background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); box-shadow:0 1px 2px rgba(28, 28, 28, .04); }
+.ide-result__head{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; padding:16px 20px; border-bottom:1px solid #F2F2F2; }
+.ide-result__title{ margin:0; font-size:18px; font-weight:700; color:var(--text); overflow-wrap:anywhere; }
+.ide-result__sub{ margin:4px 0 0; font-size:13px; color:var(--muted); }
+.ide-result__body{ padding:20px; }
+.ide-loading, .ide-error{ display:flex; align-items:center; gap:10px; padding:24px 0; font-size:14px; color:var(--muted); }
+.ide-error{ color:#b1493f; }
+
+.ide-themes{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:24px 32px; }
+.ide-theme__t{ margin:0 0 8px; font-size:14px; font-weight:700; color:var(--text); }
+.ide-ideas, .ide-pick, .ide-subs{ list-style:none; margin:0; padding:0; }
+.ide-idea{ display:flex; align-items:flex-start; justify-content:space-between; gap:12px; padding:8px 10px; margin:0 -10px; border-radius:var(--r-sm); font-size:14px; line-height:1.45; color:var(--t2); text-decoration:none; }
+.ide-idea i, .ide-idea svg{ flex:none; margin-top:3px; font-size:13px; color:var(--muted2); opacity:0; transition:opacity .12s; }
+.ide-idea:hover{ background:#FFF4EC; color:var(--text); }
+.ide-idea:hover i, .ide-idea:focus-visible i, .ide-idea:hover svg, .ide-idea:focus-visible svg{ opacity:1; color:var(--acc-ink); }
+.ide-idea:focus-visible{ outline:2px solid var(--acc); outline-offset:-2px; }
+.ide-pick .ide-idea{ margin:0; }
+.ide-pick .ide-idea i, .ide-idea svg{ opacity:1; }
+
+.ide-subs__t{ margin-top:28px; padding-top:20px; border-top:1px solid #F2F2F2; }
+.ide-subs{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:16px 24px; }
+.ide-subs a{ font-size:14px; font-weight:600; color:var(--acc-ink); text-decoration:none; }
+.ide-subs a:hover{ text-decoration:underline; }
+.ide-subs__n{ margin-left:8px; font-size:12px; color:var(--muted); }
+.ide-subs p{ margin:4px 0 0; font-size:13px; line-height:1.45; color:var(--muted); }
+
+@media (max-width:900px){ .ide-themes{ grid-template-columns:minmax(0, 1fr); } .ide-subs{ grid-template-columns:minmax(0, 1fr); } }
+@media (max-width:720px){
+    .ide-run{ flex-direction:column; }
+    .ide-run__input{ font-size:16px; height:44px; }
+    .ide-run__btn{ height:44px; justify-content:center; }
+    .ide-list .ev-row > .ev-cell--act{ margin-left:auto; }
+    .ide-list .ev-row > .ev-cell:nth-child(2){ flex:none; }   /* stacked: name, then count, date, status on one line */
+    .ide-list .ev-row > .ev-cell:nth-child(2)::after{ content:" ideas"; }
+    .ide-list .ev-row > .ev-cell:nth-child(4)::after{ content:none; }
+    .ide-result__head{ padding:16px; }
+    .ide-result__body{ padding:16px; }
+}

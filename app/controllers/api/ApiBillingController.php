@@ -16,6 +16,13 @@ class ApiBillingController extends BaseApiController {
         );
     }
 
+    /** The promo code for a plan quote or change: founding=1 (from /founding) takes the internal founding promo (Founding::CODE). */
+    private function plan_code(): string{
+        $on = (string) ($this->post['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1';
+        Founding::present($on);   // FOUNDING is accepted only with the flag, never as a typed promo
+        return (string) ($this->post['founding'] ?? '') === '1' ? Founding::CODE : (string) ($this->post['promo_code'] ?? '');
+    }
+
     /** Answer a BillingService charge result; requires_action hands the page a secret to confirm with. */
     private function charge_answer(array $r, string $ok_message): void{
         $st = (string) ($r['status'] ?? 'failed');
@@ -39,7 +46,7 @@ class ApiBillingController extends BaseApiController {
         $acct = BillingService::account($uid);
         $fmt  = function ($lines) { return array_map(function ($l) { return array('label' => $l[0], 'amount' => BillingService::money($l[1])); }, $lines); };
         if (isset($this->post['plan'])) {
-            $q = BillingService::quote_plan($uid, (string) $this->post['plan'], (string) ($this->post['promo_code'] ?? ''));
+            $q = BillingService::quote_plan($uid, (string) $this->post['plan'], $this->plan_code());
             if (empty($q['ok'])) { $this->jsonError((string) $q['message']); }
             $t = PlanTiers::get((string) $this->post['plan']);
             $this->jsonSuccess(['mode' => $q['mode'], 'today' => BillingService::money($q['today']), 'lines' => $fmt($q['lines']),
@@ -99,12 +106,27 @@ class ApiBillingController extends BaseApiController {
         $t = PlanTiers::get($plan);
         // the Creator Agreement is accepted here: a subscribe or upgrade needs the box ticked, stamped when the charge succeeds.
         $agreement = array();
-        $q = $t ? BillingService::quote_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? '')) : array();
+        $q = $t ? BillingService::quote_plan((int) $user['user_id'], $plan, $this->plan_code()) : array();
         if (!empty($q['ok']) && in_array($q['mode'], array('subscribe', 'upgrade'), true)) {
             if ((string) ($this->post['agree_terms'] ?? '') !== '1') { $this->jsonError(CreatorAgreement::MESSAGE, ['need_terms' => true]); }
             $agreement = array('version' => CreatorAgreement::VERSION, 'ip' => $this->get_ip_address());
         }
-        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? ''), $agreement), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
+        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, $this->plan_code(), $agreement), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
+    }
+
+    /** The founding creator's testimonial (/founding/testimonial): up to 300 characters, plus consent to show name and handle. Account owners with an active founding claim only. */
+    public function founding_testimonial_saveAction(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { $this->jsonError('Sign in first.', ['need_login' => true]); }
+        $m = new FoundingClaimsModel();
+        $c = Permissions::is_owner_creator() ? $m->for_user($uid) : null;
+        if (!$c || (string) $c['status'] !== 'active') { $this->jsonError('Only founding creators can send a testimonial.'); }
+        $text = trim(preg_replace('/\s+/u', ' ', html_entity_decode((string) ($this->post['text'] ?? ''), ENT_QUOTES, 'UTF-8')));   // POST arrives html-encoded
+        if ($text === '') { $this->jsonError('Write a sentence first.'); }
+        if (mb_strlen($text) > 300) { $this->jsonError('Keep it to 300 characters.'); }
+        $consent = (string) ($this->post['consent'] ?? '') === '1';
+        $m->save_testimonial((int) $c['id'], $text, $consent);
+        $this->jsonSuccess(['text' => $text, 'consent' => $consent ? 1 : 0, 'message' => 'Testimonial saved']);
     }
 
     /** One-click cancel: the plan runs to the end of the period, then the account moves to Free. */

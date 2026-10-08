@@ -40,5 +40,12 @@ foreach (array_merge($accts->due($now, 200), $accts->retries_due($now, 200)) as 
         fwrite(STDOUT, date('c') . ' user ' . (int) $a['user_id'] . ': error ' . $e->getMessage() . "\n");
     }
 }
+// founding creators: release stale held spots, then the testimonial request, once per claim, Founding::TESTIMONIAL_DAYS after the plan started
+try {
+    $freed = Founding::release_stale(60);   // checkouts that died with a spot held
+    if ($freed > 0) { fwrite(STDOUT, date('c') . ' founding stale claims released: ' . $freed . "\n"); }
+    $sent = Founding::send_due_testimonials();
+    if ($sent > 0) { fwrite(STDOUT, date('c') . ' founding testimonial requests: ' . $sent . "\n"); }
+} catch (\Throwable $e) { error_log('[billing] founding testimonials: ' . $e->getMessage()); }
 CronRuns::finish('billing', true);
 exit(0);

@@ -103,6 +103,26 @@ class Notifications {
         return $this->postmark_send($token, $from_field, $support_email, array(), $this->strip_header($subject), $message, $reply_to);
     }
 
+    /**
+     * A free tool's result (ToolRunJob): $html is the body, wrapped here in the brand shell. Transactional: the person
+     * asked for it on the tool page. Returns true when Postmark accepted it.
+     */
+    public function send_tool_result($email, $first_name, $subject, $html){
+        $site = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
+        $f = 'font-family:Arial,Helvetica,sans-serif;';
+        $message = '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>' . $site . '</title></head>'
+                 . '<body style="margin:0; padding:0; background:#f4f4f7;"><div style="margin:0; padding:32px 12px; background:#f4f4f7;">'
+                 . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">'
+                 . '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="width:560px; max-width:560px; background:#ffffff; border:1px solid #e7e7ee; border-radius:14px;">'
+                 . '<tr><td style="padding:26px 32px 6px;"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
+                 . '<td style="width:30px; height:30px; background:#FF6A13; border-radius:9px; font-size:0; line-height:0;">&nbsp;</td>'
+                 . '<td style="padding-left:11px; ' . $f . ' font-size:17px; font-weight:700; color:#1c1830; letter-spacing:-.3px;">' . $site . '</td></tr></table></td></tr>'
+                 . '<tr><td style="padding:14px 32px 4px;"><h1 style="margin:0 0 14px; ' . $f . ' font-size:22px; line-height:1.3; color:#1c1830;">' . htmlspecialchars((string) $subject, ENT_QUOTES, 'UTF-8') . '</h1>' . $html . '</td></tr>'
+                 . '<tr><td style="padding:18px 32px 28px;"><p style="margin:0; ' . $f . ' font-size:12px; line-height:1.6; color:#8a8797;">You asked for this once on ' . $site . '. We will not email you again unless you run the tool again.</p></td></tr>'
+                 . '</table></td></tr></table></div></body></html>';
+        return $this->send_email(array(array('email' => (string) $email, 'name' => (string) $first_name)), 0, (string) $subject, $message);
+    }
+
     /** Deliver one HTML message through the Postmark HTTP API. Returns true on a 200. */
     private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message, $reply_to = ''){
         $payload = array(

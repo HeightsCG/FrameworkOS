@@ -799,3 +799,15 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
     .hx-plans { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px 32px; }
     .hx-plans__i { padding: 16px 0; }
 }
+
+/* Home: Founding Creators row (libs/Layout/home_body.php); avatar, name, handle. */
+.fc-row { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.fc-row__a { display: flex; align-items: center; gap: 16px; padding: 16px; border: 1px solid var(--sx-line-2); border-radius: var(--sx-r); background: var(--sx-grey); color: var(--sx-ink); text-decoration: none; transition: border-color .2s var(--sx-ease); }
+.fc-row__a:hover { border-color: var(--sx-acc); }
+.fc-row__a:focus-visible { outline: none; box-shadow: var(--sx-ring); }
+.fc-row__av { flex: none; width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: var(--sx-grey-2); }
+.fc-row__id { display: flex; flex-direction: column; min-width: 0; }
+.fc-row__id b { font-size: 1rem; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-row__id small { font-size: .875rem; color: var(--sx-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 1000px) { .fc-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .fc-row { grid-template-columns: minmax(0, 1fr); } }

@@ -53,6 +53,7 @@ class BillingModel extends Model {
             array('user_id' => (int) $user_id)
         );
         if (!in_array((string) $status, array('active', 'trialing', 'past_due'), true)) { PublicThumbService::queue_purge(array('creator' => (int) $user_id)); }   // no selling plan: no public copies
+        Founding::on_plan_mirror((int) $user_id, $tier, $status);   // left the Creator plan: founding terms end
         return $res;
     }
 

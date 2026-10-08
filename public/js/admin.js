@@ -432,3 +432,18 @@
         });
     });
 })();
+
+/* Admin > Leads: source subtabs filter the rows and set the CSV export's source */
+document.addEventListener('DOMContentLoaded', function () {
+    var tabs = document.getElementById('admLeadTabs');
+    if (!tabs) { return; }
+    tabs.querySelectorAll('[data-lead]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var f = b.getAttribute('data-lead'), shown = 0;
+            tabs.querySelectorAll('[data-lead]').forEach(function (x) { var on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            document.querySelectorAll('#admLeads .adm-leadrow').forEach(function (r) { var hit = f === '' || r.getAttribute('data-source') === f; r.hidden = !hit; if (hit) { shown++; } });
+            document.getElementById('admLeadsNone').hidden = shown > 0;
+            document.getElementById('admLeadsCsvSource').value = f;
+        });
+    });
+});

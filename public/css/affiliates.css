@@ -1,0 +1,53 @@
+/* /affiliates/apply and /affiliates/dashboard (app shell). Tables, buttons and empty states come from events.css (ev-*). */
+.afl-card{ max-width:640px; padding:24px; background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); box-shadow:0 1px 2px rgba(28, 28, 28, .04); }
+.afl-card .form-control{ border-radius:2px; }
+.afl-card .form-control:focus{ border-color:var(--acc); box-shadow:0 0 0 2px rgba(255, 106, 19, .2); }
+.afl-textarea{ min-height:128px !important; }
+.afl-note{ margin:0 0 16px; padding:12px 16px; border-radius:2px; background:#F7F7F7; color:#4F4F4F; font-size:14px; }
+.afl-agree{ display:flex; align-items:center; gap:8px; font-size:14px; color:#4F4F4F; cursor:pointer; }
+.afl-agree .form-check-input{ margin:0; flex:none; }
+.afl-agree .form-check-input:checked{ background-color:var(--acc); border-color:var(--acc); }
+.afl-agree .form-check-input:focus-visible{ box-shadow:0 0 0 2px rgba(255, 106, 19, .3); }
+.afl-card__foot{ display:flex; justify-content:flex-end; margin-top:24px; }
+.ev-btn:focus-visible{ outline:2px solid var(--acc); outline-offset:2px; }
+.ev-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+.afl-link{ margin-bottom:16px; padding:16px 20px; background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); }
+.afl-link__label{ display:block; margin-bottom:8px; font-size:12px; font-weight:500; color:#8a8797; }
+.afl-link__row{ display:flex; gap:8px; }
+.afl-link__input{ flex:1 1 auto; min-width:0; height:40px; font-size:14px; border-radius:2px; background:#FBFBFB !important; }
+.afl-link__row .ev-btn{ flex:none; height:40px; }
+
+.afl-stats{ display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); margin:0 0 24px; background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); }
+.afl-stat{ min-width:0; padding:16px 20px; }
+.afl-stat + .afl-stat{ border-left:1px solid #F0F0F0; }
+.afl-stat dt{ font-size:12px; font-weight:500; color:#8a8797; margin-bottom:6px; }
+.afl-stat dd{ margin:0; font-size:20px; font-weight:600; color:#242424; font-variant-numeric:tabular-nums; }
+.afl-stat__sub{ display:block; margin-top:2px; font-size:12px; color:#8a8797; }
+
+.afl-sec{ margin-bottom:24px; }
+.afl-sec__head{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:12px; flex-wrap:wrap; }
+.afl-sec__title{ margin:0; font-size:16px; font-weight:600; color:#242424; }
+.afl-filter{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.afl-filter .form-control{ width:160px; height:36px; font-size:14px; border-radius:2px; }
+.afl-filter__to{ font-size:14px; color:#8a8797; }
+.afl-filter .ev-btn{ height:36px; text-decoration:none; }
+.afl-empty{ padding:40px 24px; }
+.afl-row{ cursor:default; }
+.afl-num{ font-weight:600; color:#242424; font-variant-numeric:tabular-nums; }
+.ev-row.afl-row > .ev-cell::after{ content:none !important; }   /* events.css labels stacked rows "sold"; not here */
+
+@media (max-width: 991px){
+    .afl-stats{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
+    .afl-stat:nth-child(4){ border-left:0; }
+    .afl-stat:nth-child(n+4){ border-top:1px solid #F0F0F0; }
+}
+@media (max-width: 640px){
+    .afl-stats{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .afl-stat:nth-child(4){ border-left:1px solid #F0F0F0; }
+    .afl-stat:nth-child(odd){ border-left:0; }
+    .afl-stat:nth-child(n+3){ border-top:1px solid #F0F0F0; }
+    .afl-link__row{ flex-direction:column; }
+    .afl-card{ padding:16px; }
+    .afl-card .form-control{ font-size:16px; }
+}

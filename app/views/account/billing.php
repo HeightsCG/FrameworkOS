@@ -194,7 +194,8 @@ $(function () {
     /* ---- plans ---- */
     $('.plan-go').on('click', function () {
         var $b = $(this);
-        disclose({ plan: $b.data('plan') }, $b.data('title'), { endpoint: 'billing_change_plan', body: { plan: $b.data('plan') } });
+        var extra = $b.data('founding') ? { founding: 1 } : {};   // founding offer: the internal promo rides with the quote and the charge
+        disclose($.extend({ plan: $b.data('plan') }, extra), $b.data('title'), { endpoint: 'billing_change_plan', body: $.extend({ plan: $b.data('plan') }, extra) });
     });
     $('.plan-cancel, #cancel_plan').on('click', function () {
         Swal.fire({
@@ -383,6 +384,9 @@ $(function () {
     foreach ($ordered as $row) { if (BillingService::plan_cents($row['tier']['key']) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $row['tier']['key']; break; } }
     $want = (string) ($_GET['plan'] ?? '');   // ?plan= from signup: that plan is the one to push, when it is offered and above the current one
     foreach ($ordered as $row) { if ($row['tier']['key'] === $want && in_array($want, array('creator', 'studio'), true) && BillingService::plan_cents($want) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $want; } }
+    // founding offer (?founding=1 or the cls_founding cookie from /founding): shown while spots remain and this account can take it
+    $founding_on = ((string) ($_GET['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1') && Founding::eligible((int) $acct['user_id']);
+    if ($founding_on) { $next_up = Founding::PLAN; }
 ?>
     <div class="billing__head tut-head">
         <h1 class="billing__title">Billing</h1>
@@ -435,6 +439,12 @@ $(function () {
             <div class="billing__welcome-title">One more step: choose Creator or Studio.</div>
             <div class="billing__welcome-text">Your Studio, selling and payouts open as soon as you pick a plan.</div>
         </div>
+    </div>
+    <?php endif; ?>
+    <?php if ($founding_on): ?>
+    <div class="billing__notice">
+        <i class="fa-solid fa-star"></i>
+        <div><p><b><?php echo $e(Founding::note()); ?></b></p></div>
     </div>
     <?php endif; ?>
     <div class="plans" style="--plans:<?php echo count($ordered); ?>">
@@ -497,7 +507,7 @@ $(function () {
             <button type="button" class="btn btn-secondary plan__btn plan-cancel" <?php echo $locked ? 'disabled' : ''; ?>>Downgrade to Free</button>
             <?php else: ?>
             <?php $label = ($up ? 'Upgrade to ' : 'Switch to ') . $tier['name']; ?>
-            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>" data-title="<?php echo $e($label); ?>" <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
+            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>"<?php echo ($founding_on && $tier['key'] === Founding::PLAN) ? ' data-founding="1"' : ''; ?> data-title="<?php echo $e($label); ?>" <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
             <?php endif; ?>
         </div>
         <?php endforeach; ?>

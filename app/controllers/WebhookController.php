@@ -294,11 +294,13 @@ class WebhookController extends Controller {
                 break;
 
             case 'charge.refunded':
+                $this->affiliate_reverse($obj);   // a refunded plan charge takes back its affiliate commission
                 return $this->membership_refund($event, $subs);
 
             case 'charge.dispute.created':
                 // A chargeback (PRD §21): log it and suspend the disputing account pending review.
                 $suspended = (new RefundsModel())->record_chargeback($obj);
+                $this->affiliate_reverse($obj);   // a disputed plan charge takes back its affiliate commission
                 if ($suspended > 0) {
                     Notify::send($suspended, 'system', 'Account paused pending review', 'A payment on your account was disputed with your bank. Your account is paused while we review it. Reply to this email if you think this is a mistake.', '/', 'fa-shield-halved', false, true);
                 }
@@ -397,6 +399,17 @@ class WebhookController extends Controller {
      * A membership charge refunded in Stripe (on the creator's connected account). A full refund ends the membership
      * and tells both sides; a partial one is only logged. Found by the charge's invoice, else by the fan's customer.
      */
+    /** Refund or dispute: take back the affiliate commission; a busy payout lock answers 500 so Stripe redelivers (never skip). */
+    private function affiliate_reverse($obj): void {
+        $pi = is_object($obj->payment_intent ?? null) ? (string) $obj->payment_intent->id : (string) ($obj->payment_intent ?? '');
+        if (!Affiliates::on_reverse($pi)) {
+            error_log('[stripe webhook] affiliate reverse: lock busy for ' . $pi . ', asking for a retry');
+            http_response_code(500);
+            echo 'retry';
+            exit;
+        }
+    }
+
     private function membership_refund($event, $subs): bool {
         $obj     = $event->data->object;
         $account = (string) ($event->account ?? '');

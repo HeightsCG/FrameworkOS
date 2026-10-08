@@ -1,0 +1,18 @@
+/* Free tool pages (/tools/*): the form sits in the hero panel; reuses the /contact field styles (.ct-*) from public.css. */
+.tl-form { display: flex; flex-direction: column; gap: 16px; }
+.tl-consent { display: flex; align-items: flex-start; gap: 10px; font-size: .875rem; line-height: 1.5; color: var(--sx-t2); cursor: pointer; }
+.tl-consent input { flex: 0 0 auto; width: 18px; height: 18px; margin: 1px 0 0; accent-color: var(--sx-acc); cursor: pointer; }
+.tl-consent input:focus-visible { outline: none; box-shadow: var(--sx-ring); border-radius: 3px; }
+.tl-consent.is-bad span { color: #f87171; }
+.hx__mod .tl-submit { margin-top: 4px; align-self: flex-start; }
+.tl-submit:disabled { opacity: .6; cursor: default; transform: none; }
+.tl-done { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.tl-done[hidden], .tl-form[hidden] { display: none; }
+.tl-done__ic { display: inline-flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: var(--sx-r); background: var(--sx-acc-soft); color: var(--sx-acc); margin-bottom: 8px; }
+.tl-done .sx-p { margin: 0; }
+
+@media (max-width: 640px) {
+    .tl-form .ct-row { grid-template-columns: minmax(0, 1fr); }
+    .tl-form .ct-input { font-size: 16px; }
+    .hx__mod .tl-submit { width: 100%; }
+}

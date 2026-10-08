@@ -275,6 +275,11 @@ class Plan {
     public static function fee_percent($creator): float
     {
         $fee = self::limit($creator, 'fee_percent');
+        // founding creators: the fee locked in by the offer, while the Creator plan stays active or past due (Founding)
+        if (is_array($creator) && (int) ($creator['is_founding'] ?? 0) === 1 && self::tier($creator) === Founding::PLAN) {
+            $locked = Founding::fee_override($creator);
+            if ($locked !== null) { return (float) $locked; }
+        }
         return ($fee === null) ? (float) Main::platform_fee_percent() : (float) $fee;
     }
 

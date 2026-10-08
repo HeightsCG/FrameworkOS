@@ -13,7 +13,7 @@ class ServicesController extends Controller {
     }
 
     public function indexAction(){
-        if ((!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) && !Plan::cover('services')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
+        if ((!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) && !Plan::cover('services')) { self::bounce(); }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $creator_id = Permissions::creator_id();
 
         $this->view->services = Plan::cover('services') ? PlanCoverSample::services() : (new ServicesModel())->list_for_creator($creator_id);   // sample rows behind the upgrade cover
@@ -22,7 +22,7 @@ class ServicesController extends Controller {
 
     /** One service's page: /services/manage/<id> — sales, buyers (refund / message), live switch, edit. */
     public function manageAction(){
-        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { header('Location: /'); exit; }
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { self::bounce(); }
         $creator_id = Permissions::creator_id();
         $id    = (int) (Main::get_url()[2] ?? 0);
         $model = new ServicesModel();

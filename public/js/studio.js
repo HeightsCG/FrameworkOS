@@ -977,9 +977,11 @@ jQuery(function ($) {
     $('#csComposer').on('shown.bs.modal', function () { $('#csCompCaption').trigger('focus'); });
 
     function resetScheduleUI() { $('#csPeDate, #csPeTime, #csCompSchedAt').val(''); }
+    var compose_caption = '';   // an idea handed over from /ideas (?compose=), used by the next new post only
     function newComposer() {
         clearTimeout(composer.saveTimer);
-        composer = { id: null, caption: '', audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 50, lastPpv: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        composer = { id: null, caption: compose_caption, audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 50, lastPpv: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
+        compose_caption = '';
         composer.share = new Set();
         composer.state = 'draft';
         resetScheduleUI();
@@ -2329,6 +2331,16 @@ jQuery(function ($) {
 
 
 
+
+    // Ideas handoff: /studio?compose=<run_id>:<idea_index> opens a new post with that idea as the caption, once.
+    var compose_q = /^(\d+):(\d+)$/.exec(new URLSearchParams(location.search).get('compose') || '');
+    if (compose_q) {
+        history.replaceState(null, '', location.pathname);
+        ApiDataSvc.apiCall('post', 'tool_run_status', { run_id: compose_q[1] }, function (resp) { var o = null; try { o = JSON.parse(resp); } catch (x) {}
+            var idea = (o && o.success && o.ideas) ? (o.ideas[parseInt(compose_q[2], 10)] || '') : '';
+            if (idea) { compose_caption = idea; newComposer(); composerModal.show(); } else { toastr.error((o && o.message) || 'Could not open that idea.'); }
+        });
+    }
 
     loadCollections();
     loadLibrary();

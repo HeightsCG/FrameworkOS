@@ -343,6 +343,12 @@ class BillingService {
                 break;
         }
         $accts->save($uid, $f);
+        // --- founding offer: the Creator plan started on the founding promo, so the spot turns active and the fee locks (before mirror(), which moves memberships to the new fee) ---
+        if ((string) $row['kind'] === 'subscribe' && (string) ($fx['promo']['promo_code'] ?? '') === Founding::CODE) { Founding::activate($uid); }
+        // --- end founding offer ---
+        // --- affiliates: a paid plan charge of a referred account earns its approved affiliate a commission (Affiliates) ---
+        Affiliates::on_charge($row);
+        // --- end affiliates ---
         self::mirror($uid);
         if ((string) $row['kind'] === 'subscribe') { DirectoryService::list_on_upgrade($uid); }   // Free to a paid plan: listed in /creators by default
         if (!empty($fx['agreement']['version'])) {   // the Creator Agreement ticked at this checkout: stamp date, version and ip on success
@@ -508,7 +514,8 @@ class BillingService {
         $q = self::quote_plan_base($user_id, $plan);
         if (empty($q['ok'])) { return $q; }
         if (trim((string) $code) !== '' && in_array($q['mode'], array('subscribe', 'upgrade'), true)) {
-            $pr = self::resolve_promo($user_id, $code, (int) $q['lines'][0][1]);
+            // founding offer: an internal promo (no Stripe coupon), checked against the spots left (Founding)
+            $pr = strtoupper(trim((string) $code)) === Founding::CODE ? Founding::promo($user_id, $plan, $q) : self::resolve_promo($user_id, $code, (int) $q['lines'][0][1]);
             if (empty($pr['ok'])) { return array('ok' => false, 'message' => $pr['message']); }
             $off = self::promo_off((int) $q['lines'][0][1], $pr['promo']);   // the new plan's charge is always the first line
             $q['lines'][] = array('Promo ' . $pr['promo']['promo_code'] . ' (' . $pr['label'] . ')', -$off);
@@ -592,9 +599,21 @@ class BillingService {
         $keep = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = $keep ? (string) $acct['current_period_start'] : gmdate('Y-m-d H:i:s');
         $end   = $keep ? (string) $acct['current_period_end'] : $q['next_at'];
-        return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
-                'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
-            gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
+        // --- founding offer: hold a spot before any charge; given back if the charge fails (Founding) ---
+        $founding = (string) ($q['promo']['promo_code'] ?? '') === Founding::CODE;
+        $held = $founding ? Founding::claim($uid) : '';
+        if ($held !== '') { return array('status' => 'failed', 'message' => $held); }
+        try {
+            $r = self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
+                    'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
+                gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
+        } catch (\Throwable $e) {
+            if ($founding) { Founding::release($uid); }   // an exception never keeps the spot
+            throw $e;
+        }
+        if ($founding && ($r['status'] ?? '') === 'failed') { Founding::release($uid); }
+        // --- end founding offer ---
+        return $r;
     }
 
     public static function set_cancel($user_id, $cancel): array

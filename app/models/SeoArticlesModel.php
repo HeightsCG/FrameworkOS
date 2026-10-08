@@ -82,6 +82,30 @@ class SeoArticlesModel extends Model {
         return array_slice($rows, 0, $limit);
     }
 
+    /** Published articles in any of these clusters, newest first. No fallback to other clusters (the drafter's link family). */
+    public function for_linking_clusters(array $clusters, $except_id = 0, $limit = 6){
+        $limit = max(1, min(20, (int) $limit));
+        $in = array(); $params = array('x' => (int) $except_id); $i = 0;
+        foreach (array_values(array_unique(array_filter(array_map('strval', $clusters)))) as $c) { $i++; $in[] = ':c' . $i; $params['c' . $i] = $c; }
+        if (empty($in)) { return array(); }
+        return (array) parent::select(
+            "SELECT id, slug, title, excerpt, target_keyword, cluster FROM seo_articles
+             WHERE status = 'published' AND cluster IN (" . implode(',', $in) . ") AND id <> :x
+             ORDER BY published_at DESC, id DESC LIMIT $limit", $params);
+    }
+
+    /** slug => cluster for every published article (the validator's link-family check). */
+    public function published_clusters(){
+        $out = array();
+        foreach ((array) parent::select("SELECT slug, cluster FROM seo_articles WHERE status = 'published'") as $r) { $out[(string) $r['slug']] = (string) $r['cluster']; }
+        return $out;
+    }
+
+    /** Moves every article written for this keyword to a cluster. Returns rows changed. */
+    public function recluster_by_keyword($keyword, $cluster){
+        return (int) parent::update('seo_articles', array('cluster' => (string) $cluster), 'target_keyword = :k AND cluster <> :c', array('k' => (string) $keyword, 'c' => (string) $cluster));
+    }
+
     public function count_published(){
         $rows = parent::select("SELECT COUNT(*) AS c FROM seo_articles WHERE status = 'published'");
         return isset($rows[0]['c']) ? (int) $rows[0]['c'] : 0;

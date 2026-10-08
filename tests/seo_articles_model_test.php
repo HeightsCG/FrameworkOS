@@ -12,7 +12,7 @@ function check($label, $ok){ global $fail; echo ($ok ? 'ok   ' : 'FAIL ') . $lab
 
 $k = new SeoKeywordsModel(); $a = new SeoArticlesModel();
 $kw = 'zz test keyword ' . time();
-$kid = $k->add($kw, 120, 'easy', 5);
+$kid = $k->add($kw, 120, 'easy', 0);   // ahead of P1 (= 1)
 check('keyword added', $kid > 0);
 $next = $k->next_queued();
 check('next_queued is the highest priority queued row (lowest number)', $next && (int) $next['id'] === $kid);

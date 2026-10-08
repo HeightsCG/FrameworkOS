@@ -2,6 +2,9 @@
 $base  = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
 $paths = array('/features', '/features/ai-influencer', '/features/dm-agent', '/features/payouts', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/best-creator-monetization-platforms', '/monetize-your-content', '/about', '/contact');
 $paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternatives'));
+$paths = array_merge($paths, array('/founding'));
+$paths = array_merge($paths, array('/affiliates'));
+$paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
 $fail  = 0;
 foreach ($paths as $p) {
     $ch = curl_init($base . $p);
@@ -49,6 +52,43 @@ foreach (array('/onlyfans-alternatives', '/fanvue-alternatives') as $p) {
     echo ($ok ? 'ok   ' : 'FAIL ') . "$p FAQPage + ItemList parse\n"; if (!$ok) { $fail++; }
 }
 foreach (array('/fanvue-alternatives/extra', '/onlyfans-alternatives/x') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+}
+// Founding offer: FAQPage parses, the spots counter is on the page, nothing answers under it.
+$ch = curl_init($base . '/founding'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
+foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
+$ok = in_array('FAQPage', $types, true) && count($types) === count($m[1]) && strpos($body, 'Spots left') !== false && strpos($body, 'founding=1') !== false && !preg_match('/[\x{2013}\x{2014}]/u', strip_tags($body));
+echo ($ok ? 'ok   ' : 'FAIL ') . "/founding FAQPage parse + counter + claim link\n"; if (!$ok) { $fail++; }
+$ch = curl_init($base . '/founding/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
+$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/founding/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+// /affiliates: FAQPage JSON-LD parses, the apply link, no dashes; /affiliates/x is a 404; the app pages send signed-out visitors to sign up
+$ch = curl_init($base . '/affiliates'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+preg_match_all('#<script type="application/ld\+json">(.*?)</script>#s', $body, $m); $types = array();
+foreach ($m[1] as $j) { $d = json_decode($j, true); if (is_array($d)) { foreach ((isset($d['@type']) ? array($d) : $d) as $b) { $types[] = $b['@type'] ?? ''; } } }
+$ok = in_array('FAQPage', $types, true) && strpos($body, 'next=%2Faffiliates%2Fapply') !== false && !preg_match('/[\x{2013}\x{2014}]/u', strip_tags($body)) && stripos($body, 'stripe') === false;
+echo ($ok ? 'ok   ' : 'FAIL ') . "/affiliates FAQPage parse + apply link\n"; if (!$ok) { $fail++; }
+$ch = curl_init($base . '/affiliates/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
+$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/affiliates/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+foreach (array('/affiliates/apply', '/affiliates/dashboard') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => false)); curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $loc = (string) curl_getinfo($ch, CURLINFO_REDIRECT_URL); curl_close($ch);
+    $ok = $code === 302 && strpos($loc, 'next=') !== false;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p signed out → sign up ($code)\n"; if (!$ok) { $fail++; }
+}
+// Free tools: FAQPage + WebApplication markup parse; one URL per tool (no /tools index, no hyphenless twin).
+foreach (array('/tools/fan-questions', '/tools/ai-influencer-persona') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+    preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
+    foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
+    $ok = in_array('FAQPage', $types, true) && in_array('WebApplication', $types, true) && count($types) === count($m[1]) && strpos($body, 'href="' . $base . $p . '"') !== false;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p FAQPage + WebApplication parse\n"; if (!$ok) { $fail++; }
+}
+foreach (array('/tools', '/tools/fanquestions', '/tools/fan-questions/x', '/tools/nope') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }

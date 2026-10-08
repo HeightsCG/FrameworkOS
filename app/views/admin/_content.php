@@ -36,6 +36,7 @@
             <input type="text" name="keyword" placeholder="Keyword" maxlength="160" required>
             <input type="number" name="volume" placeholder="Volume" min="0">
             <select name="difficulty"><option value="easy">Easy</option><option value="doable" selected>Doable</option><option value="hard">Hard</option></select>
+            <select name="cluster" required><option value="">Cluster</option><?php foreach (SeoDrafter::CLUSTERS as $ck => $cd): ?><option value="<?php echo $e($ck); ?>"><?php echo $e($cd['label']); ?></option><?php endforeach; ?></select>
             <input type="number" name="priority" placeholder="Priority" value="100" min="1">
             <button type="submit" class="adm-btn adm-btn--ok">Add Keyword</button>
         </form>

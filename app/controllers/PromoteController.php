@@ -13,7 +13,7 @@ class PromoteController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { header('Location: /'); exit; }
+        if (!Permissions::can_act_as_creator() || !Permissions::team_allows('manage')) { self::bounce(); }
         $creator_id = Permissions::creator_id();
         $model = new PromoSwapsModel();
         $profile = (new CreatorProfileModel())->get_for_user($creator_id);

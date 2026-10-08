@@ -1,0 +1,12 @@
+/* /founding/testimonial: the founding creator's testimonial (app/views/founding/testimonial.php). */
+.fnd{max-width:640px; margin:0 auto;}
+.fnd__head{margin-bottom:1.5rem;}
+.fnd__title{font-size:1.7rem; font-weight:700; letter-spacing:-.01em; margin:0;}
+.fnd__lead{color:var(--muted); font-size:.96rem; line-height:1.5; margin:.5rem 0 0;}
+.fnd__form textarea.form-control{min-height:144px; resize:vertical;}
+.fnd__check{margin:1rem 0 1.5rem;}
+.fnd__actions{display:flex; gap:.75rem; align-items:center;}
+.fnd__done{background:var(--surface); border:1px solid var(--line); border-radius:var(--r-sm, 6px); box-shadow:var(--sh-xs); padding:1.5rem;}
+.fnd__thanks{font-size:1.1rem; font-weight:700; margin:0 0 .75rem;}
+.fnd__quote{margin:0 0 .75rem; padding-left:1rem; border-left:2px solid var(--line); font-size:1rem; line-height:1.6; color:var(--text); white-space:pre-line;}
+.fnd__meta{font-size:.85rem; color:var(--muted); margin:0 0 1rem;}

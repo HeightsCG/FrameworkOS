@@ -50,6 +50,15 @@ $(document).ready(function() {
         if (last_focused && typeof last_focused.focus === 'function') { last_focused.focus(); }
     }
 
+    /* ?aff=<code> (an affiliate link, pages the server capture doesn't cover): cls_aff {code, t} for 30 days, only when
+       none is set, so an unchecked code never replaces a valid one; the server writes the checked last click (Affiliates::capture). */
+    function remember_aff(q) {
+        var code = q.get('aff') || '';
+        if (!/^[A-Za-z0-9]{3,24}$/.test(code) || /(?:^|; )cls_aff=/.test(document.cookie)) { return; }
+        document.cookie = 'cls_aff=' + encodeURIComponent(JSON.stringify({ code: code, t: Math.floor(Date.now() / 1000) })) + '; max-age=2592000; path=/; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
+    }
+    remember_aff(new URLSearchParams(location.search));
+
     /* ?plan= / ?role= / ?ref= on a sign-up link or this page: kept in the cls_signup cookie (30 days) for the
        register post and the Google sign-up (UsersModel::signup_params cleans them server side). */
     function remember_signup(query) {
@@ -57,6 +66,8 @@ $(document).ready(function() {
         var keep = {};
         try { keep = JSON.parse(decodeURIComponent((document.cookie.match(/(?:^|; )cls_signup=([^;]*)/) || [])[1] || '')) || {}; } catch (err) { keep = {}; }
         var found = false;
+        if (q.get('founding') === '1') { document.cookie = 'cls_founding=1; max-age=2592000; path=/; samesite=lax' + (location.protocol === 'https:' ? '; secure' : ''); }   // /founding offer, read on the billing plan tab
+        remember_aff(q);
         ['plan', 'role', 'ref'].forEach(function(k) {
             if (q.get(k)) { keep[k] = q.get(k).slice(0, 40); found = true; }
         });

@@ -196,7 +196,7 @@ class CreatorProfileModel extends Model {
 
     /**
      * The featured row: listed Studio creators first, then Creator-plan creators (legacy Pro included) in the open
-     * slots, up to $limit. The order within each group is a hash of the day and the user id, so it rotates daily and
+     * slots, founding creators (Founding) ahead of the rest, up to $limit. The order within each group is a hash of the day and the user id, so it rotates daily and
      * is the same for everyone on a given day ($day 'Y-m-d').
      */
     public function directory_featured($category, $day, $limit){
@@ -206,8 +206,18 @@ class CreatorProfileModel extends Model {
             "SELECT " . $this->directory_cols() . ", u.plan_tier
              FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
              WHERE " . $this->directory_where() . $filter . " AND u.plan_tier IN ('studio', 'creator', 'pro')
-             ORDER BY (u.plan_tier = 'studio') DESC, SHA1(CONCAT(:day, ':', u.user_id))
+             ORDER BY (u.plan_tier = 'studio') DESC, (u.is_founding = 1) DESC, SHA1(CONCAT(:day, ':', u.user_id))
              LIMIT " . (int) $limit, $params);
+    }
+
+    /** Founding creators for the home page row: listed like the directory, rotating daily ($day 'Y-m-d'). */
+    public function founding_showcase($day, $limit = 6){
+        return (array) parent::select(
+            "SELECT u.user_id, u.u_name, cp.display_name, cp.avatar_url, cp.avatar_webp_url
+             FROM creator_profiles cp JOIN user_accounts u ON u.user_id = cp.user_id JOIN user_roles r ON r.id = u.role_id
+             WHERE " . $this->directory_where() . " AND u.is_founding = 1
+             ORDER BY SHA1(CONCAT(:day, ':', u.user_id))
+             LIMIT " . max(1, (int) $limit), array('day' => (string) $day));
     }
 
     /** category => number of listed creators, for the active niches that have any. */

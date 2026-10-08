@@ -29,6 +29,8 @@ class PagesController extends Controller {
         'privacy'                             => 'privacy',
         'about'                               => 'about',
         'contact'                             => 'contact',
+        'founding'                            => 'founding',
+        'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
     );
 
     /** Where legal and privacy requests go (shown on /terms and /privacy). */
@@ -222,6 +224,7 @@ class PagesController extends Controller {
 
     private function page($view, array $meta, array $vars = array()){
         $meta['url'] = SeoMeta::base() . $meta['path'];
+        if (!self::$embedded && (int) Session::get('user_id') === 0) { Affiliates::capture($this->get_ip_address()); }   // ?aff=<code> on any public page, signed out: cls_aff + a click
         if (!isset($meta['jsonld'])) {
             $meta['jsonld'] = array(
                 SeoMeta::org(),
@@ -616,6 +619,86 @@ class PagesController extends Controller {
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Monetize your content', 'url' => $path))),
         );
         $this->page('monetize', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('faq' => $faq));
+    }
+
+    /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
+    public static function founding_meta(): array {
+        $c = PlanTiers::get(Founding::PLAN);
+        return array('title' => 'Founding Creators: First Period Free, ' . Founding::fee_label() . ' Fee Locked',
+            'description' => Founding::SPOTS . ' founding spots on the ' . $c['name'] . ' plan, open until they are filled: your first billing period free and the ' . Founding::fee_label() . ' Studio fee locked in while the plan stays active.');
+    }
+
+    public static function founding_faq(): array {
+        $c = PlanTiers::get(Founding::PLAN); $price = '$' . number_format((int) $c['price']);
+        return array(
+            array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $c['name'] . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
+            array('q' => 'What does it cost?', 'a' => 'Your first billing period on ' . $c['name'] . ' is free. After that the plan is ' . $price . ' a month, charged to your card until you cancel. Plan charges are final and non-refundable.'),
+            array('q' => 'Is the free period always a full month?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date, so the free period runs until then and the regular price starts on that date.'),
+            array('q' => 'How long does the ' . Founding::fee_label() . ' fee last?', 'a' => 'For as long as your ' . $c['name'] . ' plan stays active, including a short past-due grace period. If you change plans, move to Free or the plan lapses, the founding terms end and do not come back.'),
+            array('q' => 'What do founding creators agree to?', 'a' => 'To share a short testimonial about their experience (we ask after two weeks), to be featured in the creator directory and on the home page, and to stay listed in the directory.'),
+            array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),
+            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance net of your fee, and you cash out to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
+        );
+    }
+
+    public function foundingAction(){
+        $u = Main::get_url();
+        if (count($u) === 2 && (string) $u[1] === 'testimonial') { (new FoundingController())->testimonialAction(); return; }   // the app page for founding creators
+        if (count($u) > 1) { Errors::page_not_found(); return; }
+        if (!self::$embedded) { header('Cache-Control: private, max-age=60'); }   // the spots counter is at most a minute old
+        $path = '/founding'; $m = self::founding_meta(); $faq = self::founding_faq();
+        $jsonld = array(
+            SeoMeta::faq($faq),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Founding Creators', 'url' => $path))),
+        );
+        $signed_in = (int) Session::get('user_id') > 0;
+        $this->page('founding', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
+            array('faq' => $faq, 'left' => Founding::remaining_cached(),
+                  'claim_url' => $signed_in ? '/account/billing?tab=plan&plan=' . Founding::PLAN . '&founding=1' : '/?auth=register&role=creator&plan=' . Founding::PLAN . '&founding=1',
+                  'claim_auth' => $signed_in ? '' : 'register'));
+    }
+
+    /** The affiliate program (/affiliates): Affiliates::RATE_PERCENT of the plan payments of referred accounts. */
+    public static function affiliates_meta(): array {
+        return array('title' => 'Affiliate Program: Earn ' . Affiliates::RATE_PERCENT . '% of Plan Payments',
+            'description' => 'Refer creators to ' . Main::site_name() . ' and earn ' . Affiliates::RATE_PERCENT . '% of what they pay for their ' . self::selling_names() . ' plan, every month they stay on it. Payouts on request.');
+    }
+
+    /** "Creator or Studio": the selling plan names, from config. */
+    private static function selling_names(): string {
+        return implode(' or ', array_column(self::selling_tiers(), 'name'));
+    }
+
+    public static function affiliates_faq(): array {
+        $r = Affiliates::RATE_PERCENT . '%'; $plans = self::selling_names();
+        return array(
+            array('q' => 'What do affiliates earn?', 'a' => $r . ' of what each account you refer pays for its ' . $plans . ' plan, on every paid invoice for as long as the account stays on a paid plan and keeps paying. What you earn depends entirely on who signs up and what they pay.'),
+            array('q' => 'Is there a commission on credits?', 'a' => 'No. Credit packs and AI credit purchases earn nothing. Commissions are paid on plan payments only.'),
+            array('q' => 'How is a referral counted?', 'a' => 'Someone opens your link, and creates an account in the same browser within ' . Affiliates::DAYS . ' days. If they open another affiliate\'s link after yours, the last link wins.'),
+            array('q' => 'When can I cash out?', 'a' => 'Request a payout from your affiliate dashboard once you have ' . Price::PAYOUT_MIN_LABEL . ' earned. Payouts go to your bank.'),
+            array('q' => 'What if a payment is disputed?', 'a' => 'A payment disputed with the bank reverses its commission. If that commission was already paid out, the amount is taken from your next earnings.'),
+            array('q' => 'Who can apply?', 'a' => 'Anyone with an account, creators included. Applications are reviewed by our team, and your own account never earns a commission on itself.'),
+        );
+    }
+
+    public function affiliatesAction(){
+        $url = Main::get_url();
+        if (in_array((string) ($url[1] ?? ''), array('apply', 'dashboard'), true) && count($url) === 2) {   // the signed-in pages (app shell)
+            header('Cache-Control: no-store');   // live numbers, never the public pages' cache
+            $c = new AffiliatesController(); $m = $url[1] . 'Action'; $c->$m(); return;
+        }
+        if (count($url) > 1) { Errors::page_not_found(); return; }
+        $path = '/affiliates'; $m = self::affiliates_meta(); $faq = self::affiliates_faq();
+        $jsonld = array(
+            SeoMeta::faq($faq),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Affiliate Program', 'url' => $path))),
+        );
+        $signed_in = (int) Session::get('user_id') > 0;
+        $mine = $signed_in ? Affiliates::approved_for_user((int) Session::get('user_id')) : null;
+        $this->page('affiliates', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
+            array('faq' => $faq, 'plans' => self::selling_names(),
+                  'apply_label' => $mine ? 'Open Your Dashboard' : 'Apply Now',
+                  'apply_url' => $mine ? '/affiliates/dashboard' : ($signed_in ? '/affiliates/apply' : '/?auth=register&next=' . rawurlencode('/affiliates/apply'))));   // a full load, so ?next brings them back to the form
     }
 
     /**

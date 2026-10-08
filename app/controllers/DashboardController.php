@@ -12,7 +12,7 @@ class DashboardController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::can_act_as_creator() && !Plan::cover('dashboard')) { header('Location: /'); exit; }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
+        if (!Permissions::can_act_as_creator() && !Plan::cover('dashboard')) { self::bounce(); }   // a Free account sees the page behind an upgrade cover (Plan::COVERS)
         $user_id = Permissions::creator_id();   // owner account for collaborators, self otherwise
 
         $rows = (new UsersModel())->get_user_by_id($user_id);
@@ -79,7 +79,7 @@ class DashboardController extends Controller {
      * downloadable for accounting). Streams a file download, not a rendered view.
      */
     public function exportAction(){
-        if (!Permissions::can_act_as_creator()) { header('Location: /'); exit; }
+        if (!Permissions::can_act_as_creator()) { self::bounce(); }
         $user_id = Permissions::creator_id();
         $rows = (new AnalyticsModel())->export_rows($user_id);
 

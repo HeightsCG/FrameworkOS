@@ -14,7 +14,7 @@
         kwAdd.addEventListener('submit', function (e) {
             e.preventDefault();
             var f = new FormData(kwAdd);
-            ApiDataSvc.apiCall('post', 'seo_keyword_add', { keyword: f.get('keyword'), volume: f.get('volume'), difficulty: f.get('difficulty'), priority: f.get('priority') }, function (r) {
+            ApiDataSvc.apiCall('post', 'seo_keyword_add', { keyword: f.get('keyword'), volume: f.get('volume'), difficulty: f.get('difficulty'), priority: f.get('priority'), cluster: f.get('cluster') }, function (r) {
                 var o = parse(r); if (!o || !o.success) { return bad(o && o.message); }
                 ok('Keyword added'); window.location.reload();
             });

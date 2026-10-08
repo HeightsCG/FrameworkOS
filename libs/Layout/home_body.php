@@ -99,5 +99,22 @@ echo Sections::cards(array(
 echo '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="/?auth=register" data-auth="register">Join Free</a></div>';
 echo Sections::close();
 
+/* Founding creators (/founding): up to six, listed like the directory, only when there is at least one. Avatar, name and handle; never a screenshot. */
+$founders = array();
+try { $founders = (new CreatorProfileModel())->founding_showcase(gmdate('Y-m-d'), 6); } catch (\Throwable $ex) { error_log('[home] founding row: ' . $ex->getMessage()); }
+if (!empty($founders)) {
+    echo Sections::open('white', 'Founding Creators', 'The first creators on ' . $site . '.');
+    echo '<ul class="fc-row">';
+    foreach ($founders as $fc) {
+        $fc_name = trim((string) $fc['display_name']) !== '' ? (string) $fc['display_name'] : '@' . $fc['u_name'];
+        $fc_img  = trim((string) ($fc['avatar_webp_url'] ?? '')) !== '' ? (string) $fc['avatar_webp_url'] : (string) $fc['avatar_url'];
+        echo '<li><a class="fc-row__a" href="' . Sections::e(Main::get_base_domain() . '/@' . rawurlencode((string) $fc['u_name'])) . '">'
+            . '<img class="fc-row__av" src="' . Sections::e($fc_img) . '" alt="' . Sections::e($fc_name) . '" width="56" height="56" loading="lazy" decoding="async">'
+            . '<span class="fc-row__id"><b>' . Sections::e($fc_name) . '</b><small>@' . Sections::e($fc['u_name']) . '</small></span></a></li>';
+    }
+    echo '</ul>';
+    echo Sections::close();
+}
+
 echo Sections::faq($home_faq, 'white');
 echo Sections::cta('Create your page today.', 'Memberships, pay-per-view, bundles, services and events, with payouts to your bank.');

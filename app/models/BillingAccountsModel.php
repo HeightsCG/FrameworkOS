@@ -33,6 +33,12 @@ class BillingAccountsModel extends Model {
         return $this->get($user_id);
     }
 
+    /** The founding creator fee lock (fee_percent_override), or null when none is set. */
+    public function fee_override($user_id){
+        $r = parent::select("SELECT fee_percent_override FROM billing_accounts WHERE user_id = :u", array('u' => (int) $user_id));
+        return (is_array($r) && count($r) === 1 && $r[0]['fee_percent_override'] !== null) ? (float) $r[0]['fee_percent_override'] : null;
+    }
+
     public function save($user_id, array $fields){
         $this->get_or_create($user_id);
         return parent::update('billing_accounts', $fields, 'user_id = :uid', array('uid' => (int) $user_id));

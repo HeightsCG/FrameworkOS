@@ -12,8 +12,7 @@ class AccountController extends Controller {
     public function settingsAction(){
         $user = $this->userModel->get_user_by_id(Session::get('user_id'));
         if (!is_array($user) || count($user) !== 1) {
-            Header('Location: /');
-            exit;
+            self::bounce();
         }
         $user = $user[0];   // the acting user — personal settings (security, notifications, wallet, subscriptions)
 
@@ -212,8 +211,7 @@ class AccountController extends Controller {
      */
     public function social_callbackAction(){
         if (Session::get('user_id') == 0) {
-            Header('Location: /');
-            exit;
+            self::bounce();
         }
         $user_id = (int) Session::get('user_id');
 
@@ -243,7 +241,7 @@ class AccountController extends Controller {
 
     public function billingAction(){
         $user = $this->userModel->get_user_by_id(Session::get('user_id'));
-        if (!is_array($user) || count($user) !== 1) { Header('Location: /'); exit; }
+        if (!is_array($user) || count($user) !== 1) { self::bounce(); }
         $u   = $user[0];
         $uid = (int) $u['user_id'];
         // App-managed billing: plan, add-ons, schedule and card live in billing_accounts (BillingService).
@@ -283,8 +281,7 @@ class AccountController extends Controller {
      */
     public function fanvue_callbackAction(){
         if (Session::get('user_id') == 0) {
-            Header('Location: /');
-            exit;
+            self::bounce();
         }
         $flow  = Session::get('fanvue_oauth');
         $back  = '/account/settings?section=' . ((is_array($flow) && ($flow['return_section'] ?? '') === 'inbox') ? 'inbox' : 'connected');
@@ -324,13 +321,15 @@ class AccountController extends Controller {
 
     /** /account/google_start: remember state + PKCE verifier, then off to Google's account chooser. */
     public function google_startAction(){
-        if (UserSession::impersonating()) { Header('Location: /'); exit; }
+        if (UserSession::impersonating()) { self::bounce(); }
         $me = (int) Session::get('user_id');
         if (!GoogleAuth::configured()) { Header('Location: ' . ($me > 0 ? '/account/settings?section=security&google_link_error=unavailable' : '/?auth=login&google_error=unavailable')); exit; }
         list($url, $state, $verifier) = GoogleAuth::authorize_url();
         $flow = array('state' => $state, 'verifier' => $verifier, 'started' => time());
         if ($me > 0) { $flow['link'] = $me; }   // signed in: connecting Google to this account (Settings > Security), not signing in
         $flow['signup'] = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($_GET), 'strlen'));   // ?plan= / ?role= / ?ref= on this link, each one else the cls_signup cookie
+        $next = CustomDomains::safe_path((string) ($_GET['next'] ?? ''));   // ?next= from the sign-in dialog (Controller::bounce): where to land after Google, same site only
+        if ($next !== '/') { $flow['next'] = $next; }
         Session::set('google_oauth', $flow);
         Header('Location: ' . $url);
         exit;
@@ -392,6 +391,7 @@ class AccountController extends Controller {
             TrackingLinks::attribute(0, 'signup', $uid);   // came in through a creator's tracking link (cls_tl)
             try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // Google: stays a User with signup_role creator; /setup sends them to Become a Creator, the agreement comes at checkout
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
+            Affiliates::attribute_signup($uid);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
             UsersModel::clear_signup_cookie();
             SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
             $new = true;
@@ -406,7 +406,7 @@ class AccountController extends Controller {
         $done = LoginGate::finish($user);
         if (isset($done['mfa'])) {
             $m = array_keys(array_filter($done['mfa']));
-            Header('Location: /?auth=mfa&m=' . implode(',', $m));
+            Header('Location: /?auth=mfa&m=' . implode(',', $m) . (!empty($flow['next']) ? '&next=' . rawurlencode((string) $flow['next']) : ''));   // the code form lands on ?next= (cls_after_login)
             exit;
         }
         if ($done['reset_pw'] === 1) { Header('Location: /account/force_reset'); exit; }
@@ -415,7 +415,8 @@ class AccountController extends Controller {
             Header('Location: /setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : ''));
             exit;
         }
-        Header('Location: /?signed_in=google' . ($new ? '&new=1' : ''));
+        $land = !empty($flow['next']) ? CustomDomains::safe_path((string) $flow['next']) : '/';   // the page they were sent to sign in from, else home
+        Header('Location: ' . $land . (strpos($land, '?') === false ? '?' : '&') . 'signed_in=google' . ($new ? '&new=1' : ''));
         exit;
     }
 
@@ -434,10 +435,10 @@ class AccountController extends Controller {
         $host = CustomDomains::normalize($_REQUEST['host'] ?? '');
         $path = CustomDomains::safe_path($_REQUEST['path'] ?? '/');
         $d    = CustomDomains::live($host);
-        if ($d === null) { Header('Location: /'); exit; }
+        if ($d === null) { self::bounce(); }
         $me = (int) Session::get('user_id');
         if ($me > 0 && !UserSession::impersonating()) {
-            if (Permissions::is_admin()) { Header('Location: /'); exit; }
+            if (Permissions::is_admin()) { self::bounce(); }
             if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' && CSRF::validate()) {
                 Header('Location: ' . CustomDomains::handoff_url($me, $host, 'https://' . $host, $path));
                 exit;
@@ -453,7 +454,7 @@ class AccountController extends Controller {
     }
 
     public function usersAction(){
-        if (!Permissions::is_owner_creator()) { Header('Location: /'); exit; }
+        if (!Permissions::is_owner_creator()) { self::bounce(); }
         $owner_id = (int) Session::get('user_id');
         $rows  = $this->userModel->get_user_by_id($owner_id);
         $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

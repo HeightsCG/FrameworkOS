@@ -14,7 +14,7 @@ class AdminController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::is_admin()) { header('Location: /'); exit; }
+        if (!Permissions::is_admin()) { self::bounce(); }
 
         $me   = (int) Session::get('user_id');
         $rows = (new UsersModel())->get_user_by_id($me);
@@ -73,6 +73,8 @@ class AdminController extends Controller {
         $this->view->support      = array(); $this->view->support_open = 0;
         try { $sm = new SupportModel(); $this->view->support = $sm->for_staff('', 300); $this->view->support_open = $sm->count_open(); }
         catch (\Throwable $e) { error_log('[admin] support: ' . $e->getMessage()); }   // /admin still loads if the support tables are missing
+        $this->view->leads = array();   // Leads tab: the free tools (/tools/*)
+        try { $this->view->leads = (new LeadsModel())->recent('', 500); } catch (\Throwable $e) { error_log('[admin] leads: ' . $e->getMessage()); }
 
         $this->view->seo_keywords = array(); $this->view->seo_review = array(); $this->view->seo_published = array(); $this->view->seo_archived = 0;
         try {   // /admin must still load if the SEO tables aren't there yet
@@ -98,24 +100,32 @@ class AdminController extends Controller {
         try { $nm = new NichesModel(); $this->view->niches = $nm->all(); $this->view->niche_counts = $nm->listed_counts(); }
         catch (\Throwable $e) { error_log('[admin] niches: ' . $e->getMessage()); }   // /admin still loads before the niches SQL runs
 
+        $this->view->founding = array(); $this->view->founding_taken = 0;   // Founding tab (/founding offer)
+        try { $fm = new FoundingClaimsModel(); $this->view->founding = $fm->admin_list(300); $this->view->founding_taken = $fm->taken(); }
+        catch (\Throwable $e) { error_log('[admin] founding: ' . $e->getMessage()); }   // /admin still loads before the founding SQL runs
+
+        $this->view->affiliates = array(); $this->view->aff_ledger = array(); $this->view->aff_payouts = array();   // Affiliates tab (/affiliates program)
+        try { $this->view->affiliates = (new AffiliatesModel())->admin_list(300); $this->view->aff_ledger = (new AffiliateCommissionsModel())->ledger(300); $this->view->aff_payouts = (new AffiliatePayoutsModel())->admin_list(200); $this->view->aff_owed = (new AffiliateCommissionsModel())->owed_cents(); }
+        catch (\Throwable $e) { error_log('[admin] affiliates: ' . $e->getMessage()); }   // /admin still loads before the affiliates SQL runs
+
         $this->view->render();
     }
 
     /** /admin/article/<id> — full-page editor for one article (Content tab → Edit). */
     public function articleAction(){
-        if (!Permissions::is_admin()) { header('Location: /'); exit; }
+        if (!Permissions::is_admin()) { self::bounce(); }
         $url = Main::get_url();
         $a = (new SeoArticlesModel())->get((int) ($url[2] ?? 0));
         if (!$a) { Errors::page_not_found(); return; }
         $this->view->article  = $a;
         $this->view->faq      = (array) json_decode((string) ($a['faq'] ?? '[]'), true);
-        $this->view->errors   = SeoDrafter::validate(array('title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'body_md' => $a['body_md'], 'faq' => $this->view->faq), (int) $a['id']);
+        $this->view->errors   = SeoDrafter::validate(array('title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'excerpt' => (string) $a['excerpt'], 'body_md' => $a['body_md'], 'faq' => $this->view->faq, 'cluster' => (string) $a['cluster'], 'intent' => SeoDrafter::intent_for((string) $a['target_keyword'], (string) $a['cluster'])), (int) $a['id']);
         $this->view->render();
     }
 
     /** /admin/user/<id>: one account, with the tools to fix a user's problem (see ApiAdminController admin_* actions). */
     public function userAction(){
-        if (!Permissions::is_admin()) { header('Location: /'); exit; }
+        if (!Permissions::is_admin()) { self::bounce(); }
         $url = Main::get_url();
         $model = new AdminModel();
         $u = $model->user_detail((int) ($url[2] ?? 0));

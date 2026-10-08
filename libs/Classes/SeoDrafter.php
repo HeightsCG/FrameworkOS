@@ -4,18 +4,65 @@
  * as soon as it passes (no admin review since 2026-09-22). One Claude call per draft, one retry on validation failure.
  */
 class SeoDrafter {
-    const PROMPT_VERSION = 'v1';
-    const MIN_WORDS = 1000;
+    const PROMPT_VERSION = 'v2';
+    const MIN_WORDS = 1000;   // length when no intent is known (the admin editor on older articles)
     const MAX_WORDS = 2000;
 
-    /** Topic clusters the blog targets. Each maps to the feature page an article in it must link to. */
+    /**
+     * Topic clusters. feature = the page an article in the cluster must link to; links = the only product pages it may
+     * link to; related = the other clusters whose articles it may link to; intent = default length band (LENGTHS).
+     * Pricing and selling clusters never reach AI influencer pages; AI clusters stay among themselves.
+     */
     const CLUSTERS = array(
-        'ai-influencer-monetization' => array('label' => 'AI influencer monetization', 'feature' => '/features/ai-influencer'),
-        'ai-dm-chatter'              => array('label' => 'AI DM chatter',              'feature' => '/features/dm-agent'),
-        'lora-character-training'    => array('label' => 'LoRA character training',    'feature' => '/lora-character-training'),
-        'platform-comparisons'       => array('label' => 'Platform comparisons',       'feature' => '/features'),
-        'creator-payouts'            => array('label' => 'Creator payouts',            'feature' => '/features/payouts'),
+        'pricing-and-fees' => array('label' => 'Pricing, fees and plans', 'feature' => '/pricing', 'intent' => 'howto',
+            'links' => array('/pricing', '/features/payouts', '/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan'),
+            'related' => array('platform-comparisons', 'creator-payouts')),
+        'platform-comparisons' => array('label' => 'Platform comparisons', 'feature' => '/best-creator-monetization-platforms', 'intent' => 'guide',
+            'links' => array('/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/pricing', '/features', '/features/link-in-bio', '/features/payouts'),
+            'related' => array('pricing-and-fees', 'creator-payouts')),
+        'creator-payouts' => array('label' => 'Creator payouts', 'feature' => '/features/payouts', 'intent' => 'guide',
+            'links' => array('/features/payouts', '/pricing', '/features/memberships', '/features/pay-per-view', '/monetize-your-content'),
+            'related' => array('pricing-and-fees', 'memberships-and-ppv')),
+        'memberships-and-ppv' => array('label' => 'Memberships and pay-per-view', 'feature' => '/features/memberships', 'intent' => 'howto',
+            'links' => array('/features/memberships', '/features/pay-per-view', '/features/payouts', '/monetize-your-content', '/pricing', '/features'),
+            'related' => array('creator-monetization', 'creator-payouts', 'pricing-and-fees')),
+        'creator-monetization' => array('label' => 'Selling from a creator page', 'feature' => '/monetize-your-content', 'intent' => 'guide',
+            'links' => array('/monetize-your-content', '/features', '/features/memberships', '/features/pay-per-view', '/features/payouts', '/features/link-in-bio', '/features/services-and-events', '/features/custom-domains', '/pricing'),
+            'related' => array('memberships-and-ppv', 'creator-payouts', 'social-publishing')),
+        'social-publishing' => array('label' => 'Social publishing', 'feature' => '/features/publishing', 'intent' => 'howto',
+            'links' => array('/features/publishing', '/features', '/features/link-in-bio', '/monetize-your-content'),
+            'related' => array('creator-monetization')),
+        'ai-influencer-monetization' => array('label' => 'AI influencer monetization', 'feature' => '/features/ai-influencer', 'intent' => 'guide',
+            'links' => array('/features/ai-influencer', '/lora-character-training', '/consistent-ai-model-face', '/ai-ofm-tools', '/compare/eromify'),
+            'related' => array('lora-character-training', 'ai-dm-chatter')),
+        'lora-character-training' => array('label' => 'LoRA character training', 'feature' => '/lora-character-training', 'intent' => 'howto',
+            'links' => array('/lora-character-training', '/consistent-ai-model-face', '/features/ai-influencer', '/ai-ofm-tools', '/compare/eromify'),
+            'related' => array('ai-influencer-monetization')),
+        'ai-dm-chatter' => array('label' => 'AI DM chatter', 'feature' => '/features/dm-agent', 'intent' => 'howto',
+            'links' => array('/features/dm-agent', '/ai-ofm-tools', '/features/ai-influencer', '/features/pay-per-view'),
+            'related' => array('ai-influencer-monetization', 'memberships-and-ppv')),
     );
+
+    /** Word ranges per intent; validate() allows 20% either side. */
+    const LENGTHS = array(
+        'quick' => array(600, 800, 'quick answer'),
+        'howto' => array(900, 1200, 'how-to'),
+        'guide' => array(1400, 1900, 'guide or comparison'),
+    );
+
+    /** The only external domains an article may cite (subdomains included): official help centres, platform docs, public statistics. */
+    const CITATION_DOMAINS = array(
+        'irs.gov', 'ftc.gov', 'sba.gov', 'bls.gov', 'census.gov', 'gov.uk', 'canada.ca', 'ato.gov.au', 'europa.eu', 'oecd.org',
+        'pewresearch.org', 'help.instagram.com', 'creators.instagram.com', 'transparency.meta.com', 'support.google.com', 'blog.youtube',
+        'help.x.com', 'support.tiktok.com', 'help.pinterest.com', 'support.patreon.com', 'help.ko-fi.com', 'help.fanvue.com',
+        'help.beacons.ai', 'help.stan.store', 'creatorhub.fansly.com', 'huggingface.co',
+    );
+
+    /** Common first names: an article names no people, real or invented. Ambiguous words (Will, May, Grace...) left out. */
+    const FIRST_NAMES = array('Sarah','Jessica','Emily','Ashley','Jennifer','Michael','David','James','John','Robert','Daniel','Matthew','Christopher','Joshua','Andrew','Ryan','Brandon','Tyler','Kevin','Jason','Justin','Emma','Olivia','Sophia','Isabella','Mia','Ava','Abigail','Madison','Chloe','Lily','Hannah','Samantha','Lauren','Rachel','Megan','Amanda','Nicole','Stephanie','Elizabeth','Maria','Laura','Anna','Sofia','Lucas','Liam','Noah','Ethan','Mason','Logan','Aiden','Jacob','Benjamin','Alexander','Elijah','Oliver','Henry','Sebastian','Carlos','Juan','Jose','Luis','Miguel','Priya','Aisha','Fatima','Mohammed','Ahmed','Yuki','Kenji','Maya','Zoe','Jake','Josh','Mike','Dave','Chris','Alex','Ben','Tom','Nina','Lena','Elena','Clara','Julia','Sara','Kate','Katie','Jenny','Amy','Lisa','Leah','Ella','Sienna','Jasmine','Marcus','Tony','Kim');
+
+    /** Capitalised words that are products, places, platforms or colours, never a person (the names check skips them). */
+    const SAFE_WORDS = array('Maya','Mason','Sienna','Google','Hugging','Face','Instagram','Facebook','Twitter','Reddit','Snapchat','Pinterest','Threads','Bluesky','Discord','Telegram','Patreon','Fanvue','Fansly','Linktree','Beacons','Apple','Android','Canva','Shopify','Flux','Stable','Diffusion','Midjourney','Claude','Analytics','Creator','Studio','Free','Pro','Link','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','January','February','March','April','May','June','July','August','September','October','November','December','English','Spanish','The','This','That','These','Those','Your','You','It','A','An','In','On','At','For','From','With','By','And','But','Or','If','When','What','How','Why','One','Two','Three','Each','Every','Some','All','Most','Settings','Library','Studio','Inbox','Audience','Dashboard','Pricing','Features','Payouts','Memberships','Services','Events','Bundles','Credits','Wallet','LoRA','Visa','Mastercard','PayPal','Europe','America','Canada','Australia','London','Paris');
 
     /** A known cluster slug, or '' . */
     public static function cluster($c): string {
@@ -29,10 +76,87 @@ class SeoDrafter {
         return $c !== '' ? self::CLUSTERS[$c]['feature'] : '/features';
     }
 
-    /** Articles this draft should link to: same cluster first, newest first. */
+    /** Product pages an article in this cluster may link to ('/' and '/blog' always). Empty cluster = every allowed path. */
+    public static function cluster_links($cluster): array {
+        $c = self::cluster($cluster);
+        if ($c === '') { return self::allowed_paths(); }
+        return array_values(array_unique(array_merge(array('/', '/blog', self::CLUSTERS[$c]['feature']), self::CLUSTERS[$c]['links'])));
+    }
+
+    /** The cluster itself plus its related clusters: the articles it may link to. */
+    public static function cluster_family($cluster): array {
+        $c = self::cluster($cluster);
+        return $c === '' ? array() : array_values(array_unique(array_merge(array($c), self::CLUSTERS[$c]['related'])));
+    }
+
+    /** quick | howto | guide for a keyword: question-shaped = quick, comparisons and lists = guide, "how to" = howto, else the cluster's default. */
+    public static function intent_for($keyword, $cluster = ''): string {
+        $k = ' ' . strtolower(trim((string) $keyword)) . ' ';
+        if (preg_match('/^ (what is|what are|what does|can i|can you|do i|do you|does|is |are |how much|how long|how many|when |should |why )/', $k)) { return 'quick'; }
+        if (preg_match('/ (alternatives?|vs|versus|best|compared?|comparison|platforms?|guide) /', $k)) { return 'guide'; }
+        if (strpos($k, ' how to ') === 0) { return 'howto'; }
+        $c = self::cluster($cluster);
+        return $c !== '' ? (string) self::CLUSTERS[$c]['intent'] : 'howto';
+    }
+
+    /** array(min, max) words the validator accepts for an intent (the target range +/- 20%). */
+    public static function word_bounds($intent): array {
+        if (!isset(self::LENGTHS[(string) $intent])) { return array(self::MIN_WORDS, self::MAX_WORDS); }
+        $r = self::LENGTHS[(string) $intent];
+        return array((int) floor($r[0] * 0.8), (int) ceil($r[1] * 1.2));
+    }
+
+    /** Is this an https link to a domain on CITATION_DOMAINS? */
+    public static function citation_ok($url): bool {
+        $parts = @parse_url((string) $url);
+        if (!is_array($parts) || strtolower((string) ($parts['scheme'] ?? '')) !== 'https' || empty($parts['host']) || isset($parts['user'])) { return false; }
+        $host = strtolower((string) $parts['host']);
+        foreach (self::CITATION_DOMAINS as $d) { if ($host === $d || substr($host, -strlen('.' . $d)) === '.' . $d) { return true; } }
+        return false;
+    }
+
+    /** Is this relative link inside the cluster's allow-list (pages) or link family (articles)? $article_clusters = slug => cluster. */
+    private static function link_in_cluster($path, $cluster, array $article_clusters): bool {
+        if (strpos($path, '/blog/') === 0) { return in_array((string) ($article_clusters[substr($path, 6)] ?? ''), self::cluster_family($cluster), true); }
+        return in_array($path, self::cluster_links($cluster), true);
+    }
+
+    /** Internal links outside the cluster's allow-list or family, plus "cluster is required". Applied to every article, drafted or edited. */
+    public static function link_errors(array $a, $article_clusters = null): array {
+        $cluster = self::cluster($a['cluster'] ?? '');
+        if ($cluster === '') { return array('cluster is required (it sets the link allow-list)'); }
+        if ($article_clusters === null) { try { $article_clusters = (new SeoArticlesModel())->published_clusters(); } catch (\Throwable $e) { $article_clusters = array(); } }
+        $err = array();
+        foreach (Markdown::links((string) ($a['body_md'] ?? '')) as $l) {
+            if (strpos($l, '/') !== 0 || strpos($l, '//') === 0) { continue; }   // external: content_errors() checks citations
+            $path = preg_replace('/[#?].*$/', '', $l);
+            if (!self::link_in_cluster($path, $cluster, (array) $article_clusters)) { $err[] = (strpos($path, '/blog/') === 0 ? "article link outside this cluster's family: " : "page link outside this cluster's allow-list: ") . $l; }
+        }
+        return $err;
+    }
+
+    /** Links outside the cluster's allow-list (and external links not on CITATION_DOMAINS) become their plain text. */
+    public static function strip_links($md, $cluster, $article_clusters = null): string {
+        $cluster = self::cluster($cluster);
+        if ($cluster !== '' && $article_clusters === null) { try { $article_clusters = (new SeoArticlesModel())->published_clusters(); } catch (\Throwable $e) { $article_clusters = array(); } }
+        $allowed = self::allowed_paths();
+        return preg_replace_callback('/\[([^\]]*)\]\(([^)\s]+)\)/', function ($m) use ($cluster, $article_clusters, $allowed) {
+            $l = $m[2]; $path = preg_replace('/[#?].*$/', '', $l);
+            if (preg_match('#^https?://#i', $l)) { return self::citation_ok($l) ? $m[0] : $m[1]; }
+            if (strpos($l, '/') !== 0 || strpos($l, '//') === 0 || !in_array($path, $allowed, true)) { return $m[1]; }
+            if ($cluster === '') { return $m[0]; }
+            return self::link_in_cluster($path, $cluster, (array) $article_clusters) ? $m[0] : $m[1];
+        }, (string) $md);
+    }
+
+    /** Articles this draft should link to: its cluster and related clusters only, same cluster first, newest first. */
     public static function link_targets($cluster, $except_id = 0): array {
-        try { return (new SeoArticlesModel())->for_linking(self::cluster($cluster), (int) $except_id, 6); }
+        $family = self::cluster_family($cluster);
+        if (empty($family)) { try { return (new SeoArticlesModel())->for_linking('', (int) $except_id, 6); } catch (\Throwable $e) { return array(); } }
+        try { $rows = (new SeoArticlesModel())->for_linking_clusters($family, (int) $except_id, 12); }
         catch (\Throwable $e) { return array(); }
+        usort($rows, function ($a, $b) use ($family) { return array_search($a['cluster'], $family, true) <=> array_search($b['cluster'], $family, true); });   // stable: newest first within a cluster
+        return array_slice($rows, 0, 6);
     }
 
     /** Relative paths an article may link to: product pages + published articles. */
@@ -66,11 +190,122 @@ class SeoDrafter {
         return is_array($d) ? $d : null;
     }
 
+    /** Live plan names and prices from config: array(name => price), plus the retired names. */
+    private static function plan_prices(): array {
+        $live = array(); $retired = array();
+        foreach (PlanTiers::all() as $t) {
+            if (!empty($t['retired'])) { $retired[] = (string) $t['name']; continue; }
+            $live[(string) $t['name']] = (int) $t['price'];
+        }
+        return array($live, $retired);
+    }
+
+    /** Every competitor we name anywhere (compare pages and the alternatives lists). */
+    private static function competitor_names(): array {
+        $names = array_column(PagesController::COMPETITORS, 'name');
+        $walk = function ($v) use (&$walk, &$names) { if (is_array($v)) { if (isset($v['name']) && is_string($v['name'])) { $names[] = $v['name']; } foreach ($v as $c) { if (is_array($c)) { $walk($c); } } } };
+        if (class_exists('AlternativesPages')) { $walk(AlternativesPages::PAGES); }
+        return array_values(array_unique(array_filter(array_map('strval', $names))));
+    }
+
+    /** Fee percent per live plan, from PlanTiers: array(name => percent). */
+    private static function plan_fees(): array {
+        $out = array();
+        foreach (PlanTiers::all() as $t) { if (empty($t['retired'])) { $out[(string) $t['name']] = (int) ($t['limits']['fee_percent'] ?? 0); } }   // every live plan, Free included
+        return $out;
+    }
+
+    /**
+     * A monthly "$N" written right next to a plan name ("Creator is $99 a month", "the Studio plan costs $99/mo",
+     * "Creator ($99 a month)", "$99 a month for Creator"). Never $1 or $25 (credits, payout minimum) or a non-monthly amount. Calls $fn(plan, amount, match) and returns the text with each match replaced.
+     */
+    private static function each_plan_price($text, callable $fn): string {
+        list($live) = self::plan_prices();
+        $site = Main::site_name();
+        $text = str_replace($site, "\x01", (string) $text);   // "Creator Link Studio" is not the Creator or Studio plan
+        $skip = function ($amt) { return in_array((float) str_replace(',', '', $amt), array(1.0, 25.0), true); };   // $1 = 10 credits, $25 payout minimum
+        foreach (array_keys($live) as $name) {
+            $n = preg_quote($name, '/');
+            $per = '(?=\s*(?:a|per)\s+month\b|\s*\/\s*(?:month|mo)\b|\s+monthly\b)';   // a plan PRICE says per month
+            $text = preg_replace_callback('/\b(' . $n . ')(\s+plan)?(\s*(?:is|costs?|runs|at|for|=|\()\s*(?:only\s+|just\s+|about\s+)?)\$(\d[\d,]*(?:\.\d+)?)' . $per . '/', function ($m) use ($fn, $skip) {
+                return $m[1] . $m[2] . $m[3] . '$' . ($skip($m[4]) ? $m[4] : $fn($m[1], $m[4]));
+            }, $text);
+            $text = preg_replace_callback('/\$(\d[\d,]*(?:\.\d+)?)(\s*(?:(?:a|per)\s+month|\/\s*(?:month|mo)|monthly)\b\s+(?:for|on)\s+(?:the\s+)?)(' . $n . ')\b/', function ($m) use ($fn, $skip) {
+                return '$' . ($skip($m[1]) ? $m[1] : $fn($m[3], $m[1])) . $m[2] . $m[3];
+            }, $text);
+        }
+        return str_replace("\x01", $site, $text);
+    }
+
+    /** Every plan price written next to a plan name takes that plan's config price (a wrong plan's price included). */
+    public static function fix_plan_prices($text): string {
+        list($live) = self::plan_prices();
+        return self::each_plan_price($text, function ($plan, $amt) use ($live) {
+            $price = (int) ($live[$plan] ?? 0);
+            return (float) str_replace(',', '', $amt) === (float) $price ? $amt : number_format($price);
+        });
+    }
+
+    /**
+     * Repairs fee wording around plan names, whole tokens only: rejoins a plan name an older --fix-fee run split
+     * ("10% on Creato r" -> "Creator"), and separates a word glued onto a plan name ("3% on Studiodepending" ->
+     * "3% on Studio, depending"). "Creators" and an intact "10% on Creator," are never touched.
+     */
+    public static function fix_fee_glue($text): string {
+        list($live, $retired) = self::plan_prices();
+        foreach (array_merge(array_keys($live), $retired) as $name) {
+            if (mb_strlen($name) < 3) { continue; }
+            $n = preg_quote($name, '/'); $head = preg_quote(substr($name, 0, -1), '/'); $tail = preg_quote(substr($name, -1), '/');
+            $text = preg_replace('/(\d+% on (?:the )?)' . $n . '((?!s\b)[a-z]+) ([a-z])\b/', '$1' . $name . ', $2$3', (string) $text);   // "Studiodependin g"
+            $text = preg_replace('/(\d+% on (?:the )?)' . $head . ' ' . $tail . '\b/', '$1' . $name, $text);                          // "Creato r"
+            $text = preg_replace('/(\d+% on (?:the )?' . $n . ')((?!s\b)[a-z]+)/', '$1, $2', $text);                                    // "Studiodepending"
+        }
+        return (string) $text;
+    }
+
+    /** What the drafter writes in place of the model's tokens: fee and plan prices always come from config. */
+    public static function tokens_map(): array {
+        return array(
+            '{{fee}}' => PagesController::fee_sentence() . ' ' . PagesController::FINAL_NOTE,
+            '{{plans}}' => PagesController::plan_price_sentence() . ' ' . PagesController::FINAL_NOTE,
+            '{{final_note}}' => PagesController::FINAL_NOTE,
+        );
+    }
+
+    /** Does this text talk about our plans or credits (and so need the non-refundable line)? */
+    private static function money_topic($text): bool {
+        list($live, $retired) = self::plan_prices();
+        $names = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_merge(array_keys($live), $retired)));
+        return (bool) preg_match('/\bcredits\b|\bcredit (?:wallet|purchases?|packs?|balance)\b/i', (string) $text) || ($names !== '' && preg_match('/\b(?:' . $names . ')\s+plans?\b|\bplan (?:price|prices|charge|charges|cost|costs)\b/', (string) $text));
+    }
+
     /**
      * Mechanical fixes applied before validate(), so a small slip doesn't stop the day's article from publishing:
-     * an over-long meta description is cut at a word boundary, and links to paths outside the allow-list become plain text.
+     * an over-long meta description is cut at a word boundary, links outside the cluster's allow-list become plain text
+     * (citations to CITATION_DOMAINS stay), {{fee}}/{{plans}}/{{final_note}} become the config sentences, a plan price
+     * that is not the config value is replaced with it, dashes become commas, and the non-refundable line is added
+     * where plans or credits come up without it.
      */
     public static function fit(array $a): array {
+        $map = self::tokens_map();
+        foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $f) {
+            $v = (string) ($a[$f] ?? '');
+            $v = str_replace(array_keys($map), array_values($map), $v);
+            $v = preg_replace('/\s*\x{2014}\s*/u', ', ', $v);                    // em dash
+            $v = preg_replace('/(\d)\s*\x{2013}\s*(\d)/u', '$1-$2', $v);          // en dash in a range
+            $v = preg_replace('/\s*\x{2013}\s*/u', ', ', $v);
+            $a[$f] = $v;
+        }
+        if (isset($a['faq']) && is_array($a['faq'])) {
+            foreach ($a['faq'] as $i => $f) {
+                if (!is_array($f)) { continue; }
+                foreach (array('q', 'a') as $k) {
+                    $v = str_replace(array_keys($map), array_values($map), (string) ($f[$k] ?? ''));
+                    $v = preg_replace('/(\d)\s*\x{2013}\s*(\d)/u', '$1-$2', $v);
+                    $a['faq'][$i][$k] = preg_replace('/\s*[\x{2013}\x{2014}]\s*/u', ', ', $v);
+                }
+            }
+        }
         $meta = trim(preg_replace('/\s+/', ' ', (string) ($a['meta_description'] ?? '')));
         if (mb_strlen($meta) > 155) {
             $cut = mb_substr($meta, 0, 154); $sp = mb_strrpos($cut, ' ');
@@ -78,19 +313,103 @@ class SeoDrafter {
             if (mb_strlen($meta) > 155) { $meta = mb_substr($meta, 0, 155); }
         }
         $a['meta_description'] = $meta;
-        $allowed = self::allowed_paths();
-        $a['body_md'] = preg_replace_callback('/\[([^\]]*)\]\(([^)\s]+)\)/', function ($m) use ($allowed) {
-            $l = $m[2]; $path = preg_replace('/[#?].*$/', '', $l);
-            $ok = strpos($l, '/') === 0 && strpos($l, '//') !== 0 && in_array($path, $allowed, true);
-            return $ok ? $m[0] : $m[1];
-        }, (string) ($a['body_md'] ?? ''));
+        $a['body_md'] = self::strip_links((string) ($a['body_md'] ?? ''), $a['cluster'] ?? '');
+        $a['body_md'] = self::fix_plan_prices($a['body_md']);
+        // plans or credits discussed without the non-refundable line: add it to the first paragraph that raises them
+        if (self::money_topic($a['body_md']) && stripos($a['body_md'], 'non-refundable') === false) {
+            $lines = explode("\n", $a['body_md']);
+            foreach ($lines as $i => $line) {
+                if (trim($line) === '' || preg_match('/^\s*(#|\||[-*]\s|\d+[.)]\s|>)/', $line) || !self::money_topic($line)) { continue; }
+                $lines[$i] = rtrim($line) . ' ' . PagesController::FINAL_NOTE;
+                break;
+            }
+            $a['body_md'] = implode("\n", $lines);
+        }
         return $a;
     }
 
     /**
+     * Content rules shared by validate() and the nightly fact check: no income promises, no people's names,
+     * no em or en dashes, no payment processor, only CITATION_DOMAINS as external links, current plan prices only,
+     * no leftover tokens, and the non-refundable line wherever plans or credits come up. Returns error strings.
+     */
+    public static function content_errors(array $a): array {
+        $err = array();
+        $body = (string) ($a['body_md'] ?? '');
+        $faq = $a['faq'] ?? array();
+        $faq_text = is_array($faq) ? implode("\n", array_map(function ($f) { return is_array($f) ? (string) ($f['q'] ?? '') . ' ' . (string) ($f['a'] ?? '') : (string) $f; }, $faq)) : (string) $faq;
+        $all = (string) ($a['title'] ?? '') . "\n" . (string) ($a['meta_description'] ?? '') . "\n" . (string) ($a['excerpt'] ?? '') . "\n" . $body . "\n" . $faq_text;
+        $plain = preg_replace('/\]\([^)]*\)/', ']', $all);   // link targets are not prose
+        if (preg_match('/[\x{2013}\x{2014}]/u', $all)) { $err[] = 'em or en dash not allowed (use a comma or a period)'; }
+        if (preg_match('/\bstripe\b/i', $plain)) { $err[] = 'never name the payment processor'; }
+        if (strpos($all, '{{') !== false) { $err[] = 'unreplaced {{token}} left in the text'; }
+        foreach (Markdown::links($body) as $l) {
+            if (preg_match('#^https?://#i', $l) && !self::citation_ok($l)) { $err[] = 'external link to a domain not on the citation list: ' . $l; }
+        }
+        // income promises
+        $promise = preg_replace('/\b(?:no|not|never|without|nothing is|isn\'t a|is not a|there is no|cannot|can\'t|can not|could not|won\'t|will not)\s+(?:a\s+|any\s+)?guarantee[sd]?\b/i', '', $plain);
+        if (preg_match('/\bguarantee[sd]?\b/i', $promise)) { $err[] = 'income promise: "guaranteed"'; }
+        if (preg_match('/\byou(?:\'ll| will| are going to|\'re going to| can expect to)\s+(?:make|earn|bring in|take home)\b/i', $plain, $m)) { $err[] = 'income promise: "' . $m[0] . '"'; }
+        if (preg_match('/\byou(?:\'d| can| could| might| may| should| would)\s+(?:easily\s+)?(?:make|earn|bring in|take home)\s+(?:\$|\d|money|a living|a full[- ]time|six|seven|thousands|hundreds|passive|serious|real money)/i', $plain, $m)) { $err[] = 'income promise: "' . $m[0] . '"'; }
+        if (preg_match('/\b(?:six|seven|five)[- ]figures?\b/i', $plain, $m)) { $err[] = 'income promise: "' . $m[0] . '"'; }
+        $amount = '(?:\$\s?\d[\d,.]*k?|\d[\d,.]*k?\s*(?:dollars|usd)\b)';
+        foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $sentence) {
+            if (!preg_match('/' . $amount . '\s*(?:a|per|\/|each|every)\s*(?:month|mo\b|week|year)|' . $amount . '\s*(?:monthly|a year)\b/i', $sentence)) { continue; }
+            if (!preg_match('/\b(?:make|makes|making|earn|earns|earning|earnings|income|revenue|bring in|take home|profit)\b/i', $sentence)) { continue; }
+            if (preg_match('/\b(?:some creators|varies|vary|between|cannot guarantee|can\'t guarantee)\b/i', $sentence)) { continue; }   // honest ranges
+            if (preg_match('/\b(?:say,? (?:as an? \w+,? )?you|suppose|imagine|for example|hypothetical|run the (?:arithmetic|numbers|maths?|math))\b|a month gross\b/i', $sentence)) { continue; }   // worked examples, not promises
+            $err[] = 'earnings claim stated as fact: "' . mb_substr(trim($sentence), 0, 90) . '"';
+            break;
+        }
+        // people's names (brand, competitor and SAFE_WORDS removed first; headings skipped)
+        $names_text = str_ireplace(array_merge(array(Main::site_name()), array_column(PagesController::COMPETITORS, 'name')), ' ', preg_replace('/^\s*#.*$/m', ' ', $plain));
+        $person = function ($w) { return !in_array($w, self::SAFE_WORDS, true); };
+        $name_hit = '';
+        if (preg_match('/\b(?:Mr|Mrs|Ms|Mx|Dr|Prof)\.?\s+[A-Z][a-z]+/', $names_text, $m)) { $name_hit = $m[0]; }
+        if ($name_hit === '' && preg_match_all('/\b(?:' . implode('|', self::FIRST_NAMES) . ')\b/', $names_text, $mm)) { foreach ($mm[0] as $w) { if ($person($w)) { $name_hit = $w; break; } } }
+        if ($name_hit === '' && preg_match_all('/\b(?:by|from|with|says|named|called)\s+([A-Z][a-z]+)\b(?![\w-])/', $names_text, $mm)) { foreach ($mm[1] as $w) { if ($person($w)) { $name_hit = $w; break; } } }
+        if ($name_hit === '' && preg_match_all('/(?<![.!?:]\s)(?<!^)\b([A-Z][a-z]+)\'s\b/m', $names_text, $mm)) { foreach ($mm[1] as $w) { if ($person($w)) { $name_hit = $w . "'s"; break; } } }
+        if ($name_hit === '' && preg_match_all('/\b([A-Z][a-z]+) ([A-Z][a-z]+),? (?:says|said|writes|wrote|explains|explained|told|notes|noted|recommends)\b/', $names_text, $mm, PREG_SET_ORDER)) { foreach ($mm as $x) { if ($person($x[1]) && $person($x[2])) { $name_hit = $x[0]; break; } } }
+        if ($name_hit !== '') { $err[] = 'personal name not allowed: "' . $name_hit . '"'; }
+        // plan prices and fee percentages only as configured; retired plans not at all
+        list($live, $retired) = self::plan_prices();
+        foreach ($retired as $r) { if (preg_match('/\b' . preg_quote($r, '/') . ' plan\b/i', $plain)) { $err[] = 'names the retired ' . $r . ' plan'; } }
+        self::each_plan_price($plain, function ($plan, $amt) use ($live, &$err) {
+            if ((float) str_replace(',', '', $amt) !== (float) ($live[$plan] ?? -1)) { $err[] = "$plan plan price \$$amt is not the configured price"; }
+            return $amt;
+        });
+        $fees = self::plan_fees();
+        $plain_ns = str_replace(Main::site_name(), "\x01", $plain);
+        $plan_re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_keys($live)));
+        $comp_re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, self::competitor_names()));
+        foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain_ns) as $sentence) {
+            if (!preg_match('/\d+(?:\.\d+)?\s*%/', $sentence) || !preg_match('/\b(?:fee|fees|take|takes|take rate|cut|commission|keeps?)\b/i', $sentence)) { continue; }
+            if (strpos($sentence, "\x01") === false && ($plan_re === '' || !preg_match('/\b(?:' . $plan_re . ')\b/', $sentence))) { continue; }   // not about us
+            if (preg_match('/\bcard processing\b|\bprocessing fees?\b/i', $sentence) && !preg_match('/\b(?:' . $plan_re . ')\b/', $sentence)) { continue; }
+            // a figure belongs to its own clause; clauses about a competitor are not ours to check
+            foreach (preg_split('/\s*(?:[,;]|\b(?:while|whereas|versus|vs\.?|and|but)\b)\s*/i', $sentence) as $clause) {
+                if (!preg_match_all('/(\d+(?:\.\d+)?)\s*%/', $clause, $pm, PREG_OFFSET_CAPTURE)) { continue; }
+                if ($comp_re !== '' && preg_match('/\b(?:' . $comp_re . ')(?![\w])/i', $clause)) { continue; }
+                foreach ($pm[1] as $p) {
+                    $pct = (float) $p[0]; $pos = (int) $p[1];
+                    $plan = ''; $best = PHP_INT_MAX;
+                    if ($plan_re !== '' && preg_match_all('/\b(' . $plan_re . ')\b/', $clause, $x, PREG_OFFSET_CAPTURE)) {
+                        foreach ($x[1] as $hit) { $d = abs($hit[1] - $pos); if ($d < $best) { $best = $d; $plan = $hit[0]; } }   // nearest plan in the clause
+                    }
+                    if ($plan !== '' && isset($fees[$plan])) { if ($pct !== (float) $fees[$plan]) { $err[] = "fee $p[0]% next to the $plan plan is not the configured " . $fees[$plan] . '%'; } }
+                    elseif (strpos($clause, "\x01") !== false && !in_array($pct, array_map('floatval', array_values($fees)), true)) { $err[] = "platform fee $p[0]% is not a configured fee"; }
+                }
+            }
+        }
+        if (self::money_topic($body . "\n" . $faq_text) && stripos($all, 'non-refundable') === false) { $err[] = 'plans or credits are discussed without the non-refundable line'; }
+        return array_values(array_unique($err));
+    }
+
+    /**
      * Hard rules. Returns error strings; empty array = valid.
-     * $strict_links adds the internal-linking rules (3+ article links, 1 feature link): on for freshly
-     * drafted articles, off for the admin editor so an older article can still be re-published.
+     * The cluster is required and every internal link must sit inside its allow-list / link family (always).
+     * $strict_links adds the counts (3+ article links, 1 feature link): on when the drafter had 3+ articles to offer.
+     * $a['intent'] (quick|howto|guide) sets the length band.
      */
     public static function validate(array $a, int $except_id = 0, bool $strict_links = false): array {
         $err = array();
@@ -100,18 +419,22 @@ class SeoDrafter {
         if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) || strlen($slug) < 3 || strlen($slug) > 120) { $err[] = 'slug must be lowercase a-z 0-9 and hyphens, 3-120 chars'; }
         if ($meta === '' || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 1-155 characters'; }
         $words = Markdown::word_count($body);
-        if ($words < self::MIN_WORDS || $words > self::MAX_WORDS) { $err[] = "body must be " . self::MIN_WORDS . '-' . self::MAX_WORDS . " words (got $words)"; }
+        list($min_w, $max_w) = self::word_bounds($a['intent'] ?? '');
+        if ($words < $min_w || $words > $max_w) { $err[] = "body must be $min_w-$max_w words (got $words)"; }
         if (Markdown::headings($body, 2) < 3) { $err[] = 'body needs at least 3 "## " sections'; }
         $allowed = self::allowed_paths();
         foreach (Markdown::links($body) as $l) {
             $path = preg_replace('/[#?].*$/', '', $l);
+            if (preg_match('#^https?://#i', $l)) { continue; }   // citations: content_errors() checks the domain
             if (strpos($l, '/') !== 0 || strpos($l, '//') === 0) { $err[] = "external link not allowed: $l"; }
             elseif (!in_array($path, $allowed, true)) { $err[] = "unknown internal link: $l"; }
         }
+        $err = array_merge($err, self::link_errors($a));   // allow-list and cluster: always, drafted or edited
         if ($strict_links) {
             $article_links = 0; $feature_links = 0;
             $feature = self::feature_for($a['cluster'] ?? '');
             foreach (Markdown::links($body) as $l) {
+                if (preg_match('#^https?://#i', $l)) { continue; }
                 $path = preg_replace('/[#?].*$/', '', $l);
                 if (strpos($path, '/blog/') === 0) { $article_links++; }
                 elseif ($path === $feature) { $feature_links++; }
@@ -125,8 +448,28 @@ class SeoDrafter {
         if (preg_match('/<\/?[a-z][^>]*>/i', $body)) { $err[] = 'raw HTML not allowed in body'; }
         $n = 0; foreach ($faq as $f) { if (is_array($f) && trim((string) ($f['q'] ?? '')) !== '' && trim((string) ($f['a'] ?? '')) !== '') { $n++; } }
         if ($n < 3 || $n > 5) { $err[] = 'faq needs 3-5 question/answer pairs'; }
+        $err = array_merge($err, self::content_errors($a));
         try { if ($slug !== '' && (new SeoArticlesModel())->slug_exists($slug, $except_id)) { $err[] = 'slug already exists'; } } catch (\Throwable $e) {}
         return $err;
+    }
+
+    /**
+     * Markdown::render plus citation links: Markdown keeps only relative links, so a link to a CITATION_DOMAINS
+     * page is swapped for a placeholder, rendered, then put back as an external anchor.
+     */
+    public static function render_body($md): string {
+        $cites = array();
+        $md = preg_replace_callback('/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/', function ($m) use (&$cites) {
+            if (!self::citation_ok($m[2])) { return $m[1]; }
+            $cites[] = array($m[1], $m[2]);
+            return 'clscite' . (count($cites) - 1) . 'x';
+        }, (string) $md);
+        $html = Markdown::render($md, self::allowed_paths());
+        return preg_replace_callback('/clscite(\d+)x/', function ($m) use ($cites) {
+            if (!isset($cites[(int) $m[1]])) { return ''; }
+            list($text, $url) = $cites[(int) $m[1]];
+            return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" rel="nofollow noopener" target="_blank">' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8') . '</a>';
+        }, $html);
     }
 
     /** The product facts block, shared with SupportAssist. */
@@ -149,18 +492,24 @@ class SeoDrafter {
         }
         if (PagesController::addon_sentence() !== '') { $lines[] = 'Add-ons: ' . PagesController::addon_sentence(); }
         $lines[] = 'Pages you may link to (relative paths only):';
-        foreach (SeoController::public_pages() as $p) { $lines[] = '- ' . $p['path'] . ' — ' . $p['title'] . ': ' . $p['description']; }
+        foreach (SeoController::public_pages() as $p) { $lines[] = '- ' . $p['path'] . ': ' . $p['title'] . '. ' . $p['description']; }
         try {
             $recent = (new SeoArticlesModel())->published(8, 0);
-            if (!empty($recent)) { $lines[] = 'Published articles you may link to (and must not repeat):'; foreach ($recent as $a) { $lines[] = '- /blog/' . $a['slug'] . ' — ' . $a['title'] . ': ' . (string) $a['excerpt']; } }
+            if (!empty($recent)) { $lines[] = 'Published articles you may link to (and must not repeat):'; foreach ($recent as $a) { $lines[] = '- /blog/' . $a['slug'] . ': ' . $a['title'] . '. ' . (string) $a['excerpt']; } }
         } catch (\Throwable $e) {}
-        $lines[] = 'Competitors you may name only as "other subscription platforms" — no fees, no claims: ' . implode(', ', array_column(PagesController::COMPETITORS, 'name')) . '.';
+        $lines[] = 'Competitors you may name only as "other subscription platforms", with no fees and no claims: ' . implode(', ', array_column(PagesController::COMPETITORS, 'name')) . '.';
         return implode("\n", $lines);
     }
 
     private static function system_prompt(): string {
         $site = Main::site_name();
-        return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked example with round, clearly hypothetical numbers (\"say you want \$1,000 a month from 50 members\") is fine when framed as an example; never present invented numbers as real data or averages. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. No external links. Output ONLY a JSON object with keys: title (<=70 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (<=155 chars), excerpt (one or two sentences), body_md (Markdown, 1200-1800 words, at least four \"## \" sections, some \"### \" subsections, one relative link per section from the allowed list, no H1, no raw HTML), faq (array of 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
+        return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked pricing example with round, clearly hypothetical numbers (\"50 members at \$10 is \$500 before fees\") is fine; never present invented numbers as real data or averages. "
+            . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". Never type a fee percentage. "
+            . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
+            . "Never type a plan price, a platform fee percentage or a credit price yourself. Where the article states the platform fee write the token {{fee}}, where it states plan prices write {{plans}}; the publisher replaces them with the current wording. Wherever plans, plan charges or credits come up, include {{final_note}} once (it says plan charges and credit purchases are final and non-refundable) unless {{fee}} or {{plans}} is already in that section. "
+            . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
+            . "External links: none, except to cite a specific fact from an official source on this list (full https URL, at most three, only where it backs a claim): " . implode(', ', self::CITATION_DOMAINS) . ". "
+            . "Output ONLY a JSON object with keys: title (<=70 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (<=155 chars), excerpt (one or two sentences), body_md (Markdown at the length the request gives, at least four \"## \" sections, some \"### \" subsections, one relative link per section from the allowed list, no H1, no raw HTML), faq (array of 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
     /** Visual motif per topic for the cover prompt (abstract objects only — no people, no text). */
@@ -281,20 +630,28 @@ class SeoDrafter {
             . '</aside>';
     }
 
-    public static function draft(array $kw, string $note = '', int $existing_article_id = 0): array {
+    /** $dry_run: one Claude call, no cover, saved as a 'draft' article (even when it fails a rule, so it can be read), never published. */
+    public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false): array {
         $keywords = new SeoKeywordsModel(); $articles = new SeoArticlesModel();
         $kid = (int) $kw['id']; $keyword = (string) $kw['keyword'];
         $existing = $existing_article_id > 0 ? $articles->get($existing_article_id) : null;
         $prev = $keywords->get($kid); $prev_status = (string) ($prev['status'] ?? 'queued');   // restored if a rewrite fails
         $keywords->set_status($kid, 'drafting');
         $cluster = self::cluster($existing['cluster'] ?? ($kw['cluster'] ?? ''));
+        if ($cluster === '') {   // no cluster = no link allow-list: never drafted, and no Claude call spent
+            $keywords->set_status($kid, $existing_article_id > 0 ? $prev_status : 'skipped', null, 'no cluster: set one in /admin');
+            return array('ok' => false, 'article_id' => 0, 'error' => 'no cluster');
+        }
         $feature = self::feature_for($cluster);
         $targets = self::link_targets($cluster, $existing_article_id);
+        $intent = self::intent_for($keyword, $cluster); $len = self::LENGTHS[$intent];
         $user = "Target keyword: \"$keyword\"" . (!empty($kw['volume']) ? " (about {$kw['volume']} searches/month)" : '') . ".";
         if ($cluster !== '') { $user .= "\nTopic cluster: " . self::CLUSTERS[$cluster]['label'] . "."; }
+        $user .= "\nLength: " . $len[0] . '-' . $len[1] . ' words of body_md (a ' . $len[2] . ').';
+        if ($cluster !== '') { $user .= "\nThe only product pages you may link to: " . implode(', ', self::cluster_links($cluster)) . '.'; }
         $user .= "\n\nLink to at least THREE of these published articles, each where it genuinely helps the reader, using their exact paths:\n";
-        foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ' — ' . $t['title'] . "\n"; }
-        if (empty($targets)) { $user .= "(none published yet — link to the product pages instead)\n"; }
+        foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ': ' . $t['title'] . "\n"; }
+        if (empty($targets)) { $user .= "(none published yet, link to the product pages instead)\n"; }
         $user .= "Link exactly once to the feature page $feature, where it fits the topic.\n";
         $user .= "\nContext (the only facts you may use):\n" . self::context();
         if ($note !== '') { $user .= "\n\nEditor's note for this rewrite: $note"; }
@@ -302,7 +659,7 @@ class SeoDrafter {
             $user .= "\n\nCurrent draft to revise (keep what works, apply the editor's note, return the full article):\nTitle: " . (string) $existing['title'] . "\n\n" . (string) $existing['body_md'];
         }
         $errors = array(); $data = null; $model = ClaudeService::model();
-        for ($attempt = 1; $attempt <= 2; $attempt++) {
+        for ($attempt = 1; $attempt <= ($dry_run ? 1 : 2); $attempt++) {
             $msg = $user . ($attempt === 2 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
             $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), 8000, 240, 'medium');
             if (empty($r['ok'])) { $errors = array('Claude: ' . (string) ($r['error'] ?? 'request failed')); continue; }
@@ -310,33 +667,31 @@ class SeoDrafter {
             if ($data === null) { $errors = array('reply was not valid JSON'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
             if ($existing_article_id === 0) { $base = $data['slug']; $i = 2; while ((new SeoArticlesModel())->slug_exists($data['slug'])) { $data['slug'] = $base . '-' . $i++; } }
+            $data['cluster'] = $cluster; $data['intent'] = $intent;
             $data = self::fit($data);
-            $data['cluster'] = $cluster;
             $errors = self::validate($data, $existing_article_id, count($targets) >= 3);
             if (empty($errors) && $existing_article_id === 0) {
                 $dupes = self::duplicates((string) $data['title'], $keyword, $existing_article_id);
                 if (!empty($dupes)) {
-                    $errors = array('this topic is already covered (' . $dupes[0]['why'] . '): "' . $dupes[0]['title'] . '" — cover a different angle with a different title and primary keyword');
+                    $errors = array('this topic is already covered (' . $dupes[0]['why'] . '): "' . $dupes[0]['title'] . '". Cover a different angle with a different title and primary keyword.');
                 }
             }
             if (empty($errors)) { break; }
         }
+        if ($dry_run && $data !== null && $existing_article_id === 0) {   // keep what came back, as a draft, for reading
+            $aid = $articles->create(self::article_fields($data, $keyword, $cluster, $model, 'draft'));
+            $keywords->set_status($kid, empty($errors) ? 'drafted' : $prev_status, empty($errors) ? $aid : null, empty($errors) ? null : implode('; ', $errors));
+            return array('ok' => empty($errors), 'article_id' => $aid, 'error' => implode('; ', $errors));
+        }
         if (!empty($errors) || $data === null) {
+            if ($dry_run) { $keywords->set_status($kid, $prev_status, null, implode('; ', $errors)); return array('ok' => false, 'article_id' => 0, 'error' => implode('; ', $errors)); }
             $dupe = (bool) preg_grep('/already covered/', $errors);
             if ($existing_article_id > 0) { $keywords->set_status($kid, $prev_status === 'drafting' ? 'drafted' : $prev_status, null, implode('; ', $errors)); }
             elseif ($dupe) { $keywords->set_status($kid, 'skipped', null, implode('; ', $errors)); }   // covered already: retire the keyword instead of publishing a near-duplicate
             else { $keywords->set_status($kid, 'queued', null, implode('; ', $errors)); $keywords->set_priority($kid, (int) ($prev['priority'] ?? $kw['priority'] ?? 100) + 50); }   // one bad keyword can't block the queue daily
             return array('ok' => false, 'article_id' => 0, 'error' => implode('; ', $errors));
         }
-        $fields = array(
-            'slug' => $data['slug'], 'title' => trim((string) $data['title']), 'meta_description' => trim((string) $data['meta_description']),
-            'excerpt' => trim((string) ($data['excerpt'] ?? '')), 'body_md' => (string) $data['body_md'],
-            'body_html' => Markdown::render((string) $data['body_md'], self::allowed_paths()),
-            'target_keyword' => $keyword, 'cluster' => $cluster, 'author' => Main::site_name(), 'secondary_keywords' => json_encode(array_values((array) ($data['secondary_keywords'] ?? array())), JSON_UNESCAPED_UNICODE),
-            'faq' => json_encode(array_values((array) $data['faq']), JSON_UNESCAPED_UNICODE),
-            'reading_minutes' => self::reading_minutes((string) $data['body_md']), 'status' => 'review',
-            'rewrite_note' => null, 'model' => $model, 'prompt_version' => self::PROMPT_VERSION,
-        );
+        $fields = self::article_fields($data, $keyword, $cluster, $model, 'review');
         if ($existing && $existing['status'] === 'published') { unset($fields['status']); }   // never takes a live article offline
         if ($existing_article_id > 0) { $articles->update_fields($existing_article_id, $fields); $aid = $existing_article_id; }
         else { $aid = $articles->create($fields); }
@@ -351,5 +706,18 @@ class SeoDrafter {
             Notify::many((new UsersModel())->admin_ids(), 'system', 'New article published', '"' . $fields['title'] . '" is live on the blog, written for "' . $keyword . '".', '/admin/article/' . $aid, 'fa-newspaper');
         } catch (\Throwable $e) { error_log('[seo] notify admins: ' . $e->getMessage()); }
         return array('ok' => true, 'article_id' => $aid, 'error' => '');
+    }
+
+    /** The seo_articles row for a drafted article. Author is always the team, never a person. */
+    private static function article_fields(array $data, string $keyword, string $cluster, $model, string $status): array {
+        return array(
+            'slug' => $data['slug'], 'title' => trim((string) $data['title']), 'meta_description' => trim((string) $data['meta_description']),
+            'excerpt' => trim((string) ($data['excerpt'] ?? '')), 'body_md' => (string) $data['body_md'],
+            'body_html' => self::render_body((string) $data['body_md']),
+            'target_keyword' => $keyword, 'cluster' => $cluster, 'author' => Main::site_name() . ' team', 'secondary_keywords' => json_encode(array_values((array) ($data['secondary_keywords'] ?? array())), JSON_UNESCAPED_UNICODE),
+            'faq' => json_encode(array_values((array) ($data['faq'] ?? array())), JSON_UNESCAPED_UNICODE),
+            'reading_minutes' => self::reading_minutes((string) $data['body_md']), 'status' => $status,
+            'rewrite_note' => null, 'model' => $model, 'prompt_version' => self::PROMPT_VERSION,
+        );
     }
 }

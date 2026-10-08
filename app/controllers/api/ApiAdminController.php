@@ -48,6 +48,27 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['status' => $status, 'message' => $status === 'Disabled' ? 'Account suspended' : 'Account reactivated']);
     }
 
+    /** Admin > Leads > Export CSV: every lead (or one tool's), newest first, as a download. Audited here (no JSON reply). */
+    public function admin_leads_csvAction(){
+        $this->admin_guard();
+        $source = (string) ($this->post['source'] ?? '');
+        if ($source !== '' && !isset(LeadsModel::SOURCES[$source])) { $this->jsonError('Invalid request'); }
+        $rows = (new LeadsModel())->recent($source, 0);
+        (new AuditModel())->record((int) Session::get('user_id'), 'admin_leads_csv', array('source' => $source), array('message' => 'Exported ' . count($rows) . ' leads'), $this->get_ip_address());
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="leads' . ($source !== '' ? '-' . $source : '') . '-' . gmdate('Y-m-d') . '.csv"');
+        $out = fopen('php://output', 'w');
+        fputcsv($out, ['Created (UTC)', 'Tool', 'First name', 'Email', 'Niche', 'Vibe', 'Audience', 'Consent', 'IP'], ',', '"', '');
+        // a cell starting like a formula (= + - @ tab cr) is quoted so a spreadsheet shows it as text
+        $cell = function ($v) { $v = (string) $v; return ($v !== '' && strpos("=+-@\t\r", $v[0]) !== false) ? "'" . $v : $v; };
+        foreach ($rows as $r) {
+            $x = (array) json_decode((string) ($r['extra'] ?? ''), true);
+            fputcsv($out, [$r['created_at'], $r['source'], $cell($r['first_name']), $cell($r['email']), $cell($r['niche']), $cell($x['vibe'] ?? ''), $cell($x['audience'] ?? ''), (int) $r['consent'] ? 'yes' : 'no', $r['ip']], ',', '"', '');
+        }
+        fclose($out);
+        exit;
+    }
+
     /** Mark / unmark a demo account so it never reads as a real creator in public listings. */
     public function admin_set_demoAction(){
         $this->admin_guard();
@@ -361,6 +382,28 @@ class ApiAdminController extends BaseApiController {
         if (!$m->get($id) || !in_array($dir, ['up', 'down'], true)) { $this->jsonError('Invalid request'); }
         if (!$m->move($id, $dir === 'up' ? -1 : 1)) { $this->jsonError('That niche can\'t move further.'); }
         $this->jsonSuccess(['id' => $id]);
+    }
+
+    /* ---- founding creators (/admin > Founding) ---- */
+
+    /** Send the founding testimonial request now (once per claim, same message as the scheduled one). */
+    public function admin_founding_testimonialAction(){
+        $this->admin_guard();
+        $c = (new FoundingClaimsModel())->get((int) ($this->post['id'] ?? 0));
+        if (!$c) { $this->jsonError('Claim not found'); }
+        if ((string) $c['status'] !== 'active') { $this->jsonError('Only active founding creators get the request.'); }
+        if (!Founding::request_testimonial($c)) { $this->jsonError('The request was already sent.'); }
+        $this->jsonSuccess(['id' => (int) $c['id'], 'message' => 'Testimonial request sent']);
+    }
+
+    /** Take a founding spot back: the claim is refused and the fee lock ends; the plan itself is unchanged. */
+    public function admin_founding_refuseAction(){
+        $this->admin_guard();
+        $c = (new FoundingClaimsModel())->get((int) ($this->post['id'] ?? 0));
+        if (!$c) { $this->jsonError('Claim not found'); }
+        if ((string) $c['status'] === 'refused') { $this->jsonError('That claim is already refused.'); }
+        Founding::refuse($c);
+        $this->jsonSuccess(['id' => (int) $c['id'], 'message' => 'Founding spot refused']);
     }
 
     private function admin_guard(): void{

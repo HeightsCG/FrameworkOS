@@ -138,6 +138,9 @@ class SeoController extends Controller {
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/about',   'title' => 'About ' . Main::site_name(), 'description' => 'What the platform is, who it is for, the AI influencer tools and how creators get paid.', 'changefreq' => 'monthly', 'priority' => '0.5');
         $pages[] = array('path' => '/contact', 'title' => 'Contact support', 'description' => 'Contact support about billing, payouts, your account or a bug.', 'changefreq' => 'yearly', 'priority' => '0.4');
+        foreach (ToolsController::TOOLS as $t_slug => $t) {   // free lead tools
+            $pages[] = array('path' => '/tools/' . $t_slug, 'title' => $t['title'], 'description' => $t['description'], 'changefreq' => 'monthly', 'priority' => '0.7');
+        }
         // Creator directory: only once someone is listed, and only categories that have creators (no empty pages indexed).
         try {
             $counts = (new CreatorProfileModel())->directory_counts();
@@ -150,6 +153,10 @@ class SeoController extends Controller {
             }
         } catch (\Throwable $e) { error_log('[seo] directory pages: ' . $e->getMessage()); }
         $pages[] = array('path' => '/monetize-your-content',               'title' => 'How to monetize your content',        'description' => 'Memberships, pay-per-view, bundles, services and events, and how to price each.',           'changefreq' => 'monthly', 'priority' => '0.8');
+        $fm = PagesController::founding_meta();   // founding creator offer
+        $pages[] = array('path' => '/founding', 'title' => $fm['title'], 'description' => $fm['description'], 'changefreq' => 'weekly', 'priority' => '0.7');
+        $am = PagesController::affiliates_meta();   // affiliate program
+        $pages[] = array('path' => '/affiliates', 'title' => $am['title'], 'description' => $am['description'], 'changefreq' => 'monthly', 'priority' => '0.6');
         return $pages;
     }
 

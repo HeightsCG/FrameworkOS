@@ -20,6 +20,20 @@ class Controller {
         $this->enforce_impersonation_limits();
     }
 
+    /**
+     * Leave a page the visitor can't see. Signed out: the sign-in dialog with ?next= this page (same site only), so signing
+     * in lands back here (auth_head.php cls_after_login). Signed in without access: home.
+     */
+    public static function bounce(): void {
+        if ((int) Session::get('user_id') === 0) {
+            $next = CustomDomains::safe_path((string) ($_SERVER['REQUEST_URI'] ?? '/'));
+            header('Location: ' . ($next !== '/' ? '/?auth=login&next=' . rawurlencode($next) : '/?auth=login'));
+        } else {
+            header('Location: /');
+        }
+        exit;
+    }
+
     /** An admin signed in as someone can look and help, but not touch their credentials, money or identity. */
     private function enforce_impersonation_limits(){
         if (!UserSession::impersonating()) { return; }

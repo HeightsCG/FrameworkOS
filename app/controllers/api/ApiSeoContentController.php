@@ -7,7 +7,9 @@ class ApiSeoContentController extends BaseApiController {
 
     public function seo_keyword_addAction(){
         $this->guard();
-        $id = (new SeoKeywordsModel())->add(html_entity_decode((string) ($this->post['keyword'] ?? ''), ENT_QUOTES, 'UTF-8'), ($this->post['volume'] ?? '') === '' ? null : (int) $this->post['volume'], (string) ($this->post['difficulty'] ?? 'doable'), (int) ($this->post['priority'] ?? 100));
+        $cluster = SeoDrafter::cluster((string) ($this->post['cluster'] ?? ''));
+        if ($cluster === '') { $this->jsonError('Choose a cluster'); }   // the cluster sets the link allow-list
+        $id = (new SeoKeywordsModel())->add(html_entity_decode((string) ($this->post['keyword'] ?? ''), ENT_QUOTES, 'UTF-8'), ($this->post['volume'] ?? '') === '' ? null : (int) $this->post['volume'], (string) ($this->post['difficulty'] ?? 'doable'), (int) ($this->post['priority'] ?? 100), $cluster);
         if ($id <= 0) { $this->jsonError('Enter a keyword'); }
         $this->jsonSuccess(['id' => $id, 'keyword' => (new SeoKeywordsModel())->get($id)]);
     }
@@ -54,11 +56,12 @@ class ApiSeoContentController extends BaseApiController {
         $f = $this->fields_from_post();
         $live = $a['status'] === 'published';
         if ($live || $f['slug'] === '') { $f['slug'] = (string) $a['slug']; }   // the URL is locked once published
+        $f['cluster'] = (string) $a['cluster']; $f['intent'] = SeoDrafter::intent_for((string) $a['target_keyword'], (string) $a['cluster']);   // same allow-list and length band as the drafter
         $errors = SeoDrafter::validate($f, $id);
         if ($live && !empty($errors)) { $this->jsonError('Fix before saving a live article: ' . implode('; ', $errors), ['errors' => $errors]); }
         $m->update_fields($id, [
             'title' => $f['title'], 'slug' => $f['slug'], 'meta_description' => $f['meta_description'], 'excerpt' => $f['excerpt'],
-            'body_md' => $f['body_md'], 'body_html' => Markdown::render($f['body_md'], SeoDrafter::allowed_paths()),
+            'body_md' => $f['body_md'], 'body_html' => SeoDrafter::render_body($f['body_md']),
             'faq' => json_encode($f['faq'], JSON_UNESCAPED_UNICODE), 'secondary_keywords' => json_encode($f['secondary_keywords'], JSON_UNESCAPED_UNICODE),
             'reading_minutes' => SeoDrafter::reading_minutes($f['body_md']),
         ]);
@@ -69,7 +72,7 @@ class ApiSeoContentController extends BaseApiController {
         $this->guard();
         $m = new SeoArticlesModel(); $id = (int) ($this->post['id'] ?? 0); $a = $m->get($id);
         if (!$a) { $this->jsonError('Article not found'); }
-        $errors = SeoDrafter::validate(['title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'body_md' => $a['body_md'], 'faq' => json_decode((string) $a['faq'], true) ?: []], $id);
+        $errors = SeoDrafter::validate(['title' => $a['title'], 'slug' => $a['slug'], 'meta_description' => $a['meta_description'], 'excerpt' => (string) $a['excerpt'], 'body_md' => $a['body_md'], 'faq' => json_decode((string) $a['faq'], true) ?: [], 'cluster' => (string) $a['cluster'], 'intent' => SeoDrafter::intent_for((string) $a['target_keyword'], (string) $a['cluster'])], $id);
         if (!empty($errors)) { $this->jsonError('Fix before publishing: ' . implode('; ', $errors), ['errors' => $errors]); }
         $m->set_status($id, 'published', (int) Session::get('user_id'));
         $this->link_keyword($a, 'published', $id);

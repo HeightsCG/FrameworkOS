@@ -559,3 +559,10 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
     .adm-table--niches .adm-crow > .adm-ucell:nth-child(2), .adm-table--niches .adm-table__head > span:nth-child(2){ display:none; }
 }
 #admNicheForm .ai-field + .ai-field{ margin-top:16px; }
+
+/* Admin > Leads (_leads.php) */
+.adm-table--leads .adm-table__head, .adm-leadrow{ display:grid; grid-template-columns:1.2fr 1fr 1.8fr 1fr 1.6fr 1.6fr; gap:1rem; align-items:center; }
+.adm-leadrow{ padding:.75rem 1.1rem; border-top:1px solid #F1F1F1; }
+.adm-leadrow[hidden]{ display:none; }
+.adm-leadrow .adm-ucell{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+@media (max-width:900px){ .adm-table--leads .adm-table__head{ display:none; } .adm-leadrow{ grid-template-columns:1fr 1fr; } }
