@@ -142,7 +142,7 @@ $last12 = array_slice($this->series, -12);
             <div class="adm-mod" id="admMod">
                 <?php foreach ($queue as $a): ?>
                 <div class="adm-card" data-asset="<?php echo (int) $a['id']; ?>">
-                    <div class="adm-card__img" style="background-image:url('<?php echo $e($a['thumb']); ?>')">
+                    <div class="adm-card__img" style="background-image:url('<?php echo $e($a['thumb']); ?>')" data-full="<?php echo $e($a['full']); ?>" role="button" tabindex="0" aria-label="View larger">
                         <span class="adm-card__badge adm-card__badge--<?php echo $a['status'] === 'flagged' ? 'flag' : 'pend'; ?>">
                             <?php echo $a['status'] === 'flagged' ? 'Flagged' : 'Unscanned'; ?>
                         </span>

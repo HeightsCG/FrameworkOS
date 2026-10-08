@@ -56,6 +56,42 @@
         });
     }
 
+    /* ---- Moderation queue: click a card image to see it large (same viewer as the influencer photos) ---- */
+    var zoom = { list: [], at: 0, from: null };
+    function zoom_list() { return $('#admMod .adm-card__img[data-full]').map(function () { return $(this).attr('data-full'); }).get(); }
+    function zoom_show(i) {
+        zoom.list = zoom_list();
+        if (!zoom.list.length) { zoom_close(); return; }
+        zoom.at = (i + zoom.list.length) % zoom.list.length;
+        $('#adm_zoom_img').attr('src', zoom.list[zoom.at]);
+        $('#adm_zoom_n').text((zoom.at + 1) + ' of ' + zoom.list.length);
+        $('#adm_zoom .adm-zoom__nav, #adm_zoom_n').prop('hidden', zoom.list.length < 2);
+        $('#adm_zoom').prop('hidden', false);
+        $('#adm_zoom_close').trigger('focus');
+    }
+    function zoom_close() { $('#adm_zoom').prop('hidden', true); $('#adm_zoom_img').attr('src', ''); if (zoom.from) { $(zoom.from).trigger('focus'); } }
+    $(document).on('click keydown', '#admMod .adm-card__img[data-full]', function (e) {
+        if (e.type === 'keydown' && e.key !== 'Enter' && e.key !== ' ') { return; }
+        e.preventDefault();
+        if (!$('#adm_zoom').length) {
+            $('body').append('<div class="adm-zoom" id="adm_zoom" role="dialog" aria-modal="true" aria-label="Photo" hidden>' +
+                '<button type="button" class="adm-zoom__btn adm-zoom__close" id="adm_zoom_close" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>' +
+                '<button type="button" class="adm-zoom__btn adm-zoom__nav adm-zoom__nav--prev" data-step="-1" aria-label="Previous photo"><i class="fa-solid fa-chevron-left"></i></button>' +
+                '<img id="adm_zoom_img" alt="">' +
+                '<button type="button" class="adm-zoom__btn adm-zoom__nav adm-zoom__nav--next" data-step="1" aria-label="Next photo"><i class="fa-solid fa-chevron-right"></i></button>' +
+                '<span class="adm-zoom__n" id="adm_zoom_n"></span></div>');
+            $('#adm_zoom').on('click', function (ev) { if (ev.target === this) { zoom_close(); } });
+            $('#adm_zoom_close').on('click', zoom_close);
+            $('#adm_zoom').on('click', '[data-step]', function () { zoom_show(zoom.at + parseInt($(this).data('step'), 10)); });
+            $(document).on('keydown', function (ev) {
+                if ($('#adm_zoom').prop('hidden')) { return; }
+                if (ev.key === 'Escape') { zoom_close(); } else if (ev.key === 'ArrowLeft') { zoom_show(zoom.at - 1); } else if (ev.key === 'ArrowRight') { zoom_show(zoom.at + 1); }
+            });
+        }
+        zoom.from = this;
+        zoom_show(zoom_list().indexOf($(this).attr('data-full')));
+    });
+
     /* ---- Moderation queue ---- */
     var mod = document.getElementById('admMod');
     if (mod) {

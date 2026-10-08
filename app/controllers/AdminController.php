@@ -27,6 +27,7 @@ class AdminController extends Controller {
             $queue[] = array(
                 'id'             => (int) $a['id'],
                 'thumb'          => MediaService::signed_variant($a, 'thumb', 900),
+                'full'           => MediaService::signed_variant($a, 'display', 900) ?: (MediaService::signed_variant($a, 'original', 900) ?: MediaService::signed_variant($a, 'thumb', 900)),
                 'creator_id'     => (int) $a['creator_id'],
                 'creator_handle' => (string) $a['creator_handle'],
                 'creator_name'   => trim((string) $a['creator_name']) !== '' ? (string) $a['creator_name'] : ('@' . $a['creator_handle']),

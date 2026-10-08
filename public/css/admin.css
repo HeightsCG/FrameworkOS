@@ -41,7 +41,8 @@
 /* Moderation cards */
 .adm-mod{ display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
 .adm-card{ background:#fff; border:1px solid #EBEBEB; border-radius:var(--r-sm); overflow:hidden; box-shadow:0 1px 2px rgba(28, 28, 28, .04); display:flex; flex-direction:column; }
-.adm-card__img{ position:relative; aspect-ratio:4/3; background:#F1F1F1 center/cover no-repeat; }
+.adm-card__img{ position:relative; aspect-ratio:4/3; background:#F1F1F1 center/cover no-repeat; cursor:zoom-in; }
+.adm-card__img:focus-visible{ outline:2px solid var(--acc, #FF6A13); outline-offset:-2px; }
 .adm-card__badge{ position:absolute; top:.55rem; left:.55rem; padding:.16rem .5rem; border-radius:999px; font-size:.68rem; font-weight:700; color:#fff; }
 .adm-card__badge--flag{ background:#e5484d; }
 .adm-card__badge--pend{ background:#8a8797; }
@@ -534,3 +535,18 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
 .adm-gset .adm-table__body{ max-height:none; min-height:0; overflow:visible; }
 .adm-table--gdays .adm-table__body{ max-height:calc(100vh - 380px); min-height:0; overflow-y:auto; }
 .adm-table--gref .adm-uinfo__sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* moderation photo viewer: click a card image to see it large, arrows step through the queue */
+.adm-zoom{ position:fixed; inset:0; z-index:2000; background:rgba(13, 13, 13, .92); display:flex; align-items:center; justify-content:center; padding:56px 72px; }
+.adm-zoom[hidden]{ display:none; }
+.adm-zoom img{ max-width:100%; max-height:100%; object-fit:contain; border-radius:2px; }
+.adm-zoom__btn{ position:absolute; width:40px; height:40px; border-radius:50%; border:none; background:rgba(255, 255, 255, .14); color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+.adm-zoom__btn:hover{ background:rgba(255, 255, 255, .28); }
+.adm-zoom__btn:focus-visible{ outline:2px solid #fff; outline-offset:2px; }
+.adm-zoom__btn[hidden]{ display:none; }
+.adm-zoom__close{ right:16px; top:16px; }
+.adm-zoom__nav--prev{ left:16px; top:50%; transform:translateY(-50%); }
+.adm-zoom__nav--next{ right:16px; top:50%; transform:translateY(-50%); }
+.adm-zoom__n{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:13px; color:rgba(255, 255, 255, .7); }
+.adm-zoom__n[hidden]{ display:none; }
+@media (max-width:600px){ .adm-zoom{ padding:56px 16px; } }
