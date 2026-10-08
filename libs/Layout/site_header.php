@@ -108,6 +108,16 @@
                             <span class="app-account-menu__em d-block"><?php echo htmlspecialchars(Session::get('user_email'), ENT_QUOTES, 'UTF-8'); ?></span>
                         </span>
                     </div>
+                    <?php /* The public page link sits first so a creator never has to dig for it; only when the plan gives them a public page. */
+                    if (Permissions::can_act_as_creator()):
+                        try {
+                            $pub_rows = (new UsersModel())->get_user_by_id((int) Permissions::creator_id());
+                            $pub_user = (is_array($pub_rows) && count($pub_rows) === 1) ? $pub_rows[0] : null;
+                            $pub_url  = ($pub_user && Plan::can_use_creator_features($pub_user)) ? CustomDomains::canonical_profile_url($pub_user) : '';
+                        } catch (\Throwable $e) { $pub_url = ''; }
+                        if ($pub_url !== ''): ?>
+                    <a href="<?php echo htmlspecialchars($pub_url, ENT_QUOTES, 'UTF-8'); ?>" class="app-account-menu__item" role="menuitem" target="_blank" rel="noopener"><i class="fa-solid fa-up-right-from-square"></i> View Public Page</a>
+                    <?php endif; endif; ?>
                     <?php /* The AI credit balance is shown here, once, instead of on every page that spends them. */
                     if (Permissions::can_act_as_creator()):
                         try { $ai_left = (int) (new AiCreditsModel())->get_balance((int) Permissions::creator_id()); } catch (\Throwable $e) { $ai_left = null; }
