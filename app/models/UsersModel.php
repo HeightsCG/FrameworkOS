@@ -116,11 +116,18 @@ class UsersModel extends Model {
     }
 
     /** Live creator handles for the public sitemap: verified, active, not deleted. */
+    /**
+     * Creator profiles for the sitemap: active paid creators whose page lives on this host and has something on
+     * it. A creator with an active custom domain is left out (their /@handle here redirects to that domain, which
+     * carries its own sitemap), and so is an empty profile (no published post, membership tier, service or event):
+     * a page of empty states is not worth a crawl slot. last_modified also follows their newest published post.
+     */
     public function list_public_creators(){
         return parent::select(
             "SELECT
                 u.u_name,
-                GREATEST(COALESCE(u.updated_at, u.created_at), COALESCE(p.updated_at, u.created_at)) AS last_modified
+                GREATEST(COALESCE(u.updated_at, u.created_at), COALESCE(p.updated_at, u.created_at),
+                         COALESCE((SELECT MAX(COALESCE(ps.updated_at, ps.created_at)) FROM posts ps WHERE ps.creator_id = u.user_id AND ps.state = 'published' AND ps.on_cls = 1), u.created_at)) AS last_modified
             FROM
                 user_accounts u
                 JOIN user_roles r ON r.id = u.role_id
@@ -132,6 +139,13 @@ class UsersModel extends Model {
                 AND u.email_verified = 1
                 AND " . Plan::paid_sql('u') . "
                 AND u.u_name <> ''
+                AND NOT EXISTS (SELECT 1 FROM creator_domains d WHERE d.user_id = u.user_id AND d.deleted = 0 AND d.status = 'active')
+                AND (
+                       EXISTS (SELECT 1 FROM posts ps WHERE ps.creator_id = u.user_id AND ps.state = 'published' AND ps.on_cls = 1)
+                    OR EXISTS (SELECT 1 FROM creator_plans cp WHERE cp.user_id = u.user_id AND cp.is_active = 1)
+                    OR EXISTS (SELECT 1 FROM services sv WHERE sv.creator_id = u.user_id AND sv.status = 'published')
+                    OR EXISTS (SELECT 1 FROM events ev WHERE ev.creator_id = u.user_id AND ev.status = 'published')
+                )
             ORDER BY
                 u.u_name"
         );

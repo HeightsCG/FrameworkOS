@@ -43,9 +43,10 @@ class SeoController extends Controller {
         $urls   = array();
         $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0');
 
+        // Static pages carry a date only where one is real: the compare pages' facts have "checked" dates. A file
+        // mtime would stamp every page on every deploy, which teaches crawlers the dates mean nothing.
         foreach (self::public_pages() as $p) {
-            $urls[] = array('loc' => $base . $p['path'], 'changefreq' => $p['changefreq'], 'priority' => $p['priority'],
-                            'lastmod' => gmdate('Y-m-d', filemtime(Main::app_path() . '/app/controllers/PagesController.php')));
+            $urls[] = array('loc' => $base . $p['path'], 'changefreq' => $p['changefreq'], 'priority' => $p['priority'], 'lastmod' => (string) ($p['lastmod'] ?? ''));
         }
 
         foreach ((new UsersModel())->list_public_creators() as $row) {
@@ -109,10 +110,12 @@ class SeoController extends Controller {
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
         }
+        $checked = '';   // the newest "facts checked" date across the compare pages dates the best-of page too
         foreach (PagesController::COMPETITORS as $slug => $c) {
-            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8');
+            $checked = max($checked, (string) ($c['checked'] ?? ''));
+            $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => (string) ($c['checked'] ?? ''));
         }
-        $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8');
+        $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => $checked);
         $pages[] = array('path' => '/terms',   'title' => 'Terms of Service', 'description' => 'Terms for using the platform.',                         'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
         // Creator directory: only once someone is listed, and only categories that have creators (no empty pages indexed).
@@ -133,7 +136,7 @@ class SeoController extends Controller {
     /** Short machine-readable index for LLM crawlers (llmstxt.org). */
     public function llmsAction(){
         $base = Main::get_base_domain(); $site = Main::site_name();
-        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: private, max-age=3600');
+        header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: public, max-age=3600');
         $l = array();
         $l[] = '# ' . $site;
         $l[] = '';
