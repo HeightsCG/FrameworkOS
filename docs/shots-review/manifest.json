@@ -1,9 +1,11 @@
 [
-  {"file": "studio-posts.webp", "page": "/studio (Posts tab)", "alt": "Content Studio posts list with a published post, its audience and publish time", "placements": ["features-hero"]},
+  {"file": "studio-posts.webp", "page": "/studio (Posts tab)", "alt": "Content Studio posts list with scheduled and published posts, each with its audience, price and publish time", "placements": ["features-hero"]},
   {"file": "post-composer.webp", "page": "/studio, Edit on the demo post (post editor)", "alt": "The post editor with media, caption, audience settings and a live subscriber preview", "placements": ["feature-pay-per-view", "home-share"]},
-  {"file": "scheduling-calendar.webp", "page": "/studio (Calendar tab, month view)", "alt": "Content Studio calendar showing a post placed on its publish day", "placements": ["feature-publishing"]},
+  {"file": "scheduling-calendar.webp", "page": "/studio (Calendar tab, month view)", "alt": "Content Studio calendar for the month with published and scheduled posts on their days", "placements": ["feature-publishing"]},
   {"file": "character-generation.webp", "page": "/influencers/images/49 (Generate Images, From Prompt, Sienna)", "alt": "Generate Images for an AI character, a grid of photos of the same person with the prompt bar below", "placements": ["feature-ai-influencer", "home-create"]},
-  {"file": "dm-agent.webp", "page": "/account/settings?section=inbox (Inbox Automation, Settings tab)", "alt": "Inbox Automation settings with approve first or send automatically, quiet hours and reply style", "placements": ["feature-dm-agent"]},
-  {"file": "payouts.webp", "page": "/account/settings?section=wallet (Wallet, Cash Out tab)", "alt": "Wallet with the Cash Out tab and the payout setup step", "placements": ["feature-payouts", "home-earn"]},
-  {"file": "creator-page.webp", "page": "/@demoaccount (logged out)", "alt": "A creator page with Follow and Subscribe buttons and a Membership tab", "placements": ["feature-memberships", "feature-link-in-bio"]}
+  {"file": "dm-agent.webp", "page": "/account/settings?section=inbox (Inbox Automation, Queue tab)", "alt": "Inbox Automation queue with drafted replies to fan messages waiting for approval", "placements": ["feature-dm-agent"]},
+  {"file": "payouts.webp", "page": "/account/settings?section=wallet (Wallet, Cash Out tab, payout account connected)", "alt": "Wallet Cash Out tab with a connected payout account and a history of bank payouts", "placements": ["feature-payouts", "home-earn"]},
+  {"file": "creator-page.webp", "page": "/@demoaccount (logged out)", "alt": "A creator page with Follow and Subscribe buttons, follower count and free and locked posts", "placements": ["feature-memberships", "feature-link-in-bio"]},
+  {"file": "services-and-events.webp", "page": "/@demoaccount (logged out, Services tab)", "alt": "A creator page Services tab with a 30 minute coaching call priced in credits", "placements": ["feature-services-and-events"]},
+  {"file": "custom-domains.webp", "page": "/account/settings?section=domain (Custom Domain)", "alt": "Custom Domain settings with a connected domain and its DNS records", "placements": ["feature-custom-domains"]}
 ]

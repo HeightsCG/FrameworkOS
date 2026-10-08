@@ -13,19 +13,20 @@ class Screenshots {
 
     // placement key => file (no extension), alt text, display size. file '' = no capture yet.
     const PLACEMENTS = array(
-        'features-hero'                => array('file' => 'studio-posts',         'alt' => 'Content Studio posts list with a published post, its audience and publish time', 'width' => 1440, 'height' => 900),
-        'feature-memberships'          => array('file' => 'creator-page',         'alt' => 'A creator page with Follow and Subscribe buttons and a Membership tab', 'width' => 1440, 'height' => 900),
+        'features-hero'                => array('file' => 'studio-posts',         'alt' => 'Content Studio posts list with scheduled and published posts, each with its audience, price and publish time', 'width' => 1440, 'height' => 900),
+        'feature-memberships'          => array('file' => 'creator-page',         'alt' => 'A creator page with Follow and Subscribe buttons, follower count and free and locked posts', 'width' => 1440, 'height' => 900),
         'feature-pay-per-view'         => array('file' => 'post-composer',        'alt' => 'The post editor with media, caption, audience settings and a live subscriber preview', 'width' => 1440, 'height' => 900),
         'feature-link-in-bio'          => array('file' => 'creator-page',         'alt' => 'A creator page with profile, posts and membership in one link', 'width' => 1440, 'height' => 900),
-        'feature-publishing'           => array('file' => 'scheduling-calendar',  'alt' => 'Content Studio calendar showing a post placed on its publish day', 'width' => 1440, 'height' => 900),
-        'feature-services-and-events'  => array('file' => '',                     'alt' => '', 'width' => 1440, 'height' => 900),
-        'feature-custom-domains'       => array('file' => '',                     'alt' => '', 'width' => 1440, 'height' => 900),
+        'feature-publishing'           => array('file' => 'scheduling-calendar',  'alt' => 'Content Studio calendar for the month with published and scheduled posts on their days', 'width' => 1440, 'height' => 900),
+        'feature-services-and-events'  => array('file' => 'services-and-events',  'alt' => 'A creator page Services tab with a 30 minute coaching call priced in credits', 'width' => 1440, 'height' => 900),
+        'feature-custom-domains'       => array('file' => 'custom-domains',       'alt' => 'Custom Domain settings with a connected domain and its DNS records', 'width' => 1440, 'height' => 900),
         'feature-ai-influencer'        => array('file' => 'character-generation', 'alt' => 'Generate Images for an AI character, a grid of photos of the same person with the prompt bar below', 'width' => 1440, 'height' => 900),
-        'feature-dm-agent'             => array('file' => 'dm-agent',             'alt' => 'Inbox Automation settings with approve first or send automatically, quiet hours and reply style', 'width' => 1440, 'height' => 900),
-        'feature-payouts'              => array('file' => 'payouts',              'alt' => 'Wallet with the Cash Out tab and the payout setup step', 'width' => 1440, 'height' => 900),
+        'feature-dm-agent'             => array('file' => 'dm-agent',             'alt' => 'Inbox Automation queue with drafted replies to fan messages waiting for approval', 'width' => 1440, 'height' => 900),
+        'feature-payouts'              => array('file' => 'payouts',              'alt' => 'Wallet Cash Out tab with a connected payout account and a history of bank payouts', 'width' => 1440, 'height' => 900),
+        'home-hero'                    => array('file' => 'creator-page',         'alt' => 'A creator page with Follow and Subscribe buttons, follower count and free and locked posts', 'width' => 1440, 'height' => 900),
         'home-create'                  => array('file' => 'character-generation', 'alt' => 'Generate Images for an AI character, a grid of photos of the same person with the prompt bar below', 'width' => 1440, 'height' => 900),
         'home-share'                   => array('file' => 'post-composer',        'alt' => 'The post editor with media, caption and a live preview before publishing', 'width' => 1440, 'height' => 900),
-        'home-earn'                    => array('file' => 'payouts',              'alt' => 'Wallet with the Cash Out tab and the payout setup step', 'width' => 1440, 'height' => 900),
+        'home-earn'                    => array('file' => 'payouts',              'alt' => 'Wallet Cash Out tab with a connected payout account and a history of bank payouts', 'width' => 1440, 'height' => 900),
     );
 
     /** <picture> markup for one placement, or '' when disabled, unknown or missing. */

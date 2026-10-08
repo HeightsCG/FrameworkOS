@@ -151,23 +151,15 @@ class Sections {
             $panes .= '<div class="hx__pane" role="tabpanel" id="' . $k . '_p" aria-labelledby="' . $k . '_t" data-hx="' . $i . '"' . ($on ? '' : ' hidden') . '>' . $t['pane'] . '</div>';
         }
         $title = trim((string) ($h['title'] ?? ''));
-        $intro = '';
-        if (!empty($h['tag'])) { $intro .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
-        if (!empty($h['lead'])) { $intro .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
-        $intro .= self::buttons((array) ($h['buttons'] ?? array()));
-        if ($title !== '') {
-            // a real headline comes first; the words become a compact tab row under it
-            $o = '<section class="sx hx hx--titled"><div class="hx__in"><div class="hx__left">';
-            $o .= '<h1 class="hx__big">' . self::e(self::tc($title)) . '</h1><div class="hx__intro">' . $intro . '</div>';
-            $o .= '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>';
-            return $o . '</div><div class="hx__mod">' . $panes . '</div></div>' . (string) ($h['after_html'] ?? '') . '</section>';
-        }
         $o = '<section class="sx hx"><div class="hx__in"><div class="hx__left">';
-        $o .= '<h1 class="hx__words" role="tablist">' . $words . '</h1>';
-        $o .= '<div class="hx__intro">' . $intro;
+        $o .= $title === '' ? '<h1 class="hx__words" role="tablist">' . $words . '</h1>' : '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>';
+        $o .= '<div class="hx__intro">';
+        if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e(self::tc($title)) . '</h1>'; }
+        if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
+        if (!empty($h['lead'])) { $o .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
+        $o .= self::buttons((array) ($h['buttons'] ?? array()));
         return $o . '</div></div><div class="hx__mod">' . $panes . '</div></div></section>';
     }
-
     /** Plan strip under a hero: one link per plan. Each item: name, price (text), role, href. */
     public static function plan_strip(array $items, string $label = 'Plans'): string {
         $o = '<nav class="ld-wrap hx-plans" aria-label="' . self::e($label) . '">';
