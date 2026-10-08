@@ -277,6 +277,13 @@ class ApiProfileController extends BaseApiController {
         }
 
         $user_id = (int) Session::get('user_id');
+        // already a creator who never accepted (older or admin-made accounts): record it, keep the role and start date.
+        $me = $this->userModel->get_user_by_id($user_id);
+        if (is_array($me) && count($me) === 1 && (int) $me[0]['role_id'] === $this->userModel->get_role_id_by_name('Creator')) {
+            $this->userModel->accept_creator_agreement($user_id, $user_id);
+            CreatorAgreement::forget($user_id);
+            $this->jsonSuccess(['message' => 'Creator Agreement accepted', 'accepted_only' => true]);
+        }
         $result  = $this->userModel->make_creator($user_id, $user_id);
         if ($result === false) {
             $this->jsonError('Could not activate your creator account');

@@ -302,6 +302,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($price_cents !== 0 && $price_cents < 100) {
             $this->jsonError('Enter a price of at least $1.00, or make it a free tier');
         }
+        if ($price_cents > 0) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement
 
         // Free trial — an explicit toggle plus the value & unit (day/week/month) the
         // creator actually picked, stored as-is; forced off on free tiers. The
@@ -356,6 +357,10 @@ class ApiCreatorStudioController extends BaseApiController {
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             $this->jsonError('Plan is required');
+        }
+        if (!empty($this->post['active'])) {   // turning on a paid tier is selling: needs the Creator Agreement
+            $cp = (new CreatorPlansModel())->get_one(Permissions::creator_id(), $id);
+            if ($cp && (int) $cp['price_cents'] > 0) { CreatorAgreement::require((int) $user['user_id']); }
         }
         (new CreatorPlansModel())->set_active(Permissions::creator_id(), $id, !empty($this->post['active']));
         $this->jsonSuccess(['message' => 'Plan updated']);
@@ -484,6 +489,7 @@ class ApiCreatorStudioController extends BaseApiController {
             if (!$chk['ok']) { $this->jsonError($chk['message']); }
             $price = (int) $chk['credits'];
         }
+        if ($price > 0) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement
         $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES));
         if (mb_strlen($description) > 500) { $description = mb_substr($description, 0, 500); }
 
@@ -822,6 +828,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
         $this->require_caption_for_shares($post, $shares);
@@ -843,6 +850,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $utc = $this->to_utc((string) ($this->post['scheduled_at'] ?? ''), (string) ($user['content_timezone'] ?? 'UTC'));
         if (!$utc || strtotime($utc) <= time()) {
             $this->jsonError('Pick a date and time in the future.');
@@ -1202,6 +1210,20 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     /** Why a post can't publish yet (plain words), or ok. */
+    /** A pay-per-view post with a price, or one gated to a paid membership tier (any tier: the creator sells one). */
+    private function post_is_paid(array $post): bool{
+        $aud = (string) ($post['audience'] ?? '');
+        if ($aud === 'ppv') { return (int) ($post['ppv_price_credits'] ?? 0) > 0; }
+        if ($aud !== 'subscribers') { return false; }
+        $model = new CreatorPlansModel();
+        if ((int) ($post['tier_id'] ?? 0) > 0) {
+            $tier = $model->get_one((int) $post['creator_id'], (int) $post['tier_id']);
+            return $tier ? (int) $tier['price_cents'] > 0 : false;
+        }
+        foreach ((array) $model->get_for_user((int) $post['creator_id']) as $p) { if ((int) $p['price_cents'] > 0) { return true; } }
+        return false;
+    }
+
     private function post_validation(array $post): array{
         $model  = new PostsModel();
         $assets = $model->get_assets((int) $post['id']);

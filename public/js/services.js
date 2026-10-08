@@ -95,7 +95,7 @@
             }, function (r) {
                 btn.disabled = false; btn.textContent = label;
                 var o = parse(r);
-                if (!o || !o.success) { if (window.toastr) { toastr.error((o && o.message) || 'Could not save the service'); } return; }
+                if (!o || !o.success) { if (window.cls_need_agreement(o)) { return; } if (window.toastr) { toastr.error((o && o.message) || 'Could not save the service'); } return; }
                 if (opts.onSaved) { opts.onSaved(o); }
             });
         }

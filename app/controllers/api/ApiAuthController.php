@@ -4,18 +4,6 @@ class ApiAuthController extends BaseApiController {
 
     public function registerAction(){
 
-        if (empty($this->post['first_name'])) {
-            $this->jsonError('First name is required');
-        }
-
-        if (empty($this->post['last_name'])) {
-            $this->jsonError('Last name is required');
-        }
-
-        if (!preg_match('/\p{L}/u', (string) $this->post['first_name']) || !preg_match('/\p{L}/u', (string) $this->post['last_name'])) {
-            $this->jsonError('Enter your real first and last name');
-        }
-
         if (empty($this->post['user_email']) || !filter_var($this->post['user_email'], FILTER_VALIDATE_EMAIL)) {
             $this->jsonError('A valid email is required');
         }
@@ -31,6 +19,13 @@ class ApiAuthController extends BaseApiController {
         $pw_error = $this->password_complexity_error($this->post['p_word']);
         if ($pw_error !== '') {
             $this->jsonError((string) ($pw_error));
+        }
+
+        // ?plan= / ?role= / ?ref=: posted by the register form, each one else from the cls_signup cookie. A creator accepts the Creator Agreement here.
+        $signup = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($this->post), 'strlen'));
+        $agreed = (string) ($this->post['accept_agreement'] ?? '') === '1';
+        if ($signup['role'] === 'creator' && !$agreed) {
+            $this->jsonError('Accept the Creator Agreement to continue');
         }
 
         // Sign-up throttle, like login: per connection and per address. Every well-formed attempt counts.
@@ -59,14 +54,15 @@ class ApiAuthController extends BaseApiController {
         if ($return === '') { $return = (string) parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''), PHP_URL_PATH); }
         Session::set('signup_return', CustomDomains::safe_path($return));
 
-        $u_name = $this->userModel->generate_unique_username($this->post['first_name'], $this->post['last_name']);
+        // no name on the form: a neutral handle (never the email), changed at /setup; names stay '' until Settings.
+        $u_name = $this->userModel->neutral_username();
         $enc_p_word = password_hash($this->post['p_word'], PASSWORD_DEFAULT);
 
         $user_id = (int) $this->userModel->create_user(
             $u_name,
             $enc_p_word,
-            $this->post['first_name'],
-            $this->post['last_name'],
+            '',
+            '',
             $this->post['user_email'],
         );
 
@@ -77,12 +73,15 @@ class ApiAuthController extends BaseApiController {
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
         $this->userModel->record_first_touch($user_id);
+        try { $this->userModel->record_signup_params($user_id, $signup, $agreed); }
+        catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
+        UsersModel::clear_signup_cookie();
         SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
 
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);
         $verify_link = Main::get_base_domain() . '/account/verify?token=' . urlencode($token);
-        $to_name     = trim($this->post['first_name'] . ' ' . $this->post['last_name']);
+        $to_name     = '';
         $sent = $this->notificationsModel->send_verification_email($this->post['user_email'], $to_name, $verify_link, $u_name);
         if (!$sent) {
             // The account exists but the link never left: tell the user (the panel offers Resend) and the admins.
@@ -282,7 +281,8 @@ class ApiAuthController extends BaseApiController {
         }
 
         $role     = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
-        $redirect = (int) $done['reset_pw'] === 1 ? '/account/force_reset' : ($role === 'Creator' ? '/setup' : $return);
+        $plan     = (string) ($user['signup_plan'] ?? '');   // ?plan= from signup rides along to /setup
+        $redirect = (int) $done['reset_pw'] === 1 ? '/account/force_reset' : ($role === 'Creator' ? '/setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : '') : $return);
         $this->jsonSuccess(['message' => 'Your email is verified. Signing you in…', 'redirect' => $redirect]);
     }
 

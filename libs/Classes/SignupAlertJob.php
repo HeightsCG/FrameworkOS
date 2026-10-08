@@ -23,6 +23,7 @@ class SignupAlertJob {
         if (!is_array($rows) || count($rows) !== 1) { return 'account gone'; }
         $u    = $rows[0];
         $name = trim((string) $u['first_name'] . ' ' . (string) $u['last_name']);
+        if ($name === '') { $name = (string) $u['user_email']; }   // email sign-up asks for no name
         $d    = function ($v) { return html_entity_decode(trim((string) $v), ENT_QUOTES, 'UTF-8'); };
 
         // Where they came from: campaign tags if any, else the site that sent them, else direct.

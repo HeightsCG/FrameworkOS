@@ -12,6 +12,7 @@ class ApiSetupController extends BaseApiController {
         $user = $this->require_creator('content');
         $key  = (string) ($this->post['key'] ?? '');
         if (!array_key_exists($key, SetupService::steps())) { $this->jsonError('Unknown step'); }
+        if ((SetupService::steps()[$key]['skippable'] ?? true) === false) { $this->jsonError('This step cannot be skipped'); }
         (new CreatorSetupModel())->skip_step((int) $user['user_id'], $key);
         $this->jsonSuccess(SetupService::progress((int) $user['user_id']));
     }

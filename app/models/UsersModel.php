@@ -52,6 +52,18 @@ class UsersModel extends Model {
         return $candidate;
     }
 
+    /** A neutral starting handle ("creator" + 6 digits), never built from the email or name. */
+    public static function is_neutral_username($u_name): bool {
+        return (bool) preg_match('/^creator[0-9]{6}$/', (string) $u_name);
+    }
+
+    public function neutral_username(){
+        do {
+            $candidate = 'creator' . random_int(100000, 999999);
+        } while ($this->username_exists($candidate));
+        return $candidate;
+    }
+
     public function create_user($u_name, $enc_p_word, $first_name, $last_name, $user_email, $created_by=0, $updated_by=0){
         return parent::insert('user_accounts', array(
             'u_name'      => $u_name,
@@ -184,6 +196,17 @@ class UsersModel extends Model {
             array('id' => (int) $role_id)
         );
         return (is_array($rows) && count($rows) === 1) ? (string) $rows[0]['role_name'] : '';
+    }
+
+    /** Record Creator Agreement acceptance for an account that is already a creator (role and creator_since unchanged). */
+    public function accept_creator_agreement($user_id, $updated_by=0){
+        $now = date('Y-m-d H:i:s');
+        return parent::update(
+            'user_accounts',
+            array('creator_agreement_accepted_at' => $now, 'updated_at' => $now, 'updated_by' => $updated_by),
+            'user_id = :user_id',
+            array('user_id' => (int) $user_id)
+        );
     }
 
     /** Promote a user to the Creator role and record agreement acceptance + start date. */
@@ -443,5 +466,63 @@ class UsersModel extends Model {
         }
         $f['acq_first_seen'] = !empty($a['acq_first_seen']) ? $a['acq_first_seen'] : null;
         parent::update('user_accounts', $f, 'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
+    /** Clean ?plan= / ?role= / ?ref= values: plan creator|studio, role creator|fan, ref a handle; anything else is ''. */
+    public static function signup_params($in): array {
+        $in   = is_array($in) ? $in : array();
+        $plan = strtolower(trim((string) ($in['plan'] ?? '')));
+        $role = strtolower(trim((string) ($in['role'] ?? '')));
+        $ref  = strtolower(ltrim(trim((string) ($in['ref'] ?? '')), '@'));
+        return array(
+            'plan' => in_array($plan, array('creator', 'studio'), true) ? $plan : '',
+            'role' => in_array($role, array('creator', 'fan'), true) ? $role : '',
+            'ref'  => preg_match('/^[a-z0-9_.-]{1,40}$/', $ref) ? $ref : '',
+        );
+    }
+
+    /** The signup params kept in the cls_signup cookie (set by IndexController / landing.js). */
+    public static function signup_cookie(): array {
+        return self::signup_params(json_decode((string) ($_COOKIE['cls_signup'] ?? ''), true));
+    }
+
+    /** Used once an account is made from them: expire cls_signup so a later sign-up in this browser starts clean. */
+    public static function clear_signup_cookie(): void {
+        setcookie('cls_signup', '', array('expires' => time() - 3600, 'path' => '/', 'secure' => strpos(Main::get_base_domain(), 'https:') === 0, 'httponly' => false, 'samesite' => 'Lax'));
+        unset($_COOKIE['cls_signup']);
+    }
+
+    /** A referring creator by handle: a Creator with a public page (paid plan), active, verified, not a demo. 0 when none. */
+    public function referrer_id_by_handle($handle){
+        if ((string) $handle === '') { return 0; }
+        $r = parent::select(
+            "SELECT u.user_id
+             FROM user_accounts u
+             JOIN user_roles r ON r.id = u.role_id
+             WHERE u.u_name = :h AND r.role_name = 'Creator' AND u.deleted = 0 AND u.user_status = 'Active'
+               AND u.email_verified = 1 AND u.is_demo = 0 AND " . Plan::paid_sql('u'),
+            array('h' => (string) $handle)
+        );
+        return (is_array($r) && count($r) === 1) ? (int) $r[0]['user_id'] : 0;
+    }
+
+    /**
+     * Save the signup params on a new account. role=creator with the Creator Agreement accepted ($agreed) makes it a
+     * Creator (the Become a Creator path); without it the account stays a User with signup_role 'creator'.
+     */
+    public function record_signup_params($user_id, array $p, $agreed = false){
+        $user_id = (int) $user_id;
+        $ref_id  = $this->referrer_id_by_handle((string) ($p['ref'] ?? ''));
+        if ($ref_id === $user_id) { $ref_id = 0; }   // never their own referrer
+        parent::update('user_accounts', array(
+            'signup_plan'            => (string) ($p['plan'] ?? '') === '' ? null : (string) $p['plan'],
+            'signup_role'            => (string) ($p['role'] ?? '') === '' ? null : (string) $p['role'],
+            'referred_by_creator_id' => $ref_id > 0 ? $ref_id : null,
+        ), 'user_id = :uid', array('uid' => $user_id));
+        if ((string) ($p['role'] ?? '') === 'creator' && $agreed) {
+            $this->make_creator($user_id, $user_id);
+            $fresh = $this->get_user_by_id($user_id);
+            if (is_array($fresh) && count($fresh) === 1) { Plan::grant_monthly($fresh[0]); }   // same as become_creatorAction (a no-op on Free)
+        }
     }
 }

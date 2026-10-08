@@ -326,6 +326,7 @@ class AccountController extends Controller {
         list($url, $state, $verifier) = GoogleAuth::authorize_url();
         $flow = array('state' => $state, 'verifier' => $verifier, 'started' => time());
         if ($me > 0) { $flow['link'] = $me; }   // signed in: connecting Google to this account (Settings > Security), not signing in
+        $flow['signup'] = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($_GET), 'strlen'));   // ?plan= / ?role= / ?ref= on this link, each one else the cls_signup cookie
         Session::set('google_oauth', $flow);
         Header('Location: ' . $url);
         exit;
@@ -379,11 +380,14 @@ class AccountController extends Controller {
             if ($users->email_exists($g['email'])) { $fail('exists'); }
             $first = $g['given_name'] !== '' ? $g['given_name'] : explode('@', $g['email'])[0];
             $last  = $g['family_name'];
-            $handle_from = preg_match('/\p{L}/u', $first . $last) ? array($first, $last) : array(explode('@', $g['email'])[0], '');   // a name with no letters ("000"): build the handle from the email
-            $uid = (int) $users->create_user($users->generate_unique_username($handle_from[0], $handle_from[1]), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
+            // neutral handle, never the email or name: they choose their own at /setup.
+            $uid = (int) $users->create_user($users->neutral_username(), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
             if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
             $users->link_google($uid, $g['sub']);
             $users->record_first_touch($uid);
+            try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // no Creator Agreement on Google's screen: /setup sends them to accept it
+            catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
+            UsersModel::clear_signup_cookie();
             SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
             $new = true;
             $rows = $users->get_user_by_id($uid);
@@ -401,6 +405,11 @@ class AccountController extends Controller {
             exit;
         }
         if ($done['reset_pw'] === 1) { Header('Location: /account/force_reset'); exit; }
+        if ($new && (string) ($user['signup_role'] ?? '') === 'creator') {   // a new creator starts on /setup (which asks for the Creator Agreement first)
+            $plan = (string) ($user['signup_plan'] ?? '');
+            Header('Location: /setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : ''));
+            exit;
+        }
         Header('Location: /?signed_in=google' . ($new ? '&new=1' : ''));
         exit;
     }
@@ -470,7 +479,7 @@ class AccountController extends Controller {
     }
 
     /** Plain-text Creator Terms & Conditions with the site name substituted in. */
-    private function creator_terms($site){
+    public static function creator_terms($site){
         return <<<TERMS
 {$site} Creator Terms and Conditions
 Last Updated: July 3, 2026

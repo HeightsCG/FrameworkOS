@@ -23,6 +23,7 @@ class ApiEventsController extends BaseApiController {
         // Free events have no price; a paid event needs one; a members event may be free or paid (Price rules).
         $price_credits = ($access === 'free') ? 0 : $this->price_credits($this->post['price'] ?? '', $access !== 'paid');
         $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
+        if ($price_credits > 0) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
 
         $format   = EventsModel::format($this->post['format'] ?? 'virtual');
         if ($format === 'cls_video' && !LiveKit::enabled()) { $this->jsonError('CLS Video is not available yet.'); }

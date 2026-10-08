@@ -13,8 +13,15 @@ class SetupController extends Controller {
     }
 
     public function indexAction(){
-        if (!Permissions::can_act_as_creator()) { header('Location: /'); exit; }
-        if (!SetupService::eligible()) { header('Location: /account/billing'); exit; }
+        $plan = in_array((string) ($_GET['plan'] ?? ''), array('creator', 'studio'), true) ? (string) $_GET['plan'] : '';
+        if (!Permissions::can_act_as_creator()) {
+            // signed up as a creator without accepting the Creator Agreement (Google): accept it in Settings first.
+            $rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
+            $signup_role = (is_array($rows) && count($rows) === 1) ? (string) ($rows[0]['signup_role'] ?? '') : '';
+            header('Location: ' . ($signup_role === 'creator' ? '/account/settings?section=creator' : '/'));
+            exit;
+        }
+        if (!SetupService::eligible()) { header('Location: /account/billing' . ($plan !== '' ? '?tab=plan&plan=' . $plan : '')); exit; }
 
         $creator_id = Permissions::creator_id();
         $rows = (new UsersModel())->get_user_by_id($creator_id);

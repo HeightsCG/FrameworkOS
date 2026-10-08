@@ -1,5 +1,21 @@
 if (window.toastr) { toastr.options.escapeHtml = true; }   // names and messages land in toasts as text, never markup
 
+// A selling action refused because the Creator Agreement isn't accepted: ask, then open Settings. True when it handled resp.
+window.cls_need_agreement = function (resp) {
+    var o = resp;
+    if (typeof o === 'string') { try { o = JSON.parse(o); } catch (err) { o = null; } }
+    if (!o || !o.need_agreement) { return false; }
+    var url = o.url || '/account/settings?section=creator';
+    if (typeof Swal === 'undefined') { window.location.href = url; return true; }
+    Swal.fire({
+        title: 'Accept the Creator Agreement to continue',
+        width: 440, showCancelButton: true, reverseButtons: true,
+        confirmButtonText: 'Open Settings', cancelButtonText: 'Not Now',
+        confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779'
+    }).then(function (r) { if (r.isConfirmed) { window.location.href = url; } });
+    return true;
+};
+
 $(document).ready(function() {
     $('#acctBtn').on('click', function (e) {
         var open = $('#acctMenu').toggleClass('is-open').hasClass('is-open');
@@ -179,7 +195,7 @@ $(document).ready(function() {
             if (open && !$(e.target).closest('#setupWidget, .swal2-container').length) { set(false); }
         });
         // After a save that can complete a step, re-read progress and tick the widget in place.
-        var REFRESH_ON = /\/api\/(inbox_settings_save|save_creator_profile|upload_creator_image|save_brand_identity|save_creator_plan|toggle_creator_plan|connect_account|start_payout_onboarding|post_publish|post_schedule|auto_message_save)\b/;
+        var REFRESH_ON = /\/api\/(inbox_settings_save|save_creator_profile|upload_creator_image|save_brand_identity|save_creator_plan|toggle_creator_plan|connect_account|start_payout_onboarding|post_publish|post_schedule|auto_message_save|change_username)\b/;
         function applyProgress(o) {
             var d = o.required_done, t = o.required_total, pct = t > 0 ? Math.round(d / t * 100) : 0;
             (o.steps || []).forEach(function (s) {

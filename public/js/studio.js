@@ -71,7 +71,7 @@ jQuery(function ($) {
     function fmtDuration(s) { if (!s) return ''; var m = Math.floor(s / 60), x = s % 60; return m + ':' + (x < 10 ? '0' : '') + x; }
     function fmtDate(iso) { if (!iso) return ''; var d = new Date(iso.replace(' ', 'T') + 'Z'); return isNaN(d) ? iso : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }); }
     function typeIcon(t) { return t === 'video' ? 'fa-play' : (t === 'gif' ? 'fa-clapperboard' : (t === 'audio' ? 'fa-music' : 'fa-image')); }
-    function err(o, fallback) { toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.'); }
+    function err(o, fallback) { if (window.cls_need_agreement(o)) { return; } toastr.error((o && o.message) || fallback || 'Something went wrong. Please try again.'); }
 
     function dialog(opts) {
         var m = bootstrap.Modal.getOrCreateInstance('#csModal');
@@ -1374,7 +1374,7 @@ jQuery(function ($) {
         var label = $('#csPePrimary').text();
         $('#csPePrimary').html('<span class="spinner-border spinner-border-sm"></span> Saving…');
         function done() { peSaving = false; $btns.prop('disabled', false); $('#csPePrimary').text(label); }
-        function fail(o) { done(); peShowServerError(o && o.message); }
+        function fail(o) { done(); if (window.cls_need_agreement(o)) { return; } peShowServerError(o && o.message); }
         saveNow(function (ok) {
             if (!ok) { done(); toastr.error('Could not save the post. Please try again.'); return; }
             if (!composer.id) {

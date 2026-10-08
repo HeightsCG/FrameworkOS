@@ -56,6 +56,7 @@ $(function () {
     }
     /* Answer of any charging endpoint. */
     function handle(o, $btn) {
+        if (window.cls_need_agreement(o)) { $('#confirm_modal').modal('hide'); if ($btn) { $btn.prop('disabled', false); } return; }
         if (!o.success) { toastr.error(o.message); if ($btn) { $btn.prop('disabled', false); } return; }
         if (o.status === 'requires_action') { $('#confirm_modal').modal('hide'); authenticate(o); return; }
         $('#confirm_modal').modal('hide');
@@ -279,6 +280,7 @@ $(function () {
     var first = qs.get('tab') || (qs.get('buy') ? (has_plan ? 'credits' : 'plan') : (qs.get('add') ? 'plan' : ''));
     if (!first) { try { first = localStorage.getItem('cls_billing_tab') || 'plan'; } catch (e) { first = 'plan'; } }
     show_tab(first);
+    if (/^(creator|studio)$/.test(qs.get('plan') || '')) { $('.plan-go[data-plan="' + qs.get('plan') + '"]').trigger('focus'); }   // ?plan= from signup
     if (qs.get('pay')) { pay_pending(qs.get('pay')); }
     if (qs.get('add') === 'slot' && $('#slots_add').length && !$('#slots_add').prop('disabled')) { add_slot(); }
 
@@ -359,6 +361,8 @@ $(function () {
     $cur_cents = BillingService::plan_cents($cur_key);
     $next_up = '';   // the one plan to push: the cheapest offered plan above the current one
     foreach ($ordered as $row) { if (BillingService::plan_cents($row['tier']['key']) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $row['tier']['key']; break; } }
+    $want = (string) ($_GET['plan'] ?? '');   // ?plan= from signup: that plan is the one to push, when it is offered and above the current one
+    foreach ($ordered as $row) { if ($row['tier']['key'] === $want && in_array($want, array('creator', 'studio'), true) && BillingService::plan_cents($want) > $cur_cents && empty($row['tier']['retired'])) { $next_up = $want; } }
 ?>
     <div class="billing__head tut-head">
         <h1 class="billing__title">Billing</h1>

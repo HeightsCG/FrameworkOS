@@ -97,6 +97,7 @@ class ApiBillingController extends BaseApiController {
         $plan = (string) ($this->post['plan'] ?? '');
         if ($plan === PlanTiers::FREE_KEY) { $r = BillingService::set_cancel((int) $user['user_id'], true); if (empty($r['ok'])) { $this->jsonError($r['message']); } $this->jsonSuccess(['status' => 'scheduled', 'message' => $r['message']]); }
         $t = PlanTiers::get($plan);
+        if ($t) { CreatorAgreement::require((int) $user['user_id']); }   // a selling plan needs the Creator Agreement
         $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? '')), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
     }
 
@@ -323,6 +324,7 @@ class ApiBillingController extends BaseApiController {
 
     public function start_payout_onboardingAction(){
         $user = $this->require_creator('owner', false);
+        CreatorAgreement::require((int) $user['user_id']);   // payouts need the Creator Agreement
 
         $account_id = $user['stripe_connect_account_id'] ?? '';
         if (empty($account_id)) {

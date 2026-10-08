@@ -102,4 +102,16 @@ class CreatorSetupModel extends Model {
         $s = parent::select("SELECT 1 FROM inbox_settings WHERE creator_id = :u AND cls_enabled = 1 LIMIT 1", array('u' => (int) $user_id));
         return !empty($s);
     }
+
+    /** Current handle of the account (the handle step). */
+    public function current_username($user_id){
+        $r = parent::select("SELECT u_name FROM user_accounts WHERE user_id = :u LIMIT 1", array('u' => (int) $user_id));
+        return (is_array($r) && count($r) === 1) ? (string) $r[0]['u_name'] : '';
+    }
+
+    /** Did this account start on a neutral signup handle and change it since (archived in username_history)? */
+    public function had_neutral_username($user_id){
+        $r = parent::select("SELECT 1 FROM username_history WHERE user_id = :u AND u_name REGEXP '^creator[0-9]{6}$' LIMIT 1", array('u' => (int) $user_id));
+        return !empty($r);
+    }
 }

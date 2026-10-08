@@ -189,7 +189,7 @@ if ($setup):
                         <li class="setup-widget__step<?php echo $st['done'] ? ' is-done' : ''; ?><?php echo !empty($st['optional']) ? ' is-optional' : ''; ?>" data-step="<?php echo $sw_e($st['key']); ?>">
                             <span class="setup-widget__mark" aria-hidden="true"><?php echo $st['done'] ? '<i class="fa-solid fa-check"></i>' : ''; ?></span>
                             <a class="setup-widget__name setup-widget__link" href="<?php echo $sw_e($st['url']); ?>" title="<?php echo $st['done'] ? 'Done. Open this page again' : $sw_e($st['text']); ?>"><?php echo $sw_e($st['title']); ?><?php echo !empty($st['optional']) ? ' <small>Optional</small>' : ''; ?></a>
-                            <?php if (!$st['done']): ?>
+                            <?php if (!$st['done'] && ($st['skippable'] ?? true) !== false): ?>
                             <button type="button" class="setup-widget__skip" data-setup-skip="<?php echo $sw_e($st['key']); ?>" aria-label="Skip this step" title="Skip this step"><i class="fa-solid fa-xmark"></i></button>
                             <?php endif; ?>
                         </li>

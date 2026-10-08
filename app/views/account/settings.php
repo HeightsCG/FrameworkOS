@@ -234,6 +234,17 @@
                     <button type="button" class="btn btn-primary" id="become_creator_btn">Become a Creator</button>
                 </div>
                 <?php else: ?>
+                <?php if ($this->is_owner_creator && !CreatorAgreement::accepted((int) Session::get('user_id'))): /* a creator who never accepted: selling and payouts wait on this */ ?>
+                <div class="creator-cta" style="margin-bottom:1.5rem;">
+                    <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
+                    <textarea id="creator_terms" class="creator-cta__terms form-control" rows="10" readonly><?php echo htmlspecialchars($this->creator_terms, ENT_QUOTES, 'UTF-8'); ?></textarea>
+                    <label class="creator-cta__agree">
+                        <input type="checkbox" id="creator_agree">
+                        <span>I have read and accept the Creator Agreement and Content Policy.</span>
+                    </label>
+                    <button type="button" class="btn btn-primary" id="become_creator_btn">Accept Agreement</button>
+                </div>
+                <?php endif; ?>
                 <?php $cp = $this->creator_profile; ?>
                 <div class="cprofile">
                     <?php if ($this->is_owner_creator): ?>
@@ -2225,7 +2236,7 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
-                setTimeout(function () { window.location.href = '/account/billing?tab=plan&welcome=1'; }, 800);   // choose a plan next (Free needs no card)
+                setTimeout(function () { window.location.href = o.accepted_only ? window.location.href : '/account/billing?tab=plan&welcome=1'; }, 800);   // choose a plan next (Free needs no card); an existing creator stays here
             } else {
                 toastr.error(o.message);
                 $btn.prop('disabled', false);
@@ -2421,6 +2432,7 @@ $(function () {
         var $btn = $(this).prop('disabled', true);
         ApiDataSvc.apiCall('post', 'start_payout_onboarding', {}, function (data) {
             var o = JSON.parse(data);
+            if (window.cls_need_agreement(o)) { $btn.prop('disabled', false); return; }
             if (o.success) {
                 window.location = o.url;
             } else {
@@ -2719,7 +2731,7 @@ $(function () {
         var desc = ($('#bundle_description').val() || '').trim();
         ApiDataSvc.apiCall('post', 'save_bundle', { id: id, name: name, price: bprice, description: desc, asset_ids: assets }, function (data) {
             var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
+            if (!o.success) { if (window.cls_need_agreement(o)) { return; } toastr.error(o.message); return; }
             toastr.success(o.message);
             var b = { id: o.id, name: name, description: desc, price: parseInt(bprice, 10) || 0, asset_ids: assets.join(','), active: true };
             var $existing = $('#bundles_list .plan-row[data-id="' + o.id + '"]');
@@ -2796,7 +2808,7 @@ $(function () {
 
         ApiDataSvc.apiCall('post', 'save_creator_plan', { id: id, name: name, price: price, is_free: free ? 1 : 0, billing_interval: interval, trial_enabled: trialEnabled ? 1 : 0, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks }, function (data) {
             var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); return; }
+            if (!o.success) { if (window.cls_need_agreement(o)) { return; } toastr.error(o.message); return; }
             toastr.success(o.message);
             var $existing = $('#plans_list .plan-row[data-id="' + o.id + '"]');
             var p = { id: o.id, name: name, price: (free ? '0.00' : parseFloat(price).toFixed(2)), interval: interval, trial_enabled: trialEnabled, trial_value: trialValue, trial_unit: trialUnit, description: description, perks: perks, active: true };
@@ -2817,7 +2829,7 @@ $(function () {
         $row.toggleClass('is-inactive', !active);
         ApiDataSvc.apiCall('post', 'toggle_creator_plan', { id: $row.data('id'), active: active ? 1 : 0 }, function (data) {
             var o = JSON.parse(data);
-            if (!o.success) { toastr.error(o.message); }
+            if (!o.success) { if (window.cls_need_agreement(o)) { $row.addClass('is-inactive').find('.plan-toggle').prop('checked', false); return; } toastr.error(o.message); }
         });
     });
 
