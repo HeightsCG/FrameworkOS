@@ -363,18 +363,24 @@ class PagesController extends Controller {
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
     /** One-line role per plan (home plan strip, pricing cards), by PlanTiers key. */
-    const PLAN_ROLES = array('free' => 'Get a page', 'creator' => 'Get discovered', 'studio' => 'Get promoted');
+    // card label, then the clause after the plan name in the hero sentence. Free builds a page in the Studio but
+    // has no public page and cannot sell, so its line says build, not get.
+    const PLAN_ROLES = array(
+        'free'    => array('Build your page', 'lets you build your page'),
+        'creator' => array('Get discovered',  'gets you discovered'),
+        'studio'  => array('Get promoted',    'gets you promoted'),
+    );
 
     public static function plan_role(string $key): string {
-        return (string) (self::PLAN_ROLES[$key] ?? '');
+        return (string) (self::PLAN_ROLES[$key][0] ?? '');
     }
 
-    /** "Free gets you a page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
+    /** "Free lets you build your page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
     public static function plan_roles_sentence(): string {
         $bits = array();
         foreach (self::pricing_rows() as $r) {
-            $role = self::plan_role((string) $r['tier']['key']);
-            if ($role !== '') { $bits[] = $r['tier']['name'] . ' gets you ' . lcfirst(preg_replace('/^Get /', '', $role)) . '.'; }
+            $clause = (string) (self::PLAN_ROLES[(string) $r['tier']['key']][1] ?? '');
+            if ($clause !== '') { $bits[] = $r['tier']['name'] . ' ' . $clause . '.'; }
         }
         return implode(' ', $bits);
     }
