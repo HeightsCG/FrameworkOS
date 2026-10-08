@@ -15,6 +15,16 @@ class BillingAccountsModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
+    /** Every billing row with the account's Stripe ids, for the read-only reconcile report (cron/stripe_reconcile.php). */
+    public function all_for_reconcile(){
+        $r = parent::select("SELECT b.user_id, b.plan_key, b.status, b.current_period_end, b.next_charge_at, b.cancel_at_period_end, b.migrated_subscription_id,
+                                    u.u_name, u.user_email, u.stripe_customer_id, u.stripe_subscription_id, u.stripe_price_id, u.plan_tier, u.subscription_status,
+                                    u.subscription_current_period_end, u.is_demo, u.deleted
+                               FROM billing_accounts b JOIN user_accounts u ON u.user_id = b.user_id
+                              ORDER BY b.user_id", array());
+        return is_array($r) ? $r : array();
+    }
+
     /** The row, created as Free when the account has none yet. */
     public function get_or_create($user_id){
         $row = $this->get($user_id);
