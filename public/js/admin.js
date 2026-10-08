@@ -383,3 +383,16 @@
         });
     });
 })();
+
+/* Growth tab: the period switch shows the 7 / 30 / 90 day set (all rendered server-side). */
+(function () {
+    var panel = document.querySelector('.adm-panel[data-panel="growth"]');
+    if (!panel) { return; }
+    panel.querySelectorAll('.adm-gperiod button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var g = b.getAttribute('data-g');
+            panel.querySelectorAll('.adm-gperiod button').forEach(function (x) { var o = x === b; x.classList.toggle('is-on', o); x.setAttribute('aria-selected', o ? 'true' : 'false'); });
+            panel.querySelectorAll('.adm-gset, .fz-period__range').forEach(function (s) { s.hidden = s.getAttribute('data-g') !== g; });
+        });
+    });
+})();

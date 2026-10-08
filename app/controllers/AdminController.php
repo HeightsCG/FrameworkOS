@@ -82,6 +82,12 @@ class AdminController extends Controller {
             $this->view->seo_archived  = count($art->by_status(array('archived')));
         } catch (\Throwable $e) { error_log('[seo] admin content tab: ' . $e->getMessage()); }
 
+        $this->view->cron_jobs = CronRuns::status();
+
+        $this->view->growth = array();   // Growth tab: each period switch (7 / 30 / 90 days) is rendered up front
+        try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd)); } }
+        catch (\Throwable $e) { error_log('[admin] growth: ' . $e->getMessage()); }   // /admin still loads before the signup params SQL runs
+
         $this->view->scenes = array();
         try { $this->view->scenes = (new SceneTemplatesModel())->list_all(); } catch (\Throwable $e) { error_log('[admin] scenes: ' . $e->getMessage()); }   // /admin still loads before the stage 2 SQL runs
 

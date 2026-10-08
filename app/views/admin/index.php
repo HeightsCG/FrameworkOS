@@ -38,6 +38,7 @@ $tier_bits = array(); foreach (PlanTiers::all() as $pt) { $n = (int) ($f['plans'
 <?php $bill_due = 0; foreach ((array) $this->billing as $b) { if ((string) $b['status'] === 'past_due') { $bill_due++; } } ?>
         <button type="button" class="adm-tab" data-panel="billing"><i class="fa-solid fa-credit-card"></i> Billing<?php if ($bill_due > 0): ?> <b class="adm-tab__badge"><?php echo $bill_due; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="users"><i class="fa-solid fa-users"></i> Users</button>
+        <button type="button" class="adm-tab" data-panel="growth"><i class="fa-solid fa-arrow-trend-up"></i> Growth</button>
         <button type="button" class="adm-tab" data-panel="support"><i class="fa-solid fa-life-ring"></i> Support<?php if ((int) $this->support_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->support_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="scenes"><i class="fa-solid fa-panorama"></i> Scenes</button>
@@ -123,6 +124,8 @@ $last12 = array_slice($this->series, -12);
                 <div class="adm-mrow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><?php foreach ($mt as $col => $v): ?><span class="adm-ucell adm-r"><b><?php echo $usd($v); ?></b></span><?php endforeach; ?></div>
             </div>
         </div>
+
+<?php include __DIR__ . '/_jobs.php'; ?>
     </section>
 
     <section class="adm-sec adm-panel" data-panel="moderation">
@@ -385,6 +388,7 @@ $last12 = array_slice($this->series, -12);
         </div>
     </section>
 
+    <?php include __DIR__ . '/_growth.php'; ?>
     <?php include __DIR__ . '/_support.php'; ?>
     <?php include __DIR__ . '/_content.php'; ?>
     <?php include __DIR__ . '/_scenes.php'; ?>

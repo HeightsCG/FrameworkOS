@@ -354,6 +354,58 @@ class AdminModel extends Model {
         );
     }
 
+    /**
+     * Growth tab: signups over the last $days UTC days (today included), demo accounts left out.
+     * "paid" = billing account active or past due on a selling plan (PagesController::selling_tiers()).
+     */
+    private function growth_parts($days){
+        $days   = max(1, min(366, (int) $days));
+        $keys   = array(); $params = array();
+        foreach (PagesController::selling_tiers() as $i => $t) { $keys[] = ':pk' . $i; $params['pk' . $i] = (string) $t['key']; }
+        $paid   = count($keys) ? "(b.status IN ('active', 'past_due') AND b.plan_key IN (" . implode(', ', $keys) . "))" : '0';
+        $where  = "u.is_demo = 0 AND u.deleted = 0 AND u.created_at >= UTC_DATE() - INTERVAL " . ($days - 1) . " DAY";
+        $sums   = "COUNT(*) AS signups,
+                   COALESCE(SUM(u.email_verified = 1), 0) AS verified,
+                   COALESCE(SUM(u.role_id = " . (int) $this->creator_role_id() . "), 0) AS became_creator,
+                   COALESCE(SUM($paid), 0) AS paid,
+                   COALESCE(SUM(u.referred_by_creator_id IS NOT NULL), 0) AS referred";
+        return array('where' => $where, 'sums' => $sums, 'paid' => $paid, 'params' => $params);
+    }
+
+    /** Per-day funnel: signups, verified, became creator, paid, referred. Newest day first. */
+    public function funnel($days){
+        $g = $this->growth_parts($days);
+        return (array) parent::select(
+            "SELECT DATE(u.created_at) AS day, {$g['sums']}
+             FROM user_accounts u LEFT JOIN billing_accounts b ON b.user_id = u.user_id
+             WHERE {$g['where']}
+             GROUP BY DATE(u.created_at) ORDER BY day DESC", $g['params']);
+    }
+
+    /** Same counts grouped by first-touch source + medium (no source = direct). */
+    public function funnel_by_source($days){
+        $g = $this->growth_parts($days);
+        return (array) parent::select(
+            "SELECT COALESCE(NULLIF(u.acq_source, ''), 'direct') AS source, COALESCE(u.acq_medium, '') AS medium, {$g['sums']}
+             FROM user_accounts u LEFT JOIN billing_accounts b ON b.user_id = u.user_id
+             WHERE {$g['where']}
+             GROUP BY COALESCE(NULLIF(u.acq_source, ''), 'direct'), COALESCE(u.acq_medium, '')
+             ORDER BY signups DESC, source ASC", $g['params']);
+    }
+
+    /** Accounts that signed up from a creator's referral, newest first. */
+    public function referred_signups($days){
+        $g = $this->growth_parts($days);
+        return (array) parent::select(
+            "SELECT u.user_id, u.u_name, u.user_email, u.created_at, u.email_verified, r.role_name, {$g['paid']} AS paid,
+                    ref.user_id AS referrer_id, ref.u_name AS referrer_u_name
+             FROM user_accounts u LEFT JOIN billing_accounts b ON b.user_id = u.user_id
+                  LEFT JOIN user_roles r ON r.id = u.role_id
+                  LEFT JOIN user_accounts ref ON ref.user_id = u.referred_by_creator_id
+             WHERE {$g['where']} AND u.referred_by_creator_id IS NOT NULL
+             ORDER BY u.created_at DESC LIMIT 200", $g['params']);
+    }
+
     /** Suspend / reactivate an account. */
     public function set_user_status($user_id, $status){
         if (!in_array($status, array('Active', 'Disabled'), true)) { return false; }

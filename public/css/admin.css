@@ -8,7 +8,7 @@
 .adm-kpis{ display:grid; grid-template-columns:repeat(5,1fr); gap:.8rem; margin-bottom:1.6rem; }
 
 /* Tabs */
-.adm-tabs{ display:flex; gap:.2rem; margin-bottom:1.5rem; border-bottom:1px solid #EBEBEB; overflow-x:auto; }
+.adm-tabs{ display:flex; flex-wrap:wrap; gap:.2rem; margin-bottom:1.5rem; border-bottom:1px solid #EBEBEB; }
 .adm-tab{ display:inline-flex; align-items:center; gap:.45rem; padding:.6rem .95rem; border:0; border-bottom:2px solid transparent; background:transparent; color:#707070; font-size:.9rem; font-weight:600; white-space:nowrap; cursor:pointer; margin-bottom:-1px; transition:color .12s,border-color .12s; }
 .adm-tab:hover{ color:#242424; }
 .adm-tab i{ font-size:.85rem; color:#BDBDBD; }
@@ -300,10 +300,10 @@ a.adm-crow__sub:hover{ color:var(--acc-ink); }
 
 /* Financials: period switch + small multiples */
 .fz-top{ display:flex; align-items:center; gap:1rem; margin-bottom:1rem; }
-.fz-period{ display:inline-flex; gap:.2rem; padding:.25rem; background:#F3F3F3; border-radius:2px; }
-.fz-period button{ height:32px; padding:0 .9rem; border:0; border-radius:2px; background:transparent; font:inherit; font-size:.85rem; font-weight:600; color:#747474; cursor:pointer; }
-.fz-period button.is-on{ background:#fff; color:#222222; box-shadow:0 1px 2px rgba(29, 29, 29, .08); }
-.fz-period button:focus-visible{ outline:2px solid #FF6A13; outline-offset:1px; }
+.fz-period, .adm-gperiod{ display:inline-flex; gap:.2rem; padding:.25rem; background:#F3F3F3; border-radius:2px; }
+.fz-period button, .adm-gperiod button{ height:32px; padding:0 .9rem; border:0; border-radius:2px; background:transparent; font:inherit; font-size:.85rem; font-weight:600; color:#747474; cursor:pointer; }
+.fz-period button.is-on, .adm-gperiod button.is-on{ background:#fff; color:#222222; box-shadow:0 1px 2px rgba(29, 29, 29, .08); }
+.fz-period button:focus-visible, .adm-gperiod button:focus-visible{ outline:2px solid #FF6A13; outline-offset:1px; }
 .fz-period__range{ font-size:.85rem; color:#939393; }
 .fz-minis{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:1rem; }
 .fz-mini{ display:flex; flex-direction:column; gap:.5rem; padding:1rem 1.1rem .8rem; background:#fff; border:1px solid #EFEFEF; border-radius:var(--r-sm); }
@@ -524,3 +524,13 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
     .adm-scene__pick{ max-width:168px; }
     .adm-scene__row{ grid-template-columns:1fr; }
 }
+
+/* Growth tab: funnel by day, by source, referred signups */
+.adm-table--gdays .adm-table__head, .adm-table--gdays .adm-grow{ grid-template-columns:1.4fr repeat(5, 1fr); }
+.adm-table--gsrc .adm-table__head, .adm-table--gsrc .adm-grow{ grid-template-columns:1.2fr 1fr repeat(5, 1fr); }
+.adm-table--gref .adm-table__head, .adm-table--gref .adm-grow{ grid-template-columns:minmax(0,1.6fr) 170px 90px 110px 80px minmax(0,1fr); }
+.adm-grow{ display:grid; gap:1rem; align-items:center; padding:.7rem 1.1rem; border-top:1px solid #F1F1F1; font-size:.875rem; font-variant-numeric:tabular-nums; }
+.adm-grow__n{ margin-left:.3rem; font-size:.78rem; color:#A0A0A0; }
+.adm-gset .adm-table__body{ max-height:none; min-height:0; overflow:visible; }
+.adm-table--gdays .adm-table__body{ max-height:calc(100vh - 380px); min-height:0; overflow-y:auto; }
+.adm-table--gref .adm-uinfo__sub{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
