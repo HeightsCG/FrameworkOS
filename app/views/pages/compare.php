@@ -4,7 +4,7 @@ $labels = array('fee' => 'Platform fee', 'payout' => 'Payouts', 'content' => 'Wh
 $has_reported = false; foreach ($labels as $k => $l) { if (!empty($c[$k]['reported'])) { $has_reported = true; break; } }
 echo Sections::panel_hero(array(
     'title' => $site . ' vs ' . $c['name'],
-    'lead' => $c['summary'] . ' Here is how the two compare, with sources.',
+    'lead' => ($slug === 'onlyfans' ? PagesController::quotable_facts()['onlyfans'] : $c['summary']) . ' Here is how the two compare, with sources.',   // onlyfans: the quotable brand sentence replaces the summary
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('Platform fee', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
     'bg_image' => SiteImages::bg('compare_hero'),

@@ -8,6 +8,12 @@ class SeoController extends Controller {
 
     public $protected = 0;
 
+    /** The nine networks the studio publishes to, as the features page names them. */
+    const NETWORKS = 'X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads and Bluesky';
+
+    /** Legal pages: listed under "## Optional" in llms.txt and placed last in llms-full.txt. */
+    const LEGAL_PATHS = array('/terms', '/privacy');
+
     public function __construct(){
         parent::__construct();
     }
@@ -145,13 +151,24 @@ class SeoController extends Controller {
         $l = array();
         $l[] = '# ' . $site;
         $l[] = '';
-        $l[] = '> ' . $site . ' is a creator platform: one public page with memberships, pay-per-view posts, bundles, services, events and tracked links, a studio that publishes to nine social networks with AI captions, an inbox with AI replies, and payouts to your bank. Plans are monthly; the platform fee is ' . PagesController::fee_short() . '; Free is for fans and cannot sell.';
+        $l[] = '> ' . SeoMeta::brand_description();
         $l[] = '';
         $l[] = '## Plans';
         $l[] = '- ' . PagesController::plan_cost_answer();
         $l[] = '';
+        $l[] = '## Facts';
+        foreach (PagesController::quotable_facts() as $fact) { $l[] = '- ' . $fact; }
+        $l[] = '- ' . $site . ' publishes to nine social networks: ' . self::NETWORKS . ', plus Fanvue cross-posting.';
+        $l[] = '- Payouts go to your bank: earnings collect as credits (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and you cash them out to your own bank account.';
+        $l[] = '- ' . $site . ' has a Claude connector (MCP server) so a creator can run their account from Claude: posts, messages, analytics and more.';
+        $l[] = '';
         $l[] = '## Product';
-        foreach (self::public_pages() as $p) { $l[] = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description']; }
+        $legal = array();
+        foreach (self::public_pages() as $p) {
+            $line = '- [' . $p['title'] . '](' . $base . $p['path'] . '): ' . $p['description'];
+            if (in_array($p['path'], self::LEGAL_PATHS, true)) { $legal[] = $line; continue; }
+            $l[] = $line;
+        }
         try {
             $recent = (new SeoArticlesModel())->published(20, 0);
             if (!empty($recent)) {
@@ -166,6 +183,7 @@ class SeoController extends Controller {
         $l[] = '';
         $l[] = '## Full text';
         $l[] = '- [llms-full.txt](' . $base . '/llms-full.txt): every public page as plain text.';
+        if (!empty($legal)) { $l[] = ''; $l[] = '## Optional'; foreach ($legal as $line) { $l[] = $line; } }
         echo implode("\n", $l), "\n";
     }
 
@@ -179,25 +197,20 @@ class SeoController extends Controller {
             readfile($cache);
             return;
         }
-        $out = array('# ' . $site . ' — full text', '', 'Source: ' . $base . '/llms.txt', '');
+        $out = array('# ' . $site . ': Full Text', '', '> ' . SeoMeta::brand_description(), '', 'Source: ' . $base . '/llms.txt', '');
+        // the home page first, then the product pages, the articles, and the legal pages last
+        self::add_page($out, 'Home', $base . '/', self::render_home_html());
+        $legal = array();
         foreach (self::public_pages() as $p) {
-            $html = self::render_public_html($p['path']);
-            if ($html === '') { continue; }
-            $text = self::html_to_text($html);
-            if ($text === '') { continue; }
-            $out[] = '## ' . $p['title'];
-            $out[] = 'URL: ' . $base . $p['path'];
-            $out[] = '';
-            $out[] = $text;
-            $out[] = '';
+            if (in_array($p['path'], self::LEGAL_PATHS, true)) { $legal[] = $p; continue; }
+            self::add_page($out, $p['title'], $base . $p['path'], self::render_public_html($p['path']));
         }
         try {
             foreach ((new SeoArticlesModel())->published_bodies(200) as $a) {
-                $text = self::html_to_text('<main>' . $a['body_html'] . '</main>');   // the '## title' + URL lines above are the heading
-                if ($text === '') { continue; }
-                $out[] = '## ' . $a['title']; $out[] = 'URL: ' . $base . '/blog/' . $a['slug']; $out[] = ''; $out[] = $text; $out[] = '';
+                self::add_page($out, $a['title'], $base . '/blog/' . $a['slug'], '<main>' . $a['body_html'] . '</main>');
             }
         } catch (\Throwable $e) { error_log('[seo] llms-full articles: ' . $e->getMessage()); }
+        foreach ($legal as $p) { self::add_page($out, $p['title'], $base . $p['path'], self::render_public_html($p['path'])); }
         $text = implode("\n", $out);
         if (strlen($text) > 2 * 1024 * 1024) { $text = mb_strcut($text, 0, 2 * 1024 * 1024, 'UTF-8'); }
         // Set after the render loop, immediately before output: a rendered page's own
@@ -206,6 +219,36 @@ class SeoController extends Controller {
         header('Content-Type: text/plain; charset=utf-8'); header('Cache-Control: public, max-age=3600');
         @file_put_contents($cache, $text . "\n", LOCK_EX);
         echo $text, "\n";
+    }
+
+    /** One page in llms-full.txt: "## title", the URL, then the text, with the page's own H1 as a plain line (dropped when it repeats the title). */
+    private static function add_page(array &$out, string $title, string $url, string $html): void {
+        if ($html === '') { return; }
+        $text = self::html_to_text($html);
+        if ($text === '') { return; }
+        if (strpos($text, '## ') === 0) {   // one "##" per page, so headings never repeat
+            $nl = strpos($text, "\n");
+            $h1 = trim(substr($nl === false ? $text : substr($text, 0, $nl), 3));
+            $rest = $nl === false ? '' : trim(substr($text, $nl));
+            $text = (strcasecmp(rtrim($h1, '.'), rtrim($title, '.')) === 0) ? $rest : trim($h1 . "\n" . $rest);
+        }
+        $out[] = '## ' . $title;
+        $out[] = 'URL: ' . $url;
+        $out[] = '';
+        if ($text !== '') { $out[] = $text; $out[] = ''; }
+    }
+
+    /** The landing page body (libs/Layout/home_body.php) as HTML wrapped in <main>, for llms-full.txt. */
+    private static function render_home_html(): string {
+        ob_start();
+        try {
+            include Main::lib_path() . '/Layout/home_body.php';
+            return '<main>' . (string) ob_get_clean() . '</main>';
+        } catch (\Throwable $e) {
+            ob_end_clean();
+            error_log('[seo] llms-full home: ' . $e->getMessage());
+            return '';
+        }
     }
 
     /** Render one public page through PagesController into a string (output-buffered). */
@@ -241,6 +284,37 @@ class SeoController extends Controller {
         $html = $m[1];
         $html = preg_replace('/<(script|style)[^>]*>.*?<\/\1>/is', '', $html);
         $html = preg_replace('/<aside\b[^>]*>.*?<\/aside>/is', '', $html);   // cross-links (guides block) are listed once in llms.txt, not repeated per page
+        // page chrome that reads as noise in plain text: the closing call-to-action band, the live posts mosaic, jump navs, buttons and tabs
+        $html = preg_replace('/<section class="sx sx--cta".*?<\/section>/is', '', $html);
+        $html = preg_replace('/<section\b(?:(?!<\/section>).)*?class="lm(?:__live)?"(?:(?!<\/section>).)*<\/section>/is', '', $html);
+        $html = preg_replace('/(<section class="sx hx(?: hx--titled)?">.*?)<div class="hx__mod">.*?<\/section>/is', '$1</section>', $html);   // the home hero's demo panels
+        $html = preg_replace('/<nav\b[^>]*>.*?<\/nav>/is', '', $html);
+        $html = preg_replace('/<span class="sx-plan__tag">.*?<\/span>/is', '', $html);   // "Most popular" badge
+        $html = preg_replace('/<button\b[^>]*>.*?<\/button>/is', '', $html);
+        $html = preg_replace('/<a\b[^>]*class="[^"]*\bsx-btn\b[^"]*"[^>]*>.*?<\/a>/is', '', $html);
+        $html = preg_replace('/<div class="hx__words"[^>]*>\s*<\/div>/is', '', $html);
+        // check marks are "Yes"; an empty header cell gets a label so no table cell is blank
+        $html = preg_replace('/<svg\b[^>]*aria-label="Included"[^>]*>.*?<\/svg>/is', 'Yes', $html);
+        $html = preg_replace('/<svg\b.*?<\/svg>/is', '', $html);
+        $html = preg_replace('/<th([^>]*)>\s*<\/th>/i', '<th$1>Item</th>', $html);
+        $html = preg_replace('/(<(?:td|th|dd)\b[^>]*>)\s*(?:&mdash;|\xE2\x80\x94)\s*(<\/(?:td|th|dd)>)/i', '$1n/a$2', $html);   // a dash cell means "does not apply"
+        $html = str_replace('<span class="sx-plan__role">', ': ', $html);   // pricing card: "Creator: Get discovered"
+        $html = preg_replace('/<\/span>\s*<b>/i', '</span>: <b>', $html);   // panel rows: "label: value"
+        $html = preg_replace('/<\/b>\s*<a /i', '</b> <a ', $html);
+        $html = preg_replace('/<\/span>\s*(<span class="dir-card__)/i', '</span> · $1', $html);   // directory card fields
+        $html = preg_replace('/<\/dd>\s*<\/div>/i', '</dd>', $html);   // one line per term, no blank line between them
+        // FAQ: question and answer on their own lines, a blank line between pairs
+        $html = preg_replace('/<summary[^>]*>(.*?)<\/summary>/is', "\nQ: $1\n", $html);
+        $html = preg_replace('/<div class="sx-faq__a">(.*?)<\/div>/is', "A: $1\n\n", $html);
+        // links keep their absolute URL, so a model can follow them
+        $base = rtrim((string) Main::get_base_domain(), '/');
+        $html = preg_replace_callback('/<a\b[^>]*href="([^"#][^"]*)"[^>]*>(.*?)<\/a>/is', function ($m) use ($base) {
+            $href = html_entity_decode($m[1], ENT_QUOTES, 'UTF-8');
+            if ($href[0] === '/' && (strlen($href) < 2 || $href[1] !== '/')) { $href = $base . $href; }
+            if (!preg_match('#^https?://#i', $href)) { return $m[2]; }
+            $label = trim(strip_tags($m[2]));
+            return $label === '' ? '' : $m[2] . ' (' . $href . ')';
+        }, $html);
         $html = preg_replace('/<h1[^>]*>(.*?)<\/h1>/is', "\n## $1\n", $html);
         $html = preg_replace('/<h2[^>]*>(.*?)<\/h2>/is', "\n### $1\n", $html);
         $html = preg_replace('/<h3[^>]*>(.*?)<\/h3>/is', "\n#### $1\n", $html);
@@ -250,7 +324,17 @@ class SeoController extends Controller {
         $html = preg_replace('/<\/(p|li|tr|div)>/i', "\n", $html);
         $html = preg_replace('/<\/t[dh]>/i', " | ", $html);
         $text = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        if (strpos($text, '&#') !== false || strpos($text, '&amp;') !== false) { $text = html_entity_decode($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'); }   // stored text that was encoded twice
         $text = preg_replace('/[ \t]+/', ' ', $text);
+        $lines = array();
+        foreach (explode("\n", $text) as $ln) {
+            $ln = trim($ln);
+            if (strpos($ln, '|') !== false) { $ln = rtrim($ln, ' |'); }   // table rows: no trailing separator
+            if ($ln === '-') { continue; }   // empty list items
+            $lines[] = $ln;
+        }
+        $text = preg_replace('/^(- .*)\n\n+(?=- )/m', "$1\n", implode("\n", $lines));   // list items stay together
+        $text = preg_replace('/([^\n])\n(#{2,4} )/', "$1\n\n$2", $text);   // a blank line before every heading
         return trim(preg_replace('/\n{3,}/', "\n\n", $text));
     }
 

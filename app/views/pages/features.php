@@ -1,10 +1,11 @@
 <?php
 /** Features page: hero with jump links, then one group per job a creator does (Sections::group). Every item is a shipped feature. */
 $site = Main::site_name();
+$facts = PagesController::quotable_facts();
 $groups = array(
     array('id' => 'page', 'jump' => 'Your page', 'jump_icon' => 'layers', 'title' => 'Your public page', 'lead' => 'One page at your handle that sells everything you make, in your brand colors.', 'image' => SiteImages::url('features_page'), 'items' => array(
         array('layers', 'Posts for everyone or for paying fans', 'Free posts are open to all. Subscriber and pay-per-view posts show blurred until a fan joins or unlocks.'),
-        array('link', 'Tracked links', 'Add links to your page and see every click.'),
+        array('link', 'Link in bio that takes payments', $facts['link_in_bio']),
         array('palette', 'Your brand', 'Your colors, bio and links carry across your page.'),
         array('search', 'Found in the feed and search', 'Fans discover you in the home feed and in search across creators and content.'),
         array('bell', 'Free follows', 'Fans follow for free and hear about every new post.'),
@@ -15,7 +16,7 @@ $groups = array(
         array('lock', 'Pay-per-view posts', 'Put a price on any post. Fans unlock it in one tap from their wallet.'),
         array('package', 'Bundles', 'Group media from your library into a set. Buyers find it in their purchases.'),
         array('calendar', 'Services', 'Take bookings. Access details are shared after purchase.'),
-        array('ticket', 'Events', 'Sell seats to live sessions. Details are shared after purchase.'),
+        array('ticket', 'Events and 1:1 video calls', $facts['events']),
         array('message', 'Paid messages', 'Attach media and a price to any message. It stays blurred until the fan pays.'),
     )),
     array('id' => 'publish', 'jump' => 'Publishing', 'jump_icon' => 'send', 'title' => 'Publish everywhere at once', 'lead' => 'Upload once and post to your page and your social accounts at the same time.', 'image' => SiteImages::url('features_studio'), 'items' => array(
@@ -24,7 +25,7 @@ $groups = array(
         array('image', 'AI images', 'Generate on-brand images from a short prompt.'),
         array('clock', 'Drafts and scheduling', 'Keep a draft, schedule it, or publish now.'),
         array('repeat', 'Automations', 'Automations write and publish posts on the schedule you set.'),
-        array('bot', 'AI influencers', 'Create AI personas and generate their photos and videos.'),
+        array('bot', 'AI influencers', $facts['ai_influencer']),
     )),
     array('id' => 'fans', 'jump' => 'Inbox and audience', 'jump_icon' => 'inbox', 'title' => 'Inbox and audience', 'lead' => 'Every fan conversation and every fan record in one place.', 'items' => array(
         array('inbox', 'Inbox', 'Every fan message in one place.'),
@@ -41,7 +42,7 @@ $groups = array(
         array('link', 'Link clicks', 'Clicks on every link on your page.'),
     )),
     array('id' => 'payouts', 'jump' => 'Payouts and team', 'jump_icon' => 'bank', 'title' => 'Payouts, team and tools', 'lead' => 'Your money and your audience stay yours.', 'image' => SiteImages::url('features_payouts'), 'items' => array(
-        array('bank', 'Payouts to your bank', 'Earnings collect in your wallet. Cash out to your own bank account.'),
+        array('bank', 'Payouts to your bank', $facts['payouts']),
         array('wallet', 'Fan wallet', 'Fans top up once and pay in one tap, with optional automatic top-ups.'),
         array('user-plus', 'Team seats', 'Invite collaborators to work on your account.'),
         array('plug', 'Claude connector', 'Run your account from Claude: posts, messages, analytics and more.'),
