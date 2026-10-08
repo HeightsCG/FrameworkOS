@@ -163,4 +163,9 @@ $t = $good; $t['body_md'] .= "\n\nCreators make \$5,000 a month if you post dail
 $t = $good; $t['body_md'] .= "\n\nYou'd earn \$800 a month from this.";                   check('R3 "you\'d earn $X" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSay you earn \$2,000 a month.";                          check('R3 "Say you earn $2,000 a month" passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenue at \$500 a month."; check('R3 "run the arithmetic" passes', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nWork backwards from the income you want: 50 members at \$20 a month and 100 at \$10 a month."; check('R3 "work backwards" arithmetic passes', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nThis is the single biggest lever on your income, and it compounds: a ten-point difference on \$2,000 a month is \$200."; check('R3 "point difference" arithmetic passes', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nExtra AI influencers are \$15 a month each on the Creator plan, up to five. " . PagesController::FINAL_NOTE; check('R3 add-on price next to a plan name passes', $ok($t), $errs($t));
+check('R3 add-on price is not rewritten', strpos(SeoDrafter::fix_plan_prices('Extra AI influencers are $15 a month each on the Creator plan.'), '$15 a month') !== false, 'rewritten');
+check('R3 a wrong plan price is still rewritten', strpos(SeoDrafter::fix_plan_prices('Creator costs $59 a month.'), '$49 a month') !== false, 'not rewritten');
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n"; exit($fail === 0 ? 0 : 1);

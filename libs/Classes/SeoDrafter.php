@@ -223,7 +223,9 @@ class SeoDrafter {
         list($live) = self::plan_prices();
         $site = Main::site_name();
         $text = str_replace($site, "\x01", (string) $text);   // "Creator Link Studio" is not the Creator or Studio plan
-        $skip = function ($amt) { return in_array((float) str_replace(',', '', $amt), array(1.0, 25.0), true); };   // $1 = 10 credits, $25 payout minimum
+        $addons = array();   // "$15 a month each on the Creator plan": an add-on price, not the plan's
+        foreach (PlanTiers::ADDONS as $ad) { $addons[] = (float) $ad['price']; }
+        $skip = function ($amt) use ($addons) { return in_array((float) str_replace(',', '', $amt), array_merge(array(1.0, 25.0), $addons), true); };   // $1 = 10 credits, $25 payout minimum, add-on prices
         foreach (array_keys($live) as $name) {
             $n = preg_quote($name, '/');
             $per = '(?=\s*(?:a|per)\s+month\b|\s*\/\s*(?:month|mo)\b|\s+monthly\b)';   // a plan PRICE says per month
@@ -357,7 +359,7 @@ class SeoDrafter {
             if (!preg_match('/' . $amount . '\s*(?:a|per|\/|each|every)\s*(?:month|mo\b|week|year)|' . $amount . '\s*(?:monthly|a year)\b/i', $sentence)) { continue; }
             if (!preg_match('/\b(?:make|makes|making|earn|earns|earning|earnings|income|revenue|bring in|take home|profit)\b/i', $sentence)) { continue; }
             if (preg_match('/\b(?:some creators|varies|vary|between|cannot guarantee|can\'t guarantee)\b/i', $sentence)) { continue; }   // honest ranges
-            if (preg_match('/\b(?:say,? (?:as an? \w+,? )?you|suppose|imagine|for example|hypothetical|run the (?:arithmetic|numbers|maths?|math))\b|a month gross\b/i', $sentence)) { continue; }   // worked examples, not promises
+            if (preg_match('/\b(?:say,? (?:as an? \w+,? )?you|suppose|imagine|for example|hypothetical|run the (?:arithmetic|numbers|maths?|math)|work backwards|the income you want|point difference|members at)\b|a month gross\b/i', $sentence)) { continue; }   // worked examples and arithmetic, not promises
             $err[] = 'earnings claim stated as fact: "' . mb_substr(trim($sentence), 0, 90) . '"';
             break;
         }
