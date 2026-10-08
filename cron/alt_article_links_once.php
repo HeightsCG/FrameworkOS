@@ -8,19 +8,27 @@ if (is_file($root . '/vendor/autoload.php')) { require_once $root . '/vendor/aut
 spl_autoload_register(function ($class) use ($root) {
     foreach (array("$root/app/models/$class.php", "$root/libs/Classes/$class.php", "$root/app/controllers/$class.php", "$root/app/$class.php") as $src) { if (file_exists($src)) { require_once $src; return; } }
 });
-$edits = array(
-    'onlyfans-alternative-how-to-choose' => array('so you can check the claims yourself.', ' For a wider look at the options, see the list of [OnlyFans alternatives for creators](/onlyfans-alternatives).', '/onlyfans-alternatives'),
-    'fanvue-alternative-how-to-compare-and-switch' => array('sets it out with sources rather than adjectives.', ' For the wider field, see the list of [Fanvue alternatives for creators](/fanvue-alternatives).', '/fanvue-alternatives'),
+$targets = array(
+    'onlyfans' => array('/onlyfans-alternatives', 'For a wider look at the options, see the list of [OnlyFans alternatives for creators](/onlyfans-alternatives).'),
+    'fanvue'   => array('/fanvue-alternatives',   'For the wider field, see the list of [Fanvue alternatives for creators](/fanvue-alternatives).'),
 );
 $m = new SeoArticlesModel();
-foreach ($edits as $slug => $e) {
-    $a = $m->get_by_slug($slug, false);
-    if (!$a) { echo "missing $slug\n"; continue; }
-    $body = (string) $a['body_md'];
-    if (strpos($body, '](' . $e[2] . ')') !== false) { echo "already linked $slug\n"; continue; }
-    if (substr_count($body, $e[0]) !== 1) { echo "anchor not found once in $slug\n"; continue; }
-    $body = str_replace($e[0], $e[0] . $e[1], $body);
-    $m->update_fields((int) $a['id'], array('body_md' => $body, 'body_html' => Markdown::render($body, SeoDrafter::allowed_paths())));
-    try { IndexNow::ping(array('/blog/' . $slug), true); } catch (\Throwable $x) {}
-    echo "linked $slug\n";
+foreach ($targets as $word => $t) {
+    // the alternative article(s) about this platform, whatever their slug is on this environment
+    $hits = array();
+    foreach ((array) $m->search($word . ' alternative', 10) as $r) {
+        $hay = strtolower((string) $r['slug'] . ' ' . (string) $r['title']);
+        if (strpos($hay, $word) !== false && strpos($hay, 'alternative') !== false) { $hits[] = (string) $r['slug']; }
+    }
+    if (!$hits) { echo "no $word alternative article here\n"; continue; }
+    foreach ($hits as $slug) {
+        $a = $m->get_by_slug($slug, false);
+        if (!$a) { continue; }
+        $body = (string) $a['body_md'];
+        if (strpos($body, '](' . $t[0] . ')') !== false) { echo "already linked $slug\n"; continue; }
+        $body = rtrim($body) . "\n\n" . $t[1] . "\n";   // its own closing paragraph, so no sentence of the article has to match
+        $m->update_fields((int) $a['id'], array('body_md' => $body, 'body_html' => Markdown::render($body, SeoDrafter::allowed_paths())));
+        try { IndexNow::ping(array('/blog/' . $slug), true); } catch (\Throwable $x) {}
+        echo "linked $slug\n";
+    }
 }
