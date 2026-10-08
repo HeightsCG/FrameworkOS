@@ -74,7 +74,7 @@ foreach ($articles->published(500, 0) as $row) {
         if ($body !== (string) $a['body_md'] || $faq !== (string) $a['faq'] || $meta !== (string) $a['meta_description']) {
             $articles->update_fields((int) $a['id'], array('body_md' => $body, 'body_html' => Markdown::render($body, SeoDrafter::allowed_paths()), 'faq' => $faq, 'meta_description' => $meta));
             echo date('c'), ' fixed fee wording in /blog/', $a['slug'], "\n";
-            try { IndexNow::ping(array('/blog/' . $a['slug'])); } catch (\Throwable $e) {}
+            try { IndexNow::ping(array('/blog/' . $a['slug']), true); } catch (\Throwable $e) {}
             $issues = $drift($a['title'] . "\n" . $meta . "\n" . $body . "\n" . $faq);
             if (empty($issues)) { continue; }
         }

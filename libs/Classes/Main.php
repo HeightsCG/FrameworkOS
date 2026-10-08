@@ -174,8 +174,10 @@ class Main {
                 }
             }
         }
-        // No request (cron, queue worker) or an unknown Host: this environment's domain, else the public brand domain.
-        $host = (string) ($cfg[$env]['domain'] ?? '');
+        // No request (cron, queue worker) or an unknown Host: the canonical host first (www on prod, so
+        // IndexNow pings and emailed links skip the 301), else this environment's domain, else the brand domain.
+        $host = trim((string) ($cfg[$env]['canonical_host'] ?? ''));
+        if ($host === '') { $host = (string) ($cfg[$env]['domain'] ?? ''); }
         if ($host === '') { $host = (string) ($cfg['global']['public_domain'] ?? ''); }
         return (($env === 'development') ? self::site_protocol() : 'https://') . $host;
     }
