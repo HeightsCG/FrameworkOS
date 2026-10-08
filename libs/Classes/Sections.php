@@ -14,6 +14,9 @@ class Sections {
      * Headline Title Case (Daniel's rule): capitalise each word's first letter, keep short joining words lower
      * (except first/last), and never lower anything, so "AI", "OnlyFans", "Ko-fi" and "$29/mo" stay as written.
      */
+    /** Hyphenated names tc() leaves exactly as written. */
+    const TC_KEEP = array('Ko-fi');
+
     public static function tc(string $s): string {
         $small = array('a', 'an', 'and', 'as', 'at', 'but', 'by', 'for', 'in', 'nor', 'of', 'on', 'or', 'per', 'the', 'to', 'vs', 'via', 'with');
         $w = preg_split('/(\s+)/u', trim($s), -1, PREG_SPLIT_DELIM_CAPTURE);
@@ -23,6 +26,10 @@ class Sections {
             $bare = strtolower(trim($word, '.,:;!?()"\''));
             if ($i !== 0 && $i !== $last && in_array($bare, $small, true)) { continue; }
             $w[$i] = preg_replace_callback('/^([\'"(\[]*)(\p{Ll})/u', function ($m) { return $m[1] . mb_strtoupper($m[2]); }, $word);
+            // hyphenated words take a capital after each hyphen too ("Pay-Per-View", "Built-In"); brand spellings are kept
+            if (strpos($word, '-') !== false && !in_array(trim($word, '.,:;!?()"\''), self::TC_KEEP, true)) {
+                $w[$i] = preg_replace_callback('/-(\p{Ll})/u', function ($m) { return '-' . mb_strtoupper($m[1]); }, $w[$i]);
+            }
         }
         return implode('', $w);
     }
@@ -326,7 +333,7 @@ class Sections {
     public static function cta(string $title, string $text = '', bool $pricing_link = true): string {
         return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
             . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="/?auth=register" data-auth="register">Get Started</a>'
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="/?auth=register" data-auth="register">Start Free</a>'
             . ($pricing_link ? '<a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a>' : '') . '</div></div></section>';
     }
 }

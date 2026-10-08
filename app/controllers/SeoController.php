@@ -121,14 +121,23 @@ class SeoController extends Controller {
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
         }
+        foreach (PagesController::root_feature_pages() as $slug => $f) {   // /lora-character-training ... (same template)
+            $pages[] = array('path' => '/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
+        }
         $checked = '';   // the newest "facts checked" date across the compare pages dates the best-of page too
         foreach (PagesController::COMPETITORS as $slug => $c) {
-            $checked = max($checked, (string) ($c['checked'] ?? ''));
+            if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $checked = max($checked, (string) ($c['checked'] ?? '')); }   // only competitors listed on the best-of page
             $pages[] = array('path' => '/compare/' . $slug, 'title' => Main::site_name() . ' vs ' . $c['name'], 'description' => (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators, compared with sources.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => (string) ($c['checked'] ?? ''));
         }
         $pages[] = array('path' => '/best-creator-monetization-platforms', 'title' => 'Best creator monetization platforms', 'description' => 'How the main creator platforms compare on fees, what you can sell, payouts and ownership.', 'changefreq' => 'monthly', 'priority' => '0.8', 'lastmod' => $checked);
+        foreach (array_keys(AlternativesPages::PAGES) as $k) {   // /onlyfans-alternatives, /fanvue-alternatives
+            $a = PagesController::alternatives_page($k);
+            $pages[] = array('path' => $a['path'], 'title' => $a['title'], 'description' => $a['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
+        }
         $pages[] = array('path' => '/terms',   'title' => 'Terms of Service', 'description' => 'Terms for using the platform.',                         'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
+        $pages[] = array('path' => '/about',   'title' => 'About ' . Main::site_name(), 'description' => 'What the platform is, who it is for, the AI influencer tools and how creators get paid.', 'changefreq' => 'monthly', 'priority' => '0.5');
+        $pages[] = array('path' => '/contact', 'title' => 'Contact support', 'description' => 'Contact support about billing, payouts, your account or a bug.', 'changefreq' => 'yearly', 'priority' => '0.4');
         // Creator directory: only once someone is listed, and only categories that have creators (no empty pages indexed).
         try {
             $counts = (new CreatorProfileModel())->directory_counts();

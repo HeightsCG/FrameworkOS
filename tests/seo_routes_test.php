@@ -1,6 +1,7 @@
 <?php
 $base  = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
-$paths = array('/features', '/features/character-generation', '/features/dm-agent', '/features/payouts', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/best-creator-monetization-platforms', '/monetize-your-content');
+$paths = array('/features', '/features/ai-influencer', '/features/dm-agent', '/features/payouts', '/pricing', '/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/best-creator-monetization-platforms', '/monetize-your-content', '/about', '/contact');
+$paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternatives'));
 $fail  = 0;
 foreach ($paths as $p) {
     $ch = curl_init($base . $p);
@@ -39,4 +40,17 @@ $ch = curl_init($base . '/creators?sort=bogus'); curl_setopt_array($ch, array(CU
 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 $ok = $code === 200 && strpos($body, 'rel="canonical" href="' . $base . '/creators"') !== false;
 echo ($ok ? 'ok   ' : 'FAIL ') . "/creators?sort=bogus 200, canonical /creators ($code)\n"; if (!$ok) { $fail++; }
+// Alternatives list pages: FAQPage and ItemList markup parse, and nothing else under them answers.
+foreach (array('/onlyfans-alternatives', '/fanvue-alternatives') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+    preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
+    foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
+    $ok = in_array('FAQPage', $types, true) && in_array('ItemList', $types, true) && count($types) === count($m[1]);
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p FAQPage + ItemList parse\n"; if (!$ok) { $fail++; }
+}
+foreach (array('/fanvue-alternatives/extra', '/onlyfans-alternatives/x') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
+    $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+}
 exit($fail ? 1 : 0);

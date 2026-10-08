@@ -82,8 +82,29 @@ class Notifications {
         return $sent;
     }
 
+    /**
+     * Email the support inbox (the /contact form) with reply-to set to the sender, so a reply goes
+     * straight back to them. Returns true when Postmark accepted it.
+     */
+    public function send_to_support($support_email, $reply_email, $reply_name, $subject, $message){
+        $from  = (string) Main::config('global', 'mail_from', '');
+        $token = (string) Main::config('global', 'postmark_api_token', '');
+        if ($from === '' || !filter_var($from, FILTER_VALIDATE_EMAIL) || $token === '') {
+            error_log('[mailer] mail_from or postmark_api_token is not configured in app.ini; support email not sent');
+            return false;
+        }
+        if (!filter_var($support_email, FILTER_VALIDATE_EMAIL) || !filter_var($reply_email, FILTER_VALIDATE_EMAIL)) {
+            return false;
+        }
+        $from_name  = $this->strip_header((string) Main::config('global', 'mail_from_name', '') ?: Main::site_name());
+        $from_field = ($from_name !== '') ? '"' . $from_name . '" <' . $from . '>' : $from;
+        $reply_name = str_replace(array('"', '\\', '<', '>'), '', $this->strip_header($reply_name));
+        $reply_to   = ($reply_name !== '') ? '"' . $reply_name . '" <' . $reply_email . '>' : $reply_email;
+        return $this->postmark_send($token, $from_field, $support_email, array(), $this->strip_header($subject), $message, $reply_to);
+    }
+
     /** Deliver one HTML message through the Postmark HTTP API. Returns true on a 200. */
-    private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message){
+    private function postmark_send($token, $from_field, $to_email, $cc, $subject, $message, $reply_to = ''){
         $payload = array(
             'From'          => $from_field,
             'To'            => $to_email,
@@ -93,6 +114,9 @@ class Notifications {
         );
         if (!empty($cc)) {
             $payload['Cc'] = implode(',', $cc);
+        }
+        if ($reply_to !== '') {
+            $payload['ReplyTo'] = $reply_to;
         }
 
         $ch = curl_init('https://api.postmarkapp.com/email');

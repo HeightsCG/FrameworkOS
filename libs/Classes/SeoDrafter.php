@@ -10,9 +10,9 @@ class SeoDrafter {
 
     /** Topic clusters the blog targets. Each maps to the feature page an article in it must link to. */
     const CLUSTERS = array(
-        'ai-influencer-monetization' => array('label' => 'AI influencer monetization', 'feature' => '/features/character-generation'),
+        'ai-influencer-monetization' => array('label' => 'AI influencer monetization', 'feature' => '/features/ai-influencer'),
         'ai-dm-chatter'              => array('label' => 'AI DM chatter',              'feature' => '/features/dm-agent'),
-        'lora-character-training'    => array('label' => 'LoRA character training',    'feature' => '/features/character-generation'),
+        'lora-character-training'    => array('label' => 'LoRA character training',    'feature' => '/lora-character-training'),
         'platform-comparisons'       => array('label' => 'Platform comparisons',       'feature' => '/features'),
         'creator-payouts'            => array('label' => 'Creator payouts',            'feature' => '/features/payouts'),
     );

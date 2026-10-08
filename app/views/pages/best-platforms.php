@@ -35,6 +35,7 @@ foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
 }
 echo Sections::table(array('Platform', 'Kind', 'Fee', ''), $rows, -1);
 echo '<p class="sx-note">Figures come from each platform\'s own pricing, help or legal pages, linked and dated on its comparison page. Where a platform blocks automated access we use published reporting and label it "reported". We build ' . $e($site) . ', so read our row with that in mind.</p>';
+echo '<p class="sx-note">Leaving one platform in particular? See the <a href="/onlyfans-alternatives">OnlyFans alternatives</a> and <a href="/fanvue-alternatives">Fanvue alternatives</a> lists.</p>';
 echo Sections::close();
 
 // Who each suits, grouped by kind so the nine options read as three short lists.

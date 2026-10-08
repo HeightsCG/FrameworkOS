@@ -57,8 +57,26 @@ echo Sections::panel_hero(array(
     'title' => 'Everything a creator sells, from one page.',
     'lead' => $site . ' gives you one public page for memberships, pay-per-view, bundles, services and events, a studio that publishes to your socials, and payouts to your bank.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
+    'panel' => Screenshots::img('features-hero', false),   // '' while screenshots are off: the hero stays solo
     'after_html' => $jump,
 ));
+
+// one card per feature page (FeaturePages::PAGES under /features, FeaturePages::ROOT at the root); same markup as Sections::cards
+$guides = array();
+foreach (PagesController::feature_pages() as $f_slug => $f) { $guides[] = array($f, '/features/' . $f_slug, 'feature-' . $f_slug); }
+foreach (PagesController::root_feature_pages() as $f_slug => $f) { $guides[] = array($f, '/' . $f_slug, ''); }   // root keyword pages have no screenshot
+echo Sections::open('alt', 'Feature guides', 'A closer look at each part of ' . $site . '.', 'guides');
+echo '<div class="sx-cards sx-cards--3 fx-guides">';
+foreach ($guides as $gd) {
+    list($f, $f_path, $f_shot) = $gd;
+    echo '<article class="sx-card">' . ($f_shot !== '' ? Screenshots::img($f_shot) : '');
+    echo '<h3 class="sx-card__title">' . Sections::e(Sections::tc((string) $f['title'])) . '</h3>';
+    echo '<p class="sx-card__text">' . Sections::e((string) $f['description']) . '</p>';
+    echo '<a class="sx-more" href="' . Sections::e($f_path) . '">' . Sections::e('Explore ' . Sections::tc((string) $f['nav_title'])) . '</a>';
+    echo '</article>';
+}
+echo '</div>';
+echo Sections::close();
 
 $n = 0;
 foreach ($groups as $g) { echo Sections::group($g, ($n++ % 2 === 1) ? 'alt' : 'white'); }

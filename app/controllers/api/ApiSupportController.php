@@ -8,7 +8,7 @@
 class ApiSupportController extends BaseApiController {
 
     use AuditTrail;
-    protected $audit_skip = array('support_create', 'support_assist');   // assist only drafts text; nothing changes
+    protected $audit_skip = array('support_create', 'support_assist', 'contact_send');   // assist only drafts text; nothing changes
 
     /** Only audit staff acting on someone else's request (a staff member's own request is not a staff action). */
     protected function audit_applies(string $action): bool {
@@ -82,6 +82,39 @@ class ApiSupportController extends BaseApiController {
         $close = (string) ($this->post['closed'] ?? '1') === '1';
         $model->set_closed((int) $t['id'], $close);
         $this->jsonSuccess(['message' => $close ? 'Request closed' : 'Request reopened']);
+    }
+
+    /**
+     * The public /contact form (signed in or not): emails support with reply-to = the sender.
+     * 3 per IP per 15 minutes; a filled honeypot ("company") gets a fake success and sends nothing.
+     */
+    public function contact_sendAction(){
+        $ok = 'Message sent. We will reply by email.';
+        if ($this->text('company', 190) !== '') { $this->jsonSuccess(['message' => $ok]); }
+
+        $ip = $this->get_ip_address();
+        if ($this->loginAttemptsModel->count_recent($ip, 'contact', 15) >= 3) {
+            $this->jsonError('Too many messages. Please try again in a few minutes.');
+        }
+        $name    = $this->text('name', 100);
+        $email   = $this->text('email', 190);
+        $topic   = (string) ($this->post['topic'] ?? '');
+        $message = $this->text('message', 5000);
+        if ($name === '') { $this->jsonError('Add your name'); }
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) { $this->jsonError('Add a valid email address'); }
+        if (!isset(PagesController::CONTACT_TOPICS[$topic])) { $this->jsonError('Choose a topic'); }
+        if (mb_strlen($message) < 10) { $this->jsonError('Write a few words about your question'); }
+
+        $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+        $label = PagesController::CONTACT_TOPICS[$topic];
+        $uid = (int) Session::get('user_id');
+        $html = '<p><strong>Name:</strong> ' . $e($name) . '<br><strong>Email:</strong> ' . $e($email) . '<br><strong>Topic:</strong> ' . $e($label)
+              . ($uid > 0 ? '<br><strong>Signed in as user:</strong> ' . $uid : '') . '<br><strong>IP:</strong> ' . $e($ip) . '</p>'
+              . '<p>' . nl2br($e($message)) . '</p>';
+        $sent = (new Notifications())->send_to_support(PagesController::LEGAL_CONTACT, $email, $name, 'Contact form: ' . $label . ' from ' . $name, $html);
+        if (!$sent) { $this->jsonError('Could not send your message. Please email ' . PagesController::LEGAL_CONTACT . ' instead.'); }
+        $this->loginAttemptsModel->record($ip, $email, 'contact');   // only a delivered message uses up one of the three
+        $this->jsonSuccess(['message' => $ok]);
     }
 
     /** AI Assist (staff answering someone else's request): three reply options, or a rework of the typed reply. */

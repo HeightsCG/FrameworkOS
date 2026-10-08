@@ -15,17 +15,27 @@ class PagesController extends Controller {
     /** URL first segment => method (without "Action"). */
     const ROUTES = array(
         'features'                            => 'features',
+        'lora-character-training'             => 'rootFeature',   // keyword pages on the feature template (FeaturePages::ROOT)
+        'consistent-ai-model-face'            => 'rootFeature',
+        'ai-ofm-tools'                        => 'rootFeature',
         'pricing'                             => 'pricing',
         'compare'                              => 'compare',
         'best-creator-monetization-platforms' => 'bestPlatforms',
         'monetize-your-content'               => 'monetize',
-        'creators'                            => 'creators',
+        'onlyfans-alternatives'               => 'alternatives',
+        'fanvue-alternatives'                 => 'alternatives',
+        'creators'                           => 'creators',
         'terms'                               => 'terms',
         'privacy'                             => 'privacy',
+        'about'                               => 'about',
+        'contact'                             => 'contact',
     );
 
     /** Where legal and privacy requests go (shown on /terms and /privacy). */
     const LEGAL_CONTACT = 'support@creatorlinkstudio.com';
+
+    /** Topics on the /contact form (value => label); the contact_send API accepts only these. */
+    const CONTACT_TOPICS = array('billing' => 'Billing', 'payouts' => 'Payouts', 'account' => 'Account', 'bug' => 'Bug', 'other' => 'Other');
 
     /** Below this many listed creators the directory copy doesn't quote the number. */
     const DIRECTORY_COUNT_MIN = 10;
@@ -179,6 +189,30 @@ class PagesController extends Controller {
                 array('q' => 'Does Stan post to my social accounts?', 'a' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan product, helps create and repurpose social content.'),
             ),
         ),
+        'eromify' => array(   // type 'ai': an AI generation studio, not a selling platform, so it stays off the best-of groups
+            'name' => 'Eromify', 'url' => 'https://www.eromify.com', 'checked' => '2026-10-08', 'type' => 'ai',
+            'fee_short' => 'No fan sales listed; monthly plans with generation credits',   // hero panel only
+            'summary' => 'Eromify is an AI influencer generator: you train a persona and generate images and videos of it with a wide choice of image and video models, then post and sell that content somewhere else.',
+            'fee'       => array('value' => 'Monthly plans with a monthly credit allowance (Builder, Launch, Growth and Creator, from 500 to 6,000 credits a month); each image or video model costs a set number of credits. No fan sales or selling fee are listed.', 'source' => 'https://www.eromify.com/pricing'),
+            'payout'    => array('value' => 'Not published; fan payments and payouts are not listed (an affiliate program pays on referrals)', 'source' => 'https://www.eromify.com'),
+            'content'   => array('value' => 'AI images and videos of a trained persona, for monetizing through social media, brand promotions and private media on other platforms', 'source' => 'https://www.eromify.com'),
+            'socials'   => array('value' => 'Not published; content is made to grow on Instagram, TikTok and YouTube, automatic posting is not listed', 'source' => 'https://www.eromify.com/pricing'),
+            'ai'        => array('value' => 'Influencer training (Flux LoRA), image and video generation across many third-party models, motion control, image and video upscale, a workflow canvas, an AI agent and a Claude connector', 'source' => 'https://www.eromify.com/pricing'),
+            'ownership' => array('value' => 'Not published; no fan, subscriber or customer list is listed', 'source' => 'https://www.eromify.com/pricing'),
+            'best_for'  => 'Creators who only need to generate AI influencer images and video, with a wide choice of generation models, and already sell somewhere else.',
+            'strengths' => array('A wide choice of image and video models in one studio', 'Workflow canvas and an AI agent for batch generation', 'Outputs are not watermarked'),
+            'us_points' => array(
+                'You want to generate your AI influencer and sell the content on the same page',
+                'You want memberships, pay-per-view and paid messages without a second platform',
+                'You want posts published to nine social networks from the same studio',
+                'You want a DM agent that answers fans in your voice, with your approval',
+            ),
+            'faq'       => array(
+                array('q' => 'What is Eromify?', 'a' => 'An AI influencer generator. You train a persona, then generate images and videos of it with a choice of image and video models.'),
+                array('q' => 'Can I sell content to fans on Eromify?', 'a' => 'Eromify does not list fan payments or payouts. It describes monetizing through social media, brand promotions and private media, which means selling on another platform.'),
+                array('q' => 'How is Eromify priced?', 'a' => 'Monthly plans, each with a monthly credit allowance, and each model costs a set number of credits per image or clip. Prices are on its pricing page.'),
+            ),
+        ),
     );
 
     public function __construct(){
@@ -197,6 +231,9 @@ class PagesController extends Controller {
                 )),
             );
         }
+        // every page carries one top-level Organization (with its contactPoint), never two
+        if (isset($meta['jsonld']['@type'])) { $meta['jsonld'] = array($meta['jsonld']); }
+        if (!in_array('Organization', array_map(function ($b) { return is_array($b) ? ($b['@type'] ?? '') : ''; }, (array) $meta['jsonld']), true)) { $meta['jsonld'][] = SeoMeta::org(); }
         unset($meta['path']);
         $meta['sections'] = true;   // full-width section system (libs/Classes/Sections.php)
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
@@ -204,32 +241,96 @@ class PagesController extends Controller {
 
     /** Feature pages under /features/<slug> (FeaturePages::PAGES). */
     public static function feature_pages(): array {
-        // {fee_sentence} in the constant is filled from the plan config here, so the numbers never go stale in the text.
-        $fee = self::fee_sentence();
-        return json_decode(str_replace('{fee_sentence}', addcslashes($fee, '"\\'), json_encode(FeaturePages::PAGES, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)), true);
+        return self::fill_feature_text(FeaturePages::PAGES);
+    }
+
+    /** Keyword pages at the site root on the same template (FeaturePages::ROOT, routed in ROUTES to rootFeature). */
+    public static function root_feature_pages(): array {
+        return self::fill_feature_text(FeaturePages::ROOT);
+    }
+
+    /** Said wherever plan prices or credit purchases are mentioned. */
+    const FINAL_NOTE = 'Plan charges and credit purchases are final and non-refundable.';
+
+    /** Old feature slugs => new ones (301). */
+    const FEATURE_MOVED = array('character-generation' => 'ai-influencer');
+
+    /** Placeholders in the constants are filled from config here, so plans, fees and names never go stale in the text. */
+    private static function fill_feature_text(array $pages): array {
+        $domain_plan = ''; $inf = array(); $seats = array();
+        foreach (self::selling_tiers() as $t) {
+            if ($domain_plan === '' && !empty($t['features']['custom_domain'])) { $domain_plan = (string) $t['name']; }
+            if ((int) ($t['limits']['seats'] ?? 1) > 1) { $seats[] = (string) $t['name']; }
+            if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; }
+        }
+        $vars = array(
+            '{fee_sentence}'     => self::fee_sentence(),
+            '{fee_short}'        => self::fee_short(),
+            '{site}'             => Main::site_name(),
+            '{host}'             => preg_replace('#^https?://(www\.)?#', '', SeoMeta::base()),
+            '{networks}'         => SeoController::NETWORKS,
+            '{domain_plan}'      => $domain_plan,
+            '{influencer_plans}' => implode(', ', $inf),
+            '{seats_plans}'      => implode(' or ', $seats),
+            '{final_note}'       => self::FINAL_NOTE,
+        );
+        // wherever plan prices appear (fee_sentence), the non-refundable line follows
+        foreach ($pages as $k => $p) {
+            foreach (array('rows' => 'text', 'faq' => 'a') as $list => $field) {
+                foreach ((array) ($p[$list] ?? array()) as $i => $item) {
+                    $v = (string) ($item[$field] ?? '');
+                    if (strpos($v, '{fee_sentence}') !== false && strpos($v, '{final_note}') === false) { $pages[$k][$list][$i][$field] = $v . ' {final_note}'; }
+                }
+            }
+        }
+        $map = array();
+        foreach ($vars as $k => $v) { $map[$k] = addcslashes((string) $v, '"\\/'); }
+        return json_decode(strtr(json_encode($pages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $map), true);
+    }
+
+    /** One feature-template page: FAQ + breadcrumb markup, related cards (the page's 'related' slugs, else every other page). */
+    private function render_feature(array $page, string $slug, string $path, array $crumbs){
+        $all = array();
+        foreach (self::feature_pages() as $k => $p) { $p['path'] = '/features/' . $k; $all[$k] = $p; }
+        foreach (self::root_feature_pages() as $k => $p) { $p['path'] = '/' . $k; $all[$k] = $p; }
+        $siblings = array();
+        foreach ((array) ($page['related'] ?? array_keys($all)) as $k) { if ($k !== $slug && isset($all[$k])) { $siblings[$k] = $all[$k]; } }
+        $jsonld = array(SeoMeta::faq((array) ($page['faq'] ?? array())), SeoMeta::breadcrumbs($crumbs));
+        $cta = (array) ($page['cta'] ?? array());
+        $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld),
+            array('page' => $page, 'slug' => $slug, 'siblings' => $siblings,
+                  'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
+    }
+
+    /** /lora-character-training, /consistent-ai-model-face, /ai-ofm-tools. */
+    public function rootFeatureAction(){
+        $url = Main::get_url();
+        $slug = (string) ($url[0] ?? '');
+        $pages = self::root_feature_pages();
+        if (count($url) > 1 || !isset($pages[$slug])) { Errors::page_not_found(); return; }
+        $page = $pages[$slug];
+        $this->render_feature($page, $slug, '/' . $slug, array(
+            array('name' => 'Home', 'url' => '/'),
+            array('name' => $page['nav_title'] ?? $page['title'], 'url' => '/' . $slug),
+        ));
     }
 
     public function featuresAction(){
         $url = Main::get_url();
         if (count($url) > 1) {
             $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', (string) $url[1]));
+            if (count($url) === 2 && isset(self::FEATURE_MOVED[$slug])) {   // renamed page: keep old links and rankings
+                header('Location: ' . SeoMeta::base() . '/features/' . self::FEATURE_MOVED[$slug], true, 301); return;
+            }
             $pages = self::feature_pages();
             if (count($url) > 2 || $slug === '' || !isset($pages[$slug])) { Errors::page_not_found(); return; }
             $page = $pages[$slug];
             $path = '/features/' . $slug;
-            $jsonld = array(
-                SeoMeta::faq((array) ($page['faq'] ?? array())),
-                SeoMeta::breadcrumbs(array(
-                    array('name' => 'Home', 'url' => '/'),
-                    array('name' => 'Features', 'url' => '/features'),
-                    array('name' => $page['nav_title'] ?? $page['title'], 'url' => $path),
-                )),
-            );
-            $siblings = $pages; unset($siblings[$slug]);
-            $cta = (array) ($page['cta'] ?? array());
-            $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld),
-                array('page' => $page, 'slug' => $slug, 'siblings' => $siblings,
-                      'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
+            $this->render_feature($page, $slug, $path, array(
+                array('name' => 'Home', 'url' => '/'),
+                array('name' => 'Features', 'url' => '/features'),
+                array('name' => $page['nav_title'] ?? $page['title'], 'url' => $path),
+            ));
             return;
         }
         $faq = array(
@@ -271,6 +372,29 @@ class PagesController extends Controller {
 
     public function privacyAction(){
         $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+    }
+
+    public function aboutAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $site = Main::site_name();
+        $desc = 'What ' . $site . ' is, who it is for, the AI influencer tools, and how creators get paid to their bank.';
+        $jsonld = array(
+            array('@context' => 'https://schema.org', '@type' => 'AboutPage', 'name' => 'About ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/about', 'about' => SeoMeta::org()),
+            SeoMeta::org(),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'About', 'url' => '/about'))),
+        );
+        $this->page('about', array('path' => '/about', 'title' => 'About ' . $site, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true));
+    }
+
+    public function contactAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $site = Main::site_name();
+        $desc = 'Contact ' . $site . ' support about billing, payouts, your account or a bug. Send a message or email ' . self::LEGAL_CONTACT . '.';
+        $jsonld = array(
+            array('@context' => 'https://schema.org', '@type' => 'ContactPage', 'name' => 'Contact ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/contact', 'about' => SeoMeta::org()),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Contact', 'url' => '/contact'))),
+        );
+        $this->page('contact', array('path' => '/contact', 'title' => 'Contact Support', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true));
     }
 
     public function pricingAction(){
@@ -466,7 +590,7 @@ class PagesController extends Controller {
         $path = '/best-creator-monetization-platforms'; $title = 'Best creator monetization platforms';
         $desc = 'How the main creator platforms compare on fees, what you can sell, payouts, social publishing and ownership, with sources.';
         $items = array(array('@type' => 'ListItem', 'position' => 1, 'name' => Main::site_name(), 'url' => SeoMeta::base() . '/features'));
-        $pos = 2; foreach (self::COMPETITORS as $slug => $c) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $c['name'], 'url' => SeoMeta::base() . '/compare/' . $slug); }
+        $pos = 2; foreach (self::COMPETITORS as $slug => $c) { if (!isset(self::COMPETITOR_GROUPS[$c['type'] ?? ''])) { continue; } $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $c['name'], 'url' => SeoMeta::base() . '/compare/' . $slug); }
         $jsonld = array(
             SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00')),
             array('@type' => 'ItemList', 'name' => $title, 'itemListElement' => $items),
@@ -494,11 +618,64 @@ class PagesController extends Controller {
         $this->page('monetize', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('faq' => $faq));
     }
 
+    /**
+     * One alternatives list page (AlternativesPages::PAGES) with placeholders filled from config: {site}, {fee_short},
+     * {payout_min}, {year}. Adds 'path', 'title' and 'us' (our own entry, always first in the list).
+     */
+    public static function alternatives_page(string $key): ?array {
+        if (!isset(AlternativesPages::PAGES[$key])) { return null; }
+        $site = Main::site_name();
+        $fill = array('{site}' => $site, '{fee_short}' => self::fee_short(), '{payout_min}' => Price::PAYOUT_MIN_LABEL, '{year}' => gmdate('Y'));
+        $p = json_decode(strtr(json_encode(AlternativesPages::PAGES[$key], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), array_map(function ($v) { return addcslashes($v, '"\\'); }, $fill)), true);
+        $p['path']  = '/' . $key . '-alternatives';
+        $p['title'] = $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
+        $p['us'] = array(
+            'name' => $site, 'kind' => 'One page, every way to sell',
+            'text' => 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events, with a studio that publishes every post to nine social networks.',
+            'points' => array(
+                'Memberships, pay-per-view, bundles, services and events on one page',
+                'Publishes to nine social networks from one studio',
+                'AI influencers: photos and short videos of the same person, ready to sell',
+                'A DM agent that drafts replies in your voice, with your approval',
+                'Platform fee: ' . self::fee_short(),
+                'Payouts to your bank on request, ' . Price::PAYOUT_MIN_LABEL . ' minimum, no platform hold',
+            ),
+            'note' => 'Plan charges and credit purchases are final and non-refundable.',
+            'best_for' => 'Creators who sell more than a subscription and want one page, one studio and one balance.',
+        );
+        return $p;
+    }
+
+    public function alternativesAction(){
+        $url = Main::get_url();
+        if (count($url) > 1) { Errors::page_not_found(); return; }
+        $key = preg_replace('/-alternatives$/', '', (string) ($url[0] ?? ''));
+        $p = self::alternatives_page($key);
+        if ($p === null) { Errors::page_not_found(); return; }
+        $base = SeoMeta::base();
+        $items = array(array('@type' => 'ListItem', 'position' => 1, 'name' => Main::site_name(), 'url' => $base . '/features'));
+        $pos = 2;
+        foreach ($p['others'] as $o) {
+            $item = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $o['name']);
+            if ($o['compare'] !== '') { $item['url'] = $base . '/compare/' . $o['compare']; }
+            $items[] = $item;
+        }
+        $jsonld = array(
+            SeoMeta::article(array('headline' => $p['title'], 'description' => $p['description'], 'url' => $base . $p['path'], 'published' => '2026-10-08T00:00:00+00:00')),
+            array('@type' => 'ItemList', 'name' => $p['title'], 'itemListOrder' => 'https://schema.org/ItemListOrderAscending', 'numberOfItems' => count($items), 'itemListElement' => $items),
+            SeoMeta::faq($p['faq']),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $p['name'] . ' Alternatives', 'url' => $p['path']))),
+        );
+        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'article', 'jsonld' => $jsonld, 'no_band' => true), array('p' => $p, 'faq' => $p['faq']));
+    }
+
     /** The competitor's researched questions plus one about using both, shared by the page and its FAQ markup. */
     public static function compare_faq(array $c): array {
         $faq = (array) ($c['faq'] ?? array());
         $faq[] = array('q' => 'Can I use ' . Main::site_name() . ' and ' . $c['name'] . ' at the same time?',
-            'a' => 'Yes. Keep your ' . $c['name'] . ' page live while you set up, publish to both from the studio, and put your new page in every bio so fans can move at their own pace.');
+            'a' => (($c['type'] ?? '') === 'ai')   // a generation tool has no fan page to keep live or publish to
+                ? 'Yes. Keep generating in ' . $c['name'] . ' while you build your page here: download your images, upload them to your Library, and publish or sell them from the Studio.'
+                : 'Yes. Keep your ' . $c['name'] . ' page live while you set up, publish to both from the studio, and put your new page in every bio so fans can move at their own pace.');
         return $faq;
     }
 

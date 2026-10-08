@@ -47,7 +47,7 @@ class ApiRoutes {
             'fanvue_disconnect',
         ],
         'ApiSupportController' => [
-            'support_create', 'support_reply', 'support_close', 'support_assist',
+            'support_create', 'support_reply', 'support_close', 'support_assist', 'contact_send',
         ],
         'ApiSetupController' => [
             'setup_progress', 'setup_dismiss', 'setup_skip_step',

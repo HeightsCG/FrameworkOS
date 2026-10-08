@@ -67,6 +67,7 @@ class SeoMeta {
             'url'   => self::base() . '/',
             'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'),
             'description' => self::brand_description(),
+            'contactPoint' => array('@type' => 'ContactPoint', 'contactType' => 'customer support', 'email' => 'support@creatorlinkstudio.com', 'availableLanguage' => 'en'),
         );
         if (!empty(self::SOCIAL_PROFILES)) { $org['sameAs'] = array_values(self::SOCIAL_PROFILES); }
         return $org;
@@ -75,9 +76,9 @@ class SeoMeta {
     /** Keyword → path. Product pages link to each other with these; the content engine reuses the map. */
     public static function internal_links(): array {
         return array(
-            'ai influencer'                        => '/features/character-generation',
-            'ai character'                         => '/features/character-generation',
-            'lora training'                        => '/features/character-generation',
+            'ai influencer'                        => '/features/ai-influencer',
+            'ai character'                         => '/features/ai-influencer',
+            'lora training'                        => '/lora-character-training',
             'ai dm'                                => '/features/dm-agent',
             'ai chat'                              => '/features/dm-agent',
             'automated messages'                   => '/features/dm-agent',
