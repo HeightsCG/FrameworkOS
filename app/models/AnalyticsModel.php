@@ -528,6 +528,16 @@ class AnalyticsModel extends Model {
             array('c1' => $c, 'c2' => $c, 'c3' => $c, 'c4' => $c, 'c5' => $c, 'c6' => $c));
     }
 
+    /** Accounts that signed up from this creator's page (?ref=), and how many of them are on a paid plan now. */
+    public function referred_signups($creator_id){
+        $r = parent::select(
+            "SELECT COUNT(*) AS n, COALESCE(SUM(" . Plan::paid_sql('u') . "), 0) AS paid
+             FROM user_accounts u WHERE u.referred_by_creator_id = :c AND u.deleted = 0 AND u.is_demo = 0",
+            array('c' => (int) $creator_id));
+        $r = (is_array($r) && count($r)) ? $r[0] : array();
+        return array('signups' => (int) ($r['n'] ?? 0), 'paid' => (int) ($r['paid'] ?? 0));
+    }
+
     /** Paying-customer metrics across all offerings: distinct buyers, repeat rate, avg spend. */
     public function customer_stats($creator_id){
         $c = (int) $creator_id;

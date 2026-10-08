@@ -24,6 +24,18 @@ $in_app     = !empty($viewer_logged_in) && !$on_own_domain;
 $pf_base    = CustomDomains::profile_path($handle);
 $pf_home    = ($pf_base === '') ? '/' : $pf_base;
 $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/')) : '/';
+// Logged-out visitors get the site's nav and footer around the page. On the creator's own domain those links go to the
+// main site; the profile's own links stay relative. "Create Your Page Free" always signs up on the main site with ?ref=.
+$site_chrome = !$in_app && empty($viewer_logged_in);
+$main_base   = rtrim(Main::get_base_domain(), '/');
+$here_path   = CustomDomains::safe_path($_SERVER['REQUEST_URI'] ?? '/');
+$join_href   = $main_base . '/?auth=register&ref=' . rawurlencode((string) $user['u_name']);
+$pub_links   = array(
+    'base'     => $on_own_domain ? $main_base : '',
+    'login'    => $on_own_domain ? $login_href : '/?auth=login&next=' . rawurlencode($here_path),
+    'register' => $on_own_domain ? $join_href : '/?auth=register&ref=' . rawurlencode((string) $user['u_name']) . '&next=' . rawurlencode($here_path),
+    'cta'      => 'outline',   // the creator's Follow / Subscribe is this page's one primary button
+);
 ?>
 <?php if ($in_app): $this->view->site_header(); ?>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -92,10 +104,14 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
     <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+<?php if ($site_chrome): ?>
+    <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/landing.css'); ?>">
+    <link rel="stylesheet" href="/css/sx.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/sx.css'); ?>">
+<?php endif; ?>
     <link rel="stylesheet" href="/css/profile.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/profile.css'); ?>">
 </head>
 <body class="pf<?php echo (!empty($focus_event) || !empty($focus_service)) ? ' pf--event' : ''; ?>">
-<?php if (!empty($focus_event) && !$on_own_domain) { include Main::app_path() . '/libs/Layout/guest_bar.php'; } /* signed-out event page: brand + Log In / Register */ ?>
+<?php if ($site_chrome) { include Main::app_path() . '/libs/Layout/public_nav.php'; } /* signed-out: the site nav (Sign In / Get Started come back here) */ ?>
 <?php endif; ?>
 
     <!-- Signature: identity + primary action dock in on scroll -->
@@ -670,13 +686,14 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
 
         <?php if (empty($viewer_logged_in)): /* signed-in viewers are already inside the app */ ?>
         <footer class="pf-foot">
-            <a class="pf-foot__brand" href="<?php echo htmlspecialchars(SeoMeta::base() . '/', ENT_QUOTES, 'UTF-8'); ?>">
+            <a class="pf-foot__brand" href="<?php echo htmlspecialchars($join_href . '&role=creator', ENT_QUOTES, 'UTF-8'); ?>">
                 <span class="pf-foot__mark"></span>
-                <span>Powered by <?php echo htmlspecialchars($site_name, ENT_QUOTES, 'UTF-8'); ?></span>
+                <span>Create Your Page Free</span>
             </a>
         </footer>
         <?php endif; ?>
     </div>
+<?php if ($site_chrome) { include Main::app_path() . '/libs/Layout/public_footer.php'; } ?>
 
     <div class="pf-lightbox" id="pf_lightbox" aria-hidden="true">
         <button type="button" class="pf-lightbox__close" id="pf_lightbox_close" aria-label="Close">&times;</button>
@@ -698,6 +715,14 @@ $login_href = $on_own_domain ? CustomDomains::login_url(CustomDomains::safe_path
         function money(credits) { var n = parseInt(credits, 10) || 0; return n.toLocaleString('en-US') + (Math.abs(n) === 1 ? ' credit' : ' credits'); }   // everything inside the platform is credits
         var PF_LOGIN   = <?php echo json_encode($login_href, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_SLASHES); ?>;
         var VIEWER_CREDITS = <?php echo (int) $viewer_credit_balance; ?>;
+        // site nav phone menu (landing.js is not on this page)
+        var nav_toggle = document.getElementById('ld_nav_toggle'), nav_links = document.getElementById('ld_nav_links');
+        if (nav_toggle && nav_links) {
+            nav_toggle.addEventListener('click', function () {
+                var is_open = nav_links.classList.toggle('is-open');
+                nav_toggle.setAttribute('aria-expanded', is_open ? 'true' : 'false');
+            });
+        }
         var following  = <?php echo $is_following ? 'true' : 'false'; ?>;
         var SUB_NOTICE = '<?php echo $sub_notice; ?>';
         var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';

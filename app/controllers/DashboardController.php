@@ -54,6 +54,8 @@ class DashboardController extends Controller {
         $this->view->content_mix       = $a->content_mix($user_id);
         $this->view->posts_table       = $a->posts_table($user_id, $start_utc);
         $this->view->share_stats       = $a->share_stats($user_id, $start_utc);
+        try { $this->view->referred = $a->referred_signups($user_id); }
+        catch (\Throwable $e) { error_log('[dashboard] referred_signups: ' . $e->getMessage()); $this->view->referred = array('signups' => 0, 'paid' => 0); }   // before the signup_params sql has run
         $this->view->timezone          = $tz;
 
         // Upgrade nudge: last 30 days of sales priced on the current plan vs each higher plan.

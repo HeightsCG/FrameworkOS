@@ -352,6 +352,18 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
     <!-- ================= AUDIENCE TAB ================= -->
     <section class="dash__tab-panel" data-panel="audience">
+        <?php $ref = (array) ($this->referred ?? array()); /* people who signed up from this creator's page (?ref=), all-time */ ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Referrals</h2><span class="dash__panel-sub">all-time · from your page</span></div></div>
+            <div class="dash__stats">
+                <div class="dash__stat">
+                    <span class="dash__stat-label">Referred Signups</span>
+                    <span class="dash__stat-value"><?php echo $fmt_num($ref['signups'] ?? 0); ?></span>
+                    <span class="dash__stat-sub"><?php echo $fmt_num($ref['signups'] ?? 0); ?> signed up, <?php echo $fmt_num($ref['paid'] ?? 0); ?> on a paid plan</span>
+                </div>
+            </div>
+        </div>
+
         <div class="dash__cols">
             <div class="dash__panel dash__chart">
                 <div class="dash__panel-head">

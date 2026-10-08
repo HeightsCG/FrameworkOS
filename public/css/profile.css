@@ -288,6 +288,12 @@
 .pf-link:hover .pf-link__icon { color: var(--pf-violet); }
 
 /* ---- footer ---- */
+/* logged-out page: the site nav (landing.css + sx.css) scrolls with the page instead of floating over the cover */
+.pf > .ld-nav { position: relative; background: var(--sx-bg, #050505); }
+.pf .ld-nav__links .ld-nav__signin { display: none; }   /* the menu's Sign In is a link here: only the phone menu shows it */
+@media (max-width: 640px) { .pf .ld-nav__links .ld-nav__signin { display: flex; } }
+.pf .ld-nav__cta--outline { background: transparent; color: var(--sx-ink, #f5f5f4); border: 1px solid var(--sx-line-2, rgba(255,255,255,.13)); }
+.pf .ld-nav__cta--outline:hover { border-color: var(--sx-muted, #8e8e94); color: var(--sx-ink, #f5f5f4); }
 .pf-foot { padding: 30px 0 8px; text-align: center; }
 .pf-foot__brand { display: inline-flex; align-items: center; gap: .5rem; font-size: .8rem; font-weight: 500; color: var(--pf-muted); text-decoration: none; transition: color .15s; }
 .pf-foot__brand:hover { color: var(--pf-ink); }
