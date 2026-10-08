@@ -240,7 +240,7 @@ class PagesController extends Controller {
             array('q' => 'Is adult content allowed?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
         );
         $jsonld = array(
-            self::software_app('/features', Main::site_name(), 'Creator platform with memberships, pay-per-view, events, services, links, cross-posting and payouts.'),
+            self::software_app('/features', Main::site_name(), SeoMeta::brand_description()),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
@@ -362,6 +362,23 @@ class PagesController extends Controller {
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
+    /** One-line role per plan (home plan strip, pricing cards), by PlanTiers key. */
+    const PLAN_ROLES = array('free' => 'Get a page', 'creator' => 'Get discovered', 'studio' => 'Get promoted');
+
+    public static function plan_role(string $key): string {
+        return (string) (self::PLAN_ROLES[$key] ?? '');
+    }
+
+    /** "Free gets you a page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
+    public static function plan_roles_sentence(): string {
+        $bits = array();
+        foreach (self::pricing_rows() as $r) {
+            $role = self::plan_role((string) $r['tier']['key']);
+            if ($role !== '') { $bits[] = $r['tier']['name'] . ' gets you ' . lcfirst(preg_replace('/^Get /', '', $role)) . '.'; }
+        }
+        return implode(' ', $bits);
+    }
+
     /** The plans that sell: paid, not retired. Free is the fan account and has no fee because it sells nothing. */
     public static function selling_tiers(): array {
         $out = array();
@@ -385,12 +402,34 @@ class PagesController extends Controller {
         return Main::site_name() . '\'s platform fee is ' . $list . '. Free accounts are for fans and cannot sell, so they pay no platform fee. Card processing fees are separate.';
     }
 
+    /**
+     * One quotable, brand-named sentence per question people ask AI assistants (fee, OnlyFans alternative,
+     * AI influencer, payouts, live video, link in bio). Shown on the page each belongs to and listed in
+     * llms.txt under Facts. Numbers come from config.
+     */
+    public static function quotable_facts(): array {
+        $site = Main::site_name();
+        $host = preg_replace('#^https?://(www\.)?#', '', SeoMeta::base());
+        $of = (string) (self::COMPETITORS['onlyfans']['fee_short'] ?? '');
+        $of_pct = preg_match('/\d+%/', $of, $m) ? $m[0] : '';
+        $inf = array();
+        foreach (self::selling_tiers() as $t) { if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; } }
+        return array(
+            'fee'          => self::fee_sentence(),
+            'onlyfans'     => $site . ' is an OnlyFans alternative with a lower platform fee (' . self::fee_short() . ($of_pct !== '' ? ', against the ' . $of_pct . ' OnlyFans is reported to keep' : '') . '), and it sells memberships, pay-per-view, bundles, services and live events from one page.',
+            'ai_influencer'=> 'On ' . $site . ' you can create an AI influencer from your photos or a description, generate photos and short videos of the same person, and sell them as pay-per-view posts, paid messages or membership content' . ($inf ? ' (AI influencers included: ' . implode(', ', $inf) . ')' : '') . '.',
+            'payouts'      => 'Every sale on ' . $site . ', from memberships and unlocks to bundles, services and events, lands in one balance net of your plan\'s fee, and you cash out to your bank whenever you want with no per-payout fee.',
+            'events'       => $site . ' sells tickets to live events and 1:1 sessions and hosts the call itself, in a built-in video room with a waiting room, chat, screen share and host controls, so fans join without Zoom or a separate link.',
+            'link_in_bio'  => $site . ' is a link-in-bio page that takes payments: your page at ' . $host . '/@handle holds tracked links plus memberships, pay-per-view posts, bundles, services and events, fans pay by card or credit wallet, and earnings pay out to your bank.',
+        );
+    }
+
     public static function our_facts(): array {
         return array(
             'fee'       => self::fee_short() . ' (Free is for fans and cannot sell)',
             'payout'    => 'Direct to your bank account',
             'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
-            'socials'   => 'Publishes to 9 social networks from one studio',
+            'socials'   => 'Publishes to nine social networks from one studio',
             'ai'        => 'AI captions, AI inbox replies, AI influencers',
             'ownership' => 'Export your audience and media any time',
         );

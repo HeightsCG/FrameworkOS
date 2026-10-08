@@ -9,7 +9,7 @@
         $seo_site  = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
         $seo_base  = htmlspecialchars(Main::get_base_domain(), ENT_QUOTES, 'UTF-8');
         $seo_title = $seo_site . ': Creator Monetization Platform';   // search keywords in the title; the slogan stays in the page
-        $seo_desc  = $seo_site . ' brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.';
+        $seo_desc  = htmlspecialchars(SeoMeta::brand_tagline(), ENT_QUOTES, 'UTF-8');
     ?>
     <title><?php echo $seo_title; ?></title>
     <meta name="description" content="<?php echo $seo_desc; ?>">
@@ -51,7 +51,7 @@
                     '@id' => $seo_base_raw . '/#webpage',
                     'url' => $seo_base_raw . '/',
                     'name' => Main::site_name() . ': Create. Share. Earn.',
-                    'description' => Main::site_name() . ' brings your profiles, content, subscriptions, payouts, and revenue into one simple workspace.',
+                    'description' => SeoMeta::brand_tagline(),
                     'isPartOf' => ['@id' => $seo_base_raw . '/#website'],
                     'primaryImageOfPage' => SeoMeta::default_image(),
                 ],
@@ -62,7 +62,7 @@
                     'operatingSystem' => 'Web',
                     'url' => $seo_base_raw . '/',
                     'image' => SeoMeta::default_image(),
-                    'description' => 'A creator platform: one public page at your handle with content, memberships, pay-per-view posts, content bundles, events, services, and tracked links. Publish, schedule, or automate posts; fans pay with credits; creators cash earnings out to their bank.',
+                    'description' => SeoMeta::brand_description(),
                     'offers' => PagesController::plan_offers(),
                 ],
                 [

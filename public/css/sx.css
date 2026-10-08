@@ -783,3 +783,30 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
     .hx__big, .sx-hero__title, .sx--bgimg .sx-hero__title { font-size: 2.375rem; }
     .sx-h2, .sx-cta__title { font-size: 2rem; }
 }
+
+/* Titled tab hero (home): headline first, the words as a compact tab row, plan strip under the hero */
+.hx--titled .hx__in { padding-top: 40px; padding-bottom: 40px; align-items: start; }
+.hx--titled .hx__left { padding-top: 24px; }
+.hx--titled .hx__big { font-size: clamp(2.5rem, 3.6vw, 3.25rem); line-height: 1.02; }
+.hx--titled .hx__intro { margin-top: 20px; }
+.hx--titled .hx__lead { color: var(--sx-ink); }
+.hx--titled .hx__words { flex-direction: row; flex-wrap: wrap; gap: 0 24px; margin-top: 32px; }
+.hx--titled .hx__w { font-size: clamp(2.25rem, 3.4vw, 3rem); }
+.hx--titled .hx__mod { min-height: 380px; }
+.hx-plans { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; padding-bottom: 40px; }
+.hx-plans__i { display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 4px 12px; padding: 20px 0 0; border-top: 1px solid var(--sx-line-2); text-decoration: none; color: var(--sx-ink); transition: border-color .2s; }
+.hx-plans__i b { font-size: 1rem; font-weight: 700; }
+.hx-plans__i span { font-size: .9375rem; color: var(--sx-t2); font-variant-numeric: tabular-nums; }
+.hx-plans__i small { grid-column: 1 / -1; font-size: .875rem; color: var(--sx-muted); }
+.hx-plans__i:hover { border-color: var(--sx-acc); }
+.hx-plans__i:hover b { color: var(--sx-acc); }
+.hx-plans__i:focus-visible { outline: none; box-shadow: var(--sx-ring); border-radius: var(--sx-r); }
+/* pricing cards: the plan's role line under its name */
+.sx-plan__role { display: block; margin-top: 2px; font-size: 1rem; font-weight: 600; letter-spacing: 0; color: var(--sx-ink); }
+@media (max-width: 640px) {
+    .hx--titled .hx__in { padding: 32px 16px 40px; }
+    .hx--titled .hx__words { gap: 0 12px; }
+    .hx--titled .hx__w { font-size: clamp(1.5rem, 7.4vw, 2.25rem); }
+    .hx-plans { grid-template-columns: minmax(0, 1fr); gap: 0; padding: 0 16px 32px; }
+    .hx-plans__i { padding: 16px 0; }
+}

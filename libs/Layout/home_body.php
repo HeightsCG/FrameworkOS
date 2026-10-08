@@ -9,10 +9,15 @@ $home_faq = array(
     array('q' => 'What do the plans cost?', 'a' => PagesController::plan_cost_answer()),
 );
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
+/* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
+$strip = array();
+foreach (PagesController::pricing_rows() as $r) {
+    $strip[] = array('name' => $r['tier']['name'], 'price' => '$' . number_format($r['amount'] / 100) . '/month', 'role' => PagesController::plan_role((string) $r['tier']['key']), 'href' => '/pricing');
+}
 echo Sections::tab_hero(array(
     'id' => 'home',
-    'tag' => 'Keep It All Connected.',
-    'lead' => $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
+    'title' => 'Sell Memberships, Posts and Services From One Page.',
+    'lead' => PagesController::fee_short() . '. Free is for fans.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'tabs' => array(
         array('word' => 'Create.', 'pane' => Sections::pane('Upload once, use everywhere.', 'Draft it, schedule it, publish now, or let an automation post for you.', Sections::pane_timeline(array(
@@ -22,8 +27,8 @@ echo Sections::tab_hero(array(
         array('word' => 'Earn.', 'pane' => Sections::pane('You decide who sees every post.', '', Sections::pane_options(array(
             array('Everyone', 'Anyone can see it.'), array('Subscribers', 'Members only.'), array('Pay-per-view', 'Unlock to view. You set the price.')), 0, 'Who can see this post'))),
     ),
+    'after_html' => Sections::plan_strip($strip),
 ));
-
 
 echo Sections::open('white', 'Everything you sell, on one page', 'One public page at your handle. Fans follow for free, join a tier, or unlock a single post.');
 echo Sections::index_list(array(

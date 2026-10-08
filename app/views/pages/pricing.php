@@ -3,14 +3,14 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title">Join Free. Sell When You're Ready.</h1>
-    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts; the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>.</p>
+    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts; the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>. <?php echo $e(PagesController::plan_roles_sentence()); ?></p>
 <?php
 ?>
 <div class="sx-plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); ?>
     <article class="sx-plan<?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
-        <h2 class="sx-plan__name"><?php echo $e($t['name']); ?></h2>
+        <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
         <p class="sx-plan__line"><?php echo $e($t['tagline']); ?></p>
         <div class="sx-plan__price"><?php if ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <?php if ($t['key'] === PlanTiers::FREE_KEY): ?>
@@ -21,7 +21,7 @@ $e = function ($s) { return Sections::e($s); };
         <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($t, $row['key'])); ?></dd></div><?php endforeach; ?><?php foreach (PlanTiers::FEATURES as $fk => $fl): ?><div><dt><?php echo $fl; ?></dt><dd><?php echo PlanTiers::has_feature($t, $fk) ? 'Included' : '&mdash;'; ?></dd></div><?php endforeach; ?></dl>
         <?php endif; ?>
         <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
-        <div class="sx-plan__cta"><a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="/?auth=register" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
+        <div class="sx-plan__cta"><a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo ($t['key'] === PlanTiers::FREE_KEY) ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
     </article>
 <?php endforeach; ?>
 </div>

@@ -23,6 +23,34 @@ class SeoMeta {
         return (string) Main::site_name();
     }
 
+    /**
+     * The short brand line (home meta description): the hero promise and the fee, from config. Kept within
+     * 160 characters; the last sentence goes first if the fee text ever makes it longer.
+     */
+    public static function brand_tagline(): string {
+        $s = 'Sell memberships, posts and services from one page. ' . PagesController::fee_short() . '.';
+        $full = $s . ' Publish to nine social networks with AI and get paid to your bank.';
+        return mb_strlen($full) <= 160 ? $full : $s;
+    }
+
+    /**
+     * The canonical brand description (Organization, SoftwareApplication, llms.txt, footer): what the platform is,
+     * then the plans with price and fee from PlanTiers, so no number is ever typed here.
+     */
+    public static function brand_description(bool $with_plans = true): string {
+        $host = preg_replace('#^https?://(www\.)?#', '', self::base());
+        $plans = array();
+        $lead = self::site() . ' is a creator monetization platform: one public page at ' . $host . '/@handle for memberships, pay-per-view posts, bundles, services and live events, a studio that publishes to nine social networks with AI captions, AI influencers and an AI-assisted inbox, and payouts to your bank.';
+        if (!$with_plans) { return $lead; }   // creator profiles show no plan prices
+        foreach (PlanTiers::offered() as $t) {   // PlanTiers directly, not PagesController: org() also runs where controllers are not loaded
+            $price = (int) ($t['price'] ?? 0);
+            $plans[] = $price > 0
+                ? $t['name'] . ' $' . number_format($price) . '/month (' . (int) $t['limits']['fee_percent'] . '% platform fee)'
+                : $t['name'] . ' $' . number_format($price);
+        }
+        return $lead . ' Plans: ' . implode(', ', $plans) . '.';
+    }
+
     /** The publisher node reused by every schema block. */
     /**
      * The brand's own social profiles (full URLs), label => url. They become Organization sameAs (how Google
@@ -38,7 +66,7 @@ class SeoMeta {
             'name'  => self::site(),
             'url'   => self::base() . '/',
             'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'),
-            'description' => 'A creator monetization platform: one public page for memberships, pay-per-view, bundles, services and events, a studio that publishes to social networks, and payouts to your bank.',
+            'description' => self::brand_description(),
         );
         if (!empty(self::SOCIAL_PROFILES)) { $org['sameAs'] = array_values(self::SOCIAL_PROFILES); }
         return $org;
@@ -63,6 +91,7 @@ class SeoMeta {
             'fanvue alternative'                   => '/compare/fanvue',
             'onlyfans alternative'                 => '/compare/onlyfans',
             'best creator monetization platforms'  => '/best-creator-monetization-platforms',
+            'link in bio'                          => '/features#page',
             'monetize content'                     => '/monetize-your-content',
             'monetize your content'                => '/monetize-your-content',
             'pay-per-view'                         => '/monetize-your-content#pay-per-view',
