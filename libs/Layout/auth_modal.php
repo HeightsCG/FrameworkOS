@@ -93,15 +93,6 @@
                             <label for="register_p_word_confirm">Confirm password</label>
                         </div>
                     </div>
-                    <?php /* Creator Agreement: landing.js copies this in when the sign-up is for a creator (?role=creator); registerAction requires it then */ ?>
-                    <div class="col-md-12" id="register_creator_slot" hidden></div>
-                    <template id="register_creator_tpl">
-                        <textarea class="form-control mb-2" rows="4" readonly aria-label="Creator Agreement &amp; Content Policy" style="font-size:.8125rem;"><?php echo htmlspecialchars(AccountController::creator_terms(Main::site_name()), ENT_QUOTES, 'UTF-8'); ?></textarea>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="register_creator_agree">
-                            <label class="form-check-label" for="register_creator_agree">I have read and accept the Creator Agreement and Content Policy.</label>
-                        </div>
-                    </template>
                     <?php /* honeypot: off-screen, never shown; a bot that fills it gets a "success" and no account (ApiAuthController::registerAction) */ ?>
                     <div aria-hidden="true" style="position:absolute; left:-9999px; top:0; width:1px; height:1px; overflow:hidden;">
                         <input type="text" id="register_company" name="company" tabindex="-1" autocomplete="off" placeholder="Company">

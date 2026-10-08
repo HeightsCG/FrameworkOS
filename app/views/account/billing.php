@@ -94,6 +94,7 @@ $(function () {
         $('#disc_lines').html(rows);
         $('#disc_today').text(q.mode === 'downgrade' ? '$0.00' : q.today);
         $('#confirm_go').text(q.mode === 'downgrade' ? 'Schedule Change' : (q.today_zero ? 'Start Plan' : 'Pay ' + q.today));
+        $('#disc_agree').prop('hidden', !(pending && pending.endpoint === 'billing_change_plan' && (q.mode === 'subscribe' || q.mode === 'upgrade')));   // Creator Agreement: plan checkouts only
         $('#disc_terms').text(q.mode === 'downgrade'
             ? 'Your plan changes on ' + q.next_at + '. Nothing is charged today. From then on: ' + q.recurring + ', billed monthly until you cancel.'
             : (q.today_zero && q.card_needed === false)
@@ -109,16 +110,17 @@ $(function () {
         if (q.card_needed === false || q.mode === 'downgrade') {
             card_elements = null;
             $('#disc_card').hide().html(''); $('#disc_card_form').hide().html('');
-            $('#confirm_go').prop('disabled', false);
+            $('#confirm_go').prop('disabled', !terms_ok());
         } else if (q.has_card) {
             card_elements = null;
             $('#disc_card').html('Charged to ' + esc(q.card) + ' <button type="button" class="disc__change" id="disc_change">Change</button>').show();
             $('#disc_card_form').hide().html('');
-            $('#confirm_go').prop('disabled', false);
+            $('#confirm_go').prop('disabled', !terms_ok());
         } else if (!$('#disc_card_form').children().length) {   // keep a card form that is already open (and anything typed in it)
             card_elements = null;
             $('#disc_card').hide();
             $('#disc_card_form').show();
+            $('#confirm_go').prop('disabled', !terms_ok());
             mount_card('#disc_card_form');
         }
     }
@@ -146,6 +148,7 @@ $(function () {
             $('#disc_promo_code').val('');
             $('#disc_promo').prop('hidden', !q.promo_ok);
             $('#disc_card_form').hide().html('');   // fresh card form per checkout (show_quote mounts it if needed)
+            $('#disc_agree_box').prop('checked', false);
             $('#confirm_go').prop('disabled', false);
             show_quote(q);
             $('#confirm_modal').modal('show');
@@ -156,10 +159,18 @@ $(function () {
         $('#disc_card').hide();
         $('#disc_card_form').show();
         $('#confirm_go').prop('disabled', true);
-        mount_card('#disc_card_form', function () { $('#confirm_go').prop('disabled', false); });
+        mount_card('#disc_card_form', function () { $('#confirm_go').prop('disabled', !terms_ok()); });
     });
+    /* Creator Agreement at the plan checkout: Confirm waits for the box; the flag goes with the charge. */
+    function terms_ok() { return $('#disc_agree').prop('hidden') || $('#disc_agree_box').is(':checked'); }
+    $('#disc_agree_box').on('change', function () { $('#confirm_go').prop('disabled', !terms_ok()); });
+    $('#disc_agree_link').on('click', function (e) { e.preventDefault(); $('#terms_modal').modal('show'); });
+    $('#terms_modal').on('shown.bs.modal', function () { $('.modal-backdrop').last().addClass('terms-backdrop'); });
+    $('#terms_modal').on('hidden.bs.modal', function () { if ($('#confirm_modal').hasClass('show')) { $('body').addClass('modal-open'); } });   // the checkout stays open underneath
     $('#confirm_go').on('click', function () {
         var $b = $(this); if (!pending) { return; }
+        if (!terms_ok()) { return; }
+        if (!$('#disc_agree').prop('hidden')) { pending.body.agree_terms = 1; }
         // A code typed but not applied: apply it and show the new total first, never charge full price by surprise.
         var typed = String($('#disc_promo_code').val() || '').trim();
         if (!$('#disc_promo').prop('hidden') && typed !== '' && typed.toUpperCase() !== String(pending.body.promo_code || '').toUpperCase()) {
@@ -642,10 +653,31 @@ $(function () {
                 <p class="disc__terms" id="disc_terms"></p>
                 <p class="disc__card" id="disc_card"></p>
                 <div id="disc_card_form"></div>
+                <label class="disc__agree" id="disc_agree" hidden>
+                    <input type="checkbox" class="form-check-input" id="disc_agree_box">
+                    <span>I Agree to the <a href="#" id="disc_agree_link">Creator Agreement</a></span>
+                </label>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirm_go">Confirm</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="terms_modal" tabindex="-1" aria-labelledby="terms_title" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="terms_title">Creator Agreement</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="terms-text"><?php echo nl2br($e($this->creator_terms)); ?></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>

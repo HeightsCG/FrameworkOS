@@ -272,15 +272,15 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Not authorized');
         }
 
-        if (empty($this->post['accept_agreement'])) {
-            $this->jsonError('You must accept the Creator Agreement and Content Policy');
-        }
-
         $user_id = (int) Session::get('user_id');
-        // already a creator who never accepted (older or admin-made accounts): record it, keep the role and start date.
+        // already a creator who never accepted (older or admin-made accounts): the Settings backstop records it (date, version, ip), role and start date kept.
+        // becoming a creator asks nothing: the Creator Agreement is accepted at the Creator/Studio checkout.
         $me = $this->userModel->get_user_by_id($user_id);
         if (is_array($me) && count($me) === 1 && (int) $me[0]['role_id'] === $this->userModel->get_role_id_by_name('Creator')) {
-            $this->userModel->accept_creator_agreement($user_id, $user_id);
+            if ((string) ($this->post['accept_agreement'] ?? '') !== '1') {
+                $this->jsonError('You must accept the Creator Agreement and Content Policy');
+            }
+            $this->userModel->accept_creator_agreement($user_id, $user_id, CreatorAgreement::VERSION, $this->get_ip_address());
             CreatorAgreement::forget($user_id);
             $this->jsonSuccess(['message' => 'Creator Agreement accepted', 'accepted_only' => true]);
         }

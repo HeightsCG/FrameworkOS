@@ -223,18 +223,10 @@
                 <?php echo Tutorials::bar($this->is_creator ? '03' : '01'); ?>
                 <?php if (!$this->is_creator): ?>
                 <div class="creator-cta">
-                    <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
-                    <textarea id="creator_terms" class="creator-cta__terms form-control" rows="10" readonly><?php echo htmlspecialchars($this->creator_terms, ENT_QUOTES, 'UTF-8'); ?></textarea>
-
-                    <label class="creator-cta__agree">
-                        <input type="checkbox" id="creator_agree">
-                        <span>I have read and accept the Creator Agreement and Content Policy.</span>
-                    </label>
-
                     <button type="button" class="btn btn-primary" id="become_creator_btn">Become a Creator</button>
                 </div>
                 <?php else: ?>
-                <?php if ($this->is_owner_creator && !CreatorAgreement::accepted((int) Session::get('user_id'))): /* a creator who never accepted: selling and payouts wait on this */ ?>
+                <?php if (!empty($this->needs_agreement)): /* a selling creator who never accepted (pre-checkout accounts): selling and payouts wait on this */ ?>
                 <div class="creator-cta" style="margin-bottom:1.5rem;">
                     <label class="creator-cta__terms-label" for="creator_terms">Creator Agreement &amp; Content Policy</label>
                     <textarea id="creator_terms" class="creator-cta__terms form-control" rows="10" readonly><?php echo htmlspecialchars($this->creator_terms, ENT_QUOTES, 'UTF-8'); ?></textarea>
@@ -2227,12 +2219,12 @@ $(function () {
     });
 
     $('#become_creator_btn').on('click', function () {
-        if (!$('#creator_agree').is(':checked')) {
+        if ($('#creator_agree').length && !$('#creator_agree').is(':checked')) {   // the backstop box for a creator who never accepted; becoming a creator asks nothing
             toastr.error('Please accept the Creator Agreement and Content Policy');
             return;
         }
         var $btn = $(this).prop('disabled', true);
-        ApiDataSvc.apiCall('post', 'become_creator', { accept_agreement: 1 }, function (data) {
+        ApiDataSvc.apiCall('post', 'become_creator', { accept_agreement: $('#creator_agree').is(':checked') ? 1 : 0 }, function (data) {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);

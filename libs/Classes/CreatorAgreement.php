@@ -6,6 +6,7 @@
  */
 class CreatorAgreement {
 
+    const VERSION = '2026-10-08';   // bump when the agreement text (AccountController::creator_terms) changes
     const URL     = '/account/settings?section=creator';
     const MESSAGE = 'Accept the Creator Agreement to continue';
 

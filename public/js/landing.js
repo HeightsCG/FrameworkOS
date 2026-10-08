@@ -64,32 +64,10 @@ $(document).ready(function() {
         document.cookie = 'cls_signup=' + encodeURIComponent(JSON.stringify(keep)) + '; max-age=2592000; path=/; samesite=lax' + (location.protocol === 'https:' ? '; secure' : '');
     }
 
-    /* A creator sign-up (role=creator in the cookie or this page's URL, or force) shows the Creator Agreement checkbox; anyone else does not. */
-    function sync_creator_terms(force) {
-        var role = new URLSearchParams(location.search).get('role') || '';
-        if (role !== 'creator') {
-            try { role = (JSON.parse(decodeURIComponent((document.cookie.match(/(?:^|; )cls_signup=([^;]*)/) || [])[1] || '')) || {}).role || ''; } catch (err) { role = ''; }
-        }
-        if (force === true) { role = 'creator'; }
-        var slot = document.getElementById('register_creator_slot');
-        var tpl = document.getElementById('register_creator_tpl');
-        if (!slot || !tpl) { return; }
-        if (role === 'creator') {
-            if (!slot.firstElementChild) { slot.appendChild(tpl.content.cloneNode(true)); }
-            slot.hidden = false;
-        } else {
-            slot.innerHTML = '';
-            slot.hidden = true;
-        }
-    }
-    sync_creator_terms();
-    window.cls_show_creator_terms = function() { sync_creator_terms(true); };   // auth_head.php: the server asked for the agreement
-
     $(document).on('click', '[data-auth]', function(e) {
         e.preventDefault();
         var href = $(this).attr('href') || '';
         if (href.indexOf('?') !== -1) { remember_signup(href.split('?')[1].split('#')[0]); }
-        sync_creator_terms();
         open_auth($(this).attr('data-auth'));
     });
 
@@ -104,7 +82,7 @@ $(document).ready(function() {
         var auth_trigger = document.querySelector('[data-auth="' + (auth_param === 'mfa' ? 'login' : auth_param) + '"]');
         if (auth_trigger) { auth_trigger.click(); }
     }
-    if (auth_param === 'register') { remember_signup(location.search); sync_creator_terms(); }   // after the click: this page's own params win
+    if (auth_param === 'register') { remember_signup(location.search); }   // after the click: this page's own params win
 
     $(document).on('keydown', function(e) {
         if (!auth_overlay || auth_overlay.hidden) { return; }

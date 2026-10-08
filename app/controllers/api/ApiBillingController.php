@@ -97,8 +97,14 @@ class ApiBillingController extends BaseApiController {
         $plan = (string) ($this->post['plan'] ?? '');
         if ($plan === PlanTiers::FREE_KEY) { $r = BillingService::set_cancel((int) $user['user_id'], true); if (empty($r['ok'])) { $this->jsonError($r['message']); } $this->jsonSuccess(['status' => 'scheduled', 'message' => $r['message']]); }
         $t = PlanTiers::get($plan);
-        if ($t) { CreatorAgreement::require((int) $user['user_id']); }   // a selling plan needs the Creator Agreement
-        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? '')), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
+        // the Creator Agreement is accepted here: a subscribe or upgrade needs the box ticked, stamped when the charge succeeds.
+        $agreement = array();
+        $q = $t ? BillingService::quote_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? '')) : array();
+        if (!empty($q['ok']) && in_array($q['mode'], array('subscribe', 'upgrade'), true)) {
+            if ((string) ($this->post['agree_terms'] ?? '') !== '1') { $this->jsonError(CreatorAgreement::MESSAGE, ['need_terms' => true]); }
+            $agreement = array('version' => CreatorAgreement::VERSION, 'ip' => $this->get_ip_address());
+        }
+        $this->charge_answer(BillingService::change_plan((int) $user['user_id'], $plan, (string) ($this->post['promo_code'] ?? ''), $agreement), 'You\'re on ' . ($t ? $t['name'] : 'your new plan') . ' now.');
     }
 
     /** One-click cancel: the plan runs to the end of the period, then the account moves to Free. */

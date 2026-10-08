@@ -118,6 +118,8 @@ class AccountController extends Controller {
         $this->view->can_content         = $can_content;
         $this->view->can_manage          = $can_manage;
         $this->view->is_owner_creator    = $is_owner_creator;
+        // The Creator Agreement backstop: only a selling creator (paid plan) who never accepted; new Free creators accept at checkout.
+        $this->view->needs_agreement     = $is_owner_creator && Plan::can_use_creator_features($user[0]) && !CreatorAgreement::accepted((int) Session::get('user_id'));
         $this->view->creator_profile     = $can_content ? (new CreatorProfileModel())->get_for_user($owner['user_id']) : array();
         // Creator Directory: off, listed (showing now) or waiting (switched on, not eligible yet).
         $this->view->directory_state     = empty($this->view->creator_profile['directory_listed']) ? 'off'
@@ -261,6 +263,7 @@ class AccountController extends Controller {
         $this->view->next       = BillingService::next_charge($acct);
         $this->view->charges    = (new BillingChargesModel())->history($uid, 24);
         $this->view->awaiting   = (new BillingChargesModel())->awaiting_action($uid);
+        $this->view->creator_terms = self::creator_terms(Main::site_name());   // the Creator Agreement, ticked at the Creator/Studio checkout
         // Plan cards from PlanTiers; retired plans only show to the people already on them.
         $this->view->plan_rows = array();
         foreach (PlanTiers::offered($this->view->tier) as $t) {
@@ -385,7 +388,7 @@ class AccountController extends Controller {
             if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
             $users->link_google($uid, $g['sub']);
             $users->record_first_touch($uid);
-            try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // no Creator Agreement on Google's screen: /setup sends them to accept it
+            try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // Google: stays a User with signup_role creator; /setup sends them to Become a Creator, the agreement comes at checkout
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
             UsersModel::clear_signup_cookie();
             SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
@@ -405,7 +408,7 @@ class AccountController extends Controller {
             exit;
         }
         if ($done['reset_pw'] === 1) { Header('Location: /account/force_reset'); exit; }
-        if ($new && (string) ($user['signup_role'] ?? '') === 'creator') {   // a new creator starts on /setup (which asks for the Creator Agreement first)
+        if ($new && (string) ($user['signup_role'] ?? '') === 'creator') {   // a new creator starts on /setup
             $plan = (string) ($user['signup_plan'] ?? '');
             Header('Location: /setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : ''));
             exit;

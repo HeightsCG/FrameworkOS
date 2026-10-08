@@ -11,8 +11,6 @@ class SetupService {
     /** Ordered step definitions. 'cta' is the Title Case button label. */
     public static function steps(): array {
         return array(
-            // agreement step: selling and payouts wait on it (CreatorAgreement), so it can't be skipped.
-            'agreement'  => array('title' => 'Accept the Creator Agreement',     'text' => 'Accept it once to sell content, memberships and bookings and to get paid.',  'cta' => 'Accept Agreement',          'url' => CreatorAgreement::URL,                            'optional' => false, 'skippable' => false),
             // handle step (begin): only for accounts still on the neutral signup handle, see handle_applies().
             'handle'     => array('title' => 'Choose your handle',               'text' => 'Pick the name fans see in your profile link.',                               'cta' => 'Choose Your Handle',        'url' => '/account/settings?section=account',              'optional' => false, 'skippable' => false),
             // handle step (end)
@@ -90,7 +88,6 @@ class SetupService {
 
     private static function check(CreatorSetupModel $m, $key, $creator_id): bool {
         switch ($key) {
-            case 'agreement':  return CreatorAgreement::accepted((int) $creator_id);   // agreement step
             case 'handle':     return !UsersModel::is_neutral_username($m->current_username($creator_id));   // handle step
             case 'profile':    return $m->has_profile($creator_id);
             case 'brand':      return $m->has_brand($creator_id);

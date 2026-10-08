@@ -345,6 +345,10 @@ class BillingService {
         $accts->save($uid, $f);
         self::mirror($uid);
         if ((string) $row['kind'] === 'subscribe') { DirectoryService::list_on_upgrade($uid); }   // Free to a paid plan: listed in /creators by default
+        if (!empty($fx['agreement']['version'])) {   // the Creator Agreement ticked at this checkout: stamp date, version and ip on success
+            (new UsersModel())->accept_creator_agreement($uid, $uid, (string) $fx['agreement']['version'], (string) ($fx['agreement']['ip'] ?? ''));
+            CreatorAgreement::forget($uid);
+        }
         self::receipt($row);
         return true;
     }
@@ -564,7 +568,7 @@ class BillingService {
     }
 
     /** Subscribe from Free, upgrade now (prorated), or schedule a downgrade for the billing date. */
-    public static function change_plan($user_id, $plan, $code = ''): array
+    public static function change_plan($user_id, $plan, $code = '', array $agreement = array()): array
     {
         $uid  = (int) $user_id;
         $acct = self::account($uid);
@@ -582,14 +586,14 @@ class BillingService {
         if ($q['mode'] === 'upgrade') {
             // Included AI credits are prorated exactly like the price: paying for 1/30 of a period buys 1/30 of the extra credits.
             $fx = array('plan' => $plan, 'from' => (string) $acct['plan_key'], 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
-                        'credit_frac' => self::remaining_fraction($acct));
+                        'credit_frac' => self::remaining_fraction($acct), 'agreement' => $agreement);
             return self::charge($uid, 'upgrade', $q['lines'], $fx, gmdate('Y-m-d H:i:s'), (string) $acct['current_period_end'], 'upgrade-' . $uid . '-' . bin2hex(random_bytes(6)));
         }
         $keep = (string) $acct['status'] === 'active' && !empty($acct['next_charge_at']);
         $start = $keep ? (string) $acct['current_period_start'] : gmdate('Y-m-d H:i:s');
         $end   = $keep ? (string) $acct['current_period_end'] : $q['next_at'];
         return self::charge($uid, 'subscribe', $q['lines'], array('plan' => $plan, 'period_start' => $start, 'period_end' => $end, 'promo' => $q['promo'] ?? null, 'promo_code' => $q['promo']['promo_code'] ?? null,
-                'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0),   // joining a running period mid-way: prorated credits, like the price
+                'credit_frac' => $keep ? self::remaining_fraction($acct) : 1.0, 'agreement' => $agreement),   // joining a running period mid-way: prorated credits, like the price
             gmdate('Y-m-d H:i:s'), $end, 'subscribe-' . $uid . '-' . bin2hex(random_bytes(6)));
     }
 

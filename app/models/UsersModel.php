@@ -198,18 +198,19 @@ class UsersModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (string) $rows[0]['role_name'] : '';
     }
 
-    /** Record Creator Agreement acceptance for an account that is already a creator (role and creator_since unchanged). */
-    public function accept_creator_agreement($user_id, $updated_by=0){
-        $now = date('Y-m-d H:i:s');
+    /** Record Creator Agreement acceptance (date, version, ip): at a Creator/Studio checkout or the Settings backstop. Role and creator_since unchanged. */
+    public function accept_creator_agreement($user_id, $updated_by=0, $version='', $ip=''){
+        $now = gmdate('Y-m-d H:i:s');
         return parent::update(
             'user_accounts',
-            array('creator_agreement_accepted_at' => $now, 'updated_at' => $now, 'updated_by' => $updated_by),
+            array('creator_agreement_accepted_at' => $now, 'creator_agreement_version' => (string) $version === '' ? null : mb_substr((string) $version, 0, 20),
+                  'creator_agreement_ip' => (string) $ip === '' ? null : mb_substr((string) $ip, 0, 45), 'updated_at' => $now, 'updated_by' => $updated_by),
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
         );
     }
 
-    /** Promote a user to the Creator role and record agreement acceptance + start date. */
+    /** Promote a user to the Creator role and record the start date. The Creator Agreement is accepted at the Creator/Studio checkout. */
     public function make_creator($user_id, $updated_by=0){
         $creator_role_id = $this->get_role_id_by_name('Creator');
         if ($creator_role_id === 0) {
@@ -221,7 +222,6 @@ class UsersModel extends Model {
             array(
                 'role_id'                       => $creator_role_id,
                 'creator_since'                 => $now,
-                'creator_agreement_accepted_at' => $now,
                 'updated_at'                    => $now,
                 'updated_by'                    => $updated_by,
             ),
@@ -258,6 +258,8 @@ class UsersModel extends Model {
                 'role_id'                       => $user_role_id,
                 'creator_since'                 => null,
                 'creator_agreement_accepted_at' => null,
+                'creator_agreement_version'     => null,
+                'creator_agreement_ip'          => null,
                 'updated_at'                    => date('Y-m-d H:i:s'),
                 'updated_by'                    => $updated_by,
             ),
@@ -507,10 +509,10 @@ class UsersModel extends Model {
     }
 
     /**
-     * Save the signup params on a new account. role=creator with the Creator Agreement accepted ($agreed) makes it a
-     * Creator (the Become a Creator path); without it the account stays a User with signup_role 'creator'.
+     * Save the signup params on a new account. role=creator with $make_creator makes it a Creator (the register form);
+     * without it the account stays a User with signup_role 'creator'. The Creator Agreement is accepted at checkout.
      */
-    public function record_signup_params($user_id, array $p, $agreed = false){
+    public function record_signup_params($user_id, array $p, $make_creator = false){
         $user_id = (int) $user_id;
         $ref_id  = $this->referrer_id_by_handle((string) ($p['ref'] ?? ''));
         if ($ref_id === $user_id) { $ref_id = 0; }   // never their own referrer
@@ -519,7 +521,7 @@ class UsersModel extends Model {
             'signup_role'            => (string) ($p['role'] ?? '') === '' ? null : (string) $p['role'],
             'referred_by_creator_id' => $ref_id > 0 ? $ref_id : null,
         ), 'user_id = :uid', array('uid' => $user_id));
-        if ((string) ($p['role'] ?? '') === 'creator' && $agreed) {
+        if ((string) ($p['role'] ?? '') === 'creator' && $make_creator) {
             $this->make_creator($user_id, $user_id);
             $fresh = $this->get_user_by_id($user_id);
             if (is_array($fresh) && count($fresh) === 1) { Plan::grant_monthly($fresh[0]); }   // same as become_creatorAction (a no-op on Free)

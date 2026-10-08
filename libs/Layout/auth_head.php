@@ -217,11 +217,6 @@
                 return;
             }
 
-            if ($('#register_creator_agree').length && !$('#register_creator_agree').is(':checked')) {
-                toastr.error('Accept the Creator Agreement to continue');
-                return;
-            }
-
             var signup_q = new URLSearchParams(location.search);   // ?plan= / ?role= / ?ref= on this page (else the cls_signup cookie, server side)
             ApiDataSvc.apiCall('post', 'register', {
                 user_email: $('#register_user_email').val(),
@@ -231,7 +226,6 @@
                 plan:       signup_q.get('plan') || '',
                 role:       signup_q.get('role') || '',
                 ref:        signup_q.get('ref') || '',
-                accept_agreement: $('#register_creator_agree').is(':checked') ? 1 : 0,
                 'return':   cls_after_login() !== '/' ? cls_after_login() : location.pathname   // where the verification link lands them
             }, function(data) {
                 var obj = JSON.parse(data);
@@ -248,7 +242,6 @@
                         toastr.success(obj.message);
                     }
                 } else {
-                    if (obj.message === 'Accept the Creator Agreement to continue' && window.cls_show_creator_terms) { window.cls_show_creator_terms(); }   // show the checkbox so it can be ticked here
                     toastr.error(obj.message);
                 }
             });

@@ -21,12 +21,8 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError((string) ($pw_error));
         }
 
-        // ?plan= / ?role= / ?ref=: posted by the register form, each one else from the cls_signup cookie. A creator accepts the Creator Agreement here.
+        // ?plan= / ?role= / ?ref=: posted by the register form, each one else from the cls_signup cookie. The Creator Agreement is accepted at the plan checkout.
         $signup = array_merge(UsersModel::signup_cookie(), array_filter(UsersModel::signup_params($this->post), 'strlen'));
-        $agreed = (string) ($this->post['accept_agreement'] ?? '') === '1';
-        if ($signup['role'] === 'creator' && !$agreed) {
-            $this->jsonError('Accept the Creator Agreement to continue');
-        }
 
         // Sign-up throttle, like login: per connection and per address. Every well-formed attempt counts.
         $ip    = $this->get_ip_address();
@@ -73,7 +69,7 @@ class ApiAuthController extends BaseApiController {
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
         $this->userModel->record_first_touch($user_id);
-        try { $this->userModel->record_signup_params($user_id, $signup, $agreed); }
+        try { $this->userModel->record_signup_params($user_id, $signup, true); }
         catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
         UsersModel::clear_signup_cookie();
         SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
