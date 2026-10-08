@@ -361,6 +361,23 @@ class InfluencerService {
     }
 
     /**
+     * One training shot's full instruction. With a body reference the model is told what each image is and that both
+     * must match; the build words go on every shot that shows any of her (all but the face close-up), not only the
+     * full-body ones: a head-and-shoulders picture still shows a bust and a frame, and left unsaid they come out
+     * as whatever the model guesses.
+     */
+    public static function training_prompt(array $infl, $i, $has_body_ref = false){
+        $vars = self::TRAINING_VARIATIONS; $v = $vars[((int) $i) % count($vars)];
+        $body = self::body_phrase($infl); $pr = self::pronouns($infl);
+        $intro = $has_body_ref
+            ? 'The first image is ' . $pr[2] . ' face, the second ' . $pr[2] . ' body: the same ' . self::noun($infl) . ' in this picture, with the same face, hair, skin tone and the same build as the second image. '
+            : '';
+        $shot = self::training_variation($infl, $i);
+        if ($body !== '' && strpos($v, '{body}') === false && stripos($v, 'close-up') === false) { $shot .= ', ' . $pr[2] . ' build showing as it is: ' . $body; }
+        return $intro . $shot;
+    }
+
+    /**
      * The same prompt with her body words taken out, and plain clothes named when none are: what a shot is rerun
      * with after a model's content checker refused it (body words in a scene with no clothing named read as swimwear
      * to the checker). Returns the prompt unchanged when there is nothing to take out.

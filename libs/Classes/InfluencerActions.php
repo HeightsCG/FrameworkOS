@@ -357,14 +357,13 @@ class InfluencerActions {
         }
         $group = 'ts_' . (int) $infl['id'] . '_' . bin2hex(random_bytes(4));
         $m->update_fields($cid, $infl['id'], array('training_set_group' => $group, 'wizard_step' => 'set'));
-        $vars = InfluencerService::TRAINING_VARIATIONS;
         $body_ref = InfluencerService::body_reference($cid, $infl);
         $ids  = array();
         for ($i = 1; $i <= $size; $i++) {
-            $prompt = InfluencerService::realistic(InfluencerService::training_variation($infl, $i - 1) . ($steer !== '' ? ', ' . $steer : ''));
+            $prompt = InfluencerService::realistic(InfluencerService::training_prompt($infl, $i - 1, $body_ref > 0) . ($steer !== '' ? ', ' . $steer : ''));
             $params = array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square');
-            // The shots that show her body also get her full-body reference, so her build matches across the set.
-            if ($body_ref > 0 && strpos($vars[($i - 1) % count($vars)], '{body}') !== false) { $params['image_asset_ids'] = array($body_ref); }
+            // Every shot gets her full-body reference next to her face, so her build matches across the whole set, not only the full-length ones.
+            if ($body_ref > 0) { $params['image_asset_ids'] = array($body_ref); }
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
                 'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $infl['reference_asset_id'],
                 'group_key' => $group, 'group_index' => $i,
@@ -387,7 +386,7 @@ class InfluencerActions {
             if (in_array((string) $j['status'], array('failed', 'cancelled'), true)) { continue; }
             if ($ref > 0 && (int) $j['input_asset_id'] !== $ref) { return true; }
             $i = max(1, (int) $j['group_index']) - 1;
-            if (strpos($vars[$i % count($vars)], '{body}') === false) { continue; }   // only the shots that show her body
+            if (stripos($vars[$i % count($vars)], 'close-up') !== false) { continue; }   // the face close-up shows no body
             if ($body !== '' && stripos((string) $j['prompt'], $body) === false) { return true; }
             $used = array_map('intval', (array) (InfluencerJobsModel::params($j)['image_asset_ids'] ?? array()));
             // A set that used a body reference is out of date once she has a different one. A set made without any
