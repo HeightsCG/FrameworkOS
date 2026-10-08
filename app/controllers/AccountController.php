@@ -119,7 +119,7 @@ class AccountController extends Controller {
         $this->view->can_manage          = $can_manage;
         $this->view->is_owner_creator    = $is_owner_creator;
         // The Creator Agreement backstop: only a selling creator (paid plan) who never accepted; new Free creators accept at checkout.
-        $this->view->needs_agreement     = $is_owner_creator && Plan::can_use_creator_features($user[0]) && !CreatorAgreement::accepted((int) Session::get('user_id'));
+        $this->view->needs_agreement     = $is_owner_creator && Plan::can_use_creator_features($user) && !CreatorAgreement::accepted((int) Session::get('user_id'));
         $this->view->creator_profile     = $can_content ? (new CreatorProfileModel())->get_for_user($owner['user_id']) : array();
         // Creator Directory: off, listed (showing now) or waiting (switched on, not eligible yet).
         $this->view->directory_state     = empty($this->view->creator_profile['directory_listed']) ? 'off'
