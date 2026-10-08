@@ -1,5 +1,5 @@
 /* Creator event management (/events) */
-.ev{ max-width:1200px; margin:0 auto; padding-bottom:2.5rem; }   /* same width as the event page */
+.ev{ padding-bottom:2.5rem; }   /* full width, like the Content Studio */
 .ev__head{ display:flex; align-items:flex-start; justify-content:space-between; gap:1rem; margin-bottom:1.5rem; flex-wrap:wrap; }
 .ev__title{ margin:0; font-size:24px; font-weight:700; letter-spacing:-.01em; color:#242424; }
 .ev__sub{ margin:.3rem 0 0; color:#8a8797; font-size:.92rem; max-width:640px; line-height:1.5; }
@@ -57,7 +57,7 @@ a.ev-row, a.ev-row:hover{ color:inherit; text-decoration:none; }
 
 /* ---- One event (/events/manage/<id>): heading + actions, an information band, then one workspace
    (Attendees | Messages). On desktop event-page.js fits .evm to the window; only the workspace body scrolls. ---- */
-.evm{ display:flex; flex-direction:column; max-width:1200px; margin:0 auto; min-height:0; min-width:0; }
+.evm{ display:flex; flex-direction:column; min-height:0; min-width:0; }
 .evm-top{ flex:none; margin-bottom:16px; }
 .evm-top__back{ display:inline-flex; align-items:center; gap:7px; font-size:14px; font-weight:500; color:var(--muted); text-decoration:none; margin-bottom:8px; }
 .evm-top__back:hover{ color:var(--text); }

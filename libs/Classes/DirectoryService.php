@@ -5,11 +5,13 @@
  * A creator shows when they switched it on, picked a category, their profile photo and cover passed the
  * adult-image check as they are now, and they have at least one published, non-adult page post
  * (CreatorProfileModel::directory_where). Changing a photo queues a re-check (DirectoryRecheckJob), and
- * until it passes the creator is left out. No paying to rank: verified first, then most recently active.
+ * until it passes the creator is left out. Sorts: Trending (new followers in 7 days, then post views), New, Most
+ * active (posts in 30 days). A featured row on page one shows paid-plan creators, Studio first, rotated daily.
+ * Niches (the categories) live in the niches table, managed from /admin > Niches.
  */
 class DirectoryService {
 
-    /** slug => label. Pages exist only for categories that have listed creators. */
+    /** slug => label: only the seed for the niches table (sql/2026-10-09_niches.sql) and the fallback before it exists. Use categories(). */
     const CATEGORIES = array(
         'fitness'   => 'Fitness',
         'music'     => 'Music',
@@ -26,6 +28,32 @@ class DirectoryService {
 
     const PER_PAGE = 24;
 
+    /** ?sort= value => label; the first is the default (no sort in the URL). */
+    const SORTS = array('trending' => 'Trending', 'new' => 'New', 'active' => 'Most Active');
+
+    /** Cards in the featured row on page one of /creators and each niche page. */
+    const FEATURED = 6;
+
+    private static $categories = null;
+
+    /** slug => label for the active niches (admin-managed). Pages, chips and the Settings select use these. */
+    public static function categories(): array {
+        if (self::$categories === null) {
+            try { self::$categories = (new NichesModel())->active(); }
+            catch (\Throwable $e) { error_log('[directory] niches: ' . $e->getMessage()); self::$categories = self::CATEGORIES; }   // before the niches SQL runs
+        }
+        return self::$categories;
+    }
+
+    /** The Settings choices: the active niches, plus the creator's saved niche when it has been turned off (so saving keeps it). */
+    public static function choices($current): array {
+        $out = self::categories(); $current = (string) $current;
+        if ($current === '' || isset($out[$current])) { return $out; }
+        try { foreach ((new NichesModel())->all() as $n) { if ((string) $n['slug'] === $current) { $out[$current] = (string) $n['name']; } } }
+        catch (\Throwable $e) { error_log('[directory] niches: ' . $e->getMessage()); }
+        return $out;
+    }
+
     /** The hash stored when the current images pass; the directory compares it with the live images. */
     public static function media_hash(array $profile): string {
         return sha1((string) ($profile['avatar_url'] ?? '') . '|' . (string) ($profile['cover_url'] ?? ''));
@@ -37,12 +65,13 @@ class DirectoryService {
      */
     public static function save($user_id, $listed, $category): array {
         $m = new CreatorProfileModel();
+        $p = $m->get_for_user($user_id);
+        $choices = self::choices($p['directory_category'] ?? '');
         if (!$listed) {
-            $m->set_directory($user_id, false, isset(self::CATEGORIES[$category]) ? $category : '');
+            $m->set_directory($user_id, false, isset($choices[$category]) ? $category : '');
             return array('ok' => true, 'message' => 'You\'re no longer listed in the directory.');
         }
-        if (!isset(self::CATEGORIES[$category])) { return array('ok' => false, 'message' => 'Choose a category.'); }
-        $p = $m->get_for_user($user_id);
+        if (!isset($choices[$category])) { return array('ok' => false, 'message' => 'Choose a category.'); }
         if ((string) ($p['avatar_url'] ?? '') === '') { return array('ok' => false, 'message' => 'Add a profile photo first. The directory shows it on your card.'); }
         $check = self::check_images($p);
         if (!$check['ok']) { return array('ok' => false, 'message' => $check['message']); }
@@ -63,7 +92,7 @@ class DirectoryService {
             $m   = new CreatorProfileModel();
             $p   = (array) $m->get_for_user($user_id);
             $cat = (string) ($p['directory_category'] ?? '');
-            $m->set_directory($user_id, true, isset(self::CATEGORIES[$cat]) ? $cat : 'other');
+            $m->set_directory($user_id, true, isset(self::categories()[$cat]) ? $cat : 'other');
             self::queue_recheck($user_id);
         } catch (\Throwable $e) {
             error_log('[directory] list_on_upgrade ' . (int) $user_id . ': ' . $e->getMessage());

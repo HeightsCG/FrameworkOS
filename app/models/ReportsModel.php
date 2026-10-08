@@ -110,9 +110,11 @@ class ReportsModel extends Model {
 
     /** Take a post's content down by blocking its image assets (hidden by the moderation gate). */
     public function takedown_post($post_id){
-        return parent::update('media_assets',
+        $res = parent::update('media_assets',
             array('moderation_status' => 'blocked'),
             'id IN (SELECT asset_id FROM post_assets WHERE post_id = :p)',
             array('p' => (int) $post_id));
+        PublicThumbService::queue_purge(array('post' => (int) $post_id));   // removed content loses its public copies
+        return $res;
     }
 }

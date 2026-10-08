@@ -89,8 +89,14 @@ class AdminController extends Controller {
         try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd), 'builders' => $model->free_builders($gd)); } }
         catch (\Throwable $e) { error_log('[admin] growth: ' . $e->getMessage()); }   // /admin still loads before the signup params SQL runs
 
+        $this->view->cross_promo_plans = '';   // Growth tab: which plans may cross-promote (/promote)
+        try { $this->view->cross_promo_plans = implode(', ', PromoSwapsModel::plans()); } catch (\Throwable $e) { error_log('[admin] cross promo: ' . $e->getMessage()); }
         $this->view->scenes = array();
         try { $this->view->scenes = (new SceneTemplatesModel())->list_all(); } catch (\Throwable $e) { error_log('[admin] scenes: ' . $e->getMessage()); }   // /admin still loads before the stage 2 SQL runs
+
+        $this->view->niches = array(); $this->view->niche_counts = array();
+        try { $nm = new NichesModel(); $this->view->niches = $nm->all(); $this->view->niche_counts = $nm->listed_counts(); }
+        catch (\Throwable $e) { error_log('[admin] niches: ' . $e->getMessage()); }   // /admin still loads before the niches SQL runs
 
         $this->view->render();
     }

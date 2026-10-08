@@ -139,6 +139,7 @@ class ApiEventsController extends BaseApiController {
 
         $t = mb_substr(html_entity_decode((string) $ev['title'], ENT_QUOTES, 'UTF-8'), 0, 60);
         $charged  = ($price > 0 && (int) $claim['prior_paid'] <= 0) ? $price : 0;
+        if ($charged > 0) { TrackingLinks::attribute($creator_id, 'purchase', $me, $charged, 'events', $id); }   // a free registration isn't a purchase
         $fan_name = Notify::name_of($me) ?: 'Someone';
         $this->notify($creator_id, 'events', 'New event registration',
             $fan_name . ' registered for "' . $t . '" (' . $this->event_when($ev, $creator_id) . ')'

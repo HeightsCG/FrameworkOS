@@ -94,4 +94,5 @@ $g_sum = function ($rows) { $t = array('signups' => 0, 'verified' => 0, 'became_
         <?php endif; ?>
     </div>
     <?php endforeach; ?>
+    <?php include __DIR__ . '/_promo_setting.php'; ?>
 </section>

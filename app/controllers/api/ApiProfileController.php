@@ -411,6 +411,7 @@ class ApiProfileController extends BaseApiController {
                 return $response;
             }
             $follows->follow($user_id, $creator_id);
+            TrackingLinks::attribute($creator_id, 'follow', $user_id);
             $who = (new MessagesModel())->identity_map([$user_id])[$user_id] ?? ['handle' => ''];
             $this->notify($creator_id, 'creator_activity', 'New follower',
                 '@' . $who['handle'] . ' started following you.', '/audience', 'fa-user-plus');

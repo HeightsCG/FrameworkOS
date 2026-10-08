@@ -47,6 +47,7 @@ $handlers = [
     'recording_watch' => 'RecordingWatchJob',
     'replay_announce' => 'ReplayAnnounceJob',
     'clip_render'    => 'ClipRenderJob',
+    'public_thumb'   => 'PublicThumbJob',
 ];
 
 CronRuns::start('queue_worker');

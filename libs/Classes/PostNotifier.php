@@ -19,6 +19,8 @@ class PostNotifier {
             // A creator without a paid plan has no public page yet: nobody is told and search engines aren't pinged.
             $owner = (new UsersModel())->get_user_by_id($creator_id);
             if (!Plan::can_sell((is_array($owner) && count($owner) === 1) ? $owner[0] : null)) { return; }
+            // free, approved media gets its public cacheable webp copy (PublicThumbService), off the request.
+            try { (new DatabaseJobQueue())->dispatch('public_thumb', array('post_id' => $post_id), 'public_thumb:' . $post_id); } catch (\Throwable $e) { error_log('[public_thumb] post ' . $post_id . ': ' . $e->getMessage()); }
             try { IndexNow::creator($creator_id); } catch (\Throwable $e) { error_log('[indexnow] post ' . $post_id . ': ' . $e->getMessage()); }   // their page changed: tell search engines
             $ids = self::audience_ids($creator_id);
             if (empty($ids)) { return; }

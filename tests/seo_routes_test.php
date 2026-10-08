@@ -23,7 +23,7 @@ $ch = curl_init($base . '/compare/nope'); curl_setopt_array($ch, array(CURLOPT_R
 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/compare/nope → 404 ($code)\n"; if ($code !== 404) { $fail++; }
 
-foreach (array('/features/extra', '/compare/FANVUE', '/creators/nope', '/creators/fitness/extra', '/creators?page=abc', '/creators?page=99') as $p) {
+foreach (array('/features/extra', '/compare/FANVUE', '/creators/nope', '/creators/fitness/extra', '/creators?page=abc', '/creators?page=99', '/creators?sort=bogus&page=99') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
@@ -34,4 +34,9 @@ $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 $empty = strpos($body, 'class="dir-card"') === false;
 $ok = $code === 200 && ($empty ? strpos($body, 'noindex') !== false : strpos($body, 'noindex') === false);
 echo ($ok ? 'ok   ' : 'FAIL ') . "/creators 200, " . ($empty ? 'empty → noindex' : 'listed → indexable') . "\n"; if (!$ok) { $fail++; }
+// An unknown sort falls back to the default order (200, canonical without sort).
+$ch = curl_init($base . '/creators?sort=bogus'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch);
+$code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+$ok = $code === 200 && strpos($body, 'rel="canonical" href="' . $base . '/creators"') !== false;
+echo ($ok ? 'ok   ' : 'FAIL ') . "/creators?sort=bogus 200, canonical /creators ($code)\n"; if (!$ok) { $fail++; }
 exit($fail ? 1 : 0);

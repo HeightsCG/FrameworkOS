@@ -447,14 +447,17 @@ class AdminModel extends Model {
             array('user_status' => $status),
             'user_id = :id', array('id' => (int) $user_id));
         if ($ok) { $status === 'Disabled' ? AccountBilling::on_suspend($user_id) : AccountBilling::on_reactivate($user_id); }   // memberships stop billing while suspended
+        if ($ok && $status === 'Disabled') { PublicThumbService::queue_purge(array('creator' => (int) $user_id)); }   // a suspended creator's public copies come down
         return $ok;
     }
 
     /** Flag / unflag a demo account (kept out of the directory, sitemap, feed and search; profile noindex). */
     public function set_demo($user_id, $is_demo){
-        return parent::update('user_accounts',
+        $res = parent::update('user_accounts',
             array('is_demo' => $is_demo ? 1 : 0),
             'user_id = :id', array('id' => (int) $user_id));
+        if ($is_demo) { PublicThumbService::queue_purge(array('creator' => (int) $user_id)); }   // demo accounts have no public copies
+        return $res;
     }
 
     /** Set an asset's moderation decision. */
@@ -464,6 +467,8 @@ class AdminModel extends Model {
         // Approving a FLAGGED (adult) image keeps it adult: live to opted-in fans only, never SFW.
         $cur = parent::select("SELECT moderation_status FROM media_assets WHERE id = :id", array('id' => (int) $asset_id));
         if ($status === 'approved' && (string) ($cur[0]['moderation_status'] ?? '') === 'flagged') { $data['is_adult'] = 1; }
-        return parent::update('media_assets', $data, 'id = :id', array('id' => (int) $asset_id));
+        $res = parent::update('media_assets', $data, 'id = :id', array('id' => (int) $asset_id));
+        PublicThumbService::queue_purge(array('assets' => array((int) $asset_id)));   // flagged, blocked or now adult: the public copy comes down
+        return $res;
     }
 }

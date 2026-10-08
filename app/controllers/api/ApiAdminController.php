@@ -62,6 +62,20 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['is_demo' => (int) $demo, 'message' => $demo === '1' ? 'Marked as demo account' : 'Demo flag removed']);
     }
 
+    /** Which plans may cross-promote (/promote): comma-separated PlanTiers keys, every one checked. */
+    public function admin_set_cross_promo_plansAction(){
+        $this->admin_guard();
+        $keys = array();
+        foreach (explode(',', strtolower((string) ($this->post['plans'] ?? ''))) as $k) {
+            $k = trim($k);
+            if ($k === '') { continue; }
+            if (!isset(PlanTiers::TIERS[$k])) { $this->jsonError('Unknown plan "' . $k . '". Use: ' . implode(', ', array_keys(PlanTiers::TIERS)) . '.'); }
+            if (!in_array($k, $keys, true)) { $keys[] = $k; }
+        }
+        (new AdminSettingsModel())->set('cross_promo_plans', implode(',', $keys));
+        $this->jsonSuccess(['plans' => implode(',', $keys), 'message' => $keys ? 'Cross-promotion plans saved' : 'Cross-promotion is off for every plan']);
+    }
+
     /** Approve or block a piece of content in the moderation queue. */
     public function admin_moderateAction(){
         $this->admin_guard();
@@ -301,6 +315,52 @@ class ApiAdminController extends BaseApiController {
         if ($st === 'succeeded') { $this->jsonSuccess(['message' => 'Payment collected']); }
         if ($st === 'requires_action') { $this->jsonError('The bank wants the cardholder to confirm this payment. They have been emailed a link.'); }
         $this->jsonError('Payment failed: ' . (string) ($r['message'] ?? 'declined'));
+    }
+
+    /* ---- creator directory niches (/admin > Niches) ---- */
+
+    /** Add a niche (name + URL slug) or rename one (id + name; the slug is the URL and never changes). */
+    public function admin_niche_saveAction(){
+        $this->admin_guard();
+        $m    = new NichesModel();
+        $id   = (int) ($this->post['id'] ?? 0);
+        $name = mb_substr(trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8')), 0, 60);
+        if ($name === '') { $this->jsonError('Name the niche.', ['errors' => [['input' => 'name', 'msg' => 'Name the niche.']]]); }
+        if ($id > 0) {
+            if (!$m->get($id)) { $this->jsonError('Niche not found'); }
+            $m->rename($id, $name);
+            $this->jsonSuccess(['id' => $id, 'message' => 'Niche renamed']);
+        }
+        $slug = strtolower(trim((string) ($this->post['slug'] ?? '')));
+        if (!preg_match('/^[a-z0-9]+(-[a-z0-9]+)*$/', $slug) || strlen($slug) < 2 || strlen($slug) > 40) {
+            $this->jsonError('Use 2 to 40 lowercase letters, numbers and hyphens.', ['errors' => [['input' => 'slug', 'msg' => 'Use 2 to 40 lowercase letters, numbers and hyphens.']]]);
+        }
+        if ($m->slug_taken($slug)) { $this->jsonError('That slug is already used.', ['errors' => [['input' => 'slug', 'msg' => 'That slug is already used.']]]); }
+        $id = $m->add($slug, $name);
+        if ($id <= 0) { $this->jsonError('Could not save the niche'); }
+        $this->jsonSuccess(['id' => $id, 'message' => 'Niche added']);
+    }
+
+    /** Turn a niche on or off. Off hides its page and chip and removes it from the Settings choices; creators keep it saved. */
+    public function admin_niche_set_activeAction(){
+        $this->admin_guard();
+        $m  = new NichesModel();
+        $id = (int) ($this->post['id'] ?? 0);
+        if (!$m->get($id)) { $this->jsonError('Niche not found'); }
+        $on = (string) ($this->post['active'] ?? '1') === '1';
+        $m->set_active($id, $on);
+        $this->jsonSuccess(['id' => $id, 'message' => $on ? 'Niche turned on' : 'Niche turned off']);
+    }
+
+    /** Move a niche one place up or down in the directory order. */
+    public function admin_niche_moveAction(){
+        $this->admin_guard();
+        $m   = new NichesModel();
+        $id  = (int) ($this->post['id'] ?? 0);
+        $dir = (string) ($this->post['dir'] ?? '');
+        if (!$m->get($id) || !in_array($dir, ['up', 'down'], true)) { $this->jsonError('Invalid request'); }
+        if (!$m->move($id, $dir === 'up' ? -1 : 1)) { $this->jsonError('That niche can\'t move further.'); }
+        $this->jsonSuccess(['id' => $id]);
     }
 
     private function admin_guard(): void{

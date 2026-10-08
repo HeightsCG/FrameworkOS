@@ -53,6 +53,8 @@
 /* ---- cover ---- */
 .pf-cover { height: 300px; background: #EEEEEE center/cover no-repeat; }
 .pf-cover--empty { background: linear-gradient(120deg, #FF8A45 0%, #FF6A13 58%, #E85A06 100%); }
+.pf-cover { overflow: hidden; }
+.pf-cover__img { display: block; width: 100%; height: 100%; object-fit: cover; }
 
 /* ---- container ---- */
 .pf-container { max-width: 90%; margin: -80px auto 0; padding: 0 24px 40px; position: relative; z-index: 1; }
@@ -312,7 +314,7 @@
     .pf-hero__top { flex-wrap: wrap; }
     .pf-avatar { width: 104px; height: 104px; margin-top: -52px; }
     .pf-hero__id { padding-top: 12px; }
-    .pf-actions { width: 100%; padding-bottom: 0; margin-top: .4rem; }
+    .pf-actions { width: 100%; padding-bottom: 0; margin-top: .4rem; min-height: 42px; }   /* buttons are drawn by script: hold their row so the page below does not jump */
     .pf-actions .pf-btn { flex: 1; }
     .pf-name { font-size: 1.5rem; }
     .pf-dock__name { max-width: 42vw; }
@@ -333,6 +335,7 @@
 .pf-pc__thumb{ position:relative; display:block; width:100%; aspect-ratio:1/1; border-radius:var(--pf-radius); overflow:hidden; background-color:#F0F0F0; background-size:cover; background-position:center; background-repeat:no-repeat; transition:transform .12s ease, box-shadow .12s ease; }
 .pf-pc:hover .pf-pc__thumb{ transform:translateY(-3px); box-shadow:0 14px 28px -16px rgba(63, 63, 63, .42); }
 .pf-pc:focus-visible .pf-pc__thumb{ outline:2px solid #FF6A13; outline-offset:2px; }
+.pf-pc__img{ position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
 .pf-pc__lockbadge{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.5rem; background:rgba(18, 18, 18, .30); }
 .pf-pc__play{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#fff; font-size:1.7rem; text-shadow:0 2px 10px rgba(0,0,0,.55); pointer-events:none; }
 .pf-pc__count{ position:absolute; right:8px; top:8px; background:rgba(18, 18, 18, .7); color:#fff; font-size:.7rem; font-weight:600; padding:2px 6px; border-radius:6px; display:inline-flex; align-items:center; gap:4px; }
@@ -644,4 +647,25 @@ a.pe-btn, a.pe-btn:visited{ color:#fff; }
     .pf-plb { padding: 76px 12px 24px; }
     .pf-plb__close { top: 16px; right: 12px; width: 44px; height: 44px; }
     .pf-plb [data-report-type] { min-width: 44px; min-height: 44px; }
+}
+
+/* ---- More Creators Like This (_similar.php) ---- */
+.pf-sim { margin-top: 24px; }
+.pf-sim__title { margin: 0 0 12px; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; color: var(--pf-ink); }
+.pf-sim__grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.pf-sim__card { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 12px; background: var(--pf-surface); border: 1px solid var(--pf-line); border-radius: var(--pf-radius); color: var(--pf-ink); text-decoration: none; transition: border-color .15s, box-shadow .15s; }
+.pf-sim__card:hover { border-color: #DADADA; box-shadow: 0 1px 2px rgba(0, 0, 0, .05); }
+.pf-sim__card:focus-visible { outline: none; box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pf-violet); }
+.pf-sim__avatar { width: 48px; height: 48px; flex: none; border-radius: 4px; background: #F2F2F2 center/cover no-repeat; }
+.pf-sim__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pf-sim__name, .pf-sim__handle, .pf-sim__price { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-sim__name { font-size: .9rem; font-weight: 600; }
+.pf-sim__badge { font-size: .75rem; color: var(--pf-violet); }
+.pf-sim__handle { font-size: .8rem; color: var(--pf-muted); }
+.pf-sim__price { font-size: .75rem; color: var(--pf-faint); }
+@media (max-width: 1100px) { .pf-sim__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) {   /* two columns on phones: avatar above the text */
+    .pf-sim__grid { gap: 8px; }
+    .pf-sim__card { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .pf-sim__body { width: 100%; }
 }

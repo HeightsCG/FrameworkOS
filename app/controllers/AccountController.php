@@ -389,6 +389,7 @@ class AccountController extends Controller {
             if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
             $users->link_google($uid, $g['sub']);
             $users->record_first_touch($uid);
+            TrackingLinks::attribute(0, 'signup', $uid);   // came in through a creator's tracking link (cls_tl)
             try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // Google: stays a User with signup_role creator; /setup sends them to Become a Creator, the agreement comes at checkout
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
             UsersModel::clear_signup_cookie();

@@ -214,6 +214,7 @@ class ApiMessagesController extends BaseApiController {
             $this->jsonError('Not enough credits in your wallet.', ['need_credits' => true, 'balance' => $credits->get_balance($viewer), 'price' => $price]);
         }
         if ($net > 0) { $unlocks->set_net($mid, $viewer, $net); }
+        TrackingLinks::attribute($creator_id, 'ppv', $viewer, $price, 'messages', $mid);
         $who = $model->identity_map([$viewer])[$viewer] ?? ['name' => 'A fan'];
         $this->notify($creator_id, 'purchases', 'New message unlock',
             $who['name'] . ' unlocked your message for ' . Notify::credits($price) . '.', '/inbox/thread/' . (int) $conv['id'], 'fa-coins');

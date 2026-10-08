@@ -40,7 +40,7 @@ class BillingModel extends Model {
      * $tier/$status null = Free. The Stripe subscription columns are only history now.
      */
     public function save_plan_mirror($user_id, $tier, $status, $period_end, $cancel_at_period_end){
-        return parent::update(
+        $res = parent::update(
             'user_accounts',
             array(
                 'plan_tier'                         => $tier,
@@ -52,6 +52,8 @@ class BillingModel extends Model {
             'user_id = :user_id',
             array('user_id' => (int) $user_id)
         );
+        if (!in_array((string) $status, array('active', 'trialing', 'past_due'), true)) { PublicThumbService::queue_purge(array('creator' => (int) $user_id)); }   // no selling plan: no public copies
+        return $res;
     }
 
     /** Accounts still billed by a Stripe subscription (cron/migrate_subscriptions.php). */

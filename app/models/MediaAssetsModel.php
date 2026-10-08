@@ -124,7 +124,9 @@ class MediaAssetsModel extends Model {
             'updated_at'        => date('Y-m-d H:i:s'),
         );
         if ($is_adult !== null) { $data['is_adult'] = $is_adult ? 1 : 0; }   // adult classification, kept across approve/block
-        return parent::update('media_assets', $data, 'id = :id', array('id' => (int) $id));
+        $res = parent::update('media_assets', $data, 'id = :id', array('id' => (int) $id));
+        if ((string) $status !== 'approved' || !empty($is_adult)) { PublicThumbService::queue_purge(array('assets' => array((int) $id))); }   // no longer safe for a public copy
+        return $res;
     }
 
     public function set_description($creator_id, $id, $description){
@@ -185,10 +187,12 @@ class MediaAssetsModel extends Model {
     }
 
     public function soft_delete($creator_id, $id){
-        return parent::update('media_assets',
+        $res = parent::update('media_assets',
             array('deleted_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
             'id = :id AND creator_id = :c AND deleted_at IS NULL',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+        PublicThumbService::queue_purge(array('assets' => array((int) $id)));   // deleted media loses its public copy
+        return $res;
     }
 
     /** The subset of these asset ids someone has paid for (PPV post, priced message, or bundle) — buyers keep them, so they can't be removed. */
@@ -298,5 +302,64 @@ class MediaAssetsModel extends Model {
         $ids = array();
         foreach ((array) $rows as $r) { $ids[] = (int) $r['collection_id']; }
         return $ids;
+    }
+
+    /* ---- public renditions (PublicThumbService) ---- */
+
+    /**
+     * Safe for a public, cacheable copy: ready, moderator-approved, not adult, in a published free post on the site,
+     * by a creator with a public page (can sell, not demo, not deleted, not suspended).
+     */
+    public static function public_ok_sql(): string {
+        return "ma.deleted_at IS NULL AND ma.status = 'ready' AND ma.type IN ('image', 'video')
+        AND ma.moderation_status = 'approved' AND ma.is_adult = 0
+        AND EXISTS (SELECT 1 FROM post_assets pa JOIN posts p ON p.id = pa.post_id
+                     WHERE pa.asset_id = ma.id AND p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free')
+        AND EXISTS (SELECT 1 FROM user_accounts ua WHERE ua.user_id = ma.creator_id AND ua.deleted = 0 AND ua.is_demo = 0
+                     AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . ")";
+    }
+
+    /**
+     * Assets that qualify for a public rendition but have none yet, ids above $after_id (the catch-up's cursor);
+     * one post's when $post_id is given. Rows that failed for good (public_error) are skipped.
+     */
+    public function public_missing($post_id = 0, $limit = 200, $after_id = 0){
+        $limit = max(1, min(1000, (int) $limit));
+        $params = array('after' => (int) $after_id);
+        $post_sql = '';
+        if ((int) $post_id > 0) { $post_sql = ' AND ma.id IN (SELECT asset_id FROM post_assets WHERE post_id = :p)'; $params['p'] = (int) $post_id; }
+        $rows = parent::select("SELECT ma.* FROM media_assets ma WHERE ma.public_thumb_key IS NULL AND ma.public_error IS NULL AND ma.id > :after AND "
+            . self::public_ok_sql() . $post_sql . " ORDER BY ma.id ASC LIMIT $limit", $params);
+        return is_array($rows) ? $rows : array();
+    }
+
+    /**
+     * Assets holding a public rendition that no longer qualify (deleted, re-moderated, post gated or unpublished,
+     * creator suspended, demo or without a selling plan). $scope narrows it: array('post' => id), array('creator' => id)
+     * or array('assets' => ids); empty = everyone.
+     */
+    public function public_stale($limit = 200, array $scope = array()){
+        $limit = max(1, min(1000, (int) $limit));
+        $params = array(); $scope_sql = '';
+        if (!empty($scope['post']))    { $scope_sql = ' AND ma.id IN (SELECT asset_id FROM post_assets WHERE post_id = :p)'; $params['p'] = (int) $scope['post']; }
+        if (!empty($scope['creator'])) { $scope_sql = ' AND ma.creator_id = :c'; $params['c'] = (int) $scope['creator']; }
+        if (!empty($scope['assets']))  { $scope_sql = ' AND ma.id IN (' . implode(',', array_map('intval', (array) $scope['assets'])) . ')'; }
+        $rows = parent::select("SELECT ma.* FROM media_assets ma WHERE ma.public_thumb_key IS NOT NULL" . $scope_sql . " AND NOT (" . self::public_ok_sql() . ") ORDER BY ma.id ASC LIMIT $limit", $params);
+        return is_array($rows) ? $rows : array();
+    }
+
+    /** Record why an asset's public rendition can't be built, so the catch-up stops retrying it ('' clears). */
+    public function set_public_error($id, $error){
+        return parent::update('media_assets', array('public_error' => (string) $error === '' ? null : mb_substr((string) $error, 0, 255)), 'id = :id', array('id' => (int) $id));
+    }
+
+    /** Store (or clear, with '' keys) an asset's public rendition keys and the larger rendition's size. */
+    public function set_public($id, $thumb_key, $display_key, $width, $height){
+        return parent::update('media_assets', array(
+            'public_thumb_key'   => (string) $thumb_key === '' ? null : (string) $thumb_key,
+            'public_display_key' => (string) $display_key === '' ? null : (string) $display_key,
+            'public_width'       => (int) $width > 0 ? (int) $width : null,
+            'public_height'      => (int) $height > 0 ? (int) $height : null,
+        ), 'id = :id', array('id' => (int) $id));
     }
 }

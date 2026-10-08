@@ -9,6 +9,9 @@
  */
 $has_cover  = trim((string) ($profile['cover_url'] ?? ''))  !== '';
 $has_avatar = trim((string) ($profile['avatar_url'] ?? '')) !== '';
+// webp copies (PublicThumbService::profile_image) when they exist, else the uploaded file.
+$avatar_src = $has_avatar ? (trim((string) ($profile['avatar_webp_url'] ?? '')) !== '' ? (string) $profile['avatar_webp_url'] : (string) $profile['avatar_url']) : '';
+$cover_webp = $has_cover ? trim((string) ($profile['cover_webp_url'] ?? '')) : '';
 // Profiles saved before 2026-09-29 were stored HTML-encoded ("won&#039;t"): decode, then escape once below.
 $bio        = trim(html_entity_decode((string) ($profile['bio'] ?? ''), ENT_QUOTES, 'UTF-8'));
 $location   = trim(html_entity_decode((string) ($profile['location'] ?? ''), ENT_QUOTES, 'UTF-8'));
@@ -47,6 +50,7 @@ $pub_links   = array(
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<?php /* icons on this logged-out page come from /css/pf-icons.css (no Font Awesome): map any new fa-* icon there. */ ?>
 <?php include Main::app_path() . '/libs/Layout/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -102,8 +106,7 @@ $pub_links   = array(
         'robots' => !empty($user['is_demo']) ? 'noindex, nofollow' : '',
     )); ?>
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" media="print" onload="this.media='all'">
-    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css"></noscript>
+    <link rel="stylesheet" href="/css/pf-icons.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/pf-icons.css'); ?>">
 <?php if ($site_chrome): ?>
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/landing.css'); ?>">
     <link rel="stylesheet" href="/css/sx.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/sx.css'); ?>">
@@ -118,19 +121,19 @@ $pub_links   = array(
     <div class="pf-dock" id="pf_dock" aria-hidden="true" inert>
         <div class="pf-dock__inner">
             <div class="pf-dock__id">
-                <span class="pf-dock__avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?><span class="pf-presence pf-presence--sm <?php echo $is_online ? 'is-online' : 'is-offline'; ?>"></span></span>
+                <span class="pf-dock__avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($avatar_src, ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>><?php echo $has_avatar ? '' : htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?><span class="pf-presence pf-presence--sm <?php echo $is_online ? 'is-online' : 'is-offline'; ?>"></span></span>
                 <span class="pf-dock__name"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?></span>
             </div>
             <div class="pf-dock__actions" id="pf_dock_actions"></div>
         </div>
     </div>
 
-    <div class="pf-cover<?php echo $has_cover ? '' : ' pf-cover--empty'; ?>"<?php echo $has_cover ? ' style="background-image:url(\'' . htmlspecialchars($profile['cover_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>></div>
+    <div class="pf-cover<?php echo $has_cover ? '' : ' pf-cover--empty'; ?>"><?php if ($cover_webp !== ''): ?><picture><source type="image/webp" srcset="<?php echo htmlspecialchars(PublicThumbService::cover_800($cover_webp), ENT_QUOTES, 'UTF-8'); ?> 800w, <?php echo htmlspecialchars($cover_webp, ENT_QUOTES, 'UTF-8'); ?> 1600w" sizes="100vw"><img class="pf-cover__img" src="<?php echo htmlspecialchars($profile['cover_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="" width="1600" height="400" fetchpriority="high"></picture><?php elseif ($has_cover): ?><img class="pf-cover__img" src="<?php echo htmlspecialchars($profile['cover_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="" width="1600" height="400" fetchpriority="high"><?php endif; ?></div>
 
     <div class="pf-container">
         <header class="pf-hero">
             <div class="pf-hero__top">
-                <div class="pf-avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($profile['avatar_url'], ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
+                <div class="pf-avatar"<?php echo $has_avatar ? ' style="background-image:url(\'' . htmlspecialchars($avatar_src, ENT_QUOTES, 'UTF-8') . '\')"' : ''; ?>>
                     <?php if (!$has_avatar): ?><span class="pf-avatar__initial"><?php echo htmlspecialchars($initial, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?>
                     <span class="pf-presence <?php echo $is_online ? 'is-online' : 'is-offline'; ?>" title="<?php echo $is_online ? 'Online now' : 'Offline'; ?>"></span>
                 </div>
@@ -149,6 +152,7 @@ $pub_links   = array(
             </div>
 
         </header>
+        <?php include __DIR__ . '/_featured.php'; ?>
 
         <div class="pf-grid">
             <div class="pf-main">
@@ -470,7 +474,7 @@ $pub_links   = array(
                         <?php foreach ($content_cards as $c): $cov = htmlspecialchars((string) $c['cover'], ENT_QUOTES, 'UTF-8'); ?>
                         <?php $pc_cap = trim((string) $c['caption']); $pc_label = ($c['entitled'] ? 'Open post' : 'Locked post') . ($pc_cap !== '' ? ': ' . mb_substr($pc_cap, 0, 80) : ''); ?>
                         <button type="button" class="pf-pc<?php echo $c['entitled'] ? '' : ' pf-pc--locked'; ?>" aria-label="<?php echo htmlspecialchars($pc_label, ENT_QUOTES, 'UTF-8'); ?>" data-post-id="<?php echo (int) $c['id']; ?>" data-search="<?php echo htmlspecialchars(strtolower((string) $c['caption']), ENT_QUOTES, 'UTF-8'); ?>">
-                            <span class="pf-pc__thumb"<?php echo $cov !== '' ? ' style="background-image:url(\'' . $cov . '\')"' : ''; ?>>
+                            <span class="pf-pc__thumb"><?php if ($cov !== ''): ?><img class="pf-pc__img" src="<?php echo $cov; ?>" alt="<?php echo htmlspecialchars((string) ($c['cover_alt'] ?? ''), ENT_QUOTES, 'UTF-8'); ?>" width="480" height="480" loading="lazy" decoding="async"><?php endif; ?>
                                 <?php if (!$c['entitled']): ?><span class="pf-pc__lockbadge"><i class="fa-solid fa-lock"></i></span><?php endif; ?>
                                 <?php if ($c['entitled'] && $c['has_video']): ?><span class="pf-pc__play"><i class="fa-solid fa-play"></i></span><?php endif; ?>
                                 <?php if ((int) $c['media_count'] > 1): ?><span class="pf-pc__count"><i class="fa-solid fa-layer-group"></i> <?php echo (int) $c['media_count']; ?></span><?php endif; ?>
@@ -684,6 +688,8 @@ $pub_links   = array(
             </div>
         </div>
 
+        <?php include __DIR__ . '/_similar.php'; ?>
+
         <?php if (empty($viewer_logged_in)): /* signed-in viewers are already inside the app */ ?>
         <footer class="pf-foot">
             <a class="pf-foot__brand" href="<?php echo htmlspecialchars($join_href . '&role=creator', ENT_QUOTES, 'UTF-8'); ?>">
@@ -701,13 +707,19 @@ $pub_links   = array(
     </div>
 
     <?php if (!$in_app): ?>
-    <!-- Loaded here, not in <head>, so they don't hold up the first paint; still before the script that uses them. -->
-    <script src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
-    <script src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
-    <script src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
+    <!-- Deferred (they run in this order once the page is parsed): the script below only calls ApiDataSvc from click handlers. -->
+    <script defer src="https://cdn.jsdelivr.net/npm/jquery@4.0.0/dist/jquery.min.js"></script>
+    <script defer src="/js/api.data.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/api.data.js'); ?>"></script>
+    <script defer src="/js/csrf-retry.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/csrf-retry.js'); ?>"></script>
     <?php endif; ?>
     <script>
     (function () {
+        // jquery and api.data.js load deferred: a click before they arrive does nothing now and is sent once, on load.
+        var ApiDataSvc = { apiCall: function () {
+            var args = arguments;
+            if (!window.ApiDataSvc) { window.addEventListener('load', function () { if (window.ApiDataSvc) { window.ApiDataSvc.apiCall.apply(window.ApiDataSvc, args); } }, { once: true }); return; }
+            return window.ApiDataSvc.apiCall.apply(window.ApiDataSvc, args);
+        } };
         var CREATOR_ID = <?php echo (int) $user['user_id']; ?>;
         var HANDLE     = '<?php echo htmlspecialchars((string) $user['u_name'], ENT_QUOTES, 'UTF-8'); ?>';
         var IS_SELF    = <?php echo $is_self ? 'true' : 'false'; ?>;

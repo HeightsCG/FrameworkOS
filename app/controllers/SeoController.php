@@ -134,7 +134,7 @@ class SeoController extends Controller {
             $counts = (new CreatorProfileModel())->directory_counts();
             if (array_sum($counts) > 0) {
                 $pages[] = array('path' => '/creators', 'title' => 'Creator directory', 'description' => 'Creators who chose to be listed, by category: follow them, join a membership or book a service.', 'changefreq' => 'daily', 'priority' => '0.8');
-                foreach (DirectoryService::CATEGORIES as $slug => $label) {
+                foreach (DirectoryService::categories() as $slug => $label) {
                     if (empty($counts[$slug])) { continue; }
                     $pages[] = array('path' => '/creators/' . $slug, 'title' => $label . ' creators', 'description' => $label . ' creators on ' . Main::site_name() . '.', 'changefreq' => 'daily', 'priority' => '0.6');
                 }

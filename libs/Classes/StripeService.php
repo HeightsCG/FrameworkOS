@@ -872,6 +872,7 @@ class StripeService {
                 'subscription_id'    => $sub_id,
                 'subscription_status'=> is_object($sub) ? (string) $sub->status : '',
                 'customer_id'        => (string) $session->customer,
+                'amount_total'       => (int) ($session->amount_total ?? 0),   // cents actually charged (0 on a trial)
                 'metadata'           => $session->metadata ? $session->metadata->toArray() : array(),
                 'current_period_end' => $period,
             );

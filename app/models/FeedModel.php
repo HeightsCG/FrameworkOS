@@ -35,7 +35,10 @@ class FeedModel extends Model {
                        " . sprintf($cover, 'type')        . " AS cover_type,
                        " . sprintf($cover, 'thumb_key')   . " AS cover_thumb_key,
                        " . sprintf($cover, 'poster_key')  . " AS cover_poster_key,
-                       " . sprintf($cover, 'blurred_key') . " AS cover_blurred_key
+                       " . sprintf($cover, 'blurred_key') . " AS cover_blurred_key,
+                       " . sprintf($cover, 'moderation_status') . " AS cover_moderation_status,
+                       " . sprintf($cover, 'is_adult') . " AS cover_is_adult,
+                       " . sprintf($cover, 'public_display_key') . " AS cover_public_display_key
                 FROM posts p
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
@@ -78,10 +81,16 @@ class FeedModel extends Model {
      */
     public function public_latest($limit = 6){
         $limit = max(1, min(12, (int) $limit));
+        // the cover's public webp copies (PublicThumbService) ride along; every asset here is approved and not adult.
+        $cover = "(SELECT ma.%s FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
+                    WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
+                    ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1)";
         $sql = "SELECT p.id, p.caption, p.published_at, ua.u_name, cp.display_name,
-                       (SELECT ma.thumb_key FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
-                         WHERE pa.post_id = p.id AND ma.deleted_at IS NULL AND ma.status = 'ready'
-                         ORDER BY pa.is_cover DESC, pa.sort_order ASC LIMIT 1) AS cover_thumb_key
+                       " . sprintf($cover, 'thumb_key') . " AS cover_thumb_key,
+                       " . sprintf($cover, 'public_thumb_key') . " AS public_thumb_key,
+                       " . sprintf($cover, 'public_display_key') . " AS public_display_key,
+                       " . sprintf($cover, 'public_width') . " AS public_width,
+                       " . sprintf($cover, 'public_height') . " AS public_height
                 FROM posts p
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id

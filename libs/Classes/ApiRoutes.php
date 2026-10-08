@@ -34,7 +34,7 @@ class ApiRoutes {
         ],
         'ApiCreatorStudioController' => [
             'heartbeat', 'set_timezone', 'save_creator_profile', 'save_directory_listing', 'generate_brand_identity', 'save_brand_identity', 'upload_creator_image',
-            'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'save_creator_plan',
+            'remove_creator_image', 'save_creator_link', 'delete_creator_link', 'toggle_creator_link', 'reorder_creator_links', 'tracking_link_save', 'tracking_link_delete', 'save_creator_plan',
             'delete_creator_plan', 'toggle_creator_plan', 'reorder_creator_plans', 'save_promo_code', 'toggle_promo_code', 'delete_promo_code',
             'promo_preview', 'save_bundle', 'toggle_bundle', 'delete_bundle', 'scheduler_list', 'scheduler_save',
             'scheduler_toggle', 'scheduler_delete', 'scheduler_run_now', 'scheduler_run_status', 'post_save', 'post_get', 'post_caption_auto',
@@ -77,6 +77,7 @@ class ApiRoutes {
             'admin_impersonate', 'admin_set_user_status', 'admin_moderate', 'admin_refund', 'report_submit', 'report_resolve', 'verification_request',
             'verification_resolve', 'admin_adjust_credits', 'admin_send_password_reset', 'admin_reset_mfa', 'admin_set_mfa_email',
             'admin_verify_email', 'admin_resend_verification', 'admin_cancel_membership', 'admin_billing_retry', 'admin_set_plan_cancel', 'admin_set_demo',
+            'admin_set_cross_promo_plans', 'admin_niche_save', 'admin_niche_set_active', 'admin_niche_move',
         ],
         'ApiTeamController' => [
             'team_invite', 'team_set_role', 'team_set_status', 'team_remove',
@@ -93,6 +94,9 @@ class ApiRoutes {
         ],
         'ApiServicesController' => [
             'service_save', 'service_delete', 'service_purchase', 'service_buyers', 'service_buyers_csv', 'service_refund_buyer', 'service_set_live', 'service_mark_delivered',
+        ],
+        'ApiPromoteController' => [
+            'promo_opt_in', 'promo_browse', 'promo_request', 'promo_respond', 'promo_end',
         ],
         'ApiMcpController' => [
             'mcp_token_generate', 'mcp_token_revoke',

@@ -12,7 +12,9 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <?php if (trim((string) $a['excerpt']) !== ''): ?><p class="gd-hero__lead"><?php echo $e($a['excerpt']); ?></p><?php endif; ?>
         <p class="gd-posthead__meta"><span><?php echo $e(trim((string) ($a['author'] ?? '')) !== '' ? $a['author'] : SeoMeta::site() . ' team'); ?></span><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
         </div>
-        <?php if ($cover !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover); ?>" alt="" width="1024" height="768"><?php endif; ?>
+        <?php $cover_webp = trim((string) ($a['cover_webp_url'] ?? '')); /* webp copies (PublicThumbService), else the original */ ?>
+        <?php if ($cover_webp !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover_webp); ?>" srcset="<?php echo $e(PublicThumbService::cover_small($cover_webp)); ?> 480w, <?php echo $e($cover_webp); ?> 960w" sizes="(max-width: 900px) 100vw, 340px" alt="<?php echo $e($a['title']); ?>" width="960" height="720" fetchpriority="high">
+        <?php elseif ($cover !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover); ?>" alt="<?php echo $e($a['title']); ?>" width="1024" height="768" fetchpriority="high"><?php endif; ?>
     </header>
 
     <div class="gd-post">
@@ -41,7 +43,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
     <ol class="gd-list">
         <?php foreach ($related as $r): $img = trim((string) ($r['cover_image_url'] ?? '')); ?>
         <li class="gd-row<?php echo $img === '' ? ' gd-row--noimg' : ''; ?>">
-            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e($img); ?>" alt="<?php echo $e($r['title']); ?>" loading="lazy" width="160" height="120"></a><?php endif; ?>
+            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e(trim((string) ($r['cover_webp_url'] ?? '')) !== '' ? PublicThumbService::cover_small($r['cover_webp_url']) : $img); ?>" alt="<?php echo $e($r['title']); ?>" loading="lazy" decoding="async" width="160" height="120"></a><?php endif; ?>
             <div class="gd-row__body">
                 <p class="gd-row__topic"><?php echo $e(BlogController::topic($r)); ?></p>
                 <h3 class="gd-row__title"><a href="/blog/<?php echo $e($r['slug']); ?>"><?php echo $e($r['title']); ?></a></h3>

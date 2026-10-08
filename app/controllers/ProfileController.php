@@ -73,6 +73,7 @@ class ProfileController extends Controller {
             }
         }
 
+        TrackingLinks::from_query((int) $user['user_id']);   // ?tl= from a /go tracking link: remember it on this host too
         $profile = (new CreatorProfileModel())->get_for_user($user['user_id']);
 
         $links = array();
@@ -442,8 +443,11 @@ class ProfileController extends Controller {
                             'url' => MediaService::signed_variant($a, $img_variant, 900), 'poster' => '');
                     }
                 }
-                // Grid card uses a small, uniform thumbnail (poster for a video cover).
-                $card['cover'] = $cover ? MediaService::signed_variant($cover, ($cover['type'] === 'video' ? 'poster' : 'thumb'), 900) : '';
+                // Grid card uses a small, uniform thumbnail (poster for a video cover). Free posts use the public,
+                // cacheable webp copy when it exists (PublicThumbService); anything else stays a signed URL.
+                $pub = ($cover && $audience === 'free') ? PublicThumbService::url($cover, 'grid') : '';
+                $card['cover'] = $pub !== '' ? $pub : ($cover ? MediaService::signed_variant($cover, ($cover['type'] === 'video' ? 'poster' : 'thumb'), 900) : '');
+                $card['cover_alt'] = PublicThumbService::alt($cap, $display_name);
             } else {
                 // Non-entitled: only the blurred variant is ever signed.
                 $card['cover'] = $cover ? MediaService::signed_variant($cover, 'blurred', 900) : '';
@@ -505,6 +509,7 @@ class ProfileController extends Controller {
         $subs->record_paid($viewer_id, (int) $creator['user_id'], $plan, $session + array('sub_status' => (string) ($session['subscription_status'] ?? '')));
         // Reloading the success URL must not re-count the discount code or re-send the notices.
         if (!$subs->claim_checkout_recorded((string) ($session['subscription_id'] ?? ''))) { return true; }
+        TrackingLinks::attribute((int) $creator['user_id'], 'subscription', (int) $viewer_id, (string) ($session['subscription_status'] ?? '') === 'trialing' ? 0 : (int) round((int) ($session['amount_total'] ?? 0) / 10), 'creator_plans', (int) $plan['id']);   // what the card paid, in credits ($1 = 10); 0 on a trial
         $cname = Notify::name_of((int) $creator['user_id']); $chandle = Notify::handle_of((int) $creator['user_id']);
         Notify::send((int) $viewer_id, 'subscriptions', 'You\'re subscribed to ' . ($cname !== '' ? $cname : $plan['name']), $plan['name'] . ' · $' . number_format(((int) $plan['price_cents']) / 100, 2) . ' per ' . (string) ($plan['billing_interval'] ?? 'month') . '. Manage it in Settings › My Subscriptions.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
         Notify::send((int) $creator['user_id'], 'subscriptions', 'New subscriber', (Notify::name_of((int) $viewer_id) ?: 'Someone') . ' subscribed to ' . $plan['name'] . '.', '/audience', 'fa-user-plus');

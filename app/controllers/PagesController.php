@@ -513,36 +513,50 @@ class PagesController extends Controller {
         $this->page('compare', array('path' => $path, 'title' => $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
-    /** Creator directory: /creators and /creators/<category>, ?page=N (DirectoryService; opt-in, safe for work). */
+    /**
+     * Creator directory: /creators and /creators/<niche> (DirectoryService; opt-in, safe for work). ?q= searches name,
+     * handle and bio (noindex), ?sort= picks the order (canonical always points at the default order), ?page=N.
+     */
     public function creatorsAction(){
-        $url = Main::get_url();
+        $url  = Main::get_url();
+        $cats = DirectoryService::categories();
         if (count($url) > 2) { Errors::page_not_found(); return; }
         $cat = '';
         if (count($url) === 2) {
             $cat = (string) $url[1];
-            if (!isset(DirectoryService::CATEGORIES[$cat])) { Errors::page_not_found(); return; }
+            if (!isset($cats[$cat])) { Errors::page_not_found(); return; }
         }
         $raw  = (string) ($_GET['page'] ?? '1');
         $page = ctype_digit($raw) ? max(1, (int) $raw) : 0;
         if ($page === 0) { Errors::page_not_found(); return; }
+        $sorts = array_keys(DirectoryService::SORTS);
+        $sort  = is_string($_GET['sort'] ?? null) && isset(DirectoryService::SORTS[$_GET['sort']]) ? $_GET['sort'] : $sorts[0];   // unknown sort: the default order
+        $q    = is_string($_GET['q'] ?? null) ? mb_substr(trim($_GET['q']), 0, 80) : '';
+        $q_on = mb_strlen(ltrim($q, '@')) >= 2;
 
         $model  = new CreatorProfileModel();
-        $counts = $model->directory_counts();
-        $total  = $cat === '' ? array_sum($counts) : (int) ($counts[$cat] ?? 0);
+        $counts = array();
+        try { $counts = $model->directory_counts(); }
+        catch (\Throwable $e) { error_log('[directory] counts: ' . $e->getMessage()); }   // before the niches SQL runs: no chips, the list still renders
+        $listed = $model->directory_total($cat, '');
+        $all    = $cat === '' ? $listed : $model->directory_total('', '');   // the "All" chip: every listed creator, on every page
+        $total  = $q_on ? $model->directory_total($cat, $q) : $listed;
         $pages  = max(1, (int) ceil($total / DirectoryService::PER_PAGE));
         if ($page > $pages) { Errors::page_not_found(); return; }
-        $creators = $model->directory($cat, DirectoryService::PER_PAGE, ($page - 1) * DirectoryService::PER_PAGE);
+        $creators = $model->directory($cat, $q_on ? $q : '', $sort, DirectoryService::PER_PAGE, ($page - 1) * DirectoryService::PER_PAGE);
+        $featured = ($page === 1 && !$q_on && $listed > DirectoryService::FEATURED) ? $model->directory_featured($cat, gmdate('Y-m-d'), DirectoryService::FEATURED) : array();
 
-        $label = $cat === '' ? '' : DirectoryService::CATEGORIES[$cat];
+        $label = $cat === '' ? '' : $cats[$cat];
         $base  = '/creators' . ($cat !== '' ? '/' . $cat : '');
-        $title = $cat === '' ? 'Creator Directory: Find Creators to Follow and Support' : $label . ' Creators to Follow and Support';
-        $show_n = $total >= self::DIRECTORY_COUNT_MIN;
+        $title = $q_on ? 'Creators Matching "' . $q . '"' : ($cat === '' ? 'Creator Directory: Find Creators to Follow and Support' : $label . ' Creators to Follow and Support');
+        $show_n = $listed >= self::DIRECTORY_COUNT_MIN;
         $desc  = $cat === ''
-            ? 'Browse creators on ' . Main::site_name() . ': memberships, posts, services and events from ' . ($show_n ? $total . ' creators' : 'creators') . ', sorted by who\'s active.'
-            : 'Browse ' . ($show_n ? $total . ' ' : '') . strtolower($label) . ' creators on ' . Main::site_name() . ' and follow, subscribe or book them from their page.';
+            ? 'Browse creators on ' . Main::site_name() . ': memberships, posts, services and events from ' . ($show_n ? $listed . ' creators' : 'creators') . '.'
+            : 'Browse ' . ($show_n ? $listed . ' ' : '') . strtolower($label) . ' creators on ' . Main::site_name() . ' and follow, subscribe or book them from their page.';
+        $link = function ($n) use ($base, $sort, $q, $q_on, $sorts) { return self::directory_url($base, $n, $sort === $sorts[0] ? '' : $sort, $q_on ? $q : ''); };
         $extra = array();
-        if ($page > 1)      { $extra[] = '<link rel="prev" href="' . Sections::e(SeoMeta::base() . $base . ($page > 2 ? '?page=' . ($page - 1) : '')) . '">'; }
-        if ($page < $pages) { $extra[] = '<link rel="next" href="' . Sections::e(SeoMeta::base() . $base . '?page=' . ($page + 1)) . '">'; }
+        if ($page > 1)      { $extra[] = '<link rel="prev" href="' . Sections::e(SeoMeta::base() . $link($page - 1)) . '">'; }
+        if ($page < $pages) { $extra[] = '<link rel="next" href="' . Sections::e(SeoMeta::base() . $link($page + 1)) . '">'; }
 
         $items = array(); $pos = 1;
         foreach ($creators as $c) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/@' . rawurlencode((string) $c['u_name']), 'name' => (string) ($c['display_name'] ?: $c['u_name'])); }
@@ -553,8 +567,19 @@ class PagesController extends Controller {
             array('@type' => 'ItemList', 'numberOfItems' => $total, 'itemListElement' => $items),
             SeoMeta::breadcrumbs($crumbs),
         );
-        $this->page('creators', array('path' => $base . ($page > 1 ? '?page=' . $page : ''), 'title' => $title . ($page > 1 ? ' (Page ' . $page . ')' : ''), 'description' => $desc,
-            'jsonld' => $jsonld, 'extra' => $extra, 'noindex' => $total === 0),
-            array('creators' => $creators, 'counts' => $counts, 'show_counts' => $show_n, 'cat' => $cat, 'label' => $label, 'page' => $page, 'pages' => $pages, 'total' => $total, 'base' => $base));
+        // canonical: the default order of this page; a search is noindex and points at the unfiltered list.
+        $this->page('creators', array('path' => self::directory_url($base, $q_on ? 1 : $page, '', ''), 'title' => $title . ($page > 1 ? ' (Page ' . $page . ')' : ''), 'description' => $desc,
+            'jsonld' => $jsonld, 'extra' => $extra, 'noindex' => $total === 0 || $q_on),
+            array('creators' => $creators, 'featured' => $featured, 'counts' => $counts, 'cats' => $cats, 'show_counts' => $show_n, 'cat' => $cat, 'label' => $label,
+                'page' => $page, 'pages' => $pages, 'total' => $total, 'listed' => $listed, 'all' => $all, 'base' => $base, 'sort' => $sort, 'q' => $q, 'q_on' => $q_on, 'link' => $link));
+    }
+
+    /** A directory URL: /creators[/<niche>] with ?q=, ?sort= (omitted for the default) and ?page= (omitted for page 1). */
+    public static function directory_url($base, $page, $sort, $q): string {
+        $qs = array();
+        if ((string) $q !== '')    { $qs['q'] = (string) $q; }
+        if ((string) $sort !== '') { $qs['sort'] = (string) $sort; }
+        if ((int) $page > 1)       { $qs['page'] = (int) $page; }
+        return $base . (empty($qs) ? '' : '?' . http_build_query($qs, '', '&', PHP_QUERY_RFC3986));
     }
 }

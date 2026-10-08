@@ -50,6 +50,8 @@ class DashboardController extends Controller {
         $this->view->sub_movement      = $a->subscriber_movement($user_id, $range, $tz);
         $this->view->profile_views     = $a->profile_view_stats($user_id, $range, $tz);
         $this->view->link_clicks       = $a->link_click_stats($user_id, $range, $tz);
+        try { $this->view->tracking_links = (new TrackingLinksModel())->stats($user_id, $start_utc); }
+        catch (\Throwable $e) { error_log('[dashboard] tracking_links: ' . $e->getMessage()); $this->view->tracking_links = array(); }   // before the tracking_links sql has run
         $this->view->heatmap           = $a->activity_heatmap($user_id, $tz);
         $this->view->content_mix       = $a->content_mix($user_id);
         $this->view->posts_table       = $a->posts_table($user_id, $start_utc);

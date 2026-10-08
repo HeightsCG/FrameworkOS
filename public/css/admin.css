@@ -550,3 +550,12 @@ a.adm-user-link:hover .adm-uinfo__name, a.adm-user-link:hover{ color:var(--acc-i
 .adm-zoom__n{ position:absolute; left:50%; bottom:16px; transform:translateX(-50%); font-size:13px; color:rgba(255, 255, 255, .7); }
 .adm-zoom__n[hidden]{ display:none; }
 @media (max-width:600px){ .adm-zoom{ padding:56px 16px; } }
+
+/* Niches tab: the Creator Directory categories */
+.adm-table--niches .adm-table__head, .adm-table--niches .adm-crow{ display:grid; grid-template-columns:minmax(0,2.4fr) 100px 120px 40px; gap:1rem; align-items:center; }
+#admNicheModal .form-control.is-invalid{ border-color:var(--danger); }
+@media (max-width:760px){
+    .adm-table--niches .adm-table__head, .adm-table--niches .adm-crow{ grid-template-columns:minmax(0,1fr) 80px 40px; }
+    .adm-table--niches .adm-crow > .adm-ucell:nth-child(2), .adm-table--niches .adm-table__head > span:nth-child(2){ display:none; }
+}
+#admNicheForm .ai-field + .ai-field{ margin-top:16px; }

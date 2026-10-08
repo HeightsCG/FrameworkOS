@@ -205,6 +205,7 @@ class SeoDrafter {
                 $old = (string) ($article['cover_image_url'] ?? '');
                 (new SeoArticlesModel())->update_fields((int) $article['id'], array('cover_image_url' => $url));
                 if ($old !== '' && strpos($old, '/creator/blog/') !== false) { S3Service::delete_by_url($old); }
+                PublicThumbService::blog_cover((int) $article['id'], $url, (string) ($article['cover_webp_url'] ?? ''));   // webp copies for the page
             }
             return $url;
         } catch (\Throwable $e) {

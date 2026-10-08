@@ -67,15 +67,19 @@ $ago = function ($utc) {
 };
 $tiles = '';
 foreach ($latest as $i => $lp) {
-    $thumb = !empty($lp['cover_thumb_key']) ? S3Service::presigned_get_url((string) $lp['cover_thumb_key'], 3600) : '';
+    // the public, cacheable webp copy when it exists (the big tile gets the larger one); else a signed thumbnail.
+    $big = ($tiles === '');
+    $pub = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), $big ? 'feed' : 'grid');
+    $thumb = $pub !== '' ? $pub : (!empty($lp['cover_thumb_key']) ? S3Service::presigned_get_url((string) $lp['cover_thumb_key'], 3600) : '');
     if ($thumb === '') { continue; }
+    list($tw, $th) = $pub !== '' ? PublicThumbService::size($lp, $big ? 'feed' : 'grid') : array(0, 0);
+    if ($tw === 0) { $tw = 800; $th = 800; }
     $who = '@' . $lp['u_name'];   // public pages show the handle only, never the display name
     $ini = strtoupper(mb_substr(preg_replace('/[^\p{L}\p{N}]/u', '', $who), 0, 2));
     $cap = trim(html_entity_decode(strip_tags((string) $lp['caption']), ENT_QUOTES, 'UTF-8'));
     if (mb_strlen($cap) > 110) { $cap = rtrim(mb_substr($cap, 0, 108)) . '…'; }
-    $big = ($tiles === '');
     $tiles .= '<a class="lm__tile' . ($big ? ' lm__tile--big' : '') . '" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '">'
-        . '<img src="' . Sections::e($thumb) . '" alt="" loading="lazy" width="800" height="800">'
+        . '<img src="' . Sections::e($thumb) . '" alt="' . Sections::e(PublicThumbService::alt($lp['caption'], $who)) . '" loading="lazy" decoding="async" width="' . (int) $tw . '" height="' . (int) $th . '">'
         . ($big ? '<span class="lm__new"><i aria-hidden="true"></i>New</span>' : '')
         . '<span class="lm__meta"><span class="lm__av" aria-hidden="true">' . Sections::e($ini) . '</span><span class="lm__id"><b>' . Sections::e($who) . '</b><small>' . Sections::e($ago($lp['published_at'])) . '</small></span></span>'
         . ($big && $cap !== '' ? '<span class="lm__cap">' . Sections::e($cap) . '</span>' : '')

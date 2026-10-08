@@ -81,6 +81,7 @@ class PostsModel extends Model {
         } elseif (array_key_exists('audience', $fields) && $data['audience'] !== 'subscribers') {
             $this->set_tiers((int) $id, array());
         }
+        if (array_key_exists('audience', $fields) || array_key_exists('on_cls', $fields)) { PublicThumbService::queue_purge(array('post' => (int) $id)); }   // gated or off the site: public copies come down
         return $res;
     }
 
@@ -179,6 +180,7 @@ class PostsModel extends Model {
             }
             parent::update('posts', $data, 'id = :id AND creator_id = :c', array('id' => $pid, 'c' => $creator_id));
         }
+        PublicThumbService::queue_purge(array('assets' => array($asset_id)));   // detached media loses its public copy
         return array('affected' => $affected, 'unpublished' => $unpublished);
     }
 
@@ -187,7 +189,8 @@ class PostsModel extends Model {
         return parent::select(
             "SELECT pa.asset_id, pa.sort_order, pa.is_cover,
                     ma.creator_id, ma.type, ma.status, ma.duration_sec, ma.moderation_status, ma.is_adult, ma.provenance, ma.width, ma.height,
-                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at
+                    ma.thumb_key, ma.display_key, ma.poster_key, ma.blurred_key, ma.original_key, ma.mime, ma.deleted_at,
+                    ma.public_thumb_key, ma.public_display_key, ma.public_width, ma.public_height
              FROM post_assets pa
              JOIN media_assets ma ON ma.id = pa.asset_id
              WHERE pa.post_id = :p
@@ -317,8 +320,10 @@ class PostsModel extends Model {
             $post = $this->get_one($creator_id, $id);
             $data['published_at'] = ($post && !empty($post['published_at'])) ? $post['published_at'] : ($published_at ?: date('Y-m-d H:i:s'));
         }
-        return parent::update('posts', $data, 'id = :id AND creator_id = :c',
+        $res = parent::update('posts', $data, 'id = :id AND creator_id = :c',
             array('id' => (int) $id, 'c' => (int) $creator_id));
+        if ($state !== 'published') { PublicThumbService::queue_purge(array('post' => (int) $id)); }   // unpublished: public copies come down
+        return $res;
     }
 
     /**
@@ -441,10 +446,13 @@ class PostsModel extends Model {
     public function delete_post($creator_id, $id){
         $owned = $this->get_one($creator_id, $id);
         if (!$owned) { return 0; }
+        $asset_ids = array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $id)), 'asset_id');
         parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $id));
         parent::delete_all('post_tiers',  'post_id = :p', array('p' => (int) $id));
-        return parent::delete('posts', 'id = :id AND creator_id = :c', 1,
+        $res = parent::delete('posts', 'id = :id AND creator_id = :c', 1,
             array('id' => (int) $id, 'c' => (int) $creator_id));
+        PublicThumbService::queue_purge(array('assets' => $asset_ids));   // its media may no longer be in any free post
+        return $res;
     }
 
     /** Claim the new-post notice for one follower; true only the first time (PRIMARY KEY is the mutex). */

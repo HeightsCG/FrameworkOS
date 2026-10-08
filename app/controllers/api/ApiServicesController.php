@@ -174,6 +174,7 @@ class ApiServicesController extends BaseApiController {
             }
         }
 
+        if ($price > 0) { TrackingLinks::attribute($creator_id, 'purchase', $me, $price, 'services', $id); }   // a free booking isn't a purchase
         $t = mb_substr(html_entity_decode((string) $sv['name'], ENT_QUOTES, 'UTF-8'), 0, 60);
         $handle = '';
         $h = $this->userModel->get_user_by_id($creator_id);

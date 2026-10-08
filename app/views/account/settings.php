@@ -330,8 +330,41 @@
                         <label class="dir-row__label" for="dir_listed">List me in the Creator Directory</label>
                         <select class="form-select dir-row__cat" id="dir_category" aria-label="Directory category">
                             <option value="">Choose a category</option>
-                            <?php foreach (DirectoryService::CATEGORIES as $dk => $dl): ?><option value="<?php echo $dk; ?>"<?php echo ((string) ($cp['directory_category'] ?? '')) === $dk ? ' selected' : ''; ?>><?php echo htmlspecialchars($dl, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?>
+                            <?php foreach (DirectoryService::choices($cp['directory_category'] ?? '') as $dk => $dl): ?><option value="<?php echo $dk; ?>"<?php echo ((string) ($cp['directory_category'] ?? '')) === $dk ? ' selected' : ''; ?>><?php echo htmlspecialchars($dl, ENT_QUOTES, 'UTF-8'); ?></option><?php endforeach; ?>
                         </select>
+                    </div>
+                    <?php if (Permissions::team_allows('manage') && PromoSwapsModel::eligible(Permissions::creator_id())): /* cross-promotion opt-in (/promote), saved on change */ ?>
+                    <div class="dir-row" style="margin-top:16px;">
+                        <label class="notif__switch">
+                            <input type="checkbox" id="cross_promo_in" <?php echo !empty($cp['cross_promo_in']) ? 'checked' : ''; ?> aria-label="Cross-Promotion">
+                            <span class="notif__slider"></span>
+                        </label>
+                        <label class="dir-row__label" for="cross_promo_in">Cross-Promotion</label>
+                        <a class="btn btn-secondary btn-sm" href="/promote">Find Partners</a>
+                    </div>
+                    <script>
+                    document.getElementById('cross_promo_in').addEventListener('change', function () {
+                        var box = this; box.disabled = true;
+                        ApiDataSvc.apiCall('post', 'promo_opt_in', { on: box.checked ? 1 : 0 }, function (data) {
+                            box.disabled = false;
+                            var o = null; try { o = JSON.parse(data); } catch (e) {}
+                            if (!o || !o.success) { box.checked = !box.checked; toastr.error((o && o.message) || 'Could not save Cross-Promotion'); return; }
+                            toastr.success(o.message);
+                        });
+                    });
+                    </script>
+                    <?php endif; ?>
+
+                    <div class="cprofile__divider"></div>
+                    <div class="cprofile__subhead">
+                        <h3 class="cprofile__subtitle">More Creators Like This</h3>
+                    </div>
+                    <div class="dir-row" style="flex-wrap:nowrap;">
+                        <label class="notif__switch">
+                            <input type="checkbox" id="similar_on" <?php echo empty($cp['similar_off']) ? 'checked' : ''; ?> aria-label="Show More Creators Like This on My Page">
+                            <span class="notif__slider"></span>
+                        </label>
+                        <label class="dir-row__label" for="similar_on">Show More Creators Like This on My Page</label>
                     </div>
 
                     <div class="cprofile__actions cprofile__actions--end">
@@ -2382,7 +2415,8 @@ $(function () {
         ApiDataSvc.apiCall('post', 'save_creator_profile', {
             display_name: $('#cp_display_name').val(),
             bio:          $('#cp_bio').val(),
-            location:     $('#cp_location').val()
+            location:     $('#cp_location').val(),
+            similar_on:   $('#similar_on').length ? ($('#similar_on').is(':checked') ? 1 : 0) : ''
         }, function (data) {
             var o = JSON.parse(data);
             if (!o.success) { btn.prop('disabled', false); toastr.error(o.message); return; }

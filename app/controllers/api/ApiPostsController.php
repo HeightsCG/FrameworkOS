@@ -86,7 +86,11 @@ class ApiPostsController extends BaseApiController {
             if (!$has_cover) {
                 $card['cover'] = '';
             } elseif ($entitled) {
-                $card['cover'] = MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
+                // free posts use the public, cacheable webp copy (PublicThumbService checks the asset is approved and not adult).
+                $pub = $audience === 'free' ? PublicThumbService::url(array(
+                    'moderation_status' => (string) ($p['cover_moderation_status'] ?? ''), 'is_adult' => (int) ($p['cover_is_adult'] ?? 1),
+                    'public_display_key' => (string) ($p['cover_public_display_key'] ?? '')), 'feed') : '';
+                $card['cover'] = $pub !== '' ? $pub : MediaService::signed_variant($cover_asset, ($cover_asset['type'] === 'video' ? 'poster' : 'thumb'), 900);
             } else {
                 $card['cover'] = MediaService::signed_variant($cover_asset, 'blurred', 900);
             }
@@ -333,6 +337,7 @@ class ApiPostsController extends BaseApiController {
             (new PostsModel())->add_earnings($post_id, $net * 10); // 1 credit = 10 cents
             $unlocks->set_net($post_id, $viewer, $net);
         }
+        TrackingLinks::attribute($creator_id, 'ppv', $viewer, $charge, 'posts', $post_id);
         $this->notify($creator_id, 'purchases', 'New pay-per-view sale',
             'Someone unlocked your post for ' . Notify::credits($charge) . '.', '/dashboard', 'fa-coins');
         $this->notify($viewer, 'purchases', 'Post unlocked',
@@ -403,6 +408,7 @@ class ApiPostsController extends BaseApiController {
         // The bundle_unlocks row is the grant — the media now appears in the fan's
         // Purchases (which reads bundle_unlocks). No post unlocking involved.
         if ($net > 0) { $model->set_unlock_net($bundle_id, $viewer, $net); }
+        TrackingLinks::attribute($creator_id, 'purchase', $viewer, $price, 'content_bundles', $bundle_id);
         $this->notify($creator_id, 'purchases', 'New bundle sale',
             'Someone purchased your bundle for ' . Notify::credits($price) . '.', '/dashboard', 'fa-coins');
         $this->notify($viewer, 'purchases', 'Bundle purchased',
@@ -433,6 +439,7 @@ class ApiPostsController extends BaseApiController {
         if ((new BlocksModel())->either_blocked($user_id, (int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
         if ($this->seller_suspended((int) $plan['user_id'])) { $this->jsonError('That plan is no longer available'); }
         (new CreatorSubscriptionsModel())->join_free($user_id, (int) $plan['user_id'], $plan);
+        TrackingLinks::attribute((int) $plan['user_id'], 'subscription', $user_id, 0, 'creator_plans', (int) $plan['id']);
         $cname = Notify::name_of((int) $plan['user_id']); $chandle = Notify::handle_of((int) $plan['user_id']);
         $this->notify($user_id, 'subscriptions', 'You joined ' . $plan['name'], ($cname !== '' ? $cname . '\'s ' : '') . 'free membership is active.', $chandle !== '' ? '/@' . $chandle : '/', 'fa-heart');
         $this->notify((int) $plan['user_id'], 'subscriptions', 'New member', (Notify::name_of($user_id) ?: 'Someone') . ' joined ' . $plan['name'] . '.', '/audience', 'fa-user-plus');

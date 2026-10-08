@@ -32,6 +32,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'bio'          => $plain('bio'),
             'location'     => $plain('location'),
         ]);
+        if ((string) ($this->post['similar_on'] ?? '') !== '') { (new CreatorProfileModel())->set_similar_off(Permissions::creator_id(), empty($this->post['similar_on'])); }   // "More Creators Like This" switch
 
         try { IndexNow::creator((int) Permissions::creator_id()); } catch (\Throwable $e) { error_log('[indexnow] profile: ' . $e->getMessage()); }
         $this->jsonSuccess(['message' => 'Profile saved']);
@@ -119,7 +120,10 @@ class ApiCreatorStudioController extends BaseApiController {
         }
 
         $column = ($kind === 'avatar') ? 'avatar_url' : 'cover_url';
-        (new CreatorProfileModel())->set_image($user_id, $column, $url);
+        $profiles = new CreatorProfileModel();
+        $old_webp = (string) ($profiles->get_for_user($user_id)[$kind . '_webp_url'] ?? '');
+        $profiles->set_image($user_id, $column, $url);
+        PublicThumbService::profile_image($user_id, $kind, $url, $old_webp);   // webp copies for the public page
 
         $this->jsonSuccess(['url' => $url, 'message' => ucfirst($kind) . ' updated']);
     }
@@ -143,6 +147,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($old_url !== '') {
             S3Service::delete_by_url($old_url);
         }
+        PublicThumbService::profile_image($user_id, $kind, '', (string) ($current[$kind . '_webp_url'] ?? ''));   // drops the webp copies
 
         $this->jsonSuccess(['message' => ucfirst($kind) . ' removed']);
     }
@@ -187,6 +192,39 @@ class ApiCreatorStudioController extends BaseApiController {
         }
         (new CreatorLinksModel())->delete_link(Permissions::creator_id(), $id);
         $this->jsonSuccess(['message' => 'Link removed']);
+    }
+
+    /** New inbound tracking link (Dashboard > Audience): {label, code?, target_path?}. The code is generated when left empty. */
+    public function tracking_link_saveAction(){
+        $this->require_creator('content', false);
+        $dec   = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
+        $label = mb_substr($dec('label'), 0, 120);
+        $code  = strtolower($dec('code'));
+        $path  = $dec('target_path');
+        if ($label === '') { $this->jsonError('A label is required'); }
+        $clean = TrackingLinks::clean_path($path);
+        if ($path !== '' && $path !== '/' && $clean === '') { $this->jsonError('The page path can only use letters, numbers, dashes and slashes, like /events/3'); }
+        $model = new TrackingLinksModel();
+        if ($code === '') {
+            do { $code = substr(str_shuffle('abcdefghjkmnpqrstuvwxyz23456789'), 0, 8); } while (!preg_match('/[a-z]/', $code) || strpos($code, 'cls') === 0 || $model->code_exists($code));
+        } elseif (ctype_digit($code)) {
+            $this->jsonError('Codes need at least one letter');
+        } elseif (!TrackingLinks::valid_code($code) || strpos($code, 'cls') === 0) {
+            $this->jsonError('The code must be 6 to 32 letters or numbers and can\'t start with "cls"');
+        } elseif ($model->code_exists($code)) {
+            $this->jsonError('That code is taken. Try another.');
+        }
+        $id = $model->add(Permissions::creator_id(), $code, $label, $clean);
+        if ($id <= 0) { $this->jsonError('Could not create the link'); }
+        $this->jsonSuccess(['message' => 'Tracking link created', 'id' => $id, 'url' => rtrim(Main::get_base_domain(), '/') . '/go/' . $code]);
+    }
+
+    public function tracking_link_deleteAction(){
+        $this->require_creator('content', false);
+        $id = (int) ($this->post['id'] ?? 0);
+        if ($id <= 0) { $this->jsonError('Link is required'); }
+        (new TrackingLinksModel())->delete_link(Permissions::creator_id(), $id);
+        $this->jsonSuccess(['message' => 'Tracking link deleted']);
     }
 
     /* ---- custom domain (Studio plan): lexivaughn.com serves the creator's profile ---- */

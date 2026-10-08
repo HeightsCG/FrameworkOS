@@ -140,6 +140,38 @@ class S3Service {
     }
 
     /**
+     * Store raw bytes under a key the bucket policy serves publicly (creator/*), with a Cache-Control header
+     * (e.g. 'public, max-age=31536000, immutable'). Returns the public URL, or '' on failure.
+     */
+    public static function put_public_bytes($key, $bytes, $content_type, $cache_control = ''): string
+    {
+        if (!self::configured()) {
+            error_log('[s3] public upload attempted but S3 is not configured');
+            return '';
+        }
+        try {
+            $args = array(
+                'Bucket'      => self::bucket(),
+                'Key'         => $key,
+                'Body'        => $bytes,
+                'ContentType' => $content_type,
+            );
+            if ((string) $cache_control !== '') { $args['CacheControl'] = (string) $cache_control; }
+            self::client()->putObject($args);
+        } catch (\Throwable $e) {
+            error_log('[s3] public bytes upload failed: ' . $e->getMessage());
+            return '';
+        }
+        return self::public_url($key);
+    }
+
+    /** Permanent URL of an object under the public-read prefix ('' for an empty key). */
+    public static function public_url($key): string
+    {
+        return (string) $key === '' ? '' : 'https://' . self::bucket() . '.s3.' . self::region() . '.amazonaws.com/' . $key;
+    }
+
+    /**
      * Mint a short-lived presigned GET URL for a private object. $ttl is seconds
      * (default 10 min). Returns '' if S3 isn't configured or $key is empty. The
      * CALLER is responsible for the entitlement check before calling this.

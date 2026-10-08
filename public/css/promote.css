@@ -1,0 +1,56 @@
+/* Cross-promotion: the /promote page (on top of events.css) and the profile's Featured Creators block (_featured.php) */
+
+/* ---- /promote ---- */
+.pr-empty__cta{ margin-top:16px; }
+.pr-note{ margin:12px 0 0; font-size:14px; color:var(--muted); text-align:center; }
+.pr-work{ min-height:420px; }
+.pr-niche{ flex:0 0 200px; height:40px; font-size:14px; border:1px solid rgba(29, 29, 29, .14); border-radius:2px; box-shadow:none; }
+.pr-niche:focus{ border-color:var(--acc); box-shadow:0 0 0 2px rgba(255, 106, 19, .2); }
+.pr-tbl .pr-col-niche{ width:18%; }
+.pr-tbl .pr-col-num{ width:14%; }
+.pr-tbl .pr-col-state{ width:14%; }
+.pr-tbl .pr-col-len{ width:12%; }
+.pr-tbl .pr-col-date{ width:16%; }
+.pr-tbl .pr-col-dir{ width:34%; }
+.pr-row.is-open{ cursor:pointer; }
+.pr-row.is-open:focus-visible{ outline:2px solid var(--acc); outline-offset:-2px; }
+.pr-row[hidden], .evm-tbl__msg[hidden]{ display:none; }
+.pr-dir{ display:block; color:var(--text); font-weight:500; }
+.pr-notetext{ display:block; font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pr-tbl td.pr-col-dir{ line-height:1.35; }
+
+/* the request dialog is small: the editor shell without the section nav */
+.pr-modal .cs-ae{ max-width:min(560px, calc(100vw - 32px)); }
+.pr-modal .cs-ae__surface{ height:auto; }
+.pr-modal .cs-ae__main{ padding:24px 32px 8px; }
+.pr-modal .ev-editor__context{ margin:6px 0 0; font-size:14px; color:var(--t2); }
+
+@media (max-width:720px){
+    .evm-tools{ flex-wrap:wrap; }
+    .pr-niche{ flex:1 1 100%; }
+    .pr-tbl .pr-col-niche, .pr-tbl .pr-col-len, .pr-tbl .pr-col-date{ display:none; }
+    .pr-tbl .pr-col-num{ width:22%; }
+    .pr-tbl .pr-col-state{ width:26%; }
+    .pr-tbl .pr-col-dir{ width:40%; }
+}
+
+/* ---- Featured Creators on a profile (profile.css tokens) ---- */
+.pf-feat{ margin-top:16px; }
+.pf-feat__title{ margin:0 0 12px; font-size:1rem; font-weight:600; letter-spacing:-.01em; color:var(--pf-ink); }
+.pf-feat__grid{ display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:12px; }
+.pf-feat__card{ display:flex; align-items:center; gap:12px; min-width:0; padding:12px; background:var(--pf-surface); border:1px solid var(--pf-line); border-radius:var(--pf-radius); color:var(--pf-ink); text-decoration:none; transition:border-color .15s, box-shadow .15s; }
+.pf-feat__card:hover{ border-color:#DADADA; box-shadow:0 1px 2px rgba(0, 0, 0, .05); color:var(--pf-ink); }
+.pf-feat__card:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc, #FF6A13); }
+.pf-feat__avatar{ display:inline-flex; align-items:center; justify-content:center; width:48px; height:48px; flex:none; border-radius:4px; background:#F2F2F2; color:#8a8797; overflow:hidden; font-weight:700; }
+.pf-feat__avatar img{ width:100%; height:100%; object-fit:cover; border-radius:inherit; display:block; }
+.pf-feat__body{ display:flex; flex-direction:column; gap:2px; min-width:0; }
+.pf-feat__name, .pf-feat__handle, .pf-feat__price{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.pf-feat__name{ font-size:.9rem; font-weight:600; }
+.pf-feat__badge{ font-size:.75rem; color:var(--acc-ink, #C2410C); }
+.pf-feat__handle{ font-size:.8rem; color:var(--pf-muted); }
+.pf-feat__price{ font-size:.75rem; color:var(--pf-faint); }
+@media (max-width:1100px){ .pf-feat__grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+@media (max-width:560px){
+    .pf-feat__grid{ grid-template-columns:1fr; gap:8px; }
+    .pf-feat__card{ min-height:44px; }
+}

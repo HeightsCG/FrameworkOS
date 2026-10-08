@@ -427,6 +427,64 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
             <?php endif; ?>
         </div>
 
+        <?php $tl = (array) ($this->tracking_links ?? array()); $tl_base = rtrim(Main::get_base_domain(), '/'); ?>
+        <div class="dash__panel" id="dashTracking">
+            <div class="dash__panel-head">
+                <div><h2 class="dash__panel-title">Tracking Links</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?> · revenue in credits</span></div>
+                <button type="button" class="btn btn-secondary dash-tl__new" id="dashTlNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Tracking Link</button>
+            </div>
+            <?php if (empty($tl)): ?>
+            <div class="dash__empty">No tracking links yet. Put one in a bio, post or ad to see the follows, signups and sales it brings in.</div>
+            <?php else: ?>
+            <div class="dash__table-wrap">
+            <table class="dash__table dash__table--compact dash-tl">
+                <thead>
+                    <tr>
+                        <th>Link</th>
+                        <th>Clicks</th>
+                        <th>Follows</th>
+                        <th>Signups</th>
+                        <th>Subscriptions</th>
+                        <th>Purchases</th>
+                        <th>Revenue</th>
+                        <th class="dash-tl__act" aria-label="Actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($tl as $t):
+                    $t_sys = strpos((string) $t['code'], 'cls') === 0;
+                    $t_url = $tl_base . '/go/' . $t['code'];
+                ?>
+                    <tr>
+                        <td>
+                            <span class="dash__row-title"><?php echo htmlspecialchars((string) $t['label'], ENT_QUOTES, 'UTF-8'); ?></span>
+                            <span class="dash__row-meta"><?php echo $t_sys ? 'Clicks from other creators&#039; pages' : htmlspecialchars(preg_replace('#^https?://#i', '', $t_url) . ((string) $t['target_path'] !== '' ? ' to ' . $t['target_path'] : ''), ENT_QUOTES, 'UTF-8'); ?></span>
+                        </td>
+                        <td data-label="Clicks"><?php echo $fmt_num($t['clicks']); ?></td>
+                        <td data-label="Follows"><?php echo $fmt_num($t['follows']); ?></td>
+                        <td data-label="Signups"><?php echo $fmt_num($t['signups']); ?></td>
+                        <td data-label="Subscriptions"><?php echo $fmt_num($t['subscriptions']); ?></td>
+                        <td data-label="Purchases"><?php echo $fmt_num($t['purchases']); ?></td>
+                        <td data-label="Revenue"><?php echo htmlspecialchars(Price::credits((int) $t['revenue']), ENT_QUOTES, 'UTF-8'); ?></td>
+                        <td class="dash-tl__act">
+                            <div class="dropdown"><button type="button" class="dash-more" data-bs-toggle="dropdown" data-bs-popper-config='{"strategy":"fixed"}' aria-expanded="false" aria-label="Tracking link actions"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i></button>
+                                <ul class="dropdown-menu dropdown-menu-end">
+                                    <li><button type="button" class="dropdown-item" data-tl-copy="<?php echo htmlspecialchars($t_url, ENT_QUOTES, 'UTF-8'); ?>">Copy Link</button></li>
+                                    <?php if (!$t_sys): ?>
+                                    <li><hr class="dropdown-divider"></li>
+                                    <li><button type="button" class="dropdown-item text-danger" data-tl-delete="<?php echo (int) $t['id']; ?>">Delete</button></li>
+                                    <?php endif; ?>
+                                </ul>
+                            </div>
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+
         <?php
         // ---- Best-time-to-post heatmap (views by day × hour, creator timezone) ----
         $hm    = $this->heatmap;
@@ -529,4 +587,72 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
 
 <?php endif; ?>
 </div>
+<div class="modal fade" id="dashTlModal" tabindex="-1" aria-labelledby="dashTlModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="dashTlModalTitle">New tracking link</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="dashTlLabel" maxlength="120" placeholder="Instagram bio">
+                    <label for="dashTlLabel">Label</label>
+                </div>
+                <div class="form-floating mb-3">
+                    <input type="text" class="form-control" id="dashTlCode" maxlength="32" placeholder="summer25">
+                    <label for="dashTlCode">Code (Optional)</label>
+                </div>
+                <div class="form-floating">
+                    <input type="text" class="form-control" id="dashTlPath" maxlength="200" placeholder="/events/3">
+                    <label for="dashTlPath">Page Path (Optional)</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="dashTlSave">Create Link</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script src="/js/dashboard.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/dashboard.js'); ?>"></script>
+<script>
+/* Tracking Links (Audience tab): create, copy, delete. */
+$(function () {
+    var $modal = $('#dashTlModal');
+    $('#dashTlNew').on('click', function () {
+        $('#dashTlLabel, #dashTlCode, #dashTlPath').val('');
+        $modal.modal('show');
+    });
+    $modal.on('shown.bs.modal', function () { $('#dashTlLabel').trigger('focus'); });
+    $('#dashTlSave').on('click', function () {
+        var label = ($('#dashTlLabel').val() || '').trim();
+        if (label == '') { toastr.error('A label is required'); $('#dashTlLabel').focus(); return; }
+        var $b = $(this).prop('disabled', true);
+        ApiDataSvc.apiCall('post', 'tracking_link_save', { label: label, code: ($('#dashTlCode').val() || '').trim(), target_path: ($('#dashTlPath').val() || '').trim() }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            if (!o || !o.success) { $b.prop('disabled', false); toastr.error((o && o.message) || 'Could not create the link'); return; }
+            toastr.success(o.message);
+            window.location.reload();   // the Audience tab is kept in the hash
+        });
+    });
+    $(document).on('click', '[data-tl-copy]', function () {
+        var url = $(this).attr('data-tl-copy');
+        if (navigator.clipboard) { navigator.clipboard.writeText(url).then(function () { toastr.success('Link copied'); }, function () { toastr.error('Could not copy the link'); }); }
+        else { toastr.info(url); }
+    });
+    $(document).on('click', '[data-tl-delete]', function () {
+        var id = $(this).attr('data-tl-delete');
+        Swal.fire({ title: 'Delete this tracking link?', text: 'The link stops working and its numbers leave this table.', icon: 'warning', showCancelButton: true, reverseButtons: true,
+            confirmButtonText: 'Delete', cancelButtonText: 'Cancel', customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false }).then(function (r) {
+            if (!r.isConfirmed) { return; }
+            ApiDataSvc.apiCall('post', 'tracking_link_delete', { id: id }, function (data) {
+                var o = null; try { o = JSON.parse(data); } catch (e) {}
+                if (!o || !o.success) { toastr.error((o && o.message) || 'Could not delete the link'); return; }
+                toastr.success(o.message);
+                window.location.reload();
+            });
+        });
+    });
+});
+</script>

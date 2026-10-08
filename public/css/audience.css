@@ -1,5 +1,5 @@
 /* Creator audience / CRM (/audience) */
-.aud{ max-width:1080px; margin:0 auto; padding-bottom:2rem; }
+.aud{ padding-bottom:2rem; }   /* full width, like the Content Studio */
 .aud__head{ margin-bottom:1.5rem; display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
 .aud__actions{ display:flex; align-items:center; gap:8px; }
 .aud__actions .btn{ display:inline-flex; align-items:center; gap:.45rem; }

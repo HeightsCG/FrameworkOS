@@ -45,7 +45,7 @@ class SeoArticlesModel extends Model {
     public function published($limit = 12, $offset = 0){
         $limit = max(1, min(50, (int) $limit)); $offset = max(0, (int) $offset);
         return (array) parent::select(
-            "SELECT id, slug, title, meta_description, excerpt, target_keyword, secondary_keywords, reading_minutes, cover_image_url, published_at, updated_at, views
+            "SELECT id, slug, title, meta_description, excerpt, target_keyword, secondary_keywords, reading_minutes, cover_image_url, cover_webp_url, published_at, updated_at, views
              FROM seo_articles WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT $offset, $limit");
     }
 
@@ -156,6 +156,12 @@ class SeoArticlesModel extends Model {
         $sth->execute(array('a' => $id, 'k' => $viewer_key, 't' => gmdate('Y-m-d H:i:s')));
         if ($sth->rowCount() < 1) { return; }
         parent::sql("UPDATE seo_articles SET views = views + 1 WHERE id = :id", array('id' => $id));
+    }
+
+    /** Articles with a cover but no webp copy yet (PublicThumbService backfill). */
+    public function missing_cover_webp($limit = 200){
+        $limit = max(1, min(500, (int) $limit));
+        return (array) parent::select("SELECT id, slug, cover_image_url, cover_webp_url FROM seo_articles WHERE cover_image_url IS NOT NULL AND cover_image_url <> '' AND (cover_webp_url IS NULL OR cover_webp_url = '') ORDER BY id ASC LIMIT $limit");
     }
 
     /** Published bodies for llms-full.txt, newest first, one query. */

@@ -42,6 +42,7 @@ $tier_bits = array(); foreach (PlanTiers::all() as $pt) { $n = (int) ($f['plans'
         <button type="button" class="adm-tab" data-panel="support"><i class="fa-solid fa-life-ring"></i> Support<?php if ((int) $this->support_open > 0): ?> <b class="adm-tab__badge"><?php echo (int) $this->support_open; ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="content"><i class="fa-solid fa-newspaper"></i> Content<?php if (count($this->seo_review) > 0): ?> <b class="adm-tab__badge"><?php echo count($this->seo_review); ?></b><?php endif; ?></button>
         <button type="button" class="adm-tab" data-panel="scenes"><i class="fa-solid fa-panorama"></i> Scenes</button>
+        <button type="button" class="adm-tab" data-panel="niches"><i class="fa-solid fa-tags"></i> Niches</button>
         <button type="button" class="adm-tab" data-panel="audit"><i class="fa-solid fa-clipboard-list"></i> Audit Log</button>
     </div>
 
@@ -392,9 +393,11 @@ $last12 = array_slice($this->series, -12);
     <?php include __DIR__ . '/_support.php'; ?>
     <?php include __DIR__ . '/_content.php'; ?>
     <?php include __DIR__ . '/_scenes.php'; ?>
+    <?php include __DIR__ . '/_niches.php'; ?>
     <?php include __DIR__ . '/_audit.php'; ?>
 </div>
 
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>
 <script src="/js/admin-content.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-content.js'); ?>"></script>
 <script src="/js/admin-scenes.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-scenes.js'); ?>"></script>
+<script src="/js/admin-niches.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin-niches.js'); ?>"></script>

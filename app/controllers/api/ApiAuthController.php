@@ -69,6 +69,7 @@ class ApiAuthController extends BaseApiController {
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
         $this->userModel->record_first_touch($user_id);
+        TrackingLinks::attribute(0, 'signup', $user_id);   // came in through a creator's tracking link (cls_tl)
         try { $this->userModel->record_signup_params($user_id, $signup, true); }
         catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
         UsersModel::clear_signup_cookie();
