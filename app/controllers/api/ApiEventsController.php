@@ -4,7 +4,7 @@ class ApiEventsController extends BaseApiController {
 
     /** Create or edit an event (Manager+; times arrive in the creator's tz → stored UTC). */
     public function event_saveAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);   // Free builds events as drafts
         $creator_id = (int) $user['user_id'];
         $tz = EventsModel::clean_timezone($this->post['timezone'] ?? '', (string) ($user['content_timezone'] ?? 'UTC'));   // the event's own zone; the account's by default
         $id = (int) ($this->post['id'] ?? 0);
@@ -23,7 +23,7 @@ class ApiEventsController extends BaseApiController {
         // Free events have no price; a paid event needs one; a members event may be free or paid (Price rules).
         $price_credits = ($access === 'free') ? 0 : $this->price_credits($this->post['price'] ?? '', $access !== 'paid');
         $tier_id = ($access === 'tier') ? (int) ($this->post['tier_id'] ?? 0) : 0;
-        if ($price_credits > 0) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
+        if ($price_credits > 0 && Plan::can_sell($user)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
 
         $format   = EventsModel::format($this->post['format'] ?? 'virtual');
         if ($format === 'cls_video' && !LiveKit::enabled()) { $this->jsonError('CLS Video is not available yet.'); }
@@ -60,6 +60,7 @@ class ApiEventsController extends BaseApiController {
             'call_chat'           => (string) ($this->post['call_chat'] ?? '1') === '0' ? 0 : 1,
             'status'              => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
+        if ($fields['status'] === 'published' && !Plan::can_sell($user)) { $this->need_plan('make an event live'); }
         if (array_key_exists('reminders', $this->post)) { $fields['reminders'] = EventsModel::clean_reminders($this->post['reminders']); }   // e.g. '1440,60'; '' = none
         $model = new EventsModel();
         if ($id > 0) {

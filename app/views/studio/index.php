@@ -9,7 +9,7 @@
     </div>
 <?php else: ?>
 
-<div class="cs<?php echo !empty($this->needs_plan) ? ' cs--free' : ''; ?>" id="cs" data-s3-ready="<?php echo !empty($this->s3_ready) ? '1' : '0'; ?>">
+<div class="cs" id="cs" data-s3-ready="<?php echo !empty($this->s3_ready) ? '1' : '0'; ?>">
 
     <header class="cs-head">
         <div>
@@ -41,8 +41,8 @@
     </header>
 <?php if (!empty($this->needs_plan)): ?>
     <div class="plan-bar" role="status">
-        <p class="plan-bar__text"><strong>You're on Free.</strong> Everything you made is still here to view, download or delete. Choose a plan to create, publish and sell.</p>
-        <a href="/account/billing" class="btn btn-primary plan-bar__btn">Choose a Plan</a>
+        <p class="plan-bar__text"><strong>You're on Free.</strong> Build your posts and page now. Your public page, paid posts and selling start when you upgrade.</p>
+        <a href="/account/billing?tab=plan&amp;plan=<?php echo PlanTiers::TIERS['creator']['key']; ?>&amp;return=%2Fstudio" class="btn btn-secondary plan-bar__btn">Upgrade</a>
     </div>
 <?php endif; ?>
 

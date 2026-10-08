@@ -534,11 +534,30 @@ class McpTools {
             'properties' => array('fan_id' => array('type' => 'integer'), $field => array('type' => 'string')));
     }
 
+    /** Tools that generate or train with AI: they need a paid plan (Plan::can_use_ai). */
+    const AI_TOOLS = array(
+        'design_voice', 'edit_image', 'enhance_influencer_image', 'generate_angle_set', 'generate_carousel',
+        'generate_from_scene_template', 'generate_image', 'generate_influencer_image', 'generate_influencer_reference',
+        'generate_influencer_training_set', 'generate_influencer_video', 'generate_motion_video', 'generate_scene_video', 'generate_speech',
+        'generate_talking_video', 'regenerate_carousel_slot', 'replace_character_in_video', 'replicate_influencer_image',
+        'retry_influencer_training_slot', 'run_automation_now', 'save_voice', 'train_influencer', 'write_influencer_prompt',
+    );
+
     /** Execute a tool for a creator. Returns a JSON-able value; throws on bad input. */
     public static function call($name, $creator_id, array $a){
         $cid = (int) $creator_id;
         $iid = (int) ($a['id'] ?? 0);
         $ok  = function ($b) { return array('ok' => (bool) $b); };
+        CreatorAgreement::mcp_require((string) $name, $cid, $a);   // selling needs the Creator Agreement
+        // a token outlives the plan it was made on: selling and AI stop when the plan lapses (building stays open)
+        $plan_owner = (new UsersModel())->get_user_by_id($cid);
+        $plan_owner = (is_array($plan_owner) && count($plan_owner) === 1) ? $plan_owner[0] : null;
+        if (in_array((string) $name, CreatorAgreement::MCP_GATED, true) && !Plan::can_sell($plan_owner) && CreatorAgreement::mcp_sells((string) $name, $cid, $a)) {
+            throw new RuntimeException('Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to sell.');
+        }
+        if (in_array((string) $name, self::AI_TOOLS, true) && !Plan::can_use_ai($plan_owner)) {
+            throw new RuntimeException('Upgrade to ' . PlanTiers::TIERS['creator']['name'] . ' to use AI tools.');
+        }
 
         switch ($name) {
 

@@ -393,6 +393,40 @@ class AdminModel extends Model {
              ORDER BY signups DESC, source ASC", $g['params']);
     }
 
+    /**
+     * Build before you pay: creators who signed up in the period, by UTC day. The first paid moment is the first succeeded
+     * subscribe/upgrade charge for a selling tier, else the billing row's date when it is on a selling tier (migrated plans),
+     * else never. "built" = a post, plan, bundle, service, event, media file or filled profile created before that moment;
+     * "upgraded" = a paid moment after they became a creator.
+     */
+    public function free_builders($days){
+        $g    = $this->growth_parts($days);
+        // tier keys come from code (PagesController::selling_tiers) and are used twice, so they go in as quoted literals
+        $keys = array_map(function ($t) { return "'" . preg_replace('/[^a-z0-9_]/', '', (string) $t['key']) . "'"; }, PagesController::selling_tiers());
+        $sell = $keys ? implode(', ', $keys) : "''";
+        $paid_at = "COALESCE((SELECT MIN(ch.created_at) FROM billing_charges ch WHERE ch.user_id = u.user_id AND ch.status = 'succeeded'
+                                AND ch.kind IN ('subscribe', 'upgrade') AND JSON_UNQUOTE(JSON_EXTRACT(ch.effects, '$.plan')) IN ($sell)),
+                             CASE WHEN b.plan_key IN ($sell) THEN b.created_at END)";
+        $before = "< COALESCE(c0.paid_at, '9999-12-31')";
+        $built  = "(EXISTS (SELECT 1 FROM posts x WHERE x.creator_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM media_assets x WHERE x.creator_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM creator_plans x WHERE x.user_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM content_bundles x WHERE x.creator_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM services x WHERE x.creator_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM events x WHERE x.creator_id = c0.user_id AND x.created_at $before)
+                 OR EXISTS (SELECT 1 FROM creator_profiles x WHERE x.user_id = c0.user_id AND x.created_at $before
+                            AND (COALESCE(x.display_name, '') <> '' OR COALESCE(x.bio, '') <> '' OR COALESCE(x.avatar_url, '') <> '')))";
+        $upgraded = "(c0.paid_at IS NOT NULL AND c0.paid_at >= COALESCE(c0.creator_since, c0.created_at))";
+        return (array) parent::select(
+            "SELECT day, COUNT(*) AS creators, COALESCE(SUM(built), 0) AS built, COALESCE(SUM(built AND upgraded), 0) AS upgraded,
+                    COALESCE(SUM(built AND NOT upgraded), 0) AS still_free, COALESCE(SUM(upgraded AND NOT built), 0) AS paid_direct
+             FROM (SELECT c0.day, $built AS built, $upgraded AS upgraded
+                   FROM (SELECT u.user_id, u.created_at, u.creator_since, DATE(u.created_at) AS day, $paid_at AS paid_at
+                         FROM user_accounts u LEFT JOIN billing_accounts b ON b.user_id = u.user_id
+                         WHERE {$g['where']} AND u.role_id = " . (int) $this->creator_role_id() . ") c0) c
+             GROUP BY day ORDER BY day DESC");
+    }
+
     /** Accounts that signed up from a creator's referral, newest first. */
     public function referred_signups($days){
         $g = $this->growth_parts($days);

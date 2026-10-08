@@ -3,7 +3,7 @@
 class ApiServicesController extends BaseApiController {
 
     public function service_saveAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);   // Free builds services as drafts
         $creator_id = (int) $user['user_id'];
         $id = (int) ($this->post['id'] ?? 0);
 
@@ -26,7 +26,8 @@ class ApiServicesController extends BaseApiController {
             'refund_policy'    => trim(html_entity_decode((string) ($this->post['refund_policy'] ?? ''), ENT_QUOTES, 'UTF-8')),
             'status'           => (($this->post['status'] ?? 'draft') === 'published') ? 'published' : 'draft',
         ];
-        if ((int) $fields['price_credits'] > 0) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
+        if ($fields['status'] === 'published' && !Plan::can_sell($user)) { $this->need_plan('make a service live'); }
+        if ((int) $fields['price_credits'] > 0 && Plan::can_sell($user)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
         $model = new ServicesModel();
         if ($id > 0) {
             if (!$model->get_one($creator_id, $id)) { $this->jsonError('Service not found'); }

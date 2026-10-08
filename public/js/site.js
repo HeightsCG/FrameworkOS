@@ -1,17 +1,36 @@
 if (window.toastr) { toastr.options.escapeHtml = true; }   // names and messages land in toasts as text, never markup
 
+// A Free creator tried something that needs a paid plan: offer the upgrade, then come back to this page. True when it handled resp.
+window.cls_need_plan = function (resp) {
+    var o = resp;
+    if (typeof o === 'string') { try { o = JSON.parse(o); } catch (err) { o = null; } }
+    if (!o || !o.need_plan) { return false; }
+    var back = o['return'] || (window.location.pathname + window.location.search);
+    var url = '/account/billing?tab=plan&plan=' + encodeURIComponent(o.plan || 'creator') + '&return=' + encodeURIComponent(back);
+    if (typeof Swal === 'undefined') { window.location.href = url; return true; }
+    Swal.fire({
+        titleText: o.message || 'Upgrade to continue',
+        width: 440, showCancelButton: true, reverseButtons: true,
+        confirmButtonText: 'Upgrade', cancelButtonText: 'Not Now',
+        customClass: { actions: 'gap-2', confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
+    }).then(function (r) { if (r.isConfirmed) { window.location.href = url; } });
+    return true;
+};
+
 // A selling action refused because the Creator Agreement isn't accepted: ask, then open Settings. True when it handled resp.
+// A paid-plan refusal goes to cls_need_plan, so every page that already calls this shows the upgrade prompt too.
 window.cls_need_agreement = function (resp) {
     var o = resp;
     if (typeof o === 'string') { try { o = JSON.parse(o); } catch (err) { o = null; } }
+    if (window.cls_need_plan(o)) { return true; }
     if (!o || !o.need_agreement) { return false; }
     var url = o.url || '/account/settings?section=creator';
     if (typeof Swal === 'undefined') { window.location.href = url; return true; }
     Swal.fire({
-        title: 'Accept the Creator Agreement to continue',
+        titleText: 'Accept the Creator Agreement to continue',
         width: 440, showCancelButton: true, reverseButtons: true,
         confirmButtonText: 'Open Settings', cancelButtonText: 'Not Now',
-        confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779'
+        customClass: { actions: 'gap-2', confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false
     }).then(function (r) { if (r.isConfirmed) { window.location.href = url; } });
     return true;
 };

@@ -140,14 +140,16 @@ class FeaturePages {
                     'title'  => 'Cash out to your bank',
                     'text'   => 'Connect your bank once. After that, cash out your balance whenever it suits you and the money goes to your account.',
                     'points' => array(
-                        'Cash out on your schedule, not ours',
+                        'Minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', paid on request',
+                        'No platform hold, our payment processor\'s own payout timing applies',
+                        'Available in every country our payment processor supports for creator payouts',
                         'Refunds and disputes are handled for you and reflected in your balance',
                     ),
                 ),
             ),
             'faq' => array(
                 array('q' => 'How do fans pay?', 'a' => 'Memberships bill by card on your schedule. Everything else is bought with a credit wallet, which fans top up in one tap.'),
-                array('q' => 'When can I cash out?', 'a' => 'Whenever your balance is above the minimum. Connect your bank once, then cash out on your own schedule.'),
+                array('q' => 'When can I cash out?', 'a' => 'The minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', and payouts are made on request only. Connect your bank once, then cash out whenever your balance is above the minimum. We apply no platform hold, so our payment processor\'s own payout timing applies. Payouts are available in every country our payment processor supports for creator payouts.'),
                 array('q' => 'What does the platform take?', 'a' => 'A percentage of what you earn, set by your plan and shown on the pricing page. It falls as you move up.'),
                 array('q' => 'What happens with refunds?', 'a' => 'A refund reverses the credits on both sides and removes the access it paid for, and your balance reflects it straight away.'),
             ),

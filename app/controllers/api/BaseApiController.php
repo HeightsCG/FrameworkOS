@@ -58,7 +58,7 @@ class BaseApiController extends Controller {
         return !Plan::can_use_creator_features($rows[0]);
     }
 
-    protected function require_creator(string $capability = 'content', bool $need_plan = true): array{
+    protected function require_creator(string $capability = 'content', bool|string $need_plan = true, string $action = ''): array{
         if (empty(Session::get('user_id'))) {
             $this->jsonError('Not authorized');
         }
@@ -89,12 +89,10 @@ class BaseApiController extends Controller {
         if (!$user || (int) $user['role_id'] !== $creator_role_id) {
             $this->jsonError('Only creators can do that');
         }
-        // Creator features require an active platform plan on the OWNER account. need_plan lets
-        // the frontend send the user to /account/billing to choose one. Billing itself passes
-        // $need_plan = false: a Free creator has to be able to buy the plan.
-        if ($need_plan && !Plan::can_use_creator_features($user)) {
-            $this->jsonError('An active plan is required to use creator tools. Choose a plan to continue.', ['need_plan' => true]);
-        }
+        // $need_plan: true = a paid plan (selling), 'ai' = a paid plan for AI, false = building, which Free can do
+        // (Plan::can_build). Billing passes false too: a Free creator has to be able to buy the plan.
+        if ($need_plan === 'ai' && !Plan::can_use_ai($user)) { $this->need_plan($action !== '' ? $action : 'use AI tools'); }
+        if ($need_plan === true && !Plan::can_sell($user)) { $this->need_plan($action !== '' ? $action : 'use this'); }
         // Refresh the ACTING user's presence (throttled ~once/45s).
         $last = $acting['last_active_at'] ?? null;
         if (($last === null || strtotime((string) $last . ' UTC') < time() - 45) && !UserSession::impersonating()) {   // an admin viewing as them doesn't count
@@ -154,16 +152,30 @@ class BaseApiController extends Controller {
 
     // ---- Inbox automation (Settings > Inbox Automation) -------------------------------
 
-    /** Owner account for inbox automation: Manager+ with an active plan (included on every plan). */
+    /** Owner account for inbox automation: Manager+ with a paid plan (the DM agent is AI). */
     protected function inbox_user(): array{
-        return $this->require_creator('manage');
+        return $this->require_creator('manage', 'ai', 'use inbox automation');
     }
 
     /** On Free a creator can switch things off but not back on: turning on is selling, which needs a paid plan. */
     protected function plan_to_turn_on(array $user, bool $on): void{
-        if ($on && !Plan::can_use_creator_features($user)) {
-            $this->jsonError('Choose a plan to turn this on.', ['need_plan' => true]);
-        }
+        if ($on && !Plan::can_sell($user)) { $this->need_plan('turn this on'); }
+    }
+
+    /** Refuse with the upgrade prompt (site.js cls_need_plan): the Creator plan, and the page to come back to after checkout. */
+    protected function need_plan(string $action): void{
+        $t = PlanTiers::TIERS['creator'];
+        $this->jsonError('Upgrade to ' . $t['name'] . ' to ' . $action . '.', ['need_plan' => true, 'plan' => $t['key'], 'return' => $this->upgrade_return()]);
+    }
+
+    /** The same-site page this request came from (path and query), or ''. */
+    protected function upgrade_return(): string{
+        $p = parse_url((string) ($_SERVER['HTTP_REFERER'] ?? ''));
+        $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
+        if (!is_array($p) || $host === '' || strtolower((string) ($p['host'] ?? '')) !== $host) { return ''; }
+        $path = (string) ($p['path'] ?? '');
+        if ($path === '' || $path[0] !== '/' || strpos($path, '//') === 0 || strpos($path, '\\') !== false) { return ''; }
+        return $path . ((string) ($p['query'] ?? '') !== '' ? '?' . $p['query'] : '');
     }
 
     /** A price the creator typed in credits (10 to 5,000); a bad price answers with the reason. Everything inside is credits. */

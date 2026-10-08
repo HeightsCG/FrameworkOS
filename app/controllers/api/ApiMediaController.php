@@ -4,7 +4,7 @@ class ApiMediaController extends BaseApiController {
 
     public function media_uploadAction(){
         @ini_set('memory_limit', '512M');
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
 
         if (!S3Service::configured()) {
@@ -63,7 +63,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Generate an image with OpenAI, folding in the creator's brand, and ingest it as a vault asset. */
     public function media_generateAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', 'ai');
         $creator_id = (int) $user['user_id'];
         if (!S3Service::configured()) {
             $this->jsonError('Image generation is unavailable right now. Please try again shortly.');
@@ -116,7 +116,7 @@ class ApiMediaController extends BaseApiController {
      * credits up front; the media_video job lands it in the library or refunds on failure.
      */
     public function media_generate_videoAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', 'ai');
         $creator_id = (int) $user['user_id'];
         if (!S3Service::configured() || !InfluencerConfig::enabled()) { $this->jsonError('Video generation is unavailable right now. Please try again shortly.'); }
         $src = (new MediaAssetsModel())->get_one($creator_id, (int) ($this->post['source_asset_id'] ?? 0));
@@ -142,7 +142,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Begin (or resume) a resumable multipart video upload. */
     public function media_upload_initAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         if (!S3Service::configured()) {
             $this->jsonError('Uploads are unavailable right now. Please try again shortly.');
@@ -192,7 +192,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Upload one ~8 MB part of a resumable video upload. */
     public function media_upload_chunkAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $session_id = (int) ($this->post['session_id'] ?? 0);
         $part_no    = (int) ($this->post['part_number'] ?? 0);
@@ -227,7 +227,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Report resume state for a file fingerprint (uploaded part numbers). */
     public function media_upload_statusAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $token      = (string) ($this->post['client_token'] ?? '');
         $session    = $token !== '' ? (new UploadSessionsModel())->get_active_by_token($creator_id, $token) : null;
@@ -242,7 +242,7 @@ class ApiMediaController extends BaseApiController {
     /** Finish a multipart video upload: assemble in S3, extract poster+duration, go ready. */
     public function media_upload_completeAction(){
         @ini_set('memory_limit', '512M');
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $session_id = (int) ($this->post['session_id'] ?? 0);
         $sessions   = new UploadSessionsModel();
@@ -354,7 +354,7 @@ class ApiMediaController extends BaseApiController {
 
     /** Rename + retag an asset. */
     public function media_updateAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new MediaAssetsModel();
@@ -392,7 +392,7 @@ class ApiMediaController extends BaseApiController {
     /** Toggle the baked watermark on an image by re-processing from the original. */
     public function media_watermarkAction(){
         @ini_set('memory_limit', '512M');
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $enabled    = ((string) ($this->post['enabled'] ?? '1')) === '1';
@@ -517,7 +517,7 @@ class ApiMediaController extends BaseApiController {
     }
 
     public function collection_saveAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $name       = trim(html_entity_decode((string) ($this->post['name'] ?? ''), ENT_QUOTES, 'UTF-8'));
@@ -541,7 +541,7 @@ class ApiMediaController extends BaseApiController {
     }
 
     public function collection_add_assetsAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $ids        = $this->post['ids'] ?? [];
@@ -558,7 +558,7 @@ class ApiMediaController extends BaseApiController {
     }
 
     public function collection_remove_assetsAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $ids        = $this->post['ids'] ?? [];
@@ -625,7 +625,8 @@ class ApiMediaController extends BaseApiController {
     /** Would storing $incoming more bytes keep the creator within their plan's storage cap? (null/0 = unlimited) */
     private function within_storage_cap(array $user, int $incoming): bool{
         $gb = Plan::limit($user, 'storage_gb');
-        if ($gb === null || (int) $gb <= 0) { return true; }
+        if ($gb === null) { $gb = PlanTiers::TIERS[PlanTiers::FREE_KEY]['limits']['storage_gb']; }   // Free builds too: it gets the Free tier's storage
+        if ((int) $gb <= 0) { return true; }
         $cap  = (int) $gb * 1073741824; // GB → bytes
         $used = (int) (new MediaAssetsModel())->total_bytes((int) $user['user_id']);
         return ($used + (int) $incoming) <= $cap;

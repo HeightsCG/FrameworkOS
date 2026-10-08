@@ -35,6 +35,7 @@ window.AiTools = (function ($) {
 
     /* Plan and credit refusals link to Billing; everything else is a plain toast. */
     function err(o, fallback) {
+        if (window.cls_need_plan && window.cls_need_plan(o)) { return; }   // the upgrade prompt (site.js)
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {
             if (o.need_credits && typeof o.balance !== 'undefined') { balance = parseInt(o.balance, 10) || 0; }
             toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),

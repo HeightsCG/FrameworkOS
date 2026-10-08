@@ -244,6 +244,7 @@
 .cs-badge--scheduled{ background:var(--info-bg); color:var(--info); }
 .cs-badge--published{ background:var(--success-bg); color:var(--success); }
 .cs-badge--archived{ background:rgba(29, 29, 29, .06); color:var(--muted); }
+.cs-badge--held{ background:var(--warning-bg); color:var(--warning); text-transform:none; }
 
 @media (max-width:720px){
     .cs-post__stats{ display:none; }

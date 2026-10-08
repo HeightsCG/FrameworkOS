@@ -188,6 +188,61 @@ class WebhookController extends Controller {
     }
 
     /**
+     * Stripe Connect webhook: payout.* events from creators' connected accounts, so the
+     * cash-out history shows each bank payout and its outcome. A separate endpoint in the
+     * Stripe dashboard ("listen to events on connected accounts"), so it has its own
+     * signing secret (stripe_connect_webhook_secret). See docs/ops.md.
+     */
+    public function stripe_connectAction(){
+        $payload = file_get_contents('php://input');
+        $sig     = $_SERVER['HTTP_STRIPE_SIGNATURE'] ?? '';
+
+        $secret = '';
+        try { $secret = (string) Main::config(Main::get_environment(), 'stripe_connect_webhook_secret'); } catch (\Throwable $e) {}
+        if ($secret === '') {
+            error_log('[stripe connect webhook] stripe_connect_webhook_secret not configured');
+            http_response_code(500);
+            echo 'not configured';
+            exit;
+        }
+
+        try {
+            $event = \Stripe\Webhook::constructEvent($payload, $sig, $secret);
+        } catch (\Throwable $e) {
+            http_response_code(400);
+            echo 'invalid signature';
+            exit;
+        }
+
+        $types = array('payout.created', 'payout.updated', 'payout.paid', 'payout.failed', 'payout.canceled');
+        if (in_array($event->type, $types, true)) {
+            $obj     = $event->data->object;
+            $account = (string) ($event->account ?? '');
+            $model   = new PayoutsModel();
+            $creator = $model->creator_for_account($account);
+            if ($creator <= 0) {
+                // an account we no longer know (disconnected or another environment): acknowledge so Stripe stops retrying.
+                error_log('[stripe connect webhook] ' . $event->type . ' for unknown account ' . $account);
+            } else {
+                // true only for the first delivery (of any payout.* type) that records the failure.
+                if ($model->upsert_from_event($creator, $obj)) {
+                    $row = $model->get_by_payout_id((string) $obj->id);
+                    $why = trim((string) ($row['failure_message'] ?? ($obj->failure_message ?? '')));
+                    $cur = strtoupper((string) ($row['currency'] ?? ($obj->currency ?? 'usd')));
+                    $amt = ($cur === 'USD' ? '$' : $cur . ' ') . number_format(((int) ($row['amount_cents'] ?? $obj->amount)) / 100, 2);
+                    Notify::send($creator, 'credits', 'Bank payout failed',
+                        'Your ' . $amt . ' payout to your bank did not go through.' . ($why !== '' ? ' ' . $why : '') . ' Check your bank details and contact support if it keeps happening.',
+                        '/account/settings?section=wallet&tab=cashout', 'fa-triangle-exclamation');
+                }
+            }
+        }
+
+        http_response_code(200);
+        echo 'ok';
+        exit;
+    }
+
+    /**
      * Record or update a subscription from its Stripe object. Creating (not just
      * updating) matters when the fan closed the tab before the success redirect —
      * the checkout still succeeded, so the membership must be captured here.

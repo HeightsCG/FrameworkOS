@@ -18,7 +18,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function save_creator_profileAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
 
         // POST text arrives HTML-encoded (clean_post_data); store it plain, the pages escape it once when shown.
         $plain = function ($k) { return trim(html_entity_decode((string) ($this->post[$k] ?? ''), ENT_QUOTES, 'UTF-8')); };
@@ -39,7 +39,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Creator Directory switch + category (Settings -> Creator Profile). Turning it on checks the photos first. */
     public function save_directory_listingAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $r = DirectoryService::save(Permissions::creator_id(), !empty($this->post['listed']), (string) ($this->post['category'] ?? ''));
         if (empty($r['ok'])) { $this->jsonError((string) $r['message']); }
         $this->jsonSuccess(['message' => $r['message']]);
@@ -47,7 +47,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Generate brand details from a website URL (Claude). Does not persist. */
     public function generate_brand_identityAction(){
-        $this->require_creator();
+        $this->require_creator('content', 'ai');
         $url = html_entity_decode(trim((string) ($this->post['url'] ?? '')), ENT_QUOTES);
         if ($url === '') {
             $this->jsonError('Enter your website URL first.');
@@ -61,7 +61,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Persist the reviewed/edited brand identity for this creator. */
     public function save_brand_identityAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $split = function ($v) {
             if (is_array($v)) { return array_values(array_filter(array_map('trim', $v), 'strlen')); }
             $v = html_entity_decode((string) $v, ENT_QUOTES);
@@ -82,7 +82,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function upload_creator_imageAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
 
         $kind = (string) ($this->post['kind'] ?? '');
         if (!in_array($kind, ['avatar', 'cover'], true)) {
@@ -125,7 +125,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function remove_creator_imageAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
 
         $kind = (string) ($this->post['kind'] ?? '');
         if (!in_array($kind, ['avatar', 'cover'], true)) {
@@ -150,7 +150,7 @@ class ApiCreatorStudioController extends BaseApiController {
     /* ---------- Creator external links ---------- */
 
     public function save_creator_linkAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $user_id = Permissions::creator_id();
 
         // POST text arrives HTML-encoded (clean_post_data); store it plain so /go redirects to the real URL.
@@ -180,7 +180,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function delete_creator_linkAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             $this->jsonError('Link is required');
@@ -254,7 +254,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function toggle_creator_linkAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $id = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) {
             $this->jsonError('Link is required');
@@ -264,7 +264,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function reorder_creator_linksAction(){
-        $this->require_creator();
+        $this->require_creator('content', false);
         $ids = $this->post['ids'] ?? [];
         if (!is_array($ids)) {
             $this->jsonError('Invalid order');
@@ -276,7 +276,7 @@ class ApiCreatorStudioController extends BaseApiController {
     /* ---------- Creator membership plans ---------- */
 
     public function save_creator_planAction(){
-        $user    = $this->require_creator('manage');
+        $user    = $this->require_creator('manage', false);
         $user_id = (int) $user['user_id'];   // owner account (collaborator acts on it)
 
         // POST text arrives HTML-encoded (clean_post_data); store it plain, the pages escape it once when shown.
@@ -302,7 +302,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if ($price_cents !== 0 && $price_cents < 100) {
             $this->jsonError('Enter a price of at least $1.00, or make it a free tier');
         }
-        if ($price_cents > 0) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement
+        if ($price_cents > 0 && Plan::can_sell($user)) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
 
         // Free trial — an explicit toggle plus the value & unit (day/week/month) the
         // creator actually picked, stored as-is; forced off on free tiers. The
@@ -336,6 +336,7 @@ class ApiCreatorStudioController extends BaseApiController {
                 $this->jsonError('Your plan includes ' . (int) $cap . ' membership tier' . ((int) $cap === 1 ? '' : 's') . '. Upgrade to add more.', ['need_upgrade' => true]);
             }
             $id = (int) $model->add($user_id, $fields);
+            if (!Plan::can_sell($user)) { $model->set_active($user_id, $id, false); }   // Free builds it as a draft: turning it on needs a paid plan
         }
 
         $this->jsonSuccess(['message' => 'Plan saved', 'id' => $id]);
@@ -380,8 +381,9 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Create or edit a discount code. */
     public function save_promo_codeAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', true, 'create promo codes');
         $user_id = (int) $user['user_id'];
+        CreatorAgreement::require($user_id);   // a promo code sells: it needs the Creator Agreement
         $id      = (int) ($this->post['id'] ?? 0);
 
         $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string) ($this->post['code'] ?? '')));
@@ -440,6 +442,7 @@ class ApiCreatorStudioController extends BaseApiController {
     public function toggle_promo_codeAction(){
         $user = $this->require_creator('manage', false);
         $this->plan_to_turn_on($user, !empty($this->post['active']));
+        if (!empty($this->post['active'])) { CreatorAgreement::require((int) $user['user_id']); }   // turning a code on is selling
         $id   = (int) ($this->post['id'] ?? 0);
         if ($id <= 0) { $this->jsonError('Code is required'); }
         (new CreatorPromoCodesModel())->set_active((int) $user['user_id'], $id, !empty($this->post['active']));
@@ -473,7 +476,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Create or update a content bundle. Only the creator's own published PPV posts may be grouped. */
     public function save_bundleAction(){
-        $user = $this->require_creator('manage');
+        $user = $this->require_creator('manage', false);
         $user_id = (int) $user['user_id'];
         $id      = (int) ($this->post['id'] ?? 0);
 
@@ -489,7 +492,7 @@ class ApiCreatorStudioController extends BaseApiController {
             if (!$chk['ok']) { $this->jsonError($chk['message']); }
             $price = (int) $chk['credits'];
         }
-        if ($price > 0) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement
+        if ($price > 0 && Plan::can_sell($user)) { CreatorAgreement::require($user_id); }   // selling needs the Creator Agreement (Free accepts it at checkout)
         $description = trim(html_entity_decode((string) ($this->post['description'] ?? ''), ENT_QUOTES));
         if (mb_strlen($description) > 500) { $description = mb_substr($description, 0, 500); }
 
@@ -518,6 +521,7 @@ class ApiCreatorStudioController extends BaseApiController {
             $model->update_bundle($user_id, $id, ['name' => $name, 'description' => $description, 'price_credits' => $price]);
         } else {
             $id = (int) $model->add($user_id, $name, $description, $price);
+            if (!Plan::can_sell($user)) { $model->set_active($user_id, $id, 0); }   // Free builds it as a draft: turning it on needs a paid plan
         }
         $model->set_items($id, $asset_ids);
         $this->jsonSuccess(['message' => 'Bundle saved', 'id' => $id]);
@@ -690,7 +694,7 @@ class ApiCreatorStudioController extends BaseApiController {
      * the creator's own words in the box. Returns text only; nothing is saved.
      */
     public function post_caption_autoAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', 'ai');
         $creator_id = (int) $user['user_id'];
         if (!ClaudeService::configured()) { $this->jsonError('Caption writing is not available right now.'); }
         $ids  = array_map('intval', (array) ($this->post['asset_ids'] ?? []));
@@ -737,7 +741,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_saveAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $caption    = html_entity_decode((string) ($this->post['caption'] ?? ''), ENT_QUOTES, 'UTF-8');
@@ -768,6 +772,12 @@ class ApiCreatorStudioController extends BaseApiController {
         // If the post was removed elsewhere while the composer had it open, don't
         // hard-fail — fall back to creating a fresh draft so nothing is lost.
         if ($id > 0 && !$model->get_one($creator_id, $id)) { $id = 0; }
+        // Free can't turn a live (or queued) post into a paid one: that is publishing paid content.
+        $stored = $id > 0 ? $model->get_one($creator_id, $id) : null;
+        if ($stored && in_array((string) $stored['state'], array('published', 'scheduled'), true) && !Plan::can_sell($user)
+            && $this->post_is_paid(array('creator_id' => $creator_id, 'audience' => $audience, 'ppv_price_credits' => $ppv_credits, 'tier_id' => $tier_id))) {
+            $this->need_plan('publish paid posts');
+        }
         // PPV integrity: once a post has buyers you may ADD media but not remove what
         // they paid for, and it stays pay-per-view. Checked before anything is written.
         if ($id > 0) {
@@ -809,7 +819,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** The creator's most recent open draft (for the "resume draft?" offer). */
     public function post_open_draftAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $draft      = (new PostsModel())->get_open_draft($creator_id);
         if (!$draft) { $this->jsonSuccess(['draft' => null]); }
@@ -820,7 +830,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_publishAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new PostsModel();
@@ -828,6 +838,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('publish paid posts'); }   // Free publishes free posts only
         if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $shares = $this->share_accounts_from_request();
         if (empty($post['on_cls']) && empty($shares)) { $this->jsonError('Pick at least one place to publish: Creator Link Studio or a social account.'); }
@@ -842,7 +853,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_scheduleAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new PostsModel();
@@ -850,6 +861,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('schedule paid posts'); }   // Free schedules free posts only
         if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $utc = $this->to_utc((string) ($this->post['scheduled_at'] ?? ''), (string) ($user['content_timezone'] ?? 'UTC'));
         if (!$utc || strtotime($utc) <= time()) {
@@ -867,7 +879,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_save_draftAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $model      = new PostsModel();
@@ -889,7 +901,7 @@ class ApiCreatorStudioController extends BaseApiController {
     }
 
     public function post_duplicateAction(){
-        $user       = $this->require_creator();
+        $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $id         = (int) ($this->post['id'] ?? 0);
         $new_id     = (int) (new PostsModel())->duplicate($creator_id, $id);
@@ -939,7 +951,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { PostNotifier::published($cid, $pid); }   // cron fallback: flip now-due scheduled posts
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
         $filters = ['state' => (string) ($this->post['state'] ?? ''), 'search' => (string) ($this->post['search'] ?? '')];
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = [];
@@ -957,7 +969,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { PostNotifier::published($cid, $pid); }
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid)) { PostNotifier::published($cid, $pid); } }
 
         $items = [];
         $furthest = null; $scheduled_count = 0;
@@ -1211,18 +1223,7 @@ class ApiCreatorStudioController extends BaseApiController {
 
     /** Why a post can't publish yet (plain words), or ok. */
     /** A pay-per-view post with a price, or one gated to a paid membership tier (any tier: the creator sells one). */
-    private function post_is_paid(array $post): bool{
-        $aud = (string) ($post['audience'] ?? '');
-        if ($aud === 'ppv') { return (int) ($post['ppv_price_credits'] ?? 0) > 0; }
-        if ($aud !== 'subscribers') { return false; }
-        $model = new CreatorPlansModel();
-        if ((int) ($post['tier_id'] ?? 0) > 0) {
-            $tier = $model->get_one((int) $post['creator_id'], (int) $post['tier_id']);
-            return $tier ? (int) $tier['price_cents'] > 0 : false;
-        }
-        foreach ((array) $model->get_for_user((int) $post['creator_id']) as $p) { if ((int) $p['price_cents'] > 0) { return true; } }
-        return false;
-    }
+    private function post_is_paid(array $post): bool{ return CreatorAgreement::post_is_paid($post); }
 
     private function post_validation(array $post): array{
         $model  = new PostsModel();
@@ -1324,6 +1325,7 @@ class ApiCreatorStudioController extends BaseApiController {
             'cover_type'     => (string) ($p['cover_type'] ?? ''),
             'asset_count'    => (int) $p['asset_count'],
             'media_missing'  => (int) $p['media_missing'],
+            'held'           => (string) ($p['held_reason'] ?? '') !== '' && $p['state'] === 'draft',   // a paid post held for the plan (Plan::hold_unsellable_post)
             'when_label'     => $when_label,
             'when'           => $when,
             'views'          => (int) $p['views'],

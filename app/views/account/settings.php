@@ -640,7 +640,7 @@
                         <?php if ($this->has_connect): ?>
                         <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
                         <?php endif; ?>
-                        <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = 100; ?>
+                        <?php else: $avail_credits = (int) ($pb['available_credits'] ?? 0); $min_credits = Price::PAYOUT_MIN_CREDITS; ?>
                         <div class="payout-balance">
                             <div class="payout-balance__cell">
                                 <span class="payout-balance__label">Available to cash out</span>
@@ -663,6 +663,28 @@
                         <div class="payout-actions">
                             <button type="button" class="btn btn-primary" id="payout_request_btn" <?php echo $avail_credits < $min_credits ? 'disabled' : ''; ?>>Cash Out</button>
                             <?php if ($avail_credits < $min_credits): ?><span class="payout-actions__note">You need at least <?php echo Price::fmt($min_credits); ?> to cash out.</span><?php endif; ?>
+                        </div>
+                        <div class="payout-history">
+                        <?php if (empty($this->bank_payouts)): ?>
+                            <p class="settings__empty">No bank payouts yet.</p>
+                        <?php else: $po_labels = array('paid' => 'Paid', 'pending' => 'Pending', 'in_transit' => 'In transit', 'failed' => 'Failed', 'canceled' => 'Canceled');
+                            // stored UTC, shown in the creator's content_timezone.
+                            try { $po_tz = new DateTimeZone((string) ($this->user['content_timezone'] ?? '') !== '' ? (string) $this->user['content_timezone'] : 'UTC'); } catch (\Throwable $e) { $po_tz = new DateTimeZone('UTC'); }
+                            $po_date = function ($ts) use ($po_tz) { return (new DateTime('@' . (int) $ts))->setTimezone($po_tz)->format('M j, Y'); }; ?>
+                        <table class="ledger ledger--flush">
+                            <thead><tr><th>Date</th><th>Status</th><th>Expected Arrival</th><th class="ledger__num">Amount</th></tr></thead>
+                            <tbody>
+                                <?php foreach ($this->bank_payouts as $po): $po_st = (string) $po['status']; $po_why = (string) ($po['failure_message'] ?? ''); ?>
+                                <tr>
+                                    <td><?php echo (int) $po['created'] > 0 ? $po_date($po['created']) : ''; ?></td>
+                                    <td><span class="<?php echo $po_st === 'failed' ? 'ledger__neg' : ''; ?>"><?php echo htmlspecialchars($po_labels[$po_st] ?? ucfirst(str_replace('_', ' ', $po_st)), ENT_QUOTES, 'UTF-8'); ?></span><?php if ($po_st === 'failed' && $po_why !== ''): ?><br><span class="payout-actions__note"><?php echo htmlspecialchars($po_why, ENT_QUOTES, 'UTF-8'); ?></span><?php endif; ?></td>
+                                    <td><?php echo ((int) $po['arrival'] > 0 && $po_st !== 'failed' && $po_st !== 'canceled') ? $po_date($po['arrival']) : ''; ?></td>
+                                    <td class="ledger__num">$<?php echo number_format(((int) $po['amount']) / 100, 2); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                        <?php endif; ?>
                         </div>
                         <div class="payout-disconnect"><button type="button" class="payout-disconnect__link" id="payout_disconnect_btn">Disconnect Stripe account</button></div>
                         <?php endif; ?>
@@ -3159,8 +3181,8 @@ $(function () {
             var o = JSON.parse(data);
             $btn.prop('disabled', false);
             if (o.success) { toastr.success(o.message); return; }
+            if (window.cls_need_plan(o)) { return; }   // the upgrade prompt, back here after checkout
             toastr.error(o.message);
-            if (o.need_plan) { setTimeout(function () { window.location.href = '/account/billing'; }, 1200); }
         });
     });
 

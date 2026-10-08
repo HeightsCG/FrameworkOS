@@ -294,10 +294,16 @@ class StripeService {
     public static function create_payout($account_id, $amount_cents, $currency = 'usd'): array
     {
         try {
-            @self::client()->payouts->create(
+            $payout = @self::client()->payouts->create(
                 array('amount' => (int) $amount_cents, 'currency' => strtolower($currency)),
                 array('stripe_account' => $account_id)
             );
+            // record it now so the history shows it before the first payout.* webhook arrives.
+            try {
+                $pm  = new PayoutsModel();
+                $cid = $pm->creator_for_account((string) $account_id);
+                if ($cid > 0) { $pm->upsert_from_event($cid, $payout); }
+            } catch (\Throwable $e) { error_log('[stripe] create_payout record: ' . $e->getMessage()); }
             return array('ok' => true, 'error' => '');
         } catch (\Throwable $e) {
             error_log('[stripe] create_payout: ' . $e->getMessage());
@@ -355,6 +361,16 @@ class StripeService {
             );
         }
         return $out;
+    }
+
+    /** Payout history for the cash-out view: the payouts table, or the live Stripe list until the table has rows. */
+    public static function payout_history($creator_id, $account_id, $limit = 10): array
+    {
+        $rows = (new PayoutsModel())->list_for_creator((int) $creator_id, (int) $limit);
+        if (count($rows) > 0 || (string) $account_id === '') {
+            return $rows;
+        }
+        return self::connect_payouts((string) $account_id, $limit);
     }
 
     /* ---------- Creator subscriptions (direct charges on the connected account) ---------- */

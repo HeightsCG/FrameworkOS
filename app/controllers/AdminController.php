@@ -86,7 +86,7 @@ class AdminController extends Controller {
         $this->view->cron_jobs = CronRuns::status();
 
         $this->view->growth = array();   // Growth tab: each period switch (7 / 30 / 90 days) is rendered up front
-        try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd)); } }
+        try { foreach (array(7, 30, 90) as $gd) { $this->view->growth[$gd] = array('days' => $model->funnel($gd), 'sources' => $model->funnel_by_source($gd), 'referred' => $model->referred_signups($gd), 'builders' => $model->free_builders($gd)); } }
         catch (\Throwable $e) { error_log('[admin] growth: ' . $e->getMessage()); }   // /admin still loads before the signup params SQL runs
 
         $this->view->scenes = array();

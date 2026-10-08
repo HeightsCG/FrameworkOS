@@ -311,6 +311,7 @@ class PostsModel extends Model {
 
     public function set_state($creator_id, $id, $state, $scheduled_at = null, $published_at = null){
         $data = array('state' => $state, 'updated_at' => date('Y-m-d H:i:s'));
+        if ($state !== 'draft') { $data['held_reason'] = null; }   // scheduled or published again: no longer held
         $data['scheduled_at'] = ($state === 'scheduled') ? $scheduled_at : null;
         if ($state === 'published') {
             $post = $this->get_one($creator_id, $id);
@@ -330,7 +331,7 @@ class PostsModel extends Model {
         if (!$post || ($post['state'] ?? '') === 'published') { return false; }
         $now = date('Y-m-d H:i:s');
         return parent::update('posts',
-            array('state' => 'published', 'scheduled_at' => null, 'updated_at' => $now,
+            array('state' => 'published', 'scheduled_at' => null, 'updated_at' => $now, 'held_reason' => null,
                   'published_at' => !empty($post['published_at']) ? $post['published_at'] : $now),
             "id = :id AND creator_id = :c AND state <> 'published'",
             array('id' => (int) $id, 'c' => (int) $creator_id)) > 0;
@@ -428,6 +429,13 @@ class PostsModel extends Model {
             if ($n > 0) { $flipped[(int) $r['id']] = (int) $r['creator_id']; }
         }
         return $flipped;
+    }
+
+    /** Hold a post for the plan: back to drafts, never published, with the reason the Studio shows. */
+    public function hold_for_plan($creator_id, $id, $reason = 'plan'){
+        return parent::update('posts',
+            array('state' => 'draft', 'scheduled_at' => null, 'published_at' => null, 'held_reason' => (string) $reason, 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c', array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
     public function delete_post($creator_id, $id){

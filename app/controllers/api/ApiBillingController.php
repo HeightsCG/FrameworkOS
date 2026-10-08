@@ -394,7 +394,7 @@ class ApiBillingController extends BaseApiController {
         }
 
         $credits = new CreditsModel();
-        $min     = 100;                                           // $10.00 minimum ($1 = 10 credits)
+        $min     = Price::PAYOUT_MIN_CREDITS;
         // Earned credits only (purchased credits can't be cashed out). Taken under a lock, so a
         // double-click or two tabs can't pay the same balance twice. Rolled back below if the transfer fails.
         $balance = $credits->debit_for_payout($creator_id, $min);
@@ -402,7 +402,7 @@ class ApiBillingController extends BaseApiController {
             $this->jsonError('Could not start the payout. Please try again.');
         }
         if ($balance < $min) {
-            $this->jsonError('You need at least ' . Price::fmt($min) . ' available to cash out.');
+            $this->jsonError('Minimum payout is ' . Price::PAYOUT_MIN_LABEL);
         }
         $cents = $balance * 10;                                   // 1 credit = 10 cents
 

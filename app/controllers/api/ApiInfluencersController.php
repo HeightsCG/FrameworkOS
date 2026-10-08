@@ -10,7 +10,7 @@ class ApiInfluencersController extends BaseApiController {
     /** Creator gate + ai_tools plan flag. */
     /** Owner row for influencer actions: content role + an active plan (require_creator checks both). */
     private function ai_user($need_plan = true){
-        return $this->require_creator('content', $need_plan);
+        return $this->require_creator('content', $need_plan ? 'ai' : false);
     }
 
     private function text($key, $max = 5000){

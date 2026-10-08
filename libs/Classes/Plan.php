@@ -48,17 +48,47 @@ class Plan {
     }
 
     /**
-     * Using ANY creator feature (Studio, publishing, selling, AI, scheduling, analytics, payouts) requires a
-     * creator account on a paid plan (Creator or Studio). Free is the account everyone signs up with: it can
-     * follow, subscribe, unlock, buy and message, but never gets creator tools (Daniel, 2026-09-28).
+     * Build before you pay (2026-10-08): any Creator account, Free included, can build. Studio, profile, media
+     * uploads, draft and scheduled free posts, and plans, bundles, services and events saved as drafts.
      */
+    public static function can_build($user): bool
+    {
+        return is_array($user) && self::is_creator_row($user);
+    }
+
+    /** Selling needs a paid plan (Creator or Studio): paid posts, turning on anything with a price, payouts. */
+    public static function can_sell($user): bool
+    {
+        return is_array($user) && self::is_creator_row($user) && self::has_paid_plan($user);
+    }
+
+    /** AI generation, influencer training and the DM agent need a paid plan too (Free has no AI credits). */
+    public static function can_use_ai($user): bool
+    {
+        return self::can_sell($user);
+    }
+
+    /** Older name for can_sell(): callers that were not split into build / sell / AI keep the paid-plan gate. */
     public static function can_use_creator_features($user): bool
     {
-        if (!is_array($user)) {
-            return false;
-        }
-        // Everyone signs up on Free; creator tools (Studio, selling, AI, payouts) need a paid plan, Creator or Studio.
-        return self::is_creator_row($user) && self::has_paid_plan($user);
+        return self::can_sell($user);
+    }
+
+    /**
+     * A due scheduled post that sells while its creator has no paid plan goes back to drafts (nothing is deleted),
+     * so it waits for the upgrade instead of going out. True when the post was held.
+     */
+    public static function hold_unsellable_post($creator_id, $post_id): bool
+    {
+        $rows = (new UsersModel())->get_user_by_id((int) $creator_id);
+        if (is_array($rows) && count($rows) === 1 && self::can_sell($rows[0])) { return false; }
+        $model = new PostsModel();
+        $post  = $model->get_one((int) $creator_id, (int) $post_id);
+        if (!$post || !CreatorAgreement::post_is_paid($post)) { return false; }
+        $model->hold_for_plan((int) $creator_id, (int) $post_id, 'plan');
+        Notify::send((int) $creator_id, 'creator_activity', 'Your scheduled post was held',
+            'Paid posts go out on the ' . PlanTiers::TIERS['creator']['name'] . ' plan. It is in your drafts: upgrade, then publish it.', '/studio', 'fa-clock');
+        return true;
     }
 
     /**

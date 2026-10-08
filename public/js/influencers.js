@@ -23,6 +23,7 @@ jQuery(function ($) {
         window.CLSMessenger.compose({ assets: [{ id: a.id, type: a.type || 'image', thumb: a.thumb_url || a.poster_url || a.display_url || '', name: a.name || '' }], price: 0 });
     }
     function err(o, fallback) {
+        if (window.cls_need_plan && window.cls_need_plan(o)) { return; }   // the upgrade prompt (site.js)
         if (o && (o.need_credits || o.need_upgrade || o.need_plan)) {   // plan / credit refusals link to Billing
             toastr.error(o.message, o.need_plan ? 'Choose a plan' : (o.need_credits ? 'Buy AI credits' : 'Upgrade your plan'),
                 { timeOut: 8000, extendedTimeOut: 4000, onclick: function () { window.location.href = o.need_credits ? '/account/billing?tab=credits' : '/account/billing'; } });

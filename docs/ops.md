@@ -139,3 +139,25 @@ Security headers (HSTS, nosniff, Referrer-Policy), the single X-Frame-Options, t
 https://www redirect without `:443`, and 301s for `/index.php*` and `/compare` are in
 `docs/ops/vhost-creatorlinkstudio.conf`, with the apply, validate (`sudo apache2ctl configtest`), reload
 (`sudo systemctl reload apache2`) and rollback steps. Never edit the .htaccess files or Apache on dev for this.
+
+## Stripe Connect webhook (payouts, pending, Daniel)
+
+Bank payouts happen on each creator's connected account, so the platform webhook never sees them. A second
+endpoint feeds the payout history in Settings > Wallet > Cash Out and the "Bank payout failed" notice.
+
+1. Stripe dashboard (live mode) > Developers > Webhooks > Add endpoint.
+2. Endpoint URL: `https://www.creatorlinkstudio.com/webhook/stripe_connect`
+3. Under "Listen to", choose **Events on connected accounts** (not "Events on your account").
+4. Select these five events: `payout.created`, `payout.updated`, `payout.paid`, `payout.failed`, `payout.canceled`.
+5. Add the endpoint, open it, reveal the **Signing secret** (`whsec_...`) and add it to `app/config/app.ini`
+   under `[production]`:
+
+   ```
+   stripe_connect_webhook_secret = "whsec_..."
+   ```
+
+   This is a new key; leave `stripe_webhook_secret` (the platform endpoint) as it is.
+6. Run `sql/2026-10-08_payouts.sql` if it is not in yet. Then use "Send test webhook" with `payout.paid`:
+   the endpoint answers 200 (an unknown test account is logged and acknowledged).
+
+Until the key is deployed the endpoint answers 500 "not configured"; Stripe retries those deliveries, so nothing is lost.

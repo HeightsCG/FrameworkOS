@@ -36,6 +36,12 @@ class SetupService {
         $defs  = self::steps();
         if (!self::handle_applies($model, $creator_id)) { unset($defs['handle']); }
         // handle step (end)
+        // Free builds before it pays: the selling and AI steps (live tier, payouts, AI replies) wait for the upgrade.
+        $owner = (new UsersModel())->get_user_by_id($creator_id);
+        if (!Plan::can_sell((is_array($owner) && count($owner) === 1) ? $owner[0] : null)) {
+            unset($defs['tiers'], $defs['payouts'], $defs['inbox']);
+            $defs['first_post']['text'] = 'It goes live on your page when you upgrade.';   // Free has no public page or feed yet
+        }
         $done  = array(); $skipped = array();
         if ($row && !empty($row['steps_json']))   { $done    = (array) json_decode((string) $row['steps_json'], true); }
         if ($row && !empty($row['skipped_json'])) { $skipped = (array) json_decode((string) $row['skipped_json'], true); }
@@ -114,16 +120,16 @@ class SetupService {
     }
     // handle step (end)
 
-    /** Is the viewer a creator (or collaborator) whose owner account has an active plan? */
+    /** Is the viewer a creator (or collaborator) whose owner account is a creator? Free included: it builds before it pays. */
     public static function eligible(): bool {
         if ((int) Session::get('user_id') <= 0 || !Permissions::can_act_as_creator()) { return false; }
         if (Permissions::is_team_member()) {
             $rows = (new UsersModel())->get_user_by_id(Permissions::creator_id());
             $owner = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            return Plan::can_use_creator_features($owner);
+            return Plan::can_build($owner);
         }
         $rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));   // the full row: is_creator_row needs the role
-        return Plan::can_use_creator_features((is_array($rows) && count($rows) === 1) ? $rows[0] : null);
+        return Plan::can_build((is_array($rows) && count($rows) === 1) ? $rows[0] : null);
     }
 
     /** Progress for the layout widget, or null when it should not render (not eligible, or hidden by the creator). */

@@ -46,6 +46,10 @@ try {
 // Scheduled posts: go live at their time even if the creator never opens Studio, and tell followers.
 try {
     foreach ((new PostsModel())->publish_due(0) as $pid => $cid) {
+        if (Plan::hold_unsellable_post($cid, $pid)) {   // a paid post of a creator on Free: back to drafts until they upgrade
+            fwrite(STDOUT, date('c') . " scheduled post {$pid} held: paid post, creator on Free, moved to drafts\n");
+            continue;
+        }
         PostNotifier::published($cid, $pid);
         fwrite(STDOUT, date('c') . " scheduled post {$pid} published\n");
     }

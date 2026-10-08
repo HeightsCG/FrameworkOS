@@ -41,6 +41,13 @@ $(function () {
 
     function parse(data) { try { return JSON.parse(data); } catch (e) { return { success: false, message: 'Something went wrong' }; } }
     function reload_after(ms) { setTimeout(function () { window.location.href = '/account/billing'; }, ms || 1100); }
+    // ?return= from an upgrade prompt (site.js cls_need_plan): a same-site path to go back to once the plan starts.
+    var plan_return = (function () { var r = new URLSearchParams(window.location.search).get('return') || ''; return /^\/(?![\/\\])[^\s\\]*$/.test(r) ? r : ''; })();
+    function after_plan() {
+        if (plan_return === '' || !pending || pending.endpoint !== 'billing_change_plan') { return false; }
+        setTimeout(function () { window.location.href = plan_return; }, 1100);
+        return true;
+    }
     function esc(s) { return $('<div>').text(s == null ? '' : s).html().replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
 
     /* A charge the bank wants the cardholder to confirm (3-D Secure): confirm it here, then record it. */
@@ -50,6 +57,7 @@ $(function () {
             ApiDataSvc.apiCall('post', 'billing_confirm', { charge_id: o.charge_id }, function (data) {
                 var r = parse(data);
                 if (r.success) { toastr.success(r.message); } else { toastr.error(r.message); }
+                if (r.success && after_plan()) { return; }
                 reload_after();
             });
         });
@@ -61,6 +69,7 @@ $(function () {
         if (o.status === 'requires_action') { $('#confirm_modal').modal('hide'); authenticate(o); return; }
         $('#confirm_modal').modal('hide');
         toastr.success(o.message);
+        if (after_plan()) { return; }
         reload_after();
     }
     function mount_card(target, cb) {

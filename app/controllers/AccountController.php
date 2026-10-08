@@ -157,6 +157,7 @@ class AccountController extends Controller {
         $this->view->payout_status       = $payout_status;
         $this->view->payout_balance      = $payout_balance;
         $this->view->payouts             = $payouts;
+        $this->view->bank_payouts        = !empty($payout_status['payouts_enabled']) ? StripeService::payout_history((int) $user['user_id'], (string) $user['stripe_connect_account_id']) : array();
         $this->view->has_connect         = ($is_owner_creator && !empty($user['stripe_connect_account_id']));
         $this->view->verified            = !empty($owner['verified']);
         $this->view->verif_status        = $is_owner_creator ? (new VerificationsModel())->status_for($owner['user_id']) : '';

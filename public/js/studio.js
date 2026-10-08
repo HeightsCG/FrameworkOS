@@ -1507,7 +1507,7 @@ jQuery(function ($) {
             ? '<img src="' + esc(p.cover_url) + '" alt="">'
             : '<i class="fa-solid ' + typeIcon(p.cover_type || 'image') + '"></i>';
         if (p.asset_count > 1) cover += '<span class="cs-post__num">' + p.asset_count + '</span>';
-        var badge = '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
+        var badge = p.held ? '<span class="cs-badge cs-badge--held">Held: upgrade to publish</span>' : '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
         var aud = p.audience === 'subscribers'
             ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
             : (p.audience === 'ppv'

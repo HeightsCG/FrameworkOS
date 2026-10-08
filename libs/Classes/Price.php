@@ -10,6 +10,9 @@ class Price {
     const CREDITS_PER_DOLLAR = 10;
     const MIN_CREDITS = 10;     // $1
     const MAX_CREDITS = 5000;   // $500
+    const PAYOUT_MIN_CENTS = 2500;   // smallest cash-out, $25
+    const PAYOUT_MIN_CREDITS = self::PAYOUT_MIN_CENTS / 100 * self::CREDITS_PER_DOLLAR;
+    const PAYOUT_MIN_LABEL = '$' . (self::PAYOUT_MIN_CENTS / 100);
 
     /**
      * Parse a dollar amount typed by the creator ("4.90", "$5", "12"). Returns ['ok', 'credits', 'message'].

@@ -73,6 +73,25 @@ $g_sum = function ($rows) { $t = array('signups' => 0, 'verified' => 0, 'became_
             </div>
         </div>
         <?php endif; ?>
+
+        <?php /* build before you pay: Free creators who started building, and how many upgraded (AdminModel::free_builders) */
+        $gb_rows = (array) ($gs['builders'] ?? array());
+        $gb_t = array('creators' => 0, 'built' => 0, 'upgraded' => 0, 'still_free' => 0, 'paid_direct' => 0);
+        foreach ($gb_rows as $r) { foreach ($gb_t as $k => $v) { $gb_t[$k] += (int) $r[$k]; } } ?>
+        <div class="adm-sec__head" style="margin-top:1.6rem;"><h2 class="adm-sec__title">Free Creators Building</h2></div>
+        <?php if (empty($gb_rows)): ?>
+            <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-hammer"></i></span><p class="adm-empty__t">No New Creators in This Period</p></div>
+        <?php else: ?>
+        <div class="adm-table adm-table--gdays">
+            <div class="adm-table__head"><span>Day</span><span>Creators</span><span>Built on Free</span><span>Upgraded</span><span>Still on Free</span><span>Paid First</span></div>
+            <div class="adm-table__body">
+                <?php foreach ($gb_rows as $r): ?>
+                <div class="adm-grow"><span class="adm-ucell"><?php echo $e(gmdate('D, M j', strtotime($r['day'] . ' 00:00:00 UTC'))); ?></span><span class="adm-ucell"><b><?php echo (int) $r['creators']; ?></b></span><?php echo $g_cell($r['built'], $r['creators']) . $g_cell($r['upgraded'], $r['built']) . $g_cell($r['still_free'], $r['built']) . $g_cell($r['paid_direct'], $r['creators']); ?></div>
+                <?php endforeach; ?>
+                <div class="adm-grow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><span class="adm-ucell"><b><?php echo $gb_t['creators']; ?></b></span><?php echo $g_cell($gb_t['built'], $gb_t['creators']) . $g_cell($gb_t['upgraded'], $gb_t['built']) . $g_cell($gb_t['still_free'], $gb_t['built']) . $g_cell($gb_t['paid_direct'], $gb_t['creators']); ?></div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
     <?php endforeach; ?>
 </section>
