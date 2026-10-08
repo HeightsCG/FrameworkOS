@@ -57,7 +57,9 @@ class SeoMeta {
      * and AI assistants tie the site to its accounts) and the footer's social links. Empty = neither shows.
      */
     const SOCIAL_PROFILES = array(
-        // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...', 'LinkedIn' => 'https://www.linkedin.com/company/...',
+        // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...',
+        'LinkedIn' => 'https://www.linkedin.com/company/creator-link-studio',
+        'Product Hunt' => 'https://www.producthunt.com/products/creator-link-studio',
     );
 
     public static function org(): array {
