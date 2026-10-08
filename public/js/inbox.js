@@ -200,7 +200,6 @@
     function bubble(m) {
         var cls = 'ibx-bubble ' + (m.mine ? 'ibx-bubble--mine' : 'ibx-bubble--theirs') + ((m.assets && m.assets.length) ? ' ibx-bubble--media' : '') + (m.auto ? ' ibx-bubble--auto' : '');
         var h = '<div class="' + cls + '" data-mid="' + m.id + '">';
-        if (m.auto && m.mine) { h += '<span class="ibx-bubble__auto">Automatic</span>'; }
         if (m.assets && m.assets.length) {
             if (m.mine && m.price_credits > 0 && !m.revealed) {
                 // the creator's own paid message is rendered exactly as the fan gets it (same cover, same button)

@@ -39,7 +39,7 @@ What stops growth today is not crawlability. It is three things (two earlier ite
 | 4 | Brand and LLM text | done in dev | `SeoMeta::brand_description()` in Organization, SoftwareApplication, llms.txt, footer; `brand_tagline()` as home meta; llms.txt "## Facts" with six brand-named sentences, Terms/Privacy under "## Optional"; llms-full cleaned (home first, legal last, no duplicate H2s, button lines, relative links or empty cells). |
 | 5 | IndexNow canonical host | done on prod | 39 sitemap URLs re-pinged on www 2026-10-08 14:49 UTC, key file 200 on www. |
 | 6 | Admin Growth tab | done in dev | 7/30/90 days: per-day and by-source signups, verified %, creators %, paid %, referred; referred signups list. Admin tab row now wraps. |
-| 7 | Production readiness | done in dev | `GET /health`, `cron/error_digest.php` (07:45), `cron/db_backup.php` (03:30, S3 `backups/db/<env>/`), `cron_runs` + Jobs box on /admin (`sql/2026-10-08_cron_runs.sql`), `docs/ops.md` (crontab, logs, restore drill done on dev), `docs/ops/vhost-creatorlinkstudio.conf` (headers, single-hop redirects; run `sudo apache2ctl configtest` first). |
+| 7 | Production readiness | done in dev | `GET /health`, `cron/error_digest.php` (07:45), `cron/db_backup.php` (03:30, S3 `backups/db/<env>/`), `cron_runs` + Jobs box on /admin (`sql/2026-10-08_cron_runs.sql`), `docs/ops.md` (crontab, logs, restore drill done on dev), server headers and redirects CLOSED, no action (see line below). |
 
 Open decisions for Daniel from this batch: "Free: Get a page" vs Free having no public page; the profile footer prints plan prices to fans; usernames derive from the email local part at signup.
 
@@ -48,7 +48,7 @@ Open decisions for Daniel from this batch: "Free: Get a page" vs Free having no 
 Technical
 - Stable public thumbnails for published SFW media (home feed, directory, profiles): WebP at display size, real alt text, long cache; signed URLs only for gated media. Today every image is a 1-hour signed S3 URL, uncacheable and unindexable. 2-3 days.
 - Mobile LCP 5.4-6.3 s on every page type: inline hero CSS, defer the three blocking scripts on profiles, drop Font Awesome from the public profile, blog covers as WebP ≤80 KB with fetchpriority and srcset. 1-2 days, target 90+.
-- Apache vhost: HSTS, nosniff, Referrer-Policy, one X-Frame-Options; single-hop redirect without `:443`; 301 `/index.php*` and `/compare`; `/studio` logged-out → `/`. Daniel deploys; validate the config first (an .htaccess slip took the dev site down in August).
+- Security headers and redirects: CLOSED 2026-10-08, no action. The vhost is frozen, `.htaccess` is off limits (a 2026-08 edit took the site down), and the load balancer is shared by several apps, so listener-level headers would hit all of them. HTTP already forwards to HTTPS at the ALB; the `:443` in its Location and the doubled X-Frame-Options are cosmetic. `docs/ops/vhost-creatorlinkstudio.conf` is reference only and must not be applied.
 - Organization `sameAs` is empty on every page; `SeoMeta::SOCIAL_PROFILES` is an empty constant. Fill after the profiles exist (below).
 
 Content and conversion
