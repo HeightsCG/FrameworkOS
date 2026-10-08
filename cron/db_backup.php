@@ -23,8 +23,7 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$lock = fopen(sys_get_temp_dir() . '/cls-db-backup.lock', 'c');
-if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo date('c'), " another run is active\n"; exit(0); }
+if (!CronRuns::lock('db_backup')) { echo date('c'), " another run is active\n"; exit(0); }
 CronRuns::start('db_backup');
 
 $env = Main::get_environment();

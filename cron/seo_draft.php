@@ -18,8 +18,7 @@ spl_autoload_register(function ($class) use ($root) {
     }
 });
 $opts = getopt('', array('keyword-id::', 'seed', 'load-queue', 'dry-run'));
-$lock = fopen(sys_get_temp_dir() . '/cls-seo-draft.lock', 'c');
-if (!$lock || !flock($lock, LOCK_EX | LOCK_NB)) { echo date('c'), " another run is active\n"; exit(0); }
+if (!CronRuns::lock('seo_draft')) { echo date('c'), " another run is active\n"; exit(0); }
 
 CronRuns::start('seo_draft');
 $keywords = new SeoKeywordsModel();

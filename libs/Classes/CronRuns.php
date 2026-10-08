@@ -23,6 +23,20 @@ class CronRuns {
     );
 
     private static $open = array();
+    private static $locks = array();
+
+    /** One run at a time per script: a DB named lock (any OS user) held until this process ends. False = another run is active. */
+    public static function lock(string $name): bool {
+        try {
+            $m = new CronRunsModel();
+            if (!$m->run_lock($name)) { return false; }
+            self::$locks[$name] = $m;   // keep the connection open, so the lock lives as long as the process
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[cron_runs] lock ' . $name . ': ' . $e->getMessage());
+            return true;   // bookkeeping never blocks a job
+        }
+    }
 
     public static function start(string $name): void {
         self::$open[$name] = true;

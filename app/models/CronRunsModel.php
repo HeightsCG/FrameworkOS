@@ -16,6 +16,15 @@ class CronRunsModel extends Model {
             array(':n' => $name, ':t' => $now, ':t2' => $now, ':ok' => $ok ? 1 : 0, ':note' => mb_substr($note, 0, 255)));
     }
 
+    /**
+     * The run lock for one script: a MySQL named lock held by this model's connection for the rest of the process, so it
+     * works whatever OS user runs the script (a root-owned /tmp lock file locked out manual runs from the shell).
+     */
+    public function run_lock(string $name): bool {
+        $got = parent::select("SELECT GET_LOCK(:k, 0) AS l", array('k' => 'cls_cron_' . $name));
+        return !empty($got[0]['l']);
+    }
+
     /** name => row */
     public function all(): array {
         $out = array();
