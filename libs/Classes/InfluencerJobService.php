@@ -491,7 +491,7 @@ class InfluencerJobService {
                 if (!empty($o['nsfw']) || MediaIngestService::is_blank_image($img['bytes'])) {
                     throw new BlankOutputException('The model returned a blank image (its content filter fired).');
                 }
-                if ($qa && $type === 'image' && (string) $job['type'] === 'image') {
+                if ($qa && $type === 'image' && in_array((string) $job['type'], array('image', 'training_set', 'angle'), true)) {   // training material too: a deformed shot trains a deformed model
                     $q = ImageQualityService::check($img['bytes'], (string) $img['mime']);
                     if (!$q['ok']) { throw new QualityException($q['issues'] !== '' ? $q['issues'] : 'visible anatomy errors'); }
                 }

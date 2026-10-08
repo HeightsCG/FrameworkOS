@@ -370,10 +370,10 @@ class InfluencerService {
         $vars = self::TRAINING_VARIATIONS; $v = $vars[((int) $i) % count($vars)];
         $body = self::body_phrase($infl); $pr = self::pronouns($infl);
         $intro = $has_body_ref
-            ? 'The first image is ' . $pr[2] . ' face, the second ' . $pr[2] . ' body: the same ' . self::noun($infl) . ' in this picture, with the same face, hair, skin tone and the same build as the second image. '
+            ? 'The first image is ' . $pr[2] . ' face, the second ' . $pr[2] . ' body: the same ' . self::noun($infl) . ' in this picture, with the same face, hair, skin tone and exactly the build of the second image, in natural real-life proportions, nothing enlarged or exaggerated. '
             : '';
         $shot = self::training_variation($infl, $i);
-        if ($body !== '' && strpos($v, '{body}') === false && stripos($v, 'close-up') === false) { $shot .= ', ' . $pr[2] . ' build showing as it is: ' . $body; }
+        if ($body !== '' && strpos($v, '{body}') === false && stripos($v, 'close-up') === false) { $shot .= ', same build as in the second image (' . $body . ')'; }
         return $intro . $shot;
     }
 
