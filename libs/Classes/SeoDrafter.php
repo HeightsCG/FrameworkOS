@@ -67,23 +67,63 @@ class SeoDrafter {
     public static $check_citation_urls = true;
     private static $url_cache = array();
 
-    /** The cited URLs that do not answer 2xx/3xx (HEAD, then GET for servers that refuse HEAD). Cached per process. */
+    /**
+     * Source pages verified to exist (checked 2026-10-09, each answered 200). Offered to the model so it cites a real page
+     * instead of inventing a plausible path; validate() still fetches every citation. Keep to CITATION_DOMAINS.
+     */
+    const KNOWN_SOURCES = array(
+        'https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center' => 'IRS: self-employed individuals tax center',
+        'https://www.irs.gov/businesses/understanding-your-form-1099-k' => 'IRS: understanding Form 1099-K',
+        'https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking' => 'FTC: Endorsement Guides, what people are asking',
+        'https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers' => 'FTC: Disclosures 101 for social media influencers',
+        'https://www.sba.gov/business-guide' => 'US SBA: business guide',
+        'https://www.gov.uk/working-for-yourself' => 'UK government: working for yourself',
+        'https://support.google.com/youtube/answer/72857' => 'YouTube Help: YouTube Partner Program overview and eligibility',
+        'https://support.google.com/youtube/answer/1311392' => 'YouTube Help: channel monetization policies',
+        'https://support.tiktok.com/en/business-and-creator' => 'TikTok Support: business and creator',
+        'https://support.tiktok.com/en/using-tiktok/growing-your-audience/creator-rewards-program' => 'TikTok Support: Creator Rewards Program',
+        'https://help.fanvue.com/en/' => 'Fanvue Help Center',
+        'https://creatorhub.fansly.com/' => 'Fansly Creator Hub',
+        'https://help.beacons.ai/' => 'Beacons Help Center',
+        'https://help.stan.store/' => 'Stan Help Center',
+        'https://help.linktr.ee/en/' => 'Linktree Help Center',
+        'https://onlyfans.com/help' => 'OnlyFans Help Center',
+        'https://docs.bsky.app/docs/get-started' => 'Bluesky developer docs: get started',
+        'https://huggingface.co/docs/diffusers/training/lora' => 'Hugging Face Diffusers docs: LoRA training',
+        'https://huggingface.co/docs/peft/conceptual_guides/lora' => 'Hugging Face PEFT docs: LoRA conceptual guide',
+        'https://huggingface.co/docs/diffusers/training/dreambooth' => 'Hugging Face Diffusers docs: DreamBooth training',
+        'https://arxiv.org/abs/2106.09685' => 'arXiv: LoRA, Low-Rank Adaptation of Large Language Models (Hu et al., 2021)',
+        'https://arxiv.org/abs/2208.12242' => 'arXiv: DreamBooth (Ruiz et al., 2022)',
+        'https://arxiv.org/abs/2112.10752' => 'arXiv: High-Resolution Image Synthesis with Latent Diffusion Models (Rombach et al., 2021)',
+        'https://bfl.ai/models/flux-kontext' => 'Black Forest Labs: FLUX models',
+        'https://www.pewresearch.org/topic/internet-technology/' => 'Pew Research Center: internet and technology research',
+    );
+
+    /** Allow-listed hosts that answer 400/401/403/429 to any non-browser request: a page there is accepted but noted as unverified. */
+    public static $unverified_citations = array();
+
+    /**
+     * The cited URLs that do not exist: 404/410, a 5xx, or no answer at all. Tries HEAD, then GET (several help centres
+     * refuse HEAD). A bot wall (400/401/403/429) on an allow-listed host does not prove a page missing, so that URL is
+     * accepted and listed in $unverified_citations instead. Cached per process.
+     */
     public static function unreachable_citations(array $urls): array {
         $bad = array();
         foreach (array_unique($urls) as $u) {
             if (!isset(self::$url_cache[$u])) {
-                $ok = false;
+                $ok = false; $last = 0;
                 foreach (array(true, false) as $head) {
                     $ch = curl_init($u);
                     curl_setopt_array($ch, array(CURLOPT_NOBODY => $head, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5,
-                        CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; ' . Main::site_name() . ' citation check)',
-                        CURLOPT_HTTPHEADER => array('Accept: text/html,application/xhtml+xml,*/*;q=0.8')));
+                        CURLOPT_TIMEOUT => 15, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_ENCODING => '',
+                        CURLOPT_USERAGENT => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                        CURLOPT_HTTPHEADER => array('Accept: text/html,application/xhtml+xml,*/*;q=0.8', 'Accept-Language: en-US,en;q=0.8')));
                     curl_exec($ch);
-                    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                    $last = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
                     curl_close($ch);
-                    if ($code >= 200 && $code < 400) { $ok = true; break; }
-                    if ($code === 404 || $code === 410) { break; }   // a definite miss: no point retrying with GET
+                    if ($last >= 200 && $last < 400) { $ok = true; break; }
                 }
+                if (!$ok && in_array($last, array(400, 401, 403, 429), true)) { $ok = true; self::$unverified_citations[] = $u; }
                 self::$url_cache[$u] = $ok;
             }
             if (!self::$url_cache[$u]) { $bad[] = $u; }
@@ -112,7 +152,10 @@ class SeoDrafter {
         $questions = count(array_filter($h2, function ($h) { return substr($h, -1) === '?'; }));
         if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be the reader\'s question (ending in ?)'; }
         $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, self::citations($body)));
-        if (count($hosts) < self::MIN_CITATIONS) { $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'; }
+        if (count($hosts) < self::MIN_CITATIONS) {
+            $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'
+                . (self::$stripped_external ? '; links to domains not on the list were removed: ' . implode(', ', array_slice(array_unique(self::$stripped_external), 0, 4)) : '');
+        }
         return array_merge($err, self::prose_errors($body));
     }
 
@@ -147,7 +190,7 @@ class SeoDrafter {
     const FIRST_NAMES = array('Sarah','Jessica','Emily','Ashley','Jennifer','Michael','David','James','John','Robert','Daniel','Matthew','Christopher','Joshua','Andrew','Ryan','Brandon','Tyler','Kevin','Jason','Justin','Emma','Olivia','Sophia','Isabella','Mia','Ava','Abigail','Madison','Chloe','Lily','Hannah','Samantha','Lauren','Rachel','Megan','Amanda','Nicole','Stephanie','Elizabeth','Maria','Laura','Anna','Sofia','Lucas','Liam','Noah','Ethan','Mason','Logan','Aiden','Jacob','Benjamin','Alexander','Elijah','Oliver','Henry','Sebastian','Carlos','Juan','Jose','Luis','Miguel','Priya','Aisha','Fatima','Mohammed','Ahmed','Yuki','Kenji','Maya','Zoe','Jake','Josh','Mike','Dave','Chris','Alex','Ben','Tom','Nina','Lena','Elena','Clara','Julia','Sara','Kate','Katie','Jenny','Amy','Lisa','Leah','Ella','Sienna','Jasmine','Marcus','Tony','Kim');
 
     /** Capitalised words that are products, places, platforms or colours, never a person (the names check skips them). */
-    const SAFE_WORDS = array('Maya','Mason','Sienna','Google','Hugging','Face','Instagram','Facebook','Twitter','Reddit','Snapchat','Pinterest','Threads','Bluesky','Discord','Telegram','Patreon','Fanvue','Fansly','Linktree','Beacons','Apple','Android','Canva','Shopify','Flux','Stable','Diffusion','Midjourney','Claude','Analytics','Creator','Studio','Free','Pro','Link','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','January','February','March','April','May','June','July','August','September','October','November','December','English','Spanish','The','This','That','These','Those','Your','You','It','A','An','In','On','At','For','From','With','By','And','But','Or','If','When','What','How','Why','One','Two','Three','Each','Every','Some','All','Most','Settings','Library','Studio','Inbox','Audience','Dashboard','Pricing','Features','Payouts','Memberships','Services','Events','Bundles','Credits','Wallet','LoRA','Visa','Mastercard','PayPal','Europe','America','Canada','Australia','London','Paris');
+    const SAFE_WORDS = array('Maya','Mason','Sienna','Google','Hugging','Face','Instagram','Facebook','Twitter','Reddit','Snapchat','Pinterest','Threads','Bluesky','Discord','Telegram','Patreon','Fanvue','Fansly','Linktree','Beacons','Apple','Android','Canva','Shopify','Flux','Stable','Diffusion','Midjourney','Claude','Analytics','Creator','Studio','Free','Pro','Link','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday','January','February','March','April','May','June','July','August','September','October','November','December','English','Spanish','The','This','That','These','Those','Your','You','It','A','An','In','On','At','For','From','With','By','And','But','Or','If','When','What','How','Why','Where','Which','Who','Whose','Whether','Here','There','Then','Now','Also','Even','Still','Just','Only','Over','Under','After','Before','During','Since','Until','While','Because','Although','Though','Once','Again','Later','Earlier','Today','Yes','No','Not','Next','Last','First','Second','Third','Step','Part','Day','Week','Month','Year','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Each','Every','Some','All','Most','Many','Much','Few','Other','Another','Same','Different','Own','Real','New','Old','Good','Bad','Best','Better','More','Less','Half','Full','Short','Long','Small','Large','Big','Early','Late','Plan','Plans','Tier','Tiers','Fee','Fees','Post','Posts','Page','Pages','Fan','Fans','Creators','Monthly','Annual','Price','Prices','Bank','Card','Credit','Image','Images','Video','Videos','Photo','Photos','Model','Models','Character','Characters','Dataset','Datasets','Scene','Scenes','Caption','Captions','Prompt','Prompts','Seed','Seeds','Faces','Hair','Body','Style','Lighting','Angle','Angles','Base','Rank','Steps','Rate','Loss','Epoch','Epochs','Batch','Size','Width','Height','Format','Quality','Resolution','Upload','Download','Reply','Replies','Message','Messages','Broadcast','Welcome','Trigger','Automation','Automations','Schedule','Queue','Draft','Drafts','Publish','Published','Review','Live','Online','Public','Private','Subscriber','Subscribers','Member','Members','Membership','Trial','Trials','Promo','Code','Codes','Bundle','Service','Event','Ticket','Tickets','Booking','Bookings','Session','Sessions','Call','Calls','Room','Domain','Domains','Handle','Profile','Bio','Click','Clicks','Views','Likes','Comments','Reach','Growth','Niche','Topic','Content','AI','OFM','DM','DMs','Chat','Agent','Tool','Tools','App','Apps','Platform','Platforms','Network','Networks','Social','Payout','Balance','Earnings','Income','Revenue','Sales','Money','Upgrade','Cancel','Refund','Refunds','Support','Help','Guide','Guides','Tips','Fix','Answer','Question','Questions','FAQ','Example','Examples','Option','Options','Way','Ways','Reason','Reasons','Rule','Rules','Limit','Limits','Minimum','Maximum','Average','Total','Number','Settings','Library','Studio','Inbox','Audience','Dashboard','Pricing','Features','Payouts','Memberships','Services','Events','Bundles','Credits','Wallet','LoRA','Visa','Mastercard','PayPal','Europe','America','Canada','Australia','London','Paris');
 
     /** A known cluster slug, or '' . */
     public static function cluster($c): string {
@@ -221,13 +264,17 @@ class SeoDrafter {
     }
 
     /** Links outside the cluster's allow-list (and external links not on CITATION_DOMAINS) become their plain text. */
+    /** External links strip_links() turned into plain text (off the citation list), so a "0 citations" error can say why. */
+    public static $stripped_external = array();
+
     public static function strip_links($md, $cluster, $article_clusters = null): string {
         $cluster = self::cluster($cluster);
         if ($cluster !== '' && $article_clusters === null) { try { $article_clusters = (new SeoArticlesModel())->published_clusters(); } catch (\Throwable $e) { $article_clusters = array(); } }
         $allowed = self::allowed_paths();
+        self::$stripped_external = array();
         return preg_replace_callback('/\[([^\]]*)\]\(([^)\s]+)\)/', function ($m) use ($cluster, $article_clusters, $allowed) {
             $l = $m[2]; $path = preg_replace('/[#?].*$/', '', $l);
-            if (preg_match('#^https?://#i', $l)) { return self::citation_ok($l) ? $m[0] : $m[1]; }
+            if (preg_match('#^https?://#i', $l)) { if (self::citation_ok($l)) { return $m[0]; } self::$stripped_external[] = $l; return $m[1]; }
             if (strpos($l, '/') !== 0 || strpos($l, '//') === 0 || !in_array($path, $allowed, true)) { return $m[1]; }
             if ($cluster === '') { return $m[0]; }
             return self::link_in_cluster($path, $cluster, (array) $article_clusters) ? $m[0] : $m[1];
@@ -265,13 +312,35 @@ class SeoDrafter {
         return max(1, (int) ceil(Markdown::word_count($md) / 230));
     }
 
+    /** Walks a JSON text and escapes raw newlines, carriage returns and tabs that sit inside string literals (the usual reason a long reply fails to parse). */
+    public static function escape_json_strings(string $t): string {
+        $out = ''; $in = false; $esc = false; $n = strlen($t);
+        for ($i = 0; $i < $n; $i++) {
+            $c = $t[$i];
+            if ($in) {
+                if ($esc) { $esc = false; $out .= $c; continue; }
+                if ($c === '\\') { $esc = true; $out .= $c; continue; }
+                if ($c === '"') { $in = false; $out .= $c; continue; }
+                if ($c === "\n") { $out .= '\n'; continue; }
+                if ($c === "\r") { continue; }
+                if ($c === "\t") { $out .= '\t'; continue; }
+                $out .= $c; continue;
+            }
+            if ($c === '"') { $in = true; }
+            $out .= $c;
+        }
+        return $out;
+    }
+
     /** Accepts a raw model reply; strips ``` fences and returns the decoded object or null. */
     public static function parse_json($text){
         $t = trim((string) $text);
         $t = preg_replace('/^```(?:json)?\s*/i', '', $t);
         $t = preg_replace('/\s*```$/', '', $t);
         $d = json_decode($t, true);
-        if (!is_array($d)) { $s = strpos($t, '{'); $e = strrpos($t, '}'); if ($s !== false && $e !== false && $e > $s) { $d = json_decode(substr($t, $s, $e - $s + 1), true); } }
+        if (!is_array($d)) { $s = strpos($t, '{'); $e = strrpos($t, '}'); if ($s !== false && $e !== false && $e > $s) { $t = substr($t, $s, $e - $s + 1); $d = json_decode($t, true); } }
+        if (!is_array($d)) { $d = json_decode(self::escape_json_strings($t), true); }   // a model sometimes leaves real newlines or tabs inside a string
+
         return is_array($d) ? $d : null;
     }
 
@@ -585,6 +654,8 @@ class SeoDrafter {
             if (!empty($recent)) { $lines[] = 'Published articles you may link to (and must not repeat):'; foreach ($recent as $a) { $lines[] = '- /blog/' . $a['slug'] . ': ' . $a['title'] . '. ' . (string) $a['excerpt']; } }
         } catch (\Throwable $e) {}
         $lines[] = 'Competitors you may name only as "other subscription platforms", with no fees and no claims: ' . implode(', ', array_column(PagesController::COMPETITORS, 'name')) . '.';
+        $lines[] = 'Source pages known to exist (cite one of these where it backs a claim, or another page on the same sites that you are certain exists; every cited URL is fetched and a missing page rejects the article):';
+        foreach (self::KNOWN_SOURCES as $u => $what) { $lines[] = '- ' . $u . ' : ' . $what; }
         return implode("\n", $lines);
     }
 

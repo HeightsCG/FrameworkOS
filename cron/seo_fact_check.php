@@ -162,7 +162,10 @@ foreach ($rows as $row) {
         $kw = null;
         foreach ((new SeoKeywordsModel())->all() as $k) { if ((int) $k['article_id'] === (int) $a['id']) { $kw = $k; break; } }
         if (!$kw) { $kw = array('id' => 0, 'keyword' => (string) $a['target_keyword'], 'cluster' => (string) $a['cluster'], 'volume' => 0); }
-        $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.' . (!empty($rule_issues) ? ' Also fix: ' . implode('; ', $rule_issues) . '.' : '') . ' Keep everything else as it is.';
+        $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.'
+            . (!empty($rule_issues)
+                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', $rule_issues) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), rephrase at least two "## " headings as the question a reader would type, and open each paragraph by naming its subject. Keep the topic, the slug and the facts; structure and wording may change.'
+                : ' Keep everything else as it is.');
         echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues)), ")\n";
         try { $r = SeoDrafter::draft($kw, $note, (int) $a['id']); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
         if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
