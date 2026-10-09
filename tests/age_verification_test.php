@@ -50,6 +50,8 @@ check('status none', AgeVerification::status($FAN) === 'none' && !AgeVerificatio
 $s = AgeVerification::start($FAN, '/account/settings#privacy');
 check('start ok', !empty($s['ok']) && strpos($s['url'], 'https://fake.example/verify/') === 0 && AgeVerification::status($FAN) === 'pending');
 check('return url goes through our landing', strpos(FakeAgeProvider::$last_return, '/account/age_verification?return=') !== false && strpos(FakeAgeProvider::$last_return, rawurlencode('/account/settings#privacy')) !== false);
+check('a page query travels in rq, never as an encoded ? (the web server 403s those)', AgeVerification::landing_url('/studio?post=12') === SeoMeta::base() . '/account/age_verification?return=%2Fstudio&rq=post%3D12' && strpos(AgeVerification::landing_url('/account/settings?section=privacy'), '%3F') === false);
+check('rq is reduced to plain pairs', AgeVerification::safe_query('section=privacy&x=1<script>') === 'section=privacy&x=1script');
 check('unsafe return path replaced', AgeVerification::safe_path('https://evil.example/x') === '/' && AgeVerification::safe_path('//evil') === '/' && AgeVerification::safe_path('/studio?post=5') === '/studio?post=5');
 $hook = function ($ref, $status, $uid, $sig = 'ok') { return AgeVerification::apply_webhook(json_encode(array('ref' => $ref, 'status' => $status, 'user_id' => $uid)), array('X-Fake' => $sig)); };
 check('bad signature rejected, nothing changes', !$hook(FakeAgeProvider::$last_ref, 'verified', $FAN, 'bad')['ok'] && AgeVerification::status($FAN) === 'pending');

@@ -496,8 +496,9 @@ class AccountController extends Controller {
         $return = AgeVerification::safe_path((string) ($_GET['return'] ?? '/account/settings'));
         $hash = '';
         if (strpos($return, '#') !== false) { list($return, $hash) = explode('#', $return, 2); }
-        $sep = strpos($return, '?') === false ? '?' : '&';
-        header('Location: ' . $return . $sep . 'age_verification=' . rawurlencode($status) . ($hash !== '' ? '#' . $hash : ''), true, 302);
+        if (strpos($return, '?') !== false) { $return = strstr($return, '?', true); }   // the page's query arrives in rq (see AgeVerification::landing_url)
+        $rq = AgeVerification::safe_query((string) ($_GET['rq'] ?? ''));
+        header('Location: ' . $return . '?' . ($rq !== '' ? $rq . '&' : '') . 'age_verification=' . rawurlencode($status) . ($hash !== '' ? '#' . $hash : ''), true, 302);
         exit;
     }
 

@@ -180,8 +180,8 @@ class ApiProfileController extends BaseApiController {
 
         // Trigger 1: the toggle does not save until the account is age verified. Not verified yet (or failed last
         // time): open the provider's hosted session and send the person there; the toggle stays off until they return.
-        if ($enabled && !AgeVerification::is_verified($uid)) {
-            $s = AgeVerification::start($uid, '/account/settings#privacy');
+        if ($enabled && AgeVerification::refresh_if_pending($uid, 1) !== 'verified') {   // a result that arrived late (or whose webhook was lost) is picked up here, not re-run
+            $s = AgeVerification::start($uid, '/account/settings?section=privacy');   // ?section= is the page's own deep link to Restricted content
             if (empty($s['ok'])) {
                 $this->jsonError('Could not start age verification. ' . ((string) ($s['error'] ?? '') !== '' ? (string) $s['error'] : 'Please try again.'));
             }

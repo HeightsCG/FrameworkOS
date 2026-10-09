@@ -1809,21 +1809,49 @@ $(function () {
         });
     }
 
+    // The provider's result can land a few seconds after the person is back: poll until it does, then finish the toggle.
+    var age_poll_timer = null, age_poll_until = 0;
+    function ageVerified() {
+        $('#adult_age_status').attr('data-status', 'verified').text('Age verified.');
+        $('#adult_content_toggle').prop('checked', true);
+        saveAdultContent(true, true);   // verified now: the toggle saves and turns on
+    }
+    function ageFailed() {
+        $('#adult_age_status').attr('data-status', 'failed').html('Age verification failed. <a href="#" id="adult_verify_again">Try Again</a>');
+        $('#adult_content_toggle').prop('checked', false);
+        toastr.error('Age verification failed. You can try again.');
+    }
+    function pollAgeStatus(seconds) {
+        clearInterval(age_poll_timer);
+        age_poll_until = Date.now() + seconds * 1000;
+        $('#adult_age_status').attr('data-status', 'pending').text('Age verification in progress. This usually takes a few seconds.');
+        age_poll_timer = setInterval(function () {
+            if (Date.now() > age_poll_until) {
+                clearInterval(age_poll_timer);
+                $('#adult_age_status').attr('data-status', 'pending').html('Age verification in progress. <a href="#" id="adult_verify_again">Continue Verification</a>');
+                return;
+            }
+            ApiDataSvc.apiCall('post', 'age_verification_status', {}, function (data) {
+                var o = null; try { o = JSON.parse(data); } catch (e) { o = null; }
+                if (!o || !o.success) { return; }
+                if (o.status == 'verified') { clearInterval(age_poll_timer); ageVerified(); }
+                else if (o.status == 'failed') { clearInterval(age_poll_timer); ageFailed(); }
+            });
+        }, 3000);
+    }
+
     // Back from the age check (/account/age_verification appends ?age_verification=<status>): finish what they started.
     (function () {
         var q = new URLSearchParams(window.location.search), st = q.get('age_verification');
-        if (st == null) { return; }
+        if (st == null) {
+            if ($('#adult_age_status').attr('data-status') == 'pending') { pollAgeStatus(60); }   // a check still open from before: keep looking briefly
+            return;
+        }
         q.delete('age_verification');
         history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : '') + window.location.hash);
-        if (st == 'verified') {
-            saveAdultContent(true, true);   // verified now: the toggle saves and turns on
-            $('#adult_content_toggle').prop('checked', true);
-            $('#adult_age_status').attr('data-status', 'verified').text('Age verified.');
-        } else if (st == 'failed') {
-            toastr.error('Age verification failed. You can try again.');
-        } else {
-            toastr.info('Your age check is still being processed. Check back in a moment.');
-        }
+        if (st == 'verified') { ageVerified(); }
+        else if (st == 'failed') { ageFailed(); }
+        else { toastr.info('Your age check is being processed. This page updates as soon as it is done.'); pollAgeStatus(180); }
     })();
 
     $(document).on('click', '#adult_verify_again', function (e) {

@@ -56,8 +56,7 @@ class AgeVerification {
         $model = new AgeVerificationsModel();
         if ($model->is_verified($user_id)) { return array('ok' => false, 'url' => '', 'error' => 'This account is already age verified.'); }
         $p = self::provider();
-        $return_url = SeoMeta::base() . '/account/age_verification?return=' . rawurlencode(self::safe_path($return_path));
-        $s = $p::start($user_id, $return_url);
+        $s = $p::start($user_id, self::landing_url($return_path));
         if (empty($s['ok']) || (string) ($s['ref'] ?? '') === '' || (string) ($s['url'] ?? '') === '') {
             error_log('[age_verification] start failed for user ' . $user_id . ': ' . (string) ($s['error'] ?? 'no session'));
             return array('ok' => false, 'url' => '', 'error' => (string) ($s['error'] ?? 'The verification service did not answer.'));
@@ -94,13 +93,21 @@ class AgeVerification {
         return array('ok' => true, 'user_id' => $uid, 'status' => self::status($uid));
     }
 
-    /** On the return landing: if the webhook has not arrived yet, ask the vendor once. Returns the status afterwards. */
-    public static function refresh_if_pending(int $user_id): string {
-        $row = (new AgeVerificationsModel())->get($user_id);
-        if (!$row || (string) $row['status'] !== 'pending') { return $row ? (string) $row['status'] : 'none'; }
-        $p = self::provider();
-        $s = $p::fetch_status((string) $row['provider_ref']);
-        if ($s === 'verified' || $s === 'failed') { self::apply_result((string) $row['provider_ref'], $s, $user_id); }
+    /**
+     * On the return landing: if the webhook has not arrived yet, ask the vendor. The person usually lands here a second
+     * or two before the vendor finalises the decision, so a pending answer is retried a few times (about 6 s in all)
+     * before the page reports "still processing" and keeps polling from the browser. Returns the status afterwards.
+     */
+    public static function refresh_if_pending(int $user_id, int $attempts = 4): string {
+        $model = new AgeVerificationsModel();
+        for ($i = 0; $i < max(1, $attempts); $i++) {
+            $row = $model->get($user_id);
+            if (!$row || (string) $row['status'] !== 'pending') { return $row ? (string) $row['status'] : 'none'; }   // the webhook may land between tries
+            $p = self::provider();
+            $s = $p::fetch_status((string) $row['provider_ref']);
+            if ($s === 'verified' || $s === 'failed') { self::apply_result((string) $row['provider_ref'], $s, $user_id); return self::status($user_id); }
+            if ($i + 1 < $attempts) { sleep(2); }
+        }
         return self::status($user_id);
     }
 
@@ -120,6 +127,22 @@ class AgeVerification {
         Notify::send($creator_id, 'creator_activity', 'Your scheduled post was held',
             'It is marked adult, and adult posts publish once your age is verified. It is in your drafts: verify once in Settings, then publish it.', '/account/settings#privacy', 'fa-id-card');
         return true;
+    }
+
+    /**
+     * The vendor's redirect target: /account/age_verification with the page to go back to. The page's own query
+     * (e.g. ?section=privacy, ?post=12) travels in a separate `rq` parameter, because an encoded "?" inside a parameter
+     * is refused (403) by the web server in front of this app.
+     */
+    public static function landing_url(string $return_path): string {
+        $path = self::safe_path($return_path); $query = '';
+        if (strpos($path, '?') !== false) { list($path, $query) = explode('?', $path, 2); }
+        return SeoMeta::base() . '/account/age_verification?return=' . rawurlencode($path) . ($query !== '' ? '&rq=' . rawurlencode($query) : '');
+    }
+
+    /** The query string carried in `rq` (see landing_url), reduced to plain key=value pairs. */
+    public static function safe_query(string $rq): string {
+        return preg_replace('/[^A-Za-z0-9_=&%.-]/', '', $rq);
     }
 
     /** A same-site path (no host, no scheme), else '/'. */

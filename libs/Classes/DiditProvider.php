@@ -34,7 +34,11 @@ class DiditProvider implements AgeVerificationProvider {
         if ($scenario !== '') { $body['sandbox_scenario'] = $scenario; }
         list($code, $resp) = self::request('POST', '/session/', $body);
         if (($code !== 200 && $code !== 201) || empty($resp['session_id']) || empty($resp['url'])) {
-            $why = is_array($resp) ? (string) ($resp['detail'] ?? ($resp['message'] ?? ($resp['error'] ?? ''))) : '';
+            $why = '';
+            if (is_array($resp)) {   // {"detail": "..."} or a field-keyed validation error such as {"sandbox_scenario": ["..."]}
+                $first = $resp['detail'] ?? ($resp['message'] ?? ($resp['error'] ?? reset($resp)));
+                $why = is_array($first) ? (string) reset($first) : (string) $first;
+            }
             return array('ok' => false, 'ref' => '', 'url' => '', 'error' => 'Didit: HTTP ' . $code . ($why !== '' ? ' ' . $why : ''));
         }
         return array('ok' => true, 'ref' => (string) $resp['session_id'], 'url' => (string) $resp['url'], 'error' => '');

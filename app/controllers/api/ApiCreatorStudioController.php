@@ -879,7 +879,7 @@ class ApiCreatorStudioController extends BaseApiController {
      * shows a prompt and sends the creator to the provider's hosted check, then back to this post.
      */
     private function require_age_for_adult_post(int $creator_id, int $post_id): void{
-        if (!AgeVerification::post_is_adult($post_id) || AgeVerification::is_verified($creator_id)) { return; }
+        if (!AgeVerification::post_is_adult($post_id) || AgeVerification::refresh_if_pending($creator_id, 1) === 'verified') { return; }   // a late result is picked up, not re-run
         $s = AgeVerification::start($creator_id, '/studio?post=' . $post_id);
         $this->jsonError('This post is marked adult. Verify your age once to publish it.',
             ['need_age_verification' => true, 'url' => (string) ($s['url'] ?? ''), 'error' => (string) ($s['error'] ?? '')]);
