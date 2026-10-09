@@ -56,7 +56,67 @@ class SeoDrafter {
         'pewresearch.org', 'help.instagram.com', 'creators.instagram.com', 'transparency.meta.com', 'support.google.com', 'blog.youtube',
         'help.x.com', 'support.tiktok.com', 'help.pinterest.com', 'support.patreon.com', 'help.ko-fi.com', 'help.fanvue.com',
         'help.beacons.ai', 'help.stan.store', 'creatorhub.fansly.com', 'huggingface.co',
+        // approved 2026-10-09: model publishers and papers, Bluesky docs, Linktree help, OnlyFans help/terms pages
+        'bfl.ai', 'arxiv.org', 'docs.bsky.app', 'help.linktr.ee', 'onlyfans.com',
     );
+
+    /** Every article cites at least this many distinct sources from CITATION_DOMAINS, each a URL that resolves. */
+    const MIN_CITATIONS = 2;
+
+    /** Set false in tests: validate() otherwise fetches every cited URL to prove it exists (a dead or invented source rejects the draft). */
+    public static $check_citation_urls = true;
+    private static $url_cache = array();
+
+    /** The cited URLs that do not answer 2xx/3xx (HEAD, then GET for servers that refuse HEAD). Cached per process. */
+    public static function unreachable_citations(array $urls): array {
+        $bad = array();
+        foreach (array_unique($urls) as $u) {
+            if (!isset(self::$url_cache[$u])) {
+                $ok = false;
+                foreach (array(true, false) as $head) {
+                    $ch = curl_init($u);
+                    curl_setopt_array($ch, array(CURLOPT_NOBODY => $head, CURLOPT_RETURNTRANSFER => true, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 5,
+                        CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 8, CURLOPT_USERAGENT => 'Mozilla/5.0 (compatible; ' . Main::site_name() . ' citation check)',
+                        CURLOPT_HTTPHEADER => array('Accept: text/html,application/xhtml+xml,*/*;q=0.8')));
+                    curl_exec($ch);
+                    $code = (int) curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+                    curl_close($ch);
+                    if ($code >= 200 && $code < 400) { $ok = true; break; }
+                    if ($code === 404 || $code === 410) { break; }   // a definite miss: no point retrying with GET
+                }
+                self::$url_cache[$u] = $ok;
+            }
+            if (!self::$url_cache[$u]) { $bad[] = $u; }
+        }
+        return $bad;
+    }
+
+    /** The "## " headings of a Markdown body, in order. */
+    public static function h2_texts(string $body): array {
+        preg_match_all('/^##\s+(.+?)\s*$/m', $body, $m);
+        return array_map('trim', $m[1]);
+    }
+
+    /**
+     * Quotability rules the audit scores: 10-25 words per sentence on average, and paragraphs that name their subject
+     * instead of opening with "this", "they", "it" or "such". Returns error strings.
+     */
+    public static function prose_errors(string $body): array {
+        $err = array();
+        $plain = preg_replace(array('/^#.*$/m', '/\[([^\]]*)\]\([^)]*\)/', '/[*_`>|-]+/'), array('', '$1', ' '), $body);
+        $sentences = array_filter(array_map('trim', preg_split('/(?<=[.!?])\s+/', $plain)), function ($s) { return str_word_count($s) > 2; });
+        if (count($sentences) >= 5) {
+            $avg = array_sum(array_map('str_word_count', $sentences)) / count($sentences);
+            if ($avg > 25) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
+            if ($avg < 10) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
+        }
+        foreach (preg_split('/\n\s*\n/', $body) as $p) {
+            $p = trim($p);
+            if ($p === '' || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
+            if (preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; break; }
+        }
+        return $err;
+    }
 
     /** Common first names: an article names no people, real or invented. Ambiguous words (Will, May, Grace...) left out. */
     const FIRST_NAMES = array('Sarah','Jessica','Emily','Ashley','Jennifer','Michael','David','James','John','Robert','Daniel','Matthew','Christopher','Joshua','Andrew','Ryan','Brandon','Tyler','Kevin','Jason','Justin','Emma','Olivia','Sophia','Isabella','Mia','Ava','Abigail','Madison','Chloe','Lily','Hannah','Samantha','Lauren','Rachel','Megan','Amanda','Nicole','Stephanie','Elizabeth','Maria','Laura','Anna','Sofia','Lucas','Liam','Noah','Ethan','Mason','Logan','Aiden','Jacob','Benjamin','Alexander','Elijah','Oliver','Henry','Sebastian','Carlos','Juan','Jose','Luis','Miguel','Priya','Aisha','Fatima','Mohammed','Ahmed','Yuki','Kenji','Maya','Zoe','Jake','Josh','Mike','Dave','Chris','Alex','Ben','Tom','Nina','Lena','Elena','Clara','Julia','Sara','Kate','Katie','Jenny','Amy','Lisa','Leah','Ella','Sienna','Jasmine','Marcus','Tony','Kim');
@@ -417,20 +477,29 @@ class SeoDrafter {
         $err = array();
         $title = trim((string) ($a['title'] ?? '')); $slug = (string) ($a['slug'] ?? ''); $meta = trim((string) ($a['meta_description'] ?? ''));
         $body = (string) ($a['body_md'] ?? ''); $faq = (array) ($a['faq'] ?? array());
-        if ($title === '' || mb_strlen($title) > 70) { $err[] = 'title must be 1-70 characters'; }
+        if ($title === '' || mb_strlen($title) > 60) { $err[] = 'title must be 1-60 characters'; }   // 30-60 as rendered, with the brand suffix dropped past 60
         if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) || strlen($slug) < 3 || strlen($slug) > 120) { $err[] = 'slug must be lowercase a-z 0-9 and hyphens, 3-120 chars'; }
-        if ($meta === '' || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 1-155 characters'; }
+        if (mb_strlen($meta) < 110 || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 110-155 characters'; }
         $words = Markdown::word_count($body);
         list($min_w, $max_w) = self::word_bounds($a['intent'] ?? '');
         if ($words < $min_w || $words > $max_w) { $err[] = "body must be $min_w-$max_w words (got $words)"; }
-        if (Markdown::headings($body, 2) < 3) { $err[] = 'body needs at least 3 "## " sections'; }
+        $h2 = self::h2_texts($body);
+        if (count($h2) < 2) { $err[] = 'body needs at least 2 "## " sections'; }
+        $questions = count(array_filter($h2, function ($h) { return substr($h, -1) === '?'; }));
+        if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be the reader\'s question (ending in ?)'; }
         $allowed = self::allowed_paths();
+        $cited = array();
         foreach (Markdown::links($body) as $l) {
             $path = preg_replace('/[#?].*$/', '', $l);
-            if (preg_match('#^https?://#i', $l)) { continue; }   // citations: content_errors() checks the domain
+            if (preg_match('#^https?://#i', $l)) { if (self::citation_ok($l)) { $cited[] = $l; } continue; }   // off-list domains: content_errors()
             if (strpos($l, '/') !== 0 || strpos($l, '//') === 0) { $err[] = "external link not allowed: $l"; }
             elseif (!in_array($path, $allowed, true)) { $err[] = "unknown internal link: $l"; }
         }
+        // citations: MIN_CITATIONS distinct sources (by host), every one a URL that exists
+        $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, $cited));
+        if (count($hosts) < self::MIN_CITATIONS) { $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'; }
+        if (self::$check_citation_urls && $cited) { foreach (self::unreachable_citations($cited) as $u) { $err[] = 'cited URL does not resolve: ' . $u; } }
+        $err = array_merge($err, self::prose_errors($body));
         $err = array_merge($err, self::link_errors($a));   // allow-list and cluster: always, drafted or edited
         if ($strict_links) {
             $article_links = 0; $feature_links = 0;
@@ -449,7 +518,7 @@ class SeoDrafter {
         if (preg_match('/\bas an ai\b/i', $all)) { $err[] = 'model self-reference ("As an AI") not allowed'; }
         if (preg_match('/<\/?[a-z][^>]*>/i', $body)) { $err[] = 'raw HTML not allowed in body'; }
         $n = 0; foreach ($faq as $f) { if (is_array($f) && trim((string) ($f['q'] ?? '')) !== '' && trim((string) ($f['a'] ?? '')) !== '') { $n++; } }
-        if ($n < 3 || $n > 5) { $err[] = 'faq needs 3-5 question/answer pairs'; }
+        if ($n !== 0 && ($n < 3 || $n > 5)) { $err[] = 'faq is either empty or 3-5 question/answer pairs'; }   // optional: not every piece ends in a FAQ
         $err = array_merge($err, self::content_errors($a));
         try { if ($slug !== '' && (new SeoArticlesModel())->slug_exists($slug, $except_id)) { $err[] = 'slug already exists'; } } catch (\Throwable $e) {}
         return $err;
@@ -510,8 +579,10 @@ class SeoDrafter {
             . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
             . "Never type a plan price, a platform fee percentage or a credit price yourself. Where the article states the platform fee write the token {{fee}}, where it states plan prices write {{plans}}; the publisher replaces them with the current wording. Wherever plans, plan charges or credits come up, include {{final_note}} once (it says plan charges and credit purchases are final and non-refundable) unless {{fee}} or {{plans}} is already in that section. "
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
-            . "External links: none, except to cite a specific fact from an official source on this list (full https URL, at most three, only where it backs a claim): " . implode(', ', self::CITATION_DOMAINS) . ". "
-            . "Output ONLY a JSON object with keys: title (<=70 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (<=155 chars), excerpt (one or two sentences), body_md (Markdown at the length the request gives, at least four \"## \" sections, some \"### \" subsections, one relative link per section from the allowed list, no H1, no raw HTML), faq (array of 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
+            . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different official sources on this list, as full https URLs to pages you know exist (a help-centre article, a published document); never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
+            . "Shape the piece for the question, not for a template: no fixed number of sections, no obligatory introduction, takeaways, summary or conclusion, and a FAQ only when the topic has real follow-up questions (then 3-5, otherwise none). Use between two and six \"## \" sections and vary their kind between pieces (a short direct answer first, a walkthrough, a checklist, a comparison, a problem-first piece). Phrase at least two \"## \" headings as the question a reader would type, ending in a question mark, and put the direct answer in the first sentence under each. "
+            . "Write sentences of 10 to 25 words. Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. "
+            . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, 2-6 \"## \" sections, relative links from the allowed list where they help, no H1, no raw HTML), faq (array, empty or 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
     /** Visual motif per topic for the cover prompt (abstract objects only — no people, no text). */
@@ -623,10 +694,19 @@ class SeoDrafter {
     }
 
     /** The signup block shown under every article (rendered by blog-article.php). Written here, not by Claude, so it never drifts. */
-    public static function cta_html(): string {
+    /** The four signup lines: one per article (by id), and never a heading, so the same sentence does not repeat across the whole blog. */
+    const CTA_LINES = array(
+        'Your page, your prices, paid to your bank.',
+        'Sell memberships, posts and services from one page.',
+        'One page for everything you sell.',
+        'Put your work behind a price you set.',
+    );
+
+    public static function cta_html(int $article_id = 0): string {
         $site = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
+        $line = self::CTA_LINES[$article_id % count(self::CTA_LINES)];
         return '<aside class="gd-cta">'
-            . '<h2 class="gd-cta__title">Start earning from your own page</h2>'
+            . '<p class="gd-cta__title">' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</p>'
             . '<p class="gd-cta__text">' . $site . ' gives you one public page with memberships, pay-per-view posts, bundles, services and events, and pays out to your bank.</p>'
             . '<a class="gd-cta__btn" href="/?auth=register">Create Your Account</a>'
             . '</aside>';
@@ -649,7 +729,12 @@ class SeoDrafter {
         $intent = self::intent_for($keyword, $cluster); $len = self::LENGTHS[$intent];
         $user = "Target keyword: \"$keyword\"" . (!empty($kw['volume']) ? " (about {$kw['volume']} searches/month)" : '') . ".";
         if ($cluster !== '') { $user .= "\nTopic cluster: " . self::CLUSTERS[$cluster]['label'] . "."; }
-        $user .= "\nLength: " . $len[0] . '-' . $len[1] . ' words of body_md (a ' . $len[2] . ').';
+        // a different target inside the band, and a different shape, each time: the corpus stops landing on one length and one layout
+        $target = random_int((int) $len[0], (int) $len[1]);
+        $shapes = array('the direct answer in the first paragraph, then the detail', 'a walkthrough in the order the reader does it', 'a checklist the reader can work through',
+                        'a comparison of the two or three ways to do it', 'the common mistake first, then the fix', 'a short piece that answers one question and stops');
+        $user .= "\nLength: about $target words of body_md (a " . $len[2] . '; stay between ' . $len[0] . ' and ' . $len[1] . ').';
+        $user .= "\nShape: " . $shapes[random_int(0, count($shapes) - 1)] . '.';
         if ($cluster !== '') { $user .= "\nThe only product pages you may link to: " . implode(', ', self::cluster_links($cluster)) . '.'; }
         $user .= "\n\nLink to at least THREE of these published articles, each where it genuinely helps the reader, using their exact paths:\n";
         foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ': ' . $t['title'] . "\n"; }

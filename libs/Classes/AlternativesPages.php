@@ -12,7 +12,7 @@ class AlternativesPages {
         'onlyfans' => array(
             'name'        => 'OnlyFans',
             'description' => 'OnlyFans alternatives compared: what kind of platform each one is and who it suits, from one-page selling to subscription apps. Updated for {year}.',
-            'intro'       => 'Most creators look for an OnlyFans alternative for one of three reasons: they want to keep more of each sale, sell more than one subscription, or own their audience. Here are the main options and what kind of platform each one is, so you can pick the fit for how you sell.',
+            'intro'       => 'An OnlyFans alternative is a platform where a creator sells memberships, pay-per-view and services without a single subscription app in the middle. Most creators look for one for one of three reasons: they want to keep more of each sale, sell more than one subscription, or own their audience. Here are the main options and what kind of platform each one is, so you can pick the fit for how you sell.',
             'others' => array(
                 array('name' => 'Fansly', 'compare' => 'fansly', 'kind' => 'Subscription platform',
                       'text' => 'Fansly is a subscription platform for creators.',
@@ -48,7 +48,7 @@ class AlternativesPages {
         'fanvue' => array(
             'name'        => 'Fanvue',
             'description' => 'Fanvue alternatives compared: what kind of platform each one is and who it suits, including options for AI creators. Updated for {year}.',
-            'intro'       => 'Creators look for a Fanvue alternative when they want one page for memberships, posts and services, or an audience they can take with them. Here are the main options and what kind of platform each one is, including where AI creators fit.',
+            'intro'       => 'A Fanvue alternative is a platform where a creator sells memberships, posts and services from one page they control. Creators look for one when they want that page, or an audience they can take with them. Here are the main options and what kind of platform each one is, including where AI creators fit.',
             'others' => array(
                 array('name' => 'OnlyFans', 'compare' => 'onlyfans', 'kind' => 'Subscription platform',
                       'text' => 'OnlyFans is a subscription platform for creators.',

@@ -234,9 +234,11 @@ class PagesController extends Controller {
                 )),
             );
         }
-        // every page carries one top-level Organization (with its contactPoint), never two
+        // every page carries one top-level Organization (with its contactPoint), never two, and one WebPage unless it is an Article
         if (isset($meta['jsonld']['@type'])) { $meta['jsonld'] = array($meta['jsonld']); }
-        if (!in_array('Organization', array_map(function ($b) { return is_array($b) ? ($b['@type'] ?? '') : ''; }, (array) $meta['jsonld']), true)) { $meta['jsonld'][] = SeoMeta::org(); }
+        $types = array_map(function ($b) { return is_array($b) ? (string) ($b['@type'] ?? '') : ''; }, (array) $meta['jsonld']);
+        if (!in_array('Organization', $types, true)) { $meta['jsonld'][] = SeoMeta::org(); }
+        if (!array_intersect(array('Article', 'BlogPosting', 'WebPage'), $types)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }
         unset($meta['path']);
         $meta['sections'] = true;   // full-width section system (libs/Classes/Sections.php)
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
@@ -276,6 +278,8 @@ class PagesController extends Controller {
             '{influencer_plans}' => implode(', ', $inf),
             '{seats_plans}'      => implode(' or ', $seats),
             '{final_note}'       => self::FINAL_NOTE,
+            '{min_photos}'       => (string) (int) InfluencerConfig::get('training_min_photos', 10),   // the training set the influencer code actually accepts
+            '{max_photos}'       => (string) (int) InfluencerConfig::get('training_max_photos', 50),
         );
         // wherever plan prices appear (fee_sentence), the non-refundable line follows
         foreach ($pages as $k => $p) {
@@ -348,7 +352,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
-        $this->page('features', array('path' => '/features', 'title' => 'Features: Memberships, Pay-Per-View and AI Tools for Creators', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
+        $this->page('features', array('path' => '/features', 'title' => 'Creator Platform Features: Memberships, PPV and AI Tools', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     /**
@@ -380,13 +384,13 @@ class PagesController extends Controller {
     public function aboutAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $site = Main::site_name();
-        $desc = 'What ' . $site . ' is, who it is for, the AI influencer tools, and how creators get paid to their bank.';
+        $desc = 'What ' . $site . ' is, who it is for, what creators sell from one page, the AI influencer tools, and how creators get paid to their bank.';
         $jsonld = array(
             array('@context' => 'https://schema.org', '@type' => 'AboutPage', 'name' => 'About ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/about', 'about' => SeoMeta::org()),
             SeoMeta::org(),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'About', 'url' => '/about'))),
         );
-        $this->page('about', array('path' => '/about', 'title' => 'About ' . $site, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true));
+        $this->page('about', array('path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true));
     }
 
     public function contactAction(){
@@ -484,9 +488,14 @@ class PagesController extends Controller {
     public static function pricing_meta(): string {
         $bits = array();
         foreach (self::pricing_rows() as $r) {
-            $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100) . '/mo';
+            $bits[] = $r['tier']['name'] . ' $' . number_format($r['amount'] / 100);
         }
-        return 'Plans: ' . implode(', ', $bits) . '. Everyone starts with a Free account to follow, subscribe and buy; selling starts on Creator. Platform fee: ' . self::fee_short() . '.';
+        $last = array_pop($bits);
+        $plans = $bits ? implode(', ', $bits) . ' and ' . $last : $last;
+        $selling = self::selling_tiers(); usort($selling, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $first = $selling ? (string) $selling[0]['name'] : 'Creator';
+        // 110-160 characters: the description the audit scores
+        return 'Plans: ' . $plans . ' a month. Free is for fans; selling starts on ' . $first . '. Platform fee ' . self::fee_short() . '. Charges are final.';
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
@@ -521,6 +530,28 @@ class PagesController extends Controller {
         if ($gap <= 0 || (int) $t['price'] <= 0) { return ''; }
         $sales = (int) ceil((int) $t['price'] / $gap);
         return 'The $' . number_format((int) $t['price']) . ' ' . $t['name'] . ' plan pays for itself once you sell $' . number_format($sales) . ' a month, compared with a platform taking ' . rtrim(rtrim(number_format((float) $m[1], 2), '0'), '.') . '%.';
+    }
+
+    /**
+     * "What you get on Creator Link Studio": the shared section on compare and alternatives pages. Every line is a fact
+     * already published elsewhere on the site, read from the same config: the feature pages (name + one-line description),
+     * the fee as /pricing states it, and the payout terms as /features/payouts states them. No prices and no earnings.
+     */
+    public static function what_you_get_section(): string {
+        $site = Main::site_name();
+        $items = array();
+        foreach (self::feature_pages() as $slug => $p) {
+            $name = (string) ($p['nav_title'] ?? ''); $desc = trim((string) ($p['description'] ?? ''));
+            if ($name === '' || $desc === '') { continue; }
+            $items[] = '<a href="/features/' . Sections::e($slug) . '">' . Sections::e(ucfirst($name)) . '</a>: ' . Sections::e(rtrim($desc, '.')) . '.';
+        }
+        $lead = 'The same page covers everything below, and all of it is included on the selling plans.';
+        $out = Sections::open('white', 'What you get on ' . $site, $lead);
+        $out .= Sections::checks($items, 2, true);
+        $out .= '<p class="sx-note">The platform fee is ' . Sections::e(self::fee_short()) . '. Free accounts pay no fee because they cannot sell. Card processing fees are separate, as on every platform. '
+            . 'Every sale lands in one balance, net of that fee. Payouts go to your bank on request, with no platform hold, once your balance reaches the minimum shown on the <a href="/features/payouts">payouts page</a>. '
+            . Sections::e(self::FINAL_NOTE) . '</p>';
+        return $out . Sections::close();
     }
 
     /** "Free lets you build your page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
@@ -812,7 +843,7 @@ class PagesController extends Controller {
         if ($slug === '' || $slug !== $raw || !isset(self::COMPETITORS[$slug])) { Errors::page_not_found(); return; }
         $c = self::COMPETITORS[$slug];
         $path = '/compare/' . $slug; $title = Main::site_name() . ' vs ' . $c['name'];
-        $desc = (preg_match('/^[AEIOU]/i', $c['name']) ? 'An ' : 'A ') . $c['name'] . ' alternative for creators: fees, content types, payouts and ownership compared, with sources.';
+        $desc = $c['name'] . ' vs ' . Main::site_name() . ': platform fee (' . self::fee_short() . ' here), what each lets you sell, payout terms and who owns the audience.';   // 110-160 chars for every competitor name
         $faq = self::compare_faq($c);
         $jsonld = array(
             SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00', 'modified' => gmdate('c', filemtime(Main::app_path() . '/app/controllers/PagesController.php')))),
@@ -859,9 +890,7 @@ class PagesController extends Controller {
         $base  = '/creators' . ($cat !== '' ? '/' . $cat : '');
         $title = $q_on ? 'Creators Matching "' . $q . '"' : ($cat === '' ? 'Creator Directory: Find Creators to Follow and Support' : $label . ' Creators to Follow and Support');
         $show_n = $listed >= self::DIRECTORY_COUNT_MIN;
-        $desc  = $cat === ''
-            ? 'Browse creators on ' . Main::site_name() . ': memberships, posts, services and events from ' . ($show_n ? $listed . ' creators' : 'creators') . '.'
-            : 'Browse ' . ($show_n ? $listed . ' ' : '') . strtolower($label) . ' creators on ' . Main::site_name() . ' and follow, subscribe or book them from their page.';
+        $desc  = 'Browse ' . ($show_n ? $listed . ' ' : '') . ($cat === '' ? '' : strtolower($label) . ' ') . 'creators on ' . Main::site_name() . ' who chose to be listed: follow them, join a membership, unlock posts or book a service from their page.';
         $link = function ($n) use ($base, $sort, $q, $q_on, $sorts) { return self::directory_url($base, $n, $sort === $sorts[0] ? '' : $sort, $q_on ? $q : ''); };
         $extra = array();
         if ($page > 1)      { $extra[] = '<link rel="prev" href="' . Sections::e(SeoMeta::base() . $link($page - 1)) . '">'; }

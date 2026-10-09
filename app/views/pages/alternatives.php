@@ -15,7 +15,7 @@ echo Sections::panel_hero(array(
 ));
 
 // The numbered list: us first (we build it and say so), then each platform with its kind of platform and who it suits.
-echo Sections::open('white', 'The ' . $p['name'] . ' Alternatives', 'We build ' . $site . ', so it is first, and we say so. The others are described by the kind of platform each one is, not by prices or fees, which change. Check their own pages for current numbers.');
+echo Sections::open('white', 'Which ' . $p['name'] . ' alternatives are worth considering?', 'We build ' . $site . ', so it is first, and we say so. The others are described by the kind of platform each one is, not by prices or fees, which change. Check their own pages for current numbers.');
 $cards = array(array('title' => '1. ' . $p['us']['name'], 'text' => $p['us']['text'], 'points' => $p['us']['points'], 'note' => 'Best for: ' . $p['us']['best_for'], 'link' => array('See All Features', '/features')));
 $n = 2;
 foreach ($p['others'] as $o) {
@@ -27,6 +27,7 @@ echo '<div class="alt-list">' . Sections::cards($cards, 2) . '</div>';
 echo '<p class="sx-note">' . $e($p['us']['note']) . ' For a sourced, side-by-side look, read <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
 echo Sections::close();
 
+echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
 if (!empty($faq)) { echo Sections::faq($faq); }
 
 // Closing band (the layout band is off for this page so the button can carry the creator role).

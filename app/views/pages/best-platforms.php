@@ -8,12 +8,12 @@ foreach (array('onlyfans', 'patreon', 'kofi', 'linktree') as $slug) {
 }
 echo Sections::panel_hero(array(
     'title' => 'Best creator monetization platforms in ' . date('Y'),
-    'lead' => 'There is no single best platform; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build ' . $site . ', and we say so where it matters.',
+    'lead' => 'A creator monetization platform is a service that lets you charge fans for content, memberships or services and pays you out. There is no single best one; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build ' . $site . ', and we say so where it matters.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('Platform fees', 'What each platform keeps from your sales.', Sections::pane_rows($fee_rows)),
     'bg_image' => SiteImages::bg('best_hero'),
 ));
-echo Sections::open('white', 'How to judge a platform');
+echo Sections::open('white', 'How do you judge a creator platform?');
 echo Sections::cards(array(
     array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', which matters once you pass a few thousand a month.'),
     array('icon' => 'package', 'title' => 'What you can sell', 'text' => 'Subscriptions only, or also pay-per-view, bundles, services and events.'),
@@ -39,7 +39,7 @@ echo '<p class="sx-note">Leaving one platform in particular? See the <a href="/o
 echo Sections::close();
 
 // Who each suits, grouped by kind so the nine options read as three short lists.
-echo Sections::open('white', 'Who each platform suits');
+echo Sections::open('white', 'Which platform suits which creator?');
 foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
     $cards = array();
     foreach (PagesController::COMPETITORS as $slug => $c) {

@@ -82,6 +82,7 @@ class ToolsController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $tool['nav_title'], 'url' => $path))),
             SeoMeta::org(),
+            SeoMeta::webpage(array('url' => SeoMeta::base() . $path, 'title' => $tool['title'], 'description' => $tool['description'])),
         );
         $meta = array('url' => SeoMeta::base() . $path, 'title' => $tool['title'], 'description' => $tool['description'], 'type' => 'website',
             'jsonld' => $jsonld, 'sections' => true, 'no_band' => true);

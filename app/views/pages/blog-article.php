@@ -20,7 +20,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
     <div class="gd-post">
         <article class="gd-post__main">
             <div class="pub-body gd-body"><?php echo $body; ?></div>
-            <?php echo SeoDrafter::cta_html(); ?>
+            <?php echo SeoDrafter::cta_html((int) ($a['id'] ?? 0)); ?>
             <?php if (!empty($faq)): ?>
             <section class="faq" aria-labelledby="gd_faq_h">
     <h2 class="faq__title" id="gd_faq_h">Frequently asked questions</h2>

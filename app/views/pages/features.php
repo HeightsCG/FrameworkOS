@@ -55,7 +55,7 @@ foreach ($groups as $g) { $jump .= '<a href="#' . Sections::e($g['id']) . '">' .
 $jump .= '</nav>';
 echo Sections::panel_hero(array(
     'title' => 'Everything a creator sells, from one page.',
-    'lead' => $site . ' gives you one public page for memberships, pay-per-view, bundles, services and events, a studio that publishes to your socials, and payouts to your bank.',
+    'lead' => $site . ' is one public page for memberships, pay-per-view, bundles, services and events, with a studio that publishes to your socials and payouts to your bank behind it.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Screenshots::img('features-hero', false),   // '' while screenshots are off: the hero stays solo
     'after_html' => $jump,

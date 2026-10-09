@@ -29,7 +29,7 @@ if ($video !== '') {
 }
 
 if (!empty($page['rows'])) {
-    echo Sections::open('white', 'What you get');
+    echo Sections::open('white', 'What do you get with ' . (string) ($page['nav_title'] ?? 'it') . '?');   // a question heading: the answer is the first row below
     echo Sections::rows((array) $page['rows']);
     echo Sections::close();
 }

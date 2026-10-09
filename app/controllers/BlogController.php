@@ -50,6 +50,9 @@ class BlogController extends Controller {
     private function page($view, array $meta, array $vars = array()){
         $meta['url'] = SeoMeta::base() . $meta['path'];
         unset($meta['path']);
+        // one WebPage node unless the page is an Article (crawlers that look for WebPage/Article read FAQPage-only markup as none)
+        $types = array_map(function ($b) { return is_array($b) ? (string) ($b['@type'] ?? '') : ''; }, (array) ($meta['jsonld'] ?? array()));
+        if (!array_intersect(array('Article', 'BlogPosting', 'WebPage'), $types)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
 
@@ -71,7 +74,7 @@ class BlogController extends Controller {
         if ($q === '' && $page > 1 && $page > $pages) { Errors::page_not_found(); return; }
         // Search results are for people, not search engines: noindex, canonical stays /blog.
         $path  = ($q !== '') ? '/blog' : ('/blog' . ($page > 1 ? '?page=' . $page : ''));
-        $title = ($q !== '') ? ('Search: ' . $q . ' · ' . self::NAME) : (self::NAME . ($page > 1 ? ', page ' . $page : ''));
+        $title = ($q !== '') ? ('Search: ' . $q . ' · ' . self::NAME) : (self::NAME . ': Creator Monetization Guides' . ($page > 1 ? ', page ' . $page : ''));   // 30-60 chars with the brand suffix
         $desc  = 'Practical guides on monetizing content: memberships, pay-per-view, bundles, services, events, link in bio and payouts.';
         $items = array(); $pos = 1;
         foreach ($rows as $a) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/blog/' . $a['slug'], 'name' => $a['title']); }

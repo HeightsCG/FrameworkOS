@@ -6,8 +6,8 @@
  */
 class SeoMeta {
 
-    /** Titles longer than this lose the " · Creator Link Studio" suffix (Google truncates around 60 characters). */
-    const TITLE_MAX = 65;
+    /** Titles longer than this lose the " · Creator Link Studio" suffix (Google truncates at about 60 characters, and the SEO audit scores 30-60). */
+    const TITLE_MAX = 60;
 
     public static function base(): string {
         return rtrim((string) Main::get_base_domain(), '/');
@@ -71,6 +71,26 @@ class SeoMeta {
     public static function x_handle(): string {
         $url = (string) (self::SOCIAL_PROFILES['X'] ?? '');
         return preg_match('#^https?://(?:www\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/?$#', $url, $m) ? '@' . $m[1] : '';
+    }
+
+    /**
+     * A WebPage node for a page that has no Article: name, description, url, part of the WebSite. Pages that only carried
+     * FAQPage / BreadcrumbList / Organization read as "no page markup" to crawlers that look for WebPage or Article.
+     */
+    public static function webpage(array $m): array {
+        $url = (string) ($m['url'] ?? '');
+        $w = array(
+            '@type' => 'WebPage',
+            '@id'   => $url . '#webpage',
+            'url'   => $url,
+            'name'  => trim((string) ($m['title'] ?? '')),
+            'description' => trim((string) ($m['description'] ?? '')),
+            'isPartOf' => array('@type' => 'WebSite', 'name' => self::site(), 'url' => self::base() . '/'),
+            'inLanguage' => 'en-US',
+            'publisher' => array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/'),
+        );
+        if (!empty($m['image'])) { $w['primaryImageOfPage'] = array('@type' => 'ImageObject', 'url' => (string) $m['image']); }
+        return $w;
     }
 
     public static function org(): array {
@@ -140,7 +160,7 @@ class SeoMeta {
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
             'image' => (string) ($m['image'] ?? self::default_image()),
-            'author' => array('@type' => 'Organization', 'name' => trim((string) ($m['author'] ?? '')) !== '' ? (string) $m['author'] : self::site() . ' team', 'url' => self::base() . '/'),
+            'author' => self::org(),   // the Organization is the author of every article: the full node (logo, sameAs), never a Person
             'publisher' => self::org(),
             'inLanguage' => 'en-US',
         );

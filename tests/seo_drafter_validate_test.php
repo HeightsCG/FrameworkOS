@@ -9,15 +9,39 @@ spl_autoload_register(function ($class) use ($root) {
 });
 $fail = 0;
 function check($label, $ok, $extra = ''){ global $fail; echo ($ok ? 'ok   ' : 'FAIL ') . $label . ($ok ? '' : '  -> ' . $extra) . "\n"; if (!$ok) { $fail++; } }
-$body = ''; for ($i = 1; $i <= 4; $i++) { $body .= "## Section $i\n\n" . str_repeat('word ', 320) . "See [features](/features).\n\n"; }
+SeoDrafter::$check_citation_urls = false;   // the rules are tested here; the live URL check is a network call (SEO_NET=1 runs it once below)
+// Prose that passes the quotability rules: 13-word sentences, each paragraph naming its subject, two question headings, two citations.
+$sentence = 'Creators price a tier by the gap between tiers and the value fans see. ';
+$cite = "The IRS explains self-employment tax at [irs.gov](https://www.irs.gov/businesses/small-businesses-self-employed), and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance).\n\n";
+$sec = function ($n, $per) use ($sentence, $cite) {
+    $b = '';
+    for ($i = 1; $i <= $n; $i++) {
+        $h = ($i === 1) ? 'How do creators price a tier?' : (($i === 2) ? 'What should the gap be?' : "Part $i");
+        $b .= "## $h\n\n" . ($i === 1 ? $cite : '') . str_repeat($sentence, max(1, (int) round($per / 13))) . "See [features](/features).\n\n";
+    }
+    return $b;
+};
+$body = $sec(4, 320);
 $good = array('title' => 'How creators price a membership tier', 'slug' => 'how-creators-price-a-membership-tier',
-    'meta_description' => 'A practical guide to pricing membership tiers for creators, with the numbers that matter.',
+    'meta_description' => 'A practical guide to pricing membership tiers for creators: how to set the gap between tiers, what fans compare, and when to raise a price.',
     'excerpt' => 'Pricing tiers is mostly about the gap between them.', 'body_md' => $body,
     'faq' => array(array('q' => 'One?', 'a' => 'Yes.'), array('q' => 'Two?', 'a' => 'Yes.'), array('q' => 'Three?', 'a' => 'Yes.')),
     'secondary_keywords' => array('membership pricing', 'creator tiers'), 'cluster' => 'creator-monetization');
 check('good article validates', SeoDrafter::validate($good) === array(), implode('; ', SeoDrafter::validate($good)));
-$t = $good; $t['title'] = str_repeat('x', 71);                         check('title > 70 rejected', SeoDrafter::validate($t) !== array());
+$t = $good; $t['title'] = str_repeat('x', 61);                         check('title > 60 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['meta_description'] = str_repeat('x', 156);              check('meta > 155 rejected', SeoDrafter::validate($t) !== array());
+$t = $good; $t['meta_description'] = str_repeat('x', 109);              check('meta < 110 rejected', SeoDrafter::validate($t) !== array());
+$t = $good; $t['faq'] = array();                                        check('no faq allowed', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace(array('How do creators price a tier?', 'What should the gap be?'), array('Pricing a tier', 'The gap'), $good['body_md']);
+                                                                         check('fewer than 2 question headings rejected', (bool) preg_grep('/question/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace('and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance)', 'and more at [irs.gov](https://www.irs.gov/forms-pubs)', $good['body_md']);
+                                                                         check('two citations to one host rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace($cite, '', $good['body_md']);   check('no citations rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nThis is the part most creators skip, and it costs them later.";  check('paragraph opening with "This" rejected', (bool) preg_grep('/opens with/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = $sec(2, 20) . "## Why?\n\n" . str_repeat('word ', 1200) . ".\n\n"; check('long sentences rejected', (bool) preg_grep('/average/', SeoDrafter::validate($t)));
+check('cta varies by article and is not a heading', SeoDrafter::cta_html(1) !== SeoDrafter::cta_html(2) && strpos(SeoDrafter::cta_html(3), '<h2') === false && strpos(SeoDrafter::cta_html(0), 'Start earning from your own page') === false);
+check('h2_texts', SeoDrafter::h2_texts("## One?\n\ntext\n\n### not\n\n## Two\n") === array('One?', 'Two'));
+if (getenv('SEO_NET')) { check('dead citation URL flagged', SeoDrafter::unreachable_citations(array('https://www.irs.gov/this-page-does-not-exist-zz9')) !== array() && SeoDrafter::unreachable_citations(array('https://www.irs.gov/')) === array()); }
 $t = $good; $t['slug'] = 'Bad Slug!';                                   check('bad slug rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['body_md'] = "## A\n\nshort";                            check('short body rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['body_md'] .= "\n\n[x](https://example.com)";          check('external link rejected', SeoDrafter::validate($t) !== array());
@@ -25,7 +49,7 @@ $t = $good; $t['body_md'] .= "\n\n[x](/nowhere-at-all)";               check('un
 $t = $good; $t['body_md'] .= "\n\nGreat 🚀";                            check('emoji rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['body_md'] .= "\n\nAs an AI language model I think";     check('"As an AI" rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['faq'] = array(array('q' => 'One?', 'a' => 'Yes.'));    check('fewer than 3 faq rejected', SeoDrafter::validate($t) !== array());
-$t = $good; $t['body_md'] = "## Only\n\n" . str_repeat('word ', 1300); check('fewer than 3 h2 rejected', SeoDrafter::validate($t) !== array());
+$t = $good; $t['body_md'] = "## Only?\n\n" . $cite . str_repeat($sentence, 100); check('fewer than 2 h2 rejected', (bool) preg_grep('/sections/', SeoDrafter::validate($t)));
 check('slugify', SeoDrafter::slugify(" Hello, World! It's 2026 ") === 'hello-world-its-2026');
 check('reading_minutes >= 1', SeoDrafter::reading_minutes('one two') === 1 && SeoDrafter::reading_minutes(str_repeat('w ', 900)) === 4);
 check('allowed_paths has /features and /pricing', in_array('/features', SeoDrafter::allowed_paths(), true) && in_array('/pricing', SeoDrafter::allowed_paths(), true));
@@ -52,7 +76,6 @@ $t = $good; $t['body_md'] .= "\n\nFans buy credits to unlock posts. " . PagesCon
 $t = $good; $t['body_md'] .= "\n\nThe Creator plan is \$99 a month. " . PagesController::FINAL_NOTE; check('wrong plan price rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nWrite {{fee}} here.";                            check('unreplaced token rejected', !$ok($t));
 // length by intent (+/- 20%)
-$sec = function ($n, $per) { $b = ''; for ($i = 1; $i <= $n; $i++) { $b .= "## Part $i\n\n" . str_repeat('word ', $per) . "\n\n"; } return $b; };
 $t = $good; $t['intent'] = 'quick'; $t['body_md'] = $sec(4, 175);  check('quick 700 words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['intent'] = 'quick'; $t['body_md'] = $sec(4, 320);  check('quick 1280 words rejected', !$ok($t));
 $t = $good; $t['intent'] = 'howto'; $t['body_md'] = $sec(4, 250);  check('howto 1000 words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
@@ -164,7 +187,7 @@ $t = $good; $t['body_md'] .= "\n\nYou'd earn \$800 a month from this.";         
 $t = $good; $t['body_md'] .= "\n\nSay you earn \$2,000 a month.";                          check('R3 "Say you earn $2,000 a month" passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenue at \$500 a month."; check('R3 "run the arithmetic" passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nWork backwards from the income you want: 50 members at \$20 a month and 100 at \$10 a month."; check('R3 "work backwards" arithmetic passes', $ok($t), $errs($t));
-$t = $good; $t['body_md'] .= "\n\nThis is the single biggest lever on your income, and it compounds: a ten-point difference on \$2,000 a month is \$200."; check('R3 "point difference" arithmetic passes', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nThe fee is the single biggest lever on your income, and it compounds: a ten-point difference on \$2,000 a month is \$200."; check('R3 "point difference" arithmetic passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nExtra AI influencers are \$15 a month each on the Creator plan, up to five. " . PagesController::FINAL_NOTE; check('R3 add-on price next to a plan name passes', $ok($t), $errs($t));
 check('R3 add-on price is not rewritten', strpos(SeoDrafter::fix_plan_prices('Extra AI influencers are $15 a month each on the Creator plan.'), '$15 a month') !== false, 'rewritten');
 check('R3 a wrong plan price is still rewritten', strpos(SeoDrafter::fix_plan_prices('Creator costs $59 a month.'), '$49 a month') !== false, 'not rewritten');

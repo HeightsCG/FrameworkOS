@@ -18,7 +18,7 @@ class FeaturePages {
             'description' => 'Create an AI influencer: train one character from photos or a description, generate photos and video of the same person, and sell them from your page.',
             'hero' => array(
                 'title' => 'Create an AI Influencer You Can Monetize',
-                'lead'  => 'On {site} you create an AI influencer once, from your photos or a description. After that, every image and clip is the same person, ready to post, or to sell as pay-per-view posts, paid messages or membership content. AI influencers included: {influencer_plans}.',
+                'lead'  => 'An AI influencer is a trained character you can generate photos and video of, and sell from your page. On {site} you create one once, from your photos or a description. After that, every image and clip is the same person, ready to post, or to sell as pay-per-view posts, paid messages or membership content. AI influencers included: {influencer_plans}.',
             ),
             'video'   => '',
             'related' => array('lora-character-training', 'consistent-ai-model-face', 'ai-ofm-tools'),
@@ -75,7 +75,7 @@ class FeaturePages {
             'description' => 'Answer fan messages in your voice, around the clock. Drafts wait for approval until you let the agent send on its own.',
             'hero' => array(
                 'title' => 'Your inbox, answered in your voice',
-                'lead'  => 'The DM agent reads a fan message, drafts a reply the way you write, and either holds it for your approval or sends it for you. It also sends welcome messages and can attach paid content.',
+                'lead'  => 'The DM agent is an inbox assistant that drafts replies in your voice; you approve each one, or switch it to send on its own. It also sends welcome messages and can attach paid content.',
             ),
             'related' => array('pay-per-view', 'memberships', 'ai-ofm-tools'),
             'rows' => array(
@@ -119,10 +119,10 @@ class FeaturePages {
         'payouts' => array(
             'nav_title'   => 'Payouts',
             'title'       => 'Creator Payouts',
-            'description' => 'Memberships, unlocks, bundles, services and events all land in one balance, and you cash out to your bank.',
+            'description' => 'Every membership, unlock, bundle, service and event sale lands in one balance, net of your plan fee. Cash out to your bank on request, with no platform hold.',
             'hero' => array(
                 'title' => 'Everything you earn, in one balance',
-                'lead'  => 'Fans pay by card for memberships and with a credit wallet for everything else. Your earnings collect in one place, net of your plan fee, and you cash out to your bank whenever you want.',
+                'lead'  => 'A creator payout on {site} is the transfer of your balance to your bank, made when you ask for it. Fans pay by card for memberships and with a credit wallet for everything else. Your earnings collect in one place, net of your plan fee, and you cash out to your bank whenever you want.',
             ),
             'related' => array('memberships', 'pay-per-view', 'services-and-events'),
             'rows' => array(
@@ -170,7 +170,7 @@ class FeaturePages {
             'description' => 'Sell memberships from your page: as many tiers as you want, each with its own price, billing interval, free trial, perks and promo codes.',
             'hero' => array(
                 'title' => 'Memberships for Your Regulars',
-                'lead'  => 'Fans join a tier on your page and pay by card on the schedule you set. Subscriber posts unlock for members and stay blurred for everyone else, and every payment lands in one balance you cash out to your bank.',
+                'lead'  => 'A membership is a paid tier on your page that fans join by card, on the schedule you set. Subscriber posts unlock for members and stay blurred for everyone else, and every payment lands in one balance you cash out to your bank.',
             ),
             'video'   => '',
             'related' => array('pay-per-view', 'payouts', 'link-in-bio'),
@@ -226,7 +226,7 @@ class FeaturePages {
             'description' => 'Put a price on any post or message. Fans unlock it in one tap from their credit wallet, and the earnings land in your balance.',
             'hero' => array(
                 'title' => 'Sell Single Pieces with Pay-Per-View',
-                'lead'  => 'Put a price on any post, message or bundle. It shows blurred until a fan unlocks it with credits from their wallet, so you earn from fans who will never subscribe.',
+                'lead'  => 'A pay-per-view post is a single post with a price on it that a fan unlocks from their credit wallet. Put a price on any post, message or bundle. It shows blurred until a fan unlocks it with credits from their wallet, so you earn from fans who will never subscribe.',
             ),
             'video'   => '',
             'related' => array('memberships', 'dm-agent', 'payouts'),
@@ -277,7 +277,7 @@ class FeaturePages {
             'description' => 'One link-in-bio page at your handle with tracked links, memberships, pay-per-view, bundles, services and events, paid out to your bank.',
             'hero' => array(
                 'title' => 'A Link in Bio That Sells',
-                'lead'  => 'Your page at {host}/@handle holds your links and everything you sell: memberships, pay-per-view posts, bundles, services and events. Fans pay by card or credit wallet, and earnings pay out to your bank.',
+                'lead'  => 'A link-in-bio page is one public page at your handle that holds every link, with each click tracked. Your page at {host}/@handle holds your links and everything you sell: memberships, pay-per-view posts, bundles, services and events. Fans pay by card or credit wallet, and earnings pay out to your bank.',
             ),
             'video'   => '',
             'related' => array('memberships', 'publishing', 'custom-domains'),
@@ -324,7 +324,7 @@ class FeaturePages {
             'description' => 'Publish to your page and nine social networks from one studio, with AI captions in your voice, drafts and scheduling.',
             'hero' => array(
                 'title' => 'Publish Everywhere from One Studio',
-                'lead'  => 'Upload once and post to your page and your social accounts at the same time: {networks}. Captions are written in your voice and trimmed for each network.',
+                'lead'  => 'Publishing on {site} is one upload that goes to your page and your social accounts at the same time. The networks: {networks}. Captions are written in your voice and trimmed for each network.',
             ),
             'video'   => '',
             'related' => array('link-in-bio', 'ai-influencer', 'dm-agent'),
@@ -370,7 +370,7 @@ class FeaturePages {
             'description' => 'Take bookings for services, sell event tickets and host live calls in a built-in video room, all from your creator page.',
             'hero' => array(
                 'title' => 'Bookings, Tickets and Live Calls',
-                'lead'  => 'Sell a service, a seat at a live event or a 1:1 session from your page. Calls run in a built-in video room, so fans join without a separate meeting app.',
+                'lead'  => 'Services and events are bookings and tickets sold from your page, delivered in a built-in video room. Sell a service, a seat at a live event or a 1:1 session from your page. Calls run in a built-in video room, so fans join without a separate meeting app.',
             ),
             'video'   => '',
             'related' => array('memberships', 'payouts', 'link-in-bio'),
@@ -415,7 +415,7 @@ class FeaturePages {
             'description' => 'Run your creator page on your own domain. Add a couple of DNS records, get a certificate automatically, and keep fans signed in.',
             'hero' => array(
                 'title' => 'Your Page on Your Own Domain',
-                'lead'  => 'On the {domain_plan} plan your creator page can answer on a domain you own. Fans see your address, buy and join as usual, and stay signed in when they arrive from our site.',
+                'lead'  => 'A custom domain is your own web address pointing at your creator page. On the {domain_plan} plan your creator page can answer on a domain you own. Fans see your address, buy and join as usual, and stay signed in when they arrive from our site.',
             ),
             'video'   => '',
             'related' => array('link-in-bio', 'memberships', 'publishing'),
@@ -461,7 +461,7 @@ class FeaturePages {
             'description' => 'Train a LoRA character model from 10 to 50 photos or a described face, then generate on-model photos and video and sell them from one page.',
             'hero' => array(
                 'title' => 'LoRA Character Training without the Setup',
-                'lead'  => '{site} trains a LoRA for your character from 10 to 50 photos, or from a face you describe. You never touch a training script or a GPU, and every image after that is the same person.',
+                'lead'  => 'LoRA character training teaches a model one face from {min_photos} to {max_photos} photos, so every later image is the same person. {site} trains it for you from those photos, or from a face you describe. You never touch a training script or a GPU, and every image after that is the same person.',
             ),
             'video'   => '',
             'related' => array('ai-influencer', 'consistent-ai-model-face', 'ai-ofm-tools'),
@@ -503,7 +503,7 @@ class FeaturePages {
             'description' => 'Keep the same AI model face across every photo and video: a trained character, pinned seeds and video made from the exact frame you approved.',
             'hero' => array(
                 'title' => 'The Same Face in Every Image',
-                'lead'  => 'An AI model only works if fans see the same person every time. {site} trains a character on one face, so photos and videos stay on model across scenes, outfits and lighting.',
+                'lead'  => 'A consistent AI model face is one character that stays recognisable across every generated photo and video. An AI model only works if fans see the same person every time. {site} trains a character on one face, so photos and videos stay on model across scenes, outfits and lighting.',
             ),
             'video'   => '',
             'related' => array('lora-character-training', 'ai-influencer', 'ai-ofm-tools'),
@@ -545,7 +545,7 @@ class FeaturePages {
             'description' => 'AI tools for running creator accounts: AI influencers, scheduled posting to nine networks, a DM agent, pay-per-view and payouts in one place.',
             'hero' => array(
                 'title' => 'AI Tools for Running Creator Accounts',
-                'lead'  => 'Create the content, post it everywhere, answer the inbox and get paid from one account. {site} brings AI influencers, publishing, a DM agent, memberships and pay-per-view together, with team seats for the people who help you.',
+                'lead'  => 'AI OFM tools are the software a creator account runs on: generation, posting, inbox replies and selling in one place. Create the content, post it everywhere, answer the inbox and get paid from one account. {site} brings AI influencers, publishing, a DM agent, memberships and pay-per-view together, with team seats for the people who help you.',
             ),
             'video'   => '',
             'related' => array('ai-influencer', 'dm-agent', 'publishing'),

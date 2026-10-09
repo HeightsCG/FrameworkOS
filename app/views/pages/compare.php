@@ -6,11 +6,11 @@ echo Sections::panel_hero(array(
     'title' => $site . ' vs ' . $c['name'],
     'lead' => ($slug === 'onlyfans' ? PagesController::quotable_facts()['onlyfans'] : $c['summary']) . ' Here is how the two compare, with sources.',   // onlyfans: the quotable brand sentence replaces the summary
     'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'panel' => Sections::pane('Platform fee', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
+    'panel' => Sections::pane('What does ' . $c['name'] . ' charge, and what do we charge?', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
     'bg_image' => SiteImages::bg('compare_hero'),
     'after_html' => isset(AlternativesPages::PAGES[$slug]) ? '<a class="sx-more" href="/' . $e($slug) . '-alternatives">See All ' . $e($c['name']) . ' Alternatives</a>' : '',
 ));
-echo Sections::open('alt', 'Feature-by-Feature Comparison', $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
+echo Sections::open('alt', 'How do the features compare?', $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
 $trows = array();
 foreach ($labels as $k => $l) {
     $cell = $e($c[$k]['value']) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="nofollow noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
@@ -33,5 +33,6 @@ echo Sections::cards(array(
 ), 2);
 echo Sections::close();
 
+echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';
