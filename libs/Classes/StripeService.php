@@ -522,6 +522,9 @@ class StripeService {
             }
             $params = array(
                 'mode'       => 'subscription',
+                // the session lives on the creator's connected account, which does not inherit the platform's payment
+                // method settings: without this Stripe answers "No valid payment method types" (seen live 2026-10-03/08)
+                'payment_method_types' => array('card'),
                 'line_items' => array(array('price' => $price_id, 'quantity' => 1)),
                 'success_url' => $success_url,
                 'cancel_url'  => $cancel_url,
