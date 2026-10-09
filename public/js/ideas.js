@@ -90,7 +90,7 @@ $(function () {
 
     $form.on('submit', function (e) {
         e.preventDefault();
-        var niche = $.trim($('#ideNiche').val());
+        var niche = String($('#ideNiche').val() || '').trim();
         $('#ideNiche').removeClass('is-invalid');
         if (niche.length < 3) { $('#ideNiche').addClass('is-invalid').trigger('focus'); toastr.error('Add your niche'); return; }
         set_running(true);
