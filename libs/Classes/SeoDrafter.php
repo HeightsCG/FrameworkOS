@@ -91,6 +91,31 @@ class SeoDrafter {
         return $bad;
     }
 
+    /** The https links in a body that point at a CITATION_DOMAINS host. */
+    public static function citations(string $body): array {
+        return array_values(array_filter(Markdown::links($body), function ($l) { return preg_match('#^https?://#i', $l) && self::citation_ok($l); }));
+    }
+
+    /**
+     * The rules the SEO audit scores, on title, meta, headings, citations and prose (no network): title <= 60, meta
+     * 110-155, >= 2 "## " sections of which >= 2 are questions, >= MIN_CITATIONS distinct cited hosts, sentence length
+     * and paragraph openers. Shared by validate() (new drafts) and the nightly fact check (so an older article that
+     * breaks them is flagged and --rewrite takes it).
+     */
+    public static function quotability_errors(array $a): array {
+        $err = array();
+        $title = trim((string) ($a['title'] ?? '')); $meta = trim((string) ($a['meta_description'] ?? '')); $body = (string) ($a['body_md'] ?? '');
+        if ($title !== '' && mb_strlen($title) > 60) { $err[] = 'title must be 1-60 characters'; }   // 30-60 as rendered, with the brand suffix dropped past 60
+        if (mb_strlen($meta) < 110 || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 110-155 characters'; }
+        $h2 = self::h2_texts($body);
+        if (count($h2) < 2) { $err[] = 'body needs at least 2 "## " sections'; }
+        $questions = count(array_filter($h2, function ($h) { return substr($h, -1) === '?'; }));
+        if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be the reader\'s question (ending in ?)'; }
+        $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, self::citations($body)));
+        if (count($hosts) < self::MIN_CITATIONS) { $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'; }
+        return array_merge($err, self::prose_errors($body));
+    }
+
     /** The "## " headings of a Markdown body, in order. */
     public static function h2_texts(string $body): array {
         preg_match_all('/^##\s+(.+?)\s*$/m', $body, $m);
@@ -477,29 +502,20 @@ class SeoDrafter {
         $err = array();
         $title = trim((string) ($a['title'] ?? '')); $slug = (string) ($a['slug'] ?? ''); $meta = trim((string) ($a['meta_description'] ?? ''));
         $body = (string) ($a['body_md'] ?? ''); $faq = (array) ($a['faq'] ?? array());
-        if ($title === '' || mb_strlen($title) > 60) { $err[] = 'title must be 1-60 characters'; }   // 30-60 as rendered, with the brand suffix dropped past 60
+        if ($title === '') { $err[] = 'title must be 1-60 characters'; }
         if (!preg_match('/^[a-z0-9]+(?:-[a-z0-9]+)*$/', $slug) || strlen($slug) < 3 || strlen($slug) > 120) { $err[] = 'slug must be lowercase a-z 0-9 and hyphens, 3-120 chars'; }
-        if (mb_strlen($meta) < 110 || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 110-155 characters'; }
         $words = Markdown::word_count($body);
         list($min_w, $max_w) = self::word_bounds($a['intent'] ?? '');
         if ($words < $min_w || $words > $max_w) { $err[] = "body must be $min_w-$max_w words (got $words)"; }
-        $h2 = self::h2_texts($body);
-        if (count($h2) < 2) { $err[] = 'body needs at least 2 "## " sections'; }
-        $questions = count(array_filter($h2, function ($h) { return substr($h, -1) === '?'; }));
-        if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be the reader\'s question (ending in ?)'; }
         $allowed = self::allowed_paths();
-        $cited = array();
         foreach (Markdown::links($body) as $l) {
             $path = preg_replace('/[#?].*$/', '', $l);
-            if (preg_match('#^https?://#i', $l)) { if (self::citation_ok($l)) { $cited[] = $l; } continue; }   // off-list domains: content_errors()
+            if (preg_match('#^https?://#i', $l)) { continue; }   // citations: quotability_errors() counts them, content_errors() checks the domain
             if (strpos($l, '/') !== 0 || strpos($l, '//') === 0) { $err[] = "external link not allowed: $l"; }
             elseif (!in_array($path, $allowed, true)) { $err[] = "unknown internal link: $l"; }
         }
-        // citations: MIN_CITATIONS distinct sources (by host), every one a URL that exists
-        $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, $cited));
-        if (count($hosts) < self::MIN_CITATIONS) { $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'; }
-        if (self::$check_citation_urls && $cited) { foreach (self::unreachable_citations($cited) as $u) { $err[] = 'cited URL does not resolve: ' . $u; } }
-        $err = array_merge($err, self::prose_errors($body));
+        $err = array_merge($err, self::quotability_errors($a));
+        if (self::$check_citation_urls) { foreach (self::unreachable_citations(self::citations($body)) as $u) { $err[] = 'cited URL does not resolve: ' . $u; } }
         $err = array_merge($err, self::link_errors($a));   // allow-list and cluster: always, drafted or edited
         if ($strict_links) {
             $article_links = 0; $feature_links = 0;

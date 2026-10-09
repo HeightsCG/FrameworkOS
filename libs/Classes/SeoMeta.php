@@ -65,6 +65,7 @@ class SeoMeta {
         'LinkedIn' => 'https://www.linkedin.com/company/creator-link-studio',
         'Product Hunt' => 'https://www.producthunt.com/products/creator-link-studio',
         'Crunchbase' => 'https://www.crunchbase.com/organization/creator-link-studio',
+        'G2' => 'https://www.g2.com/products/creator-link-studio/reviews',
     );
 
     /** "@CreatorLinkStud" from the X profile above (twitter:site on every page), or '' when there is no X account. */
