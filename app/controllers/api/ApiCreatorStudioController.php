@@ -35,6 +35,12 @@ class ApiCreatorStudioController extends BaseApiController {
         if ((string) ($this->post['similar_on'] ?? '') !== '') { (new CreatorProfileModel())->set_similar_off(Permissions::creator_id(), empty($this->post['similar_on'])); }   // "More Creators Like This" switch
 
         try { IndexNow::creator((int) Permissions::creator_id()); } catch (\Throwable $e) { error_log('[indexnow] profile: ' . $e->getMessage()); }
+        // the name fans see on Checkout and their card statement follows the page name
+        try {
+            $owner = (new UsersModel())->get_user_by_id(Permissions::creator_id());
+            $acct = (is_array($owner) && count($owner) === 1) ? (string) ($owner[0]['stripe_connect_account_id'] ?? '') : '';
+            if ($acct !== '') { StripeService::sync_connect_profile($acct, Permissions::creator_id()); }
+        } catch (\Throwable $e) { error_log('[profile] connect sync: ' . $e->getMessage()); }
         $this->jsonSuccess(['message' => 'Profile saved']);
     }
 

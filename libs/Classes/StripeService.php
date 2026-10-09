@@ -185,12 +185,46 @@ class StripeService {
                 'capabilities' => array('transfers' => array('requested' => true)),
                 'business_type'=> 'individual',
                 'metadata'     => array('user_id' => (string) ($user['user_id'] ?? '')),
-            ));
+            ) + self::connect_profile_params((int) ($user['user_id'] ?? 0)));
             return $account->id;
         } catch (\Throwable $e) {
             error_log('[stripe] create_connect_account: ' . $e->getMessage());
             self::$last_error = $e->getMessage();
             return '';
+        }
+    }
+
+    /**
+     * What a fan sees on Checkout and on their card statement for a creator's connected account: the creator's page
+     * name and page URL, not the person Stripe verified (Lexi's checkout said "Daniel Glauber" before this, 2026-10-08).
+     * business_profile.name/url and a statement descriptor built from the name (Stripe: 5 to 22 chars, letters, digits
+     * and spaces only). Empty when the creator has no name yet.
+     */
+    public static function connect_profile_params($user_id): array
+    {
+        $name = trim((string) Notify::name_of((int) $user_id));
+        if ($name === '') { return array(); }
+        $handle = (string) Notify::handle_of((int) $user_id);
+        $desc = strtoupper(trim(preg_replace('/\s+/', ' ', preg_replace('/[^A-Za-z0-9 ]/', '', $name))));
+        if (strlen($desc) < 5) { $desc = trim($desc . ' ' . strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $handle))); }
+        if (strlen($desc) < 5) { $desc = ''; }
+        $p = array('business_profile' => array('name' => mb_substr($name, 0, 100)));
+        if ($handle !== '') { $p['business_profile']['url'] = Main::get_base_domain() . '/@' . rawurlencode($handle); }
+        if ($desc !== '') { $p['settings'] = array('payments' => array('statement_descriptor' => substr($desc, 0, 22))); }
+        return $p;
+    }
+
+    /** Push the creator's page name and URL to their connected account (after a profile save, and once for old accounts). */
+    public static function sync_connect_profile($account_id, $user_id): bool
+    {
+        $p = self::connect_profile_params((int) $user_id);
+        if ((string) $account_id === '' || !$p) { return false; }
+        try {
+            @self::client()->accounts->update((string) $account_id, $p);
+            return true;
+        } catch (\Throwable $e) {
+            error_log('[stripe] sync_connect_profile ' . $account_id . ': ' . $e->getMessage());
+            return false;
         }
     }
 

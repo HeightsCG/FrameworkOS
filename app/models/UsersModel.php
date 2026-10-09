@@ -164,6 +164,12 @@ class UsersModel extends Model {
         );
     }
 
+    /** Every account with a connected Stripe account (for the one-off profile sync). */
+    public function with_connect_accounts(): array {
+        $r = parent::select("SELECT user_id, u_name, stripe_connect_account_id FROM user_accounts WHERE stripe_connect_account_id IS NOT NULL AND stripe_connect_account_id <> ''");
+        return is_array($r) ? $r : array();
+    }
+
     public function update_profile($user_id, $first_name, $last_name, $user_email, $user_phone, $business_name, $website_url, $updated_by=0){
         return parent::update(
             'user_accounts',
