@@ -1841,14 +1841,14 @@ $(function () {
     }
 
     // Back from the age check (/account/age_verification appends ?age_verification=<status>): finish what they started.
+    // `params` is the page's copy of the query from load time: the section deep-link code above strips the whole query
+    // string right after reading it, so window.location.search is already empty by the time this runs.
     (function () {
-        var q = new URLSearchParams(window.location.search), st = q.get('age_verification');
+        var st = params.get('age_verification');
         if (st == null) {
             if ($('#adult_age_status').attr('data-status') == 'pending') { pollAgeStatus(60); }   // a check still open from before: keep looking briefly
             return;
         }
-        q.delete('age_verification');
-        history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : '') + window.location.hash);
         if (st == 'verified') { ageVerified(); }
         else if (st == 'failed') { ageFailed(); }
         else { toastr.info('Your age check is being processed. This page updates as soon as it is done.'); pollAgeStatus(180); }

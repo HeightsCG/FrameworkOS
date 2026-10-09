@@ -494,6 +494,9 @@ class AccountController extends Controller {
         if ($uid <= 0) { Controller::bounce(); }
         $status = AgeVerification::refresh_if_pending($uid);
         $return = AgeVerification::safe_path((string) ($_GET['return'] ?? '/account/settings'));
+        // The fan came from the "Show adult content" toggle: verified now, so the toggle is turned on here, server-side,
+        // and the Settings page renders it checked. (A creator returning to the Studio did not ask for the toggle.)
+        if ($status === 'verified' && strpos($return, '/account/settings') === 0) { $this->userModel->set_adult_content_enabled($uid, true, $uid); }
         $hash = '';
         if (strpos($return, '#') !== false) { list($return, $hash) = explode('#', $return, 2); }
         if (strpos($return, '?') !== false) { $return = strstr($return, '?', true); }   // the page's query arrives in rq (see AgeVerification::landing_url)
