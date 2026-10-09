@@ -58,6 +58,7 @@ class SeoMeta {
      */
     const SOCIAL_PROFILES = array(
         // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...',
+        'YouTube' => 'https://www.youtube.com/@CreatorLinkStudio',
         'LinkedIn' => 'https://www.linkedin.com/company/creator-link-studio',
         'Product Hunt' => 'https://www.producthunt.com/products/creator-link-studio',
     );
