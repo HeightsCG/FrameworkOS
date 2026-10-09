@@ -165,6 +165,11 @@ foreach ($rows as $row) {
         $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.' . (!empty($rule_issues) ? ' Also fix: ' . implode('; ', $rule_issues) . '.' : '') . ' Keep everything else as it is.';
         echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues)), ")\n";
         try { $r = SeoDrafter::draft($kw, $note, (int) $a['id']); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
+        if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
+            $flagged = array_values(array_filter($flagged, function ($f) use ($a) { return strpos($f, '/blog/' . $a['slug'] . ' ') !== 0 && strpos($f, '/blog/' . $a['slug'] . ':') !== 0; }));
+            $fresh = $articles->get((int) $a['id']); $left = $fresh ? $rules($fresh) : array();
+            if (!empty($left)) { $flagged[] = '/blog/' . $a['slug'] . ' (rules, after rewrite): ' . implode('; ', $left); }
+        }
         continue;
     }
     $flagged[] = '/blog/' . $a['slug'] . ': ' . implode('; ', $issues);
