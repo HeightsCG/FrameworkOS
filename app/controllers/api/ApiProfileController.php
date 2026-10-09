@@ -170,6 +170,7 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Not authorized');
         }
 
+        $uid     = (int) Session::get('user_id');
         $enabled = !empty($this->post['enabled']);
 
         // Enabling adult content requires an explicit age confirmation (PRD 34.7).
@@ -177,9 +178,27 @@ class ApiProfileController extends BaseApiController {
             $this->jsonError('Age confirmation is required');
         }
 
-        $this->userModel->set_adult_content_enabled((int) Session::get('user_id'), $enabled, (int) Session::get('user_id'));
+        // Trigger 1: the toggle does not save until the account is age verified. Not verified yet (or failed last
+        // time): open the provider's hosted session and send the person there; the toggle stays off until they return.
+        if ($enabled && !AgeVerification::is_verified($uid)) {
+            $s = AgeVerification::start($uid, '/account/settings#privacy');
+            if (empty($s['ok'])) {
+                $this->jsonError('Could not start age verification. ' . ((string) ($s['error'] ?? '') !== '' ? (string) $s['error'] : 'Please try again.'));
+            }
+            $this->jsonError('Verify your age to show adult content.', ['need_age_verification' => true, 'url' => (string) $s['url']]);
+        }
+
+        $this->userModel->set_adult_content_enabled($uid, $enabled, $uid);
 
         $this->jsonSuccess(['message' => $enabled ? 'Adult content enabled' : 'Adult content hidden']);
+    }
+
+    /** The signed-in account's age verification state: none | pending | verified | failed (Settings polls this after the return). */
+    public function age_verification_statusAction(){
+        if (empty(Session::get('user_id'))) {
+            $this->jsonError('Not authorized');
+        }
+        $this->jsonSuccess(['status' => AgeVerification::status((int) Session::get('user_id'))]);
     }
 
     /* ---------- Internal messaging (PRD 24) ---------- */

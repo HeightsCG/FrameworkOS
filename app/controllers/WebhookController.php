@@ -470,4 +470,23 @@ class WebhookController extends Controller {
         }
         return $status;
     }
+
+    /**
+     * Age verification result (Didit, or whichever AgeVerificationProvider is configured). The provider signs every
+     * delivery; an unsigned or stale one is refused. A genuine one is always answered 2xx so the vendor stops
+     * retrying, including an unknown session reference (acknowledged, nothing changes).
+     */
+    public function diditAction(){
+        $raw = (string) file_get_contents('php://input');
+        $headers = function_exists('getallheaders') ? (getallheaders() ?: array()) : array();
+        $res = AgeVerification::apply_webhook($raw, $headers);
+        if (empty($res['ok'])) {
+            http_response_code(401);
+            echo 'unauthorized';
+            exit;
+        }
+        http_response_code(200);
+        echo 'ok';
+        exit;
+    }
 }

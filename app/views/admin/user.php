@@ -99,6 +99,13 @@ $open_req = count(array_filter($this->tickets, function ($t) { return $t['status
                         <div><dt>Two-step sign-in</dt><dd><?php $m2 = array(); if (!empty($u['mfa_totp_enabled'])) { $m2[] = 'Authenticator app'; } if (!empty($u['mfa_email_enabled'])) { $m2[] = 'Email codes'; } echo $e($m2 ? implode(', ', $m2) : 'Off'); ?></dd></div>
                         <div><dt>Time zone</dt><dd><?php echo $e($u['content_timezone'] ?: 'UTC'); ?></dd></div>
                         <div><dt>Adult content</dt><dd><?php echo !empty($u['adult_content_enabled']) ? 'Shown' : 'Hidden'; ?></dd></div>
+                        <div><dt>Age verification</dt><dd><?php
+                            $av = isset($this->age_verification) && is_array($this->age_verification) ? $this->age_verification : null;
+                            if (!$av) { echo 'Not started'; }
+                            elseif ($av['status'] === 'verified') { echo '<span class="adm-pill adm-pill--ok">Verified</span> ' . $e($fmt($av['verified_at'])) . ' via ' . $e(ucfirst((string) $av['provider'])); }
+                            elseif ($av['status'] === 'pending') { echo 'Pending since ' . $e($fmt($av['updated_at'])) . ' via ' . $e(ucfirst((string) $av['provider'])); }
+                            else { echo '<span class="adm-pill adm-pill--warn">Failed</span> ' . $e($fmt($av['updated_at'])) . ' via ' . $e(ucfirst((string) $av['provider'])); }
+                        ?></dd></div>
                         <div><dt>Automatic top-up</dt><dd><?php echo !empty($u['autoreplenish_enabled']) ? 'On' : 'Off'; ?></dd></div>
                         <div><dt>Following</dt><dd><?php echo number_format((int) $u['following_n']); ?></dd></div>
                         <div><dt>Followers</dt><dd><?php echo number_format((int) $u['followers_n']); ?></dd></div>

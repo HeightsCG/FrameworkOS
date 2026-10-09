@@ -873,6 +873,18 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['draft' => $has ? $json : null]);
     }
 
+    /**
+     * Trigger 2 of age verification: a post whose media is adult (media_assets.is_adult / flagged) is published or
+     * scheduled only by an age-verified creator. The draft itself always saves. Answers like need_plan does: the page
+     * shows a prompt and sends the creator to the provider's hosted check, then back to this post.
+     */
+    private function require_age_for_adult_post(int $creator_id, int $post_id): void{
+        if (!AgeVerification::post_is_adult($post_id) || AgeVerification::is_verified($creator_id)) { return; }
+        $s = AgeVerification::start($creator_id, '/studio?post=' . $post_id);
+        $this->jsonError('This post is marked adult. Verify your age once to publish it.',
+            ['need_age_verification' => true, 'url' => (string) ($s['url'] ?? ''), 'error' => (string) ($s['error'] ?? '')]);
+    }
+
     public function post_publishAction(){
         $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
@@ -882,6 +894,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        $this->require_age_for_adult_post($creator_id, $id);   // trigger 2: adult media publishes once the creator is age verified
         if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('publish paid posts'); }   // Free publishes free posts only
         if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $shares = $this->share_accounts_from_request();
@@ -905,6 +918,7 @@ class ApiCreatorStudioController extends BaseApiController {
         if (!$post) { $this->jsonError('That post was not found.'); }
         $v = $this->post_validation($post);
         if (!$v['ok']) { $this->jsonError((string) ($v['reason'])); }
+        $this->require_age_for_adult_post($creator_id, $id);   // trigger 2: adult media schedules once the creator is age verified
         if ($this->post_is_paid($post) && !Plan::can_sell($user)) { $this->need_plan('schedule paid posts'); }   // Free schedules free posts only
         if ($this->post_is_paid($post)) { CreatorAgreement::require($creator_id); }   // selling needs the Creator Agreement
         $utc = $this->to_utc((string) ($this->post['scheduled_at'] ?? ''), (string) ($user['content_timezone'] ?? 'UTC'));
@@ -995,7 +1009,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $user       = $this->require_creator('content', false);
         $creator_id = (int) $user['user_id'];
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid) && !AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }   // cron fallback: flip now-due scheduled posts
         $filters = ['state' => (string) ($this->post['state'] ?? ''), 'search' => (string) ($this->post['search'] ?? '')];
         $rows = $model->list_for_creator($creator_id, $filters);
         $posts = [];
@@ -1013,7 +1027,7 @@ class ApiCreatorStudioController extends BaseApiController {
         $creator_id = (int) $user['user_id'];
         $tz         = (string) ($user['content_timezone'] ?? 'UTC');
         $model      = new PostsModel();
-        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid)) { PostNotifier::published($cid, $pid); } }
+        foreach ($model->publish_due($creator_id) as $pid => $cid) { if (!Plan::hold_unsellable_post($cid, $pid) && !AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) { PostNotifier::published($cid, $pid); } }
 
         $items = [];
         $furthest = null; $scheduled_count = 0;
@@ -1244,6 +1258,8 @@ class ApiCreatorStudioController extends BaseApiController {
             'tier_id'           => (isset($post['tier_id']) && $post['tier_id'] !== null) ? (int) $post['tier_id'] : null,
             'tier_ids'          => $model->tiers_for_posts([(int) $post['id']])[(int) $post['id']] ?? [],
             'moderation'        => (string) ((new PostsModel())->studio_moderation_map([(int) $post['id']])[(int) $post['id']] ?? 'ok'),
+            'age_verified'      => AgeVerification::is_verified((int) $post['creator_id']),   // an adult post publishes once this is true
+            'held_reason'       => (string) ($post['held_reason'] ?? ''),
             'ppv_price_credits' => ($post['ppv_price_credits'] ?? null) !== null ? (int) $post['ppv_price_credits'] : null,
             'ppv_price_dollars' => ($post['ppv_price_credits'] ?? null) !== null ? Price::input((int) $post['ppv_price_credits']) : null,
             'comments_enabled'  => (int) ($post['comments_enabled'] ?? 1),
@@ -1369,7 +1385,8 @@ class ApiCreatorStudioController extends BaseApiController {
             'cover_type'     => (string) ($p['cover_type'] ?? ''),
             'asset_count'    => (int) $p['asset_count'],
             'media_missing'  => (int) $p['media_missing'],
-            'held'           => (string) ($p['held_reason'] ?? '') !== '' && $p['state'] === 'draft',   // a paid post held for the plan (Plan::hold_unsellable_post)
+            'held'           => (string) ($p['held_reason'] ?? '') !== '' && $p['state'] === 'draft',   // held at release: for the plan (Plan::hold_unsellable_post) or for age verification
+            'held_reason'    => (string) ($p['held_reason'] ?? ''),
             'when_label'     => $when_label,
             'when'           => $when,
             'views'          => (int) $p['views'],

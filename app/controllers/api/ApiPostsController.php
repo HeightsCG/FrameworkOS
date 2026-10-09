@@ -16,7 +16,7 @@ class ApiPostsController extends BaseApiController {
         if ($logged) {
             $rows = (new UsersModel())->get_user_by_id($viewer);
             $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            $show_adult = !empty($row['adult_content_enabled']);
+            $show_adult = AgeVerification::adult_allowed($row);   // toggle on AND age verified
         }
 
         $limit  = 4;
@@ -376,7 +376,7 @@ class ApiPostsController extends BaseApiController {
         if ($price <= 0) { $this->jsonError('This bundle is not for sale.'); }
         // Adult (or not yet scanned) media is only sold to fans who have adult content on.
         $vrow = $this->userModel->get_user_by_id($viewer);
-        if (!(is_array($vrow) && count($vrow) === 1 && !empty($vrow[0]['adult_content_enabled']))) {
+        if (!(is_array($vrow) && count($vrow) === 1 && AgeVerification::adult_allowed($vrow[0]))) {
             foreach ((array) $model->get_media_for_bundle($bundle_id) as $a) {
                 $st = (string) ($a['moderation_status'] ?? '');
                 if ($st !== 'n_a' && ($st !== 'approved' || !empty($a['is_adult']))) {
@@ -696,7 +696,7 @@ class ApiPostsController extends BaseApiController {
             if ($viewer <= 0) { return false; }
             $rows = (new UsersModel())->get_user_by_id($viewer);
             $row  = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            return !empty($row['adult_content_enabled']);
+            return AgeVerification::adult_allowed($row);   // toggle on AND age verified
         }
         return true;
     }

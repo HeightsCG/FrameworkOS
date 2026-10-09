@@ -11,7 +11,7 @@ class ApiSearchController extends BaseApiController {
         if ($viewer > 0) {
             $rows = $this->userModel->get_user_by_id($viewer);
             $u    = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
-            $show_adult = !empty($u['adult_content_enabled']);
+            $show_adult = AgeVerification::adult_allowed($u);   // toggle on AND age verified
         }
         $model = new SearchModel();
         $this->jsonSuccess(['creators' => $model->creators($q, 6, $viewer), 'posts' => $model->posts($q, $show_adult, 6, $viewer)]);

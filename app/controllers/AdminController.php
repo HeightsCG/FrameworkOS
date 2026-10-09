@@ -134,6 +134,7 @@ class AdminController extends Controller {
         $me_rows = (new UsersModel())->get_user_by_id((int) Session::get('user_id'));
         $tz = (is_array($me_rows) && count($me_rows) === 1) ? (string) ($me_rows[0]['content_timezone'] ?? 'UTC') : 'UTC';
         $this->view->u            = $u;
+        $this->view->age_verification = AgeVerification::record($uid);   // status, provider, dates only (never documents)
         $this->view->timezone     = $tz;
         $this->view->purchases    = $model->purchases_for($uid);
         $this->view->refunds      = $model->refunds_for($uid);

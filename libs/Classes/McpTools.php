@@ -617,6 +617,7 @@ class McpTools {
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 if ($p->count_missing_assets($iid) > 0) { throw new RuntimeException('Post has no ready media; add media before publishing'); }
                 self::refuse_blocked_media($p, $iid);
+                self::refuse_unverified_adult($cid, $iid);   // trigger 2: adult media publishes once the creator is age verified
                 // Only the call that actually publishes notifies + cross-posts (an agent retry must not fan out twice).
                 if (!$p->publish_once($cid, $iid)) { return array('ok' => true, 'already_published' => true); }
                 PostNotifier::published($cid, $iid);
@@ -629,6 +630,7 @@ class McpTools {
                 $post = $p->get_one($cid, $iid);
                 if (!$post) { throw new InvalidArgumentException('Post not found'); }
                 self::refuse_blocked_media($p, $iid);
+                self::refuse_unverified_adult($cid, $iid);
                 $res = $ok($p->set_state($cid, $iid, 'scheduled', $when));
                 return self::with_share($res, $cid, $post, $a, str_replace(' ', 'T', $when) . 'Z');
             }
@@ -1237,6 +1239,13 @@ class McpTools {
         if (!$row) { throw new InvalidArgumentException($msg); }
         return $row;
     }
+    /** Trigger 2 of age verification, as the Studio applies it: an adult post publishes once the creator is age verified (one-time, in Settings). */
+    private static function refuse_unverified_adult($creator_id, $post_id){
+        if (AgeVerification::post_is_adult((int) $post_id) && !AgeVerification::is_verified((int) $creator_id)) {
+            throw new RuntimeException('This post is marked adult. Verify your age once in Settings (Show adult content), then publish it.');
+        }
+    }
+
     /** Same hard stop as the Studio publish: moderator-blocked media can never go live or be shared. */
     private static function refuse_blocked_media(PostsModel $p, $post_id){
         foreach ($p->get_assets((int) $post_id) as $asset) {

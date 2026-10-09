@@ -995,6 +995,7 @@ jQuery(function ($) {
         composer.id = p.id; composer.caption = p.caption || ''; composer.audience = p.audience || 'free';
         composer.tier_ids = (p.tier_ids && p.tier_ids.length) ? p.tier_ids.map(String) : (p.tier_id ? [String(p.tier_id)] : allTierIds()); composer.lastTiers = composer.tier_ids.slice();
         composer.moderation = p.moderation || 'ok';
+        composer.age_verified = (p.age_verified !== false);   // an adult post publishes once the creator is age verified
         composer.ppv_price = p.ppv_price_credits || 50; composer.lastPpv = composer.ppv_price;
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
@@ -1036,7 +1037,8 @@ jQuery(function ($) {
                 .html('<i class="fa-solid fa-ban"></i> This post contains media that was <strong>blocked</strong> by our content check and can\'t be published. Remove it to continue.');
         } else if (composer.moderation === 'flagged' || composer.moderation === 'adult') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--adult').prop('hidden', false)
-                .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.');
+                .html('<i class="fa-solid fa-circle-exclamation"></i> This post is marked <strong>adult</strong> — it will only be shown to fans who have adult content turned on.'
+                    + (composer.age_verified === false ? ' Publishing it needs a one-time age check: you will be asked when you publish.' : ''));
         } else if (composer.moderation === 'pending') {
             $note.attr('class', 'cs-comp__modnote cs-comp__modnote--scan').prop('hidden', false)
                 .html('<i class="fa-solid fa-shield-halved"></i> Checking your media for adult content — it won\'t be visible to fans until the check finishes.');
@@ -1376,7 +1378,17 @@ jQuery(function ($) {
         var label = $('#csPePrimary').text();
         $('#csPePrimary').html('<span class="spinner-border spinner-border-sm"></span> Saving…');
         function done() { peSaving = false; $btns.prop('disabled', false); $('#csPePrimary').text(label); }
-        function fail(o) { done(); if (window.cls_need_agreement(o)) { return; } peShowServerError(o && o.message); }
+        function fail(o) {
+            done();
+            if (window.cls_need_agreement(o)) { return; }
+            if (o && o.need_age_verification) {   // trigger 2: adult media, creator not yet age verified
+                if (!o.url) { peShowServerError('Could not start age verification. ' + (o.error || 'Please try again.')); return; }
+                Swal.fire({ title: 'Verify your age', text: 'This post is marked adult. One quick age check, then it publishes. The draft is saved.', icon: 'info', showCancelButton: true, confirmButtonText: 'Verify Now', cancelButtonText: 'Later' })
+                    .then(function (r) { if (r.isConfirmed) { window.location = o.url; } });
+                return;
+            }
+            peShowServerError(o && o.message);
+        }
         saveNow(function (ok) {
             if (!ok) { done(); toastr.error('Could not save the post. Please try again.'); return; }
             if (!composer.id) {
@@ -1434,10 +1446,20 @@ jQuery(function ($) {
         });
     })();
     // Hand-off from Generate Carousel ("Use In Post"): the draft it made opens in the composer.
+    // Also /studio?post=<id>: back from the age check (and any deep link), the post opens so the creator can publish it.
     (function () {
         var post = '';
         try { post = sessionStorage.getItem('cs_open_post') || ''; sessionStorage.removeItem('cs_open_post'); } catch (e) {}
+        var q = new URLSearchParams(location.search), url_post = q.get('post') || '', age = q.get('age_verification');
+        if (url_post != '' || age != null) {
+            q.delete('post'); q.delete('age_verification');
+            history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q.toString() : ''));
+            if (age == 'verified') { toastr.success('Age verified. You can publish adult posts now.'); }
+            else if (age == 'failed') { toastr.error('Age verification failed. Press Publish to try again.'); }
+            else if (age != null) { toastr.info('Your age check is still being processed. Try publishing again in a moment.'); }
+        }
         if (parseInt(post, 10) > 0) { openComposer(parseInt(post, 10)); }
+        else if (parseInt(url_post, 10) > 0) { openComposer(parseInt(url_post, 10)); }
     })();
 
     if (typeof toastr !== 'undefined') {
@@ -1509,7 +1531,7 @@ jQuery(function ($) {
             ? '<img src="' + esc(p.cover_url) + '" alt="">'
             : '<i class="fa-solid ' + typeIcon(p.cover_type || 'image') + '"></i>';
         if (p.asset_count > 1) cover += '<span class="cs-post__num">' + p.asset_count + '</span>';
-        var badge = p.held ? '<span class="cs-badge cs-badge--held">Held: upgrade to publish</span>' : '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
+        var badge = p.held ? '<span class="cs-badge cs-badge--held">' + (p.held_reason === 'age_verification' ? 'Held: verify your age to publish' : 'Held: upgrade to publish') + '</span>' : '<span class="cs-badge cs-badge--' + p.state + '">' + esc(p.state) + '</span>';
         var aud = p.audience === 'subscribers'
             ? '<span class="cs-post__aud"><i class="fa-solid fa-lock"></i> Subscribers</span>'
             : (p.audience === 'ppv'

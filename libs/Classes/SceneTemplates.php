@@ -15,7 +15,7 @@ class SceneTemplates {
     private static function fail($error, array $extra = array()){ return array_merge(array('ok' => false, 'error' => (string) $error), $extra); }
     private static function okr(array $payload = array()){ return array_merge(array('ok' => true, 'error' => ''), $payload); }
 
-    public static function shows_adult($user){ return is_array($user) && !empty($user['adult_content_enabled']); }
+    public static function shows_adult($user){ return AgeVerification::adult_allowed($user); }   // toggle on AND age verified
 
     public static function thumb_url($row){
         $key = (string) ($row['thumb_key'] ?? '');

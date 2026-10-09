@@ -768,7 +768,17 @@
                     <div class="notif__row notif__row--single">
                         <div class="notif__label">
                             <span class="notif__name">Show adult content</span>
-                            <span class="notif__desc">Adult content is hidden by default. You must be 18 or older and in a permitted region to enable it.</span>
+                            <?php
+                                // Age verification state (explicit content only). The toggle saves only once the account is verified.
+                                $age_rec = AgeVerification::record((int) $this->user['user_id']);
+                                $age_status = $age_rec ? (string) $age_rec['status'] : 'none';
+                            ?>
+                            <span class="notif__desc" id="adult_age_status" data-status="<?php echo $age_status; ?>"><?php
+                                if ($age_status === 'verified') { echo 'Age verified on ' . htmlspecialchars(date('M j, Y', strtotime((string) $age_rec['verified_at'] . ' UTC')), ENT_QUOTES, 'UTF-8') . '.'; }
+                                elseif ($age_status === 'pending') { echo 'Age verification in progress. <a href="#" id="adult_verify_again">Continue Verification</a>'; }
+                                elseif ($age_status === 'failed') { echo 'Age verification failed. <a href="#" id="adult_verify_again">Try Again</a>'; }
+                                else { echo 'Adult content is hidden by default. You must be 18 or older and in a permitted region to enable it. Turning it on starts a one-time age check.'; }
+                            ?></span>
                         </div>
                         <label class="notif__switch">
                             <input type="checkbox" id="adult_content_toggle" <?php echo !empty($this->user['adult_content_enabled']) ? 'checked' : ''; ?>>
@@ -1787,12 +1797,39 @@ $(function () {
             var o = JSON.parse(data);
             if (o.success) {
                 toastr.success(o.message);
+            } else if (o.need_age_verification && o.url) {
+                // Trigger 1: a one-time age check with the verification provider; the toggle stays off until they are back.
+                $('#adult_content_toggle').prop('checked', false);
+                toastr.info('One quick age check, then adult content turns on.');
+                window.location = o.url;
             } else {
                 toastr.error(o.message);
                 $('#adult_content_toggle').prop('checked', false);
             }
         });
     }
+
+    // Back from the age check (/account/age_verification appends ?age_verification=<status>): finish what they started.
+    (function () {
+        var q = new URLSearchParams(window.location.search), st = q.get('age_verification');
+        if (st == null) { return; }
+        q.delete('age_verification');
+        history.replaceState(null, '', window.location.pathname + (q.toString() ? '?' + q.toString() : '') + window.location.hash);
+        if (st == 'verified') {
+            saveAdultContent(true, true);   // verified now: the toggle saves and turns on
+            $('#adult_content_toggle').prop('checked', true);
+            $('#adult_age_status').attr('data-status', 'verified').text('Age verified.');
+        } else if (st == 'failed') {
+            toastr.error('Age verification failed. You can try again.');
+        } else {
+            toastr.info('Your age check is still being processed. Check back in a moment.');
+        }
+    })();
+
+    $(document).on('click', '#adult_verify_again', function (e) {
+        e.preventDefault();
+        saveAdultContent(true, true);   // not verified yet: the server answers with a fresh verification session
+    });
 
     $('#adult_content_toggle').on('change', function () {
         if (this.checked) {

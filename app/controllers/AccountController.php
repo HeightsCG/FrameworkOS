@@ -484,6 +484,23 @@ class AccountController extends Controller {
         $this->view->force_reset_form();
     }
 
+    /**
+     * Where the age-verification vendor sends the person back (AgeVerification::start builds this URL with ?return=).
+     * The result itself arrives by webhook; if it has not landed yet the vendor is asked once, then the person goes
+     * back to the page they started from with ?age_verification=<status> so it can finish what they were doing.
+     */
+    public function age_verificationAction(){
+        $uid = (int) Session::get('user_id');
+        if ($uid <= 0) { Controller::bounce(); }
+        $status = AgeVerification::refresh_if_pending($uid);
+        $return = AgeVerification::safe_path((string) ($_GET['return'] ?? '/account/settings'));
+        $hash = '';
+        if (strpos($return, '#') !== false) { list($return, $hash) = explode('#', $return, 2); }
+        $sep = strpos($return, '?') === false ? '?' : '&';
+        header('Location: ' . $return . $sep . 'age_verification=' . rawurlencode($status) . ($hash !== '' ? '#' . $hash : ''), true, 302);
+        exit;
+    }
+
     /** Plain-text Creator Terms & Conditions with the site name substituted in. */
     public static function creator_terms($site){
         return <<<TERMS

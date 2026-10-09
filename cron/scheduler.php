@@ -50,6 +50,10 @@ try {
             fwrite(STDOUT, date('c') . " scheduled post {$pid} held: paid post, creator on Free, moved to drafts\n");
             continue;
         }
+        if (AgeVerification::hold_unverified_adult_post((int) $cid, (int) $pid)) {   // adult media, creator not age verified: back to drafts until they verify
+            fwrite(STDOUT, date('c') . " scheduled post {$pid} held: adult media, creator not age verified, moved to drafts\n");
+            continue;
+        }
         PostNotifier::published($cid, $pid);
         fwrite(STDOUT, date('c') . " scheduled post {$pid} published\n");
     }

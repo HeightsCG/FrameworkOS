@@ -246,7 +246,7 @@ class ApiEventsController extends BaseApiController {
         $st = (string) ($info['asset']['moderation_status'] ?? '');
         if ($st !== 'n_a' && ($st !== 'approved' || !empty($info['asset']['is_adult']))) {
             $vrow = $this->userModel->get_user_by_id($me);
-            if (!(is_array($vrow) && count($vrow) === 1 && !empty($vrow[0]['adult_content_enabled']))) {
+            if (!(is_array($vrow) && count($vrow) === 1 && AgeVerification::adult_allowed($vrow[0]))) {
                 $this->jsonError('This replay has adult content. Turn on adult content in Settings to buy it.');
             }
         }

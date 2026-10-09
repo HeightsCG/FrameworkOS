@@ -280,7 +280,7 @@ class ApiMessagesController extends BaseApiController {
      */
     private function viewer_shows_adult(int $user_id): bool{
         $rows = $this->userModel->get_user_by_id($user_id);
-        return is_array($rows) && count($rows) === 1 && !empty($rows[0]['adult_content_enabled']);
+        return is_array($rows) && count($rows) === 1 && AgeVerification::adult_allowed($rows[0]);   // toggle on AND age verified
     }
 
     private static function adult_or_unscanned(array $a): bool{

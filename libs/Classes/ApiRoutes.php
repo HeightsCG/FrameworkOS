@@ -13,7 +13,7 @@ class ApiRoutes {
             'mfa_email_confirm', 'mfa_email_disable', 'mfa_regenerate_backup_codes', 'mfa_verify', 'mfa_send_login_code', 'google_disconnect',
         ],
         'ApiProfileController' => [
-            'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'block_user', 'unblock_user',
+            'update_profile', 'change_username', 'save_notification_prefs', 'save_adult_content_pref', 'age_verification_status', 'block_user', 'unblock_user',
             'become_creator', 'leave_creator', 'delete_my_account', 'data_export_request', 'data_export_status', 'data_export_download', 'follow_creator', 'unfollow_creator', 'upload_my_avatar', 'remove_my_avatar',
         ],
         'ApiBillingController' => [

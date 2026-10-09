@@ -375,7 +375,7 @@ class ProfileController extends Controller {
         if ($viewer_logged_in) {
             $viewer_rows = $this->userModel->get_user_by_id($viewer_id);
             $viewer_row  = (is_array($viewer_rows) && count($viewer_rows) === 1) ? $viewer_rows[0] : null;
-            $show_adult  = !empty($viewer_row['adult_content_enabled']);
+            $show_adult  = AgeVerification::adult_allowed($viewer_row);   // toggle on AND age verified
         }
         // Always compute the gate (even for the creator) so 'blocked' content is hidden
         // from EVERYONE, including the creator's own public profile.

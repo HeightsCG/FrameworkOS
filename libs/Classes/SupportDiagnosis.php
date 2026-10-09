@@ -48,7 +48,7 @@ class SupportDiagnosis {
         } elseif ($topic === 'content') {
             $c[] = array('Purchases', count($purchases) . ' one-time', 'info', count($purchases) ? array('href' => '/admin/user/' . $uid . '?tab=purchases', 'label' => 'Refund') : null);
             $c[] = array('Active memberships', (string) count($memberships), 'info', count($memberships) ? array('href' => '/admin/user/' . $uid . '?tab=memberships', 'label' => 'Manage') : null);
-            $c[] = array('Adult content', !empty($u['adult_content_enabled']) ? 'Shown' : 'Hidden, so adult posts stay hidden to them', 'info', null);
+            $c[] = array('Adult content', AgeVerification::adult_allowed($u) ? 'Shown' : (!empty($u['adult_content_enabled']) ? 'Toggle on but age not verified, so adult posts stay hidden to them' : 'Hidden, so adult posts stay hidden to them'), 'info', null);
         } elseif ($topic === 'billing') {
             $tier = Plan::tier_name($u);   // Free for a creator with no paid plan
             if ($tier !== '') {
