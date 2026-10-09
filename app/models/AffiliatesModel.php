@@ -48,6 +48,12 @@ class AffiliatesModel extends Model {
     }
 
     /** Every affiliate with the applicant's account and its numbers, applications first, newest first. */
+    /** Applications waiting for a decision (admin rail badge). */
+    public function pending_count(){
+        $r = parent::select("SELECT COUNT(*) AS n FROM affiliates WHERE status = 'pending'");
+        return is_array($r) && count($r) ? (int) $r[0]['n'] : 0;
+    }
+
     public function admin_list($limit = 300){
         return parent::select(
             "SELECT a.*, u.u_name, u.first_name, u.last_name, u.user_email,

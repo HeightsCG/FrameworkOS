@@ -14,7 +14,6 @@ foreach ($fd_rows as $r) { $fd_n[(string) $r['status']] = ($fd_n[(string) $r['st
 $fd_tags = array('active' => 'adm-pill--ok', 'claimed' => 'adm-pill--warn', 'lapsed' => '', 'refused' => 'adm-pill--bad');
 ?>
 <section class="adm-sec adm-panel" data-panel="founding">
-    <div class="adm-sec__head"><h2 class="adm-sec__title">Founding Creators</h2></div>
     <div class="adm-kpis">
         <div class="adm-kpi"><div class="adm-kpi__top"><span class="adm-kpi__label">Spots taken</span><i class="adm-kpi__ic fa-solid fa-star" aria-hidden="true"></i></div><div class="adm-kpi__val"><?php echo number_format($fd_taken); ?></div><div class="adm-kpi__sub">of <?php echo number_format(Founding::SPOTS); ?>, <?php echo number_format(max(0, Founding::SPOTS - $fd_taken)); ?> left</div></div>
         <div class="adm-kpi"><div class="adm-kpi__top"><span class="adm-kpi__label">Active</span><i class="adm-kpi__ic fa-solid fa-circle-check" aria-hidden="true"></i></div><div class="adm-kpi__val"><?php echo number_format($fd_n['active']); ?></div><div class="adm-kpi__sub"><?php echo $e(Founding::fee_label()); ?> fee locked</div></div>

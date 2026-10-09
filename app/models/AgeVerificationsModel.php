@@ -47,4 +47,26 @@ class AgeVerificationsModel extends Model {
         parent::delete('age_verifications', 'user_id = :u', 1, array('u' => (int) $user_id));
         return $this->get($user_id) === null;
     }
+
+    /** Newest activity first, with the account's handle and name, for /admin/queue (Verification > Age checks). */
+    public function recent($limit = 100){
+        $limit = max(1, min(500, (int) $limit));
+        return (array) parent::select(
+            "SELECT a.*, u.u_name, u.user_email, u.adult_content_enabled, u.role_id, r.role_name,
+                    TRIM(CONCAT(u.first_name, ' ', u.last_name)) AS name
+             FROM age_verifications a
+             JOIN user_accounts u ON u.user_id = a.user_id
+             LEFT JOIN user_roles r ON r.id = u.role_id
+             ORDER BY (a.status = 'pending') DESC, a.updated_at DESC
+             LIMIT $limit");
+    }
+
+    /** How many accounts sit in each state: ['pending' => n, 'verified' => n, 'failed' => n]. */
+    public function counts(): array {
+        $out = array('pending' => 0, 'verified' => 0, 'failed' => 0);
+        foreach ((array) parent::select("SELECT status, COUNT(*) AS n FROM age_verifications GROUP BY status") as $r) {
+            if (isset($out[$r['status']])) { $out[$r['status']] = (int) $r['n']; }
+        }
+        return $out;
+    }
 }

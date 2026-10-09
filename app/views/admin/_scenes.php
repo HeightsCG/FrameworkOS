@@ -2,7 +2,7 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $scenes = (array) ($this->scenes ?? array()); ?>
 <section class="adm-sec adm-panel" data-panel="scenes">
     <div class="adm-sec__head">
-        <h2 class="adm-sec__title">Scene Templates</h2>
+        <span class="adm-sec__meta"><?php echo count($scenes); ?> templates</span>
         <button type="button" class="adm-btn adm-btn--ok" id="admSceneNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Scene</button>
     </div>
     <?php if (empty($scenes)): ?>

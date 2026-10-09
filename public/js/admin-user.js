@@ -23,19 +23,6 @@
         });
     }
 
-    /* Tabs (same behaviour as /admin) */
-    var tabs = document.getElementById('admTabs');
-    if (tabs) tabs.addEventListener('click', function (e) {
-        var b = e.target.closest('.adm-tab'); if (!b) { return; }
-        var p = b.getAttribute('data-panel');
-        tabs.querySelectorAll('.adm-tab').forEach(function (t) { t.classList.toggle('is-active', t === b); });
-        document.querySelectorAll('.adm-panel').forEach(function (x) { x.classList.toggle('is-active', x.getAttribute('data-panel') === p); });
-        try { history.replaceState(null, '', '?tab=' + p); } catch (err) {}
-    });
-    var want = (new URLSearchParams(location.search).get('tab') || '').replace(/[^a-z]/g, '');
-    var wb = (want && tabs) ? tabs.querySelector('.adm-tab[data-panel="' + want + '"]') : null;
-    if (wb) { wb.click(); }
-
     /* Adjust balance (modal) */
     var modalEl = document.getElementById('admAdjustModal');
     var modal = (window.bootstrap && modalEl) ? new bootstrap.Modal(modalEl) : null;

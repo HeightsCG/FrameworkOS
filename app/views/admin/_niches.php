@@ -2,7 +2,7 @@
 <?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $niches = (array) ($this->niches ?? array()); $niche_n = (array) ($this->niche_counts ?? array()); ?>
 <section class="adm-sec adm-panel" data-panel="niches">
     <div class="adm-sec__head">
-        <h2 class="adm-sec__title">Directory Niches</h2>
+        <span class="adm-sec__meta"><?php echo count($niches); ?> niches</span>
         <button type="button" class="adm-btn adm-btn--ok" id="admNicheNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Niche</button>
     </div>
     <?php if (empty($niches)): ?>

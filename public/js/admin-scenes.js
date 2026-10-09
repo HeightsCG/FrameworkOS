@@ -9,7 +9,7 @@
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
     function esc(s) { var d = document.createElement('div'); d.textContent = (s == null) ? '' : String(s); return d.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
     function bad(msg) { toastr.error(msg || 'Something went wrong. Please try again.'); }
-    function back_to_tab() { window.location = '/admin?tab=scenes'; }
+    function back_to_tab() { window.location = '/admin/scenes'; }
     function confirm_box(opts) {
         if (!window.Swal) { return Promise.resolve(window.confirm(opts.title)); }
         return Swal.fire(Object.assign({ showCancelButton: true, reverseButtons: true, confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }, opts)).then(function (r) { return r.isConfirmed; });

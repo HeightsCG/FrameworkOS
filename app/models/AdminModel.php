@@ -272,6 +272,11 @@ class AdminModel extends Model {
     }
 
     /** Images awaiting a decision (flagged first, then unscanned), with creator + AI signal. */
+    /** Media waiting for a human look (pending scan or flagged), for the admin rail badge; cheaper than overview(). */
+    public function moderation_count(){
+        return (int) $this->scalar("SELECT COUNT(*) AS n FROM media_assets WHERE deleted_at IS NULL AND type IN ('image', 'video') AND moderation_status IN ('pending', 'flagged')");
+    }
+
     public function moderation_queue($limit = 40){
         $limit = max(1, min(100, (int) $limit));
         return (array) parent::select(

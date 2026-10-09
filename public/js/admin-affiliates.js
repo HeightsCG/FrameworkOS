@@ -14,7 +14,7 @@
         var o = parse(r);
         if (!o || !o.success) { toastr.error((o && o.message) || 'Something went wrong. Please try again.'); return; }
         toastr.success(o.message);
-        setTimeout(function () { window.location = '/admin?tab=affiliates'; }, 700);
+        setTimeout(function () { window.location = '/admin/affiliates'; }, 700);
     }
 
     $(panel).on('click', '[data-aff-tab]', function () {

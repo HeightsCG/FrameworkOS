@@ -23,7 +23,7 @@
                 var o = parse(r);
                 if (!o || !o.success) { toastr.error((o && o.message) || 'Something went wrong. Please try again.'); return; }
                 toastr.success(o.message);
-                setTimeout(function () { window.location = '/admin?tab=founding'; }, 700);
+                setTimeout(function () { window.location = '/admin/founding'; }, 700);
             });
         });
     });

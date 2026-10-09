@@ -8,7 +8,7 @@
 
     function parse(r) { try { return JSON.parse(r); } catch (e) { return null; } }
     function bad(msg) { toastr.error(msg || 'Something went wrong. Please try again.'); }
-    function back_to_tab() { window.location = '/admin?tab=niches'; }
+    function back_to_tab() { window.location = '/admin/niches'; }
     function row_niche(el) { return parse($(el).closest('.adm-nrow').attr('data-niche') || ''); }
     function clear_errors() { $('#admNicheForm [data-err]').prop('hidden', true).text(''); $('#admNicheForm .is-invalid').removeClass('is-invalid'); }
     function busy(on) { $('#admNicheSave').prop('disabled', on).html(on ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Saving' : 'Save Niche'); }

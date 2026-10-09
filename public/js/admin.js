@@ -1,4 +1,4 @@
-/* Admin dashboard: moderation approve/block + user search + suspend/reactivate. */
+/* Admin pages (/admin/*): queue actions, counts, section index, user search and suspend, financial charts. */
 (function () {
     var root = document.querySelector('.adm');
     if (!root) { return; }
@@ -11,20 +11,106 @@
         return Promise.resolve(window.confirm(opts.title || opts.titleText || 'Are you sure?'));
     }
 
-    /* ---- Tabs ---- */
-    var tabs = document.getElementById('admTabs');
-    if (tabs) {
-        tabs.addEventListener('click', function (e) {
-            var btn = e.target.closest('.adm-tab');
-            if (!btn) { return; }
-            var panel = btn.getAttribute('data-panel');
-            tabs.querySelectorAll('.adm-tab').forEach(function (t) { t.classList.toggle('is-active', t === btn); });
-            document.querySelectorAll('.adm-panel').forEach(function (p) { p.classList.toggle('is-active', p.getAttribute('data-panel') === panel); });
+    /* ---- Counts: a resolved item lowers its group count, the chip, the rail badge and the page subtitle ---- */
+    function bump(group, delta) {
+        var total = 0;
+        document.querySelectorAll('[data-count]').forEach(function (el) {
+            if (el.getAttribute('data-count') === group) { el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta); }
+            total += parseInt(el.textContent, 10) || 0;
         });
-        /* ?tab=<panel> opens that tab (e.g. back from a support request) */
-        var want = (new URLSearchParams(location.search).get('tab') || '').replace(/[^a-z]/g, '');
-        var wantBtn = want ? tabs.querySelector('.adm-tab[data-panel="' + want + '"]') : null;
-        if (wantBtn) { wantBtn.click(); }
+        document.querySelectorAll('#admQueueChips .adm-chip').forEach(function (c) {
+            var b = c.querySelector('b'), k = c.getAttribute('data-show');
+            if (!b) { return; }
+            if (k === group) { b.textContent = Math.max(0, parseInt(b.textContent, 10) + delta); }
+            if (k === 'all') { b.textContent = total; }
+        });
+        var rail = document.querySelector('.adm-rail__item.is-on .adm-rail__n');
+        if (rail) { var n = Math.max(0, parseInt(rail.textContent, 10) + delta); if (n > 0) { rail.textContent = n; } else { rail.parentNode.removeChild(rail); } }
+        var sub = document.querySelector('.adm-head__sub');
+        if (sub && document.getElementById('admQueue')) { sub.textContent = total > 0 ? total + ' item' + (total === 1 ? '' : 's') + ' waiting' : 'Nothing is waiting'; }
+    }
+    window.admBump = bump;
+
+    /* ---- Queue chips: show one group or all (the links still work without JS) ---- */
+    var chips = document.getElementById('admQueueChips');
+    if (chips) {
+        chips.addEventListener('click', function (e) {
+            var a = e.target.closest('.adm-chip'); if (!a) { return; }
+            e.preventDefault();
+            var k = a.getAttribute('data-show');
+            chips.querySelectorAll('.adm-chip').forEach(function (c) { var on = c === a; c.classList.toggle('is-on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            document.querySelectorAll('#admQueue .adm-group').forEach(function (g) { g.hidden = !(k === 'all' || g.getAttribute('data-group') === k); });
+            try { history.replaceState(null, '', k === 'all' ? '/admin/queue' : '/admin/queue?show=' + k); } catch (err) {}
+        });
+    }
+
+    /* ---- Age checks: status switch + reset ---- */
+    var ageTabs = document.getElementById('admAgeTabs');
+    if (ageTabs) {
+        ageTabs.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-age]'); if (!b) { return; }
+            var f = b.getAttribute('data-age'), shown = 0;
+            ageTabs.querySelectorAll('[data-age]').forEach(function (x) { var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            document.querySelectorAll('#admAge .adm-agerow').forEach(function (r) {
+                var st = r.getAttribute('data-status');
+                var on = f === 'all' || st === f || (f === 'open' && st !== 'verified');
+                r.hidden = !on; if (on) { shown++; }
+            });
+            var none = document.getElementById('admAgeNone'); if (none) { none.hidden = shown > 0; none.textContent = f === 'open' ? 'No age checks need a look.' : 'Nothing here.'; }
+        });
+    }
+    var ageBody = document.getElementById('admAge');
+    if (ageBody) {
+        ageBody.addEventListener('click', function (e) {
+            var btn = e.target.closest('[data-age-reset]'); if (!btn) { return; }
+            var row = btn.closest('.adm-agerow'), uid = parseInt(row.getAttribute('data-age-row'), 10);
+            var who = row.querySelector('.adm-uinfo__name'); who = who ? who.textContent.trim() : 'this account';
+            confirmAction({ title: 'Reset age verification for ' + who + '?', text: 'The verification is removed and adult content is hidden for this account again. The next time they turn it on, or publish an adult post, they verify again.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#CD4C00' })
+                .then(function (ok) {
+                    if (!ok) { return; }
+                    ApiDataSvc.apiCall('post', 'admin_reset_age_verification', { user_id: uid }, function (r) {
+                        var o = parse(r);
+                        if (!o || !o.success) { toastr.error((o && o.message) || 'Could not reset'); return; }
+                        var was = row.getAttribute('data-status');
+                        row.parentNode.removeChild(row);
+                        toastr.success('Age verification reset');
+                        if (was === 'pending') { bump('verification', -1); }
+                        ageTabs.querySelectorAll('[data-age]').forEach(function (x) {
+                            var k = x.getAttribute('data-age'), b = x.querySelector('b');
+                            if (b && (k === 'all' || k === was || (k === 'open' && was !== 'verified'))) { b.textContent = Math.max(0, parseInt(b.textContent, 10) - 1); }
+                        });
+                        if (!ageBody.querySelectorAll('.adm-agerow:not([hidden])').length) { var none = document.getElementById('admAgeNone'); if (none) { none.hidden = false; } }
+                    });
+                });
+        });
+    }
+
+    /* ---- Section index (Financials, user record): smooth scroll + the current section highlighted ---- */
+    var index = document.getElementById('admIndex');
+    if (index) {
+        var links = Array.prototype.slice.call(index.querySelectorAll('a[href^="#"]'));
+        var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+        function go(id, push) {
+            var el = document.getElementById(id); if (!el) { return; }
+            var top = el.getBoundingClientRect().top + window.pageYOffset - (index.offsetHeight + 74);
+            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            if (push) { try { history.replaceState(null, '', '#' + id); } catch (err) {} }
+        }
+        index.addEventListener('click', function (e) {
+            var a = e.target.closest('a[href^="#"]'); if (!a) { return; }
+            e.preventDefault(); go(a.getAttribute('href').slice(1), true);
+        });
+        var ticking = false;
+        function spy() {
+            ticking = false;
+            var line = index.getBoundingClientRect().bottom + 80, cur = 0;
+            secs.forEach(function (s, i) { if (s && s.getBoundingClientRect().top <= line) { cur = i; } });
+            links.forEach(function (a, i) { a.classList.toggle('is-on', i === cur); });
+        }
+        window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(spy); } });
+        spy();
+        var want = (new URLSearchParams(location.search).get('tab') || location.hash.slice(1) || '').replace(/[^a-z]/g, '');
+        if (want && document.getElementById(want)) { setTimeout(function () { go(want, false); }, 50); }
     }
 
     /* ---- Audit log search ---- */
@@ -111,18 +197,11 @@
                 }
                 card.parentNode.removeChild(card);
                 if (window.toastr) { toastr.success(action === 'approve' ? 'Approved' : 'Content blocked'); }
-                // Update counts: the Moderation tab badge and the "Needs review" card (both count the queue)
+                bump('moderation', -1);
                 var remaining = mod.querySelectorAll('.adm-card').length;
-                var tabBadge = document.querySelector('.adm-tab[data-panel="moderation"] .adm-tab__badge');
-                if (tabBadge) { if (remaining > 0) { tabBadge.textContent = remaining; } else { tabBadge.parentNode.removeChild(tabBadge); } }
-                var kpiBox = document.getElementById('admKpiReview');
-                if (kpiBox) {
-                    kpiBox.querySelector('.adm-kpi__val').textContent = remaining;
-                    if (!remaining) { kpiBox.classList.remove('adm-kpi--alert'); }
-                }
                 if (!remaining) {
                     var wrap = document.getElementById('admMod');
-                    wrap.outerHTML = '<div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-circle-check"></i></span><p class="adm-empty__t">Nothing to Review</p></div>';
+                    wrap.outerHTML = '<p class="adm-none adm-none--line">Nothing to review.</p>';
                 }
             });
         });
@@ -157,8 +236,8 @@
                     }
                     row.parentNode.removeChild(row);
                     if (window.toastr) { toastr.success(action === 'dismiss' ? 'Report dismissed' : (action === 'remove' ? 'Content removed' : 'Account suspended')); }
+                    bump('reports', -1);
                     var remaining = reports.querySelectorAll('.adm-rrow').length;
-                    document.querySelectorAll('.adm-sec__meta').forEach(function (m) { if (/\bopen$/.test(m.textContent.trim())) { m.textContent = remaining + ' open'; } });
                     if (!remaining) { var n = document.getElementById('admReportsNone'); if (n) { n.hidden = false; } }
                 });
             });
@@ -185,10 +264,8 @@
                     if (!o || !o.success) { row.querySelectorAll('.adm-btn').forEach(function (b) { b.disabled = false; }); if (window.toastr) { toastr.error((o && o.message) || 'Could not update'); } return; }
                     row.parentNode.removeChild(row);
                     if (window.toastr) { toastr.success(action === 'approve' ? 'Creator verified' : 'Request rejected'); }
+                    bump('verification', -1);
                     var remaining = verif.querySelectorAll('.adm-vrow').length;
-                    document.querySelectorAll('.adm-sec__meta').forEach(function (m) { if (/\bpending$/.test(m.textContent.trim())) { m.textContent = remaining + ' pending'; } });
-                    var tabBadge = document.querySelector('.adm-tab[data-panel="verification"] .adm-tab__badge');
-                    if (tabBadge) { if (remaining > 0) { tabBadge.textContent = remaining; } else { tabBadge.parentNode.removeChild(tabBadge); } }
                     if (!remaining) { var n = document.getElementById('admVerifNone'); if (n) { n.hidden = false; } }
                 });
             });

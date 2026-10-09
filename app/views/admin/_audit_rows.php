@@ -9,7 +9,7 @@ foreach ($audit_rows as $ar):
     $target = $ar['target_user_id'] ? ($ar['target_name'] !== '' ? $ar['target_name'] : '@' . $ar['target_handle']) : '';
     $search = strtolower($admin . ' ' . $target . ' ' . ($ar['target_handle'] ?? '') . ' ' . (AuditModel::LABELS[$ar['action']] ?? $ar['action']) . ' ' . implode(' ', $bits) . ' ' . ($d['result'] ?? ''));
 ?>
-<div class="adm-aurow" data-search="<?php echo $e($search); ?>">
+<div class="adm-row adm-aurow" data-search="<?php echo $e($search); ?>">
     <span class="adm-ucell adm-ucell--muted"><?php echo $e($fmt($ar['created_at'], true)); ?></span>
     <span class="adm-ucell"><?php echo $e($admin); ?></span>
     <span class="adm-ucell"><b class="adm-aurow__act"><?php echo $e(AuditModel::LABELS[$ar['action']] ?? $ar['action']); ?></b><?php if (!empty($d['result'])): ?><span class="adm-aurow__res"><?php echo $e($d['result']); ?></span><?php endif; ?></span>

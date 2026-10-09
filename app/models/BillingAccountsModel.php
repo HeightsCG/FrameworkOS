@@ -63,6 +63,12 @@ class BillingAccountsModel extends Model {
     }
 
     /** Every billed account for the admin Billing tab, with the owner's name and the last charge. */
+    /** Accounts whose renewal failed and is being retried (the admin queue's Billing group). */
+    public function past_due_count(){
+        $r = parent::select("SELECT COUNT(*) AS n FROM billing_accounts b JOIN user_accounts u ON u.user_id = b.user_id AND u.deleted = 0 WHERE b.status = 'past_due'");
+        return is_array($r) && count($r) ? (int) $r[0]['n'] : 0;
+    }
+
     public function admin_list($limit = 300){
         $limit = max(1, (int) $limit);
         return (array) parent::select(

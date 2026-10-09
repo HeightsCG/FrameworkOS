@@ -69,6 +69,12 @@ class AffiliatePayoutsModel extends Model {
     }
 
     /** Every payout request for staff: open ones first, then newest. */
+    /** Payout requests staff still have to settle (admin rail badge). */
+    public function requested_count(){
+        $r = parent::select("SELECT COUNT(*) AS n FROM affiliate_payouts WHERE status = 'requested'");
+        return is_array($r) && count($r) ? (int) $r[0]['n'] : 0;
+    }
+
     public function admin_list($limit = 200){
         return parent::select(
             "SELECT p.*, a.code, a.user_id, u.u_name, u.first_name, u.last_name, u.user_email
