@@ -51,6 +51,7 @@ $pub_links   = array(
 <html lang="en">
 <head>
 <?php /* icons on this logged-out page come from /css/pf-icons.css (no Font Awesome): map any new fa-* icon there. */ ?>
+<?php include Main::app_path() . '/libs/Layout/heycatch.php'; ?>
 <?php include Main::app_path() . '/libs/Layout/google_analytics.php'; ?>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -1310,6 +1311,7 @@ $pub_links   = array(
         if (SUB_NOTICE === 'success') {
             selectTab('plans');
             pfToast("You're now a member!");
+            if (window.CLSHeyCatch) { CLSHeyCatch('trackEvent', 'membership_started'); }   // HeyCatch: a paid membership the browser just witnessed
         } else if (SUB_NOTICE === 'cancel') {
             pfToast('Checkout canceled — you have not been charged.');
         }

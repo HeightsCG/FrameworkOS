@@ -273,15 +273,17 @@ class ApiAuthController extends BaseApiController {
         $return = CustomDomains::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
         Session::destroyValue('signup_return');
         $done = LoginGate::finish($user);
+        // user_id + email let the page identify the new person to analytics before it reports the completed sign-up (libs/Layout/heycatch.php).
+        $who  = ['user_id' => (int) $user['user_id'], 'email' => (string) ($user['user_email'] ?? '')];
         if (isset($done['mfa'])) {
             $m = array_keys(array_filter($done['mfa']));
-            $this->jsonSuccess(['message' => 'Your email is verified. Enter your verification code to finish signing in.', 'mfa_required' => true, 'methods' => $done['mfa'], 'redirect' => '/?auth=mfa&m=' . implode(',', $m)]);
+            $this->jsonSuccess(['message' => 'Your email is verified. Enter your verification code to finish signing in.', 'mfa_required' => true, 'methods' => $done['mfa'], 'redirect' => '/?auth=mfa&m=' . implode(',', $m)] + $who);
         }
 
         $role     = (int) ($user['role_id'] ?? 0) > 0 ? $this->userModel->get_role_name_by_id((int) $user['role_id']) : '';
         $plan     = (string) ($user['signup_plan'] ?? '');   // ?plan= from signup rides along to /setup
         $redirect = (int) $done['reset_pw'] === 1 ? '/account/force_reset' : ($role === 'Creator' ? '/setup' . ($plan !== '' ? '?plan=' . rawurlencode($plan) : '') : $return);
-        $this->jsonSuccess(['message' => 'Your email is verified. Signing you in…', 'redirect' => $redirect]);
+        $this->jsonSuccess(['message' => 'Your email is verified. Signing you in…', 'redirect' => $redirect] + $who);
     }
 
     /** Resend the verification email for an unconfirmed account. Generic response (no account enumeration). */

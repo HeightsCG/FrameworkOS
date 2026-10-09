@@ -184,6 +184,14 @@ class Bootstrap
             return;
         }
 
+        // HeyCatch short links: a single-character path (/a-/z, /0-/9) is a channel link. The query IS the
+        // attribution (the SDK reads it on landing, then tidies the URL bar), so a bare redirect to / would lose it.
+        // No real route is one character long. Done here, not in server config, for the same reason as canonical_host.
+        if (HeyCatch::ENABLED && !$custom && count($url) === 1 && preg_match('/^[a-z0-9]$/', $url[0])) {
+            header('Location: /?utm_source=heycatch&utm_campaign=' . $url[0], true, 302);
+            return;
+        }
+
         // Crawler endpoints: generated so absolute URLs match the served host.
         $crawl = array('robots.txt' => 'robotsAction', 'sitemap.xml' => 'sitemapAction', 'llms.txt' => 'llmsAction', 'llms-full.txt' => 'llmsFullAction');
         if (isset($url[0]) && isset($crawl[$url[0]])) {
