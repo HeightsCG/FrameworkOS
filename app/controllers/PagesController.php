@@ -423,7 +423,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Pricing', 'url' => '/pricing'))),
         );
-        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing: ' . implode(', ', array_map(function ($r) { return $r['tier']['name'] . ' $' . number_format($r['amount'] / 100); }, self::pricing_rows())) . ' per Month', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq));
+        $this->page('pricing', array('path' => '/pricing', 'title' => 'Pricing: ' . implode(', ', array_map(function ($r) { return $r['tier']['name'] . ' $' . number_format($r['amount'] / 100); }, self::pricing_rows())) . ' per Month', 'description' => self::pricing_meta(), 'type' => 'product', 'jsonld' => $jsonld), array('rows' => $rows, 'faq' => $faq, 'founding_left' => Founding::remaining_cached()));
     }
     /** "Free $0, Creator $49, Studio $199, all per month." (whatever PlanTiers offers) — one sentence. */
     public static function plan_price_sentence(): string {
@@ -525,6 +525,28 @@ class PagesController extends Controller {
         $bits = array();
         foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% on ' . $t['name']; }
         return implode(', ', $bits);
+    }
+
+    /**
+     * The plan card's fee comparison: "OnlyFans takes 20%. You pay less than a sixth of that." Both numbers come from
+     * config (COMPETITORS['onlyfans'] and the tier's fee_percent), so the wording follows the ratio: an exact 2x says
+     * "twice as much of the difference", a whole ratio "a fifth of that", anything between "less than a sixth of that".
+     * '' when there is nothing to compare (Free, or a fee at or above theirs).
+     */
+    public static function fee_vs_onlyfans(array $tier): string {
+        $c = self::COMPETITORS['onlyfans'] ?? array();
+        if (!preg_match('/(\d+(?:\.\d+)?)%/', (string) ($c['fee_short'] ?? ''), $m)) { return ''; }
+        $theirs = (float) $m[1];
+        $ours   = (float) ($tier['limits']['fee_percent'] ?? 0);
+        if ($ours <= 0 || $theirs <= $ours) { return ''; }
+        $ratio = $theirs / $ours;
+        $whole = abs($ratio - round($ratio)) < 0.001;
+        $n     = $whole ? (int) round($ratio) : (int) floor($ratio);
+        $parts = array(2 => 'half', 3 => 'a third', 4 => 'a quarter', 5 => 'a fifth', 6 => 'a sixth', 7 => 'a seventh', 8 => 'an eighth', 9 => 'a ninth', 10 => 'a tenth');
+        if ($whole && $n === 2)  { $tail = 'You keep twice as much of the difference.'; }
+        elseif ($n < 2)          { $tail = 'You pay less.'; }
+        else                     { $tail = 'You pay ' . ($whole ? '' : 'less than ') . ($parts[$n] ?? 'a ' . $n . 'th') . ' of that.'; }
+        return (string) ($c['name'] ?? 'OnlyFans') . ' takes ' . rtrim(rtrim(number_format($theirs, 2), '0'), '.') . '%. ' . $tail;
     }
 
     /** The quotable fee sentence (pricing FAQ, payouts page, llms.txt, the drafter's facts): numbers, plan prices, what Free is. */
