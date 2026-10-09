@@ -72,6 +72,10 @@ $m->remove($FAN); AgeVerification::start($FAN, '/x'); FakeAgeProvider::$fetched 
 check('refresh_if_pending picks up a late result', AgeVerification::refresh_if_pending($FAN) === 'verified' && AgeVerification::is_verified($FAN));
 FakeAgeProvider::$fetched = '';
 check('refresh_if_pending leaves a verified row alone', AgeVerification::refresh_if_pending($FAN) === 'verified');
+// staff reset: the row goes and the adult toggle is forced off; the next start opens a fresh session
+$users = new UsersModel(); $users->set_adult_content_enabled($FAN, true, 0);
+check('reset removes the row and turns the toggle off', AgeVerification::reset($FAN) && AgeVerification::status($FAN) === 'none' && empty($users->get_user_by_id($FAN)[0]['adult_content_enabled']));
+check('start works again after a reset', !empty(AgeVerification::start($FAN, '/x')['ok']) && AgeVerification::status($FAN) === 'pending');
 FakeAgeProvider::$fail_start = true; $m->remove($FAN);
 check('provider outage reported, no row written', empty(AgeVerification::start($FAN, '/x')['ok']) && AgeVerification::status($FAN) === 'none');
 FakeAgeProvider::$fail_start = false;
@@ -112,7 +116,7 @@ check('fixtures removed', $posts->get_one($CREATOR, $adult_post) === null || (st
 
 // ---- 5. the unaffected flows: only these files may reference the service (a new caller fails here until reviewed)
 $allowed = array(
-    'app/controllers/WebhookController.php', 'app/controllers/AccountController.php', 'app/controllers/AdminController.php',
+    'app/controllers/WebhookController.php', 'app/controllers/AccountController.php', 'app/controllers/AdminController.php', 'app/controllers/api/ApiAdminController.php',
     'app/controllers/api/ApiProfileController.php', 'app/controllers/api/ApiCreatorStudioController.php', 'app/controllers/api/ApiPostsController.php',
     'app/controllers/api/ApiSearchController.php', 'app/controllers/api/ApiMessagesController.php', 'app/controllers/api/ApiEventsController.php', 'app/controllers/ProfileController.php',
     'app/views/account/settings.php', 'libs/Classes/AgeVerification.php', 'libs/Classes/AgeVerificationProvider.php', 'libs/Classes/McpTools.php', 'libs/Classes/SceneTemplates.php', 'libs/Classes/SupportDiagnosis.php', 'cron/scheduler.php',

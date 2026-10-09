@@ -61,6 +61,9 @@
         } else if (act === 'mfa_reset') {
             confirmAction({ title: 'Reset two-step sign-in?', text: 'This turns off the authenticator app, email codes and backup codes, so the user can sign in with just their password.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#e5484d' })
                 .then(function (ok) { if (ok) { call('admin_reset_mfa', { user_id: user_id }, b); } });
+        } else if (act === 'age_reset') {
+            confirmAction({ title: 'Reset age verification?', text: 'The verification is removed and adult content is hidden for this account again. The next time they turn it on, or publish an adult post, they go through the age check once more.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#e5484d' })
+                .then(function (ok) { if (ok) { call('admin_reset_age_verification', { user_id: user_id }, b); } });
         } else if (act === 'mfa_email') {
             call('admin_set_mfa_email', { user_id: user_id, enabled: b.getAttribute('data-enabled') }, b);
         } else if (act === 'verify') {

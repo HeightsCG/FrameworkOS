@@ -267,6 +267,15 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Two-step sign-in reset']);
     }
 
+    /** Reset an account's age verification: the row goes and the adult toggle turns off; the next trigger runs a fresh check. */
+    public function admin_reset_age_verificationAction(){
+        $this->admin_guard();
+        $u = $this->target_user();
+        if (!AgeVerification::reset((int) $u['user_id'])) { $this->jsonError('Could not reset the age verification.'); }
+        Notify::send((int) $u['user_id'], 'security', 'Your age verification was reset by support', 'Adult content is hidden again. Turn it back on in Settings, then Restricted content, to verify once more.', '/account/settings?section=privacy', 'fa-id-card', false, true);
+        $this->jsonSuccess(['message' => 'Age verification reset']);
+    }
+
     /** Turn email sign-in codes on or off. */
     public function admin_set_mfa_emailAction(){
         $this->admin_guard();

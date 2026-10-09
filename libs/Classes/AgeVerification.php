@@ -145,6 +145,16 @@ class AgeVerification {
         return preg_replace('/[^A-Za-z0-9_=&%.-]/', '', $rq);
     }
 
+    /**
+     * Staff reset (admin user page): the verification row goes, and so does the adult toggle, since it must not stay on
+     * without a verification. The next trigger opens a fresh session. Audited through ApiAdminController.
+     */
+    public static function reset(int $user_id): bool {
+        (new AgeVerificationsModel())->remove($user_id);
+        (new UsersModel())->set_adult_content_enabled($user_id, false, (int) Session::get('user_id'));
+        return self::status($user_id) === 'none';
+    }
+
     /** A same-site path (no host, no scheme), else '/'. */
     public static function safe_path(string $path): string {
         $path = trim($path);

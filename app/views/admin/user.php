@@ -46,6 +46,9 @@ $yes = function ($b) { return $b ? '<span class="adm-pill adm-pill--ok">On</span
             <?php endif; ?>
             <button type="button" class="adm-btn" data-act="password"><i class="fa-solid fa-key"></i> Send Password Reset</button>
             <button type="button" class="adm-btn" data-act="mfa_reset"><i class="fa-solid fa-shield-halved"></i> Reset Two-Step</button>
+            <?php if (isset($this->age_verification) && is_array($this->age_verification)): ?>
+            <button type="button" class="adm-btn" data-act="age_reset"><i class="fa-solid fa-id-card"></i> Reset Age Verification</button>
+            <?php endif; ?>
             <?php if (!$this->is_me && !$deleted): ?>
             <button type="button" class="adm-btn <?php echo $disabled ? 'adm-btn--ok' : 'adm-btn--danger'; ?>" data-act="status" data-status="<?php echo $disabled ? 'Active' : 'Disabled'; ?>"><?php echo $disabled ? 'Reactivate' : 'Suspend'; ?></button>
             <button type="button" class="adm-btn" data-act="demo" data-demo="<?php echo !empty($u['is_demo']) ? '0' : '1'; ?>"><?php echo !empty($u['is_demo']) ? 'Unmark Demo' : 'Mark as Demo'; ?></button>
