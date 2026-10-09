@@ -57,7 +57,6 @@ class SeoMeta {
      * and AI assistants tie the site to its accounts) and the footer's social links. Empty = neither shows.
      */
     const SOCIAL_PROFILES = array(
-        // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...',
         'X' => 'https://x.com/CreatorLinkStud',
         'Instagram' => 'https://www.instagram.com/creatorlinkstudio2026/',
         'TikTok' => 'https://www.tiktok.com/@creatorlinkstudio',
