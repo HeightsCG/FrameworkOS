@@ -58,10 +58,20 @@ class SeoMeta {
      */
     const SOCIAL_PROFILES = array(
         // 'X' => 'https://x.com/...', 'Instagram' => 'https://www.instagram.com/...', 'TikTok' => 'https://www.tiktok.com/@...',
+        'X' => 'https://x.com/CreatorLinkStud',
+        'Instagram' => 'https://www.instagram.com/creatorlinkstudio2026/',
+        'TikTok' => 'https://www.tiktok.com/@creatorlinkstudio',
+        'Threads' => 'https://www.threads.com/@creatorlinkstudio2026',
         'YouTube' => 'https://www.youtube.com/@CreatorLinkStudio',
         'LinkedIn' => 'https://www.linkedin.com/company/creator-link-studio',
         'Product Hunt' => 'https://www.producthunt.com/products/creator-link-studio',
     );
+
+    /** "@CreatorLinkStud" from the X profile above (twitter:site on every page), or '' when there is no X account. */
+    public static function x_handle(): string {
+        $url = (string) (self::SOCIAL_PROFILES['X'] ?? '');
+        return preg_match('#^https?://(?:www\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,15})/?$#', $url, $m) ? '@' . $m[1] : '';
+    }
 
     public static function org(): array {
         $org = array(
@@ -169,6 +179,7 @@ class SeoMeta {
         if (!empty($m['published'])) { $out[] = '<meta property="article:published_time" content="' . $e($m['published']) . '">'; }
         if (!empty($m['modified']))  { $out[] = '<meta property="article:modified_time" content="' . $e($m['modified']) . '">'; }
         $out[] = '<meta name="twitter:card" content="' . $card . '">';
+        if (self::x_handle() !== '') { $out[] = '<meta name="twitter:site" content="' . $e(self::x_handle()) . '">'; }
         $out[] = '<meta name="twitter:title" content="' . $e($og_title) . '">';
         $out[] = '<meta name="twitter:description" content="' . $e($desc) . '">';
         $out[] = '<meta name="twitter:image" content="' . $e($image) . '">';

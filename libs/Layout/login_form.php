@@ -27,7 +27,8 @@
     <meta property="og:image:height" content="630">
     <meta property="og:locale" content="en_US">
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?php echo $seo_title; ?>">
+<?php if (SeoMeta::x_handle() !== ''): ?>    <meta name="twitter:site" content="<?php echo htmlspecialchars(SeoMeta::x_handle(), ENT_QUOTES, 'UTF-8'); ?>">
+<?php endif; ?>    <meta name="twitter:title" content="<?php echo $seo_title; ?>">
     <meta name="twitter:description" content="<?php echo $seo_desc; ?>">
     <meta name="twitter:image" content="<?php echo htmlspecialchars(SeoMeta::default_image(), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="icon" href="/favicon.ico" sizes="any">
