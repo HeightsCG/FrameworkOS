@@ -503,6 +503,26 @@ class PagesController extends Controller {
         return (string) (self::PLAN_ROLES[$key][0] ?? '');
     }
 
+    /** Home and payouts FAQ: how data and money are handled, in plain words. One string so the page, its schema and /features/payouts agree. */
+    const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card. Plan charges and credit purchases are final and non-refundable.';
+
+    /**
+     * "The $49 Creator plan pays for itself once you sell $490 a month, compared with a platform taking 20%." for the
+     * cheapest selling plan: price divided by the fee gap between OnlyFans (COMPETITORS) and the plan (PlanTiers). '' when
+     * there is no gap to compute from.
+     */
+    public static function breakeven_sentence(): string {
+        $tiers = self::selling_tiers();
+        if (!$tiers) { return ''; }
+        usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $t = $tiers[0];
+        if (!preg_match('/(\d+(?:\.\d+)?)%/', (string) (self::COMPETITORS['onlyfans']['fee_short'] ?? ''), $m)) { return ''; }
+        $gap = ((float) $m[1] - (float) ($t['limits']['fee_percent'] ?? 0)) / 100;
+        if ($gap <= 0 || (int) $t['price'] <= 0) { return ''; }
+        $sales = (int) ceil((int) $t['price'] / $gap);
+        return 'The $' . number_format((int) $t['price']) . ' ' . $t['name'] . ' plan pays for itself once you sell $' . number_format($sales) . ' a month, compared with a platform taking ' . rtrim(rtrim(number_format((float) $m[1], 2), '0'), '.') . '%.';
+    }
+
     /** "Free lets you build your page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
     public static function plan_roles_sentence(): string {
         $bits = array();

@@ -159,6 +159,7 @@ class FeaturePages {
                 array('q' => 'When can I cash out?', 'a' => 'The minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', and payouts are made on request only. Connect your bank once, then cash out whenever your balance is above the minimum. We apply no platform hold, so our payment processor\'s own payout timing applies. Payouts are available in every country our payment processor supports for creator payouts.'),
                 array('q' => 'What does the platform take?', 'a' => 'A percentage of what you earn, set by your plan and shown on the pricing page. It falls as you move up.'),
                 array('q' => 'What happens with refunds?', 'a' => 'A refund reverses the credits on both sides and removes the access it paid for, and your balance reflects it straight away.'),
+                array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
             ),
             'cta' => array('title' => 'Start earning from one page', 'text' => 'Memberships, unlocks, services and events, paid out to your bank.'),
         ),

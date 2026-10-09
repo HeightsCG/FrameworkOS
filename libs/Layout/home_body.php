@@ -7,6 +7,7 @@ $home_faq = array(
     array('q' => 'How do I get paid?', 'a' => "Earnings collect as credits, net of your plan's fee. Cash out to your bank anytime."),
     array('q' => 'Can people follow me for free?', 'a' => 'Yes. Free follows, plus an optional free membership tier.'),
     array('q' => 'What do the plans cost?', 'a' => PagesController::plan_cost_answer()),
+    array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
 );
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
 /* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
@@ -70,12 +71,25 @@ foreach ($latest as $i => $lp) {
     if ($thumb === '') { continue; }
     list($tw, $th) = $pub !== '' ? PublicThumbService::size($lp, $big ? 'feed' : 'grid') : array(0, 0);
     if ($tw === 0) { $tw = 800; $th = 800; }
+    // Both public renditions (480 and 960 wide) as a srcset, so phones fetch the small one; sizes follow the .lm grid
+    // (4 columns inside the 1320px wrap, 2 columns under 1000px, the big tile spanning two). Signed fallbacks have no variants.
+    $srcset = '';
+    if ($pub !== '') {
+        $cands = array();
+        $small = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), 'grid');
+        $large = PublicThumbService::url($lp + array('moderation_status' => 'approved', 'is_adult' => 0), 'feed');
+        if ($small !== '') { $cands[] = Sections::e($small) . ' ' . PublicThumbService::GRID . 'w'; }
+        if ($large !== '' && $large !== $small) { $cands[] = Sections::e($large) . ' ' . PublicThumbService::FEED . 'w'; }
+        if (count($cands) > 1) {
+            $srcset = ' srcset="' . implode(', ', $cands) . '" sizes="' . ($big ? '(max-width: 1000px) calc(100vw - 40px), 596px' : '(max-width: 1000px) calc(50vw - 28px), 290px') . '"';
+        }
+    }
     $who = '@' . $lp['u_name'];   // public pages show the handle only, never the display name
     $ini = strtoupper(mb_substr(preg_replace('/[^\p{L}\p{N}]/u', '', $who), 0, 2));
     $cap = trim(html_entity_decode(strip_tags((string) $lp['caption']), ENT_QUOTES, 'UTF-8'));
     if (mb_strlen($cap) > 110) { $cap = rtrim(mb_substr($cap, 0, 108)) . '…'; }
     $tiles .= '<a class="lm__tile' . ($big ? ' lm__tile--big' : '') . '" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '">'
-        . '<img src="' . Sections::e($thumb) . '" alt="' . Sections::e(PublicThumbService::alt($lp['caption'], $who)) . '" loading="lazy" decoding="async" width="' . (int) $tw . '" height="' . (int) $th . '">'
+        . '<img src="' . Sections::e($thumb) . '"' . $srcset . ' alt="' . Sections::e(PublicThumbService::alt($lp['caption'], $who)) . '" loading="lazy" decoding="async" width="' . (int) $tw . '" height="' . (int) $th . '">'
         . ($big ? '<span class="lm__new"><i aria-hidden="true"></i>New</span>' : '')
         . '<span class="lm__meta"><span class="lm__av" aria-hidden="true">' . Sections::e($ini) . '</span><span class="lm__id"><b>' . Sections::e($who) . '</b><small>' . Sections::e($ago($lp['published_at'])) . '</small></span></span>'
         . ($big && $cap !== '' ? '<span class="lm__cap">' . Sections::e($cap) . '</span>' : '')

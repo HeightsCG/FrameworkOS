@@ -75,6 +75,7 @@
                         ['@type' => 'Question', 'name' => 'How do I get paid?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Earnings collect as credits, net of your plan\'s fee. Cash out to your bank anytime.']],
                         ['@type' => 'Question', 'name' => 'Can people follow me for free?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes. Free follows, plus an optional free membership tier.']],
                         ['@type' => 'Question', 'name' => 'What do the plans cost?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => PagesController::plan_cost_answer()]],
+                        ['@type' => 'Question', 'name' => 'How is my data and money handled?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => PagesController::DATA_MONEY_ANSWER]],
                     ],
                 ],
             ],
