@@ -177,7 +177,10 @@ foreach (!empty($opts['id']) ? array() : SeoController::public_pages() as $p) {
     if (in_array($path, array('/terms', '/privacy'), true)) { continue; }
     $html = @file_get_contents($base . $path);
     if ($html === false || $html === '') { continue; }
-    $text = html_entity_decode(strip_tags(preg_replace('#<(script|style)\b.*?</\1>#is', ' ', $html)), ENT_QUOTES, 'UTF-8');
+    // headings, list items and table cells end a sentence even without a full stop: otherwise a bullet ending in "20%" runs
+    // straight into the next heading's brand name and reads as "20% next to the brand"
+    $html = preg_replace('#</(h[1-6]|li|p|td|th|dt|dd|summary|figcaption)\s*>#i', '. ', preg_replace('#<(script|style)\b.*?</\1>#is', ' ', $html));
+    $text = html_entity_decode(strip_tags($html), ENT_QUOTES, 'UTF-8');
     // competitor rows legitimately say 20%: keep only sentences that mention our name
     $ours = array();
     foreach (preg_split('/(?<=[.!?])\s+/', $text) as $sentence) { if (stripos($sentence, $site) !== false) { $ours[] = $sentence; } }
