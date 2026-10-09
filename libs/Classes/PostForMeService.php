@@ -70,8 +70,12 @@ class PostForMeService {
         if ($code === 0) {
             self::$last_error = 'Could not reach Post for Me from this server.';
         } else {
-            $msg = is_array($body) ? (string) ($body['message'] ?? ($body['error'] ?? '')) : '';
-            if (is_array($body) && is_array($body['message'] ?? null)) { $msg = implode(' ', $body['message']); }
+            // Error bodies are {"error":{"code","message"}} (same shape create_post reads); older ones put "message" at the top, sometimes as a list.
+            $msg = '';
+            if (is_array($body)) {
+                $m = $body['message'] ?? ($body['error']['message'] ?? ($body['error'] ?? ''));
+                $msg = is_array($m) ? implode(' ', array_filter($m, 'is_string')) : (string) $m;
+            }
             self::$last_error = 'Post for Me: HTTP ' . $code . ($msg !== '' ? ' — ' . $msg : '');
         }
         return '';
