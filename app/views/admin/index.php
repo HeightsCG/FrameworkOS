@@ -33,7 +33,7 @@ $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->ac
 </header>
 
 <div class="adm-kpis adm-kpis--5">
-    <?php echo adm_kpi('MRR', $usd($f['plan_mrr']), adm_delta($sum($last30, 'plans'), $sum($prev30, 'plans')), $col($last30, 'plans'), 'plan payments, 30d'); ?>
+    <?php echo adm_kpi('MRR', $usd($f['plan_mrr']), adm_delta($sum($last30, 'plans'), $sum($prev30, 'plans')), $col($last30, 'plans'), (int) $f['plan_count'] . ' paying plan' . ((int) $f['plan_count'] === 1 ? '' : 's')); ?>
     <?php echo adm_kpi('Revenue this month', $usd($month['revenue']), adm_delta($month['revenue'], $prev_m['revenue']), $col($last30, 'revenue'), 'vs last month'); ?>
     <?php echo adm_kpi('Owed to creators', $usd($f['owed_creators']), adm_delta($owed[count($owed) - 1] ?? 0, $owed[0] ?? 0, true), $owed, 'vs 30d ago'); ?>
     <?php echo adm_kpi('Signups today', number_format($sign_today), adm_delta($sign_today, $sign_yday), $col($last30, 'signups'), 'vs yesterday'); ?>

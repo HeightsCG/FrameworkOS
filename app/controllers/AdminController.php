@@ -345,6 +345,7 @@ class AdminController extends Controller {
         if ($live !== null) {   // app billing (billing_accounts) is the source of truth for what creators pay
             $fin['plan_mrr']   = $live['mrr'];
             $fin['plan_count'] = $live['count'];
+            $fin['plan_comped'] = $live['comped'];
             $fin['plans']      = $live['plans'];
         }
         $plan_inv = self::plan_invoice_buckets($model);
@@ -418,24 +419,33 @@ class AdminController extends Controller {
     }
 
     /**
-     * Paid creator plans from app billing: monthly recurring total (cents: plan + extra AI influencers
-     * + monthly credit packs), account count, and count/MRR per plan.
+     * Paid creator plans from app billing: monthly recurring total (cents) and, per plan, how many accounts pay and
+     * how many are on a free code. MRR is what each account's next renewal actually charges (plan + extra AI
+     * influencers + monthly credit pack, minus its promo), so a 100% code counts as $0 and a canceling plan as $0.
      */
     private static function plan_subscriptions(): ?array {
         try {
-            $out = array('mrr' => 0, 'count' => 0, 'plans' => array());
-            foreach ((new BillingAccountsModel())->recurring_summary() as $r) {
-                $key = (string) $r['plan_key'];
-                $mrr = ($key !== 'free' ? BillingService::plan_cents($key) * (int) $r['n'] : 0) + (int) $r['slots'] * BillingService::slot_cents() + (int) $r['pack_cents'];
+            $out = array('mrr' => 0, 'count' => 0, 'comped' => 0, 'plans' => array());
+            foreach ((new BillingAccountsModel())->admin_list(1000) as $b) {
+                if (!in_array((string) $b['status'], array('active', 'past_due'), true)) { continue; }
+                $key = (string) $b['plan_key'];
+                if ($key === BillingService::PLAN_FREE) { continue; }
+                $mrr = self::account_mrr($b);
+                if (!isset($out['plans'][$key])) { $out['plans'][$key] = array('n' => 0, 'comped' => 0, 'mrr' => 0); }
                 $out['mrr'] += $mrr;
-                if ($key === 'free') { continue; }
-                $out['count'] += (int) $r['n'];
-                $out['plans'][$key] = array('n' => (int) $r['n'], 'mrr' => $mrr);
+                $out['plans'][$key]['mrr'] += $mrr;
+                if ($mrr > 0) { $out['count']++; $out['plans'][$key]['n']++; } else { $out['comped']++; $out['plans'][$key]['comped']++; }
             }
             return $out;
         } catch (\Throwable $e) {
             error_log('[admin] plan subscriptions: ' . $e->getMessage());
             return null;
         }
+    }
+
+    /** What one billing account adds to MRR (cents): its next renewal total after promo, never below zero; nothing if nothing renews. */
+    public static function account_mrr(array $acct): int {
+        $nx = BillingService::next_charge($acct);
+        return $nx ? max(0, (int) $nx['total']) : 0;
     }
 }

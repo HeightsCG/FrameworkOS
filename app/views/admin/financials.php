@@ -10,6 +10,8 @@ $tiers = array_values(array_filter(PlanTiers::offered(), function ($t) { return 
 $offered_keys = array_map(function ($t) { return $t['key']; }, $tiers);
 foreach (PlanTiers::all() as $pt) { if (!in_array($pt['key'], $offered_keys, true) && (int) ($f['plans'][$pt['key']]['n'] ?? 0) > 0) { $pt['name'] .= ' (legacy)'; $tiers[] = $pt; } }
 $plan_bits = array(); foreach ($tiers as $pt) { $plan_bits[] = (int) ($f['plans'][$pt['key']]['n'] ?? 0) . ' ' . $pt['name']; }
+$comped = 0; foreach ((array) $f['plans'] as $pp) { $comped += (int) ($pp['comped'] ?? 0); }
+if ($comped > 0) { $plan_bits[] = $comped . ' on a free code'; }
 $card = function ($m, $label, $spark) { return '<div class="adm-kpi" data-m="' . $m . '"><span class="adm-kpi__l">' . $label . '</span><span class="adm-kpi__v" data-v>—</span><span class="adm-kpi__d"><span data-d></span></span><span class="adm-kpi__spark">' . adm_spark($spark) . '</span></div>'; };
 ?>
 <header class="adm-head">
