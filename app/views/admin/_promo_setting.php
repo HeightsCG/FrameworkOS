@@ -1,12 +1,12 @@
 <?php /* Admin > Growth: which plans may cross-promote on /promote (comma-separated PlanTiers keys, AdminSettingsModel 'cross_promo_plans'). */ ?>
-<div class="adm-sec__head" style="margin-top:1.6rem;">
-    <h2 class="adm-sec__title">Cross-Promotion</h2>
+<section class="adm-box">
+<header class="adm-box__h"><h2 class="adm-box__t">Cross-promotion</h2><span class="adm-box__note">Plans that may cross-promote on /promote</span></header>
     <form class="adm-kwadd" id="admPromoPlans">
         <label class="visually-hidden" for="admPromoPlansIn">Cross-Promotion Plans</label>
         <input type="text" id="admPromoPlansIn" name="plans" value="<?php echo htmlspecialchars((string) $this->cross_promo_plans, ENT_QUOTES, 'UTF-8'); ?>" placeholder="<?php echo htmlspecialchars(implode(', ', array_keys(PlanTiers::TIERS)), ENT_QUOTES, 'UTF-8'); ?>" maxlength="120" style="width:260px;" title="Cross-Promotion Plans">
-        <button type="submit" class="adm-btn adm-btn--ok">Save Plans</button>
+        <button type="submit" class="adm-btn">Save Plans</button>
     </form>
-</div>
+</section>
 <script>
 (function () {
     var f = document.getElementById('admPromoPlans');

@@ -1,49 +1,29 @@
 <?php
-/* Opens every admin page: the stylesheet, the helpers and the admin rail (grouped by job, with live counts from
-   AdminController::rail_counts). The page sets $this->page to its rail key. Close with _shell_end.php. */
+/* Opens every admin page: the stylesheet, the helpers, the section tab row (and the sub-tab row for Growth, Content
+   and System). The app's own left menu stays. The page sets $this->page; AdminController::shell sets $this->section. */
 require_once __DIR__ . '/_rowmenu.php';
+require_once __DIR__ . '/_ui.php';
 include __DIR__ . '/_helpers.php';
-$adm_page = (string) ($this->page ?? '');
-$adm_groups = array(
-    array('', array(
-        array('today', 'Today', '/admin', 'fa-sun', 0),
-        array('queue', 'Queue', '/admin/queue', 'fa-inbox', (int) ($nav['queue'] ?? 0)),
-    )),
-    array('People', array(
-        array('people', 'Users', '/admin/people', 'fa-users', 0),
-    )),
-    array('Money', array(
-        array('money', 'Financials', '/admin/money', 'fa-chart-line', 0),
-    )),
-    array('Growth', array(
-        array('growth', 'Funnel', '/admin/growth', 'fa-arrow-trend-up', 0),
-        array('leads', 'Leads', '/admin/leads', 'fa-envelope-open-text', 0),
-        array('founding', 'Founding', '/admin/founding', 'fa-star', 0),
-        array('affiliates', 'Affiliates', '/admin/affiliates', 'fa-handshake', (int) ($nav['affiliates'] ?? 0)),
-    )),
-    array('Content', array(
-        array('articles', 'Articles', '/admin/articles', 'fa-newspaper', (int) ($nav['articles'] ?? 0)),
-        array('scenes', 'Scenes', '/admin/scenes', 'fa-panorama', 0),
-        array('niches', 'Niches', '/admin/niches', 'fa-tags', 0),
-    )),
-    array('System', array(
-        array('audit', 'Audit Log', '/admin/audit', 'fa-clipboard-list', 0),
-        array('jobs', 'Jobs', '/admin/jobs', 'fa-clock', 0),
-    )),
+$adm_page = (string) ($this->page ?? ''); $adm_sec = (string) ($this->section ?? 'today');
+$adm_sections = array(
+    array('today', 'Today', '/admin'), array('queue', 'Queue', '/admin/queue'), array('users', 'Users', '/admin/users'),
+    array('financials', 'Financials', '/admin/financials'), array('sales', 'Sales', '/admin/sales'), array('billing', 'Billing', '/admin/billing'),
+    array('growth', 'Growth', '/admin/growth'), array('content', 'Content', '/admin/content'), array('system', 'System', '/admin/system'),
 );
+$adm_groups = array(
+    'growth'  => array(array('growth', 'Funnel', '/admin/growth'), array('leads', 'Leads', '/admin/leads'), array('founding', 'Founding', '/admin/founding'), array('affiliates', 'Affiliates', '/admin/affiliates')),
+    'content' => array(array('content', 'Articles', '/admin/content'), array('scenes', 'Scenes', '/admin/scenes'), array('niches', 'Niches', '/admin/niches')),
+    'system'  => array(array('system', 'Audit Log', '/admin/system'), array('jobs', 'Jobs', '/admin/jobs')),
+);
+$adm_tabs = $adm_groups[$adm_sec] ?? array();
 ?>
 <link rel="stylesheet" href="/css/admin.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/admin.css'); ?>">
 <div class="adm" data-admin-page="<?php echo $e($adm_page); ?>">
-    <aside class="adm-rail" aria-label="Admin sections">
-        <nav class="adm-rail__nav">
-            <?php foreach ($adm_groups as $g): ?>
-            <div class="adm-rail__group">
-                <?php if ($g[0] !== ''): ?><span class="adm-rail__label"><?php echo $e($g[0]); ?></span><?php endif; ?>
-                <?php foreach ($g[1] as $it): $on = ($it[0] === $adm_page); ?>
-                <a class="adm-rail__item<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($it[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><i class="fa-solid <?php echo $e($it[3]); ?>" aria-hidden="true"></i><span><?php echo $e($it[1]); ?></span><?php echo $badge($it[4]); ?></a>
-                <?php endforeach; ?>
-            </div>
-            <?php endforeach; ?>
-        </nav>
-    </aside>
-    <div class="adm-page">
+    <nav class="adm-nav" aria-label="Admin sections">
+        <?php foreach ($adm_sections as $sct): $on = $sct[0] === $adm_sec; ?><a class="adm-nav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($sct[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($sct[1]); ?><?php if ($sct[0] === 'queue' && (int) ($nav['queue'] ?? 0) > 0): ?> <b class="adm-nav__n"><?php echo (int) $nav['queue']; ?></b><?php endif; ?></a><?php endforeach; ?>
+    </nav>
+    <?php if ($adm_tabs): ?>
+    <nav class="adm-subnav" aria-label="<?php echo $e(ucfirst($adm_sec)); ?> pages">
+        <?php foreach ($adm_tabs as $t): $on = $t[0] === $adm_page; ?><a class="adm-subnav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($t[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($t[1]); ?><?php if ($t[0] === 'content' && (int) ($nav['articles'] ?? 0) > 0): ?> <b><?php echo (int) $nav['articles']; ?></b><?php elseif ($t[0] === 'affiliates' && (int) ($nav['affiliates'] ?? 0) > 0): ?> <b><?php echo (int) $nav['affiliates']; ?></b><?php endif; ?></a><?php endforeach; ?>
+    </nav>
+    <?php endif; ?>

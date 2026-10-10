@@ -66,6 +66,15 @@ class PayoutsModel extends Model {
         return $sth->rowCount() > 0;
     }
 
+    /** Newest payouts across all creators, with the creator's handle, for the admin Activity table. */
+    public function recent_for_admin(int $limit = 30): array {
+        $limit = max(1, (int) $limit);
+        return (array) parent::select(
+            "SELECT p.id, p.creator_id, p.amount_cents, p.status, p.failure_message, p.created_at, u.u_name
+             FROM payouts p JOIN user_accounts u ON u.user_id = p.creator_id
+             ORDER BY p.created_at DESC, p.id DESC LIMIT $limit");
+    }
+
     /** Newest payouts for a creator, shaped like StripeService::connect_payouts() plus the failure reason. */
     public function list_for_creator(int $creator_id, int $limit = 10): array {
         $limit = max(1, (int) $limit);

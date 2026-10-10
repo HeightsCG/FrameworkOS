@@ -24,14 +24,14 @@
             if (k === group) { b.textContent = Math.max(0, parseInt(b.textContent, 10) + delta); }
             if (k === 'all') { b.textContent = total; }
         });
-        var rail = document.querySelector('.adm-rail__item.is-on .adm-rail__n');
+        var rail = document.querySelector('.adm-nav__a.is-on .adm-nav__n');
         if (rail) { var n = Math.max(0, parseInt(rail.textContent, 10) + delta); if (n > 0) { rail.textContent = n; } else { rail.parentNode.removeChild(rail); } }
         var sub = document.querySelector('.adm-head__sub');
         if (sub && document.getElementById('admQueue')) { sub.textContent = total > 0 ? total + ' item' + (total === 1 ? '' : 's') + ' waiting' : 'Nothing is waiting'; }
     }
     window.admBump = bump;
 
-    /* ---- Queue chips: show one group or all (the links still work without JS) ---- */
+    /* ---- Queue filter: show one group or all (the links still work without JS) ---- */
     var chips = document.getElementById('admQueueChips');
     if (chips) {
         chips.addEventListener('click', function (e) {
@@ -39,7 +39,8 @@
             e.preventDefault();
             var k = a.getAttribute('data-show');
             chips.querySelectorAll('.adm-chip').forEach(function (c) { var on = c === a; c.classList.toggle('is-on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); });
-            document.querySelectorAll('#admQueue .adm-group').forEach(function (g) { g.hidden = !(k === 'all' || g.getAttribute('data-group') === k); });
+            document.querySelectorAll('#admQueue .adm-group').forEach(function (g) { g.hidden = !(k === 'all' ? g.getAttribute('data-empty') !== '1' : g.getAttribute('data-group') === k); });
+            var z = document.getElementById('admQueueZero'); if (z) { z.hidden = k !== 'all'; }
             try { history.replaceState(null, '', k === 'all' ? '/admin/queue' : '/admin/queue?show=' + k); } catch (err) {}
         });
     }
@@ -64,7 +65,7 @@
         ageBody.addEventListener('click', function (e) {
             var btn = e.target.closest('[data-age-reset]'); if (!btn) { return; }
             var row = btn.closest('.adm-agerow'), uid = parseInt(row.getAttribute('data-age-row'), 10);
-            var who = row.querySelector('.adm-uinfo__name'); who = who ? who.textContent.trim() : 'this account';
+            var who = row.querySelector('.adm-t__main a'); who = who ? who.textContent.trim() : 'this account';
             confirmAction({ title: 'Reset age verification for ' + who + '?', text: 'The verification is removed and adult content is hidden for this account again. The next time they turn it on, or publish an adult post, they verify again.', icon: 'warning', confirmButtonText: 'Reset', confirmButtonColor: '#CD4C00' })
                 .then(function (ok) {
                     if (!ok) { return; }
@@ -85,49 +86,85 @@
         });
     }
 
-    /* ---- Section index (Financials, user record): smooth scroll + the current section highlighted ---- */
-    var index = document.getElementById('admIndex');
-    if (index) {
-        var links = Array.prototype.slice.call(index.querySelectorAll('a[href^="#"]'));
-        var secs = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
-        function go(id, push) {
-            var el = document.getElementById(id); if (!el) { return; }
-            var top = el.getBoundingClientRect().top + window.pageYOffset - (index.offsetHeight + 74);
-            window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-            if (push) { try { history.replaceState(null, '', '#' + id); } catch (err) {} }
-        }
-        index.addEventListener('click', function (e) {
-            var a = e.target.closest('a[href^="#"]'); if (!a) { return; }
-            e.preventDefault(); go(a.getAttribute('href').slice(1), true);
-        });
-        var ticking = false;
-        function spy() {
-            ticking = false;
-            var line = index.getBoundingClientRect().bottom + 80, cur = 0;
-            secs.forEach(function (s, i) { if (s && s.getBoundingClientRect().top <= line) { cur = i; } });
-            links.forEach(function (a, i) { a.classList.toggle('is-on', i === cur); });
-        }
-        window.addEventListener('scroll', function () { if (!ticking) { ticking = true; requestAnimationFrame(spy); } });
-        spy();
-        var want = (new URLSearchParams(location.search).get('tab') || location.hash.slice(1) || '').replace(/[^a-z]/g, '');
-        if (want && document.getElementById(want)) { setTimeout(function () { go(want, false); }, 50); }
+    /* ---- Tables: search box, filter buttons, sortable headers, row click opens the detail page ---- */
+    function table_rows(t) { return Array.prototype.slice.call(t.tBodies.length ? t.tBodies[0].rows : []); }
+    function table_state(t) { if (!t.__adm) { t.__adm = { q: '', f: 'all', attr: '', page: 1, size: parseInt(t.getAttribute('data-page-size') || '25', 10) }; } return t.__adm; }
+    var PAGER_LABELS = { admActivity: 'events', admUsers: 'users', admSales: 'sales', admBilling: 'accounts', admAudit: 'actions', admLeads: 'leads', admFounding: 'claims', admPublished: 'articles', admKeywordsT: 'keywords' };
+    function table_pager(t, total, from, to) {
+        if (!t.hasAttribute('data-pager')) { return; }
+        var bar = t.nextElementSibling && t.nextElementSibling.classList && t.nextElementSibling.classList.contains('adm-pager') ? t.nextElementSibling : null;
+        if (!bar) { bar = document.createElement('div'); bar.className = 'adm-pager'; t.parentNode.insertBefore(bar, t.nextSibling); }
+        var st = table_state(t), pages = Math.max(1, Math.ceil(total / st.size)), what = PAGER_LABELS[t.id] || 'rows';
+        bar.innerHTML = '<span class="adm-pager__n">' + (total ? (from + '–' + to + ' of ' + total) : '0') + ' ' + what + '</span>' +
+            '<span class="adm-pager__b"><button type="button" class="adm-btn adm-btn--sm" data-page="prev"' + (st.page <= 1 ? ' disabled' : '') + '>Previous</button><button type="button" class="adm-btn adm-btn--sm" data-page="next"' + (st.page >= pages ? ' disabled' : '') + '>Next</button></span>';
+        if (!bar.__bound) { bar.__bound = true; bar.addEventListener('click', function (e) { var b = e.target.closest('[data-page]'); if (!b || b.disabled) { return; } st.page += b.getAttribute('data-page') === 'next' ? 1 : -1; table_apply(t, true); t.scrollIntoView({ block: 'start', behavior: 'smooth' }); }); }
+        bar.hidden = total <= st.size && st.page === 1;
     }
-
-    /* ---- Audit log search ---- */
-    var auSearch = document.getElementById('admAuditSearch');
-    if (auSearch) {
-        auSearch.addEventListener('input', function () {
-            var q = auSearch.value.trim().toLowerCase(), shown = 0;
-            document.querySelectorAll('#admAudit .adm-aurow').forEach(function (r) { var on = q === '' || r.getAttribute('data-search').indexOf(q) !== -1; r.hidden = !on; if (on) { shown++; } });
-            document.getElementById('admAuditNone').hidden = shown > 0;
+    function table_apply(t, keepPage) {
+        var st = table_state(t), match = [];
+        if (!keepPage) { st.page = 1; }
+        table_rows(t).forEach(function (r) {
+            if (r.classList.contains('adm-t__total')) { return; }
+            var okq = st.q === '' || ((r.getAttribute('data-search') || '') + ' ' + r.textContent).toLowerCase().indexOf(st.q) !== -1;
+            var okf = st.f === 'all' || st.attr === '' || (' ' + (r.getAttribute(st.attr) || '') + ' ').indexOf(' ' + st.f + ' ') !== -1;
+            var ok = okq && okf; r.hidden = !ok; if (ok) { match.push(r); }
         });
+        if (t.hasAttribute('data-pager')) {
+            var pages = Math.max(1, Math.ceil(match.length / st.size)); if (st.page > pages) { st.page = pages; }
+            var from = (st.page - 1) * st.size;
+            match.forEach(function (r, i) { if (i < from || i >= from + st.size) { r.hidden = true; } });
+            table_pager(t, match.length, match.length ? from + 1 : 0, Math.min(match.length, from + st.size));
+        }
+        var none = document.getElementById(t.id + 'None'); if (none) { none.hidden = match.length > 0; }
     }
-
-    /* ---- Support queue rows open the request; the user's name opens their admin page ---- */
-    document.querySelectorAll('.adm-suprow[data-href]').forEach(function (r) {
-        r.addEventListener('click', function (e) { if (e.target.closest('a')) { return; } window.location.href = r.getAttribute('data-href'); });
-        r.addEventListener('keydown', function (e) { if (e.key === 'Enter') { window.location.href = r.getAttribute('data-href'); } });
+    document.querySelectorAll('table[data-pager]').forEach(function (t) { table_apply(t); });
+    document.querySelectorAll('[data-search-for]').forEach(function (inp) {
+        var t = document.getElementById(inp.getAttribute('data-search-for')); if (!t) { return; }
+        inp.addEventListener('input', function () { table_state(t).q = inp.value.trim().toLowerCase(); table_apply(t); });
+        if (inp.form) { inp.form.addEventListener('submit', function (e) { if (inp.value.trim() === '' && !inp.form.querySelector('.adm-search__clear')) { e.preventDefault(); } }); }
     });
+    document.querySelectorAll('[data-filter-for]').forEach(function (bar) {
+        var t = document.getElementById(bar.getAttribute('data-filter-for')); if (!t) { return; }
+        bar.addEventListener('click', function (e) {
+            var b = e.target.closest('[data-filter]'); if (!b) { return; }
+            bar.querySelectorAll('[data-filter]').forEach(function (x) { var on = x === b; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            var st = table_state(t); st.f = b.getAttribute('data-filter'); st.attr = bar.getAttribute('data-filter-attr') || ''; table_apply(t);
+        });
+    });
+    document.querySelectorAll('table[data-sortable]').forEach(function (t) {
+        var ths = t.tHead ? t.tHead.querySelectorAll('th[data-sort]') : [];
+        ths.forEach(function (th) {
+            th.tabIndex = 0; th.setAttribute('role', 'button');
+            function go() {
+                var idx = th.cellIndex, kind = th.getAttribute('data-sort'), dir = th.getAttribute('data-sorted') === 'asc' ? 'desc' : 'asc';
+                ths.forEach(function (x) { x.removeAttribute('data-sorted'); });
+                th.setAttribute('data-sorted', dir);
+                var rows = table_rows(t), total = rows.filter(function (r) { return r.classList.contains('adm-t__total'); });
+                rows = rows.filter(function (r) { return !r.classList.contains('adm-t__total'); });
+                function key(r) { var c = r.cells[idx]; if (!c) { return ''; } var v = c.getAttribute('data-value'); if (v === null) { v = c.textContent.trim(); } return kind === 'num' ? (parseFloat(v.replace(/[^0-9.\-]/g, '')) || 0) : v.toLowerCase(); }
+                rows.sort(function (a, b) { var ka = key(a), kb = key(b); var c = ka < kb ? -1 : (ka > kb ? 1 : 0); return dir === 'asc' ? c : -c; });
+                var body = t.tBodies[0]; rows.concat(total).forEach(function (r) { body.appendChild(r); });
+                if (t.hasAttribute('data-pager')) { table_apply(t, true); }
+            }
+            th.addEventListener('click', go);
+            th.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+        });
+    });
+    document.addEventListener('click', function (e) {
+        var row = e.target.closest('tr.adm-t__link[data-href]'); if (!row) { return; }
+        if (e.target.closest('a, button, input, select, label, .dropdown')) { return; }
+        if (window.getSelection && String(window.getSelection()).length) { return; }
+        var href = row.getAttribute('data-href');
+        if (e.metaKey || e.ctrlKey) { window.open(href, '_blank'); } else { window.location.href = href; }
+    });
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') { return; }
+        var row = e.target.closest ? e.target.closest('tr.adm-t__link[data-href]') : null;
+        if (row && e.target === row) { window.location.href = row.getAttribute('data-href'); }
+    });
+    document.querySelectorAll('tr.adm-t__link[data-href]').forEach(function (r) { if (!r.hasAttribute('tabindex')) { r.tabIndex = 0; } });
+    var wantTab = (new URLSearchParams(location.search).get('tab') || '').replace(/[^a-z]/g, '');
+    if (wantTab && document.getElementById(wantTab) && document.querySelector('[data-admin-user]')) { setTimeout(function () { document.getElementById(wantTab).scrollIntoView({ block: 'start', behavior: 'smooth' }); }, 50); }
 
     /* ---- Support queue sub-tabs ---- */
     var supPanel = document.querySelector('.adm-panel[data-panel="support"]');
@@ -201,7 +238,7 @@
                 var remaining = mod.querySelectorAll('.adm-card').length;
                 if (!remaining) {
                     var wrap = document.getElementById('admMod');
-                    wrap.outerHTML = '<p class="adm-none adm-none--line">Nothing to review.</p>';
+                    wrap.outerHTML = '<p class="adm-quiet">Nothing to review.</p>';
                 }
             });
         });
@@ -314,23 +351,7 @@
         });
     }
 
-    /* ---- User search ---- */
-    var search = document.getElementById('admUserSearch');
     var usersBody = document.getElementById('admUsers');
-    var none = document.getElementById('admUsersNone');
-    if (search && usersBody) {
-        search.addEventListener('input', function () {
-            var q = (this.value || '').trim().toLowerCase();
-            var shown = 0;
-            usersBody.querySelectorAll('.adm-urow').forEach(function (row) {
-                var vis = q === '' || (row.getAttribute('data-search') || '').indexOf(q) >= 0;
-                row.style.display = vis ? '' : 'none';
-                if (vis) { shown++; }
-            });
-            if (none) { none.hidden = shown > 0; }
-        });
-    }
-
     /* ---- Suspend / reactivate ---- */
     if (usersBody) {
         usersBody.addEventListener('click', function (e) {
@@ -339,7 +360,7 @@
             var row = btn.closest('.adm-urow');
             var uid = parseInt(row.getAttribute('data-uid'), 10);
             var status = btn.getAttribute('data-status');
-            var nameEl = row.querySelector('.adm-uinfo__name');
+            var nameEl = row.querySelector('.adm-t__main a');
             var name = nameEl ? nameEl.textContent.trim() : 'this account';
             var proceed = (status === 'Disabled')
                 ? confirmAction({ titleText: 'Suspend ' + name + '?', text: 'They will be blocked from signing in until reactivated.', icon: 'warning', confirmButtonText: 'Suspend' })
@@ -355,8 +376,9 @@
                         return;
                     }
                     var disabled = (o.status === 'Disabled');
-                    var statusCell = row.children[2];
-                    statusCell.innerHTML = '<span class="adm-status adm-status--' + (disabled ? 'off' : 'on') + '"><span class="adm-status__dot"></span>' + (disabled ? 'Suspended' : 'Active') + '</span>';
+                    var statusCell = row.querySelector('[data-status-cell]') || (row.cells ? row.cells[2] : row.children[2]);
+                    statusCell.innerHTML = '<span class="adm-pill adm-pill--' + (disabled ? 'bad' : 'ok') + '">' + (disabled ? 'Suspended' : 'Active') + '</span>';
+                    row.setAttribute('data-status-f', (row.getAttribute('data-status-f') || '').replace(/\b(active|suspended)\b/, disabled ? 'suspended' : 'active'));
                     btn.disabled = false;   // the same menu item now does the opposite
                     btn.setAttribute('data-status', disabled ? 'Active' : 'Disabled');
                     btn.textContent = disabled ? 'Reactivate' : 'Suspend…';
@@ -396,11 +418,10 @@
         var w = window_for(p), cur = w[0], prev = w[1];
         var label = cur.length === 1 ? mname(cur[0].k) : mname(cur[0].k) + ' to ' + mname(cur[cur.length - 1].k);
         document.getElementById('fzRange').textContent = label;
-        cards.querySelectorAll('.fz-card[data-m]').forEach(function (c) {
+        cards.querySelectorAll('[data-m]').forEach(function (c) {
             var m = c.getAttribute('data-m'), now = sum(cur, m), before = sum(prev, m), d = delta(now, before);
             c.querySelector('[data-v]').textContent = money(now);
-            var dEl = c.querySelector('[data-d]'); dEl.className = 'fz-delta fz-delta--' + (m === 'payouts' || m === 'refunds' ? 'flat' : d[0]); dEl.textContent = d[1];
-            c.querySelectorAll('[data-f]').forEach(function (f) { f.textContent = money(sum(cur, f.getAttribute('data-f'))); });
+            var dEl = c.querySelector('[data-d]'); if (dEl) { dEl.className = 'fz-delta fz-delta--' + (m === 'payouts' || m === 'refunds' ? 'flat' : d[0]); dEl.textContent = d[1]; }
         });
         /* sales by type */
         var body = document.getElementById('fzTypes'), html = '', tot = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
@@ -408,14 +429,10 @@
             var r = { sales: 0, gross: 0, refunded: 0, creator: 0, platform: 0 };
             cur.forEach(function (m) { var x = (m.types || {})[t[0]] || {}; for (var k in r) { r[k] += x[k] || 0; } });
             for (var k in tot) { tot[k] += r[k]; }
-            html += '<div class="adm-frow"><span class="adm-ucell">' + t[1] + '</span><span class="adm-ucell adm-r">' + r.sales + '</span><span class="adm-ucell adm-r">' + money(r.gross) + '</span><span class="adm-ucell adm-r adm-ucell--muted">' + money(r.refunded) + '</span><span class="adm-ucell adm-r">' + money(r.creator) + '</span><span class="adm-ucell adm-r"><b>' + money(r.platform) + '</b></span></div>';
+            html += '<tr><td>' + t[1] + '</td><td class="adm-r adm-t__num">' + r.sales + '</td><td class="adm-r adm-t__num">' + money(r.gross) + '</td><td class="adm-r adm-t__num adm-t__muted">' + money(r.refunded) + '</td><td class="adm-r adm-t__num">' + money(r.creator) + '</td><td class="adm-r adm-t__num adm-t__strong">' + money(r.platform) + '</td></tr>';
         });
-        html += '<div class="adm-frow adm-frow--total"><span class="adm-ucell"><b>Total</b></span><span class="adm-ucell adm-r"><b>' + tot.sales + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.gross) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.refunded) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.creator) + '</b></span><span class="adm-ucell adm-r"><b>' + money(tot.platform) + '</b></span></div>';
+        html += '<tr class="adm-t__total"><td>Total</td><td class="adm-r adm-t__num">' + tot.sales + '</td><td class="adm-r adm-t__num">' + money(tot.gross) + '</td><td class="adm-r adm-t__num">' + money(tot.refunded) + '</td><td class="adm-r adm-t__num">' + money(tot.creator) + '</td><td class="adm-r adm-t__num">' + money(tot.platform) + '</td></tr>';
         body.innerHTML = html;
-        var keys = cur.map(function (m) { return m.k; });
-        document.querySelectorAll('.fz-mini__svg .sel').forEach(function (r) { r.setAttribute('opacity', keys.indexOf(r.getAttribute('data-k')) >= 0 ? '1' : '0'); });
-        /* highlight the selected months in the small charts */
-        var keys = cur.map(function (m) { return m.k; });
     }
     /* Revenue by month: one series (platform revenue), bars with the total on top and month-over-month change under each month */
     var last12 = months.slice(-12), ns = 'http://www.w3.org/2000/svg';
@@ -438,11 +455,11 @@
             var cur = (i === last12.length - 1);
             svg.appendChild(el('rect', { x: cx - bw / 2, y: y(v), width: bw, height: Math.max(v > 0 ? 2 : 0, T + ph - y(v)), rx: 4, fill: cur ? '#FF6A13' : '#FFC29E' }));
             if (v > 0) { svg.appendChild(el('text', { 'class': 'fz-rev__val', x: cx, y: y(v) - 8, 'text-anchor': 'middle' }, short(v))); }
-            svg.appendChild(el('text', { 'class': 'axis', x: cx, y: H - 26, 'text-anchor': 'middle' }, m.label));
+            if (slot >= 40 || i % 2 === last12.length % 2) { svg.appendChild(el('text', { 'class': 'axis', x: cx, y: H - 26, 'text-anchor': 'middle' }, m.label)); }
             var chg = '', cls = 'fz-rev__chg';
             if (prev > 0) { var pct = Math.round((v - prev) / prev * 100); chg = (pct > 0 ? '+' : '') + pct + '%'; cls += pct > 0 ? ' is-up' : (pct < 0 ? ' is-down' : ''); }
             else if (v > 0) { chg = 'New'; cls += ' is-up'; }
-            if (chg) { svg.appendChild(el('text', { 'class': cls, x: cx, y: H - 8, 'text-anchor': 'middle' }, chg)); }
+            if (chg && slot >= 40) { svg.appendChild(el('text', { 'class': cls, x: cx, y: H - 8, 'text-anchor': 'middle' }, chg)); }
             var hit = el('rect', { 'class': 'hit', x: L + slot * i, y: T - 20, width: slot, height: ph + 20 });
             hit.addEventListener('mouseenter', function () {
                 tip.innerHTML = '<b>' + mname(m.k) + '</b><span>Plan payments <em>' + money(m.plans || 0) + '</em></span><span>Our fee on sales <em>' + money(m.fee || 0) + '</em></span><span>Our fee on memberships <em>' + money(m.members || 0) + '</em></span><span class="fz-tip__tot">Revenue <em>' + money(v) + '</em></span>' + (chg ? '<span>vs previous month <em>' + chg + '</em></span>' : '');
@@ -454,23 +471,7 @@
         document.getElementById('fzRevTotal').textContent = money(vals.reduce(function (a, b) { return a + b; }, 0));
     }
     draw_rev();
-    /* small multiples: last 12 months, each chart scaled to its own max */
-    document.querySelectorAll('.fz-mini').forEach(function (box) {
-        var m = box.getAttribute('data-m'), col = box.getAttribute('data-c'), svg = box.querySelector('svg');
-        var vals = last12.map(function (x) { return x[m] || 0; });
-        var max = Math.max.apply(null, vals.map(Math.abs).concat([1])), W = 300, H = 90, pad = 6, step = W / vals.length;
-        function el(t, a) { var n = document.createElementNS(ns, t); for (var k in a) { n.setAttribute(k, a[k]); } return n; }
-        last12.forEach(function (x, i) { svg.appendChild(el('rect', { 'class': 'sel', 'data-k': x.k, x: i * step, y: 0, width: step, height: H, fill: col, 'fill-opacity': '.08', opacity: '0' })); });
-        var pts = vals.map(function (v, i) { return [i * step + step / 2, H - pad - (Math.max(0, v) / max) * (H - 2 * pad)]; });
-        var line = 'M' + pts.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' L');
-        svg.appendChild(el('path', { d: line + ' L' + pts[pts.length - 1][0].toFixed(1) + ' ' + H + ' L' + pts[0][0].toFixed(1) + ' ' + H + ' Z', fill: col, 'fill-opacity': '.14' }));
-        svg.appendChild(el('path', { d: line, fill: 'none', stroke: col, 'stroke-width': '2', 'vector-effect': 'non-scaling-stroke', 'stroke-linejoin': 'round' }));
-        box.querySelector('[data-t]').textContent = money(vals.reduce(function (a, b) { return a + b; }, 0));
-        box.querySelector('[data-a]').textContent = last12[0].label + ' ' + last12[0].k.slice(0, 4);
-        box.querySelector('[data-z]').textContent = 'Best ' + money(Math.max.apply(null, vals));
-    });
     var rt2; window.addEventListener('resize', function () { clearTimeout(rt2); rt2 = setTimeout(draw_rev, 150); });
-    document.querySelectorAll('.adm-tab[data-panel="financials"]').forEach(function (t) { t.addEventListener('click', function () { setTimeout(draw_rev, 0); }); });
 
     document.querySelectorAll('.fz-period button').forEach(function (b) {
         b.addEventListener('click', function () {

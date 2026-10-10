@@ -1,11 +1,11 @@
 <?php include __DIR__ . '/_shell.php'; ?>
 <?php $a = $this->article; ?>
 <div class="adm--editor" id="admEditor" data-article="<?php echo (int) $a['id']; ?>" data-slug="<?php echo $e($a['slug']); ?>">
-    <a class="adm-back" href="/admin/articles"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Articles</a>
+    <a class="adm-back" href="/admin/content"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> Articles</a>
     <header class="adm-head">
         <div>
             <h1 class="adm-head__title"><?php echo $e($a['title']); ?></h1>
-            <p class="adm-head__sub"><span class="adm-tag adm-tag--<?php echo $e($a['status']); ?>"><?php echo $e(ucfirst($a['status'])); ?></span> · keyword “<?php echo $e($a['target_keyword']); ?>” · <?php echo $e($a['model']); ?> · <?php echo $e($fmt($a['updated_at'], true)); ?></p>
+            <p class="adm-head__sub"><?php echo adm_pill(ucfirst($a['status'])); ?> keyword “<?php echo $e($a['target_keyword']); ?>” · <?php echo $e($a['model']); ?> · <?php echo $e($fmt($a['updated_at'], true)); ?></p>
         </div>
         <div class="adm-head__acts adm-editor__acts">
             <button type="button" class="adm-btn adm-btn--danger" data-ed="discard">Discard</button>
@@ -19,7 +19,7 @@
         <?php foreach ($this->errors as $err): ?><li><?php echo $e($err); ?></li><?php endforeach; ?>
     </ul>
     <div class="adm-editor">
-        <form class="adm-editor__form" id="admArticleForm">
+        <form class="adm-editor__form adm-box" id="admArticleForm">
             <div class="adm-cover">
                 <span class="adm-cover__label">Cover</span>
                 <div class="adm-cover__row">
@@ -36,11 +36,11 @@
             <div class="adm-faq" id="admFaq">
                 <div class="adm-faq__head"><span>Questions</span><button type="button" class="adm-btn adm-btn--sm" data-faq-add>Add Question</button></div>
                 <?php foreach ($this->faq as $f): ?>
-                <div class="adm-faq__row"><input type="text" placeholder="Question" value="<?php echo $e($f['q']); ?>" data-faq-q><textarea rows="2" placeholder="Answer" data-faq-a><?php echo $e($f['a']); ?></textarea><button type="button" class="adm-more" data-faq-del aria-label="Remove question"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+                <div class="adm-faq__row"><input type="text" placeholder="Question" value="<?php echo $e($f['q']); ?>" data-faq-q><textarea rows="2" placeholder="Answer" data-faq-a><?php echo $e($f['a']); ?></textarea><button type="button" class="adm-btn adm-btn--sm" data-faq-del aria-label="Remove question">Remove</button></div>
                 <?php endforeach; ?>
             </div>
         </form>
-        <div class="adm-editor__preview">
+        <div class="adm-editor__preview adm-box">
             <div class="adm-editor__prevhead"><span>Preview</span><a href="/blog/<?php echo $e($a['slug']); ?>?preview=1" target="_blank" rel="noopener">Open</a></div>
             <iframe id="admPreview" src="/blog/<?php echo $e($a['slug']); ?>?preview=1" title="Article preview"></iframe>
         </div>

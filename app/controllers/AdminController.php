@@ -3,16 +3,18 @@
  * Platform admin (/admin), PRD §38. Gated on the is_admin staff flag (independent of role, so the platform
  * owner can also be a Creator). One page per job, all sharing the admin rail (app/views/admin/_shell.php):
  *
- *   /admin            Today: what needs a person, today's numbers, failing jobs, what just happened
- *   /admin/queue      every item waiting on staff (moderation, reports, verification + age checks, support, billing)
- *   /admin/people     accounts
- *   /admin/money      financials, plan billing, sales, chargebacks
- *   /admin/growth /leads /founding /affiliates
- *   /admin/articles /scenes /niches
- *   /admin/audit /jobs
- *   /admin/user/<id>  one account (single scroll)      /admin/article/<id>  the article editor
+ *   /admin             Today: key numbers, what needs a person, one activity table (signups, sales, payouts, staff actions)
+ *   /admin/queue       every item waiting on staff (moderation, reports, verification + age checks, support, past-due billing)
+ *   /admin/users       accounts                      /admin/user/<id>  one account (single scroll)
+ *   /admin/financials  ledgers and the revenue chart  /admin/sales  sales + chargebacks   /admin/billing  plan billing
+ *   /admin/growth      funnel; /leads /founding /affiliates sit under the same sidebar item
+ *   /admin/content     articles; /scenes /niches under the same item; /admin/article/<id> the editor
+ *   /admin/system      audit log; /jobs under the same item
  *
- * The old /admin?tab=<x> URLs redirect (TAB_ROUTES). Mutations go through ApiAdminController (admin_*).
+ * The sections are a tab row at the top of every admin page (app/views/admin/_shell.php); the app's own left menu
+ * stays. The old /admin?tab=<x> URLs and the first-redesign URLs (/people, /money, /articles, /audit) redirect
+ * (TAB_ROUTES, PATH_ROUTES).
+ * Mutations go through ApiAdminController (admin_*).
  */
 class AdminController extends Controller {
 
@@ -20,12 +22,21 @@ class AdminController extends Controller {
 
     /** Old tab name → new URL. */
     const TAB_ROUTES = array(
-        'financials' => '/admin/money', 'sales' => '/admin/money#sales', 'billing' => '/admin/money#billing',
+        'financials' => '/admin/financials', 'sales' => '/admin/sales', 'billing' => '/admin/billing',
         'moderation' => '/admin/queue?show=moderation', 'reports' => '/admin/queue?show=reports',
         'verification' => '/admin/queue?show=verification', 'support' => '/admin/queue?show=support',
-        'users' => '/admin/people', 'growth' => '/admin/growth', 'leads' => '/admin/leads', 'founding' => '/admin/founding',
-        'affiliates' => '/admin/affiliates', 'content' => '/admin/articles', 'scenes' => '/admin/scenes', 'niches' => '/admin/niches',
-        'audit' => '/admin/audit', 'jobs' => '/admin/jobs',
+        'users' => '/admin/users', 'growth' => '/admin/growth', 'leads' => '/admin/leads', 'founding' => '/admin/founding',
+        'affiliates' => '/admin/affiliates', 'content' => '/admin/content', 'scenes' => '/admin/scenes', 'niches' => '/admin/niches',
+        'audit' => '/admin/system', 'jobs' => '/admin/jobs',
+    );
+    /** First-redesign paths that moved. */
+    const PATH_ROUTES = array('people' => '/admin/users', 'money' => '/admin/financials', 'articles' => '/admin/content', 'audit' => '/admin/system');
+
+    /** Sidebar item → the pages it covers (the page key the shell highlights). */
+    const SECTIONS = array(
+        'today' => array('today'), 'queue' => array('queue'), 'users' => array('users'), 'financials' => array('financials'),
+        'sales' => array('sales'), 'billing' => array('billing'),
+        'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs'),
     );
 
     public function __construct(){
@@ -43,6 +54,8 @@ class AdminController extends Controller {
         $this->view->me       = $me;
         $this->view->timezone = (string) ($user['content_timezone'] ?? 'UTC');
         $this->view->page     = (string) $page;
+        $this->view->section  = 'today';
+        foreach (self::SECTIONS as $sec => $pages) { if (in_array((string) $page, $pages, true)) { $this->view->section = $sec; } }
         $this->view->nav      = self::rail_counts();
     }
 
@@ -76,12 +89,49 @@ class AdminController extends Controller {
         $this->view->series = $fin['series'];
         $this->view->signups = array();
         try { $this->view->signups = $model->funnel(7); } catch (\Throwable $e) { error_log('[admin] today funnel: ' . $e->getMessage()); }
-        $this->view->cron_jobs = CronRuns::status();
-        $this->view->sales     = $model->recent_sales(8);
-        $this->view->new_users = $model->users('', '', 8);
-        $this->view->audit     = array();
-        try { $this->view->audit = (new AuditModel())->recent(8); } catch (\Throwable $e) { error_log('[admin] today audit: ' . $e->getMessage()); }
+        $this->view->daily = array();
+        try { $this->view->daily = $model->daily_series(60, $fin['plan_days']); } catch (\Throwable $e) { error_log('[admin] daily series: ' . $e->getMessage()); }
+        $jobs_bad = array();
+        foreach (CronRuns::status() as $j) { if (($j['finished_at'] !== '' && !$j['ok']) || $j['stale']) { $jobs_bad[] = $j; } }
+        $this->view->jobs_bad = $jobs_bad;
+        $this->view->activity = self::platform_activity($model, 60);
         $this->view->render();
+    }
+
+    /** Signups, sales, payouts and staff actions in one newest-first list (the Today page's Activity table). */
+    public static function platform_activity(AdminModel $model, int $limit = 60): array {
+        $out = array();
+        foreach ($model->users('', '', 30) as $u) {
+            $name = trim(($u['first_name'] ?? '') . ' ' . ($u['last_name'] ?? '')); $name = $name !== '' ? $name : '@' . $u['u_name'];
+            $out[] = array('at' => $u['created_at'], 'type' => 'signup', 'label' => 'Signup', 'who' => $name, 'who_id' => (int) $u['user_id'], 'handle' => (string) $u['u_name'], 'avatar' => (string) ($u['avatar_url'] ?? ''),
+                           'what' => ($u['role_name'] ?: 'User') . ' account', 'amount' => '', 'href' => '/admin/user/' . (int) $u['user_id']);
+        }
+        foreach ($model->recent_sales(30) as $sl) {
+            $kind = AdminModel::SALE_KINDS[$sl['kind']] ?? ucfirst($sl['kind']);
+            $out[] = array('at' => $sl['created_at'], 'type' => 'sale', 'label' => 'Sale', 'who' => $sl['fan_name'] !== '' ? $sl['fan_name'] : '@' . $sl['fan_handle'], 'who_id' => (int) $sl['fan_id'], 'handle' => (string) $sl['fan_handle'], 'avatar' => (string) $sl['fan_avatar'],
+                           'what' => $kind . ($sl['item'] !== '' ? ' · ' . mb_substr($sl['item'], 0, 60) : '') . ($sl['creator_handle'] !== '' ? ' · from @' . $sl['creator_handle'] : ''),
+                           'amount' => '$' . number_format(((int) $sl['credits']) / 10, 2), 'href' => '/admin/user/' . (int) $sl['fan_id']);
+        }
+        try {
+            foreach ((new PayoutsModel())->recent_for_admin(30) as $po) {
+                $st = (string) $po['status'];
+                $out[] = array('at' => $po['created_at'], 'type' => 'payout', 'label' => 'Payout', 'who' => '@' . $po['u_name'], 'who_id' => (int) $po['creator_id'], 'handle' => (string) $po['u_name'], 'avatar' => '',
+                               'what' => ucfirst($st) . ((string) $po['failure_message'] !== '' ? ' · ' . $po['failure_message'] : ''),
+                               'amount' => '$' . number_format(((int) $po['amount_cents']) / 100, 2), 'href' => '/admin/user/' . (int) $po['creator_id']);
+            }
+        } catch (\Throwable $e) { error_log('[admin] activity payouts: ' . $e->getMessage()); }
+        try {
+            foreach ((new AuditModel())->recent(30) as $ar) {
+                $admin = $ar['admin_name'] !== '' ? $ar['admin_name'] : '@' . $ar['admin_handle'];
+                $target = $ar['target_user_id'] ? ($ar['target_name'] !== '' ? $ar['target_name'] : '@' . $ar['target_handle']) : '';
+                $d = json_decode((string) $ar['details'], true) ?: array();
+                $out[] = array('at' => $ar['created_at'], 'type' => 'staff', 'label' => 'Staff', 'who' => $admin, 'who_id' => (int) $ar['admin_id'], 'handle' => (string) $ar['admin_handle'], 'avatar' => '',
+                               'what' => (AuditModel::LABELS[$ar['action']] ?? $ar['action']) . ($target !== '' ? ' · ' . $target : '') . (!empty($d['result']) ? ' · ' . $d['result'] : ''),
+                               'amount' => '', 'href' => $ar['target_user_id'] ? '/admin/user/' . (int) $ar['target_user_id'] : '/admin/system');
+            }
+        } catch (\Throwable $e) { error_log('[admin] activity audit: ' . $e->getMessage()); }
+        usort($out, function ($a, $b) { return strcmp((string) $b['at'], (string) $a['at']); });
+        return array_slice($out, 0, $limit);
     }
 
     /** /admin/queue — everything waiting on a person, grouped by kind. ?show=<group> opens one chip. */
@@ -118,31 +168,50 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/people — accounts, newest first; ?q= searches name, handle or email on the server. */
-    public function peopleAction(){
-        $this->shell('people');
+    /** /admin/users — accounts, newest first; ?q= searches name, handle or email on the server. */
+    public function usersAction(){
+        $this->shell('users');
         $q = trim((string) ($_GET['q'] ?? ''));
         $this->view->q     = mb_substr($q, 0, 80);
         $this->view->users = (new AdminModel())->users($this->view->q, '', $q !== '' ? 200 : 100);
         $this->view->render();
     }
 
-    /** /admin/money — financials, plan billing, recent sales and chargebacks. */
-    public function moneyAction(){
-        $this->shell('money');
-        $model = new AdminModel();
-        $fin = self::financials($model);
+    /** /admin/financials — the ledgers: period numbers, revenue by month, sales by type, monthly breakdown. */
+    public function financialsAction(){
+        $this->shell('financials');
+        $fin = self::financials(new AdminModel());
         $this->view->fin      = $fin['fin'];
         $this->view->series   = $fin['series'];
         $this->view->plan_all = $fin['plan_all'];
-        $this->view->billing  = array();
-        try { $this->view->billing = (new BillingAccountsModel())->admin_list(300); } catch (\Throwable $e) { error_log('[admin] billing: ' . $e->getMessage()); }
-        $refunds = new RefundsModel();
-        $this->view->sales       = $model->recent_sales(25);
-        $this->view->refunds     = $refunds->totals();
-        $this->view->chargebacks = $refunds->recent_chargebacks(10);
+        $this->view->daily    = array();
+        try { $this->view->daily = (new AdminModel())->daily_series(30, $fin['plan_days']); } catch (\Throwable $e) { error_log('[admin] daily series: ' . $e->getMessage()); }
         $this->view->render();
     }
+
+    /** /admin/sales — recent sales (refundable) and chargebacks. */
+    public function salesAction(){
+        $this->shell('sales');
+        $model = new AdminModel(); $refunds = new RefundsModel();
+        $this->view->sales       = $model->recent_sales(200);
+        $this->view->refunds     = $refunds->totals();
+        $this->view->chargebacks = $refunds->recent_chargebacks(50);
+        $this->view->render();
+    }
+
+    /** /admin/billing — every paid plan and monthly pack, past due first. */
+    public function billingAction(){
+        $this->shell('billing');
+        $this->view->billing = array();
+        try { $this->view->billing = (new BillingAccountsModel())->admin_list(300); } catch (\Throwable $e) { error_log('[admin] billing: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
+    /** Moved first-redesign paths. */
+    public function peopleAction(){ header('Location: /admin/users' . ((string) ($_GET['q'] ?? '') !== '' ? '?q=' . rawurlencode((string) $_GET['q']) : ''), true, 302); exit; }
+    public function moneyAction(){ header('Location: /admin/financials', true, 302); exit; }
+    public function articlesAction(){ header('Location: /admin/content', true, 302); exit; }
+    public function auditAction(){ header('Location: /admin/system', true, 302); exit; }
 
     /** /admin/growth — the signup funnel by day and by source, referred signups, free creators building, cross-promotion setting. */
     public function growthAction(){
@@ -182,9 +251,9 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/articles — the blog engine: published, keyword queue, unpublished. */
-    public function articlesAction(){
-        $this->shell('articles');
+    /** /admin/content — the blog engine: published, keyword queue, unpublished. */
+    public function contentAction(){
+        $this->shell('content');
         $this->view->seo_keywords = array(); $this->view->seo_review = array(); $this->view->seo_published = array(); $this->view->seo_archived = 0;
         try {
             $art = new SeoArticlesModel();
@@ -213,9 +282,9 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/audit — every staff action, newest first. */
-    public function auditAction(){
-        $this->shell('audit');
+    /** /admin/system — every staff action, newest first. */
+    public function systemAction(){
+        $this->shell('system');
         $this->view->audit = array();
         try { $this->view->audit = (new AuditModel())->recent(300); } catch (\Throwable $e) { error_log('[admin] audit: ' . $e->getMessage()); }
         $this->view->render();
@@ -228,9 +297,9 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
-    /** /admin/article/<id> — full-page editor for one article (Articles → Edit). */
+    /** /admin/article/<id> — full-page editor for one article (Content → Edit). */
     public function articleAction(){
-        $this->shell('articles');
+        $this->shell('content');
         $url = Main::get_url();
         $a = (new SeoArticlesModel())->get((int) ($url[2] ?? 0));
         if (!$a) { Errors::page_not_found(); return; }
@@ -242,7 +311,7 @@ class AdminController extends Controller {
 
     /** /admin/user/<id>: one account, with the tools to fix a user's problem (see ApiAdminController admin_* actions). */
     public function userAction(){
-        $this->shell('people');
+        $this->shell('users');
         $url = Main::get_url();
         $model = new AdminModel();
         $u = $model->user_detail((int) ($url[2] ?? 0));
@@ -279,7 +348,7 @@ class AdminController extends Controller {
             $fin['plans']      = $live['plans'];
         }
         $plan_inv = self::plan_invoice_buckets($model);
-        return array('fin' => $fin, 'series' => $model->money_series($plan_inv['month'], self::membership_fee_buckets()), 'plan_all' => $plan_inv['all']);
+        return array('fin' => $fin, 'series' => $model->money_series($plan_inv['month'], self::membership_fee_buckets()), 'plan_all' => $plan_inv['all'], 'plan_days' => (array) ($plan_inv['day'] ?? array()));
     }
 
     /** Newest-first mix of a user's credit movements, purchases, refunds, sign-ins and support requests (for the Overview timeline). */

@@ -1,31 +1,33 @@
 <?php require_once __DIR__ . '/_rowmenu.php'; ?>
-<?php $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; $niches = (array) ($this->niches ?? array()); $niche_n = (array) ($this->niche_counts ?? array()); ?>
-<section class="adm-sec adm-panel" data-panel="niches">
-    <div class="adm-sec__head">
-        <span class="adm-sec__meta"><?php echo count($niches); ?> niches</span>
-        <button type="button" class="adm-btn adm-btn--ok" id="admNicheNew"><i class="fa-solid fa-plus" aria-hidden="true"></i> New Niche</button>
-    </div>
+<?php $niches = (array) ($this->niches ?? array()); $niche_n = (array) ($this->niche_counts ?? array()); ?>
+<section class="adm-box adm-panel" data-panel="niches">
+    <header class="adm-box__h">
+        <h2 class="adm-box__t">Niches</h2>
+        <div class="adm-search"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i><input type="search" placeholder="Search niche" aria-label="Search niches" data-search-for="admNiches"></div>
+        <button type="button" class="adm-btn adm-btn--primary adm-box__end" id="admNicheNew">New Niche</button>
+    </header>
     <?php if (empty($niches)): ?>
-        <div class="adm-empty"><span class="adm-empty__ic"><i class="fa-solid fa-tags"></i></span><p class="adm-empty__t">No Niches</p><p class="adm-empty__x">Niches are the categories of the Creator Directory and the choices in creator Settings.</p></div>
+        <?php echo adm_empty('No niches yet', 'fa-tag'); ?>
     <?php else: ?>
-    <div class="adm-table adm-table--niches">
-        <div class="adm-table__head"><span>Niche</span><span class="adm-r">Creators</span><span>Status</span><span></span></div>
-        <div class="adm-table__body">
-            <?php $last = count($niches) - 1; foreach (array_values($niches) as $i => $n): $nj = array('id' => (int) $n['id'], 'slug' => (string) $n['slug'], 'name' => (string) $n['name'], 'active' => (int) $n['active']); ?>
-            <div class="adm-crow adm-nrow" data-niche="<?php echo $e(json_encode($nj)); ?>">
-                <div class="adm-ucell"><a class="adm-crow__title" href="/creators/<?php echo $e($n['slug']); ?>" target="_blank" rel="noopener"><?php echo $e($n['name']); ?></a><span class="adm-crow__sub">/creators/<?php echo $e($n['slug']); ?></span></div>
-                <div class="adm-ucell adm-ucell--muted adm-r"><?php echo number_format((int) ($niche_n[$n['slug']] ?? 0)); ?></div>
-                <div class="adm-ucell"><span class="adm-tag <?php echo !empty($n['active']) ? 'adm-tag--bundle' : 'adm-tag--off'; ?>"><?php echo !empty($n['active']) ? 'Live' : 'Off'; ?></span></div>
-                <div class="adm-ucell adm-ucell--act"><?php echo adm_row_menu('Niche actions', array(
+    <table class="adm-t" id="admNiches">
+        <thead><tr><th>Niche</th><th class="adm-r">Creators</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+        <?php $last = count($niches) - 1; foreach (array_values($niches) as $i => $n): $nj = array('id' => (int) $n['id'], 'slug' => (string) $n['slug'], 'name' => (string) $n['name'], 'active' => (int) $n['active']); ?>
+            <tr class="adm-crow adm-nrow" data-niche="<?php echo $e(json_encode($nj)); ?>">
+                <td class="adm-t__main"><a href="/creators/<?php echo $e($n['slug']); ?>" target="_blank" rel="noopener"><?php echo $e($n['name']); ?></a><span class="adm-t__sub">/creators/<?php echo $e($n['slug']); ?></span></td>
+                <td class="adm-r adm-t__num adm-t__muted"><?php echo number_format((int) ($niche_n[$n['slug']] ?? 0)); ?></td>
+                <td><?php echo adm_pill(!empty($n['active']) ? 'Live' : 'Off', !empty($n['active']) ? 'ok' : 'gray'); ?></td>
+                <td class="adm-t__act"><?php echo adm_row_menu('Niche actions', array(
                     array('text' => 'Rename', 'attrs' => 'data-niche-action="rename"'),
                     $i > 0 ? array('text' => 'Move Up', 'attrs' => 'data-niche-action="up"') : null,
                     $i < $last ? array('text' => 'Move Down', 'attrs' => 'data-niche-action="down"') : null,
                     array('text' => !empty($n['active']) ? 'Turn Off' : 'Turn On', 'attrs' => 'data-niche-action="toggle"', 'danger' => !empty($n['active'])),
-                )); ?></div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
+                )); ?></td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <p class="adm-quiet" id="admNichesNone" hidden>No matching niches.</p>
     <?php endif; ?>
 
     <div class="modal fade ai-modal" id="admNicheModal" tabindex="-1" aria-labelledby="admNicheTitle" aria-hidden="true">

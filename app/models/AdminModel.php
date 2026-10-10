@@ -94,7 +94,7 @@ class AdminModel extends Model {
             $refunded = ($refunds[$k]['amt'] ?? 0) * 10;
             $creator  = (($ledger[$d[2]]['cr'] ?? 0) - ($refunds[$k]['claw'] ?? 0)) * 10;
             $net      = $gross - $refunded;
-            $row = array('label' => $d[0], 'sales' => $sales, 'gross' => $gross, 'refunded' => $refunded, 'net' => $net, 'creator' => max(0, $creator), 'platform' => max(0, $net - max(0, $creator)));
+            $row = array('label' => $d[0], 'sales' => $sales, 'gross' => $gross, 'refunded' => $refunded, 'net' => $net, 'creator' => max(0, $creator), 'platform' => self::platform_fee($gross, $creator, $refunded));
             $rows[$k] = $row;
             $t['sales'] += $sales; $t['gross'] += $gross; $t['refunded'] += $refunded; $t['creator'] += $row['creator']; $t['platform'] += $row['platform'];
         }
@@ -142,6 +142,61 @@ class AdminModel extends Model {
             'chargeback_n'   => (int) ($cb[0]['n'] ?? 0),
             'chargeback_cents' => (int) ($cb[0]['amt'] ?? 0),
         );
+    }
+
+
+
+    /**
+     * The last $days UTC days (oldest first) for the KPI sparklines: signups, plan payments (cents, from $plan_days
+     * 'Y-m-d' => cents), our fee on sales, credits bought, refunds, payouts, net creator earnings (earnings minus
+     * clawbacks and payouts), and the running account total.
+     */
+    public function daily_series(int $days = 30, array $plan_days = array()): array {
+        $days = max(2, min(366, $days));
+        $since = gmdate('Y-m-d 00:00:00', time() - ($days - 1) * 86400);
+        $keys = array();
+        for ($i = $days - 1; $i >= 0; $i--) { $keys[gmdate('Y-m-d', time() - $i * 86400)] = array('signups' => 0, 'plans' => 0, 'fee' => 0, 'credits' => 0, 'refunds' => 0, 'payouts' => 0, 'earned' => 0, 'gross' => array(), 'creator' => array(), 'refunded' => array()); }
+        foreach ($plan_days as $d => $c) { if (isset($keys[$d])) { $keys[$d]['plans'] += (int) $c; } }
+        foreach ((array) parent::select("SELECT DATE(created_at) AS d, COUNT(*) AS n FROM user_accounts WHERE deleted = 0 AND created_at >= :s GROUP BY d", array('s' => $since)) as $r) { if (isset($keys[$r['d']])) { $keys[$r['d']]['signups'] = (int) $r['n']; } }
+        $types = array('ppv' => array('ppv_unlock', 'ppv_earning'), 'bundle' => array('bundle_unlock', 'bundle_earning'), 'message' => array('message_unlock', 'message_earning'), 'service' => array('service_purchase', 'service_earning'), 'event' => array('event_ticket', 'event_earning'), 'tip' => array('live_tip', 'tip_earning'), 'replay' => array('replay_unlock', 'replay_earning'));
+        foreach ((array) parent::select("SELECT DATE(created_at) AS d, type, SUM(credits) AS cr, SUM(COALESCE(paid_cents, credits * 10)) AS paid FROM credit_transactions WHERE created_at >= :s GROUP BY d, type", array('s' => $since)) as $r) {
+            if (!isset($keys[$r['d']])) { continue; }
+            $cr = (int) $r['cr']; $m = &$keys[$r['d']];
+            if ($r['type'] === 'purchase') { $m['credits'] += (int) $r['paid']; }
+            elseif ($r['type'] === 'payout') { $m['payouts'] += -$cr * 10; $m['earned'] += $cr * 10; }
+            elseif ($r['type'] === 'payout_refund') { $m['payouts'] -= $cr * 10; $m['earned'] += $cr * 10; }
+            elseif ($r['type'] === 'refund_reversal') { $m['earned'] += $cr * 10; }
+            foreach ($types as $tk => $td) {
+                if ($r['type'] === $td[0]) { $m['gross'][$tk] = ($m['gross'][$tk] ?? 0) - $cr * 10; }
+                if ($r['type'] === $td[1]) { $m['creator'][$tk] = ($m['creator'][$tk] ?? 0) + $cr * 10; $m['earned'] += $cr * 10; }
+            }
+            unset($m);
+        }
+        foreach ((array) parent::select("SELECT DATE(created_at) AS d, kind, SUM(amount_credits) AS amt, SUM(clawback_credits) AS claw FROM refunds WHERE created_at >= :s GROUP BY d, kind", array('s' => $since)) as $r) {
+            if (!isset($keys[$r['d']])) { continue; }
+            $keys[$r['d']]['refunds'] += (int) $r['amt'] * 10;
+            $keys[$r['d']]['refunded'][$r['kind']] = ($keys[$r['d']]['refunded'][$r['kind']] ?? 0) + (int) $r['amt'] * 10;
+            $keys[$r['d']]['creator'][$r['kind']] = ($keys[$r['d']]['creator'][$r['kind']] ?? 0) - (int) $r['claw'] * 10;
+        }
+        $accounts = (int) $this->scalar("SELECT COUNT(*) AS n FROM user_accounts WHERE deleted = 0");
+        $signups_in_window = 0; foreach ($keys as $v) { $signups_in_window += $v['signups']; }
+        $running = $accounts - $signups_in_window;
+        $out = array();
+        foreach ($keys as $d => $v) {
+            $fee = 0;
+            foreach (array_unique(array_merge(array_keys($v['gross']), array_keys($v['creator']), array_keys($v['refunded']))) as $tk) { $fee += self::platform_fee($v['gross'][$tk] ?? 0, $v['creator'][$tk] ?? 0, $v['refunded'][$tk] ?? 0); }
+            $running += $v['signups'];
+            $out[] = array('d' => $d, 'signups' => $v['signups'], 'plans' => $v['plans'], 'fee' => $fee, 'revenue' => $v['plans'] + $fee, 'credits' => $v['credits'], 'refunds' => $v['refunds'], 'payouts' => $v['payouts'], 'earned' => $v['earned'], 'accounts' => $running);
+        }
+        return $out;
+    }
+
+    /**
+     * Our fee on a sale type: gross minus the creator's share minus refunds, never below zero. A refund after the
+     * creator's share was released (event tickets refunded after the event) takes the fee to zero, not negative.
+     */
+    public static function platform_fee($gross_cents, $creator_cents, $refunded_cents): int {
+        return max(0, (int) $gross_cents - max(0, (int) $creator_cents) - (int) $refunded_cents);
     }
 
     /**
@@ -192,7 +247,7 @@ class AdminModel extends Model {
         $out = array();
         foreach ($keys as $k => $v) {
             $fee = 0; $sales = 0;
-            foreach ($v['types'] as $tk => $t) { $v['types'][$tk]['platform'] = $t['gross'] - $t['refunded'] - $t['creator']; $fee += $v['types'][$tk]['platform']; $sales += $t['sales']; }
+            foreach ($v['types'] as $tk => $t) { $v['types'][$tk]['platform'] = self::platform_fee($t['gross'], $t['creator'], $t['refunded']); $fee += $v['types'][$tk]['platform']; $sales += $t['sales']; }
             $out[] = array('k' => $k, 'label' => gmdate('M', strtotime($k . '-01')), 'plans' => $v['plans'], 'fee' => $fee, 'members' => $v['members'], 'revenue' => $v['plans'] + $fee + $v['members'],
                            'credits' => $v['credits'], 'ai' => $v['ai'], 'cash_in' => $v['credits'] + $v['ai'], 'refunds' => $v['refunds'], 'payouts' => $v['payouts'],
                            'sales' => $sales, 'types' => $v['types']);
@@ -292,9 +347,15 @@ class AdminModel extends Model {
         );
     }
 
-    /** Recent PPV + bundle sales (refunded ones drop off automatically — the unlock row is removed). */
+    /**
+     * Recent one-off sales of every kind (pay-per-view, bundles, paid messages, services, event tickets, tips, replays),
+     * newest first. Refunded pay-per-view, bundle and message sales drop off automatically (the unlock row is removed);
+     * those three kinds are the ones staff can refund (RefundsModel).
+     */
+    const REFUNDABLE_KINDS = array('ppv', 'bundle', 'message');
+    const SALE_KINDS = array('ppv' => 'Pay-per-view', 'bundle' => 'Bundle', 'message' => 'Paid message', 'service' => 'Service', 'event' => 'Event', 'tip' => 'Tip', 'replay' => 'Replay');
     public function recent_sales($limit = 25){
-        $limit = max(1, min(100, (int) $limit));
+        $limit = max(1, min(500, (int) $limit));
         $rows = parent::select(
             "SELECT s.* FROM (
                 SELECT 'ppv' AS kind, pu.post_id AS ref_id, pu.fan_id, pu.creator_id, pu.price_credits, pu.created_at, p.caption COLLATE utf8mb4_unicode_ci AS item
@@ -305,6 +366,18 @@ class AdminModel extends Model {
                 UNION ALL
                 SELECT 'message' AS kind, mu.message_id AS ref_id, mu.fan_id, mu.creator_id, mu.price_credits, mu.created_at, m.body COLLATE utf8mb4_unicode_ci AS item
                 FROM message_unlocks mu JOIN messages m ON m.id = mu.message_id
+                UNION ALL
+                SELECT 'service' AS kind, sp.service_id AS ref_id, sp.buyer_id AS fan_id, sv.creator_id, sp.price_credits, sp.created_at, sv.name COLLATE utf8mb4_unicode_ci AS item
+                FROM service_purchases sp JOIN services sv ON sv.id = sp.service_id WHERE sp.price_credits > 0
+                UNION ALL
+                SELECT 'event' AS kind, er.event_id AS ref_id, er.user_id AS fan_id, ev.creator_id, er.price_credits, er.created_at, ev.title COLLATE utf8mb4_unicode_ci AS item
+                FROM event_registrations er JOIN events ev ON ev.id = er.event_id WHERE er.price_credits > 0
+                UNION ALL
+                SELECT 'tip' AS kind, lt.id AS ref_id, lt.fan_id, lt.creator_id, lt.credits AS price_credits, lt.created_at, CONCAT('Tip in ', lt.room) COLLATE utf8mb4_unicode_ci AS item
+                FROM live_tips lt
+                UNION ALL
+                SELECT 'replay' AS kind, ru.event_id AS ref_id, ru.fan_id, ru.creator_id, ru.price_credits, ru.created_at, CONCAT('Replay: ', ev.title) COLLATE utf8mb4_unicode_ci AS item
+                FROM replay_unlocks ru JOIN events ev ON ev.id = ru.event_id
              ) s ORDER BY s.created_at DESC LIMIT $limit");
         if (empty($rows)) { return array(); }
         $ids = array();
@@ -316,10 +389,12 @@ class AdminModel extends Model {
             $cre = $idmap[(int) $r['creator_id']] ?? array('handle' => '', 'name' => 'Unknown');
             $out[] = array(
                 'kind'           => (string) $r['kind'],
+                'refundable'     => in_array((string) $r['kind'], self::REFUNDABLE_KINDS, true),
                 'ref_id'         => (int) $r['ref_id'],
                 'fan_id'         => (int) $r['fan_id'],
                 'fan_handle'     => (string) $fan['handle'],
                 'fan_name'       => (string) $fan['name'],
+                'fan_avatar'     => (string) ($fan['avatar'] ?? ''),
                 'creator_handle' => (string) $cre['handle'],
                 'item'           => html_entity_decode((string) ($r['item'] ?? ''), ENT_QUOTES, 'UTF-8'),
                 'credits'        => (int) $r['price_credits'],
@@ -350,8 +425,8 @@ class AdminModel extends Model {
         }
         return (array) parent::select(
             "SELECT u.user_id, u.u_name, u.user_email, u.first_name, u.last_name, u.role_id, u.is_admin,
-                    u.user_status, u.created_at, u.last_active_at, r.role_name
-             FROM user_accounts u LEFT JOIN user_roles r ON r.id = u.role_id
+                    u.user_status, u.created_at, u.last_active_at, r.role_name, cp.avatar_url
+             FROM user_accounts u LEFT JOIN user_roles r ON r.id = u.role_id LEFT JOIN creator_profiles cp ON cp.user_id = u.user_id
              WHERE " . implode(' AND ', $where) . "
              ORDER BY u.created_at DESC
              LIMIT $limit",
