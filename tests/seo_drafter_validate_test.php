@@ -110,6 +110,17 @@ check('fit: non-citation link and off-cluster page become text', strpos($f['body
 check('fit: citation kept', strpos($f['body_md'], '(https://www.irs.gov/a)') !== false);
 check('fit: wrong plan price set to config', $creator === null || strpos($f['body_md'], 'Creator plan costs $' . number_format((int) $creator['price']) . ' a month') !== false);
 check('fit: non-refundable present', stripos($f['body_md'], 'non-refundable') !== false);
+// a token glued to the model's half-sentence becomes its own paragraph; the lead-in goes, the rest continues after it
+$f = SeoDrafter::fit(array('cluster' => 'pricing-and-fees', 'meta_description' => 'm', 'body_md' => "Fees decide what you keep. On Creator Link Studio the platform fee is {{fee}} That is the whole cost. Nothing else is taken.\n\nNext."));
+check('fit: lead-in before {{fee}} dropped', strpos($f['body_md'], 'fee is Creator Link Studio') === false && strpos($f['body_md'], "Fees decide what you keep.\n\n" . PagesController::fee_sentence()) !== false, mb_substr($f['body_md'], 0, 160));
+check('fit: text after {{fee}} is a new paragraph', strpos($f['body_md'], PagesController::FINAL_NOTE . "\n\nThat is the whole cost.") !== false, mb_substr($f['body_md'], 0, 400));
+check('fit: no paragraph over the limit after expansion', !preg_grep('/sentences;/', SeoDrafter::prose_errors($f['body_md'])), implode('; ', SeoDrafter::prose_errors($f['body_md'])));
+$f = SeoDrafter::fit(array('cluster' => 'pricing-and-fees', 'meta_description' => 'm', 'body_md' => "Fees work like this: {{fee}}\n\nNext."));
+check('fit: "works like this:" lead-in dropped', strpos($f['body_md'], 'like this') === false && strpos($f['body_md'], PagesController::fee_sentence()) === 0, mb_substr($f['body_md'], 0, 120));
+$six = str_repeat('Fans buy credits to unlock posts. ', 6);
+$f = SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => trim($six) . "\n\nMore text."));
+check('fit: non-refundable line gets its own paragraph when the paragraph is full', strpos($f['body_md'], "posts.\n\n" . PagesController::FINAL_NOTE) !== false, mb_substr($f['body_md'], 0, 300));
+check('sentence_count', SeoDrafter::sentence_count('One two. Three four! Five [six](/x)? ') === 3);
 $f = SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => "Fans buy credits to unlock posts.\n\nMore text."));
 check('fit: non-refundable appended where credits come up', strpos($f['body_md'], 'Fans buy credits to unlock posts. ' . PagesController::FINAL_NOTE) !== false);
 $h = SeoDrafter::render_body("See [the IRS](https://www.irs.gov/a) and [x](https://medium.com/b) and [pricing](/pricing).");

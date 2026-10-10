@@ -188,7 +188,7 @@ class SeoDrafter {
             if ($p === '' || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
             if ($first === null) { $first = $p; }
             if (!$opener && preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; $opener = true; }
-            $n = count(array_filter(preg_split('/(?<=[.!?])\s+/', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p)), function ($s) { return str_word_count($s) > 1; }));
+            $n = self::sentence_count($p);
             if (!$long && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long = true; }
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
@@ -444,6 +444,25 @@ class SeoDrafter {
         );
     }
 
+    /**
+     * {{fee}} and {{plans}} expand to three or four config sentences, so in the body each token becomes its own
+     * paragraph: the half-sentence the model wrote to introduce it ("the platform fee is {{fee}}", "fees work like
+     * this: {{fee}}") is dropped, otherwise the page reads "fee is Creator Link Studio's platform fee is 10%...", and
+     * the paragraph would run past PARAGRAPH_MAX_SENTENCES. Text after the token continues as a new paragraph.
+     */
+    public static function tokens_as_paragraphs(string $body): string {
+        $body = preg_replace('/(^|[.!?]\s+|\n)[^.!?\n]*?\{\{(fee|plans)\}\}/m', '$1{{$2}}', $body);   // drop the lead-in fragment
+        $body = preg_replace('/[ \t]*\{\{(fee|plans)\}\}[ \t]*/', "\n\n{{" . '$1' . "}}\n\n", $body);   // the token stands alone
+        $body = preg_replace('/\n{3,}/', "\n\n", $body);
+        return trim($body) . "\n";
+    }
+
+    /** Sentences in a paragraph (links read as their text). */
+    public static function sentence_count(string $p): int {
+        $p = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', trim($p));
+        return count(array_filter(preg_split('/(?<=[.!?])\s+/', $p), function ($s) { return str_word_count($s) > 1; }));
+    }
+
     /** Does this text talk about our plans or credits (and so need the non-refundable line)? */
     private static function money_topic($text): bool {
         list($live, $retired) = self::plan_prices();
@@ -460,6 +479,7 @@ class SeoDrafter {
      */
     public static function fit(array $a): array {
         $map = self::tokens_map();
+        $a['body_md'] = self::tokens_as_paragraphs((string) ($a['body_md'] ?? ''));
         foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $f) {
             $v = (string) ($a[$f] ?? '');
             $v = str_replace(array_keys($map), array_values($map), $v);
@@ -492,7 +512,8 @@ class SeoDrafter {
             $lines = explode("\n", $a['body_md']);
             foreach ($lines as $i => $line) {
                 if (trim($line) === '' || preg_match('/^\s*(#|\||[-*]\s|\d+[.)]\s|>)/', $line) || !self::money_topic($line)) { continue; }
-                $lines[$i] = rtrim($line) . ' ' . PagesController::FINAL_NOTE;
+                // appended to that paragraph, or as its own paragraph when that would pass PARAGRAPH_MAX_SENTENCES
+                $lines[$i] = rtrim($line) . (self::sentence_count($line) < self::PARAGRAPH_MAX_SENTENCES ? ' ' : "\n\n") . PagesController::FINAL_NOTE;
                 break;
             }
             $a['body_md'] = implode("\n", $lines);
