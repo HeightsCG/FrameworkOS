@@ -16,10 +16,11 @@ for ($i = count($earned) - 1; $i >= 0; $i--) { $owed[$i] = max(0, $run); $run -=
 ksort($owed); $owed = array_values($owed);
 $accounts = $col($last30, 'accounts');
 $attention = array(
-    array('Reports',      (int) ($nav['reports'] ?? 0),      'open',          '/admin/reports'),
-    array('Verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0), 'pending', '/admin/verification'),
-    array('Support',      (int) ($nav['support'] ?? 0),      'waiting on us', '/admin/support'),
-    array('Billing',      (int) ($nav['billing'] ?? 0),      'past due',      '/admin/billing'),
+    array('Moderation',   (int) ($nav['moderation'] ?? 0),   'to review',     '/admin/moderation?show=moderation'),
+    array('Reports',      (int) ($nav['reports'] ?? 0),      'open',          '/admin/moderation?show=reports'),
+    array('Verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0), 'waiting', '/admin/moderation?show=verification'),
+    array('Support',      (int) ($nav['support'] ?? 0),      'waiting on us', '/admin/moderation?show=support'),
+    array('Billing',      (int) ($nav['billing'] ?? 0),      'past due',      '/admin/moderation?show=billing'),
     array('Articles',     (int) ($nav['articles'] ?? 0),     'unpublished',   '/admin/content'),
     array('Affiliates',   (int) ($nav['affiliates'] ?? 0),   'to settle',     '/admin/affiliates'),
 );
@@ -29,6 +30,7 @@ $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->ac
 ?>
 <header class="adm-head">
     <div><h1 class="adm-head__title">Today</h1><p class="adm-head__sub"><?php echo $e((new DateTime('now', new DateTimeZone($tz)))->format('l, F j, Y')); ?></p></div>
+    <div class="adm-head__acts"><a class="adm-btn adm-btn--primary" href="/admin/moderation">Open Moderation</a></div>
 </header>
 
 <div class="adm-kpis adm-kpis--5">
@@ -41,7 +43,7 @@ $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->ac
 
 <div class="adm-cols adm-cols--7-5">
     <section class="adm-box">
-        <header class="adm-box__h"><h2 class="adm-box__t">Needs attention<?php if ($attention): ?> <b class="adm-count"><?php echo count($attention); ?></b><?php endif; ?></h2></header>
+        <header class="adm-box__h"><h2 class="adm-box__t">Needs attention<?php if ($attention): ?> <b class="adm-count"><?php echo count($attention); ?></b><?php endif; ?></h2><a class="adm-box__link" href="/admin/moderation">View all</a></header>
         <?php if (empty($attention)): ?>
             <?php echo adm_empty('All clear', 'fa-circle-check'); ?>
         <?php else: ?>

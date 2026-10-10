@@ -136,7 +136,7 @@ $raw = array();
 foreach (array('app', 'libs', 'cron') as $dir) {
     $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root . '/' . $dir));
     foreach ($it as $f) { if (!$f->isFile() || substr($f->getFilename(), -4) !== '.php') { continue; } $rel = substr($f->getPathname(), strlen($root) + 1);
-        if (in_array($rel, array('app/models/UsersModel.php', 'app/views/account/settings.php', 'app/views/admin/user.php', 'app/views/admin/verification.php', 'app/models/AgeVerificationsModel.php', 'libs/Classes/DataExportService.php', 'libs/Classes/AgeVerification.php', 'libs/Classes/SupportDiagnosis.php'), true)) { continue; }
+        if (in_array($rel, array('app/models/UsersModel.php', 'app/views/account/settings.php', 'app/views/admin/user.php', 'app/views/admin/moderation.php', 'app/models/AgeVerificationsModel.php', 'libs/Classes/DataExportService.php', 'libs/Classes/AgeVerification.php', 'libs/Classes/SupportDiagnosis.php'), true)) { continue; }
         foreach (file($f->getPathname()) as $n => $line) { if (strpos($line, 'adult_content_enabled') !== false && strpos($line, 'set_adult_content_enabled') === false && strpos(ltrim($line), '*') !== 0 && strpos(ltrim($line), '//') !== 0) { $raw[] = "$rel:" . ($n + 1); } } }
 }
 check('no viewer-side code reads the toggle directly', $raw === array(), implode(', ', $raw));

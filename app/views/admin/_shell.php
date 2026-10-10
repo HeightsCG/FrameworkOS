@@ -7,13 +7,10 @@ include __DIR__ . '/_helpers.php';
 $adm_page = (string) ($this->page ?? ''); $adm_sec = (string) ($this->section ?? 'today');
 $adm_sections = array(
     array('today', 'Today', '/admin', 0),
-    array('moderation', 'Moderation', '/admin/moderation', (int) ($nav['moderation'] ?? 0)),
-    array('reports', 'Reports', '/admin/reports', (int) ($nav['reports'] ?? 0)),
-    array('verification', 'Verification', '/admin/verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0)),
-    array('support', 'Support', '/admin/support', (int) ($nav['support'] ?? 0)),
+    array('moderation', 'Moderation', '/admin/moderation', (int) ($nav['queue'] ?? 0)),
     array('users', 'Users', '/admin/users', 0),
     array('financials', 'Financials', '/admin/financials', 0), array('sales', 'Sales', '/admin/sales', 0),
-    array('billing', 'Billing', '/admin/billing', (int) ($nav['billing'] ?? 0)),
+    array('billing', 'Billing', '/admin/billing', 0),
     array('growth', 'Growth', '/admin/growth', 0), array('content', 'Content', '/admin/content', 0), array('system', 'System', '/admin/system', 0),
 );
 $adm_groups = array(

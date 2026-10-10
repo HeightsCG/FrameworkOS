@@ -24,7 +24,7 @@ $u = ($staff && $this->requester) ? $this->requester : null;
 <div class="sw<?php echo $u ? ' sw--staff' : ''; ?> sup--thread" data-ticket="<?php echo (int) $t['id']; ?>">
     <header class="sw-bar">
         <nav class="sw-crumb" aria-label="Breadcrumb">
-            <a href="<?php echo $staff ? '/admin/support' : '/support'; ?>"><i class="fa-solid fa-arrow-left"></i><?php echo $staff ? 'Support Queue' : 'All Requests'; ?></a>
+            <a href="<?php echo $staff ? '/admin/moderation?show=support' : '/support'; ?>"><i class="fa-solid fa-arrow-left"></i><?php echo $staff ? 'Support Queue' : 'All Requests'; ?></a>
             <i class="fa-solid fa-chevron-right sw-crumb__sep" aria-hidden="true"></i>
             <span>Request <?php echo (int) $t['id']; ?></span>
         </nav>

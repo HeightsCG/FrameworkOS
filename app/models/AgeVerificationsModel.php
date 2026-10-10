@@ -48,7 +48,7 @@ class AgeVerificationsModel extends Model {
         return $this->get($user_id) === null;
     }
 
-    /** Newest activity first, with the account's handle and name, for /admin/verification (Age checks). */
+    /** Newest activity first, with the account's handle and name, for /admin/moderation (Age checks). */
     public function recent($limit = 100){
         $limit = max(1, min(500, (int) $limit));
         return (array) parent::select(

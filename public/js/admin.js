@@ -18,10 +18,32 @@
             if (el.getAttribute('data-count') === group) { el.textContent = Math.max(0, parseInt(el.textContent, 10) + delta); }
             total += parseInt(el.textContent, 10) || 0;
         });
+        document.querySelectorAll('#admQueueChips .adm-chip').forEach(function (c) {
+            var b = c.querySelector('b'), k = c.getAttribute('data-show');
+            if (!b) { return; }
+            if (k === group) { b.textContent = Math.max(0, parseInt(b.textContent, 10) + delta); }
+            if (k === 'all') { b.textContent = total; }
+        });
+        var sub = document.querySelector('.adm-head__sub');
+        if (sub && document.getElementById('admQueue')) { sub.textContent = total > 0 ? total + ' item' + (total === 1 ? '' : 's') + ' waiting on staff' : 'Nothing waiting on staff'; }
         var rail = document.querySelector('.adm-nav__a.is-on .adm-nav__n');
         if (rail) { var n = Math.max(0, parseInt(rail.textContent, 10) + delta); if (n > 0) { rail.textContent = n; } else { rail.parentNode.removeChild(rail); } }
     }
     window.admBump = bump;
+
+    /* ---- Moderation sub-menu: show one section or all (the links still work without JS) ---- */
+    var chips = document.getElementById('admQueueChips');
+    if (chips) {
+        chips.addEventListener('click', function (e) {
+            var a = e.target.closest('.adm-chip'); if (!a) { return; }
+            e.preventDefault();
+            var k = a.getAttribute('data-show');
+            chips.querySelectorAll('.adm-chip').forEach(function (c) { var on = c === a; c.classList.toggle('is-on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); });
+            document.querySelectorAll('#admQueue .adm-group').forEach(function (g) { g.hidden = !(k === 'all' ? g.getAttribute('data-empty') !== '1' : g.getAttribute('data-group') === k); });
+            var z = document.getElementById('admQueueZero'); if (z) { z.hidden = k !== 'all'; }
+            try { history.replaceState(null, '', k === 'all' ? '/admin/moderation' : '/admin/moderation?show=' + k); } catch (err) {}
+        });
+    }
 
     /* ---- Age checks: status switch + reset ---- */
     var ageTabs = document.getElementById('admAgeTabs');
