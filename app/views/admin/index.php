@@ -30,7 +30,6 @@ $tn = array('all' => count((array) $this->activity)); foreach ((array) $this->ac
 ?>
 <header class="adm-head">
     <div><h1 class="adm-head__title">Today</h1><p class="adm-head__sub"><?php echo $e((new DateTime('now', new DateTimeZone($tz)))->format('l, F j, Y')); ?></p></div>
-    <div class="adm-head__acts"><a class="adm-btn adm-btn--primary" href="/admin/moderation">Open Moderation</a></div>
 </header>
 
 <div class="adm-kpis adm-kpis--5">
