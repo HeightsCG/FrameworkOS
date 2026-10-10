@@ -110,6 +110,7 @@ class SeoDrafter {
     public static function unreachable_citations(array $urls): array {
         $bad = array();
         foreach (array_unique($urls) as $u) {
+            if (isset(self::KNOWN_SOURCES[$u])) { continue; }   // vouched for in config (ftc.gov answers automated requests with 404 although the pages exist)
             if (!isset(self::$url_cache[$u])) {
                 $ok = false; $last = 0;
                 foreach (array(true, false) as $head) {
@@ -129,6 +130,25 @@ class SeoDrafter {
             if (!self::$url_cache[$u]) { $bad[] = $u; }
         }
         return $bad;
+    }
+
+    /** "; cite one of these on that site instead: ..." when KNOWN_SOURCES has pages on the dead URL's host, else ''. */
+    public static function known_instead(string $url): string {
+        $host = strtolower((string) parse_url($url, PHP_URL_HOST)); $same = array();
+        foreach (self::KNOWN_SOURCES as $k => $what) { if (strtolower((string) parse_url($k, PHP_URL_HOST)) === $host) { $same[] = $k; } }
+        return $same ? '; cite one of these on that site instead: ' . implode(' ', $same) : '';
+    }
+
+    /**
+     * Bare citation URLs ("see https://www.irs.gov/..." or <https://...>) become Markdown links to the same page, so
+     * they count as citations and render as links; a URL that is already a link target is left alone.
+     */
+    public static function linkify_bare_citations(string $md): string {
+        $md = preg_replace_callback('/<(https:\/\/[^\s<>]+)>/', function ($m) { return self::citation_ok($m[1]) ? '[' . parse_url($m[1], PHP_URL_HOST) . '](' . $m[1] . ')' : $m[0]; }, $md);
+        return preg_replace_callback('/(?<![\(\[<"\'\/])\bhttps:\/\/[^\s<>\)\]"\']+/', function ($m) {
+            $url = rtrim($m[0], '.,;:!?'); $tail = substr($m[0], strlen($url));
+            return self::citation_ok($url) ? '[' . parse_url($url, PHP_URL_HOST) . '](' . $url . ')' . $tail : $m[0];
+        }, $md);
     }
 
     /** The https links in a body that point at a CITATION_DOMAINS host. */
@@ -168,6 +188,9 @@ class SeoDrafter {
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
 
+    /** Claude calls per draft: the first, then up to two retries that list every failed check. */
+    const DRAFT_ATTEMPTS = 3;
+
     /**
      * Quotability rules the audit scores: 10-25 words per sentence on average, paragraphs of at most
      * PARAGRAPH_MAX_SENTENCES sentences that name their subject instead of opening with "this", "they", "it" or
@@ -182,14 +205,14 @@ class SeoDrafter {
             if ($avg > 25) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
             if ($avg < 10) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
         }
-        $first = null; $opener = false; $long = false;
+        $first = null; $openers = 0; $long = 0;   // every offending paragraph is named (up to 6 each), so one retry fixes them all
         foreach (preg_split('/\n\s*\n/', $body) as $p) {
             $p = trim($p);
             if ($p === '' || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
             if ($first === null) { $first = $p; }
-            if (!$opener && preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; $opener = true; }
+            if ($openers < 6 && preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; $openers++; }
             $n = self::sentence_count($p);
-            if (!$long && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long = true; }
+            if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
         return $err;
@@ -479,7 +502,7 @@ class SeoDrafter {
      */
     public static function fit(array $a): array {
         $map = self::tokens_map();
-        $a['body_md'] = self::tokens_as_paragraphs((string) ($a['body_md'] ?? ''));
+        $a['body_md'] = self::tokens_as_paragraphs(self::linkify_bare_citations((string) ($a['body_md'] ?? '')));
         foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $f) {
             $v = (string) ($a[$f] ?? '');
             $v = str_replace(array_keys($map), array_values($map), $v);
@@ -621,7 +644,7 @@ class SeoDrafter {
             elseif (!in_array($path, $allowed, true)) { $err[] = "unknown internal link: $l"; }
         }
         $err = array_merge($err, self::quotability_errors($a));
-        if (self::$check_citation_urls) { foreach (self::unreachable_citations(self::citations($body)) as $u) { $err[] = 'cited URL does not resolve: ' . $u; } }
+        if (self::$check_citation_urls) { foreach (self::unreachable_citations(self::citations($body)) as $u) { $err[] = 'cited URL does not resolve: ' . $u . self::known_instead($u); } }
         $err = array_merge($err, self::link_errors($a));   // allow-list and cluster: always, drafted or edited
         if ($strict_links) {
             $article_links = 0; $feature_links = 0;
@@ -869,11 +892,12 @@ class SeoDrafter {
         if ($existing) {
             $user .= "\n\nCurrent draft to revise (keep what works, apply the editor's note, return the full article):\nTitle: " . (string) $existing['title'] . "\n\n" . (string) $existing['body_md'];
         }
-        $errors = array(); $data = null; $model = ClaudeService::model();
-        for ($attempt = 1; $attempt <= ($dry_run ? 1 : 2); $attempt++) {
-            $msg = $user . ($attempt === 2 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
+        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = '';
+        for ($attempt = 1; $attempt <= ($dry_run ? 1 : self::DRAFT_ATTEMPTS); $attempt++) {
+            $msg = $user . ($attempt > 1 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
             $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), 8000, 240, 'medium');
             if (empty($r['ok'])) { $errors = array('Claude: ' . (string) ($r['error'] ?? 'request failed')); continue; }
+            $raw = (string) $r['text'];
             $data = self::parse_json($r['text']);
             if ($data === null) { $errors = array('reply was not valid JSON'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
@@ -896,6 +920,10 @@ class SeoDrafter {
         }
         if (!empty($errors) || $data === null) {
             if ($dry_run) { $keywords->set_status($kid, $prev_status, null, implode('; ', $errors)); return array('ok' => false, 'article_id' => 0, 'error' => implode('; ', $errors)); }
+            if ($raw !== '') {   // the reply that failed the last attempt, for reading
+                $dump = sys_get_temp_dir() . '/cls-seo-draft-fail-' . preg_replace('/[^a-z0-9-]+/', '-', strtolower($existing ? (string) $existing['slug'] : $keyword)) . '-' . gmdate('Ymd-His') . '.txt';
+                if (@file_put_contents($dump, "Errors:\n- " . implode("\n- ", $errors) . "\n\nReply:\n" . $raw) !== false) { $errors[] = 'reply saved: ' . $dump; }
+            }
             $dupe = (bool) preg_grep('/already covered/', $errors);
             if ($existing_article_id > 0) { $keywords->set_status($kid, $prev_status === 'drafting' ? 'drafted' : $prev_status, null, implode('; ', $errors)); }
             elseif ($dupe) { $keywords->set_status($kid, 'skipped', null, implode('; ', $errors)); }   // covered already: retire the keyword instead of publishing a near-duplicate

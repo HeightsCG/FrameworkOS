@@ -121,6 +121,21 @@ $six = str_repeat('Fans buy credits to unlock posts. ', 6);
 $f = SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => trim($six) . "\n\nMore text."));
 check('fit: non-refundable line gets its own paragraph when the paragraph is full', strpos($f['body_md'], "posts.\n\n" . PagesController::FINAL_NOTE) !== false, mb_substr($f['body_md'], 0, 300));
 check('sentence_count', SeoDrafter::sentence_count('One two. Three four! Five [six](/x)? ') === 3);
+// every offending paragraph is reported, not only the first
+$t = $good; $t['body_md'] .= "\n\nThis one is first.\n\nThat one is second.\n\n" . str_repeat($sentence, 7) . "\n\n" . str_repeat($sentence, 8);
+$errs = SeoDrafter::prose_errors($t['body_md']);
+check('all opener paragraphs reported', count(preg_grep('/opens with/', $errs)) === 2, implode('; ', $errs));
+check('all long paragraphs reported', count(preg_grep('/sentences;/', $errs)) === 2, implode('; ', $errs));
+// bare citation URLs count as citations
+$b = SeoDrafter::linkify_bare_citations("See https://www.irs.gov/forms-pubs. Also <https://www.ftc.gov/x> and [kept](https://www.irs.gov/a) and https://example.com/no.");
+check('bare citation URL becomes a link, trailing period kept', strpos($b, '[www.irs.gov](https://www.irs.gov/forms-pubs).') !== false, $b);
+check('autolink citation becomes a link', strpos($b, '[www.ftc.gov](https://www.ftc.gov/x)') !== false, $b);
+check('existing link and off-list URL untouched', strpos($b, '[kept](https://www.irs.gov/a)') !== false && strpos($b, 'https://example.com/no.') !== false, $b);
+check('fit counts a bare citation', count(SeoDrafter::citations(SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => "See https://www.irs.gov/forms-pubs and https://www.ftc.gov/y."))['body_md'])) === 2);
+$known = array_keys(SeoDrafter::KNOWN_SOURCES)[2];
+check('known source is never fetched', SeoDrafter::unreachable_citations(array($known)) === array());
+check('dead URL error names the known pages on that host', strpos(SeoDrafter::known_instead('https://www.ftc.gov/nope'), 'cite one of these on that site instead: https://www.ftc.gov/') !== false);
+check('three attempts per draft', SeoDrafter::DRAFT_ATTEMPTS === 3);
 $f = SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => "Fans buy credits to unlock posts.\n\nMore text."));
 check('fit: non-refundable appended where credits come up', strpos($f['body_md'], 'Fans buy credits to unlock posts. ' . PagesController::FINAL_NOTE) !== false);
 $h = SeoDrafter::render_body("See [the IRS](https://www.irs.gov/a) and [x](https://medium.com/b) and [pricing](/pricing).");
