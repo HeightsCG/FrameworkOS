@@ -3,7 +3,9 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title">Join Free. Sell When You're Ready.</h1>
-    <p class="sx-hero__lead">Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts; the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>. <?php echo $e(PagesController::plan_roles_sentence()); ?><?php $be = PagesController::breakeven_sentence(); if ($be !== ''): ?> <?php echo $e($be); ?><?php endif; ?></p>
+<?php $sell = array_map(function ($t) { return $t['name']; }, PagesController::selling_tiers()); $words = array(2 => 'two', 3 => 'three', 4 => 'four', 5 => 'five'); ?>
+    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> pricing is <?php echo $words[count($rows)] ?? count($rows); ?> plans: a Free account for fans, and <?php echo $e(implode(' and ', $sell)); ?> for creators who sell. Everyone starts with a Free account, no card needed: follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts, and the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>.</p>
+    <p class="sx-hero__lead"><?php echo $e(PagesController::plan_roles_sentence()); ?><?php $be = PagesController::breakeven_sentence(); if ($be !== ''): ?> <?php echo $e($be); ?><?php endif; ?></p>
 <?php
     // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): shown while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;

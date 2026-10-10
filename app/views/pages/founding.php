@@ -9,7 +9,7 @@ $open   = (int) $left > 0;
 
 echo Sections::panel_hero(array(
     'title'   => 'Become a Founding Creator',
-    'lead'    => Founding::SPOTS . ' founding spots, open until they are filled: start the ' . $c['name'] . ' plan with your first month free and keep the ' . $studio['name'] . ' platform fee of ' . $fee . ', instead of ' . $own . ', for as long as your ' . $c['name'] . ' plan stays active.',
+    'lead'    => Founding::SPOTS . ' founding spots, open until they are filled. Start the ' . $c['name'] . ' plan with your first month free. Keep the ' . $studio['name'] . ' platform fee of ' . $fee . ', instead of ' . $own . ', for as long as your ' . $c['name'] . ' plan stays active.',
     'buttons' => $open ? array(array('Claim a Founding Spot', $claim_url, 'primary', $claim_auth), array('See Pricing', '/pricing', 'secondary'))
                        : array(array('See Pricing', '/pricing', 'primary')),
     'panel'   => Sections::pane($open ? 'Founding Spots Left' : 'All Founding Spots Are Taken', '', Sections::pane_rows(array(

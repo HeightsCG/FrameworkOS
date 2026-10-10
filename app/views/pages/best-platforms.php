@@ -1,5 +1,6 @@
 <?php
 $e = function ($s) { return Sections::e($s); }; $us = PagesController::our_facts(); $site = Main::site_name();
+$dot = function ($s) { $s = trim((string) $s); return ($s === '' || preg_match('/[.!?]$/', $s)) ? $s : $s . '.'; };   // every fee cell is a sentence, so table text never runs together
 $fee_rows = array(array($site, $us['fee'], true));
 // The hero panel stays short: one example per kind of platform, as one-line fees. Every platform is in the tables below.
 foreach (array('onlyfans', 'patreon', 'kofi', 'linktree') as $slug) {
@@ -25,11 +26,11 @@ echo Sections::close();
 // One scannable table: every platform, one line each. The full sourced detail lives on each /compare page.
 $kind = array('fan' => 'Subscription platform', 'membership' => 'Memberships and tips', 'bio' => 'Link-in-bio storefront');
 echo Sections::open('alt', 'All platforms at a glance', 'One line per platform. Open a comparison for payouts, what you can sell, social publishing and audience export, each with its source.');
-$rows = array(array('<span class="bp-us">' . $e($site) . '</span>', 'Creator platform', '<strong>' . $e($us['fee']) . '</strong>', '<a class="sx-tlink" href="/features">See features</a>'));
+$rows = array(array('<span class="bp-us">' . $e($site) . '</span>', 'Creator platform', '<strong>' . $e($dot($us['fee'])) . '</strong>', '<a class="sx-tlink" href="/features">See features</a>'));
 foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
     foreach (PagesController::COMPETITORS as $slug => $c) {
         if (($c['type'] ?? '') !== $type) { continue; }
-        $rows[] = array($e($c['name']), $e($kind[$type]), $e((string) ($c['fee_short'] ?? $c['fee']['value'])),
+        $rows[] = array($e($c['name']), $e($kind[$type]), $e($dot((string) ($c['fee_short'] ?? $c['fee']['value']))),
             '<a class="sx-tlink" href="/compare/' . $e($slug) . '" aria-label="' . $e($site . ' vs ' . $c['name']) . '">Compare</a>');
     }
 }
@@ -53,5 +54,7 @@ echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($sit
    . Sections::buttons(array(array('See the features', '/features', 'secondary'))) . '</div>';
 echo Sections::close();
 
+echo PagesController::switch_section();
+echo PagesController::limits_section();
 if (!empty($faq)) { echo Sections::faq($faq, 'alt'); }
 $cta_title = 'See it with your own page.';

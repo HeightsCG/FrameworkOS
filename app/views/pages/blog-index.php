@@ -15,7 +15,7 @@ $search_form = '<form class="bl-search" action="/blog" method="get" role="search
 ?>
 <header class="ld-wrap sx__in bl-top">
     <h1 class="bl-top__title"><?php echo $e(BlogController::NAME); ?></h1>
-    <p class="bl-top__lead">Plain answers about pricing and selling memberships, pay-per-view posts, bundles, services and events.</p>
+    <p class="bl-top__lead"><?php echo $e(Main::site_name()); ?>'s blog is a set of plain answers about pricing and selling memberships, pay-per-view posts, bundles, services and events.</p>
     <?php echo $search_form; ?>
     <div class="hx__chips hx__chips--links bl-top__topics"><?php echo $topic_links; ?></div>
 </header>

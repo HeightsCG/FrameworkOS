@@ -554,6 +554,59 @@ class PagesController extends Controller {
         return $out . Sections::close();
     }
 
+    /**
+     * "How does a switch to Creator Link Studio work?": the six steps a creator takes, on compare, alternatives and
+     * best-of pages. $from is the platform the reader is leaving ('' on the best-of page); $tool is true when that
+     * platform is a generation tool (eromify), which has no fan page to keep live, so the "keep it live" step becomes
+     * "move your images". Every line is a product fact (plans, fee, payouts, networks) read from config.
+     */
+    public static function switch_section(string $from = '', bool $tool = false): string {
+        $site = Main::site_name();
+        $host = preg_replace('#^https?://(www\.)?#', '', SeoMeta::base());
+        $plans = array(); foreach (self::selling_tiers() as $t) { $plans[] = $t['name']; }
+        $plan_list = count($plans) > 1 ? implode(' or ', array(implode(', ', array_slice($plans, 0, -1)), end($plans))) : (string) reset($plans);
+        $keep = ($from !== '' && !$tool)
+            ? array('title' => '4. Keep ' . $from . ' live', 'text' => 'Put your new link in every bio and publish to both for a full billing cycle. Fans move at their own pace, and renewals on ' . $from . ' lapse on their own. Nothing has to be cancelled on day one.')
+            : (($from !== '') ? array('title' => '4. Move your images', 'text' => 'Download the images you made in ' . $from . ', upload them to your Library, and sell them as pay-per-view posts or membership content. New images are generated here from the same character.')
+                               : array('title' => '4. Keep your other pages live', 'text' => 'Put your new link in every bio and publish to both for a full billing cycle. Fans move at their own pace, and your other renewals lapse on their own. Nothing has to be cancelled on day one.'));
+        $lead = 'A switch takes an afternoon: create a free page, pick a selling plan, add your tiers, and keep ' . ($from !== '' && !$tool ? $from : 'your other pages') . ' live while fans move. The steps below are the same for every creator.';
+        $out = Sections::open('alt', 'How does a switch to ' . $site . ' work?', $lead);
+        $out .= Sections::cards(array(
+            array('title' => '1. Create your page', 'text' => 'Sign up for a Free account with no card. Your page lives at ' . $host . '/@handle. Add your photo, bio and links, and it is live the same minute.'),
+            array('title' => '2. Pick a selling plan', 'text' => 'Choose ' . $plan_list . ' in Billing when you are ready to sell. Both plans include memberships, pay-per-view, bundles, services and events. The platform fee is ' . self::fee_short() . '.'),
+            array('title' => '3. Set your tiers and first paid posts', 'text' => 'Upload media to your Library, create two membership tiers, and put your strongest pieces behind pay-per-view. Drafts save on Free, and selling starts the moment your plan is active.'),
+            $keep,
+            array('title' => '5. Publish from one studio', 'text' => 'Connect your social accounts and every post goes to your socials and your page at once, with the paid version behind the lock. ' . self::our_facts()['socials'] . '.'),
+            array('title' => '6. Cash out', 'text' => 'Every sale lands in one balance, net of your plan\'s fee. Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
+        ), 3);
+        return $out . Sections::close();
+    }
+
+    /**
+     * "What are the limits?": the plan limits, the add-on, adult content, custom domains, payouts and the refund rule,
+     * as sentences built from PlanTiers / Price / FINAL_NOTE, so the page says exactly what /pricing says.
+     */
+    public static function limits_section(): string {
+        $site = Main::site_name(); $tiers = self::selling_tiers();
+        usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $items = array();
+        foreach (PlanTiers::ROWS as $row) {
+            if ($row['key'] === 'fee_percent') { continue; }
+            $bits = array(); foreach ($tiers as $t) { $bits[] = PlanTiers::fmt_tier_limit($t, $row['key']) . ' on ' . $t['name']; }
+            $items[] = $row['label'] . ': ' . implode(', ', $bits) . '.';
+        }
+        if (self::addon_sentence() !== '') { $items[] = 'Add-on. ' . self::addon_sentence(); }
+        $domain_plans = array(); foreach ($tiers as $t) { if (PlanTiers::has_feature($t, 'custom_domain')) { $domain_plans[] = $t['name']; } }
+        if ($domain_plans) { $items[] = 'Custom domains are included on ' . implode(' and ', $domain_plans) . '. On the other plans your page lives at your handle.'; }
+        $items[] = 'Going over a limit locks the extra items until you upgrade or remove some. Nothing is deleted.';
+        $items[] = 'Adult content is allowed behind an age check. Fans opt in and verify once, and creators verify before publishing adult media.';
+        $items[] = 'Payouts go to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum. Earnings from an event are released after the event has taken place.';
+        $items[] = 'Content sales are final. ' . self::FINAL_NOTE;
+        $out = Sections::open('white', 'What are the limits?', 'Limits are set by plan, and ' . $site . ' states them up front. Here is what changes between ' . implode(' and ', array_map(function ($t) { return $t['name']; }, $tiers)) . ', and the rules that apply to every plan.');
+        $out .= Sections::checks($items, 2);
+        return $out . Sections::close();
+    }
+
     /** "Free lets you build your page. Creator gets you discovered. Studio gets you promoted." from PLAN_ROLES, for the plans on sale. */
     public static function plan_roles_sentence(): string {
         $bits = array();
@@ -685,6 +738,8 @@ class PagesController extends Controller {
             array('q' => 'Should members get pay-per-view posts free?', 'a' => 'No. Pay-per-view is for your strongest single pieces and is priced for everyone. Put your regular content on the tiers.'),
             array('q' => 'How do I price a service?', 'a' => 'Your hourly worth times the real time it takes, plus a third for revisions and messages. Fixed price, fixed scope, a delivery window you can keep.'),
             array('q' => 'Can I run all five on one page?', 'a' => 'Yes. On ' . Main::site_name() . ' memberships, pay-per-view, bundles, services and events all live on your public page and share one wallet for fans.'),
+            array('q' => 'When should I add a second membership tier?', 'a' => 'When fans ask for more than the entry tier gives them. Price the second tier at three to five times the first, and give it the posts that took the most effort.'),
+            array('q' => 'Should I charge for messages?', 'a' => 'Yes, for anything that takes real time. A paid message is a small service: a fixed price, one reply with the media attached, delivered within a day or two.'),
         );
         $jsonld = array(
             SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00')),

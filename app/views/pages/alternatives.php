@@ -28,6 +28,8 @@ echo '<p class="sx-note">' . $e($p['us']['note']) . ' For a sourced, side-by-sid
 echo Sections::close();
 
 echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
+echo PagesController::switch_section($p['name']);
+echo PagesController::limits_section();
 if (!empty($faq)) { echo Sections::faq($faq); }
 
 // Closing band (the layout band is off for this page so the button can carry the creator role).

@@ -165,9 +165,13 @@ class SeoDrafter {
         return array_map('trim', $m[1]);
     }
 
+    /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
+    const PARAGRAPH_MAX_SENTENCES = 6;
+
     /**
-     * Quotability rules the audit scores: 10-25 words per sentence on average, and paragraphs that name their subject
-     * instead of opening with "this", "they", "it" or "such". Returns error strings.
+     * Quotability rules the audit scores: 10-25 words per sentence on average, paragraphs of at most
+     * PARAGRAPH_MAX_SENTENCES sentences that name their subject instead of opening with "this", "they", "it" or
+     * "such", and a first paragraph that defines the subject ("X is ..."). Returns error strings.
      */
     public static function prose_errors(string $body): array {
         $err = array();
@@ -178,12 +182,24 @@ class SeoDrafter {
             if ($avg > 25) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
             if ($avg < 10) { $err[] = sprintf('sentences average %.0f words; keep the average between 10 and 25', $avg); }
         }
+        $first = null; $opener = false; $long = false;
         foreach (preg_split('/\n\s*\n/', $body) as $p) {
             $p = trim($p);
             if ($p === '' || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
-            if (preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; break; }
+            if ($first === null) { $first = $p; }
+            if (!$opener && preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; $opener = true; }
+            $n = count(array_filter(preg_split('/(?<=[.!?])\s+/', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p)), function ($s) { return str_word_count($s) > 1; }));
+            if (!$long && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long = true; }
         }
+        if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
         return $err;
+    }
+
+    /** Does a paragraph open with a definition: a sentence of the shape "X is/are/means ..." within its first 80 characters? */
+    public static function opens_with_definition(string $p): bool {
+        $p = trim(preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p));
+        $sentence = preg_split('/(?<=[.!?])\s+/', $p)[0];
+        return (bool) preg_match('/^[^.?!]{2,80}?\b(is|are|means)\b/u', $sentence);
     }
 
     /** Common first names: an article names no people, real or invented. Ambiguous words (Will, May, Grace...) left out. */
@@ -668,7 +684,7 @@ class SeoDrafter {
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different official sources on this list, as full https URLs to pages you know exist (a help-centre article, a published document); never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template: no fixed number of sections, no obligatory introduction, takeaways, summary or conclusion, and a FAQ only when the topic has real follow-up questions (then 3-5, otherwise none). Use between two and six \"## \" sections and vary their kind between pieces (a short direct answer first, a walkthrough, a checklist, a comparison, a problem-first piece). Phrase at least two \"## \" headings as the question a reader would type, ending in a question mark, and put the direct answer in the first sentence under each. "
-            . "Write sentences of 10 to 25 words. Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. "
+            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, 2-6 \"## \" sections, relative links from the allowed list where they help, no H1, no raw HTML), faq (array, empty or 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 

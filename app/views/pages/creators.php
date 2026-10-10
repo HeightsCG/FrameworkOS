@@ -9,8 +9,8 @@ $site = Main::site_name();
 echo Sections::hero(array(
     'title' => $cat === '' ? 'Creator Directory' : Sections::tc($label . ' creators'),
     'lead'  => $cat === ''
-        ? 'Creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.'
-        : 'The ' . strtolower($label) . ' creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.',
+        ? 'The creator directory is the list of creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.'
+        : 'The ' . strtolower($label) . ' directory is the list of ' . strtolower($label) . ' creators on ' . $site . ' who chose to be listed. Follow them, join a membership, or book a service from their page.',
 ));
 
 echo Sections::open('white');

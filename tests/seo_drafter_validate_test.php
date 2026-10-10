@@ -13,11 +13,13 @@ SeoDrafter::$check_citation_urls = false;   // the rules are tested here; the li
 // Prose that passes the quotability rules: 13-word sentences, each paragraph naming its subject, two question headings, two citations.
 $sentence = 'Creators price a tier by the gap between tiers and the value fans see. ';
 $cite = "The IRS explains self-employment tax at [irs.gov](https://www.irs.gov/businesses/small-businesses-self-employed), and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance).\n\n";
-$sec = function ($n, $per) use ($sentence, $cite) {
+$define = "A membership tier is a monthly price for a set of posts and perks.\n\n";   // the first paragraph defines the subject
+$sec = function ($n, $per) use ($sentence, $cite, $define) {
     $b = '';
     for ($i = 1; $i <= $n; $i++) {
         $h = ($i === 1) ? 'How do creators price a tier?' : (($i === 2) ? 'What should the gap be?' : "Part $i");
-        $b .= "## $h\n\n" . ($i === 1 ? $cite : '') . str_repeat($sentence, max(1, (int) round($per / 13))) . "See [features](/features).\n\n";
+        $paras = ''; for ($left = max(1, (int) round($per / 13)); $left > 0; $left -= 5) { $paras .= str_repeat($sentence, min(5, $left)) . "\n\n"; }   // paragraphs of five sentences
+        $b .= "## $h\n\n" . ($i === 1 ? $define . $cite : '') . $paras . "See [features](/features).\n\n";
     }
     return $b;
 };
@@ -39,6 +41,10 @@ $t = $good; $t['body_md'] = str_replace('and the FTC covers endorsements at [ftc
 $t = $good; $t['body_md'] = str_replace($cite, '', $good['body_md']);   check('no citations rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nThis is the part most creators skip, and it costs them later.";  check('paragraph opening with "This" rejected', (bool) preg_grep('/opens with/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = $sec(2, 20) . "## Why?\n\n" . str_repeat('word ', 1200) . ".\n\n"; check('long sentences rejected', (bool) preg_grep('/average/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 7);     check('paragraph of 7 sentences rejected', (bool) preg_grep('/7 sentences/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 6);     check('paragraph of 6 sentences allowed', !preg_grep('/sentences;/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace($define, '', $good['body_md']); check('no opening definition rejected', (bool) preg_grep('/define the subject/', SeoDrafter::validate($t)));
+check('opens_with_definition', SeoDrafter::opens_with_definition('A bundle is a set of posts sold at one price.') && SeoDrafter::opens_with_definition('Pay-per-view posts are single posts with a price.') && !SeoDrafter::opens_with_definition('Start by picking a price that fans say yes to.'));
 check('cta varies by article and is not a heading', SeoDrafter::cta_html(1) !== SeoDrafter::cta_html(2) && strpos(SeoDrafter::cta_html(3), '<h2') === false && strpos(SeoDrafter::cta_html(0), 'Start earning from your own page') === false);
 check('h2_texts', SeoDrafter::h2_texts("## One?\n\ntext\n\n### not\n\n## Two\n") === array('One?', 'Two'));
 if (getenv('SEO_NET')) { check('dead citation URL flagged', SeoDrafter::unreachable_citations(array('https://www.irs.gov/this-page-does-not-exist-zz9')) !== array() && SeoDrafter::unreachable_citations(array('https://www.irs.gov/')) === array()); }

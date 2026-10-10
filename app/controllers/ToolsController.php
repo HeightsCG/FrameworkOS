@@ -16,7 +16,7 @@ class ToolsController extends Controller {
             'title'       => 'Free Fan Question Finder for Creators',
             'h1'          => 'Find the Questions Your Fans Are Asking',
             'description' => 'Enter your niche and get 30 to 40 post ideas built from real questions people ask online, plus the communities worth watching. Free, by email.',
-            'lead'        => 'Enter your niche. We read the recent questions people ask in its biggest online communities and email you 30 to 40 post ideas, grouped by theme.',
+            'lead'        => 'The Fan Question Finder is a free tool that reads the recent questions people ask in your niche\'s biggest online communities and emails you 30 to 40 post ideas, grouped by theme. Enter your niche to start.',
             'button'      => 'Find Questions',
         ),
         'ai-influencer-persona' => array(
@@ -25,7 +25,7 @@ class ToolsController extends Controller {
             'title'       => 'Free AI Influencer Persona Generator',
             'h1'          => 'Design Your AI Influencer Persona',
             'description' => 'Get five original AI influencer persona concepts for your niche: names, handles, bio, traits, content pillars and a starter image prompt. Free, by email.',
-            'lead'        => 'Tell us your niche and the vibe you want. We email you five original persona concepts, each with handles, a bio, content pillars and a starter image prompt.',
+            'lead'        => 'The AI Influencer Persona Generator is a free tool that emails you five original persona concepts for your niche, each with handles, a bio, content pillars and a starter image prompt. Tell us your niche and the vibe you want.',
             'button'      => 'Get Personas',
         ),
     );
