@@ -6,9 +6,15 @@ require_once __DIR__ . '/_ui.php';
 include __DIR__ . '/_helpers.php';
 $adm_page = (string) ($this->page ?? ''); $adm_sec = (string) ($this->section ?? 'today');
 $adm_sections = array(
-    array('today', 'Today', '/admin'), array('queue', 'Queue', '/admin/queue'), array('users', 'Users', '/admin/users'),
-    array('financials', 'Financials', '/admin/financials'), array('sales', 'Sales', '/admin/sales'), array('billing', 'Billing', '/admin/billing'),
-    array('growth', 'Growth', '/admin/growth'), array('content', 'Content', '/admin/content'), array('system', 'System', '/admin/system'),
+    array('today', 'Today', '/admin', 0),
+    array('moderation', 'Moderation', '/admin/moderation', (int) ($nav['moderation'] ?? 0)),
+    array('reports', 'Reports', '/admin/reports', (int) ($nav['reports'] ?? 0)),
+    array('verification', 'Verification', '/admin/verification', (int) ($nav['verification'] ?? 0) + (int) ($nav['age'] ?? 0)),
+    array('support', 'Support', '/admin/support', (int) ($nav['support'] ?? 0)),
+    array('users', 'Users', '/admin/users', 0),
+    array('financials', 'Financials', '/admin/financials', 0), array('sales', 'Sales', '/admin/sales', 0),
+    array('billing', 'Billing', '/admin/billing', (int) ($nav['billing'] ?? 0)),
+    array('growth', 'Growth', '/admin/growth', 0), array('content', 'Content', '/admin/content', 0), array('system', 'System', '/admin/system', 0),
 );
 $adm_groups = array(
     'growth'  => array(array('growth', 'Funnel', '/admin/growth'), array('leads', 'Leads', '/admin/leads'), array('founding', 'Founding', '/admin/founding'), array('affiliates', 'Affiliates', '/admin/affiliates')),
@@ -20,7 +26,7 @@ $adm_tabs = $adm_groups[$adm_sec] ?? array();
 <link rel="stylesheet" href="/css/admin.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/admin.css'); ?>">
 <div class="adm" data-admin-page="<?php echo $e($adm_page); ?>">
     <nav class="adm-nav" aria-label="Admin sections">
-        <?php foreach ($adm_sections as $sct): $on = $sct[0] === $adm_sec; ?><a class="adm-nav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($sct[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($sct[1]); ?><?php if ($sct[0] === 'queue' && (int) ($nav['queue'] ?? 0) > 0): ?> <b class="adm-nav__n"><?php echo (int) $nav['queue']; ?></b><?php endif; ?></a><?php endforeach; ?>
+        <?php foreach ($adm_sections as $sct): $on = $sct[0] === $adm_sec; ?><a class="adm-nav__a<?php echo $on ? ' is-on' : ''; ?>" href="<?php echo $e($sct[2]); ?>"<?php echo $on ? ' aria-current="page"' : ''; ?>><?php echo $e($sct[1]); ?><?php if ($sct[3] > 0): ?> <b class="adm-nav__n"><?php echo (int) $sct[3]; ?></b><?php endif; ?></a><?php endforeach; ?>
     </nav>
     <?php if ($adm_tabs): ?>
     <nav class="adm-subnav" aria-label="<?php echo $e(ucfirst($adm_sec)); ?> pages">
