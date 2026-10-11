@@ -18,7 +18,7 @@
         <tbody>
         <?php foreach ($this->seo_review as $a): ?>
             <tr class="adm-crow adm-t__link" data-article="<?php echo (int) $a['id']; ?>" data-href="/admin/article/<?php echo (int) $a['id']; ?>">
-                <td class="adm-t__main"><a href="/admin/article/<?php echo (int) $a['id']; ?>"><?php echo $e($a['title']); ?></a><span class="adm-t__sub">/blog/<?php echo $e($a['slug']); ?> · <?php echo $e(ucfirst($a['status'])); ?></span></td>
+                <td class="adm-t__main"><a href="/admin/article/<?php echo (int) $a['id']; ?>"><?php echo $e($a['title']); ?></a><span class="adm-t__sub">/blog/<?php echo $e($a['slug']); ?> · <?php echo $e(ucfirst($a['status'])); ?></span><?php if (trim((string) ($a['rewrite_note'] ?? '')) !== ''): ?><span class="adm-t__sub adm-neg"><?php echo $e(mb_substr((string) $a['rewrite_note'], 0, 220)); ?></span><?php endif; ?></td>
                 <td class="adm-t__muted"><?php echo $e($a['target_keyword']); ?></td>
                 <td class="adm-t__muted adm-t__nowrap" data-value="<?php echo $e($a['updated_at']); ?>"><?php echo $e($fmt($a['updated_at'], true)); ?></td>
                 <td class="adm-t__act"><?php echo adm_row_menu('Article actions', array(array('text' => 'Edit', 'href' => '/admin/article/' . (int) $a['id']))); ?></td>

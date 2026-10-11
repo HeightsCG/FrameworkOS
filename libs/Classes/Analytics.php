@@ -73,6 +73,7 @@ class Analytics {
             if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') { return; }
             $uri  = (string) ($_SERVER['REQUEST_URI'] ?? '/');
             $path = (string) (parse_url($uri, PHP_URL_PATH) ?: '/');
+            if (self::excluded($path)) { return; }   // staff and the admin pages are never analytics
             $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
             $row  = self::base_row('pageview', '');
             $row['path']   = mb_substr($path, 0, 255);
@@ -107,6 +108,7 @@ class Analytics {
             if (php_sapi_name() !== 'cli') { self::begin(); }
             $row = self::base_row('event', $name);
             if (isset($opts['user_id'])) { $row['user_id'] = (int) $opts['user_id']; }
+            if (self::excluded('', (int) $row['user_id'])) { return; }   // an admin's own actions are not product events
             $row['creator_id']  = (int) ($opts['creator_id'] ?? 0);
             $row['value_cents'] = (int) ($opts['value_cents'] ?? 0);
             $row['meta']        = mb_substr((string) ($opts['meta'] ?? ''), 0, 255);
@@ -115,6 +117,30 @@ class Analytics {
             if (php_sapi_name() !== 'cli') { $row += self::ua((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')); $row['country'] = self::country(); }
             (new SiteAnalyticsModel())->record($row);
         } catch (\Throwable $e) { error_log('[analytics] event ' . $name . ': ' . $e->getMessage()); }
+    }
+
+    private static $admin_cache = array();
+
+    /**
+     * What is left out: every /admin page, any request by a signed-in staff account (user_accounts.is_admin), an admin
+     * signed in as someone else, and an event whose account is staff (the CLI and webhooks pass the account id).
+     */
+    public static function excluded(string $path = '', int $user_id = 0): bool {
+        if ($path !== '' && preg_match('#^/admin(/|$)#', $path)) { return true; }
+        if (php_sapi_name() !== 'cli') {
+            try {
+                if (class_exists('UserSession') && UserSession::impersonating()) { return true; }
+                if (class_exists('Permissions') && Permissions::is_admin()) { return true; }
+            } catch (\Throwable $e) {}
+        }
+        if ($user_id > 0) {
+            if (!array_key_exists($user_id, self::$admin_cache)) {
+                try { $r = (new SiteAnalyticsModel())->select('SELECT is_admin FROM user_accounts WHERE user_id = :u', array('u' => $user_id)); self::$admin_cache[$user_id] = !empty($r[0]['is_admin']); }
+                catch (\Throwable $e) { self::$admin_cache[$user_id] = false; }
+            }
+            if (self::$admin_cache[$user_id]) { return true; }
+        }
+        return false;
     }
 
     private static function base_row(string $kind, string $name): array {

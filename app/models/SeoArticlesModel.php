@@ -189,6 +189,12 @@ class SeoArticlesModel extends Model {
     }
 
     /** Published bodies for llms-full.txt, newest first, one query. */
+    /** The format of the most recently published article ('' when none): the next piece never repeats it. */
+    public function last_published_format(){
+        $r = parent::select("SELECT format FROM seo_articles WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT 1");
+        return (string) ($r[0]['format'] ?? '');
+    }
+
     /** Every published article's shape inputs (no cap): the corpus-shape pass in cron/seo_fact_check.php. */
     public function published_shapes(){
         return (array) parent::select("SELECT id, slug, body_md, faq, published_at FROM seo_articles WHERE status = 'published' ORDER BY published_at ASC, id ASC");

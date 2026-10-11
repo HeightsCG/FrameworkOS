@@ -4,8 +4,15 @@
  * Prod: 0 9 * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_draft.php >> /var/www/creatorlinkstudio.com/www/cron/seo_draft.log 2>&1
  * Options: --keyword-id=N (draft that keyword regardless of status), --seed (insert the starter keyword list only),
  *   --load-queue (once, 2026-10-09: re-cluster keywords and articles, load the P1/P2/P3 queue below, print counts),
- *   --dry-run (one Claude call, no cover, saved as a draft article and never published; prints the validator output).
+ *   --dry-run (one Claude call, no cover, saved as a draft article and never published; prints the validator output),
+ *   --dedupe (print the queue after the duplicate check: kept / merged into an existing article / dropped; nothing written),
+ *   --dedupe --apply (record it: merged and dropped keywords leave the queue with the reason), --format=<guide|checklist|
+ *   comparison|cost|troubleshooting|glossary> (force a format; otherwise SeoDrafter::format_for picks one, never the last used),
+ *   --force (draft today even if it is not a publishing day).
  * Picks the queued keyword with the lowest priority (P1 = 1, P2 = 2, everything else 3), oldest first.
+ * Cadence (2026-10-11): two articles a week, PUBLISH_DAYS (UTC weekdays), the cron still runs daily and exits on other days.
+ * Before drafting, the keyword is checked against every published article and the rest of the queue (SeoDrafter::dedupe_queue):
+ * the same search intent as a published article becomes an update of that article; a duplicate of a higher-priority queued keyword is dropped.
  */
 if (php_sapi_name() !== 'cli') { exit(1); }
 if (!getenv('APPLICATION_ENV')) { putenv('APPLICATION_ENV=development'); }
@@ -17,7 +24,8 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$opts = getopt('', array('keyword-id::', 'seed', 'load-queue', 'dry-run'));
+$opts = getopt('', array('keyword-id::', 'seed', 'load-queue', 'dry-run', 'dedupe', 'apply', 'format::', 'force'));
+const PUBLISH_DAYS = array(2, 5);   // ISO weekdays: Tuesday and Friday
 if (!CronRuns::lock('seo_draft')) { echo date('c'), " another run is active\n"; exit(0); }
 
 CronRuns::start('seo_draft');
@@ -163,15 +171,44 @@ if (isset($opts['load-queue'])) {
 $stale = $keywords->requeue_stale(30);
 if ($stale > 0) { echo date('c'), " requeued $stale stale drafting keyword(s)\n"; }
 
+// ---- the duplicate check (report, or record with --apply)
+if (isset($opts['dedupe'])) {
+    $d = SeoDrafter::dedupe_queue();
+    printf("%s queue after the duplicate check: %d kept, %d merged into an existing article, %d dropped\n", date('c'), count($d['kept']), count($d['merged']), count($d['dropped']));
+    foreach ($d['kept'] as $k)    { printf("  KEPT    #%-4d P%-3d %s\n", $k['id'], $k['priority'], $k['keyword']); }
+    foreach ($d['merged'] as $k)  { printf("  MERGED  #%-4d P%-3d %s  -> update of /blog/%s (\"%s\")\n", $k['id'], $k['priority'], $k['keyword'], $k['into']['slug'], $k['into']['title']); }
+    foreach ($d['dropped'] as $k) { printf("  DROPPED #%-4d P%-3d %s  -> duplicate of #%d \"%s\"\n", $k['id'], $k['priority'], $k['keyword'], $k['duplicate_of']['id'], $k['duplicate_of']['keyword']); }
+    if (isset($opts['apply'])) {
+        foreach ($d['merged'] as $k)  { $keywords->set_status((int) $k['id'], 'skipped', (int) $k['into']['id'], 'merged: same intent as /blog/' . $k['into']['slug'] . ' (update that article)'); }
+        foreach ($d['dropped'] as $k) { $keywords->set_status((int) $k['id'], 'skipped', null, 'dropped: duplicate of #' . (int) $k['duplicate_of']['id'] . ' "' . $k['duplicate_of']['keyword'] . '"'); }
+        echo date('c'), " recorded\n";
+    } else { echo "(nothing written; add --apply to record it)\n"; }
+    CronRuns::finish('seo_draft', true, 'dedupe report'); exit(0);
+}
+
+// ---- cadence: two articles a week
+if (empty($opts['keyword-id']) && !isset($opts['dry-run']) && !isset($opts['force']) && !in_array((int) gmdate('N'), PUBLISH_DAYS, true)) {
+    echo date('c'), " not a publishing day (", implode(', ', array_map(function ($d) { return jddayofweek($d - 1, 1); }, PUBLISH_DAYS)), " UTC)\n";
+    CronRuns::finish('seo_draft', true, 'not a publishing day'); exit(0);
+}
+
 $kw = null;
 if (!empty($opts['keyword-id'])) { $kw = $keywords->get((int) $opts['keyword-id']); }
 else { $kw = $keywords->next_queued(); }
 if (!$kw) { echo date('c'), " nothing queued\n"; CronRuns::finish('seo_draft', true, 'nothing queued'); exit(0); }
 if (!ClaudeService::configured()) { echo date('c'), " Claude not configured\n"; CronRuns::finish('seo_draft', false, 'Claude not configured'); exit(1); }
 
-echo date('c'), " drafting \"{$kw['keyword']}\" (#{$kw['id']})\n";
+// ---- the duplicate check on this keyword: same intent as a published article = an update of that article, not a new one
+$existing_id = 0; $note = '';
+if (empty($opts['keyword-id'])) {
+    $d = SeoDrafter::dedupe_queue();
+    foreach ($d['dropped'] as $k) { if ((int) $k['id'] === (int) $kw['id']) { $keywords->set_status((int) $kw['id'], 'skipped', null, 'dropped: duplicate of #' . (int) $k['duplicate_of']['id'] . ' "' . $k['duplicate_of']['keyword'] . '"'); echo date('c'), " \"{$kw['keyword']}\" dropped: duplicate of \"{$k['duplicate_of']['keyword']}\"\n"; CronRuns::finish('seo_draft', true, 'duplicate dropped'); exit(0); } }
+    foreach ($d['merged'] as $k) { if ((int) $k['id'] === (int) $kw['id']) { $existing_id = (int) $k['into']['id']; $note = 'Also cover the search "' . $kw['keyword'] . '" (same intent as this article): fold it into the piece and add it to secondary_keywords.'; echo date('c'), " \"{$kw['keyword']}\" has the same intent as /blog/{$k['into']['slug']}: updating that article instead\n"; break; } }
+}
+echo date('c'), " drafting \"{$kw['keyword']}\" (#{$kw['id']})", $existing_id > 0 ? " as an update of article #$existing_id" : '', "\n";
 $t0 = microtime(true);
-$r  = SeoDrafter::draft($kw, '', 0, isset($opts['dry-run']));
+$r  = SeoDrafter::draft($kw, $note, $existing_id, isset($opts['dry-run']), array(), (string) ($opts['format'] ?? ''));
+if ($existing_id > 0 && !empty($r['ok'])) { $keywords->set_status((int) $kw['id'], 'skipped', $existing_id, 'merged: same intent as article #' . $existing_id . ' (updated)'); }
 printf("%s %s in %.1fs%s\n", date('c'), $r['ok'] ? "drafted article #{$r['article_id']}" . (isset($opts['dry-run']) ? ' (dry run, saved as a draft)' : '') : 'FAILED' . (!empty($r['article_id']) ? " (draft #{$r['article_id']} kept for reading)" : ''), microtime(true) - $t0, $r['ok'] ? '' : ': ' . $r['error']);
 CronRuns::finish('seo_draft', (bool) $r['ok'], $r['ok'] ? 'article #' . $r['article_id'] : (string) $r['error']);
 exit($r['ok'] ? 0 : 1);

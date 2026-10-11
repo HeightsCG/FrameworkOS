@@ -168,7 +168,10 @@ class SeoDrafter {
         $title = trim((string) ($a['title'] ?? '')); $meta = trim((string) ($a['meta_description'] ?? '')); $body = (string) ($a['body_md'] ?? '');
         if ($title !== '' && mb_strlen($title) > 60) { $err[] = 'title must be 1-60 characters'; }   // 30-60 as rendered, with the brand suffix dropped past 60
         if (mb_strlen($meta) < 110 || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 110-155 characters'; }
-        if (count(self::h2_texts($body)) < 1) { $err[] = 'body needs at least one "## " section'; }
+        $h2 = self::h2_texts($body);
+        if (count($h2) < 1) { $err[] = 'body needs at least one "## " section'; }
+        $questions = count(array_filter($h2, function ($h) { return substr(trim($h), -1) === '?'; }));
+        if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be a question a creator actually asks (ending in ?), answered in the first sentence under it'; }   // restored 2026-10-11 (c_question_headings); the format gives the rest of the shape
         $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, self::citations($body)));
         if (count($hosts) < self::MIN_CITATIONS) {
             $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'
@@ -305,6 +308,159 @@ class SeoDrafter {
     }
 
     /** quick | howto | guide for a keyword: question-shaped = quick, comparisons and lists = guide, "how to" = howto, else the cluster's default. */
+    /**
+     * Article formats (2026-10-11). Each has its own structure the prompt asks for and format_errors() checks, so two
+     * pieces never share a layout: the pipeline picks one per keyword (format_for) and never publishes two in a row in
+     * the same format. 'checks' are the structural facts the body must show.
+     */
+    const FORMATS = array(
+        'guide'           => array('label' => 'step-by-step guide',  'structure' => 'numbered steps in the order the reader does them: every "## " heading starts with a step number ("1. ", "2. "), one step per section, each step opening with what the reader does and ending with how they know it worked. No summary section.'),
+        'checklist'       => array('label' => 'checklist',           'structure' => 'a short lead, then one or more checklists: bulleted lists of at least five items the reader ticks off, each item a complete instruction with the specific value or setting, grouped under "## " headings by stage. Most of the body is list items.'),
+        'comparison'      => array('label' => 'comparison',          'structure' => 'the two or three options named in the first paragraph, then one "## " section per deciding factor, and one Markdown table (| columns |) that puts the options side by side on the facts. Ends with which option fits which reader, not with a winner.'),
+        'cost'            => array('label' => 'cost breakdown',      'structure' => 'a worked example followed from start to finish with round, clearly hypothetical dollar figures (at least four "$" amounts in the body): what comes in, what each fee and plan price takes, what reaches the bank, and the point where the arithmetic changes. One "## " section per stage of the calculation.'),
+        'troubleshooting' => array('label' => 'troubleshooting',     'structure' => 'symptom first: each "## " heading names a problem the reader sees ("The face changes between posts"), the first sentence under it names the cause, then the fix, then how to confirm it. No introduction beyond the definition sentence.'),
+        'glossary'        => array('label' => 'glossary entry',      'structure' => 'a short entry: the definition sentence, one or two "## " sections (what it covers, where it applies, a concrete example from the product), under 900 words, no steps and no list longer than four items.'),
+    );
+
+    /** Format for a keyword from its wording and cluster; $last is the format of the most recent published article, never repeated back to back. */
+    public static function format_for($keyword, $cluster = '', $last = ''): string {
+        $k = ' ' . strtolower(trim((string) $keyword)) . ' ';
+        $order = array();
+        if (preg_match('/ (what is|what are|what does|meaning|definition|explained) /', $k)) { $order[] = 'glossary'; }
+        if (preg_match('/ (alternatives?|vs|versus|compared?|comparison|best|which|or) /', $k)) { $order[] = 'comparison'; }
+        if (preg_match('/ (price|pricing|cost|costs|fee|fees|income|money|earn|earnings|revenue|pay|paid|payout|payouts|worth) /', $k)) { $order[] = 'cost'; }
+        if (preg_match('/ (fix|fixing|drift|drifting|wrong|fails?|failing|problems?|mistakes?|why does|why do|not working|keeps?) /', $k)) { $order[] = 'troubleshooting'; }
+        if (preg_match('/ (tips|checklist|setup|set up|before you|dataset) /', $k)) { $order[] = 'checklist'; }
+        if (strpos($k, ' how to ') === 0 || preg_match('/ (step|steps|guide|train|training|build|create|start) /', $k)) { $order[] = 'guide'; }
+        foreach (array('guide', 'checklist', 'comparison', 'cost', 'troubleshooting', 'glossary') as $f) { if (!in_array($f, $order, true)) { $order[] = $f; } }
+        foreach ($order as $f) { if ($f !== (string) $last) { return $f; } }
+        return 'guide';
+    }
+
+    /** The structural facts a format promises, checked on the body (and the FAQ for the glossary). Returns error strings. */
+    public static function format_errors(string $format, string $body): array {
+        $err = array(); $h2 = self::h2_texts($body);
+        switch ($format) {
+            case 'guide':
+                $numbered = count(array_filter($h2, function ($h) { return preg_match('/^(\d+[.):]|step \d+)/i', $h); }));
+                if (count($h2) < 3 || $numbered < count($h2) - 1) { $err[] = 'step-by-step guide: at least three "## " headings and all but one must start with a step number ("1. ")'; }
+                break;
+            case 'checklist':
+                preg_match_all('/^(?:[-*+]|\d+\.)\s+\S/m', $body, $m);
+                if (count($m[0]) < 10) { $err[] = 'checklist: the body needs at least ten list items (got ' . count($m[0]) . ')'; }
+                break;
+            case 'comparison':
+                if (!preg_match('/^\|.+\|\s*$\n^\|[\s:|-]+\|\s*$/m', $body)) { $err[] = 'comparison: the body needs one Markdown table putting the options side by side'; }
+                if (count($h2) < 2) { $err[] = 'comparison: one "## " section per deciding factor, at least two'; }
+                break;
+            case 'cost':
+                preg_match_all('/\$\s?\d[\d,]*/', $body, $m);
+                if (count($m[0]) < 4) { $err[] = 'cost breakdown: the worked example needs at least four dollar figures (got ' . count($m[0]) . ')'; }
+                break;
+            case 'troubleshooting':
+                if (count($h2) < 2) { $err[] = 'troubleshooting: at least two "## " headings, each naming a problem the reader sees'; }
+                $q = count(array_filter($h2, function ($h) { return preg_match('/\b(why|what|how|fails?|keeps?|changes?|drifts?|wrong|does not|doesn\x27t|won\x27t|stops?|not)\b/i', $h); }));
+                if (count($h2) >= 2 && $q < 2) { $err[] = 'troubleshooting: headings name the symptom ("The face changes between posts", "Why does ... keep ...?")'; }
+                break;
+            case 'glossary':
+                if (count($h2) > 3) { $err[] = 'glossary entry: at most three "## " sections'; }
+                if (Markdown::word_count($body) > 1000) { $err[] = 'glossary entry: under 900 words'; }
+                break;
+        }
+        return $err;
+    }
+
+    /**
+     * Product facts an article may carry that a generic piece cannot: plan names with their fee and price, the payout
+     * minimum, the credit rate, included AI credits, storage, influencer counts, the network count, feature names.
+     * Read from config, never typed. Each entry: label => regex (case-insensitive) that counts as the fact appearing.
+     */
+    public static function product_facts(): array {
+        $site = Main::site_name(); $facts = array();
+        foreach (PagesController::selling_tiers() as $t) {
+            $n = preg_quote($t['name'], '/'); $pct = (int) $t['limits']['fee_percent']; $price = number_format((int) $t['price']);
+            $facts[$t['name'] . ' fee'] = '/\b' . $pct . '\s?%[^.]{0,60}\b' . $n . '\b|\b' . $n . '\b[^.]{0,60}\b' . $pct . '\s?%/i';
+            $facts[$t['name'] . ' price'] = '/\b' . $n . '\b[^.]{0,40}\$' . preg_quote($price, '/') . '\b|\$' . preg_quote($price, '/') . '\b[^.]{0,40}\b' . $n . '\b/i';
+            if ((int) ($t['limits']['ai_credits'] ?? 0) > 0) { $facts[$t['name'] . ' AI credits'] = '/\b' . preg_quote(number_format((int) $t['limits']['ai_credits']), '/') . ' (?:ai )?credits\b/i'; }
+            if ((int) ($t['limits']['storage_gb'] ?? 0) > 0) { $facts[$t['name'] . ' storage'] = '/\b' . (int) $t['limits']['storage_gb'] . '\s?GB\b/i'; }
+            if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $facts[$t['name'] . ' influencers'] = '/\b' . (int) $t['limits']['influencers'] . ' AI influencers?\b|\b(?:one|ten|' . (int) $t['limits']['influencers'] . ') AI influencer\b/i'; }
+        }
+        $facts['payout minimum'] = '/' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b[^.]{0,40}\b(?:minimum|payout|cash out|cash-out)|\b(?:minimum|payout|cash out|cash-out)\b[^.]{0,40}' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b/i';
+        $facts['credit rate'] = '/\$1 (?:=|buys|is|equals) ' . (int) Price::CREDITS_PER_DOLLAR . ' credits|\b' . (int) Price::CREDITS_PER_DOLLAR . ' credits (?:per|to the|for a|for every) dollar\b/i';
+        $facts['nine networks'] = '/\bnine (?:social )?networks\b/i';
+        $facts['credit wallet'] = '/\bcredit wallet\b/i';
+        foreach (array('pay-per-view', 'bundles?', 'membership tiers?', 'services and events', 'DM agent', 'AI captions?', 'tracked links?', 'custom domains?', 'welcome messages?', 'broadcasts?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
+        return $facts;
+    }
+
+    /** At least PRODUCT_FACTS_MIN distinct product facts, so the piece says something only this product can. */
+    const PRODUCT_FACTS_MIN = 2;
+    public static function product_fact_errors(string $body): array {
+        $hits = array();
+        foreach (self::product_facts() as $label => $re) { if (preg_match($re, $body)) { $hits[] = $label; } }
+        // feature names alone are generic words; at least one hit must be a number from config (fee, price, credits, storage, influencers, payout, credit rate)
+        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet' && $h !== 'nine networks'; });
+        if (count($hits) < self::PRODUCT_FACTS_MIN || count($numeric) < 1) {
+            return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
+        }
+        return array();
+    }
+
+    /** Words that do not change what a keyword is about. */
+    const INTENT_NOISE = array('a','an','and','the','to','for','of','on','in','with','as','your','you','my','how','what','why','when','which','is','are','do','does','can','should','best','top','guide','tips','tip','step','steps','by','way','ways','ultimate','complete','full','easy','simple','quick','online','vs','versus','or','from','without','that','actually','really','new','2024','2025','2026','creator','creators','content');
+
+    /** The search intent of a keyword as a sorted stem set: "how to monetize digital content" and "monetize digital content" share one. */
+    public static function intent_key($keyword): string {
+        $words = preg_split('/[^a-z0-9]+/', strtolower((string) $keyword), -1, PREG_SPLIT_NO_EMPTY);
+        $stems = array();
+        foreach ($words as $w) { if (in_array($w, self::INTENT_NOISE, true) || mb_strlen($w) < 3) { continue; } $stems[self::stem($w)] = true; }
+        $stems = array_keys($stems); sort($stems);
+        return implode(' ', $stems);
+    }
+
+    /** Do two intent keys mean the same search: equal, or one inside the other with at most one extra stem, or 75% shared stems. */
+    public static function same_intent(string $a, string $b): bool {
+        if ($a === '' || $b === '') { return false; }
+        if ($a === $b) { return true; }
+        $x = explode(' ', $a); $y = explode(' ', $b);
+        $shared = count(array_intersect($x, $y)); $min = min(count($x), count($y)); $max = max(count($x), count($y));
+        if ($min >= 3 && $shared === $min && $max - $min <= 1) { return true; }   // "lora training dataset" inside "lora training dataset tips"; a one- or two-stem key must match exactly
+        return $min >= 4 && $shared / $max >= 0.8;
+    }
+
+    /**
+     * The queue after the duplicate check: every queued keyword against every published article (its target keyword and
+     * title) and every other queued keyword. Returns ['kept' => rows, 'merged' => rows (+ 'into' => article), 'dropped' => rows
+     * (+ 'duplicate_of' => keyword)]. Nothing is written: cron/seo_draft.php --dedupe prints it, --dedupe --apply records it.
+     */
+    public static function dedupe_queue(): array {
+        $out = array('kept' => array(), 'merged' => array(), 'dropped' => array());
+        try { $queue = (new SeoKeywordsModel())->all(); $published = (new SeoArticlesModel())->published(50, 0); }
+        catch (\Throwable $e) { return $out; }
+        $queued = array_values(array_filter($queue, function ($k) { return (string) $k['status'] === 'queued'; }));
+        usort($queued, function ($a, $b) { return ((int) $a['priority'] <=> (int) $b['priority']) ?: ((int) $a['id'] <=> (int) $b['id']); });
+        $kept_keys = array();
+        foreach ($queued as $k) {
+            $key = self::intent_key($k['keyword']); $hit = null;
+            foreach ($published as $a) {
+                if (self::same_intent($key, self::intent_key($a['target_keyword'])) || self::same_intent($key, self::intent_key($a['title']))) { $hit = $a; break; }
+            }
+            if ($hit) { $k['into'] = $hit; $out['merged'][] = $k; continue; }
+            $dup = null; foreach ($kept_keys as $kk => $row) { if (self::same_intent($key, $kk)) { $dup = $row; break; } }
+            if ($dup) { $k['duplicate_of'] = $dup; $out['dropped'][] = $k; continue; }
+            $kept_keys[$key] = $k; $out['kept'][] = $k;
+        }
+        return $out;
+    }
+
+    /** Does a FAQ pair only restate the body: 70% of the answer's content stems already appear in the body? */
+    public static function faq_repeats_body(array $pair, string $body): bool {
+        $a = self::tokens((string) ($pair['a'] ?? '')); if (count($a) < 4) { return false; }
+        $b = array_flip(self::tokens($body)); $hit = 0;
+        foreach ($a as $t) { if (isset($b[$t])) { $hit++; } }
+        return $hit / count($a) >= 0.7;
+    }
+
     public static function intent_for($keyword, $cluster = ''): string {
         $k = ' ' . strtolower(trim((string) $keyword)) . ' ';
         if (preg_match('/^ (what is|what are|what does|can i|can you|do i|do you|does|is |are |how much|how long|how many|when |should |why )/', $k)) { return 'quick'; }
@@ -576,6 +732,10 @@ class SeoDrafter {
         $a['meta_description'] = $meta;
         $a['body_md'] = self::strip_links((string) ($a['body_md'] ?? ''), $a['cluster'] ?? '');
         $a['body_md'] = self::fix_plan_prices($a['body_md']);
+        if (isset($a['faq']) && is_array($a['faq'])) {   // a FAQ that restates the body is noise: keep only pairs that add a question
+            $kept = array(); foreach ($a['faq'] as $f) { if (is_array($f) && !self::faq_repeats_body($f, $a['body_md'])) { $kept[] = $f; } }
+            $a['faq'] = count($kept) >= 2 ? $kept : array();
+        }
         return $a;
     }
 
@@ -692,6 +852,8 @@ class SeoDrafter {
             elseif (!in_array($path, $allowed, true)) { $err[] = "unknown internal link: $l"; }
         }
         $err = array_merge($err, self::quotability_errors($a));
+        $err = array_merge($err, self::product_fact_errors($body));   // a product-specific element, or it does not publish
+        if (!empty($a['format']) && isset(self::FORMATS[(string) $a['format']])) { $err = array_merge($err, self::format_errors((string) $a['format'], $body)); }
         if (self::$check_citation_urls) { foreach (self::unreachable_citations(self::citations($body)) as $u) { $err[] = 'cited URL does not resolve: ' . $u . self::known_instead($u); } }
         $err = array_merge($err, self::link_errors($a));   // allow-list and cluster: always, drafted or edited
         if ($strict_links) {
@@ -777,7 +939,8 @@ class SeoDrafter {
             . "Plan prices, the platform fee and the refund rule: most pieces need none of them. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word, and never attach a fee to the Free plan. "
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
-            . "Shape the piece for the question, not for a template. The request names the shape, the number of \"## \" sections, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
+            . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
+            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, a named feature as it works here), in the article's own words. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
@@ -1031,7 +1194,7 @@ class SeoDrafter {
      * $dry_run: one Claude call, no cover, saved as a 'draft' article (even when it fails a rule, so it can be read), never published.
      * $avoid (a rewrite for corpus shape): 'faq' => true forbids a FAQ, 'sections' => n makes the draw pick another section count.
      */
-    public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false, array $avoid = array()): array {
+    public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false, array $avoid = array(), string $format = ''): array {
         $keywords = new SeoKeywordsModel(); $articles = new SeoArticlesModel();
         $kid = (int) $kw['id']; $keyword = (string) $kw['keyword'];
         $existing = $existing_article_id > 0 ? $articles->get($existing_article_id) : null;
@@ -1045,6 +1208,11 @@ class SeoDrafter {
         $feature = self::feature_for($cluster);
         $targets = self::link_targets($cluster, $existing_article_id);
         $intent = self::intent_for($keyword, $cluster); $len = self::LENGTHS[$intent];
+        if ($format === '' || !isset(self::FORMATS[$format])) {   // the keyword's format, never the one the last published article used
+            $last = ''; try { $last = (string) ($articles->last_published_format()); } catch (\Throwable $e) {}
+            $format = self::format_for($keyword, $cluster, $last);
+        }
+        if ($format === 'glossary') { $intent = 'quick'; $len = self::LENGTHS['quick']; }
         $user = "Target keyword: \"$keyword\"" . (!empty($kw['volume']) ? " (about {$kw['volume']} searches/month)" : '') . ".";
         if ($cluster !== '') { $user .= "\nTopic cluster: " . self::CLUSTERS[$cluster]['label'] . "."; }
         // a different target inside the band, and a different shape, each time: the corpus stops landing on one length and one layout
@@ -1063,7 +1231,8 @@ class SeoDrafter {
         $faq_hint = (empty($avoid['faq']) && random_int(1, 10) <= 3) ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';
         $user .= "\nLength: about $target words of body_md (a " . $len[2] . '; stay between ' . $len[0] . ' and ' . $len[1] . ').';
         $user .= "\nShape: " . $shapes[random_int(0, count($shapes) - 1)] . '.';
-        $user .= "\nSections: " . $sections . ' "## " section' . ($sections === 1 ? '' : 's') . ', headings written as ' . $heading_styles[random_int(0, count($heading_styles) - 1)] . ', with ' . $rhythms[random_int(0, count($rhythms) - 1)] . '.';
+        $user .= "\nFormat: " . self::FORMATS[$format]['label'] . '. Structure: ' . self::FORMATS[$format]['structure'];
+        $user .= "\nHeadings written as " . $heading_styles[random_int(0, count($heading_styles) - 1)] . ' where the format allows, with ' . $rhythms[random_int(0, count($rhythms) - 1)] . '. At least two headings are questions a creator asks.';
         $user .= "\n" . $faq_hint;
         if ($cluster !== '') { $user .= "\nThe only product pages you may link to: " . implode(', ', self::cluster_links($cluster)) . '.'; }
         $user .= "\n\nLink to at least THREE of these published articles, each where it genuinely helps the reader, using their exact paths:\n";
@@ -1085,7 +1254,7 @@ class SeoDrafter {
             if ($data === null) { $errors = array('reply was not valid JSON'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
             if ($existing_article_id === 0) { $base = $data['slug']; $i = 2; while ((new SeoArticlesModel())->slug_exists($data['slug'])) { $data['slug'] = $base . '-' . $i++; } }
-            $data['cluster'] = $cluster; $data['intent'] = $intent;
+            $data['cluster'] = $cluster; $data['intent'] = $intent; $data['format'] = $format;
             $data = self::fit($data);
             $errors = self::validate($data, $existing_article_id, count($targets) >= 3);
             if (empty($errors) && $existing_article_id === 0) {
@@ -1108,6 +1277,13 @@ class SeoDrafter {
                 if (@file_put_contents($dump, "Errors:\n- " . implode("\n- ", $errors) . "\n\nReply:\n" . $raw) !== false) { $errors[] = 'reply saved: ' . $dump; }
             }
             $dupe = (bool) preg_grep('/already covered/', $errors);
+            if ($existing_article_id === 0 && $data !== null && !$dupe) {   // the draft waits in Unpublished with the reason shown in admin; it never goes live
+                $fields = self::article_fields($data, $keyword, $cluster, $model, 'review');
+                $fields['rewrite_note'] = 'Checks failed: ' . mb_substr(implode('; ', $errors), 0, 900);
+                $aid = $articles->create($fields);
+                $keywords->set_status($kid, 'drafted', $aid, implode('; ', $errors));
+                return array('ok' => false, 'article_id' => $aid, 'error' => implode('; ', $errors));
+            }
             if ($existing_article_id > 0) { $keywords->set_status($kid, $prev_status === 'drafting' ? 'drafted' : $prev_status, null, implode('; ', $errors)); }
             elseif ($dupe) { $keywords->set_status($kid, 'skipped', null, implode('; ', $errors)); }   // covered already: retire the keyword instead of publishing a near-duplicate
             else { $keywords->set_status($kid, 'queued', null, implode('; ', $errors)); $keywords->set_priority($kid, (int) ($prev['priority'] ?? $kw['priority'] ?? 100) + 50); }   // one bad keyword can't block the queue daily
@@ -1136,7 +1312,7 @@ class SeoDrafter {
             'slug' => $data['slug'], 'title' => trim((string) $data['title']), 'meta_description' => trim((string) $data['meta_description']),
             'excerpt' => trim((string) ($data['excerpt'] ?? '')), 'body_md' => (string) $data['body_md'],
             'body_html' => self::render_body((string) $data['body_md']),
-            'target_keyword' => $keyword, 'cluster' => $cluster, 'author' => Main::site_name() . ' team', 'secondary_keywords' => json_encode(array_values((array) ($data['secondary_keywords'] ?? array())), JSON_UNESCAPED_UNICODE),
+            'target_keyword' => $keyword, 'cluster' => $cluster, 'format' => (string) ($data['format'] ?? ''), 'author' => Main::site_name() . ' team', 'secondary_keywords' => json_encode(array_values((array) ($data['secondary_keywords'] ?? array())), JSON_UNESCAPED_UNICODE),
             'faq' => json_encode(array_values((array) ($data['faq'] ?? array())), JSON_UNESCAPED_UNICODE),
             'reading_minutes' => self::reading_minutes((string) $data['body_md']), 'status' => $status,
             'rewrite_note' => null, 'model' => $model, 'prompt_version' => self::PROMPT_VERSION,

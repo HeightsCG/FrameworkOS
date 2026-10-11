@@ -37,7 +37,7 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$opts = getopt('', array('fix-fee', 'fix-rules', 'dry-run', 'rewrite', 'all', 'quiet', 'slug:', 'id:'));   // --slug x / --slug=x both work
+$opts = getopt('', array('fix-fee', 'fix-rules', 'dry-run', 'rewrite', 'all', 'quiet', 'slug:', 'id:', 'format:'));   // --format=<SeoDrafter::FORMATS key> with --rewrite forces the format   // --slug x / --slug=x both work
 if (isset($opts['rewrite']) && empty($opts['slug']) && empty($opts['id']) && !isset($opts['all'])) { echo "--rewrite needs --slug=<slug> or --id=<n> (or --all to rewrite every flagged article, one Claude call each)\n"; exit(1); }   // --slug=<slug> / --id=<n> limit the article pass to one article
 $site = Main::site_name();
 CronRuns::start('seo_fact_check');
@@ -135,8 +135,12 @@ foreach ($rows as $row) {
         $body = SeoDrafter::strip_links($f['body_md'] ?? (string) $a['body_md'], (string) $a['cluster'], $article_clusters);   // off-cluster links become their text
         $body = SeoDrafter::clean_boilerplate($body);   // the injected fee/plan/refund sentences and their fragments go; paragraphs over six sentences are split
         if (trim($body) !== trim((string) $a['body_md'])) { $f['body_md'] = $body; }
-        if (is_array($faq)) {   // the fee, plan-price and refund sentences were injected into FAQ answers too
+        if (is_array($faq)) {   // the fee, plan-price and refund sentences were injected into FAQ answers too; a pair that only restates the body goes (FAQPage schema follows the column)
             $changed = false;
+            $body_for_faq = $f['body_md'] ?? (string) $a['body_md'];
+            $before_n = count($faq); $faq = array_values(array_filter($faq, function ($q) use ($body_for_faq) { return !is_array($q) || !SeoDrafter::faq_repeats_body($q, $body_for_faq); }));
+            if (count($faq) < 2) { $faq = array(); }
+            if (count($faq) !== $before_n) { $changed = true; }
             foreach ($faq as $i => $q) { if (is_array($q)) { $v = SeoDrafter::strip_boilerplate_text((string) ($q['a'] ?? '')); if ($v !== (string) ($q['a'] ?? '')) { $faq[$i]['a'] = $v; $changed = true; } } }
             $faq = array_values(array_filter($faq, function ($q) { return !is_array($q) || trim((string) ($q['a'] ?? '')) !== ''; }));   // an answer that was only boilerplate goes with its question
             if ($changed) { $f['faq'] = json_encode($faq, JSON_UNESCAPED_UNICODE); }
@@ -186,7 +190,7 @@ foreach ($rows as $row) {
         $avoid = (array) ($shape[(string) $a['slug']]['avoid'] ?? array());
         if ($shape_issue !== '') { $note .= ' The blog reads as one template, so this piece changes shape: ' . (!empty($avoid['faq']) ? 'no FAQ this time (return faq as an empty array). ' : '') . (isset($avoid['sections']) ? 'Use the number of sections the request gives, not ' . (int) $avoid['sections'] . '. ' : '') . 'Follow the heading style and length rhythm the request gives, and do not open the piece the way it opens now.'; }
         echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues, $shape_issue !== '' ? array('shape: ' . $shape_issue) : array())), ")\n";
-        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id'], false, $avoid); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
+        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id'], false, $avoid, (string) ($opts['format'] ?? '')); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
         if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
             $flagged = array_values(array_filter($flagged, function ($f) use ($a) { return strpos($f, '/blog/' . $a['slug'] . ' ') !== 0 && strpos($f, '/blog/' . $a['slug'] . ':') !== 0; }));
             $fresh = $articles->get((int) $a['id']); $left = $fresh ? $rules($fresh) : array();

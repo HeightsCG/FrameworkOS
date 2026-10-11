@@ -14,12 +14,14 @@ SeoDrafter::$check_citation_urls = false;   // the rules are tested here; the li
 $sentence = 'Creators price a tier by the gap between tiers and the value fans see. ';
 $cite = "The IRS explains self-employment tax at [irs.gov](https://www.irs.gov/businesses/small-businesses-self-employed), and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance).\n\n";
 $define = "A membership tier is a monthly price for a set of posts and perks.\n\n";   // the first paragraph defines the subject
-$sec = function ($n, $per) use ($sentence, $cite, $define) {
+$pf_tier = null; foreach (PlanTiers::all() as $pt) { if ((int) ($pt['price'] ?? 0) > 0 && empty($pt['retired'])) { $pf_tier = $pt; break; } }
+$facts = $pf_tier ? ('On the ' . $pf_tier['name'] . ' plan you get ' . number_format((int) $pf_tier['limits']['ai_credits']) . ' AI credits a month, and payouts go to your bank from a ' . Price::PAYOUT_MIN_LABEL . ' minimum. ') : '';   // two product facts, one numeric, no fee (the fee tests add their own)
+$sec = function ($n, $per) use ($sentence, $cite, $define, $facts) {
     $b = '';
     for ($i = 1; $i <= $n; $i++) {
         $h = ($i === 1) ? 'How do creators price a tier?' : (($i === 2) ? 'What should the gap be?' : "Part $i");
         $paras = ''; for ($left = max(1, (int) round($per / 13)); $left > 0; $left -= 5) { $paras .= str_repeat($sentence, min(5, $left)) . "\n\n"; }   // paragraphs of five sentences
-        $b .= "## $h\n\n" . ($i === 1 ? $define . $cite : '') . $paras . "See [features](/features).\n\n";
+        $b .= "## $h\n\n" . ($i === 1 ? $define . $facts . $cite : '') . $paras . "See [features](/features).\n\n";
     }
     return $b;
 };
@@ -35,7 +37,7 @@ $t = $good; $t['meta_description'] = str_repeat('x', 156);              check('m
 $t = $good; $t['meta_description'] = str_repeat('x', 109);              check('meta < 110 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['faq'] = array();                                        check('no faq allowed', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace(array('How do creators price a tier?', 'What should the gap be?'), array('Pricing a tier', 'The gap'), $good['body_md']);
-                                                                         check('no question headings required (structure is the piece\'s own)', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
+                                                                         check('fewer than 2 question headings rejected (restored 2026-10-11)', (bool) preg_grep('/question/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace('and the FTC covers endorsements at [ftc.gov](https://www.ftc.gov/business-guidance)', 'and more at [irs.gov](https://www.irs.gov/forms-pubs)', $good['body_md']);
                                                                          check('two citations to one host rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace($cite, '', $good['body_md']);   check('no citations rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
@@ -56,8 +58,30 @@ $t = $good; $t['body_md'] .= "\n\nGreat 🚀";                            check(
 $t = $good; $t['body_md'] .= "\n\nAs an AI language model I think";     check('"As an AI" rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['faq'] = array(array('q' => 'One?', 'a' => 'Yes.'));    check('a single faq pair rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['faq'] = array(array('q' => 'One?', 'a' => 'Yes.'), array('q' => 'Two?', 'a' => 'Yes.'));    check('two faq pairs allowed', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] = "## How do creators price a tier?\n\n" . $define . $cite . str_repeat($sentence, 100); check('one h2 allowed (no set number of sections)', !preg_grep('/section/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] = $define . $cite . str_repeat($sentence, 100); check('zero h2 rejected', (bool) preg_grep('/section/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = "## How do creators price a tier?\n\n" . $define . $facts . $cite . str_repeat($sentence, 100); check('one h2 allowed (no set number of sections)', !preg_grep('/section/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = $define . $facts . $cite . str_repeat($sentence, 100); check('zero h2 rejected', (bool) preg_grep('/section/', SeoDrafter::validate($t)));
+// product facts (2026-10-11): a piece any platform could publish does not publish
+$t = $good; $t['body_md'] = str_replace($facts, '', $good['body_md']); check('no product facts rejected', (bool) preg_grep('/product facts/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] = str_replace($facts, 'You can sell bundles and pay-per-view posts. ', $good['body_md']); check('feature names alone are not enough', (bool) preg_grep('/product facts/', SeoDrafter::validate($t)));
+// formats
+check('format_for: how to = guide', SeoDrafter::format_for('how to train a lora character') === 'guide');
+check('format_for: alternative = comparison', SeoDrafter::format_for('fanvue alternative') === 'comparison');
+check('format_for: price = cost', SeoDrafter::format_for('how much does a creator platform cost') === 'cost');
+check('format_for: drift = troubleshooting', SeoDrafter::format_for('why does my lora character keep drifting') === 'troubleshooting');
+check('format_for: what is = glossary', SeoDrafter::format_for('what is a pay-per-view post') === 'glossary');
+check('format_for: never the last format back to back', SeoDrafter::format_for('how to sell bundles', '', 'guide') !== 'guide' && SeoDrafter::format_for('how to sell bundles', '', 'checklist') === 'guide');
+check('format_errors: guide needs numbered steps', (bool) SeoDrafter::format_errors('guide', $good['body_md']) && SeoDrafter::format_errors('guide', "## 1. Pick\n\nx\n\n## 2. Price\n\ny\n\n## 3. Launch\n\nz\n") === array());
+check('format_errors: comparison needs a table', (bool) SeoDrafter::format_errors('comparison', $good['body_md']) && SeoDrafter::format_errors('comparison', "## A?\n\n| Option | Fee |\n|---|---|\n| X | 10% |\n\n## B?\n\ntext\n") === array());
+check('format_errors: cost needs four dollar figures', (bool) SeoDrafter::format_errors('cost', 'One $10 tier.') && SeoDrafter::format_errors('cost', '$10 $20 $30 $40') === array());
+check('format_errors: checklist needs ten items', (bool) SeoDrafter::format_errors('checklist', $good['body_md']) && SeoDrafter::format_errors('checklist', str_repeat("- item\n", 10)) === array());
+$t = $good; $t['format'] = 'guide'; check('validate applies the format', (bool) preg_grep('/step-by-step/', SeoDrafter::validate($t)));
+// intent dedupe
+check('intent_key strips noise', SeoDrafter::intent_key('How to monetize digital content') === SeoDrafter::intent_key('monetize digital content') && SeoDrafter::intent_key('fanvue alternative') !== SeoDrafter::intent_key('onlyfans alternative'));
+check('same_intent: one extra stem', SeoDrafter::same_intent(SeoDrafter::intent_key('lora training dataset tips'), SeoDrafter::intent_key('lora training dataset')) && !SeoDrafter::same_intent(SeoDrafter::intent_key('ai chat for creators'), SeoDrafter::intent_key('ai influencer monetization')));
+// FAQ that restates the body
+check('faq_repeats_body', SeoDrafter::faq_repeats_body(array('q' => 'How?', 'a' => 'Creators price a tier by the gap between tiers and the value fans see.'), $good['body_md']) && !SeoDrafter::faq_repeats_body(array('q' => 'Tax?', 'a' => 'Sales tax registration thresholds differ by country and by state.'), $good['body_md']));
+$t = $good; $t['faq'] = array(array('q' => 'A?', 'a' => 'Creators price a tier by the gap between tiers and the value fans see.'), array('q' => 'B?', 'a' => 'Sales tax registration thresholds differ by country and by state.'), array('q' => 'C?', 'a' => 'Chargebacks on digital goods are rarer than on physical goods but still happen.'));
+$f = SeoDrafter::fit($t); check('fit drops the FAQ pair that restates the body', count($f['faq']) === 2 && $f['faq'][0]['q'] === 'B?', json_encode($f['faq']));
 check('slugify', SeoDrafter::slugify(" Hello, World! It's 2026 ") === 'hello-world-its-2026');
 check('reading_minutes >= 1', SeoDrafter::reading_minutes('one two') === 1 && SeoDrafter::reading_minutes(str_repeat('w ', 900)) === 4);
 check('allowed_paths has /features and /pricing', in_array('/features', SeoDrafter::allowed_paths(), true) && in_array('/pricing', SeoDrafter::allowed_paths(), true));
@@ -120,7 +144,7 @@ $t = $good; $t['body_md'] .= "\n\nWrite {{fee}} here.";                         
 $t = $good; $t['intent'] = 'quick'; $t['body_md'] = $sec(4, 175);  check('quick 700 words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['intent'] = 'quick'; $t['body_md'] = $sec(4, 320);  check('quick 1280 words rejected', !$ok($t));
 $t = $good; $t['intent'] = 'howto'; $t['body_md'] = $sec(4, 250);  check('howto 1000 words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
-$t = $good; $t['intent'] = 'guide'; $t['body_md'] = $sec(4, 250);  check('guide 1000 words rejected', !$ok($t));
+$t = $good; $t['intent'] = 'guide'; $t['body_md'] = $sec(4, 200);  check('guide 850 words rejected', !$ok($t));
 $t = $good; $t['intent'] = 'guide'; $t['body_md'] = $sec(4, 600);  check('guide 2400 words rejected', !$ok($t));
 check('word_bounds quick = 480-960', SeoDrafter::word_bounds('quick') === array(480, 960));
 check('intent: question = quick', SeoDrafter::intent_for('how much should i charge for a membership', 'memberships-and-ppv') === 'quick');

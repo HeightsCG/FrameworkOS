@@ -94,14 +94,21 @@ class SeoMeta {
         return $w;
     }
 
+    /** The article author (Daniel's brief 2026-10-11): one Person, "Dr. Glauber", with the author page as url. Never a first name. */
+    const AUTHOR_NAME = 'Dr. Glauber';
+    const AUTHOR_PATH = '/author/dr-glauber';
+    const AUTHOR_ROLE = 'Leads the Creator Link Studio team';
+    /** The byline on every article, once, at the top. */
+    public static function byline(): string { return 'The ' . self::site() . ' team, led by ' . self::AUTHOR_NAME; }
+
     /**
-     * The author node on every Article: the Organization, with /about (its editorial section) as the url and the
-     * same sameAs profiles as the footer. No Person and no personal name, by rule.
+     * The author node on every Article: a Person named AUTHOR_NAME, url the author page, worksFor the Organization
+     * (url /about, sameAs the company profiles). The Person's own sameAs stays empty until Daniel picks profiles.
      */
     public static function author(): array {
-        $a = array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/about', 'logo' => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'));
-        if (!empty(self::SOCIAL_PROFILES)) { $a['sameAs'] = array_values(self::SOCIAL_PROFILES); }
-        return $a;
+        $org = array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/about', 'logo' => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'));
+        if (!empty(self::SOCIAL_PROFILES)) { $org['sameAs'] = array_values(self::SOCIAL_PROFILES); }
+        return array('@type' => 'Person', 'name' => self::AUTHOR_NAME, 'url' => self::base() . self::AUTHOR_PATH, 'jobTitle' => self::AUTHOR_ROLE, 'worksFor' => $org, 'sameAs' => array());
     }
 
     public static function org(): array {
@@ -171,7 +178,7 @@ class SeoMeta {
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
             'image' => (string) ($m['image'] ?? self::default_image()),
-            'author' => self::author(),   // the Organization is the author of every article (never a Person): name, the editorial page as url, sameAs
+            'author' => !empty($m['person']) ? self::author() : self::org(),   // blog articles: the Person (AUTHOR_NAME); product pages keep the Organization, so the name stays on the four allowed places
             'publisher' => self::org(),
             'inLanguage' => 'en-US',
         );
