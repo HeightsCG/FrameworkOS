@@ -109,6 +109,9 @@ check('clean: fragment clause dropped, the rest kept', strpos($clean, "Fifty mem
 check('clean: normal paragraph and heading untouched', strpos($clean, "## Fees\n\n") === 0 && strpos($clean, 'A normal paragraph stays [as it is](/pricing).') !== false, $clean);
 check('clean: 8-sentence paragraph split into two of 4', substr_count($clean, "Creators price a tier by the gap. Creators price a tier by the gap. Creators price a tier by the gap. Creators price a tier by the gap.\n\n") === 1 && !preg_grep('/sentences;/', SeoDrafter::prose_errors($clean)), $clean);
 check('clean: clean input unchanged', SeoDrafter::clean_boilerplate("## A\n\nOne. Two.\n\nThree.\n") === "## A\n\nOne. Two.\n\nThree.\n");
+$bold = "**A source of truth.** Every tier with its price. " . PagesController::FINAL_NOTE . "\n\n- a list item with " . PagesController::FINAL_NOTE . "\n";
+check('clean: a paragraph opening in bold is prose, a list item is not', SeoDrafter::clean_boilerplate($bold) === "**A source of truth.** Every tier with its price.\n\n- a list item with " . PagesController::FINAL_NOTE . "\n", SeoDrafter::clean_boilerplate($bold));
+check('strip_boilerplate_text: FAQ answer', SeoDrafter::strip_boilerplate_text('Yes. ' . PagesController::fee_sentence() . ' ' . PagesController::FINAL_NOTE) === 'Yes.', SeoDrafter::strip_boilerplate_text('Yes. ' . PagesController::fee_sentence()));
 check('split_long_paragraph: 13 sentences -> 7 + 6 -> four pieces', count(SeoDrafter::split_long_paragraph(str_repeat('Fans like it. ', 13))) === 3 || count(SeoDrafter::split_long_paragraph(str_repeat('Fans like it. ', 13))) === 4);
 $t = $good; $t['body_md'] .= "\n\nWrite {{fee}} here.";                            check('unreplaced token rejected', !$ok($t));
 // length by intent (+/- 20%)
@@ -243,4 +246,13 @@ $t = $good; $t['body_md'] .= "\n\nThe fee is the single biggest lever on your in
 $t = $good; $t['body_md'] .= "\n\nExtra AI influencers are \$15 a month each on the Creator plan, up to five. "; check('R3 add-on price next to a plan name passes', $ok($t), $errs($t));
 check('R3 add-on price is not rewritten', strpos(SeoDrafter::fix_plan_prices('Extra AI influencers are $15 a month each on the Creator plan.'), '$15 a month') !== false, 'rewritten');
 check('R3 a wrong plan price is still rewritten', strpos(SeoDrafter::fix_plan_prices('Creator costs $59 a month.'), '$49 a month') !== false, 'not rewritten');
+// corpus shape (2026-10-11): too many FAQs or one section count across the blog flags the oldest articles for a rewrite
+$mk = function ($i, $sections, $faq) { return array('id' => $i, 'slug' => 'a' . $i, 'published_at' => sprintf('2026-09-%02d 00:00:00', $i), 'faq' => $faq ? '[{"q":"Q?","a":"A."}]' : '[]', 'body_md' => str_repeat("## S\n\ntext\n\n", $sections)); };
+$corpus = array(); for ($i = 1; $i <= 10; $i++) { $corpus[] = $mk($i, 5, true); }   // every article: 5 sections + FAQ
+$flags = SeoDrafter::corpus_shape_flags($corpus);
+check('shape: excess FAQs flagged, oldest first', count(array_filter($flags, function ($f) { return !empty($f['avoid']['faq']); })) === 7 && isset($flags['a1']['avoid']['faq']) && !isset($flags['a10']['avoid']['faq']), json_encode(array_keys($flags)));
+check('shape: dominant section count flagged', count(array_filter($flags, function ($f) { return isset($f['avoid']['sections']) && $f['avoid']['sections'] === 5; })) === 6, json_encode($flags));
+$varied = array(); for ($i = 1; $i <= 10; $i++) { $varied[] = $mk($i, 2 + ($i % 5), $i % 4 === 0); }
+check('shape: a varied corpus is not flagged', SeoDrafter::corpus_shape_flags($varied) === array(), json_encode(SeoDrafter::corpus_shape_flags($varied)));
+check('shape: a corpus under 5 articles is left alone', SeoDrafter::corpus_shape_flags(array_slice($corpus, 0, 4)) === array());
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n"; exit($fail === 0 ? 0 : 1);

@@ -6,8 +6,8 @@
  *
  *   APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php            # report only
  *   ... --fix-fee     replace the known fee-range phrasings in article bodies with the per-plan fee (safe, exact)
- *   ... --rewrite     rewrite an article that drifts or breaks the content rules through the drafter (Claude), one call
- *                     each; needs --slug=<slug> or --id=<n>, or --all for every flagged article
+ *   ... --rewrite     rewrite an article that drifts, breaks the content rules or carries the corpus shape (see below) through
+ *                     the drafter (Claude), one call each; needs --slug=<slug> or --id=<n>, or --all for every flagged article
  *   ... --quiet       no admin notice (for ad-hoc runs)
  *   ... --slug=<slug> only that article (try a rewrite on one before running it on all)
  *   ... --id=<n>      only that article, in any status (a draft too), and no public page pass
@@ -21,6 +21,9 @@
  *                     Run once on prod after the 2026-10-11 deploy: APPLICATION_ENV=production php .../seo_fact_check.php --fix-rules --quiet
  *   Every article is also held to the drafter's content rules (SeoDrafter::content_errors: income promises, people's
  *   names, dashes, the payment processor, citation domains, plan prices, copied facts-sheet sentences); those are reported, never auto-fixed.
+ *   Corpus shape (SeoDrafter::corpus_shape_flags): when more than 35% of the blog ends in a FAQ, or more than 40% has the
+ *   same number of sections, the oldest articles in the excess are reported "(shape)" and --rewrite regenerates them with
+ *   a structure the drafter is told to avoid. Nothing is edited by hand: run --fix-rules, then --rewrite --all, after a deploy.
  *   Prod crontab (after the 09:00 article; no --quiet, the admin notice is the point):
  *   30 9 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php >> /tmp/cls-seo-fact-check.log 2>&1
  */
@@ -110,7 +113,9 @@ $rule_counts = array('before' => array(), 'after' => array());
 
 $articles = new SeoArticlesModel();
 $flagged = array();
-$rows = !empty($opts['id']) ? array(array('id' => (int) $opts['id'])) : $articles->published(500, 0);
+$all_published = !empty($opts['id']) ? array() : $articles->published_shapes();
+$shape = SeoDrafter::corpus_shape_flags($all_published);   // slug => reason + what the rewrite must avoid
+$rows = !empty($opts['id']) ? array(array('id' => (int) $opts['id'])) : $all_published;
 foreach ($rows as $row) {
     $a = $articles->get((int) $row['id']); if (!$a) { continue; }
     if (!empty($opts['slug']) && (string) $a['slug'] !== (string) $opts['slug']) { continue; }
@@ -130,11 +135,13 @@ foreach ($rows as $row) {
         $body = SeoDrafter::strip_links($f['body_md'] ?? (string) $a['body_md'], (string) $a['cluster'], $article_clusters);   // off-cluster links become their text
         $body = SeoDrafter::clean_boilerplate($body);   // the injected fee/plan/refund sentences and their fragments go; paragraphs over six sentences are split
         if (trim($body) !== trim((string) $a['body_md'])) { $f['body_md'] = $body; }
-        if (is_array($faq)) {   // the refund line was injected into FAQ answers too
+        if (is_array($faq)) {   // the fee, plan-price and refund sentences were injected into FAQ answers too
             $changed = false;
-            foreach ($faq as $i => $q) { if (is_array($q)) { $v = trim(preg_replace('/\s{2,}/', ' ', str_replace(PagesController::FINAL_NOTE, '', (string) ($q['a'] ?? '')))); if ($v !== (string) ($q['a'] ?? '')) { $faq[$i]['a'] = $v; $changed = true; } } }
+            foreach ($faq as $i => $q) { if (is_array($q)) { $v = SeoDrafter::strip_boilerplate_text((string) ($q['a'] ?? '')); if ($v !== (string) ($q['a'] ?? '')) { $faq[$i]['a'] = $v; $changed = true; } } }
+            $faq = array_values(array_filter($faq, function ($q) { return !is_array($q) || trim((string) ($q['a'] ?? '')) !== ''; }));   // an answer that was only boilerplate goes with its question
             if ($changed) { $f['faq'] = json_encode($faq, JSON_UNESCAPED_UNICODE); }
         }
+        foreach (array('excerpt', 'meta_description') as $col) { $v = SeoDrafter::strip_boilerplate_text((string) ($f[$col] ?? $a[$col])); if ($v !== (string) ($f[$col] ?? $a[$col]) && $v !== '') { $f[$col] = $v; } }
         if (!empty($f) && isset($opts['dry-run'])) {
             echo date('c'), ' would fix rules (', implode(', ', array_keys($f)), ') in /blog/', $a['slug'], "\n";
             $rule_issues = $rules(array_merge($a, $f));
@@ -152,7 +159,9 @@ foreach ($rows as $row) {
         foreach ($rule_issues as $e) { $rule_counts['after'][$kind($e)] = ($rule_counts['after'][$kind($e)] ?? 0) + 1; }
     }
     if (!empty($rule_issues)) { $flagged[] = '/blog/' . $a['slug'] . ' (rules): ' . implode('; ', $rule_issues); }
-    $needs_rewrite = isset($opts['rewrite']) && !empty($rule_issues);   // --rewrite also takes articles that break the content rules
+    $shape_issue = (string) ($shape[(string) $a['slug']]['reason'] ?? '');
+    if ($shape_issue !== '') { $flagged[] = '/blog/' . $a['slug'] . ' (shape): ' . $shape_issue; }
+    $needs_rewrite = isset($opts['rewrite']) && (!empty($rule_issues) || $shape_issue !== '');   // --rewrite also takes articles that break the content rules or carry the corpus shape
     if (empty($issues) && !$needs_rewrite && !(isset($opts['fix-fee']) && SeoDrafter::fix_fee_glue($text) !== $text)) { continue; }
     if (isset($opts['fix-fee'])) {
         $body = (string) $a['body_md']; $faq = (string) $a['faq']; $meta = (string) $a['meta_description'];
@@ -174,8 +183,10 @@ foreach ($rows as $row) {
             . (!empty($rule_issues)
                 ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', $rule_issues) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the fee or plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
                 : ' Keep everything else as it is.');
-        echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues)), ")\n";
-        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id']); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
+        $avoid = (array) ($shape[(string) $a['slug']]['avoid'] ?? array());
+        if ($shape_issue !== '') { $note .= ' The blog reads as one template, so this piece changes shape: ' . (!empty($avoid['faq']) ? 'no FAQ this time (return faq as an empty array). ' : '') . (isset($avoid['sections']) ? 'Use the number of sections the request gives, not ' . (int) $avoid['sections'] . '. ' : '') . 'Follow the heading style and length rhythm the request gives, and do not open the piece the way it opens now.'; }
+        echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues, $shape_issue !== '' ? array('shape: ' . $shape_issue) : array())), ")\n";
+        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id'], false, $avoid); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
         if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
             $flagged = array_values(array_filter($flagged, function ($f) use ($a) { return strpos($f, '/blog/' . $a['slug'] . ' ') !== 0 && strpos($f, '/blog/' . $a['slug'] . ':') !== 0; }));
             $fresh = $articles->get((int) $a['id']); $left = $fresh ? $rules($fresh) : array();
@@ -214,7 +225,7 @@ foreach ($flagged as $f) { echo '  ', $f, "\n"; }
 if (!isset($opts['quiet'])) {
     try {
         Notify::many((new UsersModel())->admin_ids(), 'system', 'Prices, fee or content rules off on ' . count($flagged) . ' page(s)',
-            implode("\n", array_slice($flagged, 0, 12)) . (count($flagged) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-fee (fee wording) or --rewrite (full rewrite); content rules need an edit in the article editor.", '/admin?tab=content');
+            implode("\n", array_slice($flagged, 0, 12)) . (count($flagged) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules (mechanical), then --rewrite --all (rules and shape, one Claude call each).", '/admin?tab=content');
     } catch (\Throwable $e) { error_log('[seo] fact check notice: ' . $e->getMessage()); }
 }
 CronRuns::finish('seo_fact_check', false, count($flagged) . ' place(s) drifted');

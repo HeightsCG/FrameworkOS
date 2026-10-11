@@ -230,7 +230,7 @@ class SeoDrafter {
             $p = trim($p);
             if ($p === '') { continue; }
             if (preg_match('/^##\s+(.+?)\s*$/', $p, $m)) { $heading = $m[1]; $pending = true; continue; }
-            if (!$pending || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
+            if (!$pending || preg_match('/^(#|[-*+]\s|>|\||`|\d+\.\s)/', $p)) { continue; }   // a paragraph opening in **bold** is prose
             $pending = false;
             $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p);
             $sentence = preg_split('/(?<=[.!?])\s+/', $plain)[0];
@@ -905,9 +905,10 @@ class SeoDrafter {
      * separate." or ". Free accounts ..."), and splits any paragraph over PARAGRAPH_MAX_SENTENCES at a sentence boundary.
      * Headings, lists, tables and quotes are left alone. Returns the cleaned Markdown; equal to the input when nothing applied.
      */
-    public static function clean_boilerplate(string $md): string {
+    /** The injected sentences as regexes (clean_boilerplate, and the FAQ answers in cron/seo_fact_check.php --fix-rules). */
+    public static function boilerplate_patterns(): array {
         $site = preg_quote(Main::site_name(), '/');
-        $patterns = array(
+        return array(
             // "Creator Link Studio's platform fee is 10% of each sale on the Creator plan ($49/month) and 3% ... Free accounts ... Card processing fees are separate." (any prices, possibly doubled lead-in)
             '/(?:' . $site . '\'s platform fee is )+\d+% of each sale on the \w+ plan \(\$[\d,]+\/month\)(?:(?:,| and) \d+% of each sale on the \w+ plan \(\$[\d,]+\/month\))*\.(?:\s*Free accounts are for fans and cannot sell, so they pay no platform fee\.)?(?:\s*Card processing fees are separate\.)?/u',
             // "Free $0, Creator $49, Studio $199, all per month."
@@ -917,10 +918,19 @@ class SeoDrafter {
             // the Free-account sentence in every variant ("..., so they pay no platform fee." / "..., so inbox automation is not included there.")
             '/Free accounts are for fans and cannot sell[^.!?\n]*[.!?]/u',
         );
+    }
+
+    /** Plain text (a FAQ answer, an excerpt) with the injected sentences removed. */
+    public static function strip_boilerplate_text(string $text): string {
+        return trim(preg_replace('/\s{2,}/', ' ', preg_replace(self::boilerplate_patterns(), '', $text)));
+    }
+
+    public static function clean_boilerplate(string $md): string {
+        $patterns = self::boilerplate_patterns();
         $out = array();
         foreach (preg_split('/\n\s*\n/', $md) as $p) {
             $orig = trim($p); $t = $orig;
-            if ($t === '' || preg_match('/^(#|[-*>|`]|\d+\.)/', $t)) { $out[] = $t; continue; }
+            if ($t === '' || preg_match('/^(#|[-*+]\s|>|\||`|\d+\.\s)/', $t)) { $out[] = $t; continue; }   // headings, lists, quotes, tables, code; a paragraph opening in **bold** is prose
             $t = trim(preg_replace('/\s{2,}/', ' ', preg_replace($patterns, '', $t)));
             // a paragraph that opens with punctuation or a lowercase clause (", with card processing separate.") is a fragment left where a token sat
             $fragment = (bool) preg_match('/^[,.;:]\s*|^\p{Ll}/u', $t);
@@ -948,8 +958,55 @@ class SeoDrafter {
         return array_merge(self::split_long_paragraph($a), self::split_long_paragraph($b));
     }
 
-    /** $dry_run: one Claude call, no cover, saved as a 'draft' article (even when it fails a rule, so it can be read), never published. */
-    public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false): array {
+    /**
+     * The corpus-shape pass: which published articles to regenerate so the blog does not read as one template. The per-article
+     * rules cannot see this; the audit scores it (a_ai_slop). Two shares are held: at most FAQ_SHARE of articles end in a
+     * FAQ, and no single section count covers more than BUCKET_SHARE of the corpus. The oldest articles in the excess are
+     * chosen first. $rows: id, slug, body_md, faq, published_at. Returns slug => ['reason' => why, 'avoid' => what the
+     * rewrite must not reproduce ('faq' => true, 'sections' => n)], for draft() and the nightly report.
+     */
+    const FAQ_SHARE = 0.35;
+    const BUCKET_SHARE = 0.4;
+
+    public static function corpus_shape_flags(array $rows): array {
+        $n = count($rows); $flags = array();
+        if ($n < 5) { return $flags; }   // too small a corpus to have a shape
+        usort($rows, function ($a, $b) { return strcmp((string) ($a['published_at'] ?? ''), (string) ($b['published_at'] ?? '')) ?: ((int) $a['id'] <=> (int) $b['id']); });   // oldest first
+        $shape = array();
+        foreach ($rows as $r) {
+            $faq = json_decode((string) ($r['faq'] ?? '[]'), true); $has_faq = false;
+            foreach ((array) $faq as $f) { if (is_array($f) && trim((string) ($f['q'] ?? '')) !== '') { $has_faq = true; break; } }
+            $shape[(string) $r['slug']] = array('faq' => $has_faq, 'sections' => count(self::h2_texts((string) ($r['body_md'] ?? ''))));
+        }
+        $with_faq = count(array_filter($shape, function ($s) { return $s['faq']; }));
+        $excess = (int) ceil($with_faq - self::FAQ_SHARE * $n);
+        foreach ($shape as $slug => $s) {
+            if ($excess <= 0) { break; }
+            if (!$s['faq']) { continue; }
+            $flags[$slug] = array('reason' => 'ends in a FAQ like ' . (int) round(100 * $with_faq / $n) . '% of the blog; rewrite without one', 'avoid' => array('faq' => true));
+            $excess--;
+        }
+        $buckets = array();
+        foreach ($shape as $slug => $s) { $buckets[$s['sections']][] = $slug; }
+        foreach ($buckets as $count => $slugs) {
+            $over = (int) ceil(count($slugs) - self::BUCKET_SHARE * $n);
+            if ($over <= 0) { continue; }
+            foreach ($slugs as $slug) {   // oldest first; one already flagged for its FAQ also avoids this section count
+                if ($over <= 0) { break; }
+                $why = 'has ' . $count . ' sections like ' . (int) round(100 * count($slugs) / $n) . '% of the blog; rewrite with a different number';
+                if (isset($flags[$slug])) { $flags[$slug]['reason'] .= '; ' . $why; $flags[$slug]['avoid']['sections'] = (int) $count; }
+                else { $flags[$slug] = array('reason' => $why, 'avoid' => array('sections' => (int) $count)); }
+                $over--;
+            }
+        }
+        return $flags;
+    }
+
+    /**
+     * $dry_run: one Claude call, no cover, saved as a 'draft' article (even when it fails a rule, so it can be read), never published.
+     * $avoid (a rewrite for corpus shape): 'faq' => true forbids a FAQ, 'sections' => n makes the draw pick another section count.
+     */
+    public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false, array $avoid = array()): array {
         $keywords = new SeoKeywordsModel(); $articles = new SeoArticlesModel();
         $kid = (int) $kw['id']; $keyword = (string) $kw['keyword'];
         $existing = $existing_article_id > 0 ? $articles->get($existing_article_id) : null;
@@ -973,10 +1030,12 @@ class SeoDrafter {
         // the structure is drawn per draft (section count by length band, heading style, length rhythm, FAQ or none), so the corpus never settles on one layout
         $section_bands = array('quick' => array(1, 3), 'howto' => array(2, 5), 'guide' => array(3, 7));
         $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]);
+        for ($i = 0; isset($avoid['sections']) && $sections === (int) $avoid['sections'] && $i < 8; $i++) { $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]); }
+        if (isset($avoid['sections']) && $sections === (int) $avoid['sections']) { $sections = $sections > $section_bands[$intent][0] ? $sections - 1 : $sections + 1; }
         $heading_styles = array('short noun phrases ("The first paid post")', 'the exact questions a reader would type, ending in a question mark', 'imperative steps ("Pick the entry price first")',
                                 'a mix: one or two questions, the rest plain statements', 'numbered stages ("1. Choose the tier")', 'contrasts ("Memberships or pay-per-view")', 'the reader\'s situation ("When your audience is under a hundred people")');
         $rhythms = array('the first section short and the rest longer', 'one long section and the rest short', 'roughly even sections', 'the longest section in the middle', 'sections that get shorter towards the end');
-        $faq_hint = random_int(1, 10) <= 3 ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';
+        $faq_hint = (empty($avoid['faq']) && random_int(1, 10) <= 3) ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';
         $user .= "\nLength: about $target words of body_md (a " . $len[2] . '; stay between ' . $len[0] . ' and ' . $len[1] . ').';
         $user .= "\nShape: " . $shapes[random_int(0, count($shapes) - 1)] . '.';
         $user .= "\nSections: " . $sections . ' "## " section' . ($sections === 1 ? '' : 's') . ', headings written as ' . $heading_styles[random_int(0, count($heading_styles) - 1)] . ', with ' . $rhythms[random_int(0, count($rhythms) - 1)] . '.';
