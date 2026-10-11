@@ -214,31 +214,54 @@ class SeoDrafter {
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
-        return array_merge($err, self::section_opener_errors($body, $title));
+        return $err;   // section_opener_errors() is advice in the prompt, not a gate: its word-matching rejected good openers and failed rewrites (2026-10-11)
+    }
+
+    /** Do two stem lists share a word? Equal stems, or one the prefix of the other from five letters (consistent/consistency, monetize/monetization). */
+    private static function stems_overlap(array $a, array $b): bool {
+        foreach ($a as $x) { foreach ($b as $y) { if ($x === $y || (mb_strlen($x) >= 5 && mb_strlen($y) >= 5 && (strpos($x, $y) === 0 || strpos($y, $x) === 0))) { return true; } } }
+        return false;
     }
 
     /**
-     * The first sentence under each "## " heading must name what the section is about: it shares a content word
-     * (stemmed) with its heading or with the article title, so the section reads correctly when quoted on its own.
-     * A heading with no content words ("After day 30") is checked against the title alone; a section that opens
-     * with a list or a table is checked on its first prose paragraph. Up to six sections are named per pass.
+     * The first sentence under each "## " heading must name what the section is about, so the section reads correctly
+     * when quoted on its own. It passes when a content word of it (stemmed) is in the heading or the article title, or
+     * is a word the section itself keeps using (at least twice in the rest of the section): "Offers come before
+     * images." opens a section about offers even when the heading says "what the character sells". A sentence that only
+     * carries words the section never returns to ("Most people wait too long.") fails. A section that opens with a list
+     * or a table is checked on its first prose paragraph. Up to six sections are named per pass.
+     * NOT part of validate() or the nightly rules: a word-matching heuristic cannot judge whether a sentence names its
+     * subject, and as a gate it failed real rewrites on good openers. Kept for reports and tests; the prompt carries the rule.
      */
     public static function section_opener_errors(string $body, string $title = ''): array {
         $err = array(); $title_tok = self::tokens($title);
-        $heading = null; $pending = false; $n = 0;
+        $sections = array(); $cur = null;
         foreach (preg_split('/\n\s*\n/', $body) as $p) {
             $p = trim($p);
             if ($p === '') { continue; }
-            if (preg_match('/^##\s+(.+?)\s*$/', $p, $m)) { $heading = $m[1]; $pending = true; continue; }
-            if (!$pending || preg_match('/^(#|[-*+]\s|>|\||`|\d+\.\s)/', $p)) { continue; }   // a paragraph opening in **bold** is prose
-            $pending = false;
-            $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p);
+            if (preg_match('/^##\s+(.+?)\s*$/', $p, $m)) { $cur = count($sections); $sections[] = array('heading' => $m[1], 'first' => null, 'rest' => array()); continue; }
+            if ($cur === null) { continue; }
+            if ($sections[$cur]['first'] === null && !preg_match('/^(#|[-*+]\s|>|\||`|\d+\.\s)/', $p)) { $sections[$cur]['first'] = $p; }   // a paragraph opening in **bold** is prose
+            else { $sections[$cur]['rest'][] = $p; }
+        }
+        $n = 0;
+        foreach ($sections as $s) {
+            if ($s['first'] === null) { continue; }
+            $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $s['first']);
             $sentence = preg_split('/(?<=[.!?])\s+/', $plain)[0];
-            $want = array_unique(array_merge(self::tokens($heading), $title_tok));
-            if ($want === array()) { continue; }
-            if ($n < 6 && array_intersect(self::tokens($sentence), $want) === array()) {
-                $err[] = 'the first sentence under "## ' . $heading . '" must name the subject of the section: "' . mb_substr($sentence, 0, 60) . '"'; $n++;
+            $mine = self::tokens($sentence);
+            if ($mine === array()) { continue; }
+            $want = array_unique(array_merge(self::tokens($s['heading']), $title_tok));
+            if (self::stems_overlap($mine, $want)) { continue; }
+            // the words the rest of the section keeps using
+            $counts = array();
+            foreach (explode(' ', strtolower(preg_replace('/[^a-z0-9 ]+/i', ' ', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', implode(' ', array_merge(array(mb_substr($plain, mb_strlen($sentence))), $s['rest'])))))) as $w) {
+                $w = trim($w); if ($w === '' || mb_strlen($w) < 3 || in_array($w, self::STOPWORDS, true)) { continue; }
+                $k = self::stem($w); $counts[$k] = ($counts[$k] ?? 0) + 1;
             }
+            $frequent = array_keys(array_filter($counts, function ($c) { return $c >= 2; }));
+            if (self::stems_overlap($mine, $frequent)) { continue; }
+            if ($n < 6) { $err[] = 'the first sentence under "## ' . $s['heading'] . '" must name the subject of the section: "' . mb_substr($sentence, 0, 60) . '"'; $n++; }
         }
         return $err;
     }
@@ -721,7 +744,9 @@ class SeoDrafter {
         $site = Main::site_name(); $base = SeoMeta::base();
         $lines = array("Product: $site ($base). A creator platform: one public page at $base/@handle with posts, membership tiers, pay-per-view posts, content bundles, services, events and tracked links; a studio that publishes to nine social networks with AI captions; an inbox with AI replies; payouts to the creator's bank; fans pay memberships by card and everything else with a credit wallet (\$1 = 10 credits).");
         foreach (PagesController::our_facts() as $k => $v) { $lines[] = ucfirst($k) . ': ' . $v; }
-        $lines[] = 'Platform fee, exactly: ' . PagesController::fee_sentence() . ' Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
+        // the fee as data, not as a sentence the model can lift: a sentence copied word for word is rejected by content_errors()
+        $fee_bits = array(); foreach (PagesController::selling_tiers() as $t) { $fee_bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on ' . $t['name'] . ' ($' . number_format((int) $t['price']) . ' a month)'; }
+        $lines[] = 'Platform fee (state it in your own words, at most once): ' . implode('; ', $fee_bits) . '. Free is the fan account: it sells nothing and pays no fee. Card processing is charged separately. Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
         foreach (PagesController::pricing_rows() as $r) {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());
             if (empty($t['name'])) { continue; }
@@ -753,7 +778,7 @@ class SeoDrafter {
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the shape, the number of \"## \" sections, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
-            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. The first sentence under each heading names the subject of that section and gives its answer. "
+            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
