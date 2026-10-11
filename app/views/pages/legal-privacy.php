@@ -55,6 +55,7 @@ $doc = array(
         )),
         array('Cookies', array(
             'We use cookies that are needed for the Platform to work, such as the cookie that keeps you signed in and security tokens that protect forms. We also use analytics cookies to understand how the site is used. You can block cookies in your browser, but signing in will not work without the necessary ones.',
+            'Our own analytics set two cookies: cls_vid, a random visitor id kept for two years, and cls_sid, a session id that expires after 30 minutes without a page view. They hold no personal information and are not built from your IP address. We also use Google Analytics and Microsoft Clarity, which set their own cookies under their own policies.',
         )),
         array('How long we keep information', array(
             'We keep your information while your account is open. When you delete your account in your settings, the account is closed and removed from the Platform, so your profile and content are no longer shown. To have your personal information erased as well, email {contact} and we will delete it, except records we must keep for legal, tax, accounting, fraud prevention or dispute purposes, such as transaction records. Copies may remain in backups for a limited time.',
