@@ -34,6 +34,8 @@ echo Sections::cards(array(
 ), 2);
 echo Sections::close();
 
+echo PagesController::fee_example_section(array($slug), 'alt');   // worked fee example on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
+echo PagesController::payouts_section($c, 'white');               // our payout terms beside the competitor's sourced payout row
 echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
 echo PagesController::switch_section($c['name'], ($c['type'] ?? '') === 'ai');
 echo PagesController::limits_section();

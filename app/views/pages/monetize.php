@@ -9,9 +9,9 @@ echo Sections::panel_hero(array(
         array('Pay-per-view', 'A quarter of the entry tier or more'), array('Services', 'Your hourly worth times the real time, plus a third')))),
     'bg_image' => SiteImages::bg('monetize_hero'),
 ));
-echo Sections::open('white', 'Five ways to get paid');
+echo Sections::open('white', 'What are the five ways to get paid?', 'The five ways are memberships, pay-per-view posts, bundles, services and events. Each one suits a different kind of work, and all five can run from one page.');
 echo Sections::cards(array(
-    array('icon' => 'layers', 'title' => 'Memberships', 'text' => 'A monthly price for ongoing access. Start with two tiers: an entry tier priced where a fan says yes without thinking, and a higher tier for the people who want more of you.', 'note' => 'Raise prices for new members only.'),
+    array('icon' => 'layers', 'title' => 'Memberships', 'text' => 'A monthly price for ongoing access. Start with two tiers. The entry tier is priced where a fan says yes without thinking, and the higher tier is for the people who want more of you.', 'note' => 'Raise prices for new members only.'),
     array('icon' => 'lock', 'title' => 'Pay-per-view posts', 'text' => 'One post, one price, for everyone including members. Best for your strongest single pieces. Price by effort and scarcity, not length.', 'note' => 'Never below a quarter of your entry tier.'),
     array('icon' => 'package', 'title' => 'Bundles', 'text' => 'Group past media into a set at a discount to the sum of the parts. Bundles turn your back catalogue into a product.', 'note' => 'The easiest upsell after a single unlock.'),
     array('icon' => 'users', 'title' => 'Services', 'text' => 'Custom content, shout-outs, coaching, reviews. Fixed price, clear scope, a delivery window you can keep.', 'note' => 'Where a small audience earns the most per fan.'),
@@ -27,7 +27,7 @@ echo Sections::cards(array(
 ), 3);
 echo Sections::close();
 
-echo Sections::open('white', 'Pricing cheat sheet', 'Start higher than feels comfortable. You can add a discount code; you cannot easily raise a price.');
+echo Sections::open('white', 'What should you charge to start?', 'Start the entry tier at the price of a coffee where most of your fans live. Set the top tier at three to five times that. Start higher than feels comfortable: you can add a discount code later, but you cannot easily raise a price.');
 echo Sections::table(array('What', 'Starting point'), array(
     array('Entry tier', 'The price of a coffee where most of your fans live'),
     array('Top tier', 'Three to five times the entry tier'),
@@ -55,9 +55,13 @@ echo Sections::cards(array(
 ), 4);
 echo Sections::close();
 
-echo Sections::open('alt');
+// What a sale turns into: the platform fee and plan price on round sales figures (from PlanTiers), then the payout terms (Price / the payouts page).
+echo PagesController::fee_example_section(array(), 'alt', array(500, 2000), 'What do you keep from each sale?');
+echo PagesController::payouts_section(array(), 'white');
+
+echo Sections::open('alt', 'How do you get fans to the page?', 'Publish everywhere and point back to one place. A studio that posts to your socials and your page at once does the promotion for you every time you publish. The paid version sits behind the lock.');
 echo Sections::rows(array(
-    array('title' => 'Getting fans to the page', 'text' => 'Publish everywhere and point back to one place. A studio that posts to your socials and your page at once, with the paid version behind the lock, does the promotion for you every time you publish.', 'image' => SiteImages::url('monetize_fans'), 'link' => array('See how the studio works', '/features')),
+    array('title' => 'Getting fans to the page', 'text' => 'Put the page link in every bio and pin it where fans look first. Announce each paid drop on your socials the day before, so the post and the page carry the same message.', 'image' => SiteImages::url('monetize_fans'), 'link' => array('See how the studio works', '/features')),
 ));
 echo Sections::close();
 echo Sections::faq($faq);

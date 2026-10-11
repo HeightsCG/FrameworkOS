@@ -94,6 +94,16 @@ class SeoMeta {
         return $w;
     }
 
+    /**
+     * The author node on every Article: the Organization, with /about (its editorial section) as the url and the
+     * same sameAs profiles as the footer. No Person and no personal name, by rule.
+     */
+    public static function author(): array {
+        $a = array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/about', 'logo' => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'));
+        if (!empty(self::SOCIAL_PROFILES)) { $a['sameAs'] = array_values(self::SOCIAL_PROFILES); }
+        return $a;
+    }
+
     public static function org(): array {
         $org = array(
             '@type' => 'Organization',
@@ -161,7 +171,7 @@ class SeoMeta {
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
             'image' => (string) ($m['image'] ?? self::default_image()),
-            'author' => self::org(),   // the Organization is the author of every article: the full node (logo, sameAs), never a Person
+            'author' => self::author(),   // the Organization is the author of every article (never a Person): name, the editorial page as url, sameAs
             'publisher' => self::org(),
             'inLanguage' => 'en-US',
         );

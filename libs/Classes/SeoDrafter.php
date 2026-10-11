@@ -4,7 +4,7 @@
  * as soon as it passes (no admin review since 2026-09-22). One Claude call per draft, one retry on validation failure.
  */
 class SeoDrafter {
-    const PROMPT_VERSION = 'v2';
+    const PROMPT_VERSION = 'v3';   // v3 (2026-10-11): no fee/plan injection, no fixed structure, section openers name their subject
     const MIN_WORDS = 1000;   // length when no intent is known (the admin editor on older articles)
     const MAX_WORDS = 2000;
 
@@ -157,26 +157,24 @@ class SeoDrafter {
     }
 
     /**
-     * The rules the SEO audit scores, on title, meta, headings, citations and prose (no network): title <= 60, meta
-     * 110-155, >= 2 "## " sections of which >= 2 are questions, >= MIN_CITATIONS distinct cited hosts, sentence length
-     * and paragraph openers. Shared by validate() (new drafts) and the nightly fact check (so an older article that
-     * breaks them is flagged and --rewrite takes it).
+     * The rules the SEO audit scores, on title, meta, citations and prose (no network): title <= 60, meta 110-155,
+     * at least one "## " section (how many, and whether they are questions, is the piece's own choice: a fixed shape
+     * made the corpus read as one template), >= MIN_CITATIONS distinct cited hosts, sentence length, paragraph length
+     * and openers, and a first sentence under each heading that names the section's subject. Shared by validate()
+     * (new drafts) and the nightly fact check (so an older article that breaks them is flagged and --rewrite takes it).
      */
     public static function quotability_errors(array $a): array {
         $err = array();
         $title = trim((string) ($a['title'] ?? '')); $meta = trim((string) ($a['meta_description'] ?? '')); $body = (string) ($a['body_md'] ?? '');
         if ($title !== '' && mb_strlen($title) > 60) { $err[] = 'title must be 1-60 characters'; }   // 30-60 as rendered, with the brand suffix dropped past 60
         if (mb_strlen($meta) < 110 || mb_strlen($meta) > 155) { $err[] = 'meta_description must be 110-155 characters'; }
-        $h2 = self::h2_texts($body);
-        if (count($h2) < 2) { $err[] = 'body needs at least 2 "## " sections'; }
-        $questions = count(array_filter($h2, function ($h) { return substr($h, -1) === '?'; }));
-        if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be the reader\'s question (ending in ?)'; }
+        if (count(self::h2_texts($body)) < 1) { $err[] = 'body needs at least one "## " section'; }
         $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, self::citations($body)));
         if (count($hosts) < self::MIN_CITATIONS) {
             $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'
                 . (self::$stripped_external ? '; links to domains not on the list were removed: ' . implode(', ', array_slice(array_unique(self::$stripped_external), 0, 4)) : '');
         }
-        return array_merge($err, self::prose_errors($body));
+        return array_merge($err, self::prose_errors($body, $title));
     }
 
     /** The "## " headings of a Markdown body, in order. */
@@ -194,9 +192,10 @@ class SeoDrafter {
     /**
      * Quotability rules the audit scores: 10-25 words per sentence on average, paragraphs of at most
      * PARAGRAPH_MAX_SENTENCES sentences that name their subject instead of opening with "this", "they", "it" or
-     * "such", and a first paragraph that defines the subject ("X is ..."). Returns error strings.
+     * "such", a first paragraph that defines the subject ("X is ..."), and a first sentence under every "## "
+     * heading that names the section's subject (section_opener_errors). Returns error strings.
      */
-    public static function prose_errors(string $body): array {
+    public static function prose_errors(string $body, string $title = ''): array {
         $err = array();
         $plain = preg_replace(array('/^#.*$/m', '/\[([^\]]*)\]\([^)]*\)/', '/[*_`>|-]+/'), array('', '$1', ' '), $body);
         $sentences = array_filter(array_map('trim', preg_split('/(?<=[.!?])\s+/', $plain)), function ($s) { return str_word_count($s) > 2; });
@@ -215,6 +214,32 @@ class SeoDrafter {
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
+        return array_merge($err, self::section_opener_errors($body, $title));
+    }
+
+    /**
+     * The first sentence under each "## " heading must name what the section is about: it shares a content word
+     * (stemmed) with its heading or with the article title, so the section reads correctly when quoted on its own.
+     * A heading with no content words ("After day 30") is checked against the title alone; a section that opens
+     * with a list or a table is checked on its first prose paragraph. Up to six sections are named per pass.
+     */
+    public static function section_opener_errors(string $body, string $title = ''): array {
+        $err = array(); $title_tok = self::tokens($title);
+        $heading = null; $pending = false; $n = 0;
+        foreach (preg_split('/\n\s*\n/', $body) as $p) {
+            $p = trim($p);
+            if ($p === '') { continue; }
+            if (preg_match('/^##\s+(.+?)\s*$/', $p, $m)) { $heading = $m[1]; $pending = true; continue; }
+            if (!$pending || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
+            $pending = false;
+            $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p);
+            $sentence = preg_split('/(?<=[.!?])\s+/', $plain)[0];
+            $want = array_unique(array_merge(self::tokens($heading), $title_tok));
+            if ($want === array()) { continue; }
+            if ($n < 6 && array_intersect(self::tokens($sentence), $want) === array()) {
+                $err[] = 'the first sentence under "## ' . $heading . '" must name the subject of the section: "' . mb_substr($sentence, 0, 60) . '"'; $n++;
+            }
+        }
         return $err;
     }
 
@@ -458,26 +483,34 @@ class SeoDrafter {
         return (string) $text;
     }
 
-    /** What the drafter writes in place of the model's tokens: fee and plan prices always come from config. */
-    public static function tokens_map(): array {
-        return array(
-            '{{fee}}' => PagesController::fee_sentence() . ' ' . PagesController::FINAL_NOTE,
-            '{{plans}}' => PagesController::plan_price_sentence() . ' ' . PagesController::FINAL_NOTE,
-            '{{final_note}}' => PagesController::FINAL_NOTE,
-        );
+    /**
+     * The config sentences the publisher used to inject into every article ({{fee}}, {{plans}}, the non-refundable
+     * line). Injection stopped 2026-10-11: it glued half-sentences together and put the same paragraph in every
+     * piece. An article may state the fee or the plan prices once, in its own words; copying one of these word for
+     * word is rejected, and clean_boilerplate() strips them from older articles.
+     */
+    public static function boilerplate_sentences(): array {
+        return array_values(array_filter(array(
+            PagesController::fee_sentence(),
+            PagesController::plan_price_sentence(),
+            PagesController::FINAL_NOTE,
+            'Free accounts are for fans and cannot sell',
+        )));
     }
 
-    /**
-     * {{fee}} and {{plans}} expand to three or four config sentences, so in the body each token becomes its own
-     * paragraph: the half-sentence the model wrote to introduce it ("the platform fee is {{fee}}", "fees work like
-     * this: {{fee}}") is dropped, otherwise the page reads "fee is Creator Link Studio's platform fee is 10%...", and
-     * the paragraph would run past PARAGRAPH_MAX_SENTENCES. Text after the token continues as a new paragraph.
-     */
-    public static function tokens_as_paragraphs(string $body): string {
-        $body = preg_replace('/(^|[.!?]\s+|\n)[^.!?\n]*?\{\{(fee|plans)\}\}/m', '$1{{$2}}', $body);   // drop the lead-in fragment
-        $body = preg_replace('/[ \t]*\{\{(fee|plans)\}\}[ \t]*/', "\n\n{{" . '$1' . "}}\n\n", $body);   // the token stands alone
-        $body = preg_replace('/\n{3,}/', "\n\n", $body);
-        return trim($body) . "\n";
+    /** Does a paragraph state our platform fee: a percentage, a fee word, and our brand or one of our plan names? */
+    public static function states_our_fee(string $p): bool {
+        list($live) = self::plan_prices();
+        $names = array_merge(array(Main::site_name()), array_keys($live));
+        $re = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, $names));
+        return (bool) (preg_match('/\d+(?:\.\d+)?\s*%/', $p) && preg_match('/\b(?:fee|fees|take rate|cut|commission|keeps?)\b/i', $p) && $re !== '' && preg_match('/\b(?:' . $re . ')\b/', $p));
+    }
+
+    /** Does a paragraph state one of our plan prices ("Creator is $49 a month")? */
+    public static function states_plan_prices(string $p): bool {
+        $hit = false;
+        self::each_plan_price($p, function ($plan, $amt) use (&$hit) { $hit = true; return $amt; });
+        return $hit;
     }
 
     /** Sentences in a paragraph (links read as their text). */
@@ -486,26 +519,16 @@ class SeoDrafter {
         return count(array_filter(preg_split('/(?<=[.!?])\s+/', $p), function ($s) { return str_word_count($s) > 1; }));
     }
 
-    /** Does this text talk about our plans or credits (and so need the non-refundable line)? */
-    private static function money_topic($text): bool {
-        list($live, $retired) = self::plan_prices();
-        $names = implode('|', array_map(function ($n) { return preg_quote($n, '/'); }, array_merge(array_keys($live), $retired)));
-        return (bool) preg_match('/\bcredits\b|\bcredit (?:wallet|purchases?|packs?|balance)\b/i', (string) $text) || ($names !== '' && preg_match('/\b(?:' . $names . ')\s+plans?\b|\bplan (?:price|prices|charge|charges|cost|costs)\b/', (string) $text));
-    }
-
     /**
      * Mechanical fixes applied before validate(), so a small slip doesn't stop the day's article from publishing:
      * an over-long meta description is cut at a word boundary, links outside the cluster's allow-list become plain text
-     * (citations to CITATION_DOMAINS stay), {{fee}}/{{plans}}/{{final_note}} become the config sentences, a plan price
-     * that is not the config value is replaced with it, dashes become commas, and the non-refundable line is added
-     * where plans or credits come up without it.
+     * (citations to CITATION_DOMAINS stay), a plan price that is not the config value is replaced with it, and dashes
+     * become commas. Nothing is injected: the fee, the plan prices and the refund rule are the article's own words or absent.
      */
     public static function fit(array $a): array {
-        $map = self::tokens_map();
-        $a['body_md'] = self::tokens_as_paragraphs(self::linkify_bare_citations((string) ($a['body_md'] ?? '')));
+        $a['body_md'] = self::linkify_bare_citations((string) ($a['body_md'] ?? ''));
         foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $f) {
             $v = (string) ($a[$f] ?? '');
-            $v = str_replace(array_keys($map), array_values($map), $v);
             $v = preg_replace('/\s*\x{2014}\s*/u', ', ', $v);                    // em dash
             $v = preg_replace('/(\d)\s*\x{2013}\s*(\d)/u', '$1-$2', $v);          // en dash in a range
             $v = preg_replace('/\s*\x{2013}\s*/u', ', ', $v);
@@ -515,7 +538,7 @@ class SeoDrafter {
             foreach ($a['faq'] as $i => $f) {
                 if (!is_array($f)) { continue; }
                 foreach (array('q', 'a') as $k) {
-                    $v = str_replace(array_keys($map), array_values($map), (string) ($f[$k] ?? ''));
+                    $v = (string) ($f[$k] ?? '');
                     $v = preg_replace('/(\d)\s*\x{2013}\s*(\d)/u', '$1-$2', $v);
                     $a['faq'][$i][$k] = preg_replace('/\s*[\x{2013}\x{2014}]\s*/u', ', ', $v);
                 }
@@ -530,24 +553,14 @@ class SeoDrafter {
         $a['meta_description'] = $meta;
         $a['body_md'] = self::strip_links((string) ($a['body_md'] ?? ''), $a['cluster'] ?? '');
         $a['body_md'] = self::fix_plan_prices($a['body_md']);
-        // plans or credits discussed without the non-refundable line: add it to the first paragraph that raises them
-        if (self::money_topic($a['body_md']) && stripos($a['body_md'], 'non-refundable') === false) {
-            $lines = explode("\n", $a['body_md']);
-            foreach ($lines as $i => $line) {
-                if (trim($line) === '' || preg_match('/^\s*(#|\||[-*]\s|\d+[.)]\s|>)/', $line) || !self::money_topic($line)) { continue; }
-                // appended to that paragraph, or as its own paragraph when that would pass PARAGRAPH_MAX_SENTENCES
-                $lines[$i] = rtrim($line) . (self::sentence_count($line) < self::PARAGRAPH_MAX_SENTENCES ? ' ' : "\n\n") . PagesController::FINAL_NOTE;
-                break;
-            }
-            $a['body_md'] = implode("\n", $lines);
-        }
         return $a;
     }
 
     /**
      * Content rules shared by validate() and the nightly fact check: no income promises, no people's names,
      * no em or en dashes, no payment processor, only CITATION_DOMAINS as external links, current plan prices only,
-     * no leftover tokens, and the non-refundable line wherever plans or credits come up. Returns error strings.
+     * no leftover tokens, no facts-sheet sentence copied word for word, and the fee and plan prices each stated in at
+     * most one paragraph. Returns error strings.
      */
     public static function content_errors(array $a): array {
         $err = array();
@@ -617,7 +630,19 @@ class SeoDrafter {
                 }
             }
         }
-        if (self::money_topic($body . "\n" . $faq_text) && stripos($all, 'non-refundable') === false) { $err[] = 'plans or credits are discussed without the non-refundable line'; }
+        // the facts sheet is context, not copy: a sentence lifted from it word for word reads as the same paragraph in every article
+        foreach (self::boilerplate_sentences() as $s) {
+            if (stripos($plain, $s) !== false) { $err[] = 'copied from the facts sheet word for word, say it in the article\'s own words or leave it out: "' . mb_substr($s, 0, 60) . '"'; break; }
+        }
+        // the fee and the plan prices: once each, where the topic needs them
+        $fee_paras = 0; $price_paras = 0;
+        foreach (preg_split('/\n\s*\n/', $body) as $p) {
+            if (preg_match('/^\s*(#|\|)/', $p)) { continue; }
+            if (self::states_our_fee($p)) { $fee_paras++; }
+            if (self::states_plan_prices($p)) { $price_paras++; }
+        }
+        if ($fee_paras > 1) { $err[] = 'the platform fee is stated in ' . $fee_paras . ' paragraphs; state it once, where the topic needs it, or leave it out'; }
+        if ($price_paras > 1) { $err[] = 'plan prices are stated in ' . $price_paras . ' paragraphs; state them once, where the topic needs them, or leave them out'; }
         return array_values(array_unique($err));
     }
 
@@ -663,7 +688,7 @@ class SeoDrafter {
         if (preg_match('/\bas an ai\b/i', $all)) { $err[] = 'model self-reference ("As an AI") not allowed'; }
         if (preg_match('/<\/?[a-z][^>]*>/i', $body)) { $err[] = 'raw HTML not allowed in body'; }
         $n = 0; foreach ($faq as $f) { if (is_array($f) && trim((string) ($f['q'] ?? '')) !== '' && trim((string) ($f['a'] ?? '')) !== '') { $n++; } }
-        if ($n !== 0 && ($n < 3 || $n > 5)) { $err[] = 'faq is either empty or 3-5 question/answer pairs'; }   // optional: not every piece ends in a FAQ
+        if ($n !== 0 && ($n < 2 || $n > 6)) { $err[] = 'faq is either empty or 2-6 question/answer pairs'; }   // optional: most pieces have none
         $err = array_merge($err, self::content_errors($a));
         try { if ($slug !== '' && (new SeoArticlesModel())->slug_exists($slug, $except_id)) { $err[] = 'slug already exists'; } } catch (\Throwable $e) {}
         return $err;
@@ -722,14 +747,14 @@ class SeoDrafter {
     private static function system_prompt(): string {
         $site = Main::site_name();
         return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked pricing example with round, clearly hypothetical numbers (\"50 members at \$10 is \$500 before fees\") is fine; never present invented numbers as real data or averages. "
-            . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". Never type a fee percentage. "
+            . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". "
             . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
-            . "Never type a plan price, a platform fee percentage or a credit price yourself. Where the article states the platform fee write the token {{fee}}, where it states plan prices write {{plans}}; the publisher replaces them with the current wording. Wherever plans, plan charges or credits come up, include {{final_note}} once (it says plan charges and credit purchases are final and non-refundable) unless {{fee}} or {{plans}} is already in that section. "
+            . "Plan prices, the platform fee and the refund rule: most pieces need none of them. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word, and never attach a fee to the Free plan. "
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
-            . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different official sources on this list, as full https URLs to pages you know exist (a help-centre article, a published document); never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
-            . "Shape the piece for the question, not for a template: no fixed number of sections, no obligatory introduction, takeaways, summary or conclusion, and a FAQ only when the topic has real follow-up questions (then 3-5, otherwise none). Use between two and six \"## \" sections and vary their kind between pieces (a short direct answer first, a walkthrough, a checklist, a comparison, a problem-first piece). Phrase at least two \"## \" headings as the question a reader would type, ending in a question mark, and put the direct answer in the first sentence under each. "
-            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. "
-            . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, 2-6 \"## \" sections, relative links from the allowed list where they help, no H1, no raw HTML), faq (array, empty or 3-5 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
+            . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
+            . "Shape the piece for the question, not for a template. The request names the shape, the number of \"## \" sections, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
+            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. The first sentence under each heading names the subject of that section and gives its answer. "
+            . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
     /** Visual motif per topic for the cover prompt (abstract objects only — no people, no text). */
@@ -859,6 +884,70 @@ class SeoDrafter {
             . '</aside>';
     }
 
+    /**
+     * The signup aside placed into an article's rendered HTML. Its position follows the article id: after the body,
+     * after the first section, or before the last section, so the block is not in the same place on every page.
+     * An article with fewer than two sections keeps it at the end.
+     */
+    public static function place_cta(string $html, int $article_id): string {
+        $cta = self::cta_html($article_id);
+        $parts = preg_split('/(?=<h2\b)/', $html);   // [0] = text before the first heading, then one part per section
+        $n = count($parts); $where = $article_id % 3;
+        if ($n < 3 || $where === 0) { return $html . $cta; }
+        if ($where === 1) { $parts[1] .= $cta; }                   // after the first section
+        else { $parts[$n - 1] = $cta . $parts[$n - 1]; }          // before the last section
+        return implode('', $parts);
+    }
+
+    /**
+     * Strips the sentences the old publisher injected (SeoDrafter::boilerplate_sentences, in any plan/price values), the
+     * half-sentence fragments that injection left behind (a paragraph or clause starting with ", with card processing
+     * separate." or ". Free accounts ..."), and splits any paragraph over PARAGRAPH_MAX_SENTENCES at a sentence boundary.
+     * Headings, lists, tables and quotes are left alone. Returns the cleaned Markdown; equal to the input when nothing applied.
+     */
+    public static function clean_boilerplate(string $md): string {
+        $site = preg_quote(Main::site_name(), '/');
+        $patterns = array(
+            // "Creator Link Studio's platform fee is 10% of each sale on the Creator plan ($49/month) and 3% ... Free accounts ... Card processing fees are separate." (any prices, possibly doubled lead-in)
+            '/(?:' . $site . '\'s platform fee is )+\d+% of each sale on the \w+ plan \(\$[\d,]+\/month\)(?:(?:,| and) \d+% of each sale on the \w+ plan \(\$[\d,]+\/month\))*\.(?:\s*Free accounts are for fans and cannot sell, so they pay no platform fee\.)?(?:\s*Card processing fees are separate\.)?/u',
+            // "Free $0, Creator $49, Studio $199, all per month."
+            '/(?:\b[A-Z]\w+ \$[\d,]+, )+[A-Z]\w+ \$[\d,]+, all per month\./u',
+            // the refund rule, wherever it was appended
+            '/' . preg_quote(PagesController::FINAL_NOTE, '/') . '/u',
+            // the Free-account sentence in every variant ("..., so they pay no platform fee." / "..., so inbox automation is not included there.")
+            '/Free accounts are for fans and cannot sell[^.!?\n]*[.!?]/u',
+        );
+        $out = array();
+        foreach (preg_split('/\n\s*\n/', $md) as $p) {
+            $orig = trim($p); $t = $orig;
+            if ($t === '' || preg_match('/^(#|[-*>|`]|\d+\.)/', $t)) { $out[] = $t; continue; }
+            $t = trim(preg_replace('/\s{2,}/', ' ', preg_replace($patterns, '', $t)));
+            // a paragraph that opens with punctuation or a lowercase clause (", with card processing separate.") is a fragment left where a token sat
+            $fragment = (bool) preg_match('/^[,.;:]\s*|^\p{Ll}/u', $t);
+            if ($t === $orig && !$fragment) { foreach (self::split_long_paragraph($t) as $piece) { $out[] = $piece; } continue; }   // untouched prose: only the length rule applies
+            if (preg_match('/^[,.;:]\s*/', $t)) { $t = preg_replace('/^[,.;:]\s*/', '', $t); }
+            if ($t !== '' && preg_match('/^\p{Ll}/u', $t)) { $t = trim(preg_replace('/^[^.!?]*[.!?]\s*/u', '', $t)); if (preg_match('/^\p{Ll}/u', $t)) { $t = ''; } }   // drop the clause up to its first sentence end; no sentence end = nothing to keep
+            // a sentence whose verb runs straight into punctuation ("the platform fee is , card processing is separate") lost its object to the removal
+            $kept = array(); foreach (preg_split('/(?<=[.!?])\s+/', $t) as $s) { if ($s !== '' && !preg_match('/\b(?:is|are|was|were|be|costs?|takes?)\s*[,.;:]/i', $s)) { $kept[] = $s; } } $t = trim(implode(' ', $kept));
+            // a lead-in left dangling after the removal ("Fees shape the arithmetic. On Creator Link Studio, ")
+            if ($t !== '' && !preg_match('/[.!?)"\']$/u', $t)) { $t = trim(preg_replace('/(?<=[.!?])\s+[^.!?]*$/u', '', $t)); if (!preg_match('/[.!?)"\']$/u', $t)) { $t = ''; } }
+            if ($t === '' || str_word_count(preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $t)) < 4) { continue; }
+            foreach (self::split_long_paragraph($t) as $piece) { $out[] = $piece; }
+        }
+        return trim(implode("\n\n", $out)) . "\n";
+    }
+
+    /** A paragraph over PARAGRAPH_MAX_SENTENCES becomes two or more, split at the sentence boundary nearest the middle. */
+    public static function split_long_paragraph(string $p): array {
+        $n = self::sentence_count($p);
+        if ($n <= self::PARAGRAPH_MAX_SENTENCES) { return array($p); }
+        $sentences = preg_split('/(?<=[.!?])\s+(?=[^a-z])/', $p);   // never splits inside "$1.50 a month" or after an abbreviation followed by a lowercase word
+        if (count($sentences) < 2) { return array($p); }
+        $half = (int) ceil(count($sentences) / 2);
+        $a = trim(implode(' ', array_slice($sentences, 0, $half))); $b = trim(implode(' ', array_slice($sentences, $half)));
+        return array_merge(self::split_long_paragraph($a), self::split_long_paragraph($b));
+    }
+
     /** $dry_run: one Claude call, no cover, saved as a 'draft' article (even when it fails a rule, so it can be read), never published. */
     public static function draft(array $kw, string $note = '', int $existing_article_id = 0, bool $dry_run = false): array {
         $keywords = new SeoKeywordsModel(); $articles = new SeoArticlesModel();
@@ -879,9 +968,19 @@ class SeoDrafter {
         // a different target inside the band, and a different shape, each time: the corpus stops landing on one length and one layout
         $target = random_int((int) $len[0], (int) $len[1]);
         $shapes = array('the direct answer in the first paragraph, then the detail', 'a walkthrough in the order the reader does it', 'a checklist the reader can work through',
-                        'a comparison of the two or three ways to do it', 'the common mistake first, then the fix', 'a short piece that answers one question and stops');
+                        'a comparison of the two or three ways to do it', 'the common mistake first, then the fix', 'a short piece that answers one question and stops',
+                        'a worked example followed from start to finish', 'the objections a reader has, answered one by one');
+        // the structure is drawn per draft (section count by length band, heading style, length rhythm, FAQ or none), so the corpus never settles on one layout
+        $section_bands = array('quick' => array(1, 3), 'howto' => array(2, 5), 'guide' => array(3, 7));
+        $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]);
+        $heading_styles = array('short noun phrases ("The first paid post")', 'the exact questions a reader would type, ending in a question mark', 'imperative steps ("Pick the entry price first")',
+                                'a mix: one or two questions, the rest plain statements', 'numbered stages ("1. Choose the tier")', 'contrasts ("Memberships or pay-per-view")', 'the reader\'s situation ("When your audience is under a hundred people")');
+        $rhythms = array('the first section short and the rest longer', 'one long section and the rest short', 'roughly even sections', 'the longest section in the middle', 'sections that get shorter towards the end');
+        $faq_hint = random_int(1, 10) <= 3 ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';
         $user .= "\nLength: about $target words of body_md (a " . $len[2] . '; stay between ' . $len[0] . ' and ' . $len[1] . ').';
         $user .= "\nShape: " . $shapes[random_int(0, count($shapes) - 1)] . '.';
+        $user .= "\nSections: " . $sections . ' "## " section' . ($sections === 1 ? '' : 's') . ', headings written as ' . $heading_styles[random_int(0, count($heading_styles) - 1)] . ', with ' . $rhythms[random_int(0, count($rhythms) - 1)] . '.';
+        $user .= "\n" . $faq_hint;
         if ($cluster !== '') { $user .= "\nThe only product pages you may link to: " . implode(', ', self::cluster_links($cluster)) . '.'; }
         $user .= "\n\nLink to at least THREE of these published articles, each where it genuinely helps the reader, using their exact paths:\n";
         foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ': ' . $t['title'] . "\n"; }

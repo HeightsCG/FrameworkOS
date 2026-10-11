@@ -50,10 +50,14 @@ foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
     if (empty($cards)) { continue; }
     echo '<div class="bp-group"><h3 class="bp-group__title">' . $e(Sections::tc($g[0])) . '</h3><p class="bp-group__lead">' . $e($g[1]) . '</p>' . Sections::cards($cards, max(2, min(3, count($cards)))) . '</div>';
 }
-echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($site) . '</h3><p class="bp-group__lead">For creators who sell more than subscriptions (pay-per-view, bundles, services and events) from one page, publish to all their socials from one studio, and want a fee that falls as they grow.</p>'
+echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($site) . '</h3><p class="bp-group__lead">For creators who sell more than subscriptions from one page: pay-per-view, bundles, services and events. They publish to all their socials from one studio and want a fee that falls as they grow.</p>'
    . Sections::buttons(array(array('See the features', '/features', 'secondary'))) . '</div>';
 echo Sections::close();
 
+// Worked fee example across every selling platform with a sourced rate (the generation tool has none), then our payout terms.
+$selling = array(); foreach (PagesController::COMPETITORS as $slug => $c) { if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $selling[] = $slug; } }
+echo PagesController::fee_example_section($selling, 'alt');
+echo PagesController::payouts_section(array(), 'white');
 echo PagesController::switch_section();
 echo PagesController::limits_section();
 if (!empty($faq)) { echo Sections::faq($faq, 'alt'); }

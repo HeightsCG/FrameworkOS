@@ -50,3 +50,20 @@ echo Sections::close();
 echo Sections::open('white', 'Who we are');
 echo '<p class="sx-p">' . Sections::e($site) . ' is a Heights Consulting Group LLC product. Questions about your account, billing or payouts go to <a href="/contact">our support team</a>.</p>';
 echo Sections::close();
+
+// Editorial: who writes the blog, how articles are researched and checked, how corrections work, the latest pieces. The byline on every article links here.
+echo Sections::open('alt', 'Who writes the articles?', 'The ' . $site . ' team writes the blog: the people who build the product and answer its support tickets. Every article carries the team byline, never a personal one.', 'editorial');
+echo Sections::cards(array(
+    array('icon' => 'search', 'title' => 'How articles are researched', 'text' => 'Every article starts from the facts sheet the product runs on. Plans, fees, limits and payout terms come from the live configuration, so an article cannot state a price the pricing page does not. Outside facts come from primary sources only: official documentation, government guidance, platform terms and published studies, each linked where it is used.'),
+    array('icon' => 'check', 'title' => 'How articles are fact-checked', 'text' => 'Drafts are written with AI writing tools and go live only after automated checks pass. Every cited link is fetched and must resolve. Every fee and plan price must match the current plans. Income promises and named people are rejected. A nightly check reruns the rules and flags any article that drifts when the plans change.'),
+    array('icon' => 'inbox', 'title' => 'How corrections are handled', 'text' => 'Send an error through the contact page with the article link and the sentence in question. The team reviews it, corrects the article and updates its modified date. An article that no longer holds is taken offline rather than left up.', 'link' => array('Report a Correction', '/contact')),
+), 3);
+if (!empty($recent)) {
+    echo '<h3 class="sx-h3">Recent articles</h3><ul class="sx-checks sx-checks--2">';
+    foreach ($recent as $r) {
+        $when = !empty($r['published_at']) ? date('M j, Y', strtotime($r['published_at'] . ' UTC')) : '';
+        echo '<li>' . Sections::icon('check', 16) . '<span><a href="/blog/' . Sections::e($r['slug']) . '">' . Sections::e($r['title']) . '</a>' . ($when !== '' ? ' <span class="sx-muted">' . Sections::e($when) . '</span>' : '') . '</span></li>';
+    }
+    echo '</ul><p class="sx-p"><a href="/blog">All articles</a></p>';
+}
+echo Sections::close();

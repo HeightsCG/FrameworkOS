@@ -154,6 +154,7 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx-table a.sx-src, .hx__vsr a.sx-src { text-decoration: underline; text-decoration-color: rgba(255, 255, 255, .25); text-underline-offset: 3px; }
 .sx-table a.sx-src:hover, .hx__vsr a.sx-src:hover { color: var(--sx-ink) !important; text-decoration-color: currentColor; }
 .sx-note { font-size: .875rem; line-height: 1.6; color: var(--sx-muted); margin: 16px 0 0; }
+.sx-muted { color: var(--sx-muted); font-size: .875rem; }
 
 /* ---- FAQ: heading on top, one panel, rows split by hairlines ---- */
 .sx-faq { display: block; }

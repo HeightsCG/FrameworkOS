@@ -11,13 +11,16 @@
  *   ... --quiet       no admin notice (for ad-hoc runs)
  *   ... --slug=<slug> only that article (try a rewrite on one before running it on all)
  *   ... --id=<n>      only that article, in any status (a draft too), and no public page pass
- *   ... --fix-rules   mechanical rule fixes on published articles: dashes become a period or comma, the non-refundable
- *                     sentence is added as its own last paragraph where plans or credits come up; re-rendered and pinged.
- *                     Links outside the article's cluster allow-list become plain text. Each changed row is first
- *                     saved as JSON to <tmp>/cls_seo_backup_<date>/. Add --dry-run to list the changes without writing.
- *                     Income promises and names are only reported (fix those with --rewrite or the editor).
+ *   ... --fix-rules   mechanical rule fixes on published articles, nothing regenerated: the fee, plan-price and refund
+ *                     sentences the old publisher injected are removed with the fragments they left (", with card
+ *                     processing separate.", ". Free accounts ..."), paragraphs over six sentences are split at a
+ *                     sentence boundary (SeoDrafter::clean_boilerplate), dashes become a period or comma, and links
+ *                     outside the article's cluster allow-list become plain text; re-rendered and pinged. Each changed
+ *                     row is first saved as JSON to <tmp>/cls_seo_backup_<date>/. Add --dry-run to list the changes
+ *                     without writing. Income promises and names are only reported (fix those with --rewrite or the editor).
+ *                     Run once on prod after the 2026-10-11 deploy: APPLICATION_ENV=production php .../seo_fact_check.php --fix-rules --quiet
  *   Every article is also held to the drafter's content rules (SeoDrafter::content_errors: income promises, people's
- *   names, dashes, the payment processor, citation domains, plan prices, the non-refundable line); those are reported, never auto-fixed.
+ *   names, dashes, the payment processor, citation domains, plan prices, copied facts-sheet sentences); those are reported, never auto-fixed.
  *   Prod crontab (after the 09:00 article; no --quiet, the admin notice is the point):
  *   30 9 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/seo_fact_check.php >> /tmp/cls-seo-fact-check.log 2>&1
  */
@@ -125,8 +128,13 @@ foreach ($rows as $row) {
             if ($faq_json !== json_encode(json_decode((string) $a['faq'], true), JSON_UNESCAPED_UNICODE)) { $f['faq'] = $faq_json; }
         }
         $body = SeoDrafter::strip_links($f['body_md'] ?? (string) $a['body_md'], (string) $a['cluster'], $article_clusters);   // off-cluster links become their text
-        if ($body !== (string) $a['body_md']) { $f['body_md'] = $body; }
-        if (preg_grep('/non-refundable line/', $rule_issues) && stripos($body, 'non-refundable') === false) { $f['body_md'] = rtrim($body) . "\n\n" . PagesController::FINAL_NOTE . "\n"; }   // own paragraph, last before the FAQ
+        $body = SeoDrafter::clean_boilerplate($body);   // the injected fee/plan/refund sentences and their fragments go; paragraphs over six sentences are split
+        if (trim($body) !== trim((string) $a['body_md'])) { $f['body_md'] = $body; }
+        if (is_array($faq)) {   // the refund line was injected into FAQ answers too
+            $changed = false;
+            foreach ($faq as $i => $q) { if (is_array($q)) { $v = trim(preg_replace('/\s{2,}/', ' ', str_replace(PagesController::FINAL_NOTE, '', (string) ($q['a'] ?? '')))); if ($v !== (string) ($q['a'] ?? '')) { $faq[$i]['a'] = $v; $changed = true; } } }
+            if ($changed) { $f['faq'] = json_encode($faq, JSON_UNESCAPED_UNICODE); }
+        }
         if (!empty($f) && isset($opts['dry-run'])) {
             echo date('c'), ' would fix rules (', implode(', ', array_keys($f)), ') in /blog/', $a['slug'], "\n";
             $rule_issues = $rules(array_merge($a, $f));
@@ -164,7 +172,7 @@ foreach ($rows as $row) {
         if (!$kw) { $kw = array('id' => 0, 'keyword' => (string) $a['target_keyword'], 'cluster' => (string) $a['cluster'], 'volume' => 0); }
         $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.'
             . (!empty($rule_issues)
-                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', $rule_issues) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), rephrase at least two "## " headings as the question a reader would type, and open each paragraph by naming its subject. Keep the topic, the slug and the facts; structure and wording may change.'
+                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', $rule_issues) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the fee or plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
                 : ' Keep everything else as it is.');
         echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues)), ")\n";
         try { $r = SeoDrafter::draft($kw, $note, (int) $a['id']); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }

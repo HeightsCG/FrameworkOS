@@ -27,6 +27,10 @@ echo '<div class="alt-list">' . Sections::cards($cards, 2) . '</div>';
 echo '<p class="sx-note">' . $e($p['us']['note']) . ' For a sourced, side-by-side look, read <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
 echo Sections::close();
 
+// Worked fee example across the platforms on this list that have a sourced rate (the ones with a /compare page), then payout terms beside the platform the reader is leaving.
+$compare_slugs = array_values(array_filter(array_map(function ($o) { return (string) $o['compare']; }, $p['others'])));
+echo PagesController::fee_example_section($compare_slugs, 'alt');
+echo PagesController::payouts_section(PagesController::COMPETITORS[strtolower($p['name'])] ?? array(), 'white');
 echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
 echo PagesController::switch_section($p['name']);
 echo PagesController::limits_section();
