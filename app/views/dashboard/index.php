@@ -407,6 +407,51 @@ $first_word = $first !== '' ? preg_split('/\s+/', $first)[0] : '';
             </div>
         </div>
 
+        <?php $tr = is_array($this->traffic) ? $this->traffic : null; $tr_now = (array) ($tr['overview']['now'] ?? array()); $tr_before = (array) ($tr['overview']['before'] ?? array());
+              $tr_delta = function ($a, $b) { $a = (int) $a; $b = (int) $b; if ($b === 0) { return $a > 0 ? 'new' : 'no change'; } $p = round(($a - $b) * 100 / $b); return ($p > 0 ? '+' : '') . $p . '% vs previous'; }; ?>
+        <?php if ($tr !== null): ?>
+        <div class="dash__panel">
+            <div class="dash__panel-head"><div><h2 class="dash__panel-title">Where Visitors Come From</h2><span class="dash__panel-sub">last <?php echo (int) $this->range; ?> days (UTC) · your page and posts, measured by Creator Link Studio</span></div></div>
+            <div class="dash__stats">
+                <?php foreach (array(array('Page views', $tr_now['pageviews'] ?? 0, $tr_before['pageviews'] ?? 0), array('Visitors', $tr_now['visitors'] ?? 0, $tr_before['visitors'] ?? 0), array('Sessions', $tr_now['sessions'] ?? 0, $tr_before['sessions'] ?? 0), array('First visits', $tr_now['new_visitors'] ?? 0, $tr_before['new_visitors'] ?? 0)) as $st): ?>
+                <div class="dash__stat">
+                    <span class="dash__stat-label"><?php echo htmlspecialchars($st[0], ENT_QUOTES, 'UTF-8'); ?></span>
+                    <span class="dash__stat-value"><?php echo $fmt_num($st[1]); ?></span>
+                    <span class="dash__stat-sub"><?php echo htmlspecialchars($tr_delta($st[1], $st[2]), ENT_QUOTES, 'UTF-8'); ?></span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="dash__cols dash__cols--below">
+                <div>
+                    <div class="dash__panel-head"><div><h3 class="dash__panel-title">Top Sources</h3><span class="dash__panel-sub">where sessions start</span></div></div>
+                    <?php if (empty($tr['sources'])): ?><div class="dash__empty">No visits in this period.</div><?php else: ?>
+                    <div class="dash__list">
+                        <?php foreach ($tr['sources'] as $s): ?>
+                        <div class="dash__row dash__row--static">
+                            <span class="dash__row-main"><span class="dash__row-title"><?php echo htmlspecialchars($s['source'] === 'direct' ? 'Direct' : $s['source'], ENT_QUOTES, 'UTF-8'); ?></span><span class="dash__row-meta"><?php echo htmlspecialchars($s['medium'] !== '' ? $s['medium'] : 'typed or bookmarked', ENT_QUOTES, 'UTF-8'); ?></span></span>
+                            <span class="dash__amount"><?php echo $fmt_num($s['sessions']); ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <div class="dash__panel-head"><div><h3 class="dash__panel-title">Top Pages</h3><span class="dash__panel-sub">views on your page</span></div></div>
+                    <?php if (empty($tr['pages'])): ?><div class="dash__empty">No page views in this period.</div><?php else: ?>
+                    <div class="dash__list">
+                        <?php foreach ($tr['pages'] as $pg): ?>
+                        <div class="dash__row dash__row--static">
+                            <span class="dash__row-main"><span class="dash__row-title"><?php echo htmlspecialchars(mb_substr((string) $pg['path'], 0, 60), ENT_QUOTES, 'UTF-8'); ?></span><span class="dash__row-meta"><?php echo $fmt_num($pg['visitors']); ?> visitors</span></span>
+                            <span class="dash__amount"><?php echo $fmt_num($pg['views']); ?></span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
+
         <?php $lc = $this->link_clicks; ?>
         <div class="dash__panel">
             <div class="dash__panel-head"><div><h2 class="dash__panel-title">Link Clicks</h2><span class="dash__panel-sub"><?php echo htmlspecialchars($range_label, ENT_QUOTES, 'UTF-8'); ?></span></div><div class="dash__chart-total"><strong><?php echo $fmt_num($lc['total']); ?></strong> clicks</div></div>

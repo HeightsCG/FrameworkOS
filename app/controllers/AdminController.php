@@ -27,7 +27,7 @@ class AdminController extends Controller {
         'verification' => '/admin/moderation?show=verification', 'support' => '/admin/moderation?show=support',
         'users' => '/admin/users', 'growth' => '/admin/growth', 'leads' => '/admin/leads', 'founding' => '/admin/founding',
         'affiliates' => '/admin/affiliates', 'content' => '/admin/content', 'scenes' => '/admin/scenes', 'niches' => '/admin/niches',
-        'audit' => '/admin/system', 'jobs' => '/admin/jobs',
+        'audit' => '/admin/system', 'jobs' => '/admin/jobs', 'analytics' => '/admin/analytics',
     );
     /** First-redesign paths that moved. */
     const PATH_ROUTES = array('people' => '/admin/users', 'money' => '/admin/financials', 'articles' => '/admin/content', 'audit' => '/admin/system');
@@ -37,6 +37,7 @@ class AdminController extends Controller {
         'today' => array('today'), 'moderation' => array('moderation'), 'users' => array('users'), 'financials' => array('financials'),
         'sales' => array('sales'), 'billing' => array('billing'),
         'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs'),
+        'analytics' => array('analytics', 'analytics_pages', 'analytics_sources', 'analytics_conversions', 'analytics_product', 'analytics_creators'),
     );
 
     public function __construct(){
@@ -222,6 +223,38 @@ class AdminController extends Controller {
         catch (\Throwable $e) { error_log('[admin] growth: ' . $e->getMessage()); }
         $this->view->cross_promo_plans = '';
         try { $this->view->cross_promo_plans = implode(', ', PromoSwapsModel::plans()); } catch (\Throwable $e) { error_log('[admin] cross promo: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
+    /** The /admin/analytics views (?show=) and the period (?days=). */
+    const ANALYTICS_VIEWS = array('traffic', 'pages', 'sources', 'conversions', 'product', 'creators');
+    const ANALYTICS_DAYS  = array(7, 30, 90);
+
+    /**
+     * /admin/analytics — first-party analytics from analytics_events (Analytics, SiteAnalyticsModel): traffic, pages, sources,
+     * conversions, product events and creator pages. ?show=<view>, ?days=7|30|90 (UTC days). The headline cards are on every view.
+     */
+    public function analyticsAction(){
+        $show = (string) ($_GET['show'] ?? 'traffic');
+        if (!in_array($show, self::ANALYTICS_VIEWS, true)) { $show = 'traffic'; }
+        $days = (int) ($_GET['days'] ?? 30);
+        if (!in_array($days, self::ANALYTICS_DAYS, true)) { $days = 30; }
+        $this->shell($show === 'traffic' ? 'analytics' : 'analytics_' . $show);
+        $this->view->show = $show; $this->view->days = $days;
+        $this->view->an = array('overview' => array('now' => array(), 'before' => array()), 'daily' => array());
+        try {
+            $m = new SiteAnalyticsModel();
+            $an = array('overview' => $m->overview($days), 'daily' => $m->daily($days));
+            switch ($show) {
+                case 'traffic':     foreach (array('device', 'browser', 'os', 'country') as $c) { $an[$c] = $m->breakdown($days, $c); } break;
+                case 'pages':       $an['pages'] = $m->top_pages($days, 500); break;
+                case 'sources':     $an['sources'] = $m->sources($days, 500); $an['referrers'] = $m->referrers($days, 200); $an['campaigns'] = $m->campaigns($days, 200); $an['landing'] = $m->landing_pages($days, 200); break;
+                case 'conversions': $an['sources'] = $m->sources($days, 200); $an['landing'] = $m->landing_pages($days, 100); $an['events'] = $m->events_summary($days); break;
+                case 'product':     $an['events'] = $m->events_summary($days); $an['events_daily'] = $m->events_daily($days); $an['recent'] = $m->recent_events($days, 300); break;
+                case 'creators':    $an['creators'] = $m->creators_top($days, 500); break;
+            }
+            $this->view->an = $an;
+        } catch (\Throwable $e) { error_log('[admin] analytics: ' . $e->getMessage()); $this->view->an_error = true; }   // before the SQL has run: the page still renders
         $this->view->render();
     }
 

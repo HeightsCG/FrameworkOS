@@ -394,6 +394,7 @@ class AccountController extends Controller {
             Affiliates::attribute_signup($uid);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
             UsersModel::clear_signup_cookie();
             SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
+            Analytics::event('signup', array('user_id' => $uid, 'meta' => 'google'));
             $new = true;
             $rows = $users->get_user_by_id($uid);
             $user = (is_array($rows) && count($rows) === 1) ? $rows[0] : null;

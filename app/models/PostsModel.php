@@ -335,11 +335,13 @@ class PostsModel extends Model {
         $post = $this->get_one($creator_id, $id);
         if (!$post || ($post['state'] ?? '') === 'published') { return false; }
         $now = date('Y-m-d H:i:s');
-        return parent::update('posts',
+        $moved = parent::update('posts',
             array('state' => 'published', 'scheduled_at' => null, 'updated_at' => $now, 'held_reason' => null,
                   'published_at' => !empty($post['published_at']) ? $post['published_at'] : $now),
             "id = :id AND creator_id = :c AND state <> 'published'",
             array('id' => (int) $id, 'c' => (int) $creator_id)) > 0;
+        if ($moved) { Analytics::event('post_published', array('user_id' => (int) $creator_id, 'creator_id' => (int) $creator_id, 'meta' => 'post ' . (int) $id . ' ' . (string) ($post['audience'] ?? ''))); }
+        return $moved;
     }
 
     public function set_media_missing($creator_id, $id, $missing){

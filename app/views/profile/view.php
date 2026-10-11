@@ -1,4 +1,5 @@
 <?php
+Analytics::$creator_id = (int) ($user['user_id'] ?? 0);   // this page's traffic belongs to the creator (analytics_events.creator_id)
 /**
  * Public creator storefront (self-contained page). Locals from
  * ProfileController::viewAction(): $user, $profile, $links, $display_name,

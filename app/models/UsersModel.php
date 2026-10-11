@@ -394,6 +394,7 @@ class UsersModel extends Model {
      * "invalid or expired". A repeat visit now resolves to "already verified" instead.
      */
     public function mark_email_verified($user_id){
+        Analytics::event('email_verified', array('user_id' => (int) $user_id));
         return parent::update(
             'user_accounts',
             array(

@@ -75,6 +75,7 @@ class ApiAuthController extends BaseApiController {
         Affiliates::attribute_signup($user_id);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
         UsersModel::clear_signup_cookie();
         SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
+        Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email'));
 
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);

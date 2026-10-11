@@ -172,6 +172,7 @@ class MessagesModel extends Model {
      */
     public function send($conversation_id, $sender_id, $body, $broadcast_id = null, array $asset_ids = array(), $price_credits = 0, $trigger_key = null){
         $now = date('Y-m-d H:i:s');
+        Analytics::event('message_sent', array('user_id' => (int) $sender_id, 'creator_id' => (int) $sender_id, 'value_cents' => (int) round((int) $price_credits * 100 / Price::CREDITS_PER_DOLLAR), 'meta' => ($broadcast_id ? 'broadcast' : ($trigger_key ? 'auto ' . $trigger_key : 'direct')) . ((int) $price_credits > 0 ? ' paid' : '')));
         $asset_ids = array_values(array_unique(array_filter(array_map('intval', $asset_ids))));
         $price = (int) $price_credits;
         if (empty($asset_ids)) { $price = 0; }   // a price only makes sense with something to unlock

@@ -65,7 +65,12 @@ class InfluencerJobsModel extends Model {
         } elseif ($from !== null && $from !== '') {
             $where .= ' AND status = :f'; $params['f'] = (string) $from;
         }
-        return (int) parent::update('influencer_jobs', $data, $where, $params);
+        $n = (int) parent::update('influencer_jobs', $data, $where, $params);
+        if ($n > 0 && (string) ($data['status'] ?? '') === 'done') {   // a finished generation is a product event (the job's owner and kind)
+            $j = parent::select('SELECT creator_id, type, cost_usd, credits_charged FROM influencer_jobs WHERE id = :id', array('id' => (int) $id));
+            if (!empty($j[0])) { Analytics::event('ai_generation', array('user_id' => (int) $j[0]['creator_id'], 'creator_id' => (int) $j[0]['creator_id'], 'value_cents' => (int) round(((int) ($j[0]['credits_charged'] ?? 0)) * 100 / Price::CREDITS_PER_DOLLAR), 'meta' => (string) $j[0]['type'])); }
+        }
+        return $n;
     }
 
     /** Claim the result slot: only the first caller gets 1 back and may create the asset. */

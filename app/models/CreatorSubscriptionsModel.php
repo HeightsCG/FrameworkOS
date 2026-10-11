@@ -141,6 +141,7 @@ class CreatorSubscriptionsModel extends Model {
 
     /** Record a free membership (idempotent — reactivates a canceled one). */
     public function join_free($subscriber_id, $creator_id, $plan){
+        Analytics::event('membership_free', array('user_id' => (int) $subscriber_id, 'creator_id' => (int) $creator_id, 'meta' => 'plan ' . (int) ($plan['id'] ?? 0)));
         $now = date('Y-m-d H:i:s');
         $existing = parent::select(
             "SELECT id, stripe_subscription_id FROM creator_subscriptions WHERE subscriber_id = :s AND plan_id = :p",
@@ -208,6 +209,7 @@ class CreatorSubscriptionsModel extends Model {
         $data['creator_id']    = (int) $creator_id;
         $data['plan_id']       = (int) $plan['id'];
         $data['created_at']    = $now;
+        Analytics::event('membership_paid', array('user_id' => (int) $subscriber_id, 'creator_id' => (int) $creator_id, 'value_cents' => (int) ($plan['price_cents'] ?? 0), 'meta' => 'plan ' . (int) $plan['id'] . ' ' . (string) ($plan['billing_interval'] ?? '')));
         return parent::insert('creator_subscriptions', $data);
     }
 

@@ -71,6 +71,7 @@ class CreditsModel extends Model {
      * can't both read the same balance and pay it twice. Returns the credits taken, 0 if below $min, false on failure.
      */
     public function debit_for_payout($user_id, $min){
+        Analytics::event('cashout', array('user_id' => (int) $user_id, 'creator_id' => (int) $user_id));
         $lock = 'payout:' . (int) $user_id;
         $got  = parent::select("SELECT GET_LOCK(:k, 10) AS l", array('k' => $lock));
         if (empty($got[0]['l'])) { return false; }
@@ -171,6 +172,7 @@ class CreditsModel extends Model {
     public function credit_purchase($user_id, $credits, $payment_intent_id, $description = 'Credit purchase'){
         $user_id = (int) $user_id;
         $credits = (int) $credits;
+        Analytics::event('credits_bought', array('user_id' => $user_id, 'value_cents' => (int) round($credits * 100 / Price::CREDITS_PER_DOLLAR), 'meta' => $credits . ' credits'));
 
         $existing = parent::select(
             "SELECT id FROM credit_transactions WHERE stripe_payment_intent_id = :pi",
@@ -254,6 +256,7 @@ class CreditsModel extends Model {
         $buyer_id = (int) $buyer_id; $creator_id = (int) $creator_id; $charge = (int) $charge; $net = max(0, (int) $net);
         if ($charge <= 0 || $buyer_id === $creator_id) { return false; }
         if (class_exists('UserSession') && UserSession::impersonating()) { return false; }   // an admin signed in as someone never spends their wallet
+        Analytics::event('purchase', array('user_id' => $buyer_id, 'creator_id' => $creator_id, 'value_cents' => (int) round($charge * 100 / Price::CREDITS_PER_DOLLAR), 'meta' => (string) $spend_type));   // every wallet sale: unlock, bundle, message, service, ticket
         if (class_exists('CustomDomains') && CustomDomains::session_scoped() && $creator_id !== CustomDomains::owner_id()) { return false; }   // on a creator's domain the wallet only pays that creator
         $this->db->beginTransaction();
         try {

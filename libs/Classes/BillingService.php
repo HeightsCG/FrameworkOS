@@ -302,6 +302,7 @@ class BillingService {
         $acct  = self::account($uid);
         $ai    = new AiCreditsModel();
         $f     = array('last_charge_id' => (int) $row['id'], 'last_charge_status' => 'succeeded');
+        Analytics::event('plan_paid', array('user_id' => $uid, 'creator_id' => $uid, 'value_cents' => (int) ($row['amount_cents'] ?? 0), 'meta' => (string) $row['kind'] . ' ' . (string) ($fx['plan'] ?? '')));   // every successful plan charge: subscribe, renew, upgrade, slots, pack
 
         switch ((string) $row['kind']) {
             case 'subscribe':

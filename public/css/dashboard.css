@@ -103,6 +103,7 @@
 /* --- two-column area --- */
 .dash__cols{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; margin-bottom:1.2rem; }
 .dash__cols:last-of-type{ margin-bottom:0; }
+.dash__cols--below{ margin-top:1.4rem; }   /* lists under a stats row inside the same panel */
 .dash__cols .dash__panel{ margin-bottom:0; }
 
 /* --- lists --- */

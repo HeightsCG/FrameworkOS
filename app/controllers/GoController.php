@@ -34,6 +34,7 @@ class GoController extends Controller {
         }
 
         (new LinkClicksModel())->record((int) $link['id'], (int) $link['user_id']);
+        Analytics::event('link_click', array('creator_id' => (int) $link['user_id'], 'meta' => 'link ' . (int) $link['id'] . ' ' . mb_substr((string) parse_url($dest, PHP_URL_HOST), 0, 80)));
         header('Location: ' . $dest, true, 302);
         exit;
     }
@@ -65,6 +66,7 @@ class GoController extends Controller {
         $from = (strpos((string) $link['code'], 'clssim') === 0) ? (int) ($_GET['from'] ?? 0) : 0;
         try { $m->record_event((int) $link['id'], (int) $link['creator_id'], 'click', (int) Session::get('user_id'), 0, $from > 0 ? 'similar_from' : '', $from); }
         catch (\Throwable $e) { error_log('[tracking_links] click: ' . $e->getMessage()); }
+        Analytics::event('tracking_click', array('creator_id' => (int) $link['creator_id'], 'meta' => 'code ' . (string) $link['code']));
         TrackingLinks::set_cookie($link);
         $base = CustomDomains::canonical_profile_url($u);   // 'https://lexivaughn.com/' or 'https://www.../@handle'
         $path = TrackingLinks::clean_path($link['target_path']);
