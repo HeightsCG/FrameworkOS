@@ -53,7 +53,7 @@ echo Sections::close();
 
 // Editorial: who writes the blog, how articles are researched and checked, how corrections work, the latest pieces. The byline on every article links here.
 echo Sections::open('alt', 'Who writes the articles?', 'The ' . $site . ' team writes the blog: the people who build the product and answer its support tickets.', 'editorial');
-echo '<p class="sx-p">Articles are drafted with AI tools, checked automatically for facts and links, and reviewed by the ' . Sections::e($site) . ' team led by <a href="' . Sections::e(SeoMeta::AUTHOR_PATH) . '">' . Sections::e(SeoMeta::AUTHOR_NAME) . '</a> before publishing.</p>';
+echo '<p class="sx-p">' . Sections::e('Articles are drafted with AI tools, checked automatically for facts and links, and reviewed by the ' . $site . ' team led by ' . SeoMeta::AUTHOR_NAME . ' before publishing.') . '</p>';
 echo Sections::cards(array(
     array('icon' => 'search', 'title' => 'How articles are researched', 'text' => 'Every article starts from the facts sheet the product runs on. Plans, fees, limits and payout terms come from the live configuration, so an article cannot state a price the pricing page does not. Outside facts come from primary sources only: official documentation, government guidance, platform terms and published studies, each linked where it is used.'),
     array('icon' => 'check', 'title' => 'How articles are fact-checked', 'text' => 'A draft goes live only after automated checks pass. Every cited link is fetched and must resolve. Every fee and plan price must match the current plans. Income promises and invented people are rejected. A nightly check reruns the rules and flags any article that drifts when the plans change.'),

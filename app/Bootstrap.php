@@ -123,6 +123,7 @@ class Bootstrap
         // so this aligns the web context with the rest of the app.)
         date_default_timezone_set('UTC');
         $env = Main::get_environment();
+        SecurityHeaders::send();   // HSTS (https only), nosniff, Referrer-Policy, X-Frame-Options, report-only CSP; app.ini security_headers = off turns it off
         Analytics::begin();   // first-party analytics cookies (visitor + session), before any output; crawlers and the CLI are skipped
         $config = Main::get_config();
         $domain = $config[$env]['domain'];

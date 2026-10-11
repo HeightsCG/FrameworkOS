@@ -118,7 +118,6 @@ class SeoController extends Controller {
             array('path' => '/features', 'title' => 'Features', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'changefreq' => 'monthly', 'priority' => '0.9'),
             array('path' => '/pricing',  'title' => 'Pricing',  'description' => PagesController::plan_price_sentence() . ' Platform fee: ' . PagesController::fee_short() . '. ' . PagesController::addon_sentence(),                                                                       'changefreq' => 'monthly', 'priority' => '0.9'),
         );
-        $pages[] = array('path' => SeoMeta::AUTHOR_PATH, 'title' => 'Author', 'description' => 'The author page behind every blog article: role, background and the list of articles.', 'changefreq' => 'monthly', 'priority' => '0.4');   // the name itself stays on the four allowed places (sitemap URL, llms line and guides never carry it)
         foreach (PagesController::feature_pages() as $slug => $f) {
             $pages[] = array('path' => '/features/' . $slug, 'title' => $f['title'], 'description' => $f['description'], 'changefreq' => 'monthly', 'priority' => '0.8');
         }
@@ -221,7 +220,6 @@ class SeoController extends Controller {
         $legal = array();
         foreach (self::public_pages() as $p) {
             if (in_array($p['path'], self::LEGAL_PATHS, true)) { $legal[] = $p; continue; }
-            if ($p['path'] === SeoMeta::AUTHOR_PATH) { continue; }   // the author page is not duplicated into the full dump (the name stays on its four places)
             self::add_page($out, $p['title'], $base . $p['path'], self::render_public_html($p['path']));
         }
         try {

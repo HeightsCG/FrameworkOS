@@ -93,7 +93,10 @@ class BlogController extends Controller {
     public function viewAction($slug){
         $articles = new SeoArticlesModel();
         $preview  = isset($_GET['preview']) && Permissions::is_admin();
-        try { $a = $articles->get_by_slug($slug, !$preview); } catch (\Throwable $e) { error_log('[seo] blog article: ' . $e->getMessage()); $a = null; }
+        try { $a = $articles->get_by_slug($slug, false); } catch (\Throwable $e) { error_log('[seo] blog article: ' . $e->getMessage()); $a = null; }   // any status: an archived slug may carry a 301, the checks below keep the rest 404
+        if ($a && !$preview && $a['status'] !== 'published' && trim((string) ($a['redirect_to'] ?? '')) !== '') {   // merged into another article: permanent redirect
+            header('Location: /blog/' . rawurlencode((string) $a['redirect_to']), true, 301); exit;
+        }
         if (!$a || (!$preview && $a['status'] !== 'published')) { Errors::page_not_found(); return; }
         if (!$preview && !self::$embedded) {
             try { $articles->record_view((int) $a['id'], self::viewer_key()); } catch (\Throwable $e) { error_log('[seo] record_view: ' . $e->getMessage()); }   // counting a view never breaks the page

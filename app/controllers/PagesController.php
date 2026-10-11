@@ -407,21 +407,10 @@ class PagesController extends Controller {
         $this->page('about', array('path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
     }
 
-    /** /author/dr-glauber: the author page (SeoMeta::AUTHOR_NAME). Bio and experience are stubs for Daniel to fill in; no first name, no photo, no location. */
+    /** /author/* (the author page existed for a few hours on 2026-10-11): permanent redirect to /about, where the editorial line lives. */
     public function authorAction(){
-        $url = Main::get_url();
-        if (count($url) !== 2 || '/author/' . (string) $url[1] !== SeoMeta::AUTHOR_PATH) { Errors::page_not_found(); return; }
-        $site = Main::site_name(); $name = SeoMeta::AUTHOR_NAME;
-        $desc = $name . ' leads the ' . $site . ' team and reviews every article on the blog before it is published. Articles, role and background.';
-        $recent = array();
-        try { $recent = (new SeoArticlesModel())->published(50, 0); } catch (\Throwable $e) { error_log('[author] articles: ' . $e->getMessage()); }
-        $person = SeoMeta::author();
-        $jsonld = array(
-            array('@context' => 'https://schema.org', '@type' => 'ProfilePage', 'name' => $name, 'description' => $desc, 'url' => SeoMeta::base() . SeoMeta::AUTHOR_PATH, 'mainEntity' => $person),
-            SeoMeta::org(),
-            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'About', 'url' => '/about'), array('name' => $name, 'url' => SeoMeta::AUTHOR_PATH))),
-        );
-        $this->page('author', array('path' => SeoMeta::AUTHOR_PATH, 'title' => $name . ': ' . SeoMeta::AUTHOR_ROLE, 'description' => $desc, 'type' => 'profile', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true), array('recent' => $recent));
+        header('Location: /about', true, 301);
+        exit;
     }
 
     public function contactAction(){

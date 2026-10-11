@@ -94,16 +94,16 @@ class SeoMeta {
         return $w;
     }
 
-    /** The article author (Daniel's brief 2026-10-11): one Person, "Dr. Glauber", with the author page as url. Never a first name. */
+    /** The article author (Daniel's final brief 2026-10-11): one Person, "Dr. Glauber", url /about (there is no author page). Never a first name. */
     const AUTHOR_NAME = 'Dr. Glauber';
-    const AUTHOR_PATH = '/author/dr-glauber';
+    const AUTHOR_PATH = '/about';
     const AUTHOR_ROLE = 'Leads the Creator Link Studio team';
     /** The byline on every article, once, at the top. */
     public static function byline(): string { return 'The ' . self::site() . ' team, led by ' . self::AUTHOR_NAME; }
 
     /**
-     * The author node on every Article: a Person named AUTHOR_NAME, url the author page, worksFor the Organization
-     * (url /about, sameAs the company profiles). The Person's own sameAs stays empty until Daniel picks profiles.
+     * The author node on every blog Article: a Person named AUTHOR_NAME, url /about, worksFor the Organization
+     * (url /about, sameAs the company profiles). The Person's own sameAs stays empty (Daniel's call).
      */
     public static function author(): array {
         $org = array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/about', 'logo' => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'));

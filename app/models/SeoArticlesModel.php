@@ -200,6 +200,16 @@ class SeoArticlesModel extends Model {
         return (array) parent::select("SELECT id, slug, body_md, faq, published_at FROM seo_articles WHERE status = 'published' ORDER BY published_at ASC, id ASC");
     }
 
+    /** Every published article's Markdown body (for a site-wide link rewrite after a merge). */
+    public function published_markdown(){
+        return (array) parent::select("SELECT id, slug, body_md, faq FROM seo_articles WHERE status = 'published' ORDER BY id ASC");
+    }
+
+    /** Archive a merged article behind a 301 to its survivor. */
+    public function archive_into($id, $survivor_slug){
+        parent::update('seo_articles', array('status' => 'archived', 'redirect_to' => (string) $survivor_slug, 'updated_at' => gmdate('Y-m-d H:i:s')), 'id = :id', array('id' => (int) $id));
+    }
+
     public function published_bodies($limit = 200){
         $limit = max(1, min(500, (int) $limit));
         return (array) parent::select("SELECT id, slug, title, body_html FROM seo_articles WHERE status = 'published' ORDER BY published_at DESC, id DESC LIMIT $limit");
