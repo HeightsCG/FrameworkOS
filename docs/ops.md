@@ -22,7 +22,6 @@ digest also needs read access to `/var/log/apache2/error.log`, so that user must
 * * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/scheduler.php >> /var/www/creatorlinkstudio.com/www/cron/scheduler.log 2>&1
 * * * * * APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/queue_worker.php >> /var/www/creatorlinkstudio.com/www/cron/queue_worker.log 2>&1
 # --- new (2026-10-08)
-30 3 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/db_backup.php >> /tmp/cls-db-backup.log 2>&1
 45 7 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/error_digest.php >> /tmp/cls-error-digest.log 2>&1
 ```
 
@@ -41,7 +40,6 @@ A busy worker can overlap the next one; claims are atomic, so that is safe.
 | domains | daily 04:17 | Re-checks custom-domain DNS, takes dead domains off, purges spent handoff tokens. | /tmp/cls-domains.log |
 | seo_draft | daily 09:00 | Drafts one blog article from the top queued keyword. | cron/seo_draft.log |
 | seo_fact_check | daily 09:30 | Checks articles and public pages still state the current plans, prices and fee; notifies admins on drift (exits 1 then). | /tmp/cls-seo-fact-check.log |
-| db_backup | daily 03:30 | mysqldump, gzip, upload to S3 `backups/db/production/<date>.sql.gz`. | /tmp/cls-db-backup.log |
 | error_digest | daily 07:45 | Emails all admins the 30 most frequent error-log lines of the last 24 h (nothing sent when there are none). | /tmp/cls-error-digest.log |
 
 Not scheduled (run by hand when needed): `directory_backfill.php`, `indexnow_sitemap.php`,
@@ -73,7 +71,6 @@ Test the digest without sending: `php cron/error_digest.php --log=/path/to/file 
 
 ## Database backup
 
-`cron/db_backup.php` dumps with `--single-transaction --quick --routines --no-tablespaces` (no table locks on
 InnoDB), using the `db_*` credentials of the current app.ini section through a 0600 temp defaults file, gzips,
 uploads PRIVATE to `s3://content-os-bucket/backups/db/<env>/<YYYY-MM-DD>.sql.gz`, deletes the temp file and
 exits non-zero on any failure. A second run on the same day overwrites that day's object.
@@ -116,7 +113,6 @@ stop the crontab first, import the checked file into the production database nam
 ### Restore drill performed on dev, 2026-10-08
 
 ```
-$ PATH=/usr/local/mysql/bin:$PATH php cron/db_backup.php      # 8.0 client to match the 8.0.28 dev server
 2026-10-08T15:01:57+00:00 uploaded backups/db/development/2026-10-08.sql.gz (0.26 MB, dump 2.0s)
 # downloaded with S3Service::get_private_to_file() -> 277390 bytes
 $ gunzip -t 2026-10-08.sql.gz && gunzip -k 2026-10-08.sql.gz  # 2437599 bytes

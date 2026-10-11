@@ -8,7 +8,7 @@
  *
  *   ... --log=<path>   read this file instead (testing)
  *   ... --dry-run      print the digest, send nothing
- *   Prod crontab (after the 03:30 backup):
+ *   Prod crontab:
  *   45 7 * * *  APPLICATION_ENV=production php /var/www/creatorlinkstudio.com/www/cron/error_digest.php >> /tmp/cls-error-digest.log 2>&1
  */
 if (php_sapi_name() !== 'cli') { exit(1); }
