@@ -72,9 +72,9 @@
 .adm-h3 span{ font-weight:400; color:var(--muted); font-size:13px; }
 .adm-h3--gap{ margin-top:24px; }
 .adm-h3__act{ margin-left:auto; }
-.adm-cols{ display:grid; gap:24px; align-items:start; }
+.adm-cols{ display:grid; gap:24px; align-items:stretch; }   /* boxes in a row share the row height, whatever each holds */
 .adm-cols--7-5{ grid-template-columns:minmax(0,7fr) minmax(0,5fr); }
-.adm-cols .adm-box{ margin-bottom:0; }
+.adm-cols .adm-box{ margin-bottom:0; display:flex; flex-direction:column; }   /* content stays at the top of an equal-height box */
 .adm-cols{ margin-bottom:24px; }
 .adm-groups{ display:block; }
 .adm-group[hidden]{ display:none; }
