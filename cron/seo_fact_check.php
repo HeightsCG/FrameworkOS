@@ -228,5 +228,7 @@ if (!isset($opts['quiet'])) {
             implode("\n", array_slice($flagged, 0, 12)) . (count($flagged) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules (mechanical), then --rewrite --all (rules and shape, one Claude call each).", '/admin?tab=content');
     } catch (\Throwable $e) { error_log('[seo] fact check notice: ' . $e->getMessage()); }
 }
-CronRuns::finish('seo_fact_check', false, count($flagged) . ' place(s) drifted');
-exit(1);
+// findings are the job's output, not a failure: the Jobs box shows OK with the count, the admin notice above carries the list;
+// a failed run is one that could not finish (CronRuns' shutdown fallback records that)
+CronRuns::finish('seo_fact_check', true, count($flagged) . ' place(s) flagged');
+exit(0);
