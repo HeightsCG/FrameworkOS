@@ -55,13 +55,13 @@ class CronRuns {
         catch (\Throwable $e) { error_log('[cron_runs] finish ' . $name . ': ' . $e->getMessage()); }
     }
 
-    /** Every scheduled job (known ones first, in INTERVALS order) with its last run and a stale flag, for /admin. */
+    /** Every scheduled job (INTERVALS order) with its last run and a stale flag, for /admin. */
     public static function status(): array {
         $rows = array();
         try { $rows = (new CronRunsModel())->all(); }
         catch (\Throwable $e) { error_log('[cron_runs] status: ' . $e->getMessage()); }   // /admin still loads before the SQL runs
         $out = array();
-        foreach (array_unique(array_merge(array_keys(self::INTERVALS), array_keys($rows))) as $name) {
+        foreach (array_keys(self::INTERVALS) as $name) {   // scheduled jobs only: a run recorded under a name no longer in INTERVALS (a dropped job) is not listed
             $r   = $rows[$name] ?? array();
             $fin = (string) ($r['finished_at'] ?? '');
             $int = (int) (self::INTERVALS[$name] ?? 0);
