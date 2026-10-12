@@ -156,7 +156,7 @@ class Sections {
         $o .= '<div class="hx__intro">';
         if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e(self::tc($title)) . '</h1>'; }
         if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
-        if (!empty($h['lead'])) { $o .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
+        if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'hx__lead'); }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
         return $o . '</div></div><div class="hx__mod">' . $panes . '</div></div></section>';
     }
@@ -179,7 +179,7 @@ class Sections {
         $o = '<section class="sx hx hx--panel' . ($panel === '' ? ' hx--solo' : '') . ($bg !== '' ? ' sx--bgimg' : '') . '"' . ($bg !== '' ? ' style="--hero-bg:url(\'' . self::e($bg) . '\')"' : '') . '><div class="hx__in"><div class="hx__left">';
         $o .= '<h1 class="hx__big">' . self::e(self::tc($h['title'])) . '</h1>';
         if (!empty($h['below'])) { $o .= '<div class="hx__below">' . $h['below'] . '</div>'; }
-        if (!empty($h['lead'])) { $o .= '<p class="hx__lead">' . self::e($h['lead']) . '</p>'; }
+        if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'hx__lead'); }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
         $o .= '</div>' . ($panel !== '' ? '<div class="hx__mod">' . $panel . '</div>' : '') . '</div>';
         if (!empty($h['after_html'])) { $o .= '<div class="ld-wrap sx__in hx__after">' . $h['after_html'] . '</div>'; }
@@ -270,9 +270,9 @@ class Sections {
     }
 
     /** A chart figure: the SVG file as an <img> with alt text, in a <figure> with its caption. */
-    private static function chart_figure(string $svg, string $name, string $alt, int $w, int $h, string $caption, string $legend = ''): string {
+    private static function chart_figure(string $svg, string $name, string $alt, int $w, int $h, string $caption, string $legend = '', bool $caption_is_html = false): string {
         $img = '<img class="sx-chart-img" src="' . self::e(self::svg_asset($svg, $name)) . '" alt="' . self::e($alt) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async">';
-        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $img . '</div>' . $legend . '<figcaption class="sx-figcap">' . self::e($caption) . '</figcaption></figure>';
+        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $img . '</div>' . $legend . '<figcaption class="sx-figcap">' . ($caption_is_html ? $caption : self::paragraphs($caption)) . '</figcaption></figure>';
     }
 
     /**
@@ -308,9 +308,11 @@ class Sections {
         }
         $desc = implode('. ', $alt) . '.';
         $svg .= '<desc id="sxc_d">' . self::e($desc) . '</desc></svg>';
+        $items = ''; foreach ($options as $oi => $o) { $cells = array(); foreach ($sales as $gi => $s) { $cells[] = $money($kept[$s][$oi]) . ' on ' . $money($s); } $items .= '<li>' . self::e($o['label'] . ': you keep ' . implode(', ', $cells) . '.') . '</li>'; }
+        $caption_html = '<p>' . self::e($title . '.') . '</p><ul class="sx-figcap__list">' . $items . '</ul>';   // one short line plus one list item per option: every container stays under the sentence cap
         $legend = array(); foreach ($options as $oi => $o) { $legend[] = '<li class="sx-chart__key"><i style="background:' . $colour($oi, $o) . '"></i>' . self::e($o['label']) . '</li>'; }   // a list, so an extractor never reads the keys as one run of text
         $alt = 'Bar chart, ' . lcfirst($title) . '. ' . $desc;
-        return self::chart_figure($svg, 'fee-' . implode('-', array_map('intval', $sales)) . '-' . count($options), $alt, $w, $h, $desc, '<ul class="sx-chart__legend">' . implode('', $legend) . '</ul>');
+        return self::chart_figure($svg, 'fee-' . implode('-', array_map('intval', $sales)) . '-' . count($options), $alt, $w, $h, $caption_html, '<ul class="sx-chart__legend">' . implode('', $legend) . '</ul>', true);
     }
 
     /** Inline SVG process diagram: boxes joined by arrows, each step a short label (g_multimodal). The steps are the accessible name. */
@@ -343,7 +345,7 @@ class Sections {
     public static function open(string $bg = 'white', string $title = '', string $lead = '', string $id = ''): string {
         $o = '<section class="sx' . ($bg === 'alt' ? ' sx--alt' : '') . '"' . ($id !== '' ? ' id="' . self::e($id) . '"' : '') . '><div class="ld-wrap sx__in">';
         if ($title !== '') {
-            $o .= '<div class="sx-head"><h2 class="sx-h2">' . self::e(self::tc($title)) . '</h2>' . ($lead !== '' ? '<p class="sx-lead">' . self::e($lead) . '</p>' : '') . '</div>';
+            $o .= '<div class="sx-head"><h2 class="sx-h2">' . self::e(self::tc($title)) . '</h2>' . ($lead !== '' ? self::paragraphs($lead, 'sx-lead') : '') . '</div>';
         }
         return $o;
     }
@@ -352,7 +354,7 @@ class Sections {
 
     public static function checks(array $items, int $cols = 1, bool $html = false): string {
         $o = '<ul class="sx-checks' . ($cols > 1 ? ' sx-checks--' . $cols : '') . '">';
-        foreach ($items as $i) { $o .= '<li>' . self::icon('check', 16) . '<span>' . ($html ? $i : self::e($i)) . '</span></li>'; }
+        foreach ($items as $i) { $o .= '<li>' . self::icon('check', 16) . '<span>' . ($html ? $i : (self::sentence_count((string) $i) > self::SENT_MAX ? self::paragraphs((string) $i) : self::e($i))) . '</span></li>'; }
         return $o . '</ul>';
     }
 
@@ -363,7 +365,7 @@ class Sections {
             $img = trim((string) ($r['image'] ?? '')); $flip = ($n++ % 2 === 1);
             $o .= '<div class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';   // a div, not <article>: extractors would take a card for the page's main content
             if ($img !== '') { $o .= '<div class="sx-row__media"><img src="' . self::e($img) . '" alt="" loading="lazy" width="1024" height="768"></div>'; }
-            $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e(self::tc($r['title'])) . '</h3><p class="sx-p">' . self::e($r['text']) . '</p>';
+            $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e(self::tc($r['title'])) . '</h3>' . self::paragraphs((string) $r['text'], 'sx-p') . '';
             if (!empty($r['points'])) { $o .= self::checks((array) $r['points']); }
             if (!empty($r['link'])) { $o .= '<a class="sx-more" href="' . self::e($r['link'][1]) . '">' . self::e($r['link'][0]) . '</a>'; }
             $o .= '</div></div>';
@@ -378,9 +380,9 @@ class Sections {
             $o .= '<div class="sx-card">';   // a div, not <article> (see rows)
             if (!empty($c['icon'])) { $o .= '<span class="sx-card__icon">' . self::icon($c['icon']) . '</span>'; }
             $o .= '<h3 class="sx-card__title">' . self::e(self::tc($c['title'])) . '</h3>';
-            if (!empty($c['text'])) { $o .= '<p class="sx-card__text">' . self::e($c['text']) . '</p>'; }
+            if (!empty($c['text'])) { $o .= self::paragraphs((string) $c['text'], 'sx-card__text'); }
             if (!empty($c['points'])) { $o .= self::checks((array) $c['points']); }
-            if (!empty($c['note'])) { $o .= '<p class="sx-card__note">' . self::e($c['note']) . '</p>'; }
+            if (!empty($c['note'])) { $o .= self::paragraphs((string) $c['note'], 'sx-card__note'); }
             if (!empty($c['link'])) { $o .= '<a class="sx-more" href="' . self::e($c['link'][1]) . '">' . self::e($c['link'][0]) . '</a>'; }
             $o .= '</div>';
         }
@@ -416,7 +418,7 @@ class Sections {
                 $ext = strpos($m[2], '/') !== 0;
                 return '<a href="' . $m[2] . '"' . ($ext ? ' rel="noopener" target="_blank"' : '') . '>' . $m[1] . '</a>';   // $m[*] are already escaped text
             }, $h);
-            $o .= '<p class="sx-p">' . $h . '</p>';
+            $o .= self::paragraphs_html($h, 'sx-p');   // capped at SENT_MAX conservative sentences, links kept
         }
         return $o . self::close();
     }
@@ -431,23 +433,48 @@ class Sections {
     }
 
     /**
-     * Plain text as <p> elements: one paragraph per blank-line block, and any block over PARAGRAPH_MAX sentences split at a
-     * sentence boundary near the middle, so no answer or description is ever one long run of text (c_paragraph_length).
+     * The sentence cap on every text container of the public pages (c_paragraph_length, Daniel 2026-10-12): at most
+     * SENT_MAX sentences, counted the conservative way the audit counts them, where every period, question mark,
+     * exclamation mark or closing parenthesis followed by a space is a break.
      */
-    const PARAGRAPH_MAX = 6;
-    public static function paragraphs(string $text): string {
-        $out = '';
-        foreach (preg_split('/\n\s*\n/', trim($text)) as $block) {
-            $block = trim(preg_replace('/\s+/', ' ', $block)); if ($block === '') { continue; }
-            foreach (self::split_sentences($block) as $piece) { $out .= '<p>' . self::e($piece) . '</p>'; }
+    const SENT_MAX = 4;
+    public static function sentence_count(string $t): int {
+        $t = trim(preg_replace('/\s+/', ' ', $t)); if ($t === '') { return 0; }
+        return count(array_filter(preg_split('/(?<=[.?!)])\s+/', $t), function ($x) { return trim($x) !== ''; }));
+    }
+    /** Text split into chunks of at most SENT_MAX conservative sentences, cut only at real sentence ends (never inside a figure or a link). */
+    public static function cap(string $text, int $max = self::SENT_MAX): array {
+        $text = trim(preg_replace('/\s+/', ' ', $text)); if ($text === '') { return array(); }
+        if (self::sentence_count($text) <= $max) { return array($text); }
+        $real = preg_split('/(?<=[.!?])\s+(?=[A-Z0-9$"(\[])/', $text);
+        $out = array(); $cur = '';
+        foreach ($real as $sen) {
+            $try = $cur === '' ? $sen : $cur . ' ' . $sen;
+            if ($cur !== '' && self::sentence_count($try) > $max) { $out[] = $cur; $cur = $sen; } else { $cur = $try; }
         }
+        if ($cur !== '') { $out[] = $cur; }
         return $out;
     }
-    private static function split_sentences(string $p): array {
-        $sentences = preg_split('/(?<=[.!?])\s+(?=[^a-z])/', $p);
-        if (count($sentences) <= self::PARAGRAPH_MAX) { return array($p); }
-        $half = (int) ceil(count($sentences) / 2);
-        return array_merge(self::split_sentences(trim(implode(' ', array_slice($sentences, 0, $half)))), self::split_sentences(trim(implode(' ', array_slice($sentences, $half)))));
+    /** Plain text as <p> elements under the cap: one paragraph per blank-line block, each block split as cap() decides. */
+    public static function paragraphs(string $text, string $class = ''): string {
+        $out = ''; $cls = $class !== '' ? ' class="' . $class . '"' : '';
+        foreach (preg_split('/\n\s*\n/', trim($text)) as $block) { foreach (self::cap($block) as $piece) { $out .= '<p' . $cls . '>' . self::e($piece) . '</p>'; } }
+        return $out;
+    }
+    /** Like paragraphs(), for text that already holds safe inline HTML (links): the cap counts and cuts on the text, pieces keep their markup. */
+    public static function paragraphs_html(string $html, string $class = ''): string {
+        $cls = $class !== '' ? ' class="' . $class . '"' : '';
+        $text = trim(preg_replace('/\s+/', ' ', strip_tags($html)));
+        if (self::sentence_count(html_entity_decode($text, ENT_QUOTES, 'UTF-8')) <= self::SENT_MAX) { return '<p' . $cls . '>' . $html . '</p>'; }
+        // cut the HTML at the same real sentence ends cap() would use, tags carried along
+        $parts = preg_split('/(?<=[.!?])\s+(?=(?:<[^>]+>)*[A-Z0-9$"(\[])/', trim($html));
+        $out = ''; $cur = '';
+        foreach ($parts as $sen) {
+            $try = $cur === '' ? $sen : $cur . ' ' . $sen;
+            if ($cur !== '' && self::sentence_count(html_entity_decode(strip_tags($try), ENT_QUOTES, 'UTF-8')) > self::SENT_MAX) { $out .= '<p' . $cls . '>' . $cur . '</p>'; $cur = $sen; } else { $cur = $try; }
+        }
+        if ($cur !== '') { $out .= '<p' . $cls . '>' . $cur . '</p>'; }
+        return $out;
     }
 
     /** Closing call to action: full-width black band. */

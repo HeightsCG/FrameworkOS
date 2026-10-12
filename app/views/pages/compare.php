@@ -14,8 +14,9 @@ echo Sections::panel_hero(array(
 echo Sections::open('alt', 'How do the features compare?', CompareProse::voice($slug, 'checked') !== '' ? str_replace('{date}', date('F j, Y', strtotime($c['checked'])), CompareProse::voice($slug, 'checked')) : $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
 $trows = array();
 foreach ($labels as $k => $l) {
-    $cell = $e($dot($c[$k]['value'])) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
-    $trows[] = array($e($l), $e($dot($us[$k])), $cell);
+    $pp = function ($text) use ($e) { $pieces = Sections::cap($text); return count($pieces) > 1 ? implode('', array_map(function ($x) use ($e) { return '<p>' . $e($x) . '</p>'; }, $pieces)) : $e($pieces[0] ?? ''); };   // a long cell becomes short paragraphs (c_paragraph_length)
+    $cell = $pp($dot($c[$k]['value'])) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
+    $trows[] = array($e($l), $pp($dot($us[$k])), $cell);
 }
 echo Sections::table(array('', $site, $c['name']), $trows, 1);
 if ($has_reported) { echo '<p class="sx-note">' . $e($c['name']) . ' blocks automated access to its help pages, so figures marked "reported" come from published third-party reporting linked in the table. If something has changed, tell us and we will update it.</p>'; }

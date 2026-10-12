@@ -26,12 +26,12 @@ $para = function ($s) use ($e, $fill) {
                 <ol><?php foreach ($doc['sections'] as $i => $sec): ?><li><a href="#<?php echo $e($anchor($sec[0])); ?>"><?php echo $e($fill($sec[0])); ?></a></li><?php endforeach; ?></ol>
             </nav>
             <div class="lg__body">
-                <?php foreach ($doc['intro'] as $p): ?><p><?php echo $para($p); ?></p><?php endforeach; ?>
+                <?php foreach ($doc['intro'] as $p): ?><?php echo Sections::paragraphs_html($para($p)); ?><?php endforeach; ?>
                 <?php foreach ($doc['sections'] as $i => $sec): ?>
                 <h2 id="<?php echo $e($anchor($sec[0])); ?>"><?php echo ($i + 1) . '. ' . $e($fill($sec[0])); ?></h2>
                 <?php foreach ($sec[1] as $b): ?>
-                    <?php if (is_array($b)): ?><ul><?php foreach ($b['list'] as $li): ?><li><?php echo $para($li); ?></li><?php endforeach; ?></ul>
-                    <?php else: ?><p><?php echo $para($b); ?></p><?php endif; ?>
+                    <?php if (is_array($b)): ?><ul><?php foreach ($b['list'] as $li): ?><li><?php echo Sections::sentence_count(strip_tags($para($li))) > Sections::SENT_MAX ? Sections::paragraphs_html($para($li)) : $para($li); ?></li><?php endforeach; ?></ul>
+                    <?php else: ?><?php echo Sections::paragraphs_html($para($b)); ?><?php endif; ?>
                 <?php endforeach; ?>
                 <?php endforeach; ?>
             </div>

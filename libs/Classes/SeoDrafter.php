@@ -198,7 +198,7 @@ class SeoDrafter {
      * (rewrite_note "Style notes: ...") and listed by the nightly report as "(style)". The prompt and the retry feedback
      * still ask for them, so most drafts satisfy them; none of them is worth a wasted Claude call.
      */
-    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the subtitle \(excerpt\)|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
+    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the paragraph carries no specific|the paragraph points at|the paragraph has more than|the subtitle \(excerpt\)|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
 
     public static function is_soft(string $error): bool { return (bool) preg_match(self::SOFT_RULES, $error); }
 
@@ -216,7 +216,18 @@ class SeoDrafter {
     const OPENER_PRONOUNS = '/\b(it|they|them|this|these|those|he|she|such)\b/i';   // Daniel's list (2026-10-12): its/their are possessives, not back-references
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
-    const PARAGRAPH_MAX_SENTENCES = 6;
+    const PARAGRAPH_MAX_SENTENCES = 4;   // counted the conservative way the audit counts (Daniel 2026-10-12): every . ? ! or ) followed by a space is a break
+    /** Words that tie a paragraph to the page or to an earlier one (g_self_contained): none may appear. */
+    const BACK_REFERENCES = '/\b(below|above|here|earlier|later|previous|next|the following|as mentioned|the steps|this step)\b/i';
+    /** Pronouns a paragraph may carry at most PRONOUN_MAX of, in total. */
+    const PRONOUNS = '/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i';
+    const PRONOUN_MAX = 2;
+    /** A paragraph must hold at least one specific: a named product, tool, plan or platform, a number, a timeframe or a role. */
+    const SPECIFIC = '/(\d|\$|%|\b(?:one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|thirty|forty|fifty|hundred|thousand)\b|\b(?:Creator Link Studio|OnlyFans|Fanvue|Fansly|Patreon|Ko-fi|Linktree|Beacons|Stan Store|Eromify|LoRA|DreamBooth|FLUX|Hugging Face|IRS|FTC|YouTube|TikTok|Instagram|Facebook|Bluesky|Threads|Reddit|Discord|Creator plan|Studio plan|Free plan|PEFT|Diffusers|Kohya|Replicate|Midjourney|Stable Diffusion|SDXL|ComfyUI|Form 1099-K|arXiv)\b|\b(?:month|monthly|week|weekly|day|daily|year|yearly|hour|hourly|minute|quarter|deadline|morning|afternoon|overnight|billing cycle)s?\b|\b(?:creator|fan|subscriber|member|buyer|seller|agency|agencies|operator|reader|manager|team|founder|coach|podcaster|writer|photographer|influencer|customer|client|owner|author|editor|model)s?\b)/i';
+    /** An order has the verb followed by its object or a direction ("Write four lines", "Work backwards"); a noun phrase does not ("Plan pricing works"). */
+    const IMPERATIVE_OBJECT = '/^\w+ (?:the|a|an|your|every|each|all|any|some|only|both|one|two|three|four|five|six|seven|eight|nine|ten|it|them|down|up|out|backwards|forward|through|with|from|on|off|at|in|into|what|which|how|where|when|new|more|less|fewer|everything|nothing|something|anything)\b/i';
+    /** Verbs that make a bare imperative opener when they start a paragraph's first sentence. */
+    const IMPERATIVES = '/^(write|work|pick|keep|set|use|record|build|test|export|start|run|price|train|check|treat|expect|apply|confirm|budget|cut|move|open|close|add|drop|list|put|take|make|go|read|ask|give|send|post|count|plan|choose|compare|rerun|tick|spend|hold|stop|note|remember|avoid|let|try|see|look|turn|create|fix|raise|lower|book|sell|buy|charge|pay|pin|pair|leave|skip|prefer|measure|review|watch|update|replace|repeat|follow|finish|begin|learn|think|wait|decide|search|find|download|upload|sort|tag|mark|name|label|link|include|state|define|cap|limit|sketch|describe|anchor|automate|publish|schedule|announce|export|import|save|delete|retrain|reroll|generate|render|caption|crop|shoot|collect|gather|group|bundle|split|merge|rank|score|map|match|point|aim|reach|grow|scale|invest|hire|outsource|answer|reply|respond|message|call|email|text|type|click|tap)\b/i';
 
     /** Claude calls per draft: the first, then up to two retries that list every failed check. */
     const DRAFT_ATTEMPTS = 3;
@@ -249,8 +260,9 @@ class SeoDrafter {
             $opening = $first_sentence;   // the whole first sentence (Daniel's rule 2026-10-12); relative "that" is allowed below
             if ($openers < 6 && (preg_match(self::OPENER_PRONOUNS, $opening, $m) || preg_match('/^(That)\b|(?:^|[,;:]\s+|\b(?:and|but|so|because|yet|or)\s+)(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $opening, $m))) {
                 $m[1] = (string) ($m[1] !== '' ? $m[1] : ($m[2] ?? 'that')); $err[] = 'the first sentence of a paragraph names its subject outright and carries no pronoun that points back ("' . $m[1] . '"): "' . mb_substr($p, 0, 60) . '"'; $openers++; }   // tightened 2026-10-12 (g_self_contained)
-            $n = self::sentence_count($p);
+            $n = self::conservative_sentence_count($p);
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
+            $err = array_merge($err, self::self_contained_errors($p, $first_sentence));
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
         if ($first !== null) {   // answer first (g_answer_first): the opening paragraph is a direct 40-60 word answer to the title; context and caveats come after it
@@ -894,6 +906,11 @@ class SeoDrafter {
         $p = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', trim($p));
         return count(array_filter(preg_split('/(?<=[.!?])\s+/', $p), function ($s) { return str_word_count($s) > 1; }));
     }
+    /** The audit's count: every . ? ! or ) followed by whitespace is a break (links stripped first, so a citation's closing paren counts like any other). */
+    public static function conservative_sentence_count(string $p): int {
+        $p = trim(preg_replace('/\s+/', ' ', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', trim($p)))); if ($p === '') { return 0; }
+        return count(array_filter(preg_split('/(?<=[.?!)])\s+/', $p), function ($s) { return trim($s) !== ''; }));
+    }
 
     /**
      * Mechanical fixes applied before validate(), so a small slip doesn't stop the day's article from publishing:
@@ -1138,7 +1155,7 @@ class SeoDrafter {
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
             . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, a named feature as it works here), in the article's own words. A piece that could be published by any platform is rejected. "
-            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
+            . "Write sentences of 10 to 25 words and paragraphs of at most four sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 
@@ -1349,15 +1366,32 @@ class SeoDrafter {
         return implode("\n\n", $out);
     }
 
-    /** A paragraph over PARAGRAPH_MAX_SENTENCES becomes two or more, split at the sentence boundary nearest the middle. */
+    /**
+     * The four self-contained rules (g_self_contained, Daniel 2026-10-12), advisory: the first sentence has a named subject and no
+     * pronoun and does not open with a bare imperative; the paragraph holds one specific; no position or back reference; at most
+     * PRONOUN_MAX pronouns. $first is the paragraph's first sentence with links already flattened.
+     */
+    public static function self_contained_errors(string $p, string $first): array {
+        $err = array(); $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p); $short = '"' . mb_substr($plain, 0, 60) . '"';
+        if (preg_match(self::IMPERATIVES, ltrim($first, '"\'(')) && preg_match(self::IMPERATIVE_OBJECT, ltrim($first, '"\'('))) { $err[] = 'the first sentence of a paragraph opens with a bare imperative instead of a named subject: ' . $short; }   // "Write four lines" is an order; "Plan pricing works like this" is a noun phrase
+        if (!preg_match(self::SPECIFIC, $plain)) { $err[] = 'the paragraph carries no specific (a named product, tool or plan, a number, a timeframe or a role): ' . $short; }
+        if (preg_match(self::BACK_REFERENCES, $plain, $m)) { $err[] = 'the paragraph points at the page or at another paragraph ("' . $m[1] . '"): ' . $short; }
+        if (preg_match_all(self::PRONOUNS, $plain) > self::PRONOUN_MAX) { $err[] = 'the paragraph has more than ' . self::PRONOUN_MAX . ' pronouns (it, its, they, them, their, this, these, those, he, she, such): ' . $short; }
+        return $err;
+    }
+
+    /** A paragraph over PARAGRAPH_MAX_SENTENCES (conservative count) becomes two or more, cut only at real sentence ends, greedily from the left. */
     public static function split_long_paragraph(string $p): array {
-        $n = self::sentence_count($p);
-        if ($n <= self::PARAGRAPH_MAX_SENTENCES) { return array($p); }
-        $sentences = preg_split('/(?<=[.!?])\s+(?=[^a-z])/', $p);   // never splits inside "$1.50 a month" or after an abbreviation followed by a lowercase word
+        if (self::conservative_sentence_count($p) <= self::PARAGRAPH_MAX_SENTENCES) { return array($p); }
+        $sentences = preg_split('/(?<=[.!?])\s+(?=[A-Z0-9$"(\[])/', $p);   // real ends only: never inside "$1.50 a month", a citation or a lowercase continuation
         if (count($sentences) < 2) { return array($p); }
-        $half = (int) ceil(count($sentences) / 2);
-        $a = trim(implode(' ', array_slice($sentences, 0, $half))); $b = trim(implode(' ', array_slice($sentences, $half)));
-        return array_merge(self::split_long_paragraph($a), self::split_long_paragraph($b));
+        $out = array(); $cur = '';
+        foreach ($sentences as $sen) {
+            $try = $cur === '' ? $sen : $cur . ' ' . $sen;
+            if ($cur !== '' && self::conservative_sentence_count($try) > self::PARAGRAPH_MAX_SENTENCES) { $out[] = trim($cur); $cur = $sen; } else { $cur = $try; }
+        }
+        if (trim($cur) !== '') { $out[] = trim($cur); }
+        return $out;
     }
 
     /**
@@ -1459,7 +1493,7 @@ class SeoDrafter {
         $user .= "Link exactly once to the feature page $feature, where it fits the topic.\n";
         $stock = array(); try { $all = self::stock_phrases($existing_article_id); arsort($all); foreach (array_keys($all) as $sh) { if (!self::unavoidable_phrase($sh)) { $stock[] = $sh; } } $stock = array_slice(self::stock_runs($stock), 0, 60); } catch (\Throwable $e) {}   // every repeated phrase the audit counts, chained into readable runs, most shared first (2026-10-12: product facts and titles included, worded afresh each time)
         if ($stock) { $user .= "\n\nPhrases other articles already use; do not write any of them, word the point differently (a product fact keeps its numbers but changes its wording; a link to another article uses a short descriptive anchor of two to five words, never that article's title): \"" . implode('", "', $stock) . '"'; }
-        $user .= "\n\nBefore you answer, check your own draft against this list and fix anything that misses: (1) the opening paragraph is 40 to 60 words, count them; (2) the first sentence of every paragraph, and the subtitle, contain none of these words anywhere: it, its, they, them, their, this, these, those, he, she, such (write the noun instead); (3) at least two \"## \" headings end with a question mark and the sentence under each answers it; (4) no paragraph has more than six sentences; (5) at least two exact product facts from the context, one with a number; (6) at least two citations to two different sources on the list; (7) none of the phrases listed above appears.";
+        $user .= "\n\nBefore you answer, check your own draft against this list and fix anything that misses: (1) the opening paragraph is 40 to 60 words, count them; (2) the first sentence of every paragraph, and the subtitle, names its subject (the product, tool, plan, platform, number or the reader's role), never opens with a bare imperative verb, and contains none of these words: it, its, they, them, their, this, these, those, he, she, such (write the noun instead); no paragraph uses more than two of those words in total, every paragraph holds one specific (a named product, a number, a timeframe or a role), and none says below, above, here, earlier, later, previous, next, the following, as mentioned, the steps or this step; (3) at least two \"## \" headings end with a question mark and the sentence under each answers it; (4) no paragraph has more than four sentences, counting a closing parenthesis followed by a space as a sentence end; (5) at least two exact product facts from the context, one with a number; (6) at least two citations to two different sources on the list; (7) none of the phrases listed above appears.";
         $user .= "\nContext (the only facts you may use):\n" . self::context();
         if ($note !== '') { $user .= "\n\nEditor's note for this rewrite: $note"; }
         if ($existing) {

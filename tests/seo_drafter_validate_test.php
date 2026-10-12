@@ -21,8 +21,8 @@ $sec = function ($n, $per) use ($sentence, $cite, $define, $facts) {
     $b = '';
     for ($i = 1; $i <= $n; $i++) {
         $h = ($i === 1) ? 'How do creators price a tier?' : (($i === 2) ? 'What should the gap be?' : "Part $i");
-        $paras = ''; for ($left = max(1, (int) round($per / 13)); $left > 0; $left -= 5) { $paras .= str_repeat($sentence, min(5, $left)) . "\n\n"; }   // paragraphs of five sentences
-        $b .= "## $h\n\n" . ($i === 1 ? $define . $facts . $cite : '') . $paras . "See [features](/features).\n\n";
+        $paras = ''; for ($left = max(1, (int) round($per / 13)); $left > 0; $left -= 4) { $paras .= str_repeat($sentence, min(4, $left)) . "\n\n"; }   // paragraphs of four sentences (the cap since 2026-10-12)
+        $b .= "## $h\n\n" . ($i === 1 ? $define . "\n\n" . $facts . $cite : '') . $paras . "Creators find the full list on [features](/features).\n\n";
     }
     return $b;
 };
@@ -59,8 +59,14 @@ $t = $good; $t['body_md'] .= "\n\nThis is the part most creators skip, and the c
 $t = $good; $t['body_md'] .= "\n\nThey notice when fans change.";  check('pronoun in the opening words of the first sentence rejected (tightened rule)', (bool) preg_grep('/names its subject outright/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace($define, "A membership tier is a monthly price.\n\n", $good['body_md']);  check('opening paragraph under 40 words rejected (answer first)', (bool) preg_grep('/direct answer of 40-60 words/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = $sec(2, 20) . "## Why?\n\n" . str_repeat('word ', 1200) . ".\n\n"; check('long sentences rejected', (bool) preg_grep('/average/', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 7);     check('paragraph of 7 sentences rejected', (bool) preg_grep('/7 sentences/', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 6);     check('paragraph of 6 sentences allowed', !preg_grep('/sentences;/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 5);     check('paragraph of 5 sentences rejected', (bool) preg_grep('/5 sentences/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 4);     check('paragraph of 4 sentences allowed', !preg_grep('/sentences;/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nCreators keep a tier (the entry one) cheap. Fans then join (and stay) for a month. A third sentence sits here."; check('a closing parenthesis followed by a space counts as a sentence end (5 > 4)', (bool) preg_grep('/5 sentences/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nWrite the list before you price anything. Creators then wait a month."; check('bare imperative opener is noted (advisory)', (bool) preg_grep('/bare imperative/', SeoDrafter::validate($t)) && SeoDrafter::is_soft(preg_grep('/bare imperative/', SeoDrafter::validate($t))[array_key_first(preg_grep('/bare imperative/', SeoDrafter::validate($t)))]));
+$t = $good; $t['body_md'] .= "\n\nPlan pricing works the same way for everyone who sells for a month."; check('a noun phrase starting with a verb-like word is not an imperative', !preg_grep('/bare imperative/', SeoDrafter::validate($t)), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nThe gap matters more than the figure."; check('a paragraph with no specific is noted', (bool) preg_grep('/carries no specific/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nCreators read the table below before pricing a tier for a month."; check('a position reference is noted', (bool) preg_grep('/points at the page/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nCreators price a tier for a month, and it works when they keep it simple and they stay with it."; check('more than two pronouns in a paragraph is noted', (bool) preg_grep('/more than 2 pronouns/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace($define, '', $good['body_md']); check('no opening definition rejected', (bool) preg_grep('/define the subject/', SeoDrafter::validate($t)));
 check('opens_with_definition', SeoDrafter::opens_with_definition('A bundle is a set of posts sold at one price.') && SeoDrafter::opens_with_definition('Pay-per-view posts are single posts with a price.') && !SeoDrafter::opens_with_definition('Start by picking a price that fans say yes to.'));
 check('cta varies by article and is not a heading', SeoDrafter::cta_html(1) !== SeoDrafter::cta_html(2) && strpos(SeoDrafter::cta_html(3), '<h2') === false && strpos(SeoDrafter::cta_html(0), 'Start earning from your own page') === false);
@@ -107,13 +113,13 @@ $parsed = SeoDrafter::parse_json("```json\n{\"title\":\"t\"}\n```");   check('pa
 $ok = function ($a) { return SeoDrafter::validate($a) === array(); };
 $t = $good; $t['body_md'] .= "\n\nYou will make \$5,000 a month with this.";        check('"you will make" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nThis is guaranteed income.";                      check('"guaranteed" rejected', !$ok($t));
-$t = $good; $t['body_md'] .= "\n\nThere is no guaranteed income here.";             check('"no guaranteed income" allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nThere is no guaranteed income for creators in any month.";             check('"no guaranteed income" allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nCreators earn \$3,000 a month on average.";       check('earnings stated as fact rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSome creators earn \$3,000 a month, and the figure varies."; check('hedged earnings range allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nSarah grew her page in a month.";                 check('first name rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nAsk Dr. Holloway first.";                         check('honorific + name rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nJordan Peel said it best.";                       check('quote attributed to a person rejected', !$ok($t));
-$t = $good; $t['body_md'] .= "\n\nSee [the IRS](https://www.irs.gov/businesses/small-businesses-self-employed).";  check('citation domain allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nCreators can read [the IRS](https://www.irs.gov/businesses/small-businesses-self-employed) page on self-employment.";  check('citation domain allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nSee [blog](https://medium.com/some-post).";       check('other external domain rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSee [irs](http://www.irs.gov/x).";               check('plain http citation rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSee [fake](https://irs.gov.evil.com/x).";        check('look-alike citation domain rejected', !$ok($t));
@@ -228,7 +234,7 @@ $t = $good; $t['body_md'] .= "\n\nCreators earn 2000 dollars a month here.";    
 $t = $good; $t['body_md'] .= "\n\nThis can be a six-figure income.";                   check('I4 "six-figure" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nTop accounts earn \$900/mo from tips.";               check('I4 "$N/mo" earnings rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSome creators earn between \$500 and \$2,000 a month."; check('I4 honest range allowed', $ok($t), $errs($t));
-$t = $good; $t['body_md'] .= "\n\nWe cannot guarantee results.";                       check('I4 "We cannot guarantee results" allowed', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nWe cannot guarantee results for any creator in any month.";                       check('I4 "We cannot guarantee results" allowed', $ok($t), $errs($t));
 // I5: fee percentages and plan prices in any form
 $t = $good; $t['body_md'] .= "\n\nCreator Link Studio takes 15% on every sale.";        check('I5 typed brand fee 15% rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nThe platform fee is 3% on Creator. "; check('I5 fee on the wrong plan rejected', !$ok($t));
@@ -255,7 +261,7 @@ $t = $good; $t['body_md'] .= "\n\nThe Free plan takes " . ($pf['Free'] ?? 0) . "
 $t = $good; $t['body_md'] .= "\n\nThe Free plan takes 15% with no monthly fee. "; check('R2 Free plan at a wrong fee rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSuppose a creator earns \$2,000 a month in sales.";          check('R2 "suppose" example allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nFor example, revenue of \$500 a month covers the plan.";            check('R2 "for example" allowed', $ok($t), $errs($t));
-$t = $good; $t['body_md'] .= "\n\nSomewhere above roughly \$2,100 a month gross the ordering flips.";  check('R2 "$X a month gross" worked example allowed', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nPast roughly \$2,100 a month gross the ordering flips.";  check('R2 "$X a month gross" worked example allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenue at \$500 a month."; check('R2 "run the arithmetic" allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nIf you post daily you can make \$3,000 a month.";             check('R2 "you can make $X" still rejected inside an "if you"', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nYou will earn \$3,000 a month.";                               check('R2 "you will earn $X" still rejected', !$ok($t));
@@ -283,7 +289,7 @@ $t = $good; $t['body_md'] .= "\n\nCreators make \$5,000 a month if you post dail
 $t = $good; $t['body_md'] .= "\n\nYou'd earn \$800 a month from this.";                   check('R3 "you\'d earn $X" rejected', !$ok($t));
 $t = $good; $t['body_md'] .= "\n\nSay you earn \$2,000 a month.";                          check('R3 "Say you earn $2,000 a month" passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenue at \$500 a month."; check('R3 "run the arithmetic" passes', $ok($t), $errs($t));
-$t = $good; $t['body_md'] .= "\n\nWork backwards from the income you want: 50 members at \$20 a month and 100 at \$10 a month."; check('R3 "work backwards" arithmetic passes', $ok($t), $errs($t));
+$t = $good; $t['body_md'] .= "\n\nCreators work backwards from a target income: 50 members at \$20 a month and 100 at \$10 a month."; check('R3 "work backwards" arithmetic passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nThe fee is the single biggest lever on your income, and the gap compounds: a ten-point difference on \$2,000 a month is \$200."; check('R3 "point difference" arithmetic passes', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nExtra AI influencers are \$15 a month each on the Creator plan, up to five. "; check('R3 add-on price next to a plan name passes', $ok($t), $errs($t));
 check('R3 add-on price is not rewritten', strpos(SeoDrafter::fix_plan_prices('Extra AI influencers are $15 a month each on the Creator plan.'), '$15 a month') !== false, 'rewritten');

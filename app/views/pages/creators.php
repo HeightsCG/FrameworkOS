@@ -59,7 +59,7 @@ $grid = function (array $rows) use ($e, $cats) {
         echo '<img class="dir-card__av" src="' . $e(trim((string) ($c['avatar_webp_url'] ?? '')) !== '' ? $c['avatar_webp_url'] : $c['avatar_url']) . '" alt="' . $e($name) . '" width="64" height="64" loading="lazy">';
         echo '<span class="dir-card__body"><span class="dir-card__name">' . $e($name) . (!empty($c['verified']) ? ' <span class="dir-card__ver" title="Verified">' . Sections::icon('check', 12) . '<span class="visually-hidden">Verified</span></span>' : '') . '</span>';
         echo '<span class="dir-card__handle">@' . $e($c['u_name']) . '</span>';
-        if ($bio !== '') { echo '<span class="dir-card__bio">' . $e($bio) . '</span>'; }
+        if ($bio !== '') { foreach (Sections::cap($bio) as $piece) { echo '<p class="dir-card__bio">' . $e($piece) . '</p>'; } }   // a bio with many short sentences becomes short paragraphs (c_paragraph_length)
         $unit = (string) ($c['min_price_interval'] ?? '') === 'year' ? 'year' : ((string) ($c['min_price_interval'] ?? '') === 'week' ? 'week' : 'month');
         echo '<span class="dir-card__price">' . ((int) ($c['min_price_cents'] ?? 0) > 0 ? 'From $' . number_format(((int) $c['min_price_cents']) / 100, 2) . '/' . $unit : 'Free to follow') . '</span>';
         $niche = (string) ($cats[$c['directory_category']] ?? '');   // empty when the niche was turned off
