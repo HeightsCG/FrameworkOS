@@ -107,7 +107,7 @@ class PlanTiers {
      */
     /** What a creator builds on Free before paying (Plan::can_build): the page and the drafts; nothing with a price switches on until Creator or Studio (Plan::can_sell). */
     const FREE_BUILDS = array(
-        'Your public page at your handle',
+        'Build your page, published when you upgrade',   // Free never has a public profile (ProfileController): the page goes live with a paid plan
         'Draft posts, tiers and offers, ready to switch on when you upgrade',
     );
 

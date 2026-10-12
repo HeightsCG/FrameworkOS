@@ -105,7 +105,7 @@ $pub_links   = array(
         'twitter_card' => $has_avatar ? 'summary' : 'summary_large_image',
         'extra' => array('<meta property="profile:username" content="' . htmlspecialchars($handle, ENT_QUOTES, 'UTF-8') . '">'),
         'jsonld' => $seo_ld,
-        'robots' => !empty($user['is_demo']) ? 'noindex, nofollow' : '',
+        'robots' => !empty($user['is_demo']) ? 'noindex, nofollow' : (!empty($seo_thin) ? 'noindex, follow' : ''),
     )); ?>
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/css/pf-icons.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/pf-icons.css'); ?>">

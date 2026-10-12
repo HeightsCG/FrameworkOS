@@ -78,6 +78,19 @@ class SeoMeta {
      * A WebPage node for a page that has no Article: name, description, url, part of the WebSite. Pages that only carried
      * FAQPage / BreadcrumbList / Organization read as "no page markup" to crawlers that look for WebPage or Article.
      */
+    /**
+     * One Organization and one WebSite for the whole site (SEO audit 2026-10-12): each is a single node with a stable @id, every
+     * other node points at it by reference, and no page nests a second copy. head() adds the full nodes to any page that
+     * references them, so a reference never dangles.
+     */
+    public static function org_id(): string { return self::base() . '/#org'; }
+    public static function website_id(): string { return self::base() . '/#website'; }
+    public static function org_ref(): array { return array('@type' => 'Organization', '@id' => self::org_id()); }
+    public static function website_ref(): array { return array('@type' => 'WebSite', '@id' => self::website_id()); }
+    public static function website(): array {
+        return array('@type' => 'WebSite', '@id' => self::website_id(), 'name' => self::site(), 'url' => self::base() . '/', 'inLanguage' => 'en-US', 'publisher' => self::org_ref());
+    }
+
     public static function webpage(array $m): array {
         $url = (string) ($m['url'] ?? '');
         $w = array(
@@ -86,10 +99,11 @@ class SeoMeta {
             'url'   => $url,
             'name'  => trim((string) ($m['title'] ?? '')),
             'description' => trim((string) ($m['description'] ?? '')),
-            'isPartOf' => array('@type' => 'WebSite', 'name' => self::site(), 'url' => self::base() . '/'),
+            'isPartOf' => self::website_ref(),
             'inLanguage' => 'en-US',
-            'publisher' => array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/'),
+            'publisher' => self::org_ref(),
         );
+        if (!empty($m['page_modified'])) { $w['dateModified'] = (string) $m['page_modified']; }   // commercial pages: the last date their facts were checked or changed
         if (!empty($m['image'])) { $w['primaryImageOfPage'] = array('@type' => 'ImageObject', 'url' => (string) $m['image']); }
         return $w;
     }
@@ -114,20 +128,20 @@ class SeoMeta {
 
     /**
      * The author node on every blog Article: a Person named AUTHOR_NAME, url AUTHOR_PATH (the author page), worksFor the Organization
-     * (url /about, sameAs the company profiles). The Person's own sameAs stays empty (Daniel's call).
+     * (by @id reference, never a nested copy). The Person carries no sameAs (Daniel's call).
      */
     public static function author(): array {
-        $org = array('@type' => 'Organization', 'name' => self::site(), 'url' => self::base() . '/about', 'logo' => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'));
-        if (!empty(self::SOCIAL_PROFILES)) { $org['sameAs'] = array_values(self::SOCIAL_PROFILES); }
-        return array('@type' => 'Person', 'name' => self::AUTHOR_NAME, 'url' => self::base() . self::AUTHOR_PATH, 'jobTitle' => self::AUTHOR_ROLE, 'worksFor' => $org, 'sameAs' => array());
+        return array('@type' => 'Person', '@id' => self::base() . self::AUTHOR_PATH . '#person', 'name' => self::AUTHOR_NAME, 'url' => self::base() . self::AUTHOR_PATH, 'jobTitle' => self::AUTHOR_ROLE, 'worksFor' => self::org_ref());   // no sameAs key: the Person has no public profiles (Daniel's call), and an empty list says nothing
     }
 
     public static function org(): array {
         $org = array(
             '@type' => 'Organization',
+            '@id'   => self::org_id(),
             'name'  => self::site(),
             'url'   => self::base() . '/',
-            'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-192x192.png'),
+            'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-512x512.png', 'width' => 512, 'height' => 512),
+            'parentOrganization' => array('@type' => 'Organization', 'name' => 'Heights Consulting Group LLC'),   // stated on /about and /contact
             'description' => self::brand_description(),
             'contactPoint' => array('@type' => 'ContactPoint', 'contactType' => 'customer support', 'email' => 'support@creatorlinkstudio.com', 'availableLanguage' => 'en'),
         );
@@ -187,10 +201,11 @@ class SeoMeta {
         $a = array(
             '@context' => 'https://schema.org', '@type' => 'Article',
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
-            'mainEntityOfPage' => (string) $m['url'], 'url' => (string) $m['url'],
+            '@id' => (string) $m['url'] . '#article',
+            'mainEntityOfPage' => array('@type' => 'WebPage', '@id' => (string) $m['url']), 'url' => (string) $m['url'],
             'image' => (string) ($m['image'] ?? self::default_image()),
-            'author' => !empty($m['person']) ? self::author() : self::org(),   // blog articles: the Person (AUTHOR_NAME); product pages keep the Organization, so the name stays on the four allowed places
-            'publisher' => self::org(),
+            'author' => !empty($m['person']) ? self::author() : self::org_ref(),   // blog articles: the Person (AUTHOR_NAME); product pages keep the Organization, so the name stays on the four allowed places
+            'publisher' => self::org_ref(),
             'inLanguage' => 'en-US',
         );
         if (!empty($m['published'])) { $a['datePublished'] = (string) $m['published']; }
@@ -241,6 +256,11 @@ class SeoMeta {
             } else {
                 $blocks = is_array($j) ? $j : array();
             }
+            // a page that points at the site's Organization or WebSite by @id also carries the full node, once
+            $all = json_encode($blocks, JSON_UNESCAPED_SLASHES);
+            $defines = function ($id) use ($blocks) { foreach ($blocks as $b) { if (is_array($b) && (string) ($b['@id'] ?? '') === $id && count($b) > 2) { return true; } } return false; };
+            if (strpos($all, '"' . self::org_id() . '"') !== false && !$defines(self::org_id())) { $blocks[] = self::org(); }
+            if (strpos($all, '"' . self::website_id() . '"') !== false && !$defines(self::website_id())) { $blocks[] = self::website(); }
             foreach ($blocks as $b) {
                 if (!is_array($b)) { continue; }
                 if (!isset($b['@context'])) { $b = array('@context' => 'https://schema.org') + $b; }

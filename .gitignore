@@ -51,3 +51,6 @@ Thumbs.db
 *.wmv
 
 /vendor/
+
+# SEO audit screenshots (15 MB of captures; the written report stays tracked)
+docs/claude-seo-audit-*/screenshots/

@@ -16,7 +16,7 @@ echo Sections::panel_hero(array(
 ));
 echo Sections::open('white', 'How do you judge a creator platform?');
 echo Sections::cards(array(
-    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', which matters once you pass a few thousand a month.'),
+    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', and its plan prices are a separate monthly line.'),
     array('icon' => 'package', 'title' => 'What you can sell', 'text' => 'Subscriptions only, or also pay-per-view, bundles, services and events.'),
     array('icon' => 'send', 'title' => 'Where your fans are', 'text' => 'A platform that publishes to your socials brings people in; one that does not makes you do it by hand.'),
     array('icon' => 'shield', 'title' => 'Ownership and payouts', 'text' => 'Can you export your audience and media if you leave, and how long is the payout hold?'),
@@ -35,7 +35,8 @@ foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
     }
 }
 echo Sections::table(array('Platform', 'Kind', 'Fee', ''), $rows, -1);
-echo '<p class="sx-note">Figures come from each platform\'s own pricing, help or legal pages, linked and dated on its comparison page. Where a platform blocks automated access we use published reporting and label it "reported". We build ' . $e($site) . ', so read our row with that in mind.</p>';
+$best_checked = ''; foreach (PagesController::COMPETITORS as $bc) { if (isset(PagesController::COMPETITOR_GROUPS[$bc['type'] ?? ''])) { $best_checked = max($best_checked, (string) ($bc['checked'] ?? '')); } }
+echo '<p class="sx-note">Last checked on ' . $e(date('F j, Y', strtotime($best_checked))) . ' by the ' . $e($site) . ' team. Figures come from each platform\'s own pricing, help or legal pages, linked and dated on its comparison page. Where a platform blocks automated access we use published reporting and label it "reported". We build ' . $e($site) . ', so read our row with that in mind.</p>';
 echo '<p class="sx-note">Leaving one platform in particular? See the <a href="/onlyfans-alternatives">OnlyFans alternatives</a> and <a href="/fanvue-alternatives">Fanvue alternatives</a> lists.</p>';
 echo Sections::close();
 

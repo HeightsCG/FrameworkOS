@@ -24,7 +24,8 @@ foreach ($p['others'] as $o) {
     $cards[] = $card;
 }
 echo '<div class="alt-list">' . Sections::cards($cards, 2) . '</div>';
-echo '<p class="sx-note">' . $e($p['us']['note']) . ' For a sourced, side-by-side look, read <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
+$alt_checked = ''; foreach ($p['others'] as $o) { if ($o['compare'] !== '' && isset(PagesController::COMPETITORS[$o['compare']])) { $alt_checked = max($alt_checked, (string) (PagesController::COMPETITORS[$o['compare']]['checked'] ?? '')); } }   // the newest date a listed platform's facts were checked
+echo '<p class="sx-note">' . ($alt_checked !== '' ? 'Platform details last checked on ' . $e(date('F j, Y', strtotime($alt_checked))) . ' by the ' . $e($site) . ' team. ' : '') . $e($p['us']['note']) . ' For a sourced, side-by-side look, read <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
 echo Sections::close();
 
 // Worked fee example across the platforms on this list that have a sourced rate (the ones with a /compare page), then payout terms beside the platform the reader is leaving.

@@ -100,7 +100,7 @@ class ApiSeoContentController extends BaseApiController {
         $km = new SeoKeywordsModel();
         $rows = $km->all(); $kw = null; foreach ($rows as $r) { if ((int) $r['article_id'] === $id) { $kw = $r; break; } }
         if (!$kw) { $kid = $km->add($a['target_keyword'], null, 'doable', 100); $kw = $km->get($kid); }
-        $m->update_fields($id, ['rewrite_note' => $note]);
+        $m->update_fields($id, ['rewrite_note' => $note], false);   // an internal note, not a reader-visible change
         $r = SeoDrafter::draft($kw, $note, $id);
         if (empty($r['ok'])) { $this->jsonError('Rewrite failed: ' . $r['error']); }
         $this->jsonSuccess(['message' => 'Rewritten — review the new draft']);

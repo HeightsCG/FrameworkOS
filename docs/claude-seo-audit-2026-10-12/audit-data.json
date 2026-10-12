@@ -1,0 +1,483 @@
+{
+ "summary": {
+  "health_score": 80,
+  "business_type": "SaaS creator-monetization platform with a blog",
+  "top_findings": [
+   "Four live blog articles add the platform fee to the plan price and state a crossover point (breaks the owner's fee rule)",
+   "A public profile showing the owner's first name is indexable and in the sitemap",
+   "No third-party mentions or measurable backlinks; off-site profiles describe a different company",
+   "Page type does not match the SERP on four target queries; /patreon-alternatives is missing",
+   "Feature pages are thin and the two alternatives pages are 40% identical"
+  ],
+  "quick_wins": [
+   "Rewrite the four fee passages and add the pattern to the nightly rule check",
+   "Rename or unlist /@danglauber and drop it from the sitemap",
+   "Align LinkedIn, YouTube and Product Hunt descriptions before the Oct 15 launch",
+   "Wrap article tables in the scroll container",
+   "Add visually hidden text to pricing check cells and fix the Free row contradiction"
+  ]
+ },
+ "categories": [
+  {
+   "name": "Technical SEO",
+   "score": 88,
+   "what_works": [
+    "All 54 sitemap URLs return 200, self-canonical, indexable",
+    "Single-hop 301 for http to https and apex to www",
+    "Real 404 with noindex",
+    "HSTS, nosniff, referrer-policy, frame options present",
+    "Server-rendered, JS deferred"
+   ],
+   "findings": [
+    {
+     "title": "Public pages sent as no-store with a session cookie",
+     "severity": "Medium",
+     "description": "/ and /sitemap.xml return cache-control: no-store and Set-Cookie PHPSESSID for anonymous visitors.",
+     "recommendation": "App: do not start a session on logged-out public routes. Owner / load balancer: then allow short caching for anonymous GETs."
+    },
+    {
+     "title": "Sitemap lastmod missing on 29 of 54 URLs",
+     "severity": "Medium",
+     "description": "Home, /features, /pricing and most hub pages have no lastmod; 15 URLs are stamped with today's date.",
+     "recommendation": "Emit lastmod on every URL from the real last content change; drop priority and changefreq."
+    },
+    {
+     "title": "Redirect Location includes :443",
+     "severity": "Low",
+     "description": "http://www.creatorlinkstudio.com/ redirects to https://www.creatorlinkstudio.com:443/.",
+     "recommendation": "Owner / load balancer: emit Location without the port."
+    },
+    {
+     "title": "CSP is report-only; Server header exposes Apache",
+     "severity": "Low",
+     "description": "All responses.",
+     "recommendation": "Owner: enforce CSP once reports are clean; optionally suppress the Server header."
+    },
+    {
+     "title": "Weak internal links to a few pages",
+     "severity": "Low",
+     "description": "/creators/beauty has 1 inbound link; /blog/ai-chat-for-creators 3.",
+     "recommendation": "Cross-link from related posts and feature pages."
+    }
+   ]
+  },
+  {
+   "name": "Content Quality",
+   "score": 66,
+   "what_works": [
+    "Compare pages are sourced and dated",
+    "Bias disclosed on list pages",
+    "Editorial process and corrections route published on /about",
+    "Low verbatim duplication between articles",
+    "Readability Flesch 57 to 81"
+   ],
+   "findings": [
+    {
+     "title": "Four live articles add the fee to the plan price and state a crossover point",
+     "severity": "High",
+     "description": "Verified live: /blog/how-to-choose-an-onlyfans-alternative ('the answer sits near $2,143 of monthly sales. Above that level the pricier plan starts covering itself'), /blog/how-to-monetize-content-as-a-creator ('$300 plus $49, which is $349, against $90 plus $199, which is $289'), /blog/custom-ai-influencer-training-when-to-invest ('Creator costs $200 in fees plus $49, so $249'), /blog/how-to-pick-a-creator-monetization-platform.",
+     "recommendation": "Rewrite the four passages and their leads and meta descriptions: fee as a percentage of sales alone, plan price as a separate line, no crossover. Add the pattern to the nightly rule check."
+    },
+    {
+     "title": "A public profile shows the owner's first name and is in the sitemap",
+     "severity": "High",
+     "description": "Verified live: /@danglauber is titled 'DanGlauber (@danglauber) \u00b7 Creator Link Studio', is indexable, listed in sitemap.xml, 69 words, bio 'this is my bio page'.",
+     "recommendation": "Rename or unlist the test profile and keep empty profiles out of the sitemap."
+    },
+    {
+     "title": "/onlyfans-alternatives and /fanvue-alternatives are 40% identical",
+     "severity": "High",
+     "description": "48 of 96 sentences identical (604 of 1,505 words).",
+     "recommendation": "Make at least 60% of each specific to the platform being left; keep the 12-row fee table on one page."
+    },
+    {
+     "title": "Feature and AI landing pages are thin",
+     "severity": "High",
+     "description": "9 /features/* pages run 406 to 638 words; /lora-character-training 476, /consistent-ai-model-face 442, /ai-ofm-tools 474.",
+     "recommendation": "Add per-plan limits, setup steps, the fan-side view, edge cases and feature-specific questions."
+    },
+    {
+     "title": "Articles show no first-hand experience; author expertise is off-topic",
+     "severity": "High",
+     "description": "14 articles in 20 days, no first-party data or images in any body; author bio is cybersecurity only; Person sameAs is empty.",
+     "recommendation": "Add real first-party material, one true topic-relevant line on the author page, drop the empty sameAs, slow the cadence."
+    },
+    {
+     "title": "Plan-facts paragraph repeated in every article",
+     "severity": "Medium",
+     "description": "'$49' in 14 of 14 bodies, '25 GB' in 13 of 14.",
+     "recommendation": "Remove where the article is not about plans; link to /pricing."
+    },
+    {
+     "title": "Thin, recycled citation pool",
+     "severity": "Medium",
+     "description": "12 unique external URLs across 14 articles; generic help roots used as sources.",
+     "recommendation": "Cite the specific page for the specific claim."
+    },
+    {
+     "title": "dateModified bulk-set to today on all 14 articles",
+     "severity": "Medium",
+     "description": "Three batches at 12:21, 13:08 and 13:56 UTC on 2026-10-12, no visible update date.",
+     "recommendation": "Change dateModified only on substantive edits; print an Updated date."
+    },
+    {
+     "title": "Invented creator not labelled as an example",
+     "severity": "Medium",
+     "description": "/blog/ai-chat-for-creators: 'The yoga creator finished the fortnight with 140 messages'.",
+     "recommendation": "Label it as a made-up example at first mention."
+    },
+    {
+     "title": "Unsupported 'most creators' claims",
+     "severity": "Medium",
+     "description": "12 sentences site-wide, including FAQ schema on /compare/onlyfans.",
+     "recommendation": "Phrase as advice or cite data."
+    },
+    {
+     "title": "Refund wording conflicts with the final-sale policy",
+     "severity": "Medium",
+     "description": "/features/payouts: 'Refunds and disputes are handled for you'; /monetize-your-content: 'a refund you choose to give a fan'.",
+     "recommendation": "Describe only what happens to the creator's balance if a sale is reversed."
+    },
+    {
+     "title": "/pricing contradicts itself on Free",
+     "severity": "Medium",
+     "description": "Free card says 'Your public page at your handle: Included'; the Compare Plans table shows a dash for Free on the same row; FAQ says Free is for fans.",
+     "recommendation": "Align the table and FAQ with the card."
+    },
+    {
+     "title": "'Most popular' badge has no basis",
+     "severity": "Low",
+     "description": "/pricing Creator card.",
+     "recommendation": "Remove or use a factual label."
+    },
+    {
+     "title": "Softer crossover wording on commercial pages",
+     "severity": "Low",
+     "description": "/best-creator-monetization-platforms: 'a share of 20% starts to cost more than a plan price plus a smaller share'.",
+     "recommendation": "Owner to decide; rewrite as two separate facts."
+    }
+   ]
+  },
+  {
+   "name": "On-Page SEO",
+   "score": 91,
+   "what_works": [
+    "No duplicate titles or descriptions",
+    "One H1 on every page",
+    "0 images missing alt across 54 pages",
+    "Definition-first openings"
+   ],
+   "findings": [
+    {
+     "title": "No hub page links to any blog article",
+     "severity": "High",
+     "description": "0 contextual links from features, pricing, compare, alternatives, best-of, monetize or AI pages to the 14 articles.",
+     "recommendation": "Add in-body related guides per hub, chosen by topic (mapping in findings/cluster.md)."
+    },
+    {
+     "title": "Fanvue and OnlyFans head terms each targeted by two URLs",
+     "severity": "High",
+     "description": "/fanvue-alternatives vs /blog/fanvue-alternative; /onlyfans-alternatives vs /blog/how-to-choose-an-onlyfans-alternative.",
+     "recommendation": "Hub owns the head term; retitle the articles to the switching angle and cross-link."
+    },
+    {
+     "title": "Page type does not match the SERP on four targets",
+     "severity": "High",
+     "description": "'lora character training' ranks tutorials, ours is a 472-word feature page; 'ai influencer generator' ranks tool pages; 'patreon alternative' ranks list pages and /patreon-alternatives is 404; 'creator monetization platform' ranks listicles, not home pages.",
+     "recommendation": "Target the tutorial article for the LoRA term; retitle the AI page to 'AI Influencer Generator'; build /patreon-alternatives; make the best-of page the target for the platform term."
+    },
+    {
+     "title": "Competitor cards on alternatives pages are identical one-liners",
+     "severity": "High",
+     "description": "Same sentence for Fansly, Fanvue, LoyalFans and JustFor.Fans.",
+     "recommendation": "Use the sourced, dated fields already held for compare pages."
+    },
+    {
+     "title": "Footer and dialog titles are H2s; H2 larger than H1 on home and pricing",
+     "severity": "Medium",
+     "description": "Every page carries 9 non-content H2s; home H1 32px vs H2 48px.",
+     "recommendation": "Make footer and dialog titles non-heading elements; set one H1 size."
+    },
+    {
+     "title": "Free tools have no contextual links in or out",
+     "severity": "Medium",
+     "description": "/tools/ai-influencer-persona and /tools/fan-questions.",
+     "recommendation": "Link from the matching feature pages and articles."
+    },
+    {
+     "title": "Compare meta descriptions share one templated ending",
+     "severity": "Medium",
+     "description": "All 9 end '...from one page. Fees compared.'",
+     "recommendation": "Write each from that page's distinguishing fact."
+    },
+    {
+     "title": "Title and description length edges",
+     "severity": "Low",
+     "description": "/compare/stan title 61 characters; /about 179 and /founding 180 character descriptions; one article description ends mid-sentence.",
+     "recommendation": "Trim and repair."
+    }
+   ]
+  },
+  {
+   "name": "Schema / Structured Data",
+   "score": 68,
+   "what_works": [
+    "Valid JSON-LD everywhere, no deprecated types",
+    "Home uses a linked @graph",
+    "Articles carry author, publisher, dates, breadcrumb",
+    "No Review or AggregateRating anywhere"
+   ],
+   "findings": [
+    {
+     "title": "Inner pages are not linked to the home graph",
+     "severity": "High",
+     "description": "Every inner page declares its own Organization and WebSite with no @id.",
+     "recommendation": "One #org and #website node, referenced by @id from every page."
+    },
+    {
+     "title": "Article has no @id and duplicates the Organization twice",
+     "severity": "High",
+     "description": "mainEntityOfPage is a bare URL; full Organization inside publisher and author.worksFor.",
+     "recommendation": "Emit WebPage, Article and BreadcrumbList in one @graph with @id references."
+    },
+    {
+     "title": "Author Person has empty sameAs and no image",
+     "severity": "Medium",
+     "description": "/author/dr-glauber and every Article author.",
+     "recommendation": "Drop the empty array or fill with real profiles."
+    },
+    {
+     "title": "Pricing offers lack availability and a monthly price specification",
+     "severity": "Medium",
+     "description": "/pricing: 4 Offers with name, price, currency only.",
+     "recommendation": "Add availability and UnitPriceSpecification with billingDuration P1M."
+    },
+    {
+     "title": "SoftwareApplication redefined on three pages",
+     "severity": "Medium",
+     "description": "/, /features, /pricing with differing names.",
+     "recommendation": "One #software node on home, referenced elsewhere."
+    },
+    {
+     "title": "No dateModified on pricing, compare and list pages",
+     "severity": "Medium",
+     "description": "WebPage JSON-LD has no dates.",
+     "recommendation": "Add dateModified equal to the latest source-check date and a visible 'Last checked' line."
+    },
+    {
+     "title": "Crunchbase and G2 sameAs links unverified",
+     "severity": "Low",
+     "description": "Both return 403 to automated fetch.",
+     "recommendation": "Confirm in a browser; remove any that do not exist."
+    },
+    {
+     "title": "TikTok sameAs handle",
+     "severity": "Medium",
+     "description": "One agent found tiktok.com/@creatorlinkstudio missing; another read it as live with 0 followers. Conflicting, so unverified.",
+     "recommendation": "Open it in a browser and correct the footer and sameAs if needed."
+    },
+    {
+     "title": "FAQPage present on 9 of 16 pages",
+     "severity": "Info",
+     "description": "No Google rich result since May 2026.",
+     "recommendation": "No action."
+    }
+   ]
+  },
+  {
+   "name": "Performance (CWV, lab)",
+   "score": 84,
+   "what_works": [
+    "All six measured pages pass lab LCP, CLS and TBT",
+    "HTML 13 to 15 KB compressed",
+    "Text is the LCP element on four of six pages",
+    "Self-hosted font preloaded, no font shift",
+    "Analytics scripts are async"
+   ],
+   "findings": [
+    {
+     "title": "Analytics scripts cost about 315 KB and drive mobile TBT",
+     "severity": "Medium",
+     "description": "gtag 179 KB, HeyCatch SDK 108 KB via esm.sh, Clarity 25 KB; mobile TBT 86 to 141 ms.",
+     "recommendation": "Load them after the load event or on first interaction; self-host the HeyCatch SDK."
+    },
+    {
+     "title": "Bootstrap, jQuery and toastr load on public pages",
+     "severity": "Medium",
+     "description": "About 66 KB over 4 requests from jsDelivr.",
+     "recommendation": "Unverified which public elements need them; load only where required."
+    },
+    {
+     "title": "Compare hero background image discovered late",
+     "severity": "Medium",
+     "description": "/compare/patreon mobile LCP 2084 ms vs FCP 1222 ms.",
+     "recommendation": "Preload the image and preconnect to the S3 host."
+    },
+    {
+     "title": "Article cover LCP 2038 ms on slow mobile",
+     "severity": "Medium",
+     "description": "/blog/ai-chat-for-creators.",
+     "recommendation": "Preconnect to S3 and preload the cover."
+    },
+    {
+     "title": "Three render-blocking first-party stylesheets",
+     "severity": "Medium",
+     "description": "landing.css, sx.css (83 KB decoded), public.css.",
+     "recommendation": "Merge and defer non-critical CSS."
+    },
+    {
+     "title": "gzip, not brotli; no immutable on versioned assets",
+     "severity": "Low",
+     "description": "First-party CSS and JS.",
+     "recommendation": "Owner / load balancer."
+    }
+   ]
+  },
+  {
+   "name": "AI Search Readiness",
+   "score": 71,
+   "what_works": [
+    "No AI crawler blocked; identical HTML served to all",
+    "llms.txt and llms-full.txt present and accurate",
+    "Definition leads and direct answers",
+    "Sourced, dated competitor data",
+    "Agent-UX heuristic 92/100; all controls named and labelled"
+   ],
+   "findings": [
+    {
+     "title": "No third-party mentions of the brand",
+     "severity": "High",
+     "description": "A brand search returns only the site's own home page; not in the Common Crawl graph; no referring domains verifiable.",
+     "recommendation": "Use the 2026-10-15 Product Hunt launch as the first corroboration event; earn editorial links. Nothing invented, no paid links."
+    },
+    {
+     "title": "Off-site profiles describe a different company",
+     "severity": "High",
+     "description": "LinkedIn: 'a digital platform designed to help content creators, influencers, and entrepreneurs build their brands', industry Marketing Services; YouTube and Product Hunt taglines differ too.",
+     "recommendation": "Paste the canonical one-sentence description into every profile before launch; change the LinkedIn industry."
+    },
+    {
+     "title": "Pricing table check cells have no text",
+     "severity": "Medium",
+     "description": "Cells are an svg with aria-label only, so the table extracts empty.",
+     "recommendation": "Add visually hidden 'Included' text."
+    },
+    {
+     "title": "Home has no 'What Is Creator Link Studio?' block; FAQ answers are 8 to 15 words",
+     "severity": "Medium",
+     "description": "/",
+     "recommendation": "Add a 2 to 3 sentence self-contained block; expand the short answers."
+    },
+    {
+     "title": "Lighthouse Agentic Browsing score not obtained",
+     "severity": "Medium",
+     "description": "PageSpeed Insights returned 429 with no API key.",
+     "recommendation": "Re-run with a Google API key."
+    },
+    {
+     "title": "MCP server not discoverable",
+     "severity": "Low",
+     "description": "/.well-known/mcp.json and ai-catalog.json return 404.",
+     "recommendation": "Optional: publish a discovery file."
+    },
+    {
+     "title": "Home live feed puts a creator caption on the entity page",
+     "severity": "Info",
+     "description": "'strap came undone again, pretend you didn't see'.",
+     "recommendation": "Owner decision: limit the feed to featured or SFW posts."
+    }
+   ]
+  },
+  {
+   "name": "Images",
+   "score": 90,
+   "what_works": [
+    "All raster images WebP, charts SVG",
+    "Every audited image has alt and dimensions",
+    "Below-fold images lazy, article cover eager"
+   ],
+   "findings": [
+    {
+     "title": "Article comparison table clipped on phones",
+     "severity": "High",
+     "description": "/blog/best-ai-tools-consistent-ai-influencer-characters at 390px: the 4th column cannot be scrolled to.",
+     "recommendation": "Wrap article tables in the scroll container used on /pricing."
+    },
+    {
+     "title": "Wide tables hide paid columns on phones with no scroll cue",
+     "severity": "Medium",
+     "description": "/pricing table is 640px in a 344px wrapper.",
+     "recommendation": "Add an edge fade or sticky first column."
+    },
+    {
+     "title": "Related-article thumbnails oversized",
+     "severity": "Low",
+     "description": "480x360 shown at 88x66.",
+     "recommendation": "Add small variants with srcset."
+    },
+    {
+     "title": "Emoji in an image alt text on home",
+     "severity": "Low",
+     "description": "Home demo image.",
+     "recommendation": "Remove the emoji."
+    },
+    {
+     "title": "Small tap targets on mobile",
+     "severity": "Low",
+     "description": "Footer social links 20px tall; 'source' links 16 to 20px.",
+     "recommendation": "Minimum 44px height."
+    }
+   ]
+  }
+ ],
+ "action_plan": {
+  "phases": [
+   {
+    "name": "Phase 1: Rule Breaches and Launch Prep",
+    "timeframe": "Before Oct 15",
+    "items": [
+     "Rewrite fee-plus-plan passages in 4 articles",
+     "Unlist /@danglauber",
+     "Align off-site profile descriptions",
+     "Verify Crunchbase, G2, TikTok and X profiles; remove dead sameAs links",
+     "Fix /pricing Free row and refund wording"
+    ]
+   },
+   {
+    "name": "Phase 2: High-Impact Improvements",
+    "timeframe": "Weeks 2-3",
+    "items": [
+     "Single Organization and WebSite @id graph on all pages",
+     "Hub pages link to their articles; retitle the two overlapping articles",
+     "Sourced competitor cards on alternatives pages; differentiate the two alternatives pages",
+     "Article table scroll wrapper; pricing check-cell text; demote footer and dialog H2s",
+     "lastmod on every sitemap URL; dateModified and 'Last checked' on commercial pages"
+    ]
+   },
+   {
+    "name": "Phase 3: Content and Authority",
+    "timeframe": "Month 2",
+    "items": [
+     "Expand the 12 thin feature and AI pages",
+     "Build /patreon-alternatives; retarget LoRA and AI generator terms",
+     "First-party data in articles; slow the cadence",
+     "Editorial link earning after launch",
+     "Defer analytics scripts; stop sessions on public pages"
+    ]
+   },
+   {
+    "name": "Phase 4: Monitoring and Iteration",
+    "timeframe": "Ongoing",
+    "items": [
+     "Add a Google API key for field data and the Lighthouse agentic score",
+     "Capture a drift baseline after the fixes ship",
+     "Re-check Common Crawl each quarter"
+    ]
+   }
+  ]
+ },
+ "artifacts": {
+  "findings_dir": "findings/",
+  "screenshots_dir": "screenshots/"
+ }
+}

@@ -1,14 +1,7 @@
 <?php
 /** Home page body on the shared section system (libs/Classes/Sections.php). Rendered inside login_form.php. */
 $site = Main::site_name();
-$home_faq = array(
-    array('q' => 'Who can see my content?', 'a' => 'You choose per post: Everyone, Subscribers, or Pay-per-view at a price you set.'),
-    array('q' => 'How do fans pay?', 'a' => 'Memberships bill on your schedule; everything else uses credits.'),
-    array('q' => 'How do I get paid?', 'a' => "Earnings collect as credits, net of your plan's fee. Cash out to your bank anytime."),
-    array('q' => 'Can people follow me for free?', 'a' => 'Yes. Free follows, plus an optional free membership tier.'),
-    array('q' => 'What do the plans cost?', 'a' => PagesController::plan_cost_answer()),
-    array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
-);
+$home_faq = PagesController::home_faq();   // shared with the FAQPage markup in login_form.php
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
 /* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
 // Hero (heycatch D1.1, D1.2, D1.6, D2.1): the H1 names the buyer and the product; the eyebrow above it states the fee wedge from config

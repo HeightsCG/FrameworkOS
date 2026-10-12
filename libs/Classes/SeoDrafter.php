@@ -959,6 +959,51 @@ class SeoDrafter {
      * no leftover tokens, no facts-sheet sentence copied word for word, and the fee and plan prices each stated in at
      * most one paragraph. Returns error strings.
      */
+    /**
+     * Wording that turns the fee and the plan price into one decision point (Daniel 2026-10-12): the platform fee is a percentage of
+     * sales and the plan price is a separate monthly line. No article says where one plan "starts covering itself" or which sales
+     * level flips the choice. Shared with the one-time text-fix scripts.
+     */
+    const CROSSOVER = '/break-?even|pays? for itself|pays? for its price|cover(?:s|ing)? itself|cover(?:s|ing)? its (?:own )?(?:price|cost)|once you sell|once monthly sales pass|crossover|cross(?:es)? (?:at|near|around)|lines cross|swap places|the order flips|plan (?:maths?|arithmetic) changes|where the (?:better|cheaper|pricier) plan changes|starts? to cost more than a plan price|sales level where/i';
+
+    /**
+     * The fee folded into the plan price (hard rule, Daniel 2026-10-12): a sum that adds a plan's monthly price to a fee amount
+     * ("$300 plus $49, which is $349"), the gap between two plan prices weighed against the fee ("$150 of extra monthly price"),
+     * or crossover wording (CROSSOVER). Plan prices come from PlanTiers, so a price change needs no edit here.
+     */
+    public static function plan_sum_errors(string $plain): array {
+        $err = array();
+        list($live) = self::plan_prices();
+        $prices = array_values(array_unique(array_filter(array_map('intval', array_values($live)))));
+        if (!empty($prices)) {
+            $pr = implode('|', $prices);
+            $amt = '\$[\d,]+(?:\.\d+)?';
+            if (preg_match('/' . $amt . '(?:\s+in\s+(?:fees?|share|commission|platform fees?))?\s*(?:plus|\+|and)\s+(?:the\s+)?\$(?:' . $pr . ')\b(?!\s*%)/i', $plain, $m)
+                || preg_match('/\$(?:' . $pr . ')\b(?:\s+(?:in|of)\s+(?:plan\s+)?price|\s+plan price|\s+a month)?\s*(?:plus|\+)\s+' . $amt . '/i', $plain, $m)) {
+                $err[] = 'adds the platform fee to the plan price in one sum ("' . mb_substr(trim($m[0]), 0, 50) . '"): state the fee as a percentage of sales and the plan price as a separate monthly line';
+            }
+            // the same sum written as a subtraction: a fee amount and a plan charge taken off one sales figure ("the fee comes to $160, the plan charge adds $49, and $1,391 remains")
+            foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $sentence) {
+                if (!preg_match('/\$(?:' . $pr . ')\b(?!\s*%)/', $sentence) || !preg_match('/\b(?:fee|fees|share|cut|commission)\b|%/i', $sentence)) { continue; }
+                if (preg_match('/\b(?:leaving|leaves|remains?|is left|are left|nets?|net of)\b/i', $sentence) && preg_match_all('/\$[\d,]+/', $sentence) >= 3) {
+                    $err[] = 'takes the platform fee and the plan price off one sales figure ("' . mb_substr(trim($sentence), 0, 50) . '"): state the fee as a percentage of sales and the plan price as a separate monthly line';
+                    break;
+                }
+            }
+            $gaps = array();
+            foreach ($prices as $x) { foreach ($prices as $y) { if ($x > $y) { $gaps[] = $x - $y; } } }
+            foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $sentence) {
+                if (empty($gaps) || !preg_match('/\$(?:' . implode('|', $gaps) . ')\b/', $sentence)) { continue; }
+                if (preg_match('/\b(?:plan|price|charges?|subscription)\b/i', $sentence) && preg_match('/\b(?:fee|fees|share|take rate|percent|points?|percentage)\b|%/i', $sentence)) {
+                    $err[] = 'weighs the gap between plan prices against the platform fee ("' . mb_substr(trim($sentence), 0, 50) . '"): keep the fee and the plan price as separate lines';
+                    break;
+                }
+            }
+        }
+        if (preg_match(self::CROSSOVER, $plain, $m)) { $err[] = 'names a point where one plan overtakes another ("' . $m[0] . '"): no break-even or crossover wording, state the fee percentage and the plan price separately'; }
+        return $err;
+    }
+
     public static function content_errors(array $a): array {
         $err = array();
         $body = (string) ($a['body_md'] ?? '');
@@ -1027,6 +1072,7 @@ class SeoDrafter {
                 }
             }
         }
+        foreach (self::plan_sum_errors($plain) as $pe) { $err[] = $pe; }   // fee and plan price never in one figure, no crossover point
         // the facts sheet is context, not copy: a sentence lifted from it word for word reads as the same paragraph in every article
         foreach (self::boilerplate_sentences() as $s) {
             if (stripos($plain, $s) !== false) { $err[] = 'copied from the facts sheet word for word, say it in the article\'s own words or leave it out: "' . mb_substr($s, 0, 60) . '"'; break; }
@@ -1151,6 +1197,7 @@ class SeoDrafter {
             . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". "
             . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
             . "Plan prices, the platform fee and the refund rule: most pieces need none of them. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word, and never attach a fee to the Free plan. "
+            . "The platform fee is a percentage of sales and the plan price is a separate monthly line: never add a fee amount to a plan price in one sum, never weigh the gap between plan prices against the fee, and never name a sales level where one plan overtakes another (no break-even, crossover or \"pays for itself\"). "
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
@@ -1205,7 +1252,7 @@ class SeoDrafter {
             if ($url === '') { return ''; }
             if ($save && !empty($article['id'])) {
                 $old = (string) ($article['cover_image_url'] ?? '');
-                (new SeoArticlesModel())->update_fields((int) $article['id'], array('cover_image_url' => $url));
+                (new SeoArticlesModel())->update_fields((int) $article['id'], array('cover_image_url' => $url), false);   // a cover image is not an edit to the text
                 if ($old !== '' && strpos($old, '/creator/blog/') !== false) { S3Service::delete_by_url($old); }
                 PublicThumbService::blog_cover((int) $article['id'], $url, (string) ($article['cover_webp_url'] ?? ''));   // webp copies for the page
             }

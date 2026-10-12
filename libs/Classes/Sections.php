@@ -212,7 +212,7 @@ class Sections {
         $total = 0; foreach ($items as $it) { $total += (int) $it[1]; }
         $o = '<div class="hx__box"><div class="hx__handle"><i aria-hidden="true"></i>' . self::e($handle) . '</div>';
         foreach ($items as $it) { $o .= '<button type="button" class="hx__lk" data-n="' . (int) $it[1] . '">' . self::e($it[0]) . '<b>' . number_format((int) $it[1]) . '</b></button>'; }
-        return $o . '<div class="hx__tot"><span>Clicks this month</span><b data-hx-total="' . $total . '">+' . number_format($total) . ' clicks</b></div></div>';
+        return $o . '<div class="hx__tot"><span>Example: clicks this month</span><b data-hx-total="' . $total . '">+' . number_format($total) . ' clicks</b></div></div>';
     }
 
     /** Toggle chips with a live count. $items: labels; $on: indexes switched on. */

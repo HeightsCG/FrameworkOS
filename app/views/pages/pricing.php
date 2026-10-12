@@ -16,8 +16,7 @@ $e = function ($s) { return Sections::e($s); };
 <div class="sx-plans" id="sx_plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>
     <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
-        <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
-        <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
+        <h2 class="sx-plan__name"><?php echo $e($t['name']); ?></h2><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><p class="sx-plan__role"><?php echo $e($role); ?></p><?php endif; ?>
         <div class="sx-plan__price"><?php if ($is_free): ?>$0<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <div class="sx-plan__cta">
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start Now</a>
@@ -55,7 +54,7 @@ echo Sections::rows(array(
 echo Sections::close();
 
 /* Full comparison: limits from PlanTiers::ROWS, then everything every plan includes. */
-$check = '<svg class="sx-ic pt-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Included"><path d="M20 6 9 17l-5-5"/></svg>';
+$check = '<svg class="sx-ic pt-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="Included"><path d="M20 6 9 17l-5-5"/></svg><span class="sx-vh">Included</span>';   // the hidden word is what text extractors and screen readers read
 $head = array('');
 $hi = -1;
 foreach ($rows as $i => $r) { $head[] = $r['tier']['name']; if (!empty($r['tier']['recommended'])) { $hi = $i + 1; } }

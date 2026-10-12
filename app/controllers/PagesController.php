@@ -264,6 +264,7 @@ class PagesController extends Controller {
         if (isset($meta['jsonld']['@type'])) { $meta['jsonld'] = array($meta['jsonld']); }
         $types = array_map(function ($b) { return is_array($b) ? (string) ($b['@type'] ?? '') : ''; }, (array) $meta['jsonld']);
         if (!in_array('Organization', $types, true)) { $meta['jsonld'][] = SeoMeta::org(); }
+        if (empty($meta['page_modified'])) { $meta['page_modified'] = PageDates::iso((string) $meta['path']); }   // the day this page's text last changed (cron/build_page_dates.php)
         if (!array_intersect(array('Article', 'BlogPosting', 'WebPage'), $types)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }
         unset($meta['path']);
         $meta['sections'] = true;   // full-width section system (libs/Classes/Sections.php)
@@ -404,15 +405,15 @@ class PagesController extends Controller {
     }
 
     public function privacyAction(){
-        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects from creators and fans, how it is used and shared, and the choices you have over your data.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function aboutAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
         $site = Main::site_name();
-        $desc = 'What ' . $site . ' is, who it is for, what creators sell from one page, the AI influencer tools, how creators get paid to their bank, and who writes and checks the articles.';
+        $desc = 'What ' . $site . ' is, who it is for, what creators sell from one page, how they get paid, and who writes and checks the articles.';   // 120-160 characters
         $jsonld = array(
-            array('@context' => 'https://schema.org', '@type' => 'AboutPage', 'name' => 'About ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/about', 'about' => SeoMeta::org()),
+            array('@context' => 'https://schema.org', '@type' => 'AboutPage', 'name' => 'About ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/about', 'about' => SeoMeta::org_ref()),
             SeoMeta::org(),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'About', 'url' => '/about'))),
         );
@@ -444,7 +445,7 @@ class PagesController extends Controller {
         $site = Main::site_name();
         $desc = 'Contact ' . $site . ' support about billing, payouts, your account or a bug. Send a message or email ' . self::LEGAL_CONTACT . '.';
         $jsonld = array(
-            array('@context' => 'https://schema.org', '@type' => 'ContactPage', 'name' => 'Contact ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/contact', 'about' => SeoMeta::org()),
+            array('@context' => 'https://schema.org', '@type' => 'ContactPage', 'name' => 'Contact ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/contact', 'about' => SeoMeta::org_ref()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Contact', 'url' => '/contact'))),
         );
         $this->page('contact', array('path' => '/contact', 'title' => 'Contact Support', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true));
@@ -496,9 +497,9 @@ class PagesController extends Controller {
      * No review/aggregateRating until there are real ones to show.
      */
     public static function software_app(string $path, string $name, string $description): array {
-        $app = array('@type' => 'SoftwareApplication', 'name' => $name, 'description' => $description,
+        $app = array('@type' => 'SoftwareApplication', '@id' => SeoMeta::base() . '/#software', 'name' => $name, 'description' => $description,
             'applicationCategory' => 'BusinessApplication', 'operatingSystem' => 'Web',
-            'url' => SeoMeta::base() . $path, 'image' => SeoMeta::default_image(), 'publisher' => SeoMeta::org());
+            'url' => SeoMeta::base() . $path, 'image' => SeoMeta::default_image(), 'publisher' => SeoMeta::org_ref());
         $offers = self::plan_offers();
         if (!empty($offers)) { $app['offers'] = $offers; }
         return $app;
@@ -508,13 +509,15 @@ class PagesController extends Controller {
     public static function plan_offers(): array {
         $offers = array();
         foreach (self::pricing_rows() as $r) {
+            $price = number_format($r['amount'] / 100, 2, '.', '');
             $offers[] = array('@type' => 'Offer', 'name' => $r['tier']['name'],
-                'price' => number_format($r['amount'] / 100, 2, '.', ''), 'priceCurrency' => 'USD',
+                'price' => $price, 'priceCurrency' => 'USD', 'availability' => 'https://schema.org/InStock',
+                'priceSpecification' => array('@type' => 'UnitPriceSpecification', 'price' => $price, 'priceCurrency' => 'USD', 'billingDuration' => 'P1M', 'unitCode' => 'MON'),
                 'url' => SeoMeta::base() . '/pricing');
         }
         foreach (PlanTiers::addons() as $ad) {
             $offers[] = array('@type' => 'Offer', 'name' => $ad['name'] . ' add-on (per month)',
-                'price' => number_format((float) $ad['price'], 2, '.', ''), 'priceCurrency' => 'USD',
+                'price' => number_format((float) $ad['price'], 2, '.', ''), 'priceCurrency' => 'USD', 'availability' => 'https://schema.org/InStock',
                 'url' => SeoMeta::base() . '/pricing');
         }
         return $offers;
@@ -559,6 +562,18 @@ class PagesController extends Controller {
     }
 
     /** Home and payouts FAQ: how data and money are handled, in plain words. One string so the page, its schema and /features/payouts agree. */
+    /** The home page FAQ: one source for the visible section (home_body.php) and the FAQPage markup (login_form.php), so they cannot drift. Each answer stands alone and names the figures. */
+    public static function home_faq(): array {
+        return array(
+            array('q' => 'Who can see my content?', 'a' => 'You choose for each post: everyone, subscribers only, or pay-per-view at a price you set. Subscriber and paid posts show blurred to everyone else.'),
+            array('q' => 'How do fans pay?', 'a' => 'Fans pay for memberships by card, on the schedule you set. Pay-per-view posts, bundles, services and event tickets are paid from a credit wallet, at 10 credits to the dollar.'),
+            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee (' . self::fee_short() . '). You cash out to your bank on request, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold.'),
+            array('q' => 'Can people follow me for free?', 'a' => 'Yes. Following is free, and you can also offer a free membership tier.'),
+            array('q' => 'What do the plans cost?', 'a' => self::plan_cost_answer()),
+            array('q' => 'How is my data and money handled?', 'a' => self::DATA_MONEY_ANSWER),
+        );
+    }
+
     const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card. Plan charges and credit purchases are final and non-refundable.';
 
 
@@ -693,7 +708,7 @@ class PagesController extends Controller {
         $lead = 'On ' . $money($s0) . ' of sales in a month, ' . ($first_them ? $first_them['label'] . ' keeps ' . $money($them_fee) . ' and ' : '') . $site . '\'s ' . $low['name'] . ' plan keeps ' . $money($us_fee) . '. The figures are the platform percentage only; monthly plan prices, ours and theirs, are separate and listed where each plan is sold. Card processing is charged separately on every option in the table.';
         $vlead = $voice !== '' ? CompareProse::voice($voice, 'fee_lead') : '';
         if ($vlead !== '') { $lead = strtr($vlead, array('{s0}' => $money($s0), '{them_fee}' => $money($them_fee), '{us_fee}' => $money($us_fee), '{c_name}' => (string) $low['name'], '{s_name}' => (string) $high['name'], '{them_pct}' => $first_them ? rtrim(rtrim(number_format((float) $first_them['percent'], 2), '0'), '.') . '%' : '')) . $cross; }
-        $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on real sales?', $lead);
+        $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on example sales?', $lead);
         $out .= Sections::table($head, $rows, -1);
         $out .= Sections::fee_chart($options, $sales, 'What you keep after the platform fee');   // the same numbers as the table, as a bar chart with the figures in its caption (g_multimodal)
         $vnote = $voice !== '' ? CompareProse::voice($voice, 'fee_note') : '';
@@ -853,7 +868,7 @@ class PagesController extends Controller {
     /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
     public static function founding_meta(): array {
         return array('title' => 'Founding Creators: First Month Free on ' . Founding::plan_names(),
-            'description' => Founding::SPOTS . ' founding spots on the ' . Founding::plan_names() . ' plan, open until they are filled: your first billing period free, with featured placement in the creator directory and on the home page.');
+            'description' => Founding::SPOTS . ' founding spots on ' . Founding::plan_names() . ': your first billing period free, plus featured placement in the creator directory and on the home page.');   // 120-160 characters
     }
 
     public static function founding_faq(): array {
@@ -980,10 +995,18 @@ class PagesController extends Controller {
 
     /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
     public static function compare_description(array $c): string {
-        $site = Main::site_name();
-        $d = $c['name'] . ' runs ' . (string) ($c['sells'] ?? 'its own platform') . '. ' . $site . ' runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared.';
-        if (mb_strlen($d) > 160) { $d = $c['name'] . ' runs ' . (string) ($c['sells'] ?? 'its own platform') . '. ' . $site . ' runs memberships, pay-per-view, services and events from one page. Fees compared.'; }
-        return $d;
+        // Each page leads with its own competitor's fee, so no two descriptions share an ending (SEO audit 2026-10-12). 160 characters at most.
+        $site = Main::site_name(); $name = (string) $c['name'];
+        $sells = (string) ($c['sells'] ?? 'its own platform');
+        $fee = rtrim(trim((string) ($c['fee_short'] ?? '')), '.');
+        $tries = array(
+            $name . ' runs ' . $sells . ($fee !== '' ? ', fee: ' . $fee : '') . '. ' . $site . ' keeps ' . self::fee_short() . ' and adds pay-per-view, services and events. Sourced and dated.',
+            $name . ' runs ' . $sells . ($fee !== '' ? ', fee: ' . $fee : '') . '. ' . $site . ' keeps ' . self::fee_short() . '. Sourced and dated.',
+            $name . ' runs ' . $sells . '. ' . $site . ' keeps ' . self::fee_short() . ' and adds pay-per-view, services and events. Sourced and dated.',
+            $name . ' runs ' . $sells . '. ' . $site . ' keeps ' . self::fee_short() . '. Sourced and dated.',
+        );
+        foreach ($tries as $d) { if (mb_strlen($d) <= 160) { return $d; } }
+        return mb_substr(end($tries), 0, 160);
     }
 
     /**
@@ -1026,7 +1049,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('path' => $path, 'title' => $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
+        $this->page('compare', array('path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**

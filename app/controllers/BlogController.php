@@ -114,6 +114,7 @@ class BlogController extends Controller {
         );
         if (!empty($faq)) { $jsonld[] = SeoMeta::faq($faq); }
         $anch = self::anchor_headings((string) $a['body_html']);
+        $anch[0] = preg_replace(array('#<table>#', '#</table>#'), array('<div class="gd-table"><table>', '</table></div>'), $anch[0]);   // a scroll box per table, so a wide one never runs off a phone (SEO audit 2026-10-12)
         $anch[0] = SeoDrafter::place_cta($anch[0], (int) $a['id']);   // the signup aside sits at a different point per article (end, after the first section, before the last)
         $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
                 'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),   // the view has its one <article>

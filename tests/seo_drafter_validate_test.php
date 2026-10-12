@@ -129,6 +129,20 @@ $t = $good; $t['body_md'] .= "\n\nFans buy credits to unlock posts.";           
 $t = $good; $t['body_md'] .= "\n\nFans buy credits to unlock posts. " . PagesController::FINAL_NOTE; check('refund rule copied word for word rejected', (bool) preg_grep('/word for word/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nFees matter here. " . PagesController::fee_sentence(); check('fee sentence copied word for word rejected', (bool) preg_grep('/word for word/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nThe Creator plan is \$99 a month.";               check('wrong plan price rejected', !$ok($t));
+// fee and plan price never in one figure, no crossover point (Daniel 2026-10-12): the three sentences that were live on the blog
+$sum = function ($x) { return (bool) preg_grep('/one sum|gap between plan prices|overtakes another/', SeoDrafter::plan_sum_errors($x)); };
+check('fee plus plan price in one sum rejected', $sum('At $3,000 of monthly sales the sums are $300 plus $49, which is $349, against $90 plus $199, which is $289.'));
+check('"in fees plus $49" rejected', $sum('At $2,000 gross, Creator costs $200 in fees plus $49, so $249.'));
+check('"covering itself" rejected', $sum('The answer sits near $2,143 of monthly sales. Above that level the pricier plan starts covering itself.'));
+check('plan-price gap weighed against the fee rejected', $sum('The $150 difference between plan charges weighs against the seven point difference in fee.'));
+check('fee and plan charge subtracted from one sales figure rejected', (bool) preg_grep('/off one sales figure/', SeoDrafter::plan_sum_errors('On Creator the platform fee comes to $160, the plan charge adds $49, and $1,391 remains before card costs and tax.')));
+check('fee and price stated side by side, no sum, allowed', SeoDrafter::plan_sum_errors('The Creator plan is $49 a month and keeps 10% of each sale.') === array());
+check('"break-even" and "pays for itself" rejected', $sum('Find your break-even point.') && $sum('The plan pays for itself.'));
+check('"plan maths changes" rejected', $sum('the point where the plan maths changes'));
+check('percentage-only fee sentence allowed', SeoDrafter::plan_sum_errors('The Creator plan keeps 10% of each sale and the Studio plan keeps 3%. Plan prices are a separate monthly line on the pricing page.') === array());
+check('worked sale without a plan price allowed', SeoDrafter::plan_sum_errors('On a $20 tier the platform keeps $2 and card processing takes about $0.88, so roughly $17 reaches your balance.') === array());
+check('a price that happens to follow "plus" in a list of products allowed', SeoDrafter::plan_sum_errors('Sell a $15 preset pack plus a $40 coaching call.') === array());
+$t = $good; $t['body_md'] .= "\n\nAt that volume the sums are \$300 plus \$49, which is \$349.";   check('validate() rejects the sum as a hard rule', !$ok($t) && !SeoDrafter::is_soft(current(SeoDrafter::plan_sum_errors($t['body_md']))));
 $creator_fee = null; foreach (PlanTiers::all() as $pt) { if ((string) $pt['name'] === 'Creator') { $creator_fee = (int) $pt['limits']['fee_percent']; } }
 if ($creator_fee !== null) {
     $t = $good; $t['body_md'] .= "\n\nCreators on the Creator plan pay a $creator_fee% platform fee on each sale, which matters once sales grow."; check('fee stated once in own words allowed', $ok($t), implode('; ', SeoDrafter::validate($t)));

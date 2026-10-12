@@ -463,6 +463,10 @@ class ProfileController extends Controller {
         // AI disclosure: an account that has published AI media carries the AI badge and a line saying so.
         $ai_creator = (new PostsModel())->has_published_ai((int) $user['user_id']);
 
+        // An empty page (no post, tier, service or event) is not indexed: the same test the sitemap uses.
+        $seo_thin = false;
+        try { $seo_thin = !(new UsersModel())->has_public_content((int) $user['user_id']); } catch (\Throwable $e) { error_log('[profile] thin check: ' . $e->getMessage()); }
+
         require Main::app_path() . '/app/views/profile/view.php';
     }
 

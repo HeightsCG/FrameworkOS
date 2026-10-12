@@ -26,17 +26,21 @@ class SeoArticlesModel extends Model {
         return (int) parent::insert('seo_articles', $f);
     }
 
-    public function update_fields($id, array $f){
-        $f['updated_at'] = gmdate('Y-m-d H:i:s');
+    /**
+     * $touch = false for a write a reader cannot see (a re-render of unchanged text, a cover image, a thumbnail): updated_at is the
+     * article's dateModified and its sitemap <lastmod>, so it moves only when the words do (SEO audit 2026-10-12).
+     */
+    public function update_fields($id, array $f, $touch = true){
+        if ($touch) { $f['updated_at'] = gmdate('Y-m-d H:i:s'); }
         parent::update('seo_articles', $f, 'id = :id', array('id' => (int) $id));
     }
 
     /** published → sets published_at (first time) and published_by; anything else leaves the dates alone. */
     public function set_status($id, $status, $by = null){
         $row = $this->get($id);
-        $data = array('status' => (string) $status, 'updated_at' => gmdate('Y-m-d H:i:s'));
+        $data = array('status' => (string) $status);   // a status change is not an edit: updated_at (dateModified, sitemap lastmod) moves only with the text
         if ($status === 'published') {
-            if (empty($row['published_at'])) { $data['published_at'] = gmdate('Y-m-d H:i:s'); }
+            if (empty($row['published_at'])) { $data['published_at'] = gmdate('Y-m-d H:i:s'); $data['updated_at'] = $data['published_at']; }
             if ($by !== null) { $data['published_by'] = (int) $by; }
         }
         parent::update('seo_articles', $data, 'id = :id', array('id' => (int) $id));

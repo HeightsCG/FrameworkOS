@@ -44,7 +44,9 @@ class PublicThumbService {
     /** Alt text: the caption's first 100 characters, else the creator's name. */
     public static function alt($caption, $name): string
     {
-        $cap = trim(preg_replace('/\s+/', ' ', html_entity_decode(strip_tags((string) $caption), ENT_QUOTES, 'UTF-8')));
+        $cap = html_entity_decode(strip_tags((string) $caption), ENT_QUOTES, 'UTF-8');
+        $cap = (string) preg_replace('/[\x{1F000}-\x{1FAFF}\x{2600}-\x{27BF}\x{FE0F}\x{200D}\x{1F1E6}-\x{1F1FF}]/u', '', $cap);   // alt text describes the picture: no emoji (SEO audit 2026-10-12)
+        $cap = trim(preg_replace('/\s+/', ' ', $cap));
         if ($cap === '') { return trim((string) $name); }
         return mb_strlen($cap) > 100 ? rtrim(mb_substr($cap, 0, 99)) . '…' : $cap;
     }
@@ -161,7 +163,7 @@ class PublicThumbService {
                 if ($w === self::FEED) { $url = $u; }
             }
             imagedestroy($img);
-            (new SeoArticlesModel())->update_fields((int) $article_id, array('cover_webp_url' => $url));
+            (new SeoArticlesModel())->update_fields((int) $article_id, array('cover_webp_url' => $url), false);   // a thumbnail is not an edit
             $old_webp_url = (string) $old_webp_url;
             if ($old_webp_url !== '' && $old_webp_url !== $url) { S3Service::delete_by_url($old_webp_url); S3Service::delete_by_url(self::cover_small($old_webp_url)); }
             return $url;

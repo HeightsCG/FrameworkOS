@@ -44,16 +44,19 @@ class SeoController extends Controller {
     public static function sitemap_entries(): array {
         $base = Main::get_base_domain();
         $urls   = array();
-        $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0');
+        $urls[] = array('loc' => $base . '/', 'changefreq' => 'weekly', 'priority' => '1.0', 'lastmod' => PageDates::get('/'));
 
-        // Static pages carry a date only where one is real: the compare pages' facts have "checked" dates. A file
-        // mtime would stamp every page on every deploy, which teaches crawlers the dates mean nothing.
+        // Every static page carries a real date: the later of its facts' "checked" date (compare pages) and the day its text last
+        // changed (PageDates, moved by cron/build_page_dates.php only when the page text differs). A file mtime would stamp every
+        // page on every deploy, which teaches crawlers the dates mean nothing.
         foreach (self::public_pages() as $p) {
-            $urls[] = array('loc' => $base . $p['path'], 'changefreq' => $p['changefreq'], 'priority' => $p['priority'], 'lastmod' => (string) ($p['lastmod'] ?? ''));
+            $urls[] = array('loc' => $base . $p['path'], 'changefreq' => $p['changefreq'], 'priority' => $p['priority'], 'lastmod' => max((string) ($p['lastmod'] ?? ''), PageDates::get((string) $p['path'])));
         }
 
+        $newest_creator = '';
         foreach ((new UsersModel())->list_public_creators() as $row) {
             $lastmod = !empty($row['last_modified']) ? gmdate('Y-m-d', strtotime((string) $row['last_modified'] . ' UTC')) : '';
+            $newest_creator = max($newest_creator, $lastmod);
             $urls[]  = array(
                 'loc'        => $base . '/@' . rawurlencode((string) $row['u_name']),
                 'lastmod'    => $lastmod,
@@ -62,12 +65,18 @@ class SeoController extends Controller {
             );
         }
 
+        // the directory pages change when a listed creator's page does
+        foreach ($urls as $i => $u) { if (empty($u['lastmod']) && preg_match('#/creators(?:/[a-z0-9-]+)?$#', (string) $u['loc'])) { $urls[$i]['lastmod'] = $newest_creator; } }
+
         try {
             $articles = new SeoArticlesModel();
+            $blog_i = count($urls); $newest = '';
             $urls[] = array('loc' => $base . '/blog', 'changefreq' => 'daily', 'priority' => '0.8');
             foreach ($articles->published(500, 0) as $a) {
-                $urls[] = array('loc' => $base . '/blog/' . $a['slug'], 'lastmod' => gmdate('Y-m-d', strtotime(($a['updated_at'] ?: $a['published_at']) . ' UTC')), 'changefreq' => 'monthly', 'priority' => '0.7');
+                $lm = gmdate('Y-m-d', strtotime(($a['updated_at'] ?: $a['published_at']) . ' UTC')); $newest = max($newest, $lm);
+                $urls[] = array('loc' => $base . '/blog/' . $a['slug'], 'lastmod' => $lm, 'changefreq' => 'monthly', 'priority' => '0.7');
             }
+            $urls[$blog_i]['lastmod'] = $newest;   // the index changes when its newest article does
         } catch (\Throwable $e) { error_log('[seo] sitemap articles: ' . $e->getMessage()); }
 
         return $urls;
@@ -86,8 +95,7 @@ class SeoController extends Controller {
             if (!empty($u['lastmod'])) {
                 echo '    <lastmod>', $u['lastmod'], "</lastmod>\n";
             }
-            echo '    <changefreq>', $u['changefreq'], "</changefreq>\n";
-            echo '    <priority>', $u['priority'], "</priority>\n";
+            // no <changefreq> or <priority>: search engines ignore both, and an accurate <lastmod> is the signal they use
             echo "  </url>\n";
         }
         echo '</urlset>', "\n";

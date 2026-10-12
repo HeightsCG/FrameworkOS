@@ -78,7 +78,7 @@ class ToolsController extends Controller {
         $jsonld = array(
             array('@context' => 'https://schema.org', '@type' => 'WebApplication', 'name' => $tool['nav_title'], 'description' => $tool['description'],
                 'url' => SeoMeta::base() . $path, 'applicationCategory' => 'BusinessApplication', 'operatingSystem' => 'Web', 'isAccessibleForFree' => true,
-                'offers' => array('@type' => 'Offer', 'price' => '0', 'priceCurrency' => 'USD'), 'publisher' => SeoMeta::org()),
+                'offers' => array('@type' => 'Offer', 'price' => '0', 'priceCurrency' => 'USD'), 'publisher' => SeoMeta::org_ref()),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $tool['nav_title'], 'url' => $path))),
             SeoMeta::org(),

@@ -1,6 +1,7 @@
 <?php
 $e = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
 $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UTC'));
+$upd = !empty($a['updated_at']) ? gmdate('Y-m-d', strtotime($a['updated_at'] . ' UTC')) : '';   // shown only when the text changed on a later day than it was published
 ?>
 <div class="gd gd--post">
 <?php if (!empty($preview) && ($a['status'] ?? '') !== 'published'): ?><p class="pub-note pub-note--preview">Preview. This article is not published.</p><?php endif; ?>
@@ -10,7 +11,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <nav class="gd-crumbs" aria-label="Breadcrumb"><a href="/">Home</a><span aria-hidden="true">/</span><a href="/blog"><?php echo $e(BlogController::NAME); ?></a><span aria-hidden="true">/</span><span class="gd-crumbs__here" aria-current="page"><?php echo $e($a['title']); ?></span></nav>
         <h1 class="gd-posthead__title"><?php echo $e($a['title']); ?></h1>
         <?php if (trim((string) $a['excerpt']) !== ''): ?><p class="gd-hero__lead"><?php echo $e($a['excerpt']); ?></p><?php endif; ?>
-        <p class="gd-posthead__meta"><a class="gd-posthead__author" href="<?php echo $e(SeoMeta::AUTHOR_PATH); ?>" rel="author"><?php echo $e(SeoMeta::byline()); ?></a><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
+        <p class="gd-posthead__meta"><a class="gd-posthead__author" href="<?php echo $e(SeoMeta::AUTHOR_PATH); ?>" rel="author"><?php echo $e(SeoMeta::byline()); ?></a><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><?php if ($upd !== '' && $upd > $day): ?><span>Updated <time datetime="<?php echo $e($upd); ?>"><?php echo $e(date('M j, Y', strtotime($upd))); ?></time></span><?php endif; ?><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
         </div>
         <?php $cover_webp = trim((string) ($a['cover_webp_url'] ?? '')); /* webp copies (PublicThumbService), else the original */ ?>
         <?php if ($cover_webp !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover_webp); ?>" srcset="<?php echo $e(PublicThumbService::cover_small($cover_webp)); ?> 480w, <?php echo $e($cover_webp); ?> 960w" sizes="(max-width: 900px) 100vw, 340px" alt="<?php echo $e(SeoDrafter::cover_alt($a)); ?>" width="960" height="720" fetchpriority="high">

@@ -134,6 +134,24 @@ class UsersModel extends Model {
      * carries its own sitemap), and so is an empty profile (no published post, membership tier, service or event):
      * a page of empty states is not worth a crawl slot. last_modified also follows their newest published post.
      */
+    /**
+     * Does this creator's page have anything on it worth indexing: a published post, an active membership tier, a published
+     * service or a published event? The same test list_public_creators() applies for the sitemap, so a page of empty states is
+     * neither listed nor indexed (SEO audit 2026-10-12).
+     */
+    public function has_public_content($user_id){
+        $r = parent::select(
+            "SELECT (
+                   EXISTS (SELECT 1 FROM posts ps WHERE ps.creator_id = :u1 AND ps.state = 'published' AND ps.on_cls = 1)
+                OR EXISTS (SELECT 1 FROM creator_plans cp WHERE cp.user_id = :u2 AND cp.is_active = 1)
+                OR EXISTS (SELECT 1 FROM services sv WHERE sv.creator_id = :u3 AND sv.status = 'published')
+                OR EXISTS (SELECT 1 FROM events ev WHERE ev.creator_id = :u4 AND ev.status = 'published')
+            ) AS has_content",
+            array('u1' => (int) $user_id, 'u2' => (int) $user_id, 'u3' => (int) $user_id, 'u4' => (int) $user_id)
+        );
+        return !empty($r[0]['has_content']);
+    }
+
     public function list_public_creators(){
         return parent::select(
             "SELECT

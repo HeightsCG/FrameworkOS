@@ -41,7 +41,7 @@ $search_form = '<form class="bl-search" action="/blog" method="get" role="search
         <li class="bl-item">
             <a class="bl-item__link" href="/blog/<?php echo $e($a['slug']); ?>">
                 <span class="bl-item__meta"><span class="bl-topic bl-item__topic"><?php echo $e(BlogController::topic($a)); ?></span><time class="bl-item__date" datetime="<?php echo $e($iso($a['published_at'])); ?>"><?php echo $e($when($a['published_at'])); ?></time></span>
-                <span class="bl-item__main"><span class="bl-item__title"><?php echo $e($a['title']); ?></span><span class="bl-item__x"><?php echo $e($a['excerpt'] ?: $a['meta_description']); ?></span></span>
+                <div class="bl-item__main"><h2 class="bl-item__title"><?php echo $e($a['title']); ?></h2><span class="bl-item__x"><?php echo $e($a['excerpt'] ?: $a['meta_description']); ?></span></div>
                 <span class="bl-item__read"><?php echo (int) $a['reading_minutes']; ?> min</span>
             </a>
         </li>

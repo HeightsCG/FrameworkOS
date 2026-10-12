@@ -109,7 +109,7 @@ class FeaturePages {
             ),
             'faq' => array(
                 array('q' => 'Does it send without me?', 'a' => 'Only if you turn that on. By default every reply waits in a queue for your approval.'),
-                array('q' => 'Will fans know it is AI?', 'a' => 'Replies go out in your voice from your account. You decide what it can and cannot talk about, and you can take over any conversation at any time.'),
+                array('q' => 'Will fans know it is AI?', 'a' => 'Yes. The first automated reply to each fan carries a line saying replies may be automated, and the agent never denies being AI. If a fan asks whether a real person is replying, a draft that does not confirm it is AI is held for you. You decide what the agent can talk about, and you can take over any conversation at any time.'),
                 array('q' => 'Can it sell content in a message?', 'a' => 'Yes. Welcome and trigger messages can carry media with a price, and the fan unlocks it with credits.'),
                 array('q' => 'What stops it going off the rails?', 'a' => 'Topics to avoid, quiet hours, a maximum number of replies in a row, and the approval queue until you switch it off.'),
             ),
@@ -150,7 +150,7 @@ class FeaturePages {
                         'Minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', paid on request',
                         'No platform hold, our payment processor\'s own payout timing applies',
                         'Available in every country our payment processor supports for creator payouts',
-                        'Refunds and disputes are handled for you and reflected in your balance',
+                        'A reversed sale or a dispute is shown in your balance, with the fan, the item and the date',
                     ),
                 ),
             ),
@@ -214,7 +214,7 @@ class FeaturePages {
             'faq' => array(
                 array('q' => 'How do fans pay for a membership?', 'a' => 'By card, billed automatically on the interval you set for the tier: weekly, monthly or yearly.'),
                 array('q' => 'Can I offer a free trial?', 'a' => 'Yes. Any tier can start with a free trial, and you choose how long it lasts.'),
-                array('q' => 'How many tiers can I have?', 'a' => 'As many as you want. Most creators start with two, an easy entry tier and one higher tier.'),
+                array('q' => 'How many tiers can I have?', 'a' => 'As many as you want. Two is a sound place to start, an easy entry tier and one higher tier.'),
                 array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
             ),
             'cta' => array('title' => 'Launch your first tier', 'text' => 'Set a price, add perks and share your page.'),

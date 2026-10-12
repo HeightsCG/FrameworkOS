@@ -15,6 +15,7 @@
     <title><?php echo $seo_title; ?></title>
     <meta name="description" content="<?php echo $seo_desc; ?>">
     <link rel="canonical" href="<?php echo $seo_base; ?>/">
+    <meta name="robots" content="index, follow, max-image-preview:large">
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
     <meta name="theme-color" content="#050505">
     <meta property="og:type" content="website">
@@ -37,49 +38,29 @@
     <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
     <?php
         $seo_base_raw = Main::get_base_domain();
+        $seo_software = PagesController::software_app('/', Main::site_name(), SeoMeta::brand_description());   // @id /#software, offers from the plans, publisher by reference
         $seo_ld = [
             '@context' => 'https://schema.org',
             '@graph' => [
-                array('@id' => $seo_base_raw . '/#org', 'logo' => $seo_base_raw . '/images/android-chrome-512x512.png') + SeoMeta::org(),   // same Organization (and sameAs) as every other page
-                [
-                    '@type' => 'WebSite',
-                    '@id' => $seo_base_raw . '/#website',
-                    'name' => Main::site_name(),
-                    'url' => $seo_base_raw . '/',
-                    'publisher' => ['@id' => $seo_base_raw . '/#org'],
-                ],
+                SeoMeta::org(),       // the one Organization node (@id /#org); every other page points at it
+                SeoMeta::website(),   // the one WebSite node (@id /#website)
                 [
                     '@type' => 'WebPage',
                     '@id' => $seo_base_raw . '/#webpage',
                     'url' => $seo_base_raw . '/',
                     'name' => Main::site_name() . ': Create. Share. Earn.',
                     'description' => SeoMeta::brand_tagline(),
-                    'isPartOf' => ['@id' => $seo_base_raw . '/#website'],
-                    'primaryImageOfPage' => SeoMeta::default_image(),
+                    'inLanguage' => 'en-US',
+                    'isPartOf' => SeoMeta::website_ref(),
+                    'publisher' => SeoMeta::org_ref(),
+                    'about' => ['@id' => $seo_software['@id']],
+                    'primaryImageOfPage' => ['@type' => 'ImageObject', 'url' => strtok(SeoMeta::default_image(), '?')],
                 ],
-                [
-                    '@type' => 'SoftwareApplication',
-                    'name' => Main::site_name(),
-                    'applicationCategory' => 'BusinessApplication',
-                    'operatingSystem' => 'Web',
-                    'url' => $seo_base_raw . '/',
-                    'image' => SeoMeta::default_image(),
-                    'description' => SeoMeta::brand_description(),
-                    'offers' => PagesController::plan_offers(),
-                ],
-                [
-                    '@type' => 'FAQPage',
-                    'mainEntity' => [
-                        ['@type' => 'Question', 'name' => 'Who can see my content?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'You choose per post: Everyone, Subscribers, or Pay-per-view at a price you set.']],
-                        ['@type' => 'Question', 'name' => 'How do fans pay?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Memberships bill on your schedule; everything else uses credits.']],
-                        ['@type' => 'Question', 'name' => 'How do I get paid?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Earnings collect as credits, net of your plan\'s fee. Cash out to your bank anytime.']],
-                        ['@type' => 'Question', 'name' => 'Can people follow me for free?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => 'Yes. Free follows, plus an optional free membership tier.']],
-                        ['@type' => 'Question', 'name' => 'What do the plans cost?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => PagesController::plan_cost_answer()]],
-                        ['@type' => 'Question', 'name' => 'How is my data and money handled?', 'acceptedAnswer' => ['@type' => 'Answer', 'text' => PagesController::DATA_MONEY_ANSWER]],
-                    ],
-                ],
+                $seo_software,
+                SeoMeta::faq(PagesController::home_faq()),   // the same questions the page shows
             ],
         ];
+        foreach ($seo_ld['@graph'] as $gi => $gn) { unset($seo_ld['@graph'][$gi]['@context']); }
     ?>
     <script type="application/ld+json"><?php echo json_encode($seo_ld, JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP); ?></script>
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>

@@ -12,7 +12,7 @@ class AlternativesPages {
         'onlyfans' => array(
             'name'        => 'OnlyFans',
             'description' => 'OnlyFans alternatives compared: what kind of platform each one is and who it suits, from one-page selling to subscription apps. Updated for {year}.',
-            'intro'       => 'An OnlyFans alternative is a platform where a creator sells memberships, pay-per-view and services without a single subscription app in the middle. Most creators look for one for one of three reasons. They want to keep more of each sale, sell more than one subscription, or own their audience. Here are the main options and what kind of platform each one is, so you can pick the fit for how you sell.',
+            'intro'       => 'An OnlyFans alternative is a platform where a creator sells memberships, pay-per-view and services without a single subscription app in the middle. Creators look for one for one of three reasons. They want to keep more of each sale, sell more than one subscription, or own their audience. Here are the main options and what kind of platform each one is, so you can pick the fit for how you sell.',
             'others' => array(
                 array('name' => 'Fansly', 'compare' => 'fansly', 'kind' => 'Subscription platform',
                       'text' => 'Fansly is a subscription platform for creators.',
@@ -39,7 +39,7 @@ class AlternativesPages {
             'faq' => array(
                 array('q' => 'What is the best OnlyFans alternative?', 'a' => 'It depends on what you sell. If you only sell one subscription and your fans are already on a subscription app, another subscription platform is the smallest change. If you also sell pay-per-view, bundles, services or events, {site} puts all of it on one page. The same goes if you want your posts published to your socials.'),
                 array('q' => 'Which OnlyFans alternative has the lowest fee?', 'a' => '{site} takes {fee_short}. Other platforms set and change their own rates, so check each one\'s current pricing page before you move. Count card processing too, which is separate almost everywhere. Plan charges and credit purchases on {site} are final and non-refundable.'),
-                array('q' => 'Can I keep my OnlyFans page while I try another platform?', 'a' => 'Yes. Most creators run both for a full billing cycle. Build the new page, tell your fans and put the new link in every bio. Let renewals lapse naturally rather than canceling anyone.'),
+                array('q' => 'Can I keep my OnlyFans page while I try another platform?', 'a' => 'Yes. Run both for a full billing cycle. Build the new page, tell your fans and put the new link in every bio. Let renewals lapse naturally rather than canceling anyone.'),
                 array('q' => 'How do payouts work on {site}?', 'a' => 'Every sale lands in one balance, net of your plan\'s fee. You cash out to your bank on request, with a {payout_min} minimum and no platform hold, in every country our payment processor supports.'),
                 array('q' => 'Can I sell adult content on {site}?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
             ),
