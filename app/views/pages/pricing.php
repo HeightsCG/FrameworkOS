@@ -2,29 +2,27 @@
 $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
-    <h1 class="sx-hero__title">Join Free. Sell When You're Ready.</h1>
-<?php $sell = array_map(function ($t) { return $t['name']; }, PagesController::selling_tiers()); $words = array(2 => 'two', 3 => 'three', 4 => 'four', 5 => 'five'); ?>
-    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is a creator monetization platform: one page for memberships, pay-per-view posts, bundles, services and events, with payouts to your bank. Pricing is <?php echo $words[count($rows)] ?? count($rows); ?> plans: a Free account for fans, and <?php echo $e(implode(' and ', $sell)); ?> for creators who sell. Everyone starts with a Free account, no card needed. It lets you follow creators, join memberships, unlock posts and buy tickets and bookings.</p>
-        <div class="sx-acts sx-acts--hero"><a class="sx-btn sx-btn--primary" href="/?auth=register" data-auth="register">Start Free</a><a class="sx-btn sx-btn--secondary" href="#sx_plans">See Plans</a></div><?php /* right under the first lead line, so the primary CTA sits in the first phone screen (heycatch D2.5) */ ?>
-    <p class="sx-hero__lead">To sell, upgrade to Creator or Studio. Both include your page, memberships, pay-per-view, publishing and payouts, and the platform fee is <?php echo htmlspecialchars(PagesController::fee_short(), ENT_QUOTES, 'UTF-8'); ?>.</p>
-    <p class="sx-hero__lead"><?php echo $e(PagesController::plan_roles_sentence()); ?></p>
+    <h1 class="sx-hero__title sx-hero__title--plain">Pricing</h1>
+    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is free for fans. Creators pick Creator or Studio when they're ready to sell.</p>
 <?php
-    // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): shown while spots remain.
+    // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): one line on the Creator card while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;
     $f_plan = PlanTiers::get(Founding::PLAN); $f_from = PlanTiers::get(Founding::FEE_FROM);
+    // Card order: Free, Creator, Studio on desktop; phones put the paid plans first (CSS order by plan key).
 ?>
-<?php if ($founding_left > 0 && $f_plan && $f_from): ?>
-<p class="sx-plans__offer">Founding creators: first month free and the <?php echo $e(Founding::fee_label()); ?> <?php echo $e($f_from['name']); ?> fee locked on the <?php echo $e($f_plan['name']); ?> plan. <?php echo number_format(Founding::spots()); ?> spots, <?php echo number_format($founding_left); ?> left. <a href="/founding">Claim a spot</a></p>
-<?php endif; ?>
 <div class="sx-plans" id="sx_plans">
-<?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); ?>
-    <div class="sx-plan<?php echo $hi ? ' sx-plan--hi' : ''; ?>">
+<?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>
+    <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
-        <p class="sx-plan__line"><?php echo $e($t['tagline']); ?></p>
         <div class="sx-plan__price"><?php if ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
-        <?php if ($founding_left > 0 && $t['key'] === Founding::PLAN): ?><span class="sx-plan__tag sx-plan__tag--inline">First month free for founding creators.</span><?php endif; ?>
-        <?php if ($t['key'] === PlanTiers::FREE_KEY): ?>
+        <div class="sx-plan__under"><?php if ($founding_left > 0 && $f_plan && $f_from && $t['key'] === Founding::PLAN): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free, <?php echo $e(Founding::fee_label()); ?> fee locked.</a><?php /* no spot counts on public pages (Daniel 2026-10-12) */ ?></p><?php endif; ?></div>
+        <div class="sx-plan__cta">
+            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register"><?php echo $is_free ? 'Join Free' : 'Start with ' . $e($t['name']); ?></a>
+            <?php if ($t['key'] === Founding::PLAN): $why = PagesController::why_upfront_sentence(); if ($why !== ''): ?><p class="sx-plan__why"><?php echo $e($why); ?></p><?php endif; endif; ?>
+        </div>
+        <div class="sx-plan__body">
+        <?php if ($is_free): ?>
         <p class="sx-plan__keep">Upgrade to Creator or Studio to sell</p>
         <dl><?php foreach (PlanTiers::FREE_INCLUDES as $inc): ?><div><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?></dl>
         <?php else: ?>
@@ -33,11 +31,7 @@ $e = function ($s) { return Sections::e($s); };
         <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($t, $row['key'])); ?></dd></div><?php endforeach; ?><?php foreach (PlanTiers::FEATURES as $fk => $fl): ?><div><dt><?php echo $fl; ?></dt><dd><?php echo PlanTiers::has_feature($t, $fk) ? 'Included' : '&mdash;'; ?></dd></div><?php endforeach; ?></dl>
         <?php endif; ?>
         <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
-        <div class="sx-plan__cta"><a class="sx-btn sx-btn--secondary" href="<?php echo ($t['key'] === PlanTiers::FREE_KEY) ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
-        <?php if ($t['key'] === Founding::PLAN): $why = PagesController::why_upfront_sentence(); ?>
-        <?php if ($founding_left > 0): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free. <?php echo number_format(Founding::spots()); ?> spots.</a></p><?php endif; ?>
-        <?php if ($why !== ''): ?><p class="sx-plan__why"><?php echo $e($why); ?></p><?php endif; ?>
-        <?php endif; ?>
+        </div>
     </div>
 <?php endforeach; ?>
 </div>

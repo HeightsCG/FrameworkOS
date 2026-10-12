@@ -21,7 +21,7 @@ echo Sections::tab_hero(array(
     'title' => 'One page to sell your content, and a studio that posts it everywhere.',
     'lead' => $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
     'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'under' => $founding_left > 0 ? '<a class="hx__under" href="/founding">Founding creators: first month free. ' . number_format(Founding::spots()) . ' spots.</a>' : '',
+    'under' => $founding_left > 0 ? '<a class="hx__under" href="/founding">Founding creators: first month free.</a>'   /* no spot counts on public pages (Daniel 2026-10-12) */ : '',
     'tabs' => array(
         array('word' => 'Create.', 'pane' => Sections::pane('Upload once, use everywhere.', 'Draft it, schedule it, publish now, or let an automation post for you.', Sections::pane_timeline(array(
             array('Draft', 'Work in progress, visible only to you.'), array('Scheduled', 'Queued for the moment you choose.'), array('Published', 'Live on your page, on your schedule or automatically.'))))),

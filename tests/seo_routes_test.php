@@ -61,7 +61,7 @@ foreach (array('/fanvue-alternatives/extra', '/onlyfans-alternatives/x') as $p) 
 $ch = curl_init($base . '/founding'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $types = array();
 foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $types[] = (string) ($o['@type'] ?? ''); } }
-$ok = in_array('FAQPage', $types, true) && count($types) === count($m[1]) && strpos($body, 'Spots left') !== false && strpos($body, 'founding=1') !== false && !preg_match('/[\x{2013}\x{2014}]/u', strip_tags($body));
+$ok = in_array('FAQPage', $types, true) && count($types) === count($m[1]) && strpos($body, 'Spots left') === false && strpos($body, 'founding=1') !== false && !preg_match('/[\x{2013}\x{2014}]/u', strip_tags($body));
 echo ($ok ? 'ok   ' : 'FAIL ') . "/founding FAQPage parse + counter + claim link\n"; if (!$ok) { $fail++; }
 $ch = curl_init($base . '/founding/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
 $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);

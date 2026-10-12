@@ -13,7 +13,6 @@ echo Sections::panel_hero(array(
     'buttons' => $open ? array(array('Claim a Founding Spot', $claim_url, 'primary', $claim_auth), array('See Pricing', '/pricing', 'secondary'))
                        : array(array('See Pricing', '/pricing', 'primary')),
     'panel'   => Sections::pane($open ? 'Founding Spots Left' : 'All Founding Spots Are Taken', '', Sections::pane_rows(array(
-        array('Spots left', number_format((int) $left) . ' of ' . number_format(Founding::SPOTS), true),
         array('First billing period on ' . $c['name'], 'Free'),
         array('Platform fee', $fee . ' while on ' . $c['name']),
         array('After the free period', $price . ' / month'),
