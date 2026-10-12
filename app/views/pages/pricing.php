@@ -10,13 +10,15 @@ $e = function ($s) { return Sections::e($s); };
     $f_plan = PlanTiers::get(Founding::PLAN); $f_from = PlanTiers::get(Founding::FEE_FROM);
     // Card order: Free, Creator, Studio on desktop; phones put the paid plans first (CSS order by plan key).
 ?>
+<?php if ($founding_left > 0 && $f_plan && $f_from): ?>
+<p class="sx-plans__offer">Founding creators: first month free and the <?php echo $e(Founding::fee_label()); ?> <?php echo $e($f_from['name']); ?> fee locked on the <?php echo $e($f_plan['name']); ?> plan. <a href="/founding">Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
+<?php endif; ?>
 <div class="sx-plans" id="sx_plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>
     <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
         <div class="sx-plan__price"><?php if ($is_free): ?>$0<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
-        <div class="sx-plan__under"><?php if ($founding_left > 0 && $f_plan && $f_from && $t['key'] === Founding::PLAN): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free, <?php echo $e(Founding::fee_label()); ?> fee locked.</a><?php /* no spot counts on public pages (Daniel 2026-10-12) */ ?></p><?php endif; ?></div>
         <div class="sx-plan__cta">
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start Now</a>
         </div>
