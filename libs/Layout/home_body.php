@@ -88,16 +88,16 @@ foreach ($latest as $i => $lp) {
     $ini = strtoupper(mb_substr(preg_replace('/[^\p{L}\p{N}]/u', '', $who), 0, 2));
     $cap = trim(html_entity_decode(strip_tags((string) $lp['caption']), ENT_QUOTES, 'UTF-8'));
     if (mb_strlen($cap) > 110) { $cap = rtrim(mb_substr($cap, 0, 108)) . '…'; }
-    $tiles .= '<a class="lm__tile' . ($big ? ' lm__tile--big' : '') . '" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '">'
+    $tiles .= '<li class="lm__item"><a class="lm__tile' . ($big ? ' lm__tile--big' : '') . '" href="/@' . Sections::e(rawurlencode((string) $lp['u_name'])) . '">'
         . '<img src="' . Sections::e($thumb) . '"' . $srcset . ' alt="' . Sections::e(PublicThumbService::alt($lp['caption'], $who)) . '" loading="lazy" decoding="async" width="' . (int) $tw . '" height="' . (int) $th . '">'
         . ($big ? '<span class="lm__new"><i aria-hidden="true"></i>New</span>' : '')
-        . '<span class="lm__meta"><span class="lm__av" aria-hidden="true">' . Sections::e($ini) . '</span><span class="lm__id"><b>' . Sections::e($who) . '</b><small>' . Sections::e($ago($lp['published_at'])) . '</small></span></span>'
-        . ($big && $cap !== '' ? '<span class="lm__cap">' . Sections::e($cap) . '</span>' : '')
-        . '</a>';
+        . '<p class="lm__meta"><span class="lm__av" aria-hidden="true">' . Sections::e($ini) . '</span><span class="lm__id"><b>' . Sections::e($who) . '</b><small>' . Sections::e($ago($lp['published_at'])) . '</small></span></p>'
+        . ($big && $cap !== '' ? '<p class="lm__cap">' . Sections::e($cap) . '</p>' : '')   // caption and meta are paragraphs, each tile a list item: an extractor never merges the tiles into one run of text (2026-10-12)
+        . '</a></li>';
 }
 if ($tiles !== '') {
     echo Sections::open('white', 'Latest posts', 'Fresh from creators on ' . $site . '. Tap a post to visit their page.');
-    echo '<p class="lm__live"><i aria-hidden="true"></i>Live from the community</p><div class="lm">' . $tiles . '</div>';
+    echo '<p class="lm__live"><i aria-hidden="true"></i>Live from the community</p><ul class="lm">' . $tiles . '</ul>';
     echo Sections::close();
 }
 

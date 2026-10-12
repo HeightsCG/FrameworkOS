@@ -7,13 +7,13 @@
  *      not found is reported and skipped, never guessed.
  *   3. a_external_sources: articles citing only two hosts get one more primary source, as a hand-written sentence appended to
  *      the paragraph named below (exact anchor), linking a page from SeoDrafter::KNOWN_SOURCES.
- * Usage: APPLICATION_ENV=production php cron/seo_text_fixes_2026-10-12.php [--dry-run]   (dry run prints what would change; --apply writes)
+ * Usage: APPLICATION_ENV=production php cron/seo_text_fixes_2026-10-12.php [--dry-run|--apply] [--rerender]   (--rerender also rebuilds body_html where the stored copy is stale)
  */
 $path = dirname(__DIR__);
 putenv('APPLICATION_ENV=' . (getenv('APPLICATION_ENV') ?: 'production'));
 if (is_file($path . '/vendor/autoload.php')) { require_once $path . '/vendor/autoload.php'; }
 spl_autoload_register(function ($c) use ($path) { foreach (array("/app/models/$c.php", "/libs/Classes/$c.php", "/app/controllers/$c.php", "/app/$c.php") as $s) { if (file_exists($path . $s)) { require_once $path . $s; return; } } });
-$opts = getopt('', array('dry-run', 'apply'));
+$opts = getopt('', array('dry-run', 'apply', 'rerender'));
 $apply = isset($opts['apply']) && !isset($opts['dry-run']);
 if (!$apply) { echo "DRY RUN (add --apply to write)\n"; }
 
@@ -109,6 +109,7 @@ foreach ($rows as $row) {
     }
 
     if ($body !== (string) $a['body_md']) { $f['body_md'] = $body; $f['body_html'] = SeoDrafter::render_body($body); }
+    elseif (isset($opts['rerender']) && SeoDrafter::render_body($body) !== (string) $a['body_html']) { $f['body_html'] = SeoDrafter::render_body($body); $notes[] = 'html re-rendered (citation links without nofollow)'; }   // --rerender: stored HTML built before 2026-10-12 still carries rel=nofollow on citations
     if ($excerpt !== (string) $a['excerpt']) { $f['excerpt'] = $excerpt; }
     if (empty($f)) { continue; }
     echo date('c'), ' /blog/', $slug, ': ', implode('; ', $notes), "\n";

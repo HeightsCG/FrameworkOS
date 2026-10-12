@@ -826,12 +826,11 @@ class PagesController extends Controller {
         $items = array(array('@type' => 'ListItem', 'position' => 1, 'name' => Main::site_name(), 'url' => SeoMeta::base() . '/features'));
         $pos = 2; foreach (self::COMPETITORS as $slug => $c) { if (!isset(self::COMPETITOR_GROUPS[$c['type'] ?? ''])) { continue; } $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'name' => $c['name'], 'url' => SeoMeta::base() . '/compare/' . $slug); }
         $jsonld = array(
-            SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00')),
             array('@type' => 'ItemList', 'name' => $title, 'itemListElement' => $items),
             SeoMeta::faq(self::best_faq()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Best creator monetization platforms', 'url' => $path))),
         );
-        $this->page('best-platforms', array('path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
+        $this->page('best-platforms', array('path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
     }
 
     public function monetizeAction(){
@@ -847,11 +846,10 @@ class PagesController extends Controller {
             array('q' => 'Should I charge for messages?', 'a' => 'Yes, for anything that takes real time. A paid message is a small service: a fixed price, one reply with the media attached, delivered within a day or two.'),
         );
         $jsonld = array(
-            SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00')),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Monetize your content', 'url' => $path))),
         );
-        $this->page('monetize', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('faq' => $faq));
+        $this->page('monetize', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
     }
 
     /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
@@ -977,12 +975,11 @@ class PagesController extends Controller {
             $items[] = $item;
         }
         $jsonld = array(
-            SeoMeta::article(array('headline' => $p['title'], 'description' => $p['description'], 'url' => $base . $p['path'], 'published' => '2026-10-08T00:00:00+00:00')),
             array('@type' => 'ItemList', 'name' => $p['title'], 'itemListOrder' => 'https://schema.org/ItemListOrderAscending', 'numberOfItems' => count($items), 'itemListElement' => $items),
             SeoMeta::faq($p['faq']),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $p['name'] . ' Alternatives', 'url' => $p['path']))),
         );
-        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'article', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
+        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'website', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
     }
 
     /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
@@ -1030,11 +1027,10 @@ class PagesController extends Controller {
         $desc = self::compare_description($c);   // leads with what each platform lets you sell and run, 110-160 chars for every competitor name
         $faq = self::compare_faq($c);
         $jsonld = array(
-            SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00', 'modified' => gmdate('c', filemtime(Main::app_path() . '/app/controllers/PagesController.php')))),
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('path' => $path, 'title' => $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'article', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
+        $this->page('compare', array('path' => $path, 'title' => $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**

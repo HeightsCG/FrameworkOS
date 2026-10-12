@@ -200,9 +200,9 @@ class Sections {
 
     /** A sequence of steps; click a step to move the marker. $items: array(title, text). */
     public static function pane_timeline(array $items, int $stage = 1): string {
-        $o = '<div class="hx__box hx__tl" data-stage="' . $stage . '"><span class="hx__fill" aria-hidden="true"></span>';
-        foreach ($items as $it) { $o .= '<button type="button" class="hx__nd"><b>' . self::e($it[0]) . '</b><small>' . self::e($it[1]) . '</small></button>'; }
-        return $o . '</div>';
+        $o = '<ul class="hx__box hx__tl" data-stage="' . $stage . '"><span class="hx__fill" aria-hidden="true"></span>';   // a list: each step is its own block to an extractor (2026-10-12)
+        foreach ($items as $it) { $o .= '<li class="hx__nd-item"><button type="button" class="hx__nd"><b>' . self::e($it[0]) . '</b><small>' . self::e($it[1]) . '</small></button></li>'; }
+        return $o . '</ul>';
     }
 
     /** Tracked links with click counters. $items: array(label, clicks). */
@@ -248,6 +248,33 @@ class Sections {
             . '<div class="hx__vsr"><span>' . self::e($them_name) . '</span><b>' . self::e($them) . '</b>' . ($src !== '' ? '<a class="sx-src" href="' . self::e($src) . '" rel="noopener" target="_blank">Source</a>' : '') . '</div></div>';
     }
 
+    /** Chart and diagram files, generated on dev and shipped as static files (served as /images/charts/<name>-<hash>.svg). */
+    const CHART_DIR = '/public/images/charts/';
+    const CHART_URL = '/images/charts/';
+
+    /**
+     * The URL of a chart's SVG file. The name carries a hash of the markup, so a changed chart is a new file. Files are written
+     * only on dev (APPLICATION_ENV=development), by rendering the pages once (cron/build_charts.php), and committed with the deploy;
+     * production never writes. tests/seo_charts_test.php fails when a page references a file that is not in the repo.
+     */
+    public static function svg_asset(string $svg, string $name): string {
+        $file = preg_replace('/[^a-z0-9-]+/', '-', strtolower($name)) . '-' . substr(sha1($svg), 0, 10) . '.svg';
+        if (getenv('APPLICATION_ENV') === 'development') {
+            $dir = Main::app_path() . self::CHART_DIR; $path = $dir . $file;
+            if (!is_file($path)) {
+                if (!is_dir($dir)) { @mkdir($dir, 0775, true); }
+                if (@file_put_contents($path, '<?xml version="1.0" encoding="UTF-8"?>' . "\n" . $svg) === false) { error_log('[charts] cannot write ' . $path); }
+            }
+        }
+        return self::CHART_URL . $file;
+    }
+
+    /** A chart figure: the SVG file as an <img> with alt text, in a <figure> with its caption. */
+    private static function chart_figure(string $svg, string $name, string $alt, int $w, int $h, string $caption, string $legend = ''): string {
+        $img = '<img class="sx-chart-img" src="' . self::e(self::svg_asset($svg, $name)) . '" alt="' . self::e($alt) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async">';
+        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $img . '</div>' . $legend . '<figcaption class="sx-figcap">' . self::e($caption) . '</figcaption></figure>';
+    }
+
     /**
      * Inline SVG bar chart of what each option leaves you on each sales figure (g_multimodal): built from the same
      * $options rows as the fee table (label, percent, monthly, us). The figure carries the numbers in its caption and
@@ -262,7 +289,7 @@ class Sections {
         $n = count($options); $groups = count($sales);
         $bar_w = 28; $gap = 8; $group_w = $n * ($bar_w + $gap) + 40; $left = 64; $w = $left + $groups * $group_w + 16; $h = 260; $top = 20; $base = 200;
         $alt = array();
-        $svg = '<svg class="sx-chart" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxc_t sxc_d" xmlns="http://www.w3.org/2000/svg">';
+        $svg = '<svg class="sx-chart" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxc_t sxc_d" xmlns="http://www.w3.org/2000/svg" style="font-family:Inter,Helvetica,Arial,sans-serif">';
         $svg .= '<title id="sxc_t">' . self::e($title) . '</title>';
         foreach (array(0.25, 0.5, 0.75, 1) as $f) { $y = $base - ($base - $top) * $f; $svg .= '<line x1="' . $left . '" y1="' . round($y, 1) . '" x2="' . ($w - 16) . '" y2="' . round($y, 1) . '" stroke="#e4e4e7" stroke-width="1"/><text x="' . ($left - 8) . '" y="' . round($y + 4, 1) . '" text-anchor="end" font-size="11" fill="#71717a">' . self::e($money(round($max * $f / 50) * 50)) . '</text>'; }
         $svg .= '<line x1="' . $left . '" y1="' . $base . '" x2="' . ($w - 16) . '" y2="' . $base . '" stroke="#a1a1aa" stroke-width="1"/>';
@@ -281,15 +308,16 @@ class Sections {
         }
         $desc = implode('. ', $alt) . '.';
         $svg .= '<desc id="sxc_d">' . self::e($desc) . '</desc></svg>';
-        $legend = array(); foreach ($options as $oi => $o) { $legend[] = '<span class="sx-chart__key"><i style="background:' . $colour($oi, $o) . '"></i>' . self::e($o['label']) . '</span>'; }
-        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $svg . '</div><div class="sx-chart__legend">' . implode('', $legend) . '</div><figcaption class="sx-figcap">' . self::e($desc) . '</figcaption></figure>';
+        $legend = array(); foreach ($options as $oi => $o) { $legend[] = '<li class="sx-chart__key"><i style="background:' . $colour($oi, $o) . '"></i>' . self::e($o['label']) . '</li>'; }   // a list, so an extractor never reads the keys as one run of text
+        $alt = 'Bar chart, ' . lcfirst($title) . '. ' . $desc;
+        return self::chart_figure($svg, 'fee-' . implode('-', array_map('intval', $sales)) . '-' . count($options), $alt, $w, $h, $desc, '<ul class="sx-chart__legend">' . implode('', $legend) . '</ul>');
     }
 
     /** Inline SVG process diagram: boxes joined by arrows, each step a short label (g_multimodal). The steps are the accessible name. */
     public static function flow_svg(array $steps, string $title): string {
         $n = count($steps); if ($n < 2) { return ''; }
         $bw = 150; $bh = 54; $gap = 36; $w = $n * $bw + ($n - 1) * $gap + 16; $h = $bh + 16;
-        $svg = '<svg class="sx-flow" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxf_t sxf_d" xmlns="http://www.w3.org/2000/svg">';
+        $svg = '<svg class="sx-flow" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxf_t sxf_d" xmlns="http://www.w3.org/2000/svg" style="font-family:Inter,Helvetica,Arial,sans-serif">';
         $svg .= '<title id="sxf_t">' . self::e($title) . '</title><desc id="sxf_d">' . self::e(implode(', then ', $steps)) . '.</desc>';
         $svg .= '<defs><marker id="sxf_arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a1a1aa"/></marker></defs>';
         foreach ($steps as $i => $label) {
@@ -300,7 +328,8 @@ class Sections {
             if (!$last) { $svg .= '<line x1="' . ($x + $bw + 4) . '" y1="' . (8 + $bh / 2) . '" x2="' . ($x + $bw + $gap - 4) . '" y2="' . (8 + $bh / 2) . '" stroke="#a1a1aa" stroke-width="1.5" marker-end="url(#sxf_arrow)"/>'; }
         }
         $svg .= '</svg>';
-        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $svg . '</div><figcaption class="sx-figcap">' . self::e($title . ': ' . implode(', then ', $steps) . '.') . '</figcaption></figure>';
+        $caption = $title . ': ' . implode(', then ', $steps) . '.';
+        return self::chart_figure($svg, 'flow-' . substr(preg_replace('/[^a-z0-9]+/', '-', strtolower($title)), 0, 40), 'Process diagram, ' . $caption, $w, $h, $caption);
     }
 
     private static function wrap_words(string $s, int $width): array {
@@ -396,9 +425,29 @@ class Sections {
     public static function faq(array $faq, string $bg = 'alt'): string {
         $o = self::open($bg) . '<div class="sx-faq"><h2 class="sx-h2" id="sx_faq">Frequently Asked Questions</h2><div class="sx-faq__list">';
         foreach ($faq as $qa) {
-            $o .= '<details class="sx-faq__item"><summary>' . self::e($qa['q']) . '<svg class="sx-faq__chev" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sx-faq__a">' . self::e($qa['a']) . '</div></details>';
+            $o .= '<details class="sx-faq__item"><summary>' . self::e($qa['q']) . '<svg class="sx-faq__chev" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></summary><div class="sx-faq__a">' . self::paragraphs((string) $qa['a']) . '</div></details>';
         }
         return $o . '</div></div>' . self::close();
+    }
+
+    /**
+     * Plain text as <p> elements: one paragraph per blank-line block, and any block over PARAGRAPH_MAX sentences split at a
+     * sentence boundary near the middle, so no answer or description is ever one long run of text (c_paragraph_length).
+     */
+    const PARAGRAPH_MAX = 6;
+    public static function paragraphs(string $text): string {
+        $out = '';
+        foreach (preg_split('/\n\s*\n/', trim($text)) as $block) {
+            $block = trim(preg_replace('/\s+/', ' ', $block)); if ($block === '') { continue; }
+            foreach (self::split_sentences($block) as $piece) { $out .= '<p>' . self::e($piece) . '</p>'; }
+        }
+        return $out;
+    }
+    private static function split_sentences(string $p): array {
+        $sentences = preg_split('/(?<=[.!?])\s+(?=[^a-z])/', $p);
+        if (count($sentences) <= self::PARAGRAPH_MAX) { return array($p); }
+        $half = (int) ceil(count($sentences) / 2);
+        return array_merge(self::split_sentences(trim(implode(' ', array_slice($sentences, 0, $half)))), self::split_sentences(trim(implode(' ', array_slice($sentences, $half)))));
     }
 
     /** Closing call to action: full-width black band. */

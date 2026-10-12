@@ -81,6 +81,9 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx-p { font-size: 1rem; line-height: 1.65; color: var(--sx-t2); margin: 0 0 18px; }
 .sx-p a, .sx-card__text a, .sx-table a { color: var(--sx-ink); text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
 .sx-p a:hover, .sx-table a:hover { color: var(--sx-acc); }
+.sx-checks a { color: var(--sx-ink); text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
+.sx-checks a:hover { color: var(--sx-acc); }
+.sx-muted { color: var(--sx-muted); font-size: .875rem; }   /* dates and secondary notes beside a link (author page, /about article list) */
 .sx-ic { flex: none; }
 
 /* ---- Buttons ---- */
@@ -168,6 +171,8 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx-faq__chev { flex: none; color: var(--sx-muted); transition: transform .3s var(--sx-ease), color .2s; }
 .sx-faq__item[open] .sx-faq__chev { transform: rotate(180deg); color: var(--sx-acc); }
 .sx-faq__a { padding: 0 24px 22px; font-size: 1rem; line-height: 1.65; color: var(--sx-t2); max-width: 900px; }
+.sx-faq__a p { margin: 0 0 10px; }
+.sx-faq__a p:last-child { margin-bottom: 0; }
 @media (max-width: 640px) { .sx-faq__item summary { padding: 16px 18px; font-size: 1rem; } .sx-faq__a { padding: 0 18px 18px; } }
 
 /* ---- Closing band ---- */
@@ -824,9 +829,14 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 /* Figures: inline SVG charts and diagrams built from page facts (g_multimodal, 2026-10-12) */
 .sx-figure { margin: 20px 0 0; }
 .sx-chart-wrap { overflow-x: auto; border: 1px solid var(--sx-line-2); border-radius: 12px; background: #fff; padding: 12px; }
-.sx-chart, .sx-flow { display: block; max-width: 100%; height: auto; font-family: inherit; }
-.sx-chart__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; font-size: 13px; color: var(--sx-ink); }
+.sx-chart, .sx-flow, .sx-chart-img { display: block; max-width: 100%; height: auto; font-family: inherit; }
+.sx-chart__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; padding: 0; list-style: none; font-size: 13px; color: var(--sx-ink); }
 .sx-chart__key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
 .sx-figcap { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--sx-muted, #71717a); }
 .sx-figure--shot .shot { display: block; border: 1px solid var(--sx-line-2); border-radius: 12px; overflow: hidden; background: #fff; }
 .sx-figure--shot .shot img { width: 100%; height: auto; display: block; }
+.hx__tl { list-style: none; margin: 0; }   /* the hero timeline is a list (padding stays as set above) */
+.hx__nd-item { display: contents; }
+.lm { list-style: none; margin: 0; padding: 0; }   /* the live-mock tiles are a list */
+.lm__item { display: contents; }
+.lm__meta, .lm__cap { margin: 0; }
