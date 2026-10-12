@@ -316,3 +316,6 @@ select.ct-input option{ background:var(--sx-grey-2); color:var(--sx-ink); }
 /* Article "Keep reading": three related posts take three columns, never two plus one (site design review 2026-10-12). */
 .gd-list--3{ grid-template-columns:repeat(3, minmax(0,1fr)); column-gap:32px; }
 @media (max-width:900px){ .gd-list--3{ grid-template-columns:1fr; } }
+
+/* Article titles balance their lines so no word wraps alone (2026-10-12). */
+.gd-posthead__title{ text-wrap:balance; }
