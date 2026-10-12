@@ -42,6 +42,14 @@ class Founding {
         return (float) ($t['limits']['fee_percent'] ?? 0);
     }
 
+    /** The claim link: signed-out visitors get the Create Account dialog in place (data-auth, landing.js keeps the founding flag); signed-in ones go to the plan tab. Returns array(href, data-auth or ''). */
+    public static function claim_link(): array
+    {
+        return (int) Session::get('user_id') > 0
+            ? array('/account/billing?tab=plan&plan=' . self::PLAN . '&founding=1', '')
+            : array('/?auth=register&role=creator&plan=' . self::PLAN . '&founding=1', 'register');
+    }
+
     /** The offer covers this plan. */
     public static function covers($plan): bool { return in_array((string) $plan, self::PLANS, true); }
 

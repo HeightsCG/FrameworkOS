@@ -973,3 +973,21 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 body:has(> .fb) > .ld-nav { position: sticky; }
 body:has(> .fb) > main { margin-top: -73px; }
 @media (max-width: 640px) { .fb__in { padding: 8px 16px; } body:has(> .fb) > main { margin-top: -65px; } }
+/* The offer bar in solid brand orange with white text: the grey version was hardly noticeable (Daniel 2026-10-12). */
+.fb { background: #CD4C00; border-bottom: 0; }
+.fb__in { padding-top: 12px; padding-bottom: 12px; font-size: .9375rem; font-weight: 600; color: #fff; }
+.fb__in a { color: #fff; font-weight: 800; text-decoration-color: #fff; text-decoration-thickness: 2px; }
+.fb__in a:hover { color: #fff; text-decoration-thickness: 3px; }
+.fb__in a:focus-visible { outline-color: #fff; }
+
+.fx-steps--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 900px) { .fx-steps--3 { grid-template-columns: minmax(0, 1fr); } }
+
+/* Offer bar, final style (Daniel's spec 2026-10-12): a warm brown-black strip of its own, a low-opacity orange hairline under it, an orange outline pill, medium-weight text a step brighter than the nav links, and an orange link with no underline. Replaces the solid orange version above. */
+.fb { background: #1c130d; border-bottom: 1px solid rgba(255, 106, 19, .35); }
+.fb__in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; padding-top: 10px; padding-bottom: 10px; font-size: .875rem; font-weight: 500; color: #e9e9ec; }
+.fb__pill { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border: 1px solid var(--sx-acc); border-radius: 999px; font-size: .75rem; font-weight: 600; line-height: 1; color: var(--sx-acc); }
+.fb__in a, .fb__in a:hover { margin-left: 0; color: var(--sx-acc); font-weight: 600; text-decoration: none; }
+.fb__in a:hover { color: #ff8a47; }
+.fb__in a:focus-visible { outline: 2px solid var(--sx-acc); outline-offset: 3px; border-radius: 2px; }
+@media (max-width: 640px) { .fb__in { padding: 8px 16px; } }

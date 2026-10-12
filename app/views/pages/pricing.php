@@ -11,7 +11,7 @@ $e = function ($s) { return Sections::e($s); };
     // Card order: Free, Creator, Studio on desktop; phones put the paid plans first (CSS order by plan key).
 ?>
 <?php if ($founding_left > 0 && $f_plan && $f_from): ?>
-<p class="sx-plans__offer">Founding creators: first month free on <?php echo $e(Founding::plan_names()); ?>. <a href="/founding">Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
+<p class="sx-plans__offer">Founding creators: first month free on <?php echo $e(Founding::plan_names()); ?>. <?php $f_claim = Founding::claim_link(); ?><a href="<?php echo $e($f_claim[0]); ?>"<?php echo $f_claim[1] !== '' ? ' data-auth="' . $e($f_claim[1]) . '"' : ''; ?>>Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
 <?php endif; ?>
 <div class="sx-plans" id="sx_plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>

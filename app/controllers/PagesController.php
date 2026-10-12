@@ -879,11 +879,10 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Founding Creators', 'url' => $path))),
         );
-        $signed_in = (int) Session::get('user_id') > 0;
+        $claim = Founding::claim_link();
         $this->page('founding', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
             array('faq' => $faq, 'left' => Founding::remaining_cached(),
-                  'claim_url' => $signed_in ? '/account/billing?tab=plan&plan=' . Founding::PLAN . '&founding=1' : '/?auth=register&role=creator&plan=' . Founding::PLAN . '&founding=1',
-                  'claim_auth' => $signed_in ? '' : 'register'));
+                  'claim_url' => $claim[0], 'claim_auth' => $claim[1]));
     }
 
     /** The affiliate program (/affiliates): Affiliates::RATE_PERCENT of the plan payments of referred accounts. */
