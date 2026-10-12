@@ -82,14 +82,11 @@ class CompareProse {
         $low = reset($tiers); $high = end($tiers);
         foreach (array('c' => $low, 's' => $high) as $k => $t) {
             if (!$t) { continue; }
-            $fee = $gross * ((int) $t['limits']['fee_percent']) / 100 + (int) $t['price'];
+            $fee = $gross * ((int) $t['limits']['fee_percent']) / 100;   // the platform share alone: a plan price is never folded into a fee figure (Daniel 2026-10-12)
             $v += array('{' . $k . '_name}' => (string) $t['name'], '{' . $k . '_pct}' => (int) $t['limits']['fee_percent'] . '%', '{' . $k . '_price}' => $money((int) $t['price']), '{' . $k . '_total}' => $money($fee), '{' . $k . '_left}' => $money($gross - $fee));
         }
-        if ($low && $high && $low !== $high) {
-            $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
-            $cross = $d > 0 ? ceil(((int) $high['price'] - (int) $low['price']) / $d / 100) * 100 : 0;
-            $v += array('{cross}' => $money($cross), '{pick}' => $gross < $cross ? $low['name'] : $high['name'], '{other}' => $gross < $cross ? $high['name'] : $low['name'], '{side}' => $gross < $cross ? 'below' : 'above',
-                        '{diff}' => $money(abs(($gross * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price']) - ($gross * ((int) $high['limits']['fee_percent']) / 100 + (int) $high['price']))));
+        if ($low && $high && $low !== $high) {   // {diff}: the gap between the two shares on this month; {pick}: the lower share
+            $v += array('{pick}' => $high['name'], '{other}' => $low['name'], '{diff}' => $money(abs($gross * ((int) $low['limits']['fee_percent']) / 100 - $gross * ((int) $high['limits']['fee_percent']) / 100)));
         }
         $tpl = (array) (self::VOICE[$voice]['scenario'] ?? self::DEFAULT_SCENARIO);
         if (count($opts) < 1) { $tpl = array_values(array_filter($tpl, function ($t) { return strpos($t, '{them') === false; })); }
@@ -103,8 +100,8 @@ class CompareProse {
     const DEFAULT_SCENARIO = array(
         'Take a creator on {name} with {gross} a month in {what}. The numbers are round and hypothetical, chosen to show the arithmetic rather than to promise anything.',
         '{them} keeps {them_fee} of that ({them_pct}), so {them_left} is left before card processing, by its [own pricing page]({them_src}).',
-        'On {site} the same {gross} works like this: the {c_name} plan takes {c_pct} plus {c_price} a month, {c_total} in total, leaving {c_left}; the {s_name} plan takes {s_pct} plus {s_price} a month, {s_total} in total, leaving {s_left}. Card processing is charged separately on every option above, so the gap between platforms is the platform fee and the plan price, nothing else.',
-        'At {gross} a month {pick} is the cheaper of the two {site} plans for this {name} creator, by {diff} a month. The plan also sets the included AI credits, storage and AI influencers, so heavy use of the AI tools can tip the choice before the fee does.',
+        'On {site} the same {gross} works like this: the {c_name} plan keeps {c_pct}, {c_total}, leaving {c_left}; the {s_name} plan keeps {s_pct}, {s_total}, leaving {s_left}. Card processing is charged separately on every option above. The monthly plan prices are a separate line, shown on the pricing page, not in these figures.',
+        'On the share alone {s_name} leaves {diff} more of that month than {c_name}. The plan also sets the included AI credits, storage and AI influencers, so heavy use of the AI tools can tip the choice before the fee does.',
     );
 
     /**
@@ -117,11 +114,11 @@ class CompareProse {
             'scenario' => array(
                 'Picture a Fanvue creator clearing {gross} a month from {what}; round figures, invented for the arithmetic, not a forecast.',
                 'Fanvue retains {them_pct} of gross revenue under its standard rate, which is {them_fee} here, leaving {them_left} before the card processor takes its part ([Fanvue legal]({them_src})).',
-                'Move the same {gross} to {site} and the sums change shape: {c_name} charges {c_pct} of sales plus {c_price} a month, so {c_total} goes out and {c_left} stays; {s_name} charges {s_pct} plus {s_price}, so {s_total} goes out and {s_left} stays. Card processing still sits on top of each line.',
-                'Between the two {site} plans, {pick} wins for this creator by {diff} a month on fee alone; the extra AI credits, storage and influencer slots on {s_name} are the reason to pick it earlier.',
+                'Move the same {gross} to {site} and the sums change shape: {c_name} keeps {c_pct} of sales, so {c_total} goes out and {c_left} stays; {s_name} keeps {s_pct}, so {s_total} goes out and {s_left} stays. Card processing still sits on top of each line, and the monthly plan price is its own line on the pricing page.',
+                'Between the two {site} plans the share alone separates them by {diff} a month in {s_name}\'s favour; the extra AI credits, storage and influencer slots on {s_name} are the other reason to pick it.',
             ),
-            'fee_lead' => 'Put a month of real sales through both fee structures and the difference is plain: on {s0}, Fanvue keeps {them_fee}, while the {c_name} plan here costs {us_fee} with its plan price counted in.',
-            'fee_note' => 'Figures are rounded and hypothetical. Fanvue\'s rate is the one on its legal page, linked in the row; our rows add the plan price to the fee so nothing is hidden in the comparison.',
+            'fee_lead' => 'Put a month of real sales through both shares and the difference is plain: on {s0}, Fanvue keeps {them_fee}, while the {c_name} plan here keeps {us_fee}. Plan prices are a separate monthly line.',
+            'fee_note' => 'Figures are rounded and hypothetical. Fanvue\'s rate is the one on its legal page, linked in the row; our rows show the share of sales alone, and the plan prices are on the pricing page.',
             'why_text' => 'Your fans pay for more than a subscription, and you would rather post once than nine times.',
             'why_points' => array('Memberships, pay-per-view, bundles, services and events from the same page', 'One studio that publishes every post to nine networks, paid version behind the lock', 'An inbox that drafts replies in your voice and attaches paid media'),
             'checked' => 'The Fanvue column was checked on {date} against the pages linked in each row.',
@@ -135,11 +132,11 @@ class CompareProse {
             'scenario' => array(
                 'Say an OnlyFans creator brings in {gross} a month across {what}. Treat every figure as illustrative.',
                 'OnlyFans deducts {them_pct} from each fan payment under its own terms, {them_fee} on this month, which leaves {them_left} before payment processing ([terms]({them_src})).',
-                'Here the same month costs less as it grows: {c_name} takes {c_pct} and {c_price} a month, {c_total} all in, with {c_left} left over; {s_name} takes {s_pct} and {s_price}, {s_total} all in, with {s_left} left over. Processing is extra in every case, on both platforms.',
-                '{pick} is the better of our two plans at this volume, by {diff} a month; {s_name}\'s lower share outweighs its higher plan price as sales grow.',
+                'Here the same month keeps more of itself: {c_name} takes {c_pct}, {c_total}, with {c_left} left over; {s_name} takes {s_pct}, {s_total}, with {s_left} left over. Processing is extra in every case, on both platforms, and the plan prices sit on the pricing page rather than in these sums.',
+                'On the share alone {s_name} leaves {diff} more than {c_name} on this month, and the gap widens with every sale.',
             ),
-            'fee_lead' => 'The flat 20% is easy to remember and expensive at scale: on {s0} a month OnlyFans keeps {them_fee}; the {c_name} plan here comes to {us_fee} including the plan price.',
-            'fee_note' => 'Hypothetical round sums. OnlyFans\' rate is the figure in its own terms of service, linked in the row; our rows include the monthly plan.',
+            'fee_lead' => 'The flat 20% is easy to remember and expensive at scale: on {s0} a month OnlyFans keeps {them_fee}; the {c_name} plan here keeps {us_fee}, with the plan price a separate monthly line.',
+            'fee_note' => 'Hypothetical round sums. OnlyFans\' rate is the figure in its own terms of service, linked in the row; our rows are the share of sales alone.',
             'why_text' => 'You want the page, the audience list and the media to be yours, and your socials to feed it automatically.',
             'why_points' => array('Export your audience and your media whenever you choose', 'Five ways to sell on one page, not one subscription', 'Every post published to nine networks from the studio'),
             'checked' => 'OnlyFans facts: terms page checked October 11, 2026; third-party reporting dated {date} where the site blocks automated access.',
@@ -153,10 +150,10 @@ class CompareProse {
             'scenario' => array(
                 'Consider a Patreon creator with {gross} a month in {what}, round numbers chosen for the sums.',
                 'Patreon\'s {them_pct} platform fee for pages published after August 4, 2025 takes {them_fee}, leaving {them_left}; payment processing, currency conversion and payout fees come off after that ([fees overview]({them_src})).',
-                'On {site}, {c_name} also takes {c_pct}, plus its {c_price} plan: {c_total}, leaving {c_left}. {s_name} takes {s_pct} plus {s_price}: {s_total}, leaving {s_left}. Card processing is separate here as well, so the only new cost against Patreon is the plan price.',
-                'At {gross} the cheaper of our plans is {pick}, by {diff}; as sales grow, {s_name}\'s {s_pct} share weighs more than its plan price.',
+                'On {site}, {c_name} also takes {c_pct}: {c_total}, leaving {c_left}. {s_name} takes {s_pct}: {s_total}, leaving {s_left}. Card processing is separate here as well; the monthly plan price is listed on the pricing page, not inside these sums.',
+                'At {gross} the lower share is {s_name}\'s, by {diff} on the month; the gap grows with the sales.',
             ),
-            'fee_lead' => 'Patreon and the {c_name} plan share a 10% rate, so the fee table is really about the plan price against Patreon\'s processing and payout charges: on {s0}, Patreon keeps {them_fee} before those extras and {c_name} costs {us_fee} with everything in.',
+            'fee_lead' => 'Patreon and the {c_name} plan share a 10% rate, so on {s0} both keep {us_fee} before Patreon\'s processing and payout charges; the plan price here is a separate monthly line.',
             'fee_note' => 'Round numbers. Patreon\'s rate is from its fees overview, linked in the row; its processing, conversion and payout fees are not in the figure, ours are not either, because card processing is separate on both.',
             'why_text' => 'Your members want more than tiers: paid posts, bundles, booked sessions, live events.',
             'why_points' => array('Tiers plus pay-per-view, bundles, services and events on one page', 'Posts published to nine networks instead of a share link', 'A DM agent that drafts replies you approve'),
@@ -171,11 +168,11 @@ class CompareProse {
             'scenario' => array(
                 'A Fansly creator with {gross} a month from {what} is a fair example; the numbers are made up for the arithmetic.',
                 'Fansly\'s {them_pct} comes to {them_fee} on that month and leaves {them_left}, before card processing ([Fansly]({them_src})).',
-                'The same {gross} on {site}: {c_name} is {c_pct} of sales plus {c_price}, {c_total}, with {c_left} remaining; {s_name} is {s_pct} plus {s_price}, {s_total}, with {s_left} remaining. Add card processing to all three.',
-                '{pick} is cheaper for this creator by {diff} a month. With higher monthly sales {s_name}\'s smaller share counts for more than its plan price.',
+                'The same {gross} on {site}: {c_name} is {c_pct} of sales, {c_total}, with {c_left} remaining; {s_name} is {s_pct}, {s_total}, with {s_left} remaining. Add card processing to all three; the plan prices are a separate monthly line.',
+                '{s_name}\'s share leaves this creator {diff} more a month than {c_name}\'s, and higher sales widen that.',
             ),
-            'fee_lead' => 'Both platforms are measured on the same month of sales here: Fansly\'s {them_pct} takes {them_fee} of {s0}, and {c_name} with its plan price takes {us_fee}.',
-            'fee_note' => 'Hypothetical totals. Fansly\'s rate is the one on its creator application page, linked in the row; our rows include the monthly plan price.',
+            'fee_lead' => 'Both platforms are measured on the same month of sales here: Fansly\'s {them_pct} takes {them_fee} of {s0}, and {c_name} takes {us_fee}; the plan price is a separate monthly line.',
+            'fee_note' => 'Hypothetical totals. Fansly\'s rate is the one on its creator application page, linked in the row; our rows are the share of sales alone.',
             'why_text' => 'Streams are your strength, and you want the sessions, the posts and the sales on a page of your own.',
             'why_points' => array('Ticketed live sessions in a built-in video room', 'Pay-per-view, bundles, services and memberships together', 'Publishing to nine networks instead of relying on one feed'),
             'checked' => 'Fansly values checked {date}; the source link beside each one is the page it was read from.',
@@ -189,11 +186,11 @@ class CompareProse {
             'scenario' => array(
                 'Imagine a Ko-fi creator taking {gross} a month in {what}, with round figures standing in for real ones.',
                 'Ko-fi Free charges {them_pct} on memberships, shop sales and commissions, {them_fee} on this month, so {them_left} reaches the creator\'s own payment account, less processing ([Ko-fi help]({them_src})).',
-                'The {site} version: {c_name} takes {c_pct} plus {c_price}, {c_total} in all, leaving {c_left}; {s_name} takes {s_pct} plus {s_price}, {s_total} in all, leaving {s_left}. Card processing is extra on each.',
-                'So at this volume Ko-fi is cheaper, and among our plans {pick} is the one to compare it with, {diff} apart from {other}. A Ko-fi creator moves for the formats and the publishing, not for the fee.',
+                'The {site} version: {c_name} takes {c_pct}, {c_total}, leaving {c_left}; {s_name} takes {s_pct}, {s_total}, leaving {s_left}. Card processing is extra on each, and the monthly plan price is a separate line on the pricing page.',
+                'So on the share alone Ko-fi keeps less of this month than either of our plans, which sit {diff} apart from each other. A Ko-fi creator moves for the formats and the publishing, not for the fee.',
             ),
-            'fee_lead' => 'Ko-fi wins the fee column at this size: {them_fee} on {s0} against {us_fee} for {c_name} with its plan price; the table is here so the trade is visible, not hidden.',
-            'fee_note' => 'Round numbers. Ko-fi\'s rates come from its own help article, linked in the row; ours include the monthly plan.',
+            'fee_lead' => 'Ko-fi wins the fee column at this size: {them_fee} on {s0} against {us_fee} for {c_name}; the plan price is a separate monthly line, and the table is here so the trade is visible, not hidden.',
+            'fee_note' => 'Round numbers. Ko-fi\'s rates come from its own help article, linked in the row; ours are the share of sales alone.',
             'why_text' => 'Tips were the start; now you sell memberships, services and events and want them published for you.',
             'why_points' => array('Services with a fixed price and delivery window, not open commissions', 'Pay-per-view, bundles, memberships and events on one page', 'A studio that posts to nine networks and an inbox that sells'),
             'checked' => 'Ko-fi rows verified {date} from the help-centre articles linked beside them.',
@@ -207,11 +204,11 @@ class CompareProse {
             'scenario' => array(
                 'Take a Linktree creator selling {gross} a month of {what}, in round hypothetical figures.',
                 'On Linktree\'s free plan the {them_pct} fee is {them_fee} and {them_left} remains; on {them2}, the fee is {them2_fee} and {them2_left} remains, before card processing and the per-payout charge ([Linktree help]({them_src})).',
-                'On {site} the month looks like this: {c_name}, {c_pct} plus {c_price}, costs {c_total} and leaves {c_left}; {s_name}, {s_pct} plus {s_price}, costs {s_total} and leaves {s_left}. Card processing applies to every option.',
-                'For product sales alone Linktree Premium is the cheapest line in the table, and {pick} is our closest plan, {diff} from {other}. The reason to move is the memberships, services and events Linktree does not sell.',
+                'On {site} the month looks like this: {c_name}, at {c_pct}, keeps {c_total} and leaves {c_left}; {s_name}, at {s_pct}, keeps {s_total} and leaves {s_left}. Card processing applies to every option, and the plan prices are their own monthly line.',
+                'For product sales alone Linktree Premium takes no share, and our two plans sit {diff} apart on this month. The reason to move is the memberships, services and events Linktree does not sell.',
             ),
-            'fee_lead' => 'Linktree\'s cost depends on the plan, so the table shows two Linktree lines against our two plans on the same {s0} of sales; Linktree Free keeps {them_fee}, and {c_name} with its plan price costs {us_fee}.',
-            'fee_note' => 'Hypothetical sums. Linktree\'s rates are from its own fees article and pricing page, linked in the rows; ours include the monthly plan.',
+            'fee_lead' => 'Linktree\'s share depends on the plan, so the table shows two Linktree lines against our two plans on the same {s0} of sales; Linktree Free keeps {them_fee}, and {c_name} keeps {us_fee}. Monthly plan prices, theirs and ours, are separate lines.',
+            'fee_note' => 'Hypothetical sums. Linktree\'s rates are from its own fees article and pricing page, linked in the rows; every row is the share of sales alone.',
             'why_text' => 'The link page should take the payment itself, and monthly tiers should be possible.',
             'why_points' => array('Tracked links plus memberships, pay-per-view, bundles, services and events', 'Nine networks from one studio, paid version behind the lock', 'Fans pay by card or credit wallet without leaving the page'),
             'checked' => 'Linktree details were read on {date} from the help articles and pricing page linked in each row.',
@@ -225,11 +222,11 @@ class CompareProse {
             'scenario' => array(
                 'Suppose a Beacons creator makes {gross} a month from {what}; the figures are round and illustrative.',
                 'Beacons Free takes {them_pct} ({them_fee}) and leaves {them_left}; {them2} takes {them2_fee} and leaves {them2_left}. Card processing is on top of both ([Beacons pricing]({them_src})).',
-                'The {site} lines on the same month: {c_name} at {c_pct} plus {c_price} costs {c_total} and leaves {c_left}; {s_name} at {s_pct} plus {s_price} costs {s_total} and leaves {s_left}. Card processing again on top.',
-                'Beacons Creator Plus is the cheapest line here, and {pick} is the nearer of our plans, {diff} from {other}. A Beacons creator moves for direct fan sales and publishing, not for the fee.',
+                'The {site} lines on the same month: {c_name} at {c_pct} keeps {c_total} and leaves {c_left}; {s_name} at {s_pct} keeps {s_total} and leaves {s_left}. Card processing again on top; plan prices are listed separately.',
+                'Beacons Creator Plus takes no share of sales, and our two plans are {diff} apart on this month. A Beacons creator moves for direct fan sales and publishing, not for the fee.',
             ),
-            'fee_lead' => 'The table carries two Beacons lines because its fee depends on the plan: on {s0} of sales Beacons Free keeps {them_fee}, and our {c_name} plan with its price comes to {us_fee}.',
-            'fee_note' => 'Round numbers. Beacons\' plan prices and seller fees are from its pricing page, linked in the rows; our rows add the monthly plan.',
+            'fee_lead' => 'The table carries two Beacons lines because its share depends on the plan: on {s0} of sales Beacons Free keeps {them_fee}, and our {c_name} plan keeps {us_fee}. Plan prices are a separate monthly line on both sides.',
+            'fee_note' => 'Round numbers. Beacons\' seller fees are from its pricing page, linked in the rows; every row is the share of sales alone.',
             'why_text' => 'Fans, not brands, pay your bills, and you want them paying on your page.',
             'why_points' => array('Memberships, pay-per-view, bundles, services and events sold to fans directly', 'Posts published to nine networks, not only analysed', 'AI influencers whose images and videos you can sell'),
             'checked' => 'Beacons rows checked {date} (plan prices rechecked October 11, 2026) against the pages linked in each row.',
@@ -243,11 +240,11 @@ class CompareProse {
             'scenario' => array(
                 'A Stan Store creator with {gross} a month in {what} makes a clean example; the sums are hypothetical.',
                 'Stan Store\'s Creator plan takes no share of sales, only its {them_monthly} a month, so {them_left} is left before card processing ([Stan Store pricing]({them_src})).',
-                'On {site}: {c_name} takes {c_pct} plus {c_price}, {c_total}, leaving {c_left}; {s_name} takes {s_pct} plus {s_price}, {s_total}, leaving {s_left}. Card processing is extra on all three.',
-                'Stan Store is the cheaper line at this volume, and {pick} is our nearer plan, {diff} from {other}. A flat price beats a share once the sales are large; the formats and the publishing are what a Stan Store creator comes here for.',
+                'On {site}: {c_name} takes {c_pct}, {c_total}, leaving {c_left}; {s_name} takes {s_pct}, {s_total}, leaving {s_left}. Card processing is extra on all three, and every monthly plan price, ours and Stan Store\'s, is a separate line.',
+                'Stan Store takes no share of sales, and our two plans sit {diff} apart on this month. The formats and the publishing are what a Stan Store creator comes here for.',
             ),
-            'fee_lead' => 'A flat price against a share: Stan Store keeps {them_fee} of {s0} regardless of volume, and our {c_name} plan, fee and price together, keeps {us_fee}.',
-            'fee_note' => 'Hypothetical figures. Stan Store\'s prices and its no-transaction-fee policy are from its pricing page, linked in the row; our rows include the monthly plan.',
+            'fee_lead' => 'A flat price against a share: Stan Store takes no share of {s0}, and our {c_name} plan keeps {us_fee}. The monthly prices on both sides are separate lines.',
+            'fee_note' => 'Hypothetical figures. Stan Store\'s no-transaction-fee policy is from its pricing page, linked in the row; our rows are the share of sales alone.',
             'why_text' => 'Your fans buy small things often: a paid post, a bundle, a ticket, a message.',
             'why_points' => array('Pay-per-view, bundles and paid messages from a credit wallet fans load once', 'Memberships, services and events on the same page', 'Nine networks from one studio and a DM agent you approve'),
             'checked' => 'Stan Store rows verified {date}, prices rechecked October 11, 2026; each links to the help article or pricing page it came from.',

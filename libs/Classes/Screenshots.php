@@ -6,7 +6,7 @@
  */
 class Screenshots {
 
-    const ENABLED = true;   // on since 2026-10-12 (Daniel's brief: real product screenshots on /pricing and /features); only placements whose file exists render
+    const ENABLED = false;   // off for good (Daniel 2026-10-12): no product pictures on public pages, a screenshot or a drawing of a screen tells a visitor nothing
 
     const DIR = '/public/images/shots/';
     const URL = '/images/shots/';

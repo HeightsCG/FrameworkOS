@@ -48,9 +48,9 @@ echo Sections::rows(array(
           'points' => array('Nine social networks from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
     array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's fee, and you cash out to your bank anytime.",
           'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice'),
-          // the after-state (heycatch D1.5, D2.3): the analytics dashboard of the demo account on dev, labelled as such, never a real creator's figures
-          'image' => '/images/shots/analytics-dashboard.webp', 'image_w' => 1440, 'image_h' => 900, 'caption' => 'Example dashboard (demo account)',
-          'image_alt' => 'The Analytics dashboard of a demo account: six cards for revenue, subscribers, followers, views, posts and engagement over the last 30 days, a 7, 30 or 90 day switch, and Revenue, Content, Audience and Customers tabs above a revenue-by-offering panel and a daily revenue chart'),
+          // the after-state (heycatch D1.5, D2.3) as a schematic drawing of the Analytics dashboard with invented figures, never a screenshot
+          'image' => Sections::ui_sketch_url('analytics'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Analytics dashboard, drawn as a schematic.',
+          'image_alt' => 'Schematic of the Analytics dashboard: six cards for revenue, subscribers, followers, views, posts and engagement, a 7, 30 or 90 day switch, and a daily revenue bar chart beneath'),
 ));
 echo Sections::close();
 

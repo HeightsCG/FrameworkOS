@@ -868,9 +868,9 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
     .sx-more, .sx-tlink, .hx__under { display: inline-flex; align-items: center; min-height: 44px; }
     .sx-acts--hero { margin-top: 20px; }
 }
-/* A row with a picture inside the two-column rows block: text first, the picture full width under it (the dashboard screenshot was a quarter of the page otherwise) */
-.sx-rows .sx-row:not(.sx-row--noimg) { grid-template-columns: minmax(0, 1fr); gap: 20px; }
-.sx-rows .sx-row:not(.sx-row--noimg) .sx-row__media { order: 2; }
+/* A row with a picture inside the TWO-COLUMN rows block (home): text first, the picture full width under it. A row on its own keeps text beside the picture. */
+.sx-rows:has(> .sx-row--noimg) .sx-row:not(.sx-row--noimg) { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.sx-rows:has(> .sx-row--noimg) .sx-row:not(.sx-row--noimg) .sx-row__media { order: 2; }
 .sx-plan__founding { margin: 10px 0 0; font-size: .9375rem; }
 .sx-plan__founding a { color: var(--sx-ink); text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
 .sx-plan__founding a:hover { color: var(--sx-acc); }
@@ -918,3 +918,30 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx--pricing .sx-plan { grid-row: span 4; }
 @media (max-width: 820px) { .sx--pricing .sx-plans__offer { margin-top: 32px; } .sx--pricing .sx-plans__offer + .sx-plans { margin-top: 24px; } }
 .sx--pricing .sx-plans__offer { text-align: center; }   /* the band reads as one centred line above the cards */
+.sx-figure--sketch { margin: 24px 0 0; }
+.sx-sketch { display: block; width: 100%; height: auto; border: 1px solid var(--sx-line-2); border-radius: 12px; }
+.hx__mod .sx-figure--sketch { margin: 0; }
+.sx--pricing + .sx .sx-row__media .sx-figcap, .sx-row__media .sx-figcap { margin-top: 8px; }
+/* a figure in a row shows whole (the schematics are 16:10), never cropped to the 4:3 photo box */
+.sx-row__media.sx-row__media img, figure.sx-row__media img { width: 100%; height: auto; aspect-ratio: auto; object-fit: contain; border-radius: 12px; }
+.sx-head, .sx-head .sx-h2, .sx-head .sx-lead, .sx-hero__text { max-width: none; }   /* headings and leads run the full content width, never a narrow column (Daniel's rule) */
+/* /features (2026-10-12): the guide list, a definition list in two columns, each row a link and one line */
+.fx-list { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; }
+.fx-list__row { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-top: 1px solid var(--sx-line); align-items: baseline; }
+.fx-list dt { margin: 0; font-weight: 600; }
+.fx-list dt a { color: var(--sx-ink); text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
+.fx-list dt a:hover { color: var(--sx-acc); }
+.fx-list dd { margin: 0; font-size: .9375rem; line-height: 1.5; color: var(--sx-t2); }
+.sx .sx-figure + .sx-p { margin-top: 24px; }
+@media (max-width: 900px) { .fx-list { grid-template-columns: minmax(0, 1fr); } .fx-list__row { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
+.sx-figure--flow .sx-chart-wrap { background: transparent; border: 0; padding: 0; }
+.sx-figure--flow .sx-chart-img { max-width: 100%; width: auto; }
+.sx-figure--chart .sx-chart-wrap { background: transparent; border: 1px solid var(--sx-line-2); padding: 0; }
+.sx-figure--chart .sx-chart-img { width: 100%; height: auto; max-height: 460px; object-fit: contain; }
+/* /features: the four steps from a post to a payout, read left to right, the last one the accent */
+.fx-steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; counter-reset: fxs; }
+.fx-steps li { position: relative; padding: 24px 0 0; border-top: 2px solid var(--sx-line-2); }
+.fx-steps li.is-last { border-top-color: var(--sx-acc); }
+.fx-steps h3 { margin: 0 0 8px; font-size: 1.25rem; font-weight: 800; letter-spacing: -.02em; color: var(--sx-ink); }
+.fx-steps p { margin: 0; font-size: 1rem; line-height: 1.6; color: var(--sx-t2); }
+@media (max-width: 900px) { .fx-steps { grid-template-columns: minmax(0, 1fr); gap: 16px; } .fx-steps li { padding-top: 16px; } }

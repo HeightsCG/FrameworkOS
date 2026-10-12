@@ -666,7 +666,7 @@ class PagesController extends Controller {
         $site = Main::site_name(); $e = function ($s) { return Sections::e($s); };
         $money = function ($n) { return '$' . number_format((float) $n, 0); };
         $options = array();
-        foreach (self::selling_tiers() as $t) { $options[] = array('label' => $site . ' ' . $t['name'] . ' (' . (int) $t['limits']['fee_percent'] . '% + $' . number_format((int) $t['price']) . '/mo)', 'percent' => (int) $t['limits']['fee_percent'], 'monthly' => (int) $t['price'], 'us' => true); }
+        foreach (self::selling_tiers() as $t) { $options[] = array('label' => $site . ' ' . $t['name'] . ' (' . (int) $t['limits']['fee_percent'] . '%)', 'percent' => (int) $t['limits']['fee_percent'], 'monthly' => 0, 'us' => true); }   // the platform percentage alone: plan prices are never added into a fee figure (Daniel 2026-10-12)
         foreach ($slugs as $slug) { foreach ((array) (self::COMPETITORS[$slug]['fee_math'] ?? array()) as $o) { $options[] = $o; } }
         if ($slugs !== array() && count($options) <= count(self::selling_tiers())) { return ''; }   // a competitor was asked for and nothing sourced exists for it (eromify sells nothing)
         $head = array('Option');
@@ -675,8 +675,8 @@ class PagesController extends Controller {
         foreach ($options as $o) {
             $cells = array(($o['us'] ?? false) ? '<span class="bp-us">' . $e($o['label']) . '</span>' : $e($o['label']) . (!empty($o['source']) ? ' <a class="sx-src" href="' . $e($o['source']) . '" rel="noopener" target="_blank">source</a>' : ''));
             foreach ($sales as $s) {
-                $fee = $s * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0);
-                $cells[] = $e($money($fee)) . ((float) ($o['monthly'] ?? 0) > 0 ? ' (' . (int) $o['percent'] . '% + plan).' : ' (' . (int) $o['percent'] . '%).');
+                $fee = $s * ((float) $o['percent']) / 100;   // percentage of sales only; a monthly plan price (ours or theirs) is a separate line, never folded in
+                $cells[] = $e($money($fee)) . ' (' . rtrim(rtrim(number_format((float) $o['percent'], 2), '0'), '.') . '%).';
                 $cells[] = $e($money($s - $fee)) . '.';
             }
             if ($first_them === null && empty($o['us'])) { $first_them = $o; }
@@ -688,16 +688,16 @@ class PagesController extends Controller {
             $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
             if ($d > 0) { $cross = ''; }   // no break-even figure anywhere on the site (Daniel 2026-10-12): the table shows both plans, the reader runs the sum
         }
-        $s0 = $sales[0]; $them_fee = $first_them ? $s0 * ((float) $first_them['percent']) / 100 + (float) ($first_them['monthly'] ?? 0) : 0;
-        $us_fee = $low ? $s0 * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price'] : 0;
-        $lead = 'On ' . $money($s0) . ' of sales in a month, ' . ($first_them ? $first_them['label'] . ' costs ' . $money($them_fee) . '. ' : '') . $site . '\'s ' . $low['name'] . ' plan costs ' . $money($us_fee) . ' on the same sales, platform fee and plan price together.' . $cross . ' Card processing is charged separately on every option in the table.';
+        $s0 = $sales[0]; $them_fee = $first_them ? $s0 * ((float) $first_them['percent']) / 100 : 0;
+        $us_fee = $low ? $s0 * ((int) $low['limits']['fee_percent']) / 100 : 0;
+        $lead = 'On ' . $money($s0) . ' of sales in a month, ' . ($first_them ? $first_them['label'] . ' keeps ' . $money($them_fee) . ' and ' : '') . $site . '\'s ' . $low['name'] . ' plan keeps ' . $money($us_fee) . '. The figures are the platform percentage only; monthly plan prices, ours and theirs, are separate and listed where each plan is sold. Card processing is charged separately on every option in the table.';
         $vlead = $voice !== '' ? CompareProse::voice($voice, 'fee_lead') : '';
         if ($vlead !== '') { $lead = strtr($vlead, array('{s0}' => $money($s0), '{them_fee}' => $money($them_fee), '{us_fee}' => $money($us_fee), '{c_name}' => (string) $low['name'], '{s_name}' => (string) $high['name'], '{them_pct}' => $first_them ? rtrim(rtrim(number_format((float) $first_them['percent'], 2), '0'), '.') . '%' : '')) . $cross; }
         $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on real sales?', $lead);
         $out .= Sections::table($head, $rows, -1);
-        $out .= Sections::fee_chart($options, $sales, 'What you keep after the platform fee and plan price');   // the same numbers as the table, as a bar chart with the figures in its caption (g_multimodal)
+        $out .= Sections::fee_chart($options, $sales, 'What you keep after the platform fee');   // the same numbers as the table, as a bar chart with the figures in its caption (g_multimodal)
         $vnote = $voice !== '' ? CompareProse::voice($voice, 'fee_note') : '';
-        $out .= '<p class="sx-note">' . ($vnote !== '' ? Sections::e($vnote) : 'Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Plan prices are monthly; a yearly plan changes the monthly figure.') . '</p>';
+        $out .= '<p class="sx-note">' . ($vnote !== '' ? Sections::e($vnote) : 'Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Monthly plan prices are not in these figures.') . '</p>';
         return $out . Sections::close();
     }
 

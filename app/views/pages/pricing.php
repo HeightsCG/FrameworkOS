@@ -42,6 +42,18 @@ $e = function ($s) { return Sections::e($s); };
 <?php
 echo Sections::close();
 
+/* What a paid plan unlocks, shown with the screen where it happens: text beside the schematic drawing (invented figures, never a screenshot). */
+echo Sections::open('alt', 'What do you set up once you upgrade?');
+echo Sections::rows(array(
+    array('title' => 'Tiers, codes and bundles in one place',
+          'text' => 'Memberships, discount codes and content bundles live on one Settings screen. Set a tier\'s price and billing interval, switch it on when it is ready, and add a code for a launch. Every sale lands in your balance net of your plan fee, and you cash out to your bank from ' . Price::PAYOUT_MIN_LABEL . '.',
+          'points' => array('As many tiers as you want, each with its own price, interval and trial', 'Promo codes with a cap or an expiry', 'Bundles built from media already in your library'),
+          'link' => array('See memberships', '/features/memberships'),
+          'image' => Sections::ui_sketch_url('plans'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Membership Plans screen in Settings, drawn as a schematic.',
+          'image_alt' => 'Schematic of the Membership Plans screen in Settings: three plan rows, each with a drag handle, a name, a price and an on-off switch, with edit and delete controls, above a Discount Codes block with an Add Code button'),
+));
+echo Sections::close();
+
 /* Full comparison: limits from PlanTiers::ROWS, then everything every plan includes. */
 $check = '<svg class="sx-ic pt-check" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="Included"><path d="M20 6 9 17l-5-5"/></svg>';
 $head = array('');
@@ -72,8 +84,6 @@ $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
 echo Sections::open('white', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
-$shot = Screenshots::img('pricing-plans');   // a real screen from the product: the membership plans a creator sells on every paid plan (g_multimodal, 2026-10-12)
-if ($shot !== '') { echo '<figure class="sx-figure sx-figure--shot">' . $shot . '<figcaption class="sx-figcap">The Membership Plans screen in Settings, where a creator on the Creator or Studio plan sets the tiers, discount codes and bundles fans can buy.</figcaption></figure>'; }
 echo Sections::close();
 
 echo Sections::faq($faq, 'white');
