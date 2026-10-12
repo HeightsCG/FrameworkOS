@@ -42,13 +42,6 @@ class PagesController extends Controller {
         return 'Keep ' . implode(', ', $parts) . '.' . ($pct > 0 ? ' OnlyFans keeps ' . $pct . '%.' : '');
     }
 
-    /** "Why $49 upfront?" under the Creator card on /pricing (D4.4). No break-even figure anywhere on the site (Daniel 2026-10-12). */
-    public static function why_upfront_sentence(): string {
-        $tiers = self::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $low = reset($tiers); $high = end($tiers); if (!$low || !$high || $low === $high) { return ''; }
-        return 'Why $' . number_format((int) $low['price']) . ' upfront? It covers the studio, the scheduler and the AI inbox, and your fee drops to ' . (int) $high['limits']['fee_percent'] . '% on ' . $high['name'] . ' as you grow.';
-    }
-
     /** "Why we built this" on /about (D3.3): two paragraphs for Daniel to write in his own words. The section is hidden until both are filled. */
     const WHY_WE_BUILT_THIS = array(
         '',   // TODO Daniel: paragraph one

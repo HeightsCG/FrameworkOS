@@ -20,7 +20,6 @@ $e = function ($s) { return Sections::e($s); };
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register"><?php echo $is_free ? 'Join Free' : 'Start with ' . $e($t['name']); ?></a>
         </div>
         <div class="sx-plan__body">
-        <?php if ($t['key'] === Founding::PLAN): $why = PagesController::why_upfront_sentence(); if ($why !== ''): ?><p class="sx-plan__why"><?php echo $e($why); ?></p><?php endif; endif; ?>
         <?php if ($is_free): ?>
         <dl><?php foreach (array_merge(PlanTiers::FREE_BUILDS, PlanTiers::FREE_INCLUDES) as $inc): ?><div><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?></dl>
         <?php else: ?>
