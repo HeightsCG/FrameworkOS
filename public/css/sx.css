@@ -983,11 +983,18 @@ body:has(> .fb) > main { margin-top: -73px; }
 .fx-steps--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 900px) { .fx-steps--3 { grid-template-columns: minmax(0, 1fr); } }
 
-/* Offer bar, final style (Daniel's spec 2026-10-12): a warm brown-black strip of its own, a low-opacity orange hairline under it, an orange outline pill, medium-weight text a step brighter than the nav links, and an orange link with no underline. Replaces the solid orange version above. */
-.fb { background: #1c130d; border-bottom: 1px solid rgba(255, 106, 19, .35); }
+/* Offer bar, final style (Daniel's spec 2026-10-12): a neutral charcoal strip of its own, a low-opacity orange hairline under it, an orange outline pill, medium-weight text a step brighter than the nav links, and an orange link with no underline. Replaces the solid orange version above. */
+.fb { background: #1c1c1f; border-bottom: 1px solid rgba(255, 106, 19, .35); }   /* neutral charcoal, no warm tint (Daniel's revised spec) */
 .fb__in { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; padding-top: 10px; padding-bottom: 10px; font-size: .875rem; font-weight: 500; color: #e9e9ec; }
 .fb__pill { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border: 1px solid var(--sx-acc); border-radius: 999px; font-size: .75rem; font-weight: 600; line-height: 1; color: var(--sx-acc); }
 .fb__in a, .fb__in a:hover { margin-left: 0; color: var(--sx-acc); font-weight: 600; text-decoration: none; }
 .fb__in a:hover { color: #ff8a47; }
 .fb__in a:focus-visible { outline: 2px solid var(--sx-acc); outline-offset: 3px; border-radius: 2px; }
 @media (max-width: 640px) { .fb__in { padding: 8px 16px; } }
+
+/* Offer bar, maximum contrast (Daniel's spec 2026-10-12, replaces the charcoal version above): solid white, near-black medium text, bold orange link, no pill, no border. The link uses the brand's text orange #C2410C, which passes contrast on white; #FF6A13 does not. */
+.fb { background: #fff; border-bottom: 0; }
+.fb__in { color: #111113; font-weight: 500; }
+.fb__in a, .fb__in a:hover { color: #C2410C; font-weight: 700; text-decoration: none; }
+.fb__in a:hover { color: #9a3412; }
+.fb__in a:focus-visible { outline-color: #C2410C; }
