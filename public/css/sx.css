@@ -951,3 +951,10 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 @media (max-width: 1000px) { .sx-rows--3:has(> .sx-row--noimg) { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 820px) { .sx-rows--3:has(> .sx-row--noimg) { grid-template-columns: minmax(0, 1fr); } }
 .sx-row--noimg { align-content: start; }   /* text-only rows start at the top of their grid cell, so titles across a row line up */
+/* Heroes without a right-hand panel: the text spans the full content width instead of stopping halfway beside empty glow, and the H1 balances its lines so no single word wraps alone (Daniel, 2026-10-12, /features/memberships). */
+.hx--solo .hx__left { max-width: none; }
+.hx--solo .hx__lead { max-width: none; }
+.hx--solo .hx__big { text-wrap: balance; }
+/* Every hero H1 balances its lines, so one word never wraps alone; the directory hero lead spans the content width like the other panel-less heroes. */
+.hx__big, .sx-hero__title, .bl-top__title, .lg__title { text-wrap: balance; }
+.sx--noimg .sx-hero__text, .sx--noimg .sx-hero__lead { max-width: none; }
