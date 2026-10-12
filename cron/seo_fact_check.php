@@ -231,10 +231,12 @@ if (isset($opts['fix-rules'])) {
 if (empty($flagged)) { echo date('c'), " plans, prices and fee are consistent everywhere\n"; CronRuns::finish('seo_fact_check', true, 'consistent'); exit(0); }
 echo date('c'), ' ', count($flagged), " place(s) drifted:\n";
 foreach ($flagged as $f) { echo '  ', $f, "\n"; }
-if (!isset($opts['quiet'])) {
+// Admins are emailed about facts and rules only. Style notes and corpus-shape notes are advisory: they stay in this log and never send mail (2026-10-12).
+$alert = array_values(array_filter($flagged, function ($f) { return !preg_match('#^/blog/[^ ]+ \((style|shape)\): #', $f); }));
+if (!isset($opts['quiet']) && !empty($alert)) {
     try {
-        Notify::many((new UsersModel())->admin_ids(), 'system', 'Prices, fee or content rules off on ' . count($flagged) . ' page(s)',
-            implode("\n", array_slice($flagged, 0, 12)) . (count($flagged) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules (mechanical), then --rewrite --all (rules and shape, one Claude call each).", '/admin?tab=content');
+        Notify::many((new UsersModel())->admin_ids(), 'system', 'Prices, fee or content rules off on ' . count($alert) . ' page(s)',
+            implode("\n", array_slice($alert, 0, 12)) . (count($alert) > 12 ? "\n…" : '') . "\nFix: cron/seo_fact_check.php --fix-rules (mechanical), then --rewrite --all (rules and shape, one Claude call each).", '/admin?tab=content');
     } catch (\Throwable $e) { error_log('[seo] fact check notice: ' . $e->getMessage()); }
 }
 // findings are the job's output, not a failure: the Jobs box shows OK with the count, the admin notice above carries the list;
