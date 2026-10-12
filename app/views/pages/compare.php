@@ -14,7 +14,7 @@ echo Sections::panel_hero(array(
 echo Sections::open('alt', 'How do the features compare?', CompareProse::voice($slug, 'checked') !== '' ? str_replace('{date}', date('F j, Y', strtotime($c['checked'])), CompareProse::voice($slug, 'checked')) : $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
 $trows = array();
 foreach ($labels as $k => $l) {
-    $cell = $e($dot($c[$k]['value'])) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="nofollow noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
+    $cell = $e($dot($c[$k]['value'])) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
     $trows[] = array($e($l), $e($dot($us[$k])), $cell);
 }
 echo Sections::table(array('', $site, $c['name']), $trows, 1);
@@ -37,7 +37,13 @@ echo Sections::cards(array(
 echo Sections::close();
 
 echo CompareProse::render(CompareProse::compare($slug), 'alt');   // this competitor's own prose: who it suits, what moving involves, the trade-offs, a computed scenario
-echo PagesController::fee_example_section(array($slug), 'white', array(1000, 5000), '', $slug);   // the fee table on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
+$fee_block = PagesController::fee_example_section(array($slug), 'white', array(1000, 5000), '', $slug);   // the fee table and chart on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
+if ($fee_block === '') {   // a generation tool with no sales side: the diagram shows where the two products sit in a creator's workflow (g_multimodal), from the facts already on this page
+    $fee_block = Sections::open('white', 'Where does each product sit in the workflow?', $c['name'] . ' covers the first step; ' . $site . ' covers all four on one page.')
+        . Sections::flow_svg(array('Generate the character', 'Publish to your socials', 'Sell memberships, pay-per-view and bundles', 'Cash out to your bank'), 'From a generated character to a payout on ' . $site)
+        . Sections::close();
+}
+echo $fee_block;
 echo CompareProse::links_line($slug);   // the shared product blocks live on /features, /pricing and /features/payouts, not here
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';

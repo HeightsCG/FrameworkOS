@@ -386,11 +386,11 @@ class PagesController extends Controller {
     }
 
     public function termsAction(){
-        $this->page('legal-terms', array('own_article' => true, 'path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-terms', array('path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function privacyAction(){
-        $this->page('legal-privacy', array('own_article' => true, 'path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function aboutAction(){
@@ -407,10 +407,22 @@ class PagesController extends Controller {
         $this->page('about', array('path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
     }
 
-    /** /author/* (the author page existed for a few hours on 2026-10-11): permanent redirect to /about, where the editorial line lives. */
+    /** /author/dr-glauber: the author page behind the byline (SeoMeta::AUTHOR_NAME, AUTHOR_BIO, AUTHOR_EXPERIENCE). Linked only from article bylines; not in the nav, the footer or the sitemap. */
     public function authorAction(){
-        header('Location: /about', true, 301);
-        exit;
+        $url = Main::get_url();
+        if (count($url) !== 2 || '/author/' . (string) $url[1] !== SeoMeta::AUTHOR_PATH) { Errors::page_not_found(); return; }
+        $site = Main::site_name(); $name = SeoMeta::AUTHOR_NAME;
+        $desc = $name . ' leads the ' . $site . ' team and reviews every article on the blog before it is published. Role, background and every published article.';
+        $recent = array();
+        try { $recent = (new SeoArticlesModel())->published(200, 0); } catch (\Throwable $e) { error_log('[author] articles: ' . $e->getMessage()); }
+        $person = SeoMeta::author();
+        $person['description'] = SeoMeta::AUTHOR_BIO[0];
+        $jsonld = array(
+            array('@context' => 'https://schema.org', '@type' => 'ProfilePage', 'name' => $name, 'description' => $desc, 'url' => SeoMeta::base() . SeoMeta::AUTHOR_PATH, 'mainEntity' => $person),
+            SeoMeta::org(),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Blog', 'url' => '/blog'), array('name' => $name, 'url' => SeoMeta::AUTHOR_PATH))),
+        );
+        $this->page('author', array('path' => SeoMeta::AUTHOR_PATH, 'title' => $name . ': ' . SeoMeta::AUTHOR_ROLE, 'description' => $desc, 'type' => 'profile', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true), array('recent' => $recent));
     }
 
     public function contactAction(){
@@ -663,7 +675,7 @@ class PagesController extends Controller {
         foreach ($sales as $s) { $head[] = 'Fee on ' . $money($s) . ' of sales'; $head[] = 'You keep'; }
         $rows = array(); $first_them = null;
         foreach ($options as $o) {
-            $cells = array(($o['us'] ?? false) ? '<span class="bp-us">' . $e($o['label']) . '</span>' : $e($o['label']) . (!empty($o['source']) ? ' <a class="sx-src" href="' . $e($o['source']) . '" rel="nofollow noopener" target="_blank">source</a>' : ''));
+            $cells = array(($o['us'] ?? false) ? '<span class="bp-us">' . $e($o['label']) . '</span>' : $e($o['label']) . (!empty($o['source']) ? ' <a class="sx-src" href="' . $e($o['source']) . '" rel="noopener" target="_blank">source</a>' : ''));
             foreach ($sales as $s) {
                 $fee = $s * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0);
                 $cells[] = $e($money($fee)) . ((float) ($o['monthly'] ?? 0) > 0 ? ' (' . (int) $o['percent'] . '% + plan).' : ' (' . (int) $o['percent'] . '%).');
@@ -685,6 +697,7 @@ class PagesController extends Controller {
         if ($vlead !== '') { $lead = strtr($vlead, array('{s0}' => $money($s0), '{them_fee}' => $money($them_fee), '{us_fee}' => $money($us_fee), '{c_name}' => (string) $low['name'], '{s_name}' => (string) $high['name'], '{them_pct}' => $first_them ? rtrim(rtrim(number_format((float) $first_them['percent'], 2), '0'), '.') . '%' : '')) . $cross; }
         $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on real sales?', $lead);
         $out .= Sections::table($head, $rows, -1);
+        $out .= Sections::fee_chart($options, $sales, 'What you keep after the platform fee and plan price');   // the same numbers as the table, as a bar chart with the figures in its caption (g_multimodal)
         $vnote = $voice !== '' ? CompareProse::voice($voice, 'fee_note') : '';
         $out .= '<p class="sx-note">' . ($vnote !== '' ? Sections::e($vnote) : 'Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Plan prices are monthly; a yearly plan changes the monthly figure.') . '</p>';
         return $out . Sections::close();
@@ -712,7 +725,7 @@ class PagesController extends Controller {
         }
         $out = Sections::open($bg, 'How do payouts compare?', $lead);
         $out .= Sections::cards($cards, count($cards));
-        if (!empty($c['payout']['source'])) { $out .= '<p class="sx-note">' . $e($c['name']) . ' payout terms: <a class="sx-src" href="' . $e($c['payout']['source']) . '" rel="nofollow noopener" target="_blank">source</a>' . (!empty($c['payout']['reported']) ? ' (third-party reporting)' : '') . ', checked ' . $e(date('F j, Y', strtotime($c['checked']))) . '.</p>'; }
+        if (!empty($c['payout']['source'])) { $out .= '<p class="sx-note">' . $e($c['name']) . ' payout terms: <a class="sx-src" href="' . $e($c['payout']['source']) . '" rel="noopener" target="_blank">source</a>' . (!empty($c['payout']['reported']) ? ' (third-party reporting)' : '') . ', checked ' . $e(date('F j, Y', strtotime($c['checked']))) . '.</p>'; }
         return $out . Sections::close();
     }
 

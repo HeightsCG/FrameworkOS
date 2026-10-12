@@ -6,14 +6,15 @@
  */
 class Screenshots {
 
-    const ENABLED = false;
+    const ENABLED = true;   // on since 2026-10-12 (Daniel's brief: real product screenshots on /pricing and /features); only placements whose file exists render
 
     const DIR = '/public/images/shots/';
     const URL = '/images/shots/';
 
     // placement key => file (no extension), alt text, display size. file '' = no capture yet.
     const PLACEMENTS = array(
-        'features-hero'                => array('file' => 'studio-posts',         'alt' => 'Content Studio posts list with scheduled and published posts, each with its audience, price and publish time', 'width' => 1440, 'height' => 900),
+        'pricing-plans'                => array('file' => 'membership-plans',     'alt' => 'The Membership Plans settings screen: a Supporter tier at $9.99 a month with its visibility toggle, edit and delete controls, plus empty Discount Codes and Content Bundles sections with Add Code and Add Bundle buttons', 'width' => 1440, 'height' => 900),
+        'features-hero'                => array('file' => 'studio-posts',         'alt' => 'The Content Studio posts list: scheduled and published posts with a thumbnail, caption, audience (Everyone, Subscribers or PPV with its credit price), publish time, view and comment counts, and Edit buttons, under Posts, Library, Calendar, Collections and Scheduler tabs', 'width' => 1440, 'height' => 900),
         'feature-memberships'          => array('file' => 'creator-page',         'alt' => 'A creator page with Follow and Subscribe buttons, follower count and free and locked posts', 'width' => 1440, 'height' => 900),
         'feature-pay-per-view'         => array('file' => 'post-composer',        'alt' => 'The post editor with media, caption, audience settings and a live subscriber preview', 'width' => 1440, 'height' => 900),
         'feature-link-in-bio'          => array('file' => 'creator-page',         'alt' => 'A creator page with profile, posts and membership in one link', 'width' => 1440, 'height' => 900),

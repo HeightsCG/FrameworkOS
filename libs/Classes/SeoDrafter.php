@@ -902,7 +902,7 @@ class SeoDrafter {
      * become commas. Nothing is injected: the fee, the plan prices and the refund rule are the article's own words or absent.
      */
     public static function fit(array $a): array {
-        $a['body_md'] = self::linkify_bare_citations((string) ($a['body_md'] ?? ''));
+        $a['body_md'] = self::split_long_paragraphs(self::linkify_bare_citations((string) ($a['body_md'] ?? '')));   // the 6-sentence limit is enforced here, not just reported (2026-10-12)
         foreach (array('title', 'meta_description', 'excerpt', 'body_md') as $f) {
             $v = (string) ($a[$f] ?? '');
             $v = preg_replace('/\s*\x{2014}\s*/u', ', ', $v);                    // em dash
@@ -1091,7 +1091,7 @@ class SeoDrafter {
         return preg_replace_callback('/clscite(\d+)x/', function ($m) use ($cites) {
             if (!isset($cites[(int) $m[1]])) { return ''; }
             list($text, $url) = $cites[(int) $m[1]];
-            return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" rel="nofollow noopener" target="_blank">' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8') . '</a>';
+            return '<a href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '" rel="noopener" target="_blank">' . htmlspecialchars($text, ENT_QUOTES, 'UTF-8') . '</a>';   // a cited primary source is followed, not nofollowed (2026-10-12)
         }, $html);
     }
 
@@ -1140,6 +1140,12 @@ class SeoDrafter {
             . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, a named feature as it works here), in the article's own words. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
+    }
+
+    /** Alt text for an article's cover: what the picture shows (the motif it was generated from), then the article it covers. */
+    public static function cover_alt(array $a): string {
+        $topic = class_exists('BlogController') ? (string) BlogController::topic($a) : '';
+        return 'Illustration of ' . self::cover_motif($topic) . ', in soft light on a plain background, the cover image for the article "' . (string) ($a['title'] ?? '') . '"';
     }
 
     /** Visual motif per topic for the cover prompt (abstract objects only — no people, no text). */
@@ -1330,6 +1336,17 @@ class SeoDrafter {
             foreach (self::split_long_paragraph($t) as $piece) { $out[] = $piece; }
         }
         return trim(implode("\n\n", $out)) . "\n";
+    }
+
+    /** Every prose paragraph of a Markdown body over PARAGRAPH_MAX_SENTENCES is split (headings, lists, tables and quotes untouched). Pure text; also used by the one-time fixes script. */
+    public static function split_long_paragraphs(string $md): string {
+        $out = array();
+        foreach (preg_split('/\n\s*\n/', $md) as $block) {
+            $t = trim($block);
+            if ($t === '' || preg_match('/^(#|[-*+]\s|>|\||`|\d+\.\s)/', $t) || strpos($t, "\n") !== false) { $out[] = $block; continue; }
+            foreach (self::split_long_paragraph($t) as $piece) { $out[] = $piece; }
+        }
+        return implode("\n\n", $out);
     }
 
     /** A paragraph over PARAGRAPH_MAX_SENTENCES becomes two or more, split at the sentence boundary nearest the middle. */

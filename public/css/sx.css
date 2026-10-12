@@ -820,3 +820,13 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .fc-row__id small { font-size: .875rem; color: var(--sx-t2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 @media (max-width: 1000px) { .fc-row { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 600px) { .fc-row { grid-template-columns: minmax(0, 1fr); } }
+
+/* Figures: inline SVG charts and diagrams built from page facts (g_multimodal, 2026-10-12) */
+.sx-figure { margin: 20px 0 0; }
+.sx-chart-wrap { overflow-x: auto; border: 1px solid var(--sx-line-2); border-radius: 12px; background: #fff; padding: 12px; }
+.sx-chart, .sx-flow { display: block; max-width: 100%; height: auto; font-family: inherit; }
+.sx-chart__legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 10px 0 0; font-size: 13px; color: var(--sx-ink); }
+.sx-chart__key i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+.sx-figcap { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--sx-muted, #71717a); }
+.sx-figure--shot .shot { display: block; border: 1px solid var(--sx-line-2); border-radius: 12px; overflow: hidden; background: #fff; }
+.sx-figure--shot .shot img { width: 100%; height: auto; display: block; }

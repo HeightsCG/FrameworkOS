@@ -116,7 +116,7 @@ class BlogController extends Controller {
         $anch = self::anchor_headings((string) $a['body_html']);
         $anch[0] = SeoDrafter::place_cta($anch[0], (int) $a['id']);   // the signup aside sits at a different point per article (end, after the first section, before the last)
         $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
-                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true, 'own_article' => true),   // the view has its one <article>
+                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),   // the view has its one <article>
             array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview, 'body' => $anch[0], 'toc' => $anch[1], 'topic' => self::topic($a)));
     }
 

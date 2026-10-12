@@ -5,6 +5,7 @@ $paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternativ
 $paths = array_merge($paths, array('/founding'));
 $paths = array_merge($paths, array('/affiliates'));
 $paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
+$paths = array_merge($paths, array('/author/dr-glauber'));   // the author page behind every article byline (2026-10-12)
 $fail  = 0;
 foreach ($paths as $p) {
     $ch = curl_init($base . $p);
@@ -93,4 +94,18 @@ foreach (array('/tools', '/tools/fanquestions', '/tools/fan-questions/x', '/tool
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
 }
+// Author page (2026-10-12): ProfilePage markup, the name, no first name anywhere; /author/<other> is a 404; the name appears only on the allowed pages.
+$ch = curl_init($base . '/author/dr-glauber'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+$ok = strpos($body, '"@type":"ProfilePage"') !== false && strpos($body, 'Dr. Glauber') !== false && strpos($body, 'Cybersecurity in the Age of AI') !== false && stripos($body, 'daniel') === false && strpos($body, '<article') === false;
+echo ($ok ? 'ok   ' : 'FAIL ') . "/author/dr-glauber ProfilePage + bio, no first name, no <article>\n"; if (!$ok) { $fail++; }
+$ch = curl_init($base . '/author/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/author/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+    $ok = strpos($body, 'Glauber') === false && stripos($body, 'daniel') === false && strpos($body, '/author/') === false && ($p === '/blog' || strpos($body, '<article') === false);
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p carries no author name, no author link, no <article>\n"; if (!$ok) { $fail++; }
+}
+$ch = curl_init($base . '/about'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+$ok = substr_count(strip_tags($body), 'Dr. Glauber') === 1 && stripos($body, 'daniel') === false;
+echo ($ok ? 'ok   ' : 'FAIL ') . "/about names Dr. Glauber exactly once\n"; if (!$ok) { $fail++; }
 exit($fail ? 1 : 0);

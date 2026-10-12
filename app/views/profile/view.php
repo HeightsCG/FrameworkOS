@@ -210,7 +210,7 @@ $pub_links   = array(
                     $maps_q = trim(implode(', ', array_filter(array($pl['venue'], $pl['street'], $pl['city_line']), 'strlen')));
                     if ($maps_q === '') { $maps_q = $pl['line']; }
                 ?>
-                <article class="pe pf-ev" data-ev-card="<?php echo (int) $fe['id']; ?>">
+                <div class="pe pf-ev" data-ev-card="<?php echo (int) $fe['id']; ?>">
                     <div class="pe-bar">
                         <a class="pe-back" href="<?php echo $h_($fe_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
                         <?php if (!empty($fe['is_self'])): ?><a class="pe-manage" href="/events/manage/<?php echo (int) $fe['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Event</a><?php endif; ?>
@@ -352,7 +352,7 @@ $pub_links   = array(
                             </div>
                         </aside>
                     </div>
-                </article>
+                </div>
                 <?php elseif (!empty($focus_service)): $fs = $focus_service;
                     $h_     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
                     $dx     = function ($s) { return html_entity_decode((string) $s, ENT_QUOTES, 'UTF-8'); };
@@ -364,7 +364,7 @@ $pub_links   = array(
                     $fs_state = !empty($fs['purchased']) ? 'booked' : (!empty($fs['is_full']) ? 'full' : (!$viewer_logged_in ? 'signin' : 'open'));   // the creator sees what a fan sees
                     $fs_title = $dx($fs['name']);
                 ?>
-                <article class="pe pf-ev" data-sv-card="<?php echo (int) $fs['id']; ?>">
+                <div class="pe pf-ev" data-sv-card="<?php echo (int) $fs['id']; ?>">
                     <div class="pe-bar">
                         <a class="pe-back" href="<?php echo $h_($fs_url); ?>"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i> <?php echo $h_($display_name); ?></a>
                         <?php if (!empty($fs['is_self'])): ?><a class="pe-manage" href="/services/manage/<?php echo (int) $fs['id']; ?>"><i class="fa-regular fa-pen-to-square" aria-hidden="true"></i> Manage Service</a><?php endif; ?>
@@ -446,7 +446,7 @@ $pub_links   = array(
                             </div>
                         </aside>
                     </div>
-                </article>
+                </div>
                 <?php else: ?>
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>

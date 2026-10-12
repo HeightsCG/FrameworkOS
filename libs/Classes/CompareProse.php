@@ -11,10 +11,14 @@
 class CompareProse {
 
     /** The one line that replaces the shared product blocks every page used to repeat. */
+    /** Two independent primary sources every comparison page cites in its prose (a_external_sources): tax on creator income and sponsorship disclosure. Pages with a voice word it their own way (VOICE[slug]['sources']). */
+    const DEFAULT_SOURCES = 'Two rules sit outside every platform on this page. Creator income is self-employment income, and the [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) explains the estimated payments; a sponsored post needs a disclosure, which the [FTC\'s Disclosures 101 for influencers](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) sets out.';
+
     public static function links_line(string $voice = ''): string {
+        $src = (string) (self::VOICE[$voice]['sources'] ?? self::DEFAULT_SOURCES);
         $t = (string) (self::VOICE[$voice]['links'] ?? '');
-        if ($t === '') { return Sections::open('white') . '<p class="sx-p">Everything about ' . Sections::e(Main::site_name()) . ' itself lives on its own pages: <a href="/features">features</a>, <a href="/pricing">pricing and limits</a> and <a href="/features/payouts">payouts</a>.</p>' . Sections::close(); }
-        return Sections::prose('white', '', array(str_replace(array('({/features})', '({/pricing})', '({/features/payouts})'), array('(/features)', '(/pricing)', '(/features/payouts)'), $t)));
+        if ($t === '') { return Sections::prose('white', '', array('Everything about ' . Main::site_name() . ' itself lives on its own pages: [features](/features), [pricing and limits](/pricing) and [payouts](/features/payouts).', $src)); }
+        return Sections::prose('white', '', array(str_replace(array('({/features})', '({/pricing})', '({/features/payouts})'), array('(/features)', '(/pricing)', '(/features/payouts)'), $t), $src));
     }
 
     /** One voice string for the page ('' when the competitor has none). */
@@ -124,6 +128,7 @@ class CompareProse {
             'hero_tail' => 'Below: the feature table with sources, who each platform suits, what a move involves, and the fee on real numbers.',
             'both' => 'Yes. {site} cross-posts to Fanvue from the same studio, so the Fanvue page keeps getting your posts while fans find the new one. Run both for a billing cycle, put the new link in every bio, and let the old renewals lapse on their own.',
             'links' => 'The product itself is described on three pages rather than repeated here: the [features]({/features}), [pricing and limits]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'Two rules apply on either platform and come from neither of them. What reaches your bank is self-employment income, and the [IRS self-employed tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) sets out the quarterly estimates; a sponsored post on your socials needs a clear disclosure, which the [FTC\'s Disclosures 101](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) spells out.',
             'cta' => 'Build the page while your Fanvue page keeps running, then move your fans at their own pace.',
         ),
         'onlyfans' => array(
@@ -141,6 +146,7 @@ class CompareProse {
             'hero_tail' => 'Here: what each platform charges and sells, with sources, who OnlyFans suits, what leaving involves, and the arithmetic on a typical page.',
             'both' => 'Yes, and most creators do for a full billing cycle. Keep posting on OnlyFans, add the new address to every bio and pinned post, and give the new page something OnlyFans cannot sell so fans have a reason to follow.',
             'links' => 'Our own side is documented once, on the [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}) pages, rather than repeated on each comparison.',
+            'sources' => 'Whichever page collects the money, the income is yours to report: the [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) explains estimated payments, and the [IRS page on Form 1099-K](https://www.irs.gov/businesses/understanding-your-form-1099-k) explains what a payment processor reports about your sales.',
             'cta' => 'Keep your OnlyFans page live while you set up; fans move when the new page gives them a reason.',
         ),
         'patreon' => array(
@@ -158,6 +164,7 @@ class CompareProse {
             'hero_tail' => 'What follows: the sourced table, who Patreon serves best, how a move works, the trade-offs, and a worked month.',
             'both' => 'Yes. Export your member list from Patreon, rebuild the tiers here with the same names and prices, and keep Patreon open for one billing cycle so nobody loses access mid-month.',
             'links' => 'Details of our plans, features and payout terms live on their own pages: [features]({/features}), [pricing]({/pricing}), [payouts]({/features/payouts}).',
+            'sources' => 'Independent of both platforms, a membership income is self-employment income; the [IRS self-employed tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) covers the quarterly estimate. If you promote a sponsor to your members, the [FTC endorsement guides](https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking) explain what a disclosure has to say.',
             'cta' => 'Rebuild your tiers here in an afternoon and let members re-join at their own pace.',
         ),
         'fansly' => array(
@@ -175,6 +182,7 @@ class CompareProse {
             'hero_tail' => 'On this page: the sourced feature table, who Fansly fits, the move, the trade-offs, and one creator\'s month in numbers.',
             'both' => 'Yes. Keep streaming and posting on Fansly through a billing cycle while the new page fills, use Fansly\'s own messages to point subscribers at it, and let renewals there lapse as people move.',
             'links' => 'Everything on our side of the table is set out once, on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'Neither platform handles your taxes or your sponsorship disclosures. The [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) sets out the estimates due on creator income, and the [FTC\'s Disclosures 101 for influencers](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) covers the wording of a paid post.',
             'cta' => 'Set up your tiers and your first session here while Fansly keeps running.',
         ),
         'kofi' => array(
@@ -192,6 +200,7 @@ class CompareProse {
             'hero_tail' => 'Here you will find the sourced table, who Ko-fi is right for, how a move works, what you give up, and the sums for a typical page.',
             'both' => 'Yes, and many creators keep Ko-fi as the tip jar. Download the supporter list, rebuild memberships and shop items here, and point the bios at the new page when it has something to sell.',
             'links' => 'Our features, plans and payout rules are documented on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'Two outside references matter more than either fee column. Supporter income is self-employment income under the [IRS self-employed tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) rules, and a processor that moves your money reports it on a [Form 1099-K](https://www.irs.gov/businesses/understanding-your-form-1099-k) once you pass the threshold on that page.',
             'cta' => 'Keep the tip jar, move the memberships: build the page and send your supporters the link.',
         ),
         'linktree' => array(
@@ -209,6 +218,7 @@ class CompareProse {
             'hero_tail' => 'Covered below: the sourced table, who Linktree suits, the move, the trade-offs, and the fee on a month of product sales.',
             'both' => 'Yes. Export your contacts from Linktree, rebuild the links here as tracked links, and switch the social bios once the memberships or products are live. There is no renewal to wait for.',
             'links' => 'Our side of the comparison is written up on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'The storefront does not change the obligations behind it. The [IRS self-employed tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) explains the estimated tax on product sales, and the [FTC\'s Disclosures 101](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) covers the disclosure on any affiliate link in your bio.',
             'cta' => 'Turn the link page into the shop: build it here, then change the bios.',
         ),
         'beacons' => array(
@@ -226,6 +236,7 @@ class CompareProse {
             'hero_tail' => 'This page: the sourced table, who Beacons serves, how a move works, what changes, and one month in figures.',
             'both' => 'Yes. Keep Beacons for the media kit and brand outreach if deals pay your bills, move the fan-facing selling here, and let the link page here point back at the kit.',
             'links' => 'Our plans, features and payout rules sit on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'Brand deals and fan sales both sit under the same two rules, from outside either platform: the [FTC endorsement guides](https://www.ftc.gov/business-guidance/resources/ftcs-endorsement-guides-what-people-are-asking) on disclosing a paid partnership, and the [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) on reporting the income.',
             'cta' => 'Keep the media kit, move the fan sales: build your page and send the list the link.',
         ),
         'stan' => array(
@@ -243,6 +254,7 @@ class CompareProse {
             'hero_tail' => 'Below: the feature table with sources, who Stan Store is for, the move, the trade-offs, and a month of sales on each side.',
             'both' => 'Yes. Stan Store\'s plan is monthly, so keep the store open for a cycle while the bookings and the membership move here, then switch the bios when the calendar is live.',
             'links' => 'Our own features, plans and payout rules are on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'What the store collects is reported and taxed the same way on both sides: the [IRS self-employed tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) sets out estimated payments, and the [IRS Form 1099-K page](https://www.irs.gov/businesses/understanding-your-form-1099-k) explains the processor\'s report of your sales.',
             'cta' => 'Bring the bookings and the membership here while the store runs out its month.',
         ),
         'eromify' => array(
@@ -254,6 +266,7 @@ class CompareProse {
             'hero_tail' => 'What follows: the sourced table, who Eromify suits, what moving the character involves, and the cost shape of generating and selling in one place.',
             'both' => 'Yes. Keep generating in Eromify while the character trains here; download your images, upload them to your library, and publish or sell them from the studio.',
             'links' => 'The selling side is described on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'sources' => 'Selling what a character makes carries the same two obligations as any creator income, on any platform: self-employment tax under the [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center), and a disclosure on sponsored posts under the [FTC\'s Disclosures 101](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers).',
             'cta' => 'Train the character here, then sell every image from the page it lives on.',
         ),
     );
@@ -559,6 +572,7 @@ class CompareProse {
             array('h' => 'What does a sale turn into on {site}?', 'p' => array(
                 'Every sale lands in one balance, net of your plan\'s platform fee of {fee_short}. Memberships bill the fan\'s card; unlocks, bundles, services and tickets are paid from a credit wallet at {credits_per_dollar} credits per dollar. Card processing is separate, as on every platform, and the plan price is a fixed monthly cost that the fee example below puts next to the sales.',
                 'You cash out on request from a {payout_min} balance to your bank, with no platform hold on content, membership or service sales. Earnings from an event release after the event has taken place, so a cancelled session never leaves a fan unpaid. Content sales are final; plan charges and credit purchases are non-refundable, and a refund you choose to give a fan comes out of the same balance.',
+                'What reaches the bank is self-employment income. The [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) sets out the estimated payments due on it, and the [IRS page on Form 1099-K](https://www.irs.gov/businesses/understanding-your-form-1099-k) explains what a payment processor reports about your sales once you pass the threshold on that page. A sponsored post on your socials needs a disclosure, in the wording the [FTC\'s Disclosures 101 for influencers](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) describes.',
                 'The balance is also the ledger. Every membership, unlock, bundle, service and ticket shows in one place with the fan who paid, which is what makes the audience tab useful: the people who bought are tagged, and a broadcast to buyers is a few clicks rather than a spreadsheet.',
             )),
             array('h' => 'How do you keep the prices right over time?', 'p' => array(

@@ -17,6 +17,7 @@ echo Sections::cards(array(
     array('icon' => 'users', 'title' => 'Services', 'text' => 'Custom content, shout-outs, coaching, reviews. Fixed price, clear scope, a delivery window you can keep.', 'note' => 'Where a small audience earns the most per fan.'),
     array('icon' => 'ticket', 'title' => 'Events', 'text' => 'Live sessions, Q&As, watch parties, workshops. Sell seats ahead of time and cap the room.', 'note' => 'Record it and sell it as a bundle afterwards.'),
 ), 3);
+echo Sections::flow_svg(array('A fan buys on your page', 'The sale lands in your balance, net of the plan fee', 'You cash out on request', 'The payout reaches your bank'), 'How a sale reaches your bank');   // the page's own facts as a process diagram (g_multimodal)
 echo Sections::close();
 
 echo Sections::open('alt', 'Which way should you start with?', 'Start with one membership tier and one pay-per-view post, then add services when fans ask for them. The right order depends on how many people already follow you.');

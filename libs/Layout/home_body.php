@@ -10,7 +10,6 @@ $home_faq = array(
     array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
 );
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
-echo '<article class="sx-article">';   // the one <article> on the home page: everything down to the FAQ, the closing band stays outside
 /* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
 echo Sections::tab_hero(array(
     'id' => 'home',
@@ -132,5 +131,4 @@ if (!empty($founders)) {
 }
 
 echo Sections::faq($home_faq, 'white');
-echo '</article>';
 echo Sections::cta('Create your page today.', 'Memberships, pay-per-view, bundles, services and events, with payouts to your bank.');

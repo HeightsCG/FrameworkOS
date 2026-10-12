@@ -13,8 +13,8 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
         <p class="gd-posthead__meta"><a class="gd-posthead__author" href="<?php echo $e(SeoMeta::AUTHOR_PATH); ?>" rel="author"><?php echo $e(SeoMeta::byline()); ?></a><time datetime="<?php echo $e($day); ?>"><?php echo $e(date('M j, Y', strtotime($day))); ?></time><span><?php echo (int) $a['reading_minutes']; ?>-minute read</span></p>
         </div>
         <?php $cover_webp = trim((string) ($a['cover_webp_url'] ?? '')); /* webp copies (PublicThumbService), else the original */ ?>
-        <?php if ($cover_webp !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover_webp); ?>" srcset="<?php echo $e(PublicThumbService::cover_small($cover_webp)); ?> 480w, <?php echo $e($cover_webp); ?> 960w" sizes="(max-width: 900px) 100vw, 340px" alt="<?php echo $e($a['title']); ?>" width="960" height="720" fetchpriority="high">
-        <?php elseif ($cover !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover); ?>" alt="<?php echo $e($a['title']); ?>" width="1024" height="768" fetchpriority="high"><?php endif; ?>
+        <?php if ($cover_webp !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover_webp); ?>" srcset="<?php echo $e(PublicThumbService::cover_small($cover_webp)); ?> 480w, <?php echo $e($cover_webp); ?> 960w" sizes="(max-width: 900px) 100vw, 340px" alt="<?php echo $e(SeoDrafter::cover_alt($a)); ?>" width="960" height="720" fetchpriority="high">
+        <?php elseif ($cover !== ''): ?><img class="gd-posthead__img" src="<?php echo $e($cover); ?>" alt="<?php echo $e(SeoDrafter::cover_alt($a)); ?>" width="1024" height="768" fetchpriority="high"><?php endif; ?>
     </header>
 
     <div class="gd-post">

@@ -204,7 +204,7 @@ check('three attempts per draft', SeoDrafter::DRAFT_ATTEMPTS === 3);
 $f = SeoDrafter::fit(array('meta_description' => 'm', 'body_md' => "Fans buy credits to unlock posts.\n\nMore text."));
 check('fit: nothing appended where credits come up', $f['body_md'] === "Fans buy credits to unlock posts.\n\nMore text.", $f['body_md']);
 $h = SeoDrafter::render_body("See [the IRS](https://www.irs.gov/a) and [x](https://medium.com/b) and [pricing](/pricing).");
-check('render_body: citation anchor kept, others text', strpos($h, '<a href="https://www.irs.gov/a" rel="nofollow noopener" target="_blank">the IRS</a>') !== false && strpos($h, 'medium.com') === false && strpos($h, '<a href="/pricing">pricing</a>') !== false);
+check('render_body: citation anchor kept, others text', strpos($h, '<a href="https://www.irs.gov/a" rel="noopener" target="_blank">the IRS</a>') !== false && strpos($h, 'medium.com') === false && strpos($h, '<a href="/pricing">pricing</a>') !== false);
 
 // fix round 1 (review B3)
 $errs = function ($a) { return implode('; ', SeoDrafter::validate($a)); };

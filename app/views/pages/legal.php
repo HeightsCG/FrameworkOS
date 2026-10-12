@@ -25,7 +25,7 @@ $para = function ($s) use ($e, $fill) {
                 <p class="lg__toc-h">On this page</p>
                 <ol><?php foreach ($doc['sections'] as $i => $sec): ?><li><a href="#<?php echo $e($anchor($sec[0])); ?>"><?php echo $e($fill($sec[0])); ?></a></li><?php endforeach; ?></ol>
             </nav>
-            <article class="lg__body">
+            <div class="lg__body">
                 <?php foreach ($doc['intro'] as $p): ?><p><?php echo $para($p); ?></p><?php endforeach; ?>
                 <?php foreach ($doc['sections'] as $i => $sec): ?>
                 <h2 id="<?php echo $e($anchor($sec[0])); ?>"><?php echo ($i + 1) . '. ' . $e($fill($sec[0])); ?></h2>
@@ -34,7 +34,7 @@ $para = function ($s) use ($e, $fill) {
                     <?php else: ?><p><?php echo $para($b); ?></p><?php endif; ?>
                 <?php endforeach; ?>
                 <?php endforeach; ?>
-            </article>
+            </div>
         </div>
     </div>
 </section>

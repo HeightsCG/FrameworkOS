@@ -74,6 +74,8 @@ $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
 echo Sections::open('white', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
+$shot = Screenshots::img('pricing-plans');   // a real screen from the product: the membership plans a creator sells on every paid plan (g_multimodal, 2026-10-12)
+if ($shot !== '') { echo '<figure class="sx-figure sx-figure--shot">' . $shot . '<figcaption class="sx-figcap">The Membership Plans screen in Settings, where a creator on the Creator or Studio plan sets the tiers, discount codes and bundles fans can buy.</figcaption></figure>'; }
 echo Sections::close();
 
 echo Sections::faq($faq, 'white');

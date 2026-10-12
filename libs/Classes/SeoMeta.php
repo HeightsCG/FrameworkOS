@@ -94,15 +94,26 @@ class SeoMeta {
         return $w;
     }
 
-    /** The article author (Daniel's final brief 2026-10-11): one Person, "Dr. Glauber", url /about (there is no author page). Never a first name. */
+    /** The article author (Daniel, 2026-10-12): one Person, "Dr. Glauber", with the author page at AUTHOR_PATH, linked only from the byline. Never a first name, no photo, no location. */
     const AUTHOR_NAME = 'Dr. Glauber';
-    const AUTHOR_PATH = '/about';
+    const AUTHOR_PATH = '/author/dr-glauber';
     const AUTHOR_ROLE = 'Leads the Creator Link Studio team';
+    /** The bio paragraphs on the author page, Daniel's words verbatim (2026-10-12). */
+    const AUTHOR_BIO = array(
+        'Dr. Glauber leads the Creator Link Studio team and reviews what the blog publishes. He is CEO of Heights Consulting Group, a cybersecurity consulting firm, with more than 30 years in technology and over 500 executive engagements. He is the author of Cybersecurity in the Age of AI.',
+    );
+    /** The experience lines on the author page, Daniel's words verbatim (2026-10-12). */
+    const AUTHOR_EXPERIENCE = array(
+        'Doctor of Management in Information Systems and Technology.',
+        'CEO, Heights Consulting Group.',
+        'Author, Cybersecurity in the Age of AI.',
+        'Leads product, security and editorial review at Creator Link Studio.',
+    );
     /** The byline on every article, once, at the top. */
     public static function byline(): string { return 'The ' . self::site() . ' team, led by ' . self::AUTHOR_NAME; }
 
     /**
-     * The author node on every blog Article: a Person named AUTHOR_NAME, url /about, worksFor the Organization
+     * The author node on every blog Article: a Person named AUTHOR_NAME, url AUTHOR_PATH (the author page), worksFor the Organization
      * (url /about, sameAs the company profiles). The Person's own sameAs stays empty (Daniel's call).
      */
     public static function author(): array {

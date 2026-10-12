@@ -245,7 +245,69 @@ class Sections {
     /** Us versus them on one question. Values are plain text; $src is a source URL for theirs. */
     public static function pane_versus(string $us_name, string $us, string $them_name, string $them, string $src = ''): string {
         return '<div class="hx__box hx__vs"><div class="hx__vsr is-us"><span>' . self::e($us_name) . '</span><b>' . self::e($us) . '</b></div>'
-            . '<div class="hx__vsr"><span>' . self::e($them_name) . '</span><b>' . self::e($them) . '</b>' . ($src !== '' ? '<a class="sx-src" href="' . self::e($src) . '" rel="nofollow noopener" target="_blank">Source</a>' : '') . '</div></div>';
+            . '<div class="hx__vsr"><span>' . self::e($them_name) . '</span><b>' . self::e($them) . '</b>' . ($src !== '' ? '<a class="sx-src" href="' . self::e($src) . '" rel="noopener" target="_blank">Source</a>' : '') . '</div></div>';
+    }
+
+    /**
+     * Inline SVG bar chart of what each option leaves you on each sales figure (g_multimodal): built from the same
+     * $options rows as the fee table (label, percent, monthly, us). The figure carries the numbers in its caption and
+     * in the SVG's accessible name, so the chart reads the same without pixels.
+     */
+    public static function fee_chart(array $options, array $sales, string $title = 'What you keep'): string {
+        if (count($options) < 2 || empty($sales)) { return ''; }
+        $money = function ($n) { return '$' . number_format((float) $n, 0); };
+        $kept = array(); $max = 0;
+        foreach ($sales as $s) { foreach ($options as $o) { $k = max(0, $s - ($s * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0))); $kept[$s][] = $k; $max = max($max, $k); } }
+        if ($max <= 0) { return ''; }
+        $n = count($options); $groups = count($sales);
+        $bar_w = 28; $gap = 8; $group_w = $n * ($bar_w + $gap) + 40; $left = 64; $w = $left + $groups * $group_w + 16; $h = 260; $top = 20; $base = 200;
+        $alt = array();
+        $svg = '<svg class="sx-chart" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxc_t sxc_d" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<title id="sxc_t">' . self::e($title) . '</title>';
+        foreach (array(0.25, 0.5, 0.75, 1) as $f) { $y = $base - ($base - $top) * $f; $svg .= '<line x1="' . $left . '" y1="' . round($y, 1) . '" x2="' . ($w - 16) . '" y2="' . round($y, 1) . '" stroke="#e4e4e7" stroke-width="1"/><text x="' . ($left - 8) . '" y="' . round($y + 4, 1) . '" text-anchor="end" font-size="11" fill="#71717a">' . self::e($money(round($max * $f / 50) * 50)) . '</text>'; }
+        $svg .= '<line x1="' . $left . '" y1="' . $base . '" x2="' . ($w - 16) . '" y2="' . $base . '" stroke="#a1a1aa" stroke-width="1"/>';
+        $palette = array('#CD4C00', '#FF6A13', '#52525b', '#a1a1aa', '#d4d4d8', '#e4e4e7');
+        $colour = function ($oi, $o) use ($palette) { return !empty($o['us']) ? $palette[min((int) $oi, 1)] : $palette[2 + min((int) $oi, 3)]; };
+        foreach ($sales as $gi => $s) {
+            $gx = $left + $gi * $group_w + 20; $parts = array();
+            foreach ($options as $oi => $o) {
+                $k = $kept[$s][$oi]; $bh = ($base - $top) * $k / $max; $x = $gx + $oi * ($bar_w + $gap); $y = $base - $bh;
+                $svg .= '<rect x="' . $x . '" y="' . round($y, 1) . '" width="' . $bar_w . '" height="' . round($bh, 1) . '" fill="' . $colour($oi, $o) . '" rx="3"><title>' . self::e($o['label'] . ': you keep ' . $money($k) . ' of ' . $money($s)) . '</title></rect>';
+                $svg .= '<text x="' . ($x + $bar_w / 2) . '" y="' . round($y - 4, 1) . '" text-anchor="middle" font-size="10" fill="#27272a">' . self::e($money($k)) . '</text>';
+                $parts[] = $o['label'] . ' ' . $money($k);
+            }
+            $svg .= '<text x="' . ($gx + ($n * ($bar_w + $gap) - $gap) / 2) . '" y="' . ($base + 18) . '" text-anchor="middle" font-size="12" fill="#27272a">' . self::e('on ' . $money($s) . ' of sales') . '</text>';
+            $alt[] = 'On ' . $money($s) . ' of sales you keep: ' . implode('; ', $parts);
+        }
+        $desc = implode('. ', $alt) . '.';
+        $svg .= '<desc id="sxc_d">' . self::e($desc) . '</desc></svg>';
+        $legend = array(); foreach ($options as $oi => $o) { $legend[] = '<span class="sx-chart__key"><i style="background:' . $colour($oi, $o) . '"></i>' . self::e($o['label']) . '</span>'; }
+        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $svg . '</div><div class="sx-chart__legend">' . implode('', $legend) . '</div><figcaption class="sx-figcap">' . self::e($desc) . '</figcaption></figure>';
+    }
+
+    /** Inline SVG process diagram: boxes joined by arrows, each step a short label (g_multimodal). The steps are the accessible name. */
+    public static function flow_svg(array $steps, string $title): string {
+        $n = count($steps); if ($n < 2) { return ''; }
+        $bw = 150; $bh = 54; $gap = 36; $w = $n * $bw + ($n - 1) * $gap + 16; $h = $bh + 16;
+        $svg = '<svg class="sx-flow" viewBox="0 0 ' . $w . ' ' . $h . '" width="' . $w . '" height="' . $h . '" role="img" aria-labelledby="sxf_t sxf_d" xmlns="http://www.w3.org/2000/svg">';
+        $svg .= '<title id="sxf_t">' . self::e($title) . '</title><desc id="sxf_d">' . self::e(implode(', then ', $steps)) . '.</desc>';
+        $svg .= '<defs><marker id="sxf_arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a1a1aa"/></marker></defs>';
+        foreach ($steps as $i => $label) {
+            $x = 8 + $i * ($bw + $gap); $last = ($i === $n - 1);
+            $svg .= '<rect x="' . $x . '" y="8" width="' . $bw . '" height="' . $bh . '" rx="6" fill="' . ($last ? '#CD4C00' : '#ffffff') . '" stroke="' . ($last ? '#CD4C00' : '#d4d4d8') . '"/>';
+            $lines = self::wrap_words((string) $label, 20);
+            foreach ($lines as $li => $line) { $svg .= '<text x="' . ($x + $bw / 2) . '" y="' . (8 + $bh / 2 + ($li - (count($lines) - 1) / 2) * 15 + 4) . '" text-anchor="middle" font-size="12" fill="' . ($last ? '#ffffff' : '#27272a') . '">' . self::e($line) . '</text>'; }
+            if (!$last) { $svg .= '<line x1="' . ($x + $bw + 4) . '" y1="' . (8 + $bh / 2) . '" x2="' . ($x + $bw + $gap - 4) . '" y2="' . (8 + $bh / 2) . '" stroke="#a1a1aa" stroke-width="1.5" marker-end="url(#sxf_arrow)"/>'; }
+        }
+        $svg .= '</svg>';
+        return '<figure class="sx-figure"><div class="sx-chart-wrap">' . $svg . '</div><figcaption class="sx-figcap">' . self::e($title . ': ' . implode(', then ', $steps) . '.') . '</figcaption></figure>';
+    }
+
+    private static function wrap_words(string $s, int $width): array {
+        $lines = array(); $cur = '';
+        foreach (preg_split('/\s+/', trim($s)) as $wd) { if ($cur !== '' && strlen($cur . ' ' . $wd) > $width) { $lines[] = $cur; $cur = $wd; } else { $cur = ($cur === '' ? $wd : $cur . ' ' . $wd); } }
+        if ($cur !== '') { $lines[] = $cur; }
+        return $lines;
     }
 
     /** Open a full-width section. $bg: 'white'|'alt'. Optional heading block. */
@@ -323,7 +385,7 @@ class Sections {
             $h = self::e($p);
             $h = preg_replace_callback('/\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]*)\)/', function ($m) {
                 $ext = strpos($m[2], '/') !== 0;
-                return '<a href="' . $m[2] . '"' . ($ext ? ' rel="nofollow noopener" target="_blank"' : '') . '>' . $m[1] . '</a>';   // $m[*] are already escaped text
+                return '<a href="' . $m[2] . '"' . ($ext ? ' rel="noopener" target="_blank"' : '') . '>' . $m[1] . '</a>';   // $m[*] are already escaped text
             }, $h);
             $o .= '<p class="sx-p">' . $h . '</p>';
         }
