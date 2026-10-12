@@ -465,6 +465,31 @@ class Sections {
         return $o . '</div>';
     }
 
+    /** One line pointing at the free tool that belongs with this hub page (ToolsController::for_page), or ''. */
+    public static function tool_line(string $path): string {
+        $o = '';
+        foreach (ToolsController::for_page($path) as $t) {
+            $x = self::cap($t[2], 1);
+            $o .= '<p class="sx-note">Free tool: <a href="' . self::e($t[0]) . '">' . self::e($t[1]) . '</a>. ' . self::e((string) ($x[0] ?? '')) . '</p>';
+        }
+        return $o;
+    }
+
+    /**
+     * "Related Guides": the blog articles that belong under this hub page, as a section of in-body links (SeoDrafter::guides_for).
+     * Returns '' when no article is published for the page, so a hub never shows an empty block.
+     */
+    public static function related_guides(string $path, string $bg = 'white', int $limit = 4): string {
+        $rows = SeoDrafter::guides_for($path, $limit);
+        if (empty($rows)) { return ''; }
+        $o = self::open($bg, 'Related guides', '', 'guides') . '<dl class="fx-list fx-list--guides">';
+        foreach ($rows as $r) {
+            $x = self::cap((string) ($r['excerpt'] ?? ''), 2);
+            $o .= '<div class="fx-list__row"><dt><a href="/blog/' . self::e($r['slug']) . '">' . self::e($r['title']) . '</a></dt><dd>' . self::e((string) ($x[0] ?? '')) . '</dd></div>';
+        }
+        return $o . '</dl>' . self::close();
+    }
+
     /** Card grid. Each card: icon (name, optional), title, text, points[] (optional), note (optional, small line at the bottom). */
     public static function cards(array $cards, int $cols = 3): string {
         $o = '<div class="sx-cards sx-cards--' . $cols . '">';

@@ -137,6 +137,7 @@ check('"covering itself" rejected', $sum('The answer sits near $2,143 of monthly
 check('plan-price gap weighed against the fee rejected', $sum('The $150 difference between plan charges weighs against the seven point difference in fee.'));
 check('fee and plan charge subtracted from one sales figure rejected', (bool) preg_grep('/off one sales figure/', SeoDrafter::plan_sum_errors('On Creator the platform fee comes to $160, the plan charge adds $49, and $1,391 remains before card costs and tax.')));
 check('fee and price stated side by side, no sum, allowed', SeoDrafter::plan_sum_errors('The Creator plan is $49 a month and keeps 10% of each sale.') === array());
+check('a share that happens to equal the plan-price gap is allowed', SeoDrafter::plan_sum_errors('On the same $1,500 the Creator plan keeps 10%, $150, leaving $1,350; the Studio plan keeps 3%, $45.') === array());
 check('"break-even" and "pays for itself" rejected', $sum('Find your break-even point.') && $sum('The plan pays for itself.'));
 check('"plan maths changes" rejected', $sum('the point where the plan maths changes'));
 check('percentage-only fee sentence allowed', SeoDrafter::plan_sum_errors('The Creator plan keeps 10% of each sale and the Studio plan keeps 3%. Plan prices are a separate monthly line on the pricing page.') === array());

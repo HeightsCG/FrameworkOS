@@ -21,6 +21,7 @@ class IndexController extends Controller {
             }
             // ?aff=<code> (an approved affiliate's link): cls_aff for 30 days, last click wins, plus one click per viewer per hour
             Affiliates::capture($this->get_ip_address());
+            header('Cache-Control: private, max-age=300');   // the signed-out home page, like every other public page (it was sent as no-store by the session default)
         }
         $this->view->render();
     }

@@ -9,6 +9,13 @@ class ToolsController extends Controller {
     public $protected = 0;
 
     /** URL slug => the tool. 'source' is the lead source and the signup ref. FAQ text is filled in faq(). */
+    /** The free tools a hub page links to: array(path, nav title, description) per tool whose 'pages' lists $path. */
+    public static function for_page(string $path): array {
+        $out = array();
+        foreach (self::TOOLS as $slug => $t) { foreach ((array) ($t['pages'] ?? array()) as $pg) { if ((string) $pg[0] === $path) { $out[] = array('/tools/' . $slug, (string) $t['nav_title'], (string) $t['description']); } } }
+        return $out;
+    }
+
     const TOOLS = array(
         'fan-questions' => array(
             'source'      => 'fan-questions',
@@ -18,6 +25,7 @@ class ToolsController extends Controller {
             'description' => 'Enter your niche and get 30 to 40 post ideas built from real questions people ask online, plus the communities worth watching. Free, by email.',
             'lead'        => 'The Fan Question Finder is a free tool that reads the recent questions people ask in your niche\'s biggest online communities and emails you 30 to 40 post ideas, grouped by theme. Enter your niche to start.',
             'button'      => 'Find Questions',
+            'pages'       => array(array('/features/publishing', 'publishing to nine networks'), array('/monetize-your-content', 'how to monetize your content')),   // the hub pages that link to this tool, and that it links back to
         ),
         'ai-influencer-persona' => array(
             'source'      => 'persona-tool',
@@ -27,6 +35,7 @@ class ToolsController extends Controller {
             'description' => 'Get five original AI influencer persona concepts for your niche: names, handles, bio, traits, content pillars and a starter image prompt. Free, by email.',
             'lead'        => 'The AI Influencer Persona Generator is a free tool that emails you five original persona concepts for your niche, each with handles, a bio, content pillars and a starter image prompt. Tell us your niche and the vibe you want.',
             'button'      => 'Get Personas',
+            'pages'       => array(array('/features/ai-influencer', 'AI influencers'), array('/ai-ofm-tools', 'AI OFM tools')),
         ),
     );
 

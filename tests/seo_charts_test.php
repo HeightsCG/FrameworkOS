@@ -4,7 +4,7 @@
 $base = getenv('SEO_TEST_BASE') ?: 'http://framework.contentos.cvk';
 $root = dirname(__DIR__);
 $pages = array('/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/compare/eromify',
-               '/onlyfans-alternatives', '/fanvue-alternatives', '/best-creator-monetization-platforms', '/monetize-your-content', '/pricing', '/features');
+               '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/best-creator-monetization-platforms', '/monetize-your-content', '/pricing', '/features');
 $fail = 0;
 foreach ($pages as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60)); $html = (string) curl_exec($ch); curl_close($ch);

@@ -26,6 +26,12 @@ echo Sections::tab_hero(array(
 ));
 
 
+// What the product is, in sentences that stand alone (SEO audit 2026-10-12: the home page had no definition and never mentioned AI influencers or teams outside the FAQ).
+echo Sections::prose('alt', 'What is ' . $site . '?', array(
+    $site . ' is a creator monetization platform: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets. A studio publishes each post to nine social networks. The platform fee is ' . PagesController::fee_short() . ', and plan prices are a separate monthly line on the pricing page.',
+    'It also includes an [AI influencer generator](/features/ai-influencer) that creates photos and video of one consistent character, and [team seats for people who run creator accounts](/ai-ofm-tools). To see where it sits among the options, read [best creator monetization platforms](/best-creator-monetization-platforms).',
+));
+
 echo Sections::open('white', 'Everything you sell, on one page', 'One public page at your handle. Fans follow for free, join a tier, or unlock a single post.');
 echo Sections::index_list(array(
     array('icon' => 'layers', 'title' => 'Memberships', 'text' => 'Tiers with their own price, trial and perks. Target any post at one tier or several.'),

@@ -37,7 +37,8 @@ foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
 echo Sections::table(array('Platform', 'Kind', 'Fee', ''), $rows, -1);
 $best_checked = ''; foreach (PagesController::COMPETITORS as $bc) { if (isset(PagesController::COMPETITOR_GROUPS[$bc['type'] ?? ''])) { $best_checked = max($best_checked, (string) ($bc['checked'] ?? '')); } }
 echo '<p class="sx-note">Last checked on ' . $e(date('F j, Y', strtotime($best_checked))) . ' by the ' . $e($site) . ' team. Figures come from each platform\'s own pricing, help or legal pages, linked and dated on its comparison page. Where a platform blocks automated access we use published reporting and label it "reported". We build ' . $e($site) . ', so read our row with that in mind.</p>';
-echo '<p class="sx-note">Leaving one platform in particular? See the <a href="/onlyfans-alternatives">OnlyFans alternatives</a> and <a href="/fanvue-alternatives">Fanvue alternatives</a> lists.</p>';
+$alt_links = array(); foreach (AlternativesPages::PAGES as $ak => $ap) { $alt_links[] = '<a href="/' . $e($ak) . '-alternatives">' . $e($ap['name']) . ' alternatives</a>'; }   // every list page, so a new one is linked without an edit here
+echo '<p class="sx-note">Leaving one platform in particular? See the ' . implode(', ', array_slice($alt_links, 0, -1)) . ' and ' . end($alt_links) . ' lists.</p>';
 echo Sections::close();
 
 // Who each suits, grouped by kind so the nine options read as three short lists.
@@ -59,6 +60,7 @@ echo Sections::close();
 $selling = array(); foreach (PagesController::COMPETITORS as $slug => $c) { if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $selling[] = $slug; } }
 echo CompareProse::render(CompareProse::best_platforms(), 'alt');   // how to read the fee column, payout terms, ownership, a scenario: from the sourced rows
 echo PagesController::fee_example_section($selling, 'white');
+echo Sections::related_guides('/best-creator-monetization-platforms', 'alt');
 echo CompareProse::links_line();
 if (!empty($faq)) { echo Sections::faq($faq, 'alt'); }
 $cta_title = 'See it with your own page.';

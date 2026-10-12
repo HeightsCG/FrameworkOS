@@ -21,6 +21,15 @@ class CompareProse {
         return Sections::prose('white', '', array(str_replace(array('({/features})', '({/pricing})', '({/features/payouts})'), array('(/features)', '(/pricing)', '(/features/payouts)'), $t), $src));
     }
 
+    /** Up-link to the full comparison and links to the other platforms of the same kind, so compare pages are not dead ends (SEO audit 2026-10-12). */
+    public static function siblings_line(string $slug): string {
+        $c = PagesController::COMPETITORS[$slug] ?? null; if (!$c) { return ''; }
+        $sib = array();
+        foreach (PagesController::COMPETITORS as $k => $o) { if ($k !== $slug && ($o['type'] ?? '') === ($c['type'] ?? '')) { $sib[] = '[' . Main::site_name() . ' vs ' . $o['name'] . '](/compare/' . $k . ')'; } }
+        $up = isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? '']) ? 'Every platform sits side by side in [best creator monetization platforms](/best-creator-monetization-platforms).' : 'The tools around a generated character are set out in [AI OFM tools](/ai-ofm-tools).';
+        return Sections::prose('alt', 'Which other comparisons are worth reading?', array((empty($sib) ? '' : 'Platforms of the same kind are compared in ' . implode(', ', $sib) . '. ') . $up));
+    }
+
     /** One voice string for the page ('' when the competitor has none). */
     public static function voice(string $slug, string $key): string { return (string) (self::VOICE[$slug][$key] ?? ''); }
     public static function voice_list(string $slug, string $key): array { return (array) (self::VOICE[$slug][$key] ?? array()); }
@@ -358,7 +367,7 @@ class CompareProse {
                 'Keep both pages live for a billing cycle. Fansly\'s automated and keyword-triggered messages can keep telling subscribers where the new page is, and {site}\'s studio publishes to your socials so the move does not depend on the Fansly feed. Renewals on Fansly lapse on their own as you stop posting there.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'Fansly takes a 20% fee and the creator keeps 80% of subscription and direct sales earnings (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site} keeps {fee_short} of each sale. Its plans also carry a monthly price, which is a separate line and is listed on the pricing page. The scenario below runs both shares on the same sales.',
+                'Fansly takes a 20% fee and the creator keeps 80% of subscription and direct sales earnings (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site}\'s platform fee is {fee_short}. Its plans also carry a monthly price, which is a separate line and is listed on the pricing page. The scenario below runs both shares on the same sales.',
                 'Livestreaming is the real difference. Fansly streams to fans in its app with public, ticketed and one-to-one options. {site} sells tickets to live events and one-to-one sessions and hosts the call in a built-in video room with a waiting room, chat, screen share and host controls; it is a scheduled session, not an always-on stream. A creator who streams daily to a feed loses that format; a creator who sells sessions gains a room that does not depend on Zoom.',
                 'Discovery is the other. Fansly\'s For You feed can surface a new creator to viewers who never searched for them. {site} relies on the social networks: every post goes to nine of them from one studio, with the paid version behind the lock on the page. If your growth comes from Fansly\'s feed, test the move before you commit to it; if it comes from your socials, the studio does more for you than the feed did.',
             )),
@@ -446,7 +455,7 @@ class CompareProse {
                 'Run both while the course buyers finish. Stan Store\'s plan is monthly, so the store can stay open for a cycle while the new page takes the bookings and the memberships; point the social bios at the new page when the calendar there is live.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'On fee, Stan Store\'s model and ours are different shapes. Stan Store charges a flat $29 or $99 a month and no share of sales. {site} keeps {fee_short} of each sale, and its plan price is a separate monthly line. Stan Store keeps no share of sales, so on the fee alone a creator keeps more of each sale there, and this page does not pretend otherwise. The scenario below shows the arithmetic on example sales.',
+                'On fee, Stan Store\'s model and ours are different shapes. Stan Store charges a flat $29 or $99 a month and no share of sales. {site}\'s platform fee is {fee_short}, and its plan price is a separate monthly line. Stan Store keeps no share of sales, so on the fee alone a creator keeps more of each sale there, and this page does not pretend otherwise. The scenario below shows the arithmetic on example sales.',
                 'The formats are the reason to move, or not to. Stan Store sells one-time products, bookings and subscriptions, and its Pro plan adds the sales tools a course business wants. {site} sells the small, repeated purchases a fan audience makes: a paid post, a bundle of past work, a ticket to a live session, a paid message. All of those come from a wallet the fan already loaded, and memberships stay on the card.',
                 'Publishing and the inbox are the other reasons. Stan Store does not publish posts; Stanley is a separate product for repurposing content. {site}\'s studio publishes each post to nine networks with the paid version behind the lock, and its inbox drafts replies for your approval and attaches paid media to messages. A coach who sells through a funnel will not need those; a creator who sells through a feed will.',
             )),
@@ -492,8 +501,8 @@ class CompareProse {
         return array(
             array('h' => 'How do you choose among these alternatives?', 'p' => array(
                 'Start from what you sell, not from the platform names. Every option on this list is one of three kinds. A subscription platform copies the OnlyFans model with a different fee or feed. A membership platform is built for patrons. A page like {site} sells several formats at once. A creator whose fans buy one subscription and nothing else is choosing between the first kind; a creator who also sells sessions, bundles or events is choosing the third.',
-                'Then ask three questions of each candidate. Can you take your audience with you if you leave, in a file you can download? What does it sell beyond the subscription, and does it publish to your socials or leave the promotion to you? How does the money reach you: on what schedule, after what hold, from what minimum? The compare pages linked from each card answer those with the platform\'s own sources; the cards themselves describe the kind of platform only, because prices and fees change.',
-                'Weigh the fee last, after the formats and the ownership terms. {site} keeps {fee_short} of each sale, and the worked example on this page puts those shares beside a flat 20%. Plan prices are a separate monthly line on the pricing page.',
+                'Then ask three questions of each candidate. Can you take your audience with you if you leave, in a file you can download? What does it sell beyond the subscription, and does it publish to your socials or leave the promotion to you? How does the money reach you: on what schedule, after what hold, from what minimum? The compare pages linked from each card answer those with the platform\'s own sources, and each card is a short version of the same record.',
+                'Weigh the fee last, after the formats and the ownership terms. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside a flat 20%. Plan prices are a separate monthly line on the pricing page.',
             )),
             array('h' => 'What does leaving OnlyFans actually involve?', 'p' => array(
                 'OnlyFans publishes no export of your subscriber list and no automatic posting to social accounts (' . self::src($of, 'ownership') . '), so the audience moves through your own messages: a pinned post, a mass message, the new link in every social bio. Third-party reporting puts it at more than 370 million registered users (' . self::src($of, 'content') . '). The fans who found you through its search are the ones a move can cost. The fans who found you through your socials are the ones it cannot.',
@@ -515,7 +524,7 @@ class CompareProse {
             array('h' => 'How do you choose among these alternatives?', 'p' => array(
                 'Fanvue creators usually leave for one of two reasons: they want a page they own, with an audience they can take with them, or they want to sell in more formats than a subscription and paid messages. The list above is sorted by kind of platform for that reason. The subscription platforms keep the model you know; the membership platforms suit regular publishing; {site} is the page that sells every format and publishes everywhere.',
                 'AI creators have a particular question to ask: where does the character live, and who owns it? Fanvue welcomes AI-generated creator accounts and sells fans AI voice calls and voice notes (' . self::src($fv, 'ai') . ', checked ' . $checked . '). A platform that only hosts the page leaves the generation to another tool. {site} trains the character, generates the images and short videos, and sells them from the same page. A DM agent answers in the character\'s voice for your approval.',
-                'For every candidate, check the three things that decide a switch: whether the fan list exports, what the platform sells beyond the subscription, and how payouts work. The compare pages linked from the cards carry those facts with sources; the cards name only the kind of platform, because prices and fees move.',
+                'For every candidate, check the three things that decide a switch: whether the fan list exports, what the platform sells beyond the subscription, and how payouts work. The compare pages linked from the cards carry those facts with sources, and each card is a short version of the same record.',
             )),
             array('h' => 'What does leaving Fanvue actually involve?', 'p' => array(
                 'Fanvue does not publish whether a creator can export the fan list (' . self::src($fv, 'ownership') . '), so the audience moves through your own messages and bios. {site} can cross-post to Fanvue from the same studio, which keeps the Fanvue page fed while fans move, so the old page need not go quiet on day one. Keep both live for a full billing cycle.',
@@ -532,13 +541,57 @@ class CompareProse {
         );
     }
 
+    private static function alt_patreon(): array {
+        $pt = PagesController::COMPETITORS['patreon']; $checked = date('F j, Y', strtotime($pt['checked']));
+        return array(
+            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+                'Start from what your fans pay for. Patreon is built around a recurring tier, so the alternatives fall into three kinds. Tipping and membership tools keep the tier and add one-off support. Storefronts sell products and bookings from a link page. A page like {site} sells memberships beside pay-per-view posts, bundles, services and event tickets.',
+                'Then ask each candidate the same three questions. Does the member list export, with emails, in a file you can download? What does it sell beyond the monthly tier? Does it publish to your social accounts, or is promotion left to you? The compare pages linked from each card answer those from the platform\'s own pages.',
+                'Weigh the fee last, after the formats and the ownership terms. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside Patreon\'s. Plan prices are a separate monthly line on the pricing page.',
+            )),
+            array('h' => 'What does leaving Patreon actually involve?', 'p' => array(
+                'Patreon lets you take the list with you: the member list, including emails, downloads as a CSV from the Relationship manager (' . self::src($pt, 'ownership') . ', checked ' . $checked . '). Download it before you announce anything. Memberships do not transfer, so each member joins again on the new page, and an email with the new address is how most of them will hear about it.',
+                'The money follows Patreon\'s payout rules. Withdrawals are creator-initiated, a five-day hold applies after a payout method is added, and one-time purchase funds stay pending for up to seven days (' . self::src($pt, 'payout') . '). Clear the balance before the page goes quiet.',
+                'Rebuild the tiers before the email goes out, with the same names and prices so nobody has to relearn the offer. Keep Patreon live for one billing cycle and let the renewals lapse on their own.',
+            )),
+            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+                'The formats widen. Beside membership tiers the page sells pay-per-view posts, bundles of past work, services with a fixed price and tickets to live sessions held in a built-in video room. Members pay by card on a schedule, and everything else is paid from a credit wallet at {credits_per_dollar} credits per dollar.',
+                'Promotion moves into the same tool. Patreon offers a share menu and publishes no automatic posting to social accounts (' . self::src($pt, 'socials') . '). On {site} a post written once goes to your page and to nine social networks together, with the paid version behind the lock.',
+                'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
+            )),
+            array('h' => 'A worked scenario: 300 members leaving Patreon', 'p' => self::scenario($pt, 2400, 'memberships (300 members at $8)')),
+        );
+    }
+
+    private static function alt_linktree(): array {
+        $lt = PagesController::COMPETITORS['linktree']; $checked = date('F j, Y', strtotime($lt['checked']));
+        return array(
+            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+                'Start from what the page has to do after the click. A link page sends the visitor somewhere else to buy. A storefront takes payment on the page for products, courses and bookings. A page like {site} takes payment for memberships, pay-per-view posts, bundles, services and event tickets, and keeps tracked links beside them.',
+                'Then check what each candidate actually sells. Linktree\'s selling guide lists one-time digital products, courses, affiliate links and sponsored links, and does not list recurring memberships or bookings (' . self::src($lt, 'content') . ', checked ' . $checked . '). A creator whose income is recurring needs a page that bills on a schedule.',
+                'Weigh the fee last. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside Linktree\'s. Plan prices are a separate monthly line on the pricing page.',
+            )),
+            array('h' => 'What does leaving Linktree actually involve?', 'p' => array(
+                'A link page is the easiest thing to move, because the audience follows the link in your bio and not the tool behind it. Export your contacts first: Linktree lets creators download audience contacts as a CSV from the Audience tab on all plans (' . self::src($lt, 'ownership') . ').',
+                'Product and course sales settle to the bank account connected to your payment account, on the daily, weekly or monthly schedule you chose (' . self::src($lt, 'payout') . '). Let the last sales settle, then change the link in each bio to the new page.',
+                'Rebuild the links in the same order, so a returning visitor finds what they expect, then add the first thing the old page could not sell.',
+            )),
+            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+                'The page sells where it used to point. Memberships bill the fan\'s card on a schedule, and pay-per-view posts, bundles, services and event tickets are paid from a credit wallet at {credits_per_dollar} credits per dollar. Every link on the page is tracked, so you can see which ones are clicked.',
+                'Publishing sits in the same studio. A post written once goes to your page and to nine social networks together, with AI captions drafted for each and the paid version behind the lock.',
+                'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
+            )),
+            array('h' => 'A worked scenario: a link page that starts selling', 'p' => self::scenario($lt, 1500, 'digital products and bookings')),
+        );
+    }
+
     /** /best-creator-monetization-platforms: how to read the comparison, with the sourced rows. */
     public static function best_platforms(): array {
         $c = PagesController::COMPETITORS; $d = function ($k) use ($c) { return date('F j, Y', strtotime($c[$k]['checked'])); };
         return array(
             array('h' => 'How should you read the fee column?', 'p' => array(
                 'The fee column mixes two shapes of pricing, and the shape matters more than the number. Subscription platforms take a share of every sale and charge no plan price: Fanvue keeps 20% of gross revenue (' . self::src($c['fanvue'], 'fee') . ', checked ' . $d('fanvue') . '), Fansly keeps 20% (' . self::src($c['fansly'], 'fee') . ') and OnlyFans deducts 20% of each fan payment under its terms (' . self::src($c['onlyfans'], 'fee') . ', checked October 11, 2026). Storefronts invert it: Stan Store charges $29 or $99 a month and no transaction fee (' . self::src($c['stan'], 'fee') . '), Beacons 0% on Creator Plus at $30 a month and 9% on its free plan (' . self::src($c['beacons'], 'fee') . '), Linktree 12% on Free down to 0% on Premium at $35 (' . self::src($c['linktree'], 'fee') . ').',
-                'Patreon and Ko-fi sit between. Patreon charges 10% for pages published after August 4, 2025, plus processing, conversion and payout fees (' . self::src($c['patreon'], 'fee') . '); Ko-fi Free charges nothing on one-time tips and 5% on memberships, shop sales and commissions (' . self::src($c['kofi'], 'fee') . '). {site} is a share plus a plan price: {fee_short}, on top of a monthly plan, with card processing separate as everywhere.',
+                'Patreon and Ko-fi sit between. Patreon charges 10% for pages published after August 4, 2025, plus processing, conversion and payout fees (' . self::src($c['patreon'], 'fee') . '); Ko-fi Free charges nothing on one-time tips and 5% on memberships, shop sales and commissions (' . self::src($c['kofi'], 'fee') . '). {site}\'s platform fee is {fee_short}. Its monthly plan price is a separate line, and card processing is separate as everywhere.',
                 'So read the share and the monthly price as two separate columns. Ko-fi and the free storefront tiers charge no monthly price. The subscription platforms keep about 20% of each sale and charge no monthly price either. The fee table further down runs two sales volumes through every platform with a published rate, on the percentage alone.',
             )),
             array('h' => 'How do payout terms differ?', 'p' => array(

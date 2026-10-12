@@ -164,11 +164,13 @@ class SeoArticlesModel extends Model {
         $limit = max(1, min(6, (int) $limit));
         $terms = array_filter(array_map('strtolower', array_merge(array((string) ($article['target_keyword'] ?? '')), (array) json_decode((string) ($article['secondary_keywords'] ?? '[]'), true))));
         $pool = $this->published(60, 0);
+        $clusters = $this->published_clusters(); $own = (string) ($article['cluster'] ?? ''); $family = $own !== '' ? SeoDrafter::cluster_family($own) : array();   // topic first: the same cluster, then its related clusters, then shared keywords, then recency
         $scored = array();
         foreach ($pool as $p) {
             if ((int) $p['id'] === (int) ($article['id'] ?? 0)) { continue; }
             $pt = array_filter(array_map('strtolower', array_merge(array((string) $p['target_keyword']), (array) json_decode((string) $p['secondary_keywords'], true))));
-            $p['_score'] = count(array_intersect($terms, $pt));
+            $pc = (string) ($clusters[(string) $p['slug']] ?? '');
+            $p['_score'] = count(array_intersect($terms, $pt)) + ($own !== '' && $pc === $own ? 100 : ($pc !== '' && in_array($pc, $family, true) ? 10 : 0));
             $scored[] = $p;
         }
         usort($scored, function ($x, $y) { return ($y['_score'] <=> $x['_score']) ?: strcmp((string) $y['published_at'], (string) $x['published_at']); });

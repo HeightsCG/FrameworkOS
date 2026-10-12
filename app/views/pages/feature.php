@@ -31,7 +31,36 @@ if ($video !== '') {
 if (!empty($page['rows'])) {
     echo Sections::open('white', 'What do you get with ' . (string) ($page['nav_title'] ?? 'it') . '?');   // a question heading: the answer is the first row below
     echo Sections::rows((array) $page['rows']);
+    echo Sections::tool_line((string) ($path ?? ''));   // the free tool that goes with this feature, when there is one
     echo Sections::close();
+}
+
+// How to set it up, in order; what the fan sees; what each plan includes for this feature (SEO audit 2026-10-12: these pages were thin).
+if (!empty($page['steps'])) {
+    $st = (array) $page['steps']; $last = count($st) - 1;
+    echo Sections::open('alt', 'How do you set up ' . (string) ($page['nav_title'] ?? 'it') . '?');
+    echo '<ol class="fx-steps' . (count($st) === 3 ? ' fx-steps--3' : '') . '">';
+    foreach ($st as $si => $s) { echo '<li' . ($si === $last ? ' class="is-last"' : '') . '><h3>' . Sections::e(($si + 1) . '. ' . $s[0]) . '</h3><p>' . Sections::e($s[1]) . '</p></li>'; }
+    echo '</ol>' . Sections::close();
+}
+if (!empty($page['fan_side'])) {
+    echo Sections::prose('white', 'What does the fan see?', array((string) $page['fan_side']));
+}
+if (!empty($page['limits'])) {
+    $tiers = PagesController::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+    $labels = array(); foreach (PlanTiers::ROWS as $r) { $labels[$r['key']] = $r['label']; }
+    $head = array(''); foreach ($tiers as $t) { $head[] = Sections::e($t['name']); }
+    $trows = array();
+    foreach ((array) $page['limits'] as $lk) {
+        if (isset($labels[$lk])) { $tr = array(Sections::e($labels[$lk])); foreach ($tiers as $t) { $tr[] = Sections::e(PlanTiers::fmt_tier_limit($t, $lk)); } $trows[] = $tr; }
+        elseif (isset(PlanTiers::FEATURES[$lk])) { $tr = array(PlanTiers::FEATURES[$lk]); foreach ($tiers as $t) { $tr[] = PlanTiers::has_feature($t, $lk) ? 'Included' : '&mdash;'; } $trows[] = $tr; }
+    }
+    if (count($trows) >= 2 && !empty($tiers)) {   // one row is not a table: a single limit is already stated in the rows above
+        echo Sections::open('alt', 'What does each plan include for ' . (string) ($page['nav_title'] ?? 'it') . '?', 'Plan prices and every other limit are on the pricing page.');
+        echo Sections::table($head, $trows, -1);
+        echo '<p class="sx-p"><a href="/pricing">See All Plans</a></p>';
+        echo Sections::close();
+    }
 }
 
 if (!empty($page['cards'])) {
@@ -51,4 +80,5 @@ if (!empty($siblings)) {
     echo Sections::close();
 }
 
+echo Sections::related_guides((string) ($path ?? ''), 'white');   // the articles that belong under this page
 if (!empty($page['faq'])) { echo Sections::faq((array) $page['faq']); }

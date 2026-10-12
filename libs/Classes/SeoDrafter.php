@@ -43,6 +43,31 @@ class SeoDrafter {
             'related' => array('ai-influencer-monetization', 'memberships-and-ppv')),
     );
 
+    /**
+     * The published articles that belong under a hub page (SEO audit 2026-10-12: no hub linked to any article). The clusters already
+     * say which page each article must link to (feature) and may link to (links), so the reverse lookup needs no second list:
+     * articles of the clusters whose feature page this is come first, then articles of clusters allowed to link here.
+     */
+    public static function guides_for(string $path, int $limit = 4): array {
+        $own = array(); $near = array();
+        foreach (self::CLUSTERS as $key => $c) {
+            if ((string) $c['feature'] === $path) { $own[] = $key; }
+            elseif (in_array($path, (array) $c['links'], true)) { $near[] = $key; }
+        }
+        if (empty($own) && empty($near)) { return array(); }
+        try {
+            $m = new SeoArticlesModel(); $out = array(); $seen = array();
+            foreach (array($own, $near) as $set) {
+                if (empty($set) || count($out) >= $limit) { continue; }
+                foreach ($m->for_linking_clusters($set, 0, $limit) as $r) {
+                    if (isset($seen[(int) $r['id']]) || count($out) >= $limit) { continue; }
+                    $seen[(int) $r['id']] = true; $out[] = $r;
+                }
+            }
+            return $out;
+        } catch (\Throwable $e) { error_log('[seo] guides_for ' . $path . ': ' . $e->getMessage()); return array(); }
+    }
+
     /** Word ranges per intent; validate() allows 20% either side. */
     const LENGTHS = array(
         'quick' => array(600, 800, 'quick answer'),
@@ -172,6 +197,10 @@ class SeoDrafter {
         if (count($h2) < 1) { $err[] = 'body needs at least one "## " section'; }
         $questions = count(array_filter($h2, function ($h) { return substr(trim($h), -1) === '?'; }));
         if (count($h2) >= 2 && $questions < 2) { $err[] = 'at least 2 "## " headings must be a question a creator actually asks (ending in ?), answered in the first sentence under it'; }   // restored 2026-10-11 (c_question_headings); the format gives the rest of the shape
+        foreach (self::citations($body) as $cu) {   // advisory: a help centre's front page is not a source for a specific claim
+            $cp = rtrim((string) parse_url($cu, PHP_URL_PATH), '/');
+            if ($cp === '' || preg_match('#^/(?:help|hc|en|hc/en-us|support|business-guide)$#i', $cp)) { $err[] = 'cites a general page (' . $cu . '): link the specific page that states the fact'; }
+        }
         $hosts = array_unique(array_map(function ($u) { return strtolower((string) parse_url($u, PHP_URL_HOST)); }, self::citations($body)));
         if (count($hosts) < self::MIN_CITATIONS) {
             $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'
@@ -198,7 +227,7 @@ class SeoDrafter {
      * (rewrite_note "Style notes: ...") and listed by the nightly report as "(style)". The prompt and the retry feedback
      * still ask for them, so most drafts satisfy them; none of them is worth a wasted Claude call.
      */
-    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the paragraph carries no specific|the paragraph points at|the paragraph has more than|the subtitle \(excerpt\)|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
+    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the paragraph carries no specific|the paragraph points at|cites a general page|the paragraph has more than|the subtitle \(excerpt\)|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
 
     public static function is_soft(string $error): bool { return (bool) preg_match(self::SOFT_RULES, $error); }
 
@@ -451,7 +480,7 @@ class SeoDrafter {
         $hits = array();
         foreach (self::product_facts() as $label => $re) { if (preg_match($re, $body)) { $hits[] = $label; } }
         // feature names alone are generic words; at least one hit must be a number from config (fee, price, credits, storage, influencers, payout, credit rate)
-        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet' && $h !== 'nine networks'; });
+        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet'; });   // 'nine networks' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
         if (count($hits) < self::PRODUCT_FACTS_MIN || count($numeric) < 1) {
             return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
         }
@@ -993,7 +1022,8 @@ class SeoDrafter {
             $gaps = array();
             foreach ($prices as $x) { foreach ($prices as $y) { if ($x > $y) { $gaps[] = $x - $y; } } }
             foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $sentence) {
-                if (empty($gaps) || !preg_match('/\$(?:' . implode('|', $gaps) . ')\b/', $sentence)) { continue; }
+                $g = '\$(?:' . implode('|', $gaps ?: array(0)) . ')\b'; $w = '(?:difference|gap|extra|more|dearer|pricier)';   // the amount has to be named as a gap: a share that happens to equal it (10% of $1,500) is not one
+                if (empty($gaps) || !preg_match('/' . $g . '[^.]{0,40}\b' . $w . '\b|\b' . $w . '\b[^.]{0,40}' . $g . '/i', $sentence)) { continue; }
                 if (preg_match('/\b(?:plan|price|charges?|subscription)\b/i', $sentence) && preg_match('/\b(?:fee|fees|share|take rate|percent|points?|percentage)\b|%/i', $sentence)) {
                     $err[] = 'weighs the gap between plan prices against the platform fee ("' . mb_substr(trim($sentence), 0, 50) . '"): keep the fee and the plan price as separate lines';
                     break;
@@ -1201,7 +1231,7 @@ class SeoDrafter {
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
-            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, a named feature as it works here), in the article's own words. A piece that could be published by any platform is rejected. "
+            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, the nine networks, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most four sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
@@ -1329,12 +1359,19 @@ class SeoDrafter {
         'Put your work behind a price you set.',
     );
 
+    const CTA_TEXTS = array(
+        '{site} gives you one public page with memberships, pay-per-view posts, bundles, services and events, and pays out to your bank.',
+        'On {site} one page at your handle holds your tiers, paid posts, bundles, bookings and tickets, and every sale lands in one balance.',
+        '{site} publishes each post to nine social networks and sells the paid version from your own page.',
+    );
+
     public static function cta_html(int $article_id = 0): string {
         $site = htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8');
         $line = self::CTA_LINES[$article_id % count(self::CTA_LINES)];
+        $text = self::CTA_TEXTS[intdiv($article_id, count(self::CTA_LINES)) % count(self::CTA_TEXTS)];   // the sentence varies too, on a different cycle from the title, so the block is not the same paragraph on every article
         return '<aside class="gd-cta">'
             . '<p class="gd-cta__title">' . htmlspecialchars($line, ENT_QUOTES, 'UTF-8') . '</p>'
-            . '<p class="gd-cta__text">' . $site . ' gives you one public page with memberships, pay-per-view posts, bundles, services and events, and pays out to your bank.</p>'
+            . '<p class="gd-cta__text">' . str_replace('{site}', $site, htmlspecialchars($text, ENT_QUOTES, 'UTF-8')) . '</p>'
             . '<a class="gd-cta__btn" href="/?auth=register">Create Your Account</a>'
             . '</aside>';
     }

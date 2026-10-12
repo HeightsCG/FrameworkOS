@@ -87,6 +87,9 @@ if ($persona) {
     echo Sections::close();
 }
 
+// where the tool sits in the product: links back to the hub pages that link here
+$tl_links = array(); foreach ((array) ($tool['pages'] ?? array()) as $tp) { $tl_links[] = '[' . $tp[1] . '](' . $tp[0] . ')'; }
+if (!empty($tl_links)) { echo Sections::prose('alt', 'Where does this tool fit?', array('The ' . $tool['nav_title'] . ' is a free part of ' . Main::site_name() . '. It goes with ' . implode(' and ', $tl_links) . ', where the ideas turn into posts on your page.')); }
 echo Sections::faq($faq, 'white');
 ?>
 <section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title"><?php echo $e(Sections::tc($persona ? 'Bring your persona to life.' : 'Turn ideas into posts.')); ?></h2>

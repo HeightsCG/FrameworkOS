@@ -14,10 +14,10 @@ class FeaturePages {
 
         'ai-influencer' => array(   // was /features/character-generation (301 in PagesController::featuresAction)
             'nav_title'   => 'AI influencer',
-            'title'       => 'AI Influencer Creator: Train and Monetize',
+            'title'       => 'AI Influencer Generator: Train, Create and Sell',
             'description' => 'Create an AI influencer: train one character from photos or a description, generate photos and video of the same person, and sell them from your page.',
             'hero' => array(
-                'title' => 'Create an AI Influencer You Can Monetize',
+                'title' => 'An AI Influencer Generator That Also Sells',
                 'lead'  => 'An AI influencer is a trained character you can generate photos and video of, and sell from your page. On {site} you create one once, from your photos or a description. After that, every image and clip is the same person, ready to post, or to sell as pay-per-view posts, paid messages or membership content. AI influencers included: {influencer_plans}.',
             ),
             'video'   => '',
@@ -60,6 +60,8 @@ class FeaturePages {
                     'link' => array('See how creators get paid', '/features/payouts'),
                 ),
             ),
+            'fan_side' => 'Fans never see the training or the prompts. They see photos and short videos of one consistent person on your page, open or blurred according to the audience you chose. A page that has published AI media carries a line saying some content is AI-generated.',   // what the fan sees
+            'limits'   => array('influencers', 'ai_credits', 'storage_gb'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Do I need my own photos?', 'a' => 'No. You can describe a face instead and the studio generates a reference image, then builds the training set from it. Using your own photos gives you a character that looks like a specific person.'),
                 array('q' => 'How long does training take?', 'a' => 'A few minutes, once per character. After that, every image is the same person and no retraining is needed.'),
@@ -107,6 +109,13 @@ class FeaturePages {
                     'link' => array('See every way to get paid', '/features/payouts'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Set the Voice', 'Write how you talk, the topics the agent must never touch, your quiet hours and how many replies it may send in a row.'),
+                array('Work the Queue', 'Each draft waits beside the fan\'s message. Approve it, edit it or dismiss it, and switch to automatic sending only when the drafts stop needing edits.'),
+                array('Add Welcome Messages', 'Give new followers, new subscribers and first messages their own message, with library media and a price when you want one.'),
+            ),
+            'fan_side' => 'A fan writes to you from the inbox on your page. The first automated reply to that fan carries a line saying replies may be automated. Paid media in a message shows blurred with its price until the fan unlocks it with credits.',   // what the fan sees
+            'limits'   => array('inbox_ai', 'ai_credits'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Does it send without me?', 'a' => 'Only if you turn that on. By default every reply waits in a queue for your approval.'),
                 array('q' => 'Will fans know it is AI?', 'a' => 'Yes. The first automated reply to each fan carries a line saying replies may be automated, and the agent never denies being AI. If a fan asks whether a real person is replying, a draft that does not confirm it is AI is held for you. You decide what the agent can talk about, and you can take over any conversation at any time.'),
@@ -135,7 +144,7 @@ class FeaturePages {
                     ),
                 ),
                 array(
-                    'title'  => 'A fee that falls as you grow',
+                    'title'  => 'One percentage per plan',
                     'text'   => '{fee_sentence} Nothing is deducted twice, and there are no per-payout fees from us.',
                     'points' => array(
                         'The rate for your plan is shown on the pricing page',
@@ -154,11 +163,18 @@ class FeaturePages {
                     ),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Connect Your Bank', 'Connect it once. Identity and bank details are handled by a secure payment processor, not stored on our servers.'),
+                array('Sell From Your Page', 'Every membership payment, unlock, bundle, booking and ticket lands in the same balance, net of your plan\'s platform fee.'),
+                array('Cash Out on Request', 'Ask for a payout whenever the balance is above {payout_min}. Each payout and its status is listed in your settings.'),
+            ),
+            'fan_side' => 'Fans never see your payout details. A fan pays for a membership by card and for everything else from a credit wallet, at 10 credits to the dollar. What the fan paid, for which item and on what date is listed on your side.',   // what the fan sees
+            'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'How do fans pay?', 'a' => 'Memberships bill by card on your schedule. Everything else is bought with a credit wallet, which fans top up in one tap.'),
                 array('q' => 'When can I cash out?', 'a' => 'The minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', and payouts are made on request only. Connect your bank once, then cash out whenever your balance is above the minimum. We apply no platform hold, so our payment processor\'s own payout timing applies. Payouts are available in every country our payment processor supports for creator payouts.'),
-                array('q' => 'What does the platform take?', 'a' => 'A percentage of what you earn, set by your plan and shown on the pricing page. It falls as you move up.'),
-                array('q' => 'What happens with refunds?', 'a' => 'A refund reverses the credits on both sides and removes the access it paid for, and your balance reflects it straight away.'),
+                array('q' => 'What does the platform take?', 'a' => 'A percentage of what you earn, set by your plan and shown on the pricing page.'),
+                array('q' => 'What happens if a sale is reversed?', 'a' => 'A reversed sale takes the credits back on both sides and removes the access it paid for, and your balance shows it straight away.'),
                 array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
             ),
             'cta' => array('title' => 'Start earning from one page', 'text' => 'Memberships, unlocks, services and events, paid out to your bank.'),
@@ -211,6 +227,13 @@ class FeaturePages {
                     'link' => array('See how payouts work', '/features/payouts'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Create a Tier', 'Give it a name, a price, a billing interval and the perks it carries. Add a free trial if you want one.'),
+                array('Publish for Subscribers', 'Choose subscribers as the audience when you publish, and aim the post at one tier or at several.'),
+                array('Bring Fans In', 'Share your page address and set a welcome message, so a new subscriber hears from you the moment they join.'),
+            ),
+            'fan_side' => 'A fan opens the membership tab on your page, picks a tier and pays by card. Subscriber posts unblur for that fan straight away, and each new post reaches them as a notice. The card is billed again on the tier\'s interval.',   // what the fan sees
+            'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'How do fans pay for a membership?', 'a' => 'By card, billed automatically on the interval you set for the tier: weekly, monthly or yearly.'),
                 array('q' => 'Can I offer a free trial?', 'a' => 'Yes. Any tier can start with a free trial, and you choose how long it lasts.'),
@@ -262,6 +285,13 @@ class FeaturePages {
                     'link' => array('See how payouts work', '/features/payouts'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Price a Post', 'Choose pay-per-view when you publish and set a price from 10 to 5000 credits.'),
+                array('Price a Message', 'Attach media and a price to a message or a broadcast. It stays blurred in the inbox until the fan pays.'),
+                array('Build a Bundle', 'Group media from your library into one set with one price.'),
+            ),
+            'fan_side' => 'The fan sees a blurred preview with the price, taps unlock and pays from the credit wallet. A fan with an empty wallet tops it up by card first. A bought bundle sits in the fan\'s purchases, ready to download.',   // what the fan sees
+            'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'How do fans pay for an unlock?', 'a' => 'With credits from their wallet. ' . Price::CREDITS_PER_DOLLAR . ' credits cost $1, and a wallet is topped up by card in one step. Credit purchases are final and non-refundable.'),
                 array('q' => 'What can I charge?', 'a' => 'Any price from ' . Price::MIN_CREDITS . ' to ' . Price::MAX_CREDITS . ' credits on a post, a message or a bundle.'),
@@ -309,6 +339,13 @@ class FeaturePages {
                     'text'   => 'Fans also discover you in the home feed and in search across creators and content, and follow you for free.',
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Set Up the Page', 'Pick your handle, then add your bio and your colors.'),
+                array('Add Your Links', 'Add each link you would put in a bio tool. Turn one off at any time without deleting it.'),
+                array('Put It in Every Bio', 'Use the one address on every social profile, so every visitor arrives at the page that also takes payment.'),
+            ),
+            'fan_side' => 'A visitor lands on your page at your handle and sees your links first, with your posts, tiers, services and events under them. Following you is free. Paying takes a card for a membership and the credit wallet for everything else.',   // what the fan sees
+            'limits'   => array('custom_domain'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Is it a replacement for my current link-in-bio tool?', 'a' => 'Yes. It holds your links like any bio page, and it also takes payments for memberships, pay-per-view, bundles, services and events.'),
                 array('q' => 'Can I see which links get clicked?', 'a' => 'Yes. Every link counts its clicks, and the totals show in your dashboard.'),
@@ -355,6 +392,13 @@ class FeaturePages {
                     'text'   => 'Engagement from your social posts comes back into your dashboard, next to views and sales on your page.',
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Connect Your Accounts', 'Connect each social account once. There is no limit on how many you connect.'),
+                array('Write the Post Once', 'Add the media, draft the caption in your voice, and pick the networks and the audience.'),
+                array('Publish, Schedule or Save', 'Send it now, set a date and time in your own time zone, or keep it as a draft.'),
+            ),
+            'fan_side' => 'On your page the post appears in your feed, open or blurred according to the audience you chose. On each social network it appears as a normal post from your own account, with no outside link added to it.',   // what the fan sees
+            'limits'   => array('automations', 'ai_credits'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Which networks can I post to?', 'a' => '{networks}, plus Fanvue cross-posting.'),
                 array('q' => 'Do you add a link to my social posts?', 'a' => 'No. Posts go out as you wrote them, so the networks do not hold back reach for an outside link.'),
@@ -400,6 +444,13 @@ class FeaturePages {
                     ),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('List a Service', 'Write what you offer, set a price, and add the access details the buyer sees after paying.'),
+                array('Create an Event', 'Set the date and the number of seats, and choose whether it is free or paid.'),
+                array('Run the Call', 'Open the built-in video room, admit people from the waiting room and use chat, screen share and the host controls.'),
+            ),
+            'fan_side' => 'A fan books a service or buys a ticket from its own page, paying with credits. For a service, the access details you wrote appear after purchase. For an event, the fan gets reminder emails with the meeting link and joins the video room in the browser.',   // what the fan sees
+            'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Do fans need Zoom or another app?', 'a' => 'No. Calls run in a built-in video room in the browser, with a waiting room, chat and screen share.'),
                 array('q' => 'Can events be free?', 'a' => 'Yes. An event can be free or paid. Anyone can join a free open event.'),
@@ -439,6 +490,13 @@ class FeaturePages {
                     'link'   => array('See link in bio', '/features/link-in-bio'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Add the Domain', 'Enter the domain in your settings. The bare domain and its www version are added together.'),
+                array('Copy the Records', 'Copy the DNS records shown there into your domain provider, exactly as written.'),
+                array('Wait for the Check', 'We check the records and switch the domain on. The secure certificate is issued automatically.'),
+            ),
+            'fan_side' => 'A fan who types your domain sees your page, your services and your events on your own address. A fan already signed in on our site arrives signed in. Payment works from the same card and the same wallet as before.',   // what the fan sees
+            'limits'   => array('custom_domain'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Which plan includes custom domains?', 'a' => 'The {domain_plan} plan. {final_note}'),
                 array('q' => 'What do I need to change at my domain provider?', 'a' => 'A verification record plus the routing records we show you (two for a bare domain and its www version), all shown in settings with the exact values to copy.'),
@@ -488,6 +546,13 @@ class FeaturePages {
                     'link'   => array('See the AI influencer generator', '/features/ai-influencer'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Build the Set', 'Upload {min_photos} to {max_photos} photos of one person, or describe a face and approve the reference image.'),
+                array('Train Once', 'Start the run. It takes a few minutes and is included with your plan.'),
+                array('Generate', 'Describe a scene and get images of the character in it. Pin a seed to repeat a look exactly.'),
+            ),
+            'fan_side' => 'Fans never see the training. They see photos and short videos of one consistent character on your page. A page that has published AI media carries a line saying some content is AI-generated, and AI media is labeled when it is cross-posted.',   // what the fan sees
+            'limits'   => array('influencers', 'ai_credits'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'What is a LoRA?', 'a' => 'A small add-on to an image model, trained on one person, so the model can draw that person in any scene. {site} trains and stores it for you.'),
                 array('q' => 'How many photos do I need?', 'a' => 'Between 10 and 50 photos of the same person, with different angles and lighting. If you have none, describe a face and the studio builds the set.'),
@@ -530,6 +595,13 @@ class FeaturePages {
                     'text'   => 'Pick a generated still and describe the movement. The clip starts from that exact frame, so the face matches your photos.',
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Train One Face', 'Train a character on one person, from photos or from a face you describe.'),
+                array('Keep the Matching Takes', 'Generate a scene, keep the images that are right, and pin the seed of a look you want again.'),
+                array('Make the Video', 'Pick an approved still and describe the movement. The clip starts from that exact frame.'),
+            ),
+            'fan_side' => 'A fan scrolling your page sees the same person in every post, across scenes, outfits and lighting. A page that has published AI media carries a line saying some content is AI-generated.',   // what the fan sees
+            'limits'   => array('influencers', 'ai_credits'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'Why do AI faces change between images?', 'a' => 'A prompt alone describes a type of person, not one person. Training a character on one face is what keeps it the same.'),
                 array('q' => 'Does the face stay the same in video?', 'a' => 'Yes. Video is made from a still you generated and approved, so it starts from the same face.'),
@@ -544,7 +616,7 @@ class FeaturePages {
             'title'       => 'AI OFM Tools: Create, Post, Chat and Sell',
             'description' => 'AI tools for running creator accounts: AI influencers, scheduled posting to nine networks, a DM agent, pay-per-view and payouts in one place.',
             'hero' => array(
-                'title' => 'AI Tools for Running Creator Accounts',
+                'title' => 'AI OFM Tools for Running Creator Accounts',
                 'lead'  => 'AI OFM tools are the software a creator account runs on: generation, posting, inbox replies and selling in one place. Create the content, post it everywhere, answer the inbox and get paid from one account. {site} brings AI influencers, publishing, a DM agent, memberships and pay-per-view together, with team seats for the people who help you.',
             ),
             'video'   => '',
@@ -575,6 +647,14 @@ class FeaturePages {
                     'link'   => array('See how payouts work', '/features/payouts'),
                 ),
             ),
+            'steps' => array(   // how a creator sets this up, in order (SEO audit 2026-10-12: feature pages were thin)
+                array('Train the Character', 'Train an AI influencer once, from photos or a described face.'),
+                array('Connect the Networks', 'Connect your social accounts, so one post reaches your page and all of them.'),
+                array('Set the Inbox', 'Write the DM agent\'s voice and limits, and keep approval on at first.'),
+                array('Price the Offers', 'Create membership tiers and put prices on your strongest posts.'),
+            ),
+            'fan_side' => 'A fan follows for free, joins a tier by card and unlocks single posts from a credit wallet. The first automated reply in the inbox says replies may be automated. A page that has published AI media says so.',   // what the fan sees
+            'limits'   => array('seats', 'influencers', 'ai_credits', 'automations', 'inbox_ai'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'What does OFM mean?', 'a' => 'Online fan management: running the content, posting, messaging and sales for creator accounts. These tools cover each of those jobs in one place.'),
                 array('q' => 'Can a team work on one account?', 'a' => 'Yes, on the {seats_plans} plan. Invite collaborators to work on your account with their own sign-in, without sharing your password.'),

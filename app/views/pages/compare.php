@@ -45,6 +45,8 @@ if ($fee_block === '') {   // a generation tool with no sales side: the diagram 
         . Sections::close();
 }
 echo $fee_block;
+echo CompareProse::siblings_line($slug);
+echo Sections::related_guides('/compare/' . $slug, 'white', 3);
 echo CompareProse::links_line($slug);   // the shared product blocks live on /features, /pricing and /features/payouts, not here
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';

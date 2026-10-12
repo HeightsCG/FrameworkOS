@@ -64,6 +64,13 @@ echo Sections::open('alt', 'How do you get fans to the page?', 'Publish everywhe
 echo Sections::rows(array(
     array('title' => 'Getting fans to the page', 'text' => 'Put the page link in every bio and pin it where fans look first. Announce each paid drop on your socials the day before, so the post and the page carry the same message.', 'image' => SiteImages::url('monetize_fans'), 'link' => array('See how the studio works', '/features')),
 ));
+echo Sections::tool_line('/monetize-your-content');   // the free tool that finds what fans are asking
 echo Sections::close();
+// The ways of earning that sit outside a page like this one, said plainly, and where each of ours is explained in full.
+echo Sections::prose('white', 'What other ways do creators earn?', array(
+    'Not every way of earning runs through a page like this one. Advertising revenue shares, sponsorships, affiliate links, merchandise and courses are common, and each is arranged outside ' . Main::site_name() . '. Tracked links on your page can point at any of them, so one address still carries the whole business.',
+    'Each way of selling on the page has its own guide: [memberships](/features/memberships), [pay-per-view posts](/features/pay-per-view), [services and events](/features/services-and-events) and [payouts](/features/payouts).',
+));
+echo Sections::related_guides('/monetize-your-content', 'alt');
 echo Sections::faq($faq);
 $cta_title = 'Set up your tiers in an afternoon.';

@@ -81,11 +81,21 @@ $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-
     'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
     'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
-echo Sections::open('white', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
+// Teams and agencies: what Studio adds for people who run accounts with help (SEO audit 2026-10-12: no entry point for that reader).
+$st = PlanTiers::get('studio');
+if ($st) {
+    echo Sections::prose('white', 'Which plan fits a team or an agency?', array(
+        'The ' . $st['name'] . ' plan is the one built for a team. It includes ' . PlanTiers::fmt_tier_limit($st, 'seats') . ' team seats, so collaborators work on your account with their own sign-in and never share your password. It also covers ' . PlanTiers::fmt_tier_limit($st, 'influencers') . ' AI influencers and custom domains.',
+        'Every sale made by anyone on the team lands in the account owner\'s balance. The tools a team uses day to day are set out in [AI tools for running creator accounts](/ai-ofm-tools).',
+    ));
+}
+
+echo Sections::open('alt', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
 echo Sections::close();
 
-echo Sections::faq($faq, 'white');
+echo Sections::related_guides('/pricing', 'white');
+echo Sections::faq($faq, 'alt');
 $cta_title = 'Start with Free.';
 $cta_text = 'Create your free account. When you want to sell, pick Creator or Studio in Billing.';
 $cta_no_pricing = true;

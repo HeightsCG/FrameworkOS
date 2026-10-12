@@ -319,11 +319,13 @@ class SeoController extends Controller {
         $html = preg_replace('/<a\b[^>]*class="[^"]*\bsx-btn\b[^"]*"[^>]*>.*?<\/a>/is', '', $html);
         $html = preg_replace('/<div class="hx__words"[^>]*>\s*<\/div>/is', '', $html);
         // check marks are "Yes"; an empty header cell gets a label so no table cell is blank
+        $html = preg_replace('/<span class="sx-vh">.*?<\/span>/is', '', $html);   // the hidden word beside a check mark: the svg below already becomes "Yes"
+        $html = preg_replace('/<figcaption\b.*?<\/figcaption>/is', '', $html);       // a caption without its picture is an orphan line in a text file
         $html = preg_replace('/<svg\b[^>]*aria-label="Included"[^>]*>.*?<\/svg>/is', 'Yes', $html);
         $html = preg_replace('/<svg\b.*?<\/svg>/is', '', $html);
         $html = preg_replace('/<th([^>]*)>\s*<\/th>/i', '<th$1>Item</th>', $html);
         $html = preg_replace('/(<(?:td|th|dd)\b[^>]*>)\s*(?:&mdash;|\xE2\x80\x94)\s*(<\/(?:td|th|dd)>)/i', '$1n/a$2', $html);   // a dash cell means "does not apply"
-        $html = str_replace('<span class="sx-plan__role">', ': ', $html);   // pricing card: "Creator: Get discovered"
+        $html = preg_replace('/<\/h2>\s*<p class="sx-plan__role">(.*?)<\/p>/is', ': $1</h2>', $html);   // pricing card: "Creator: Get discovered"
         $html = preg_replace('/<\/span>\s*<b>/i', '</span>: <b>', $html);   // panel rows: "label: value"
         $html = preg_replace('/<\/b>\s*<a /i', '</b> <a ', $html);
         $html = preg_replace('/<\/span>\s*(<span class="dir-card__)/i', '</span> · $1', $html);   // directory card fields

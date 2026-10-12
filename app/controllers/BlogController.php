@@ -116,7 +116,8 @@ class BlogController extends Controller {
         $anch = self::anchor_headings((string) $a['body_html']);
         $anch[0] = preg_replace(array('#<table>#', '#</table>#'), array('<div class="gd-table"><table>', '</table></div>'), $anch[0]);   // a scroll box per table, so a wide one never runs off a phone (SEO audit 2026-10-12)
         $anch[0] = SeoDrafter::place_cta($anch[0], (int) $a['id']);   // the signup aside sits at a different point per article (end, after the first section, before the last)
-        $this->page('blog-article', array('path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
+        $cw = trim((string) ($a['cover_webp_url'] ?? ''));   // the cover is the largest element on the page: preload it, with the same candidates the <img> offers
+        $this->page('blog-article', array('preload_image' => $cw !== '' ? $cw : (string) ($a['cover_image_url'] ?? ''), 'preload_srcset' => $cw !== '' ? PublicThumbService::cover_small($cw) . ' 480w, ' . $cw . ' 960w' : '', 'preload_sizes' => '(max-width: 900px) 100vw, 340px', 'path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
                 'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),   // the view has its one <article>
             array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview, 'body' => $anch[0], 'toc' => $anch[1], 'topic' => self::topic($a)));
     }

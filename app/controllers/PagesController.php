@@ -24,6 +24,8 @@ class PagesController extends Controller {
         'monetize-your-content'               => 'monetize',
         'onlyfans-alternatives'               => 'alternatives',
         'fanvue-alternatives'                 => 'alternatives',
+        'patreon-alternatives'                => 'alternatives',
+        'linktree-alternatives'               => 'alternatives',
         'creators'                           => 'creators',
         'terms'                               => 'terms',
         'privacy'                             => 'privacy',
@@ -307,6 +309,7 @@ class PagesController extends Controller {
             '{final_note}'       => self::FINAL_NOTE,
             '{min_photos}'       => (string) (int) InfluencerConfig::get('training_min_photos', 10),   // the training set the influencer code actually accepts
             '{max_photos}'       => (string) (int) InfluencerConfig::get('training_max_photos', 50),
+            '{payout_min}'       => Price::PAYOUT_MIN_LABEL,
         );
         // wherever plan prices appear (fee_sentence), the non-refundable line follows
         foreach ($pages as $k => $p) {
@@ -332,7 +335,7 @@ class PagesController extends Controller {
         $jsonld = array(SeoMeta::faq((array) ($page['faq'] ?? array())), SeoMeta::breadcrumbs($crumbs));
         $cta = (array) ($page['cta'] ?? array());
         $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld),
-            array('page' => $page, 'slug' => $slug, 'siblings' => $siblings,
+            array('page' => $page, 'slug' => $slug, 'path' => $path, 'siblings' => $siblings,
                   'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
     }
 
@@ -843,7 +846,7 @@ class PagesController extends Controller {
             SeoMeta::faq(self::best_faq()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Best creator monetization platforms', 'url' => $path))),
         );
-        $this->page('best-platforms', array('path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
+        $this->page('best-platforms', array('preload_image' => SiteImages::bg('best_hero'), 'path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
     }
 
     public function monetizeAction(){
@@ -862,7 +865,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Monetize your content', 'url' => $path))),
         );
-        $this->page('monetize', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
+        $this->page('monetize', array('preload_image' => SiteImages::bg('monetize_hero'), 'path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
     }
 
     /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
@@ -956,7 +959,7 @@ class PagesController extends Controller {
         $p['title'] = $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
         $p['us'] = array(
             'name' => $site, 'kind' => 'One page, every way to sell',
-            'text' => 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to nine social networks.',
+            'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to nine social networks.'),
             'points' => array(
                 'Memberships, pay-per-view, bundles, services and events on one page',
                 'Publishes to nine social networks from one studio',
@@ -1049,7 +1052,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
+        $this->page('compare', array('preload_image' => SiteImages::bg('compare_hero'), 'path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**
