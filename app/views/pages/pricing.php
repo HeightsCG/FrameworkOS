@@ -15,7 +15,7 @@ $e = function ($s) { return Sections::e($s); };
     <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
-        <div class="sx-plan__price"><?php if ($is_free): ?>Free<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
+        <div class="sx-plan__price"><?php if ($is_free): ?>$0<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <div class="sx-plan__under"><?php if ($founding_left > 0 && $f_plan && $f_from && $t['key'] === Founding::PLAN): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free, <?php echo $e(Founding::fee_label()); ?> fee locked.</a><?php /* no spot counts on public pages (Daniel 2026-10-12) */ ?></p><?php endif; ?></div>
         <div class="sx-plan__cta">
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start Now</a>
@@ -35,7 +35,7 @@ $e = function ($s) { return Sections::e($s); };
     // What AI credits buy, from the same price list Billing shows (Plan::ai_price_list), so the page can't go stale.
     $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
 ?>
-<?php echo Proof::links('sx-proof', 'Also listed on'); ?>
+<?php if (Proof::product_hunt_url() !== ''): ?><p class="sx-proof"><a class="sx-proof__a" href="<?php echo $e(Proof::product_hunt_url()); ?>" rel="noopener" target="_blank">See <?php echo $e(Main::site_name()); ?> on Product Hunt</a></p><?php endif; ?>
 <p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
