@@ -3,6 +3,7 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title sx-hero__title--plain">Pricing</h1>
+    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is one page for your memberships, pay-per-view posts, bundles, services and events, with a studio that publishes everywhere and payouts to your bank. Everyone joins free, and creators can build their page before they pay. When you’re ready to sell, pick Creator or Studio, billed monthly, cancel any time.</p>
 <?php
     // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): one line on the Creator card while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;
