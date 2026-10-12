@@ -433,16 +433,31 @@ class SeoDrafter {
      * title) and every other queued keyword. Returns ['kept' => rows, 'merged' => rows (+ 'into' => article), 'dropped' => rows
      * (+ 'duplicate_of' => keyword)]. Nothing is written: cron/seo_draft.php --dedupe prints it, --dedupe --apply records it.
      */
+    /**
+     * Keywords Daniel folded into an existing article by hand (2026-10-11), keyword text (lowercase) => survivor slug. The
+     * check treats them as merged whatever their wording, so they draft as an update of that article, never as a new one.
+     */
+    const EXPLICIT_MERGES = array(
+        'character consistency techniques'          => 'consistent-ai-character-across-images',
+        'how to keep an ai face consistent'         => 'consistent-ai-character-across-images',
+        'how many images to train a lora'           => 'lora-training-dataset-tips',
+        'ai dm replies for fan messages'            => 'automated-dm-replies-for-creators',
+        'how to compare creator platform pricing'   => 'how-to-pick-a-creator-monetization-platform',
+    );
+
     public static function dedupe_queue(): array {
         $out = array('kept' => array(), 'merged' => array(), 'dropped' => array());
         try { $queue = (new SeoKeywordsModel())->all(); $published = (new SeoArticlesModel())->published(50, 0); }
         catch (\Throwable $e) { return $out; }
         $queued = array_values(array_filter($queue, function ($k) { return (string) $k['status'] === 'queued'; }));
+        $by_slug = array(); foreach ($published as $a) { $by_slug[(string) $a['slug']] = $a; }
         usort($queued, function ($a, $b) { return ((int) $a['priority'] <=> (int) $b['priority']) ?: ((int) $a['id'] <=> (int) $b['id']); });
         $kept_keys = array();
         foreach ($queued as $k) {
             $key = self::intent_key($k['keyword']); $hit = null;
-            foreach ($published as $a) {
+            $explicit = self::EXPLICIT_MERGES[strtolower(trim((string) $k['keyword']))] ?? '';
+            if ($explicit !== '' && isset($by_slug[$explicit])) { $hit = $by_slug[$explicit]; }
+            foreach ($hit ? array() : $published as $a) {
                 if (self::same_intent($key, self::intent_key($a['target_keyword'])) || self::same_intent($key, self::intent_key($a['title']))) { $hit = $a; break; }
             }
             if ($hit) { $k['into'] = $hit; $out['merged'][] = $k; continue; }

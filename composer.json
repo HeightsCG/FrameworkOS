@@ -8,6 +8,7 @@
     ],
     "require": {
         "stripe/stripe-php": "^20.3",
-        "aws/aws-sdk-php": "^3.387"
+        "aws/aws-sdk-php": "^3.387",
+        "maxmind-db/reader": "^1.12"
     }
 }

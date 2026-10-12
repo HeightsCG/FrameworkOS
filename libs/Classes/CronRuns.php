@@ -19,6 +19,7 @@ class CronRuns {
         'seo_fact_check' => 86400,
         'error_digest'   => 86400,
         'public_thumbs'  => 86400,
+        'geoip_refresh'  => 2764800,   // monthly (32 days)
     );
 
     private static $open = array();

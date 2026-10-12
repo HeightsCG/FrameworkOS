@@ -6,7 +6,7 @@
  *   --load-queue (once, 2026-10-09: re-cluster keywords and articles, load the P1/P2/P3 queue below, print counts),
  *   --dry-run (one Claude call, no cover, saved as a draft article and never published; prints the validator output),
  *   --dedupe (print the queue after the duplicate check: kept / merged into an existing article / dropped; nothing written),
- *   --dedupe --apply (record it: merged and dropped keywords leave the queue with the reason), --format=<guide|checklist|
+ *   --dedupe --apply (record it: dropped keywords leave the queue; merged ones stay queued and are drafted as an update of their article), --format=<guide|checklist|
  *   comparison|cost|troubleshooting|glossary> (force a format; otherwise SeoDrafter::format_for picks one, never the last used),
  *   --force (draft today even if it is not a publishing day).
  * Picks the queued keyword with the lowest priority (P1 = 1, P2 = 2, everything else 3), oldest first.
@@ -179,7 +179,10 @@ if (isset($opts['dedupe'])) {
     foreach ($d['merged'] as $k)  { printf("  MERGED  #%-4d P%-3d %s  -> update of /blog/%s (\"%s\")\n", $k['id'], $k['priority'], $k['keyword'], $k['into']['slug'], $k['into']['title']); }
     foreach ($d['dropped'] as $k) { printf("  DROPPED #%-4d P%-3d %s  -> duplicate of #%d \"%s\"\n", $k['id'], $k['priority'], $k['keyword'], $k['duplicate_of']['id'], $k['duplicate_of']['keyword']); }
     if (isset($opts['apply'])) {
-        foreach ($d['merged'] as $k)  { $keywords->set_status((int) $k['id'], 'skipped', (int) $k['into']['id'], 'merged: same intent as /blog/' . $k['into']['slug'] . ' (update that article)'); }
+        // a merged keyword stays QUEUED: at its turn it is drafted as an update of that article (see below), not as a new piece;
+        // keywords an earlier --apply parked as skipped with a 'merged:' note come back to the queue
+        foreach ($keywords->all() as $k) { if ((string) $k['status'] === 'skipped' && strpos((string) $k['last_error'], 'merged: same intent') === 0) { $keywords->set_status((int) $k['id'], 'queued', null, (string) $k['last_error']); } }
+        foreach ($d['merged'] as $k)  { $keywords->set_status((int) $k['id'], 'queued', (int) $k['into']['id'], 'merged: same intent as /blog/' . $k['into']['slug'] . ' (update that article)'); }
         foreach ($d['dropped'] as $k) { $keywords->set_status((int) $k['id'], 'skipped', null, 'dropped: duplicate of #' . (int) $k['duplicate_of']['id'] . ' "' . $k['duplicate_of']['keyword'] . '"'); }
         echo date('c'), " recorded\n";
     } else { echo "(nothing written; add --apply to record it)\n"; }

@@ -10,6 +10,7 @@ $para = function ($s) use ($e, $fill) {
     $h = $e($fill($s));
     $h = str_replace($e(PagesController::LEGAL_CONTACT), '<a href="mailto:' . $e(PagesController::LEGAL_CONTACT) . '">' . $e(PagesController::LEGAL_CONTACT) . '</a>', $h);
     $h = preg_replace('#(?<![\w/])/(terms|privacy|pricing)\b#', '<a href="/$1">/$1</a>', $h);
+    $h = str_replace('IP geolocation by DB-IP', 'IP geolocation by <a href="https://db-ip.com" rel="noopener" target="_blank">DB-IP</a>', $h);   // the one external link: the DB-IP attribution (CC BY 4.0) on /privacy
     return $h;
 };
 ?>

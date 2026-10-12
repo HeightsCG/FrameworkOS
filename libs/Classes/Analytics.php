@@ -178,12 +178,8 @@ class Analytics {
         return array('device' => $device, 'browser' => $browser, 'os' => $os);
     }
 
-    /** Two-letter country from an edge header (CloudFront, Cloudflare, or one the load balancer adds), '' when none. */
+    /** Two-letter country resolved in PHP from the visitor's IP (GeoIp, MaxMind GeoLite2 in data/); '' = Unknown. The IP is never stored. */
     public static function country(): string {
-        foreach (array('HTTP_CLOUDFRONT_VIEWER_COUNTRY', 'HTTP_CF_IPCOUNTRY', 'HTTP_X_COUNTRY_CODE', 'HTTP_X_COUNTRY') as $h) {
-            $v = strtoupper(trim((string) ($_SERVER[$h] ?? '')));
-            if (preg_match('/^[A-Z]{2}$/', $v) && $v !== 'XX') { return $v; }
-        }
-        return '';
+        return GeoIp::country();
     }
 }

@@ -16,8 +16,7 @@ check('ua: Windows Edge', $ua === array('device' => 'desktop', 'browser' => 'Edg
 $ua = Analytics::ua('Mozilla/5.0 (Linux; Android 13; SM-X700) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36');
 check('ua: Android tablet Chrome', $ua === array('device' => 'tablet', 'browser' => 'Chrome', 'os' => 'Android'), json_encode($ua));
 check('bots skipped', Analytics::is_bot('Mozilla/5.0 (compatible; Googlebot/2.1)') && Analytics::is_bot('curl/8.0') && Analytics::is_bot('') && !Analytics::is_bot('Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15'));
-check('country from an edge header only', Analytics::country() === '');
-$_SERVER['HTTP_CF_IPCOUNTRY'] = 'us'; check('country header read', Analytics::country() === 'US'); unset($_SERVER['HTTP_CF_IPCOUNTRY']);
+check('country comes from GeoIp (never a header): no public IP = Unknown', Analytics::country() === '');
 
 $m = new SiteAnalyticsModel();
 $m->sql("DELETE FROM analytics_events WHERE host = 'test.analytics'");
