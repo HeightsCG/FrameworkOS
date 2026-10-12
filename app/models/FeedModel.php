@@ -79,6 +79,16 @@ class FeedModel extends Model {
      * the moderator approved as not adult (videos are not scanned, so posts with video are
      * left out). Returns the cover thumbnail key; the caller signs it.
      */
+    /** public_latest() with at most one post per creator (the newest), so a single handle never repeats on the home page (D3.1, 2026-10-12). */
+    public function public_latest_distinct($limit = 5){
+        $limit = max(1, min(12, (int) $limit)); $out = array(); $seen = array();
+        foreach ((array) $this->public_latest(12) as $row) {   // newest 12 public posts, then the first per creator
+            $k = strtolower((string) $row['u_name']); if (isset($seen[$k])) { continue; }
+            $seen[$k] = true; $out[] = $row; if (count($out) >= $limit) { break; }
+        }
+        return $out;
+    }
+
     public function public_latest($limit = 6){
         $limit = max(1, min(12, (int) $limit));
         // the cover's public webp copies (PublicThumbService) ride along; every asset here is approved and not adult.

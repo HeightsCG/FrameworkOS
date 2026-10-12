@@ -395,6 +395,35 @@ class ApiAdminController extends BaseApiController {
 
     /* ---- founding creators (/admin > Founding) ---- */
 
+    /** Home page testimonials (heycatch D3.2): add a row as pending. Every field is the person's own words; nothing is generated. */
+    public function admin_testimonial_addAction(){
+        $this->admin_guard();
+        $first = trim((string) ($this->post['first_name'] ?? '')); $niche = trim((string) ($this->post['niche'] ?? '')); $quote = trim((string) ($this->post['quote'] ?? '')); $photo = trim((string) ($this->post['photo_url'] ?? ''));
+        if ($first === '' || $quote === '') { $this->jsonError('A first name and a quote are needed.'); }
+        if (mb_strlen($first) > 60 || mb_strlen($niche) > 80 || mb_strlen($quote) > 400) { $this->jsonError('Too long: 60 characters for the name, 80 for the niche, 400 for the quote.'); }
+        if ($photo !== '' && !preg_match('#^https://[^\s]+$#', $photo)) { $this->jsonError('The photo must be an https URL.'); }
+        $id = (new TestimonialsModel())->add($first, $niche, $quote, $photo, (int) Session::get('user_id'));
+        $this->jsonSuccess(['id' => $id, 'message' => 'Testimonial added as pending']);
+    }
+
+    /** Approve (shown on the home page once Proof::TESTIMONIALS_MIN are approved) or unapprove a testimonial. */
+    public function admin_testimonial_statusAction(){
+        $this->admin_guard();
+        $m = new TestimonialsModel(); $t = $m->get((int) ($this->post['id'] ?? 0));
+        if (!$t) { $this->jsonError('Testimonial not found'); }
+        $approved = (string) ($this->post['approved'] ?? '') === '1';
+        $m->set_status((int) $t['id'], $approved);
+        $this->jsonSuccess(['id' => (int) $t['id'], 'status' => $approved ? 'approved' : 'pending', 'message' => $approved ? 'Testimonial approved' : 'Testimonial set to pending']);
+    }
+
+    public function admin_testimonial_removeAction(){
+        $this->admin_guard();
+        $m = new TestimonialsModel(); $t = $m->get((int) ($this->post['id'] ?? 0));
+        if (!$t) { $this->jsonError('Testimonial not found'); }
+        $m->remove((int) $t['id']);
+        $this->jsonSuccess(['id' => (int) $t['id'], 'message' => 'Testimonial removed']);
+    }
+
     /** Send the founding testimonial request now (once per claim, same message as the scheduled one). */
     public function admin_founding_testimonialAction(){
         $this->admin_guard();

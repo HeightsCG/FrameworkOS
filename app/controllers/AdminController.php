@@ -275,6 +275,15 @@ class AdminController extends Controller {
         $this->view->render();
     }
 
+    /** /admin/testimonials — the home page testimonial row (heycatch D3.2): add, approve, remove. Shown on the home page once Proof::TESTIMONIALS_MIN are approved. */
+    public function testimonialsAction(){
+        $this->shell('testimonials');
+        $this->view->section = 'growth';
+        $this->view->testimonials = array();
+        try { $this->view->testimonials = (new TestimonialsModel())->admin_list(300); } catch (\Throwable $e) { error_log('[admin] testimonials: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
     /** /admin/affiliates — applications, the commissions ledger, payout requests. */
     public function affiliatesAction(){
         $this->shell('affiliates');

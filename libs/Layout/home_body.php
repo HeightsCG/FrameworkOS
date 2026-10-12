@@ -11,11 +11,17 @@ $home_faq = array(
 );
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
 /* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
+// Hero (heycatch D1.1, D1.2, D1.6, D2.1): the H1 names the buyer and the product; the eyebrow above it states the fee wedge from config
+// (what each selling plan keeps, against OnlyFans' sourced rate); the CTA says Start Free; the founding line shows while spots remain.
+$eyebrow = PagesController::fee_wedge_sentence();
+$founding_left = 0; try { $founding_left = Founding::remaining(); } catch (\Throwable $ex) { error_log('[home] founding: ' . $ex->getMessage()); }
 echo Sections::tab_hero(array(
     'id' => 'home',
-    'tag' => 'Keep It All Connected.',
+    'eyebrow' => $eyebrow,
+    'title' => 'One page to sell your content, and a studio that posts it everywhere.',
     'lead' => $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
-    'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
+    'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
+    'under' => $founding_left > 0 ? '<a class="hx__under" href="/founding">Founding creators: first month free. ' . number_format(Founding::spots()) . ' spots.</a>' : '',
     'tabs' => array(
         array('word' => 'Create.', 'pane' => Sections::pane('Upload once, use everywhere.', 'Draft it, schedule it, publish now, or let an automation post for you.', Sections::pane_timeline(array(
             array('Draft', 'Work in progress, visible only to you.'), array('Scheduled', 'Queued for the moment you choose.'), array('Published', 'Live on your page, on your schedule or automatically.'))))),
@@ -41,7 +47,10 @@ echo Sections::rows(array(
     array('title' => 'Publish everywhere at once', 'text' => 'Upload once in the studio. AI writes the caption in your brand voice, and the post goes to your page and your social accounts at the same time.',
           'points' => array('Nine social networks from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
     array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's fee, and you cash out to your bank anytime.",
-          'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice')),
+          'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice'),
+          // the after-state (heycatch D1.5, D2.3): the analytics dashboard of the demo account on dev, labelled as such, never a real creator's figures
+          'image' => '/images/shots/analytics-dashboard.webp', 'image_w' => 1440, 'image_h' => 900, 'caption' => 'Example dashboard (demo account)',
+          'image_alt' => 'The Analytics dashboard of a demo account: six cards for revenue, subscribers, followers, views, posts and engagement over the last 30 days, a 7, 30 or 90 day switch, and Revenue, Content, Audience and Customers tabs above a revenue-by-offering panel and a daily revenue chart'),
 ));
 echo Sections::close();
 
@@ -53,9 +62,25 @@ echo Sections::cards(array(
 ), 3);
 echo Sections::close();
 
+/* Testimonials (heycatch D3.2): real people's words from /admin/testimonials, shown only once Proof::TESTIMONIALS_MIN are approved. */
+$quotes = array();
+try { $tm = new TestimonialsModel(); if ($tm->approved_count() >= Proof::TESTIMONIALS_MIN) { $quotes = $tm->approved(3); } } catch (\Throwable $ex) { error_log('[home] testimonials: ' . $ex->getMessage()); }
+if (count($quotes) >= Proof::TESTIMONIALS_MIN) {
+    echo Sections::open('alt', 'What creators say');
+    echo '<ul class="ts-row">';
+    foreach ($quotes as $q) {
+        $who = trim((string) $q['first_name']) . ((string) $q['niche'] !== '' ? ', ' . (string) $q['niche'] : '');
+        echo '<li class="ts-card"><blockquote class="ts-card__q">' . Sections::paragraphs((string) $q['quote']) . '</blockquote><p class="ts-card__who">'
+            . ((string) ($q['photo_url'] ?? '') !== '' ? '<img class="ts-card__av" src="' . Sections::e($q['photo_url']) . '" alt="' . Sections::e((string) $q['first_name']) . '" width="40" height="40" loading="lazy">' : '')
+            . '<span>' . Sections::e($who) . '</span></p></li>';
+    }
+    echo '</ul>';
+    echo Sections::close();
+}
+
 /* Latest posts: newest free, fully moderated, non-adult image posts, as a mosaic (newest large). Hidden when there are none. */
 $latest = array();
-try { $latest = (new FeedModel())->public_latest(5); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
+try { $latest = (new FeedModel())->public_latest_distinct(5); } catch (\Throwable $ex) { error_log('[home] latest posts: ' . $ex->getMessage()); }
 $ago = function ($utc) {
     $d = max(0, time() - strtotime($utc . ' UTC'));
     if ($d < 3600) { return max(1, (int) floor($d / 60)) . 'm ago'; }
@@ -127,6 +152,25 @@ if (!empty($founders)) {
             . '<span class="fc-row__id"><b>' . Sections::e($fc_name) . '</b><small>@' . Sections::e($fc['u_name']) . '</small></span></a></li>';
     }
     echo '</ul>';
+    echo Sections::close();
+}
+
+/* Trust area (heycatch D3.5, D3.1): the third-party listings that exist, and the creator count with an avatar grid once Proof::CREATOR_COUNT_MIN creators have public pages. */
+$proof = Proof::links('sx-proof'); $grid = '';
+try {
+    $cpm = new CreatorProfileModel(); $n_creators = $cpm->directory_total('', '');
+    if ($n_creators >= Proof::CREATOR_COUNT_MIN) {
+        $avs = '';
+        foreach ($cpm->directory('', '', 'active', 12, 0) as $c) {
+            $src = trim((string) ($c['avatar_webp_url'] ?? '')) !== '' ? (string) $c['avatar_webp_url'] : (string) $c['avatar_url'];
+            $avs .= '<li><img src="' . Sections::e($src) . '" alt="' . Sections::e((trim((string) $c['display_name']) !== '' ? (string) $c['display_name'] : '@' . $c['u_name'])) . '" width="44" height="44" loading="lazy"></li>';
+        }
+        $grid = '<div class="cc"><ul class="cc__avs">' . $avs . '</ul><p class="cc__n"><a href="/creators">' . number_format($n_creators) . ' creators with a public page</a></p></div>';
+    }
+} catch (\Throwable $ex) { error_log('[home] creator count: ' . $ex->getMessage()); }
+if ($proof !== '' || $grid !== '') {
+    echo Sections::open('alt', 'Where to find us');
+    echo $grid . $proof;
     echo Sections::close();
 }
 

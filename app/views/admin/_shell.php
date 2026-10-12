@@ -14,7 +14,7 @@ $adm_sections = array(
     array('growth', 'Growth', '/admin/growth', 0), array('analytics', 'Analytics', '/admin/analytics', 0), array('content', 'Content', '/admin/content', 0), array('system', 'System', '/admin/system', 0),
 );
 $adm_groups = array(
-    'growth'  => array(array('growth', 'Funnel', '/admin/growth'), array('leads', 'Leads', '/admin/leads'), array('founding', 'Founding', '/admin/founding'), array('affiliates', 'Affiliates', '/admin/affiliates')),
+    'growth'  => array(array('growth', 'Funnel', '/admin/growth'), array('leads', 'Leads', '/admin/leads'), array('founding', 'Founding', '/admin/founding'), array('affiliates', 'Affiliates', '/admin/affiliates'), array('testimonials', 'Testimonials', '/admin/testimonials')),
     'analytics' => array(array('analytics', 'Traffic', '/admin/analytics'), array('analytics_pages', 'Pages', '/admin/analytics?show=pages'), array('analytics_sources', 'Sources', '/admin/analytics?show=sources'),
                          array('analytics_conversions', 'Conversions', '/admin/analytics?show=conversions'), array('analytics_product', 'Product', '/admin/analytics?show=product'), array('analytics_creators', 'Creators', '/admin/analytics?show=creators')),
     'content' => array(array('content', 'Articles', '/admin/content'), array('scenes', 'Scenes', '/admin/scenes'), array('niches', 'Niches', '/admin/niches')),

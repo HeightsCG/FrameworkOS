@@ -358,3 +358,8 @@ a.adm-seg__b{ text-decoration:none; }
     .adm-kpi{ padding:16px 16px 0; }
     .adm-kpi__spark{ margin:auto -16px 0; }
 }
+/* Forms inside SweetAlert dialogs (testimonials) */
+.adm-form{ display:flex; flex-direction:column; gap:12px; text-align:left; }
+.adm-form__l{ display:flex; flex-direction:column; gap:6px; font-size:.8125rem; font-weight:600; color:var(--t2, #4b4b57); }
+.adm-form__in{ width:100%; padding:10px 12px; border:1px solid var(--line, #e4e4e7); border-radius:6px; font:inherit; font-weight:400; color:inherit; }
+.adm-form__in:focus{ outline:2px solid var(--acc-btn, #CD4C00); outline-offset:1px; border-color:var(--acc-btn, #CD4C00); }

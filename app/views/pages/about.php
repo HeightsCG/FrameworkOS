@@ -47,13 +47,21 @@ echo Sections::checks(array(
 echo '<p class="sx-p"><a href="/features/payouts">How payouts work</a></p>';
 echo Sections::close();
 
+// "Why we built this" (D3.3): Daniel's own words go in PagesController::WHY_WE_BUILT_THIS; the section stays hidden while either paragraph is empty.
+$why = array_filter(array_map('trim', (array) PagesController::WHY_WE_BUILT_THIS));
+if (count($why) === count(PagesController::WHY_WE_BUILT_THIS)) {
+    echo Sections::open('alt', 'Why we built this');
+    foreach ($why as $wp) { echo Sections::paragraphs($wp, 'sx-p'); }
+    echo Sections::close();
+}
+
 echo Sections::open('white', 'Who we are');
-echo '<p class="sx-p">' . Sections::e($site) . ' is a Heights Consulting Group LLC product. Questions about your account, billing or payouts go to <a href="/contact">our support team</a>.</p>';
+echo '<p class="sx-p">' . Sections::e($site) . ' is built and run by Heights Consulting Group LLC, led by <a href="' . Sections::e(SeoMeta::AUTHOR_PATH) . '">' . Sections::e(SeoMeta::AUTHOR_NAME) . '</a>, CEO of Heights Consulting Group and author of Cybersecurity in the Age of AI. Questions about your account, billing or payouts go to <a href="/contact">our support team</a>.</p>';
 echo Sections::close();
 
 // Editorial: who writes the blog, how articles are researched and checked, how corrections work, the latest pieces. The byline on every article links here.
 echo Sections::open('alt', 'Who writes the articles?', 'The ' . $site . ' team writes the blog: the people who build the product and answer its support tickets.', 'editorial');
-echo '<p class="sx-p">' . Sections::e('Articles are drafted with AI tools, checked automatically for facts and links, and reviewed by the ' . $site . ' team led by ' . SeoMeta::AUTHOR_NAME . ' before publishing.') . '</p>';
+echo '<p class="sx-p">' . Sections::e('Articles are drafted with AI tools, checked automatically for facts and links, and reviewed by the ' . $site . ' team before publishing.') . '</p>';   // the name appears on /about once, in Who We Are
 echo Sections::cards(array(
     array('icon' => 'search', 'title' => 'How articles are researched', 'text' => 'Every article starts from the facts sheet the product runs on. Plans, fees, limits and payout terms come from the live configuration, so an article cannot state a price the pricing page does not. Outside facts come from primary sources only: official documentation, government guidance, platform terms and published studies, each linked where it is used.'),
     array('icon' => 'check', 'title' => 'How articles are fact-checked', 'text' => 'A draft goes live only after automated checks pass. Every cited link is fetched and must resolve. Every fee and plan price must match the current plans. Income promises and invented people are rejected. A nightly check reruns the rules and flags any article that drifts when the plans change.'),

@@ -154,10 +154,12 @@ class Sections {
         $o = '<section class="sx hx"><div class="hx__in"><div class="hx__left">';
         $o .= $title === '' ? '<h1 class="hx__words" role="tablist">' . $words . '</h1>' : '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>';
         $o .= '<div class="hx__intro">';
-        if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e(self::tc($title)) . '</h1>'; }
+        if (!empty($h['eyebrow'])) { $o .= '<p class="hx__eyebrow">' . self::e($h['eyebrow']) . '</p>'; }   // the one line above the H1 (the fee wedge on the home page)
+        if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e($title) . '</h1>'; }   // the H1 as written, not title-cased: it is a sentence
         if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
         if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'hx__lead'); }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
+        if (!empty($h['under'])) { $o .= '<p class="hx__under-wrap">' . $h['under'] . '</p>'; }   // trusted HTML: one short line under the buttons
         return $o . '</div></div><div class="hx__mod">' . $panes . '</div></div></section>';
     }
     /** Plan strip under a hero: one link per plan. Each item: name, price (text), role, href. */
@@ -364,7 +366,10 @@ class Sections {
         foreach ($rows as $r) {
             $img = trim((string) ($r['image'] ?? '')); $flip = ($n++ % 2 === 1);
             $o .= '<div class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';   // a div, not <article>: extractors would take a card for the page's main content
-            if ($img !== '') { $o .= '<div class="sx-row__media"><img src="' . self::e($img) . '" alt="" loading="lazy" width="1024" height="768"></div>'; }
+            if ($img !== '') {   // 'image_alt' describes the picture; 'caption' is a visible line under it (a screenshot's "Example dashboard (demo account)")
+                $o .= '<figure class="sx-row__media"><img src="' . self::e($img) . '" alt="' . self::e((string) ($r['image_alt'] ?? '')) . '" loading="lazy" width="' . (int) ($r['image_w'] ?? 1024) . '" height="' . (int) ($r['image_h'] ?? 768) . '">'
+                    . (!empty($r['caption']) ? '<figcaption class="sx-figcap">' . self::e($r['caption']) . '</figcaption>' : '') . '</figure>';
+            }
             $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e(self::tc($r['title'])) . '</h3>' . self::paragraphs((string) $r['text'], 'sx-p') . '';
             if (!empty($r['points'])) { $o .= self::checks((array) $r['points']); }
             if (!empty($r['link'])) { $o .= '<a class="sx-more" href="' . self::e($r['link'][1]) . '">' . self::e($r['link'][0]) . '</a>'; }

@@ -34,6 +34,27 @@ class PagesController extends Controller {
         'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
     );
 
+    /** The fee wedge in one line, from config: what each selling plan keeps, against OnlyFans' sourced rate ("Keep 90% of every sale on Creator, 97% on Studio. OnlyFans keeps 20%."). */
+    public static function fee_wedge_sentence(): string {
+        $tiers = self::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $parts = array(); foreach ($tiers as $i => $t) { $parts[] = (100 - (int) $t['limits']['fee_percent']) . '% ' . ($i === 0 ? 'of every sale ' : '') . 'on ' . $t['name']; }
+        $of = self::COMPETITORS['onlyfans'] ?? null; $pct = $of ? (int) preg_replace('/[^0-9]/', '', (string) ($of['fee_short'] ?? '')) : 0;
+        return 'Keep ' . implode(', ', $parts) . '.' . ($pct > 0 ? ' OnlyFans keeps ' . $pct . '%.' : '');
+    }
+
+    /** "Why $49 upfront?" under the Creator card on /pricing (D4.4). No break-even figure anywhere on the site (Daniel 2026-10-12). */
+    public static function why_upfront_sentence(): string {
+        $tiers = self::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $low = reset($tiers); $high = end($tiers); if (!$low || !$high || $low === $high) { return ''; }
+        return 'Why $' . number_format((int) $low['price']) . ' upfront? It covers the studio, the scheduler and the AI inbox, and your fee drops to ' . (int) $high['limits']['fee_percent'] . '% on ' . $high['name'] . ' as you grow.';
+    }
+
+    /** "Why we built this" on /about (D3.3): two paragraphs for Daniel to write in his own words. The section is hidden until both are filled. */
+    const WHY_WE_BUILT_THIS = array(
+        '',   // TODO Daniel: paragraph one
+        '',   // TODO Daniel: paragraph two
+    );
+
     /** Where legal and privacy requests go (shown on /terms and /privacy). */
     const LEGAL_CONTACT = 'support@creatorlinkstudio.com';
 
@@ -547,22 +568,6 @@ class PagesController extends Controller {
     /** Home and payouts FAQ: how data and money are handled, in plain words. One string so the page, its schema and /features/payouts agree. */
     const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card. Plan charges and credit purchases are final and non-refundable.';
 
-    /**
-     * "The $49 Creator plan pays for itself once you sell $490 a month, compared with a platform taking 20%." for the
-     * cheapest selling plan: price divided by the fee gap between OnlyFans (COMPETITORS) and the plan (PlanTiers). '' when
-     * there is no gap to compute from.
-     */
-    public static function breakeven_sentence(): string {
-        $tiers = self::selling_tiers();
-        if (!$tiers) { return ''; }
-        usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        $t = $tiers[0];
-        if (!preg_match('/(\d+(?:\.\d+)?)%/', (string) (self::COMPETITORS['onlyfans']['fee_short'] ?? ''), $m)) { return ''; }
-        $gap = ((float) $m[1] - (float) ($t['limits']['fee_percent'] ?? 0)) / 100;
-        if ($gap <= 0 || (int) $t['price'] <= 0) { return ''; }
-        $sales = (int) ceil((int) $t['price'] / $gap);
-        return 'The $' . number_format((int) $t['price']) . ' ' . $t['name'] . ' plan pays for itself once you sell $' . number_format($sales) . ' a month, compared with a platform taking ' . rtrim(rtrim(number_format((float) $m[1], 2), '0'), '.') . '%.';
-    }
 
     /**
      * "What you get on Creator Link Studio": the shared section on compare and alternatives pages. Every line is a fact
@@ -688,7 +693,7 @@ class PagesController extends Controller {
         $low = reset($tiers); $high = end($tiers); $cross = '';
         if ($low && $high && $low !== $high) {
             $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
-            if ($d > 0) { $cross = ' ' . $high['name'] . ' costs less than ' . $low['name'] . ' once monthly sales pass about ' . $money(ceil(((int) $high['price'] - (int) $low['price']) / $d / 100) * 100) . '.'; }
+            if ($d > 0) { $cross = ''; }   // no break-even figure anywhere on the site (Daniel 2026-10-12): the table shows both plans, the reader runs the sum
         }
         $s0 = $sales[0]; $them_fee = $first_them ? $s0 * ((float) $first_them['percent']) / 100 + (float) ($first_them['monthly'] ?? 0) : 0;
         $us_fee = $low ? $s0 * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price'] : 0;
