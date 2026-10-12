@@ -37,7 +37,7 @@ $e = function ($s) { return Sections::e($s); };
     // What AI credits buy, from the same price list Billing shows (Plan::ai_price_list), so the page can't go stale.
     $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
 ?>
-<?php if (Proof::product_hunt_url() !== ''): ?><p class="sx-proof"><a class="sx-proof__a" href="<?php echo $e(Proof::product_hunt_url()); ?>" rel="noopener" target="_blank">See <?php echo $e(Main::site_name()); ?> on Product Hunt</a></p><?php endif; ?>
+<?php if (Proof::product_hunt_url() !== ''): ?><p class="sx-proof"><a class="sx-proof__a" href="<?php echo $e(Proof::product_hunt_url()); ?>" rel="noopener" target="_blank">See <?php echo $e(Main::site_name()); ?> on Product Hunt</a><?php if (Proof::launch_label() !== ''): ?> <span class="sx-proof__badge"><?php echo $e(Proof::launch_label()); ?></span><?php endif; ?></p><?php endif; ?>
 <p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();
