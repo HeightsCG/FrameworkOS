@@ -312,3 +312,7 @@ select.ct-input option{ background:var(--sx-grey-2); color:var(--sx-ink); }
 .alt-list .sx-card:first-child .sx-checks{ margin-bottom:16px; }
 .alt-list + .sx-note a{ color:var(--sx-ink); text-decoration:underline; text-decoration-color:rgba(255,255,255,.25); text-underline-offset:3px; }
 .shot img{ width:100%; height:auto; display:block; }
+
+/* Article "Keep reading": three related posts take three columns, never two plus one (site design review 2026-10-12). */
+.gd-list--3{ grid-template-columns:repeat(3, minmax(0,1fr)); column-gap:32px; }
+@media (max-width:900px){ .gd-list--3{ grid-template-columns:1fr; } }

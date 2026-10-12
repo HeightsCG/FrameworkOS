@@ -39,7 +39,7 @@ $day = gmdate('Y-m-d', strtotime(($a['published_at'] ?: $a['created_at']) . ' UT
 
 <?php if (!empty($related)): ?>
     <h2 class="gd-h2">Keep reading</h2>
-    <ol class="gd-list">
+    <ol class="gd-list<?php echo count($related) === 3 ? ' gd-list--3' : ''; ?>">
         <?php foreach ($related as $r): $img = trim((string) ($r['cover_image_url'] ?? '')); ?>
         <li class="gd-row<?php echo $img === '' ? ' gd-row--noimg' : ''; ?>">
             <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e(trim((string) ($r['cover_webp_url'] ?? '')) !== '' ? PublicThumbService::cover_small($r['cover_webp_url']) : $img); ?>" alt="<?php echo $e($r['title']); ?>" loading="lazy" decoding="async" width="160" height="120"></a><?php endif; ?>

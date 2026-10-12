@@ -12,7 +12,7 @@ echo Sections::panel_hero(array(
     'lead'    => Founding::SPOTS . ' founding spots, open until they are filled. Start the ' . $c['name'] . ' plan with your first month free. Keep the ' . $studio['name'] . ' platform fee of ' . $fee . ', instead of ' . $own . ', for as long as your ' . $c['name'] . ' plan stays active.',
     'buttons' => $open ? array(array('Claim a Founding Spot', $claim_url, 'primary', $claim_auth), array('See Pricing', '/pricing', 'secondary'))
                        : array(array('See Pricing', '/pricing', 'primary')),
-    'panel'   => Sections::pane($open ? 'Founding Spots Left' : 'All Founding Spots Are Taken', '', Sections::pane_rows(array(
+    'panel'   => Sections::pane($open ? 'The Founding Offer' : 'All Founding Spots Are Taken', '', Sections::pane_rows(array(
         array('First billing period on ' . $c['name'], 'Free'),
         array('Platform fee', $fee . ' while on ' . $c['name']),
         array('After the free period', $price . ' / month'),

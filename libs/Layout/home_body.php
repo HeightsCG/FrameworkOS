@@ -168,7 +168,7 @@ try {
         $grid = '<div class="cc"><ul class="cc__avs">' . $avs . '</ul><p class="cc__n"><a href="/creators">' . number_format($n_creators) . ' creators with a public page</a></p></div>';
     }
 } catch (\Throwable $ex) { error_log('[home] creator count: ' . $ex->getMessage()); }
-if ($proof !== '' || $grid !== '') {
+if ($grid !== '') {   // a lone listing link made a near-empty band (design review 2026-10-12); the footer carries the Product Hunt link until the creator grid exists
     echo Sections::open('alt', 'Where to find us');
     echo $grid . $proof;
     echo Sections::close();

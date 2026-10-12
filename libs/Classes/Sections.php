@@ -448,7 +448,8 @@ class Sections {
 
     /** Alternating image/text rows. Each row: title, text, points[] (optional), image (url, optional), link (array(label, href), optional). */
     public static function rows(array $rows): string {
-        $o = '<div class="sx-rows">'; $n = 0;
+        $noimg = count(array_filter($rows, function ($r) { return trim((string) ($r['image'] ?? '')) === ''; }));   // text-only rows sit in a grid: three (or six) fill three columns, so no row is left alone under a pair
+        $o = '<div class="sx-rows' . ($noimg === count($rows) && count($rows) > 0 && count($rows) % 3 === 0 ? ' sx-rows--3' : '') . '">'; $n = 0;
         foreach ($rows as $r) {
             $img = trim((string) ($r['image'] ?? '')); $flip = isset($r['flip']) ? (bool) $r['flip'] : ($n % 2 === 1); $n++;   // 'flip' puts the picture on the right; sections with one row each alternate by setting it
             $o .= '<div class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';   // a div, not <article>: extractors would take a card for the page's main content
