@@ -185,22 +185,22 @@ class PagesController extends Controller {
             ),
         ),
         'stan' => array(
-            'name' => 'Stan', 'sells' => 'courses, bookings and digital products', 'url' => 'https://stan.store', 'checked' => '2026-09-25', 'type' => 'bio',
+            'name' => 'Stan Store', 'sells' => 'courses, bookings and digital products', 'url' => 'https://stan.store', 'checked' => '2026-09-25', 'type' => 'bio',
             'fee_short' => '$29 or $99/mo, no transaction fee',   // hero panel only; the table shows the sourced 'fee' row
-            'fee_math' => array(array('label' => 'Stan Creator ($29/mo, no transaction fee)', 'percent' => 0, 'monthly' => 29, 'source' => 'https://stan.store/blog/stan-store-pricing/')),   // checked 2026-10-11: "plans start at $29/month with zero transaction fees"
-            'summary' => 'Stan (Stan Store) is a creator storefront for selling courses, digital products, bookings, subscriptions and communities from a link-in-bio page. It offers two paid plans and no free plan.',
-            'fee'       => array('value' => 'Creator $29/mo or $300/yr; Creator Pro $99/mo or $948/yr. Stan charges no transaction fee on sales; card processing fees still apply.', 'source' => 'https://stan.store/blog/stan-store-pricing/'),
+            'fee_math' => array(array('label' => 'Stan Store Creator ($29/mo, no transaction fee)', 'percent' => 0, 'monthly' => 29, 'source' => 'https://stan.store/blog/stan-store-pricing/')),   // checked 2026-10-11: "plans start at $29/month with zero transaction fees"
+            'summary' => 'Stan Store (Stan Store) is a creator storefront for selling courses, digital products, bookings, subscriptions and communities from a link-in-bio page. It offers two paid plans and no free plan.',
+            'fee'       => array('value' => 'Creator $29/mo or $300/yr; Creator Pro $99/mo or $948/yr. Stan Store charges no transaction fee on sales; card processing fees still apply.', 'source' => 'https://stan.store/blog/stan-store-pricing/'),
             'payout'    => array('value' => 'Creators cash out their full available balance (minimum $10) from the Income tab to their connected bank account. Funds arrive in 24-48 hours after cashing out, once sales have finished processing (2-7 business days in the US).', 'source' => 'https://help.stan.store/article/75-how-do-i-cash-out-inside-stan'),   // checked 2026-10-11
             'content'   => array('value' => 'Digital products, courses, bookings, recurring subscriptions, communities and lead magnets on Creator; payment plans, upsells, discount codes, affiliates and email broadcasts on Creator Pro. An AI Twin subscription product is in beta.', 'source' => 'https://stan.store/blog/stan-store-pricing/'),
-            'socials'   => array('value' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan product, helps create and repurpose content for LinkedIn, Instagram, X, Threads and Substack.', 'source' => 'https://help.stan.store/article/438-stan-store-vs-stanley'),
+            'socials'   => array('value' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan Store product, helps create and repurpose content for LinkedIn, Instagram, X, Threads and Substack.', 'source' => 'https://help.stan.store/article/438-stan-store-vs-stanley'),
             'ai'        => array('value' => 'AI Twin (beta), a subscribable AI version of the creator trained on their content. Stan AutoDM automates Instagram replies, and Stanley is a separate AI content product.', 'source' => 'https://help.stan.store/article/424-ai-twin-product-type-beta'),
             'ownership' => array('value' => 'Yes. Customer and order data can be downloaded as a CSV from the Income tab.', 'source' => 'https://help.stan.store/article/219-i-added-additional-fields-to-my-checkout-how-do-i-access-this-information'),
             'best_for'  => 'Coaches and educators who sell courses, bookings and digital products and prefer a flat monthly fee with no transaction fee.',
             'strengths' => array('No transaction fee on either plan', 'Courses, bookings and subscriptions included on the base plan', 'Built-in Instagram auto-DMs'),
             'faq'       => array(
-                array('q' => 'Does Stan take a percentage of sales?', 'a' => 'No. Stan charges no transaction fee on either plan; you pay $29 or $99 a month, and card processing fees still apply.'),
-                array('q' => 'How do I get paid on Stan?', 'a' => 'You cash out your full available balance (minimum $10) from the Income tab to your bank account, and it arrives within 24-48 hours.'),
-                array('q' => 'Does Stan post to my social accounts?', 'a' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan product, helps create and repurpose social content.'),
+                array('q' => 'Does Stan Store take a percentage of sales?', 'a' => 'No. Stan Store charges no transaction fee on either plan; you pay $29 or $99 a month, and card processing fees still apply.'),
+                array('q' => 'How do I get paid on Stan Store?', 'a' => 'You cash out your full available balance (minimum $10) from the Income tab to your bank account, and it arrives within 24-48 hours.'),
+                array('q' => 'Does Stan Store post to my social accounts?', 'a' => 'Stan Store plans do not list post publishing. Stanley, a separately priced Stan Store product, helps create and repurpose social content.'),
             ),
         ),
         'eromify' => array(   // type 'ai': an AI generation studio, not a selling platform, so it stays off the best-of groups
@@ -795,10 +795,10 @@ class PagesController extends Controller {
     public static function best_faq(): array {
         $c = self::COMPETITORS; $us = self::our_facts(); $site = Main::site_name();
         return array(
-            array('q' => 'Which creator platform takes the lowest fee?', 'a' => 'It depends on what you sell. Ko-fi Free charges no service fee on one-time tips and 5% on memberships and shop sales. Stan charges no transaction fee but costs $29 or $99 a month. Subscription platforms like OnlyFans and Fansly keep about 20%. ' . $site . ' takes ' . $us['fee'] . '. Card processing fees apply on top almost everywhere.'),
-            array('q' => 'Which platforms publish to my social accounts?', 'a' => 'Linktree\'s Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts. ' . $site . ' publishes to nine networks from one studio. Patreon, Ko-fi, Fansly, OnlyFans, Beacons and Stan do not publish automatic posting to your social accounts.'),
+            array('q' => 'Which creator platform takes the lowest fee?', 'a' => 'It depends on what you sell. Ko-fi Free charges no service fee on one-time tips and 5% on memberships and shop sales. Stan Store charges no transaction fee but costs $29 or $99 a month. Subscription platforms like OnlyFans and Fansly keep about 20%. ' . $site . ' takes ' . $us['fee'] . '. Card processing fees apply on top almost everywhere.'),
+            array('q' => 'Which platforms publish to my social accounts?', 'a' => 'Linktree\'s Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts. ' . $site . ' publishes to nine networks from one studio. Patreon, Ko-fi, Fansly, OnlyFans, Beacons and Stan Store do not publish automatic posting to your social accounts.'),
             array('q' => 'Can I sell memberships and pay-per-view on the same platform?', 'a' => 'Subscription platforms such as OnlyFans and Fansly combine subscriptions with pay-per-view posts and messages. Patreon combines memberships with digital products. ' . $site . ' sells memberships, pay-per-view posts, bundles, services and events from one page.'),
-            array('q' => 'Can I export my audience if I leave?', 'a' => 'Patreon, Ko-fi, Linktree, Beacons and Stan all let you download your members, supporters or customers as a CSV. OnlyFans and Fansly do not publish an export. ' . $site . ': ' . $us['ownership'] . '.'),
+            array('q' => 'Can I export my audience if I leave?', 'a' => 'Patreon, Ko-fi, Linktree, Beacons and Stan Store all let you download your members, supporters or customers as a CSV. OnlyFans and Fansly do not publish an export. ' . $site . ': ' . $us['ownership'] . '.'),
             array('q' => 'Can I use more than one platform?', 'a' => 'Yes. Many creators keep a subscription platform, a link-in-bio page and a membership platform at once. The simplest setup is one page that links or sells everything, with your socials pointing to it.'),
         );
     }
