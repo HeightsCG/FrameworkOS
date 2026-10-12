@@ -37,7 +37,7 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$opts = getopt('', array('fix-fee', 'fix-rules', 'dry-run', 'rewrite', 'all', 'quiet', 'slug:', 'id:', 'format:'));   // --format=<SeoDrafter::FORMATS key> with --rewrite forces the format   // --slug x / --slug=x both work
+$opts = getopt('', array('fix-fee', 'fix-rules', 'dry-run', 'rewrite', 'all', 'quiet', 'slug:', 'id:', 'format:', 'style'));   // --style: let --rewrite also take articles that only have style notes   // --format=<SeoDrafter::FORMATS key> with --rewrite forces the format   // --slug x / --slug=x both work
 if (isset($opts['rewrite']) && empty($opts['slug']) && empty($opts['id']) && !isset($opts['all'])) { echo "--rewrite needs --slug=<slug> or --id=<n> (or --all to rewrite every flagged article, one Claude call each)\n"; exit(1); }   // --slug=<slug> / --id=<n> limit the article pass to one article
 $site = Main::site_name();
 CronRuns::start('seo_fact_check');
@@ -162,10 +162,12 @@ foreach ($rows as $row) {
         }
         foreach ($rule_issues as $e) { $rule_counts['after'][$kind($e)] = ($rule_counts['after'][$kind($e)] ?? 0) + 1; }
     }
+    list($rule_issues, $style_issues) = SeoDrafter::split_errors($rule_issues);   // style notes are reported, never a reason to spend a rewrite (unless --style)
     if (!empty($rule_issues)) { $flagged[] = '/blog/' . $a['slug'] . ' (rules): ' . implode('; ', $rule_issues); }
+    if (!empty($style_issues)) { $flagged[] = '/blog/' . $a['slug'] . ' (style): ' . implode('; ', $style_issues); }
     $shape_issue = (string) ($shape[(string) $a['slug']]['reason'] ?? '');
     if ($shape_issue !== '') { $flagged[] = '/blog/' . $a['slug'] . ' (shape): ' . $shape_issue; }
-    $needs_rewrite = isset($opts['rewrite']) && (!empty($rule_issues) || $shape_issue !== '');   // --rewrite also takes articles that break the content rules or carry the corpus shape
+    $needs_rewrite = isset($opts['rewrite']) && (!empty($rule_issues) || $shape_issue !== '' || (isset($opts['style']) && !empty($style_issues)));   // --rewrite takes hard rule failures and the corpus shape; style only with --style
     if (empty($issues) && !$needs_rewrite && !(isset($opts['fix-fee']) && SeoDrafter::fix_fee_glue($text) !== $text)) { continue; }
     if (isset($opts['fix-fee'])) {
         $body = (string) $a['body_md']; $faq = (string) $a['faq']; $meta = (string) $a['meta_description'];
@@ -185,7 +187,7 @@ foreach ($rows as $row) {
         if (!$kw) { $kw = array('id' => 0, 'keyword' => (string) $a['target_keyword'], 'cluster' => (string) $a['cluster'], 'volume' => 0); }
         $note = 'Bring every plan name, price and fee in line with the current plans: ' . PagesController::plan_price_sentence() . ' ' . PagesController::fee_sentence() . ' Remove any retired plan.'
             . (!empty($rule_issues)
-                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', $rule_issues) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the fee or plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
+                ? ' The article also fails these rules, which the new version must satisfy: ' . implode('; ', array_merge($rule_issues, $style_issues)) . '. Change whatever that needs: add citations from the source list where a fact needs backing (at least two, to two different sites, only URLs that exist), open each paragraph and each section by naming its subject, and state the fee or plan prices at most once, in your own words, only if the topic needs them. Keep the topic, the slug and the facts; structure and wording may change.'
                 : ' Keep everything else as it is.');
         $avoid = (array) ($shape[(string) $a['slug']]['avoid'] ?? array());
         if ($shape_issue !== '') { $note .= ' The blog reads as one template, so this piece changes shape: ' . (!empty($avoid['faq']) ? 'no FAQ this time (return faq as an empty array). ' : '') . (isset($avoid['sections']) ? 'Use the number of sections the request gives, not ' . (int) $avoid['sections'] . '. ' : '') . 'Follow the heading style and length rhythm the request gives, and do not open the piece the way it opens now.'; }
@@ -195,8 +197,9 @@ foreach ($rows as $row) {
         if ($streak >= 2 && isset($opts['all'])) { echo date('c'), " two rewrites in a row failed: stopping the run so a bad rule cannot burn every article (fix the rule, rerun --rewrite --all)\n"; break; }
         if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
             $flagged = array_values(array_filter($flagged, function ($f) use ($a) { return strpos($f, '/blog/' . $a['slug'] . ' ') !== 0 && strpos($f, '/blog/' . $a['slug'] . ':') !== 0; }));
-            $fresh = $articles->get((int) $a['id']); $left = $fresh ? $rules($fresh) : array();
+            $fresh = $articles->get((int) $a['id']); list($left, $left_style) = SeoDrafter::split_errors($fresh ? $rules($fresh) : array());
             if (!empty($left)) { $flagged[] = '/blog/' . $a['slug'] . ' (rules, after rewrite): ' . implode('; ', $left); }
+            if (!empty($left_style)) { $flagged[] = '/blog/' . $a['slug'] . ' (style): ' . implode('; ', $left_style); }
         }
         continue;
     }

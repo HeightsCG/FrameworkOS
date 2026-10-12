@@ -187,6 +187,23 @@ class SeoDrafter {
         return array_map('trim', $m[1]);
     }
 
+    /**
+     * Style rules are ADVISORY (2026-10-12, after paid rewrites were thrown away over word choice): a draft that passes
+     * every factual check publishes on its last attempt even with these left, and they are kept on the article
+     * (rewrite_note "Style notes: ...") and listed by the nightly report as "(style)". The prompt and the retry feedback
+     * still ask for them, so most drafts satisfy them; none of them is worth a wasted Claude call.
+     */
+    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
+
+    public static function is_soft(string $error): bool { return (bool) preg_match(self::SOFT_RULES, $error); }
+
+    /** Split validate() output: [hard errors, style notes]. */
+    public static function split_errors(array $errors): array {
+        $hard = array(); $soft = array();
+        foreach ($errors as $e) { if (self::is_soft((string) $e)) { $soft[] = $e; } else { $hard[] = $e; } }
+        return array($hard, $soft);
+    }
+
     /** The opening paragraph answers the title directly in this many words (g_answer_first); the check allows ANSWER_SLACK either side, the prompt asks for the band itself. */
     const ANSWER_WORDS = array(40, 60);
     const ANSWER_SLACK = 6;
@@ -1364,6 +1381,9 @@ class SeoDrafter {
         foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ': ' . $t['title'] . "\n"; }
         if (empty($targets)) { $user .= "(none published yet, link to the product pages instead)\n"; }
         $user .= "Link exactly once to the feature page $feature, where it fits the topic.\n";
+        $stock = array(); try { foreach (array_keys(self::stock_phrases($existing_article_id)) as $sh) { if (!self::protected_phrase($sh)) { $stock[] = $sh; } if (count($stock) >= 40) { break; } } } catch (\Throwable $e) {}
+        if ($stock) { $user .= "\n\nPhrases other articles already use; do not write any of them, word the point differently: \"" . implode('", "', $stock) . '"'; }
+        $user .= "\n\nBefore you answer, check your own draft against this list and fix anything that misses: (1) the opening paragraph is 40 to 60 words, count them; (2) the first word of every paragraph is a noun or a name, never it, its, they, them, their, this, that, these, those, he, she or such; (3) at least two \"## \" headings end with a question mark and the sentence under each answers it; (4) no paragraph has more than six sentences; (5) at least two exact product facts from the context, one with a number; (6) at least two citations to two different sources on the list; (7) none of the phrases listed above appears.";
         $user .= "\nContext (the only facts you may use):\n" . self::context();
         if ($note !== '') { $user .= "\n\nEditor's note for this rewrite: $note"; }
         if ($existing) {
@@ -1389,6 +1409,12 @@ class SeoDrafter {
                 }
             }
             if (empty($errors)) { break; }
+            if (self::split_errors($errors)[0] === array() && !preg_grep('/already covered|Claude:|not valid JSON/', $errors)) { break; }   // every factual check passed: publish now with the style notes attached; style is never worth a second call
+        }
+        $style_notes = array();
+        if (!empty($errors) && $data !== null) {   // only style notes left after the last attempt: the draft publishes and carries them
+            list($hard, $soft) = self::split_errors($errors);
+            if ($hard === array() && !preg_grep('/already covered|Claude:|not valid JSON/', $errors)) { $style_notes = $soft; $errors = array(); }
         }
         if ($dry_run && $data !== null && $existing_article_id === 0) {   // keep what came back, as a draft, for reading
             $aid = $articles->create(self::article_fields($data, $keyword, $cluster, $model, 'draft'));
@@ -1415,6 +1441,7 @@ class SeoDrafter {
             return array('ok' => false, 'article_id' => 0, 'error' => implode('; ', $errors));
         }
         $fields = self::article_fields($data, $keyword, $cluster, $model, 'review');
+        $fields['rewrite_note'] = $style_notes ? 'Style notes: ' . mb_substr(implode('; ', $style_notes), 0, 900) : null;   // advisory, shown in admin and the nightly report
         if ($existing && $existing['status'] === 'published') { unset($fields['status']); }   // never takes a live article offline
         if ($existing_article_id > 0) { $articles->update_fields($existing_article_id, $fields); $aid = $existing_article_id; }
         else { $aid = $articles->create($fields); }
