@@ -26,6 +26,7 @@ $edits = array(
         'Routes also combine. Sketch in a prompt-only tool, train once the look is fixed, and keep a local setup for the rare shot nothing else will produce.' => 'Routes also combine for many creators. Sketch in a prompt-only tool, train a LoRA once the look is fixed, and keep a local setup for the rare shot nothing else will produce.',
     ),
     'online-creator-platform' => array(
+        'Find your own crossover point, then recheck the number every quarter instead of once.' => 'Your own crossover point comes from the same sum, rechecked every quarter instead of once.',
         'Work a hypothetical page to find the crossover.' => 'A hypothetical page finds the crossover.',
         'Export the subscriber list and download the media before you cancel anything, since' => 'The subscriber list and the media come out before you cancel anything, since',
         'Write every item you want to sell over the next two quarters on a single page' => 'Write every item you want to sell over the coming two quarters on a single page',
@@ -34,6 +35,7 @@ $edits = array(
         'then revisit the choice a quarter later.' => 'then revisit the choice after one quarter.',
     ),
     'how-to-pick-a-creator-monetization-platform' => array(
+        'Costs for processing cards sit outside both figures. The pairing matters to you because' => 'Costs for processing cards sit outside both figures for every creator. The pairing matters to you because',
         'keeps the arithmetic later short enough to finish in one sitting.' => 'keeps the arithmetic short enough to finish in one sitting.',
         'Take rates are the share a platform keeps from each sale, and a lower take rate does not reliably make a platform cheaper.' => 'Take rates are the share a platform keeps from each sale, and a lower take rate does not reliably make a platform cheaper for a creator.',
         'and the one you move to later, and' => 'and the one you move to afterwards, and',
