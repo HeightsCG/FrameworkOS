@@ -6,7 +6,7 @@ class PostNotifyJob {
         $creator_id = (int) ($payload['creator_id'] ?? 0);
         $post_id    = (int) ($payload['post_id'] ?? 0);
         if ($creator_id <= 0 || $post_id <= 0) { throw new InvalidArgumentException('creator_id and post_id required'); }
-        $n = PostNotifier::deliver($creator_id, $post_id, PostNotifier::audience_ids($creator_id));
+        $n = PostNotifier::deliver($creator_id, $post_id, PostNotifier::audience_ids($creator_id, $post_id));
         return 'notified ' . $n;
     }
 }

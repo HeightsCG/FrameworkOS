@@ -39,6 +39,13 @@ $t = $good; $t['excerpt'] = 'Write the list, publish it, then leave it alone for
 check('subtitle "publish it" is noted (whole sentence, not the first three words)', count($r) === 1 && strpos($r[0], 'the subtitle (excerpt)') === 0, implode('; ', $r));
 $t = $good; $t['excerpt'] = 'The gap that matters is the one between the top two tiers.';
 check('relative "that" in the subtitle is allowed', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
+// parse_json repairs the two ways a long reply breaks: raw newlines inside strings, and inner double quotes the model forgot to escape
+$j = '{"title": "A "quoted" word and a "second one" here", "body_md": "Line one' . "\n" . 'Line two with "inner quotes" and a tab' . "\t" . 'end", "faq": [{"q": "Why "this"?", "a": "Because."}]}';
+$d = SeoDrafter::parse_json($j);
+check('parse_json repairs inner quotes and raw newlines', is_array($d) && $d['title'] === 'A "quoted" word and a "second one" here' && strpos($d['body_md'], "Line one\nLine two") === 0 && $d['faq'][0]['q'] === 'Why "this"?', var_export($d, true));
+check('parse_json still returns null for a reply cut off mid-way', SeoDrafter::parse_json(substr($j, 0, 40)) === null);
+check('parse_json leaves well-formed JSON alone', SeoDrafter::parse_json('{"a": "x\\"y", "b": [1, "two"]}') === array('a' => 'x"y', 'b' => array(1, 'two')));
+check('json_error_hint names a cut-off reply', strpos(SeoDrafter::json_error_hint('{"title": "abc'), 'does not end with }') !== false);
 $t = $good; $t['title'] = str_repeat('x', 61);                         check('title > 60 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['meta_description'] = str_repeat('x', 156);              check('meta > 155 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['meta_description'] = str_repeat('x', 109);              check('meta < 110 rejected', SeoDrafter::validate($t) !== array());

@@ -1,7 +1,8 @@
 <?php
 /**
  * "New content from creators you follow": when a post goes live, every follower and
- * active subscriber gets a creator_activity notification. Small audiences are told
+ * active subscriber gets a creator_activity notification; a subscribers-only post is told to
+ * active subscribers alone (Daniel, 2026-10-12), and the email never carries the post's image. Small audiences are told
  * in-request; larger ones through the job queue (PostNotifyJob) so publishing stays fast.
  */
 class PostNotifier {
@@ -22,7 +23,7 @@ class PostNotifier {
             // free, approved media gets its public cacheable webp copy (PublicThumbService), off the request.
             try { (new DatabaseJobQueue())->dispatch('public_thumb', array('post_id' => $post_id), 'public_thumb:' . $post_id); } catch (\Throwable $e) { error_log('[public_thumb] post ' . $post_id . ': ' . $e->getMessage()); }
             try { IndexNow::creator($creator_id); } catch (\Throwable $e) { error_log('[indexnow] post ' . $post_id . ': ' . $e->getMessage()); }   // their page changed: tell search engines
-            $ids = self::audience_ids($creator_id);
+            $ids = self::audience_ids($creator_id, $post_id);
             if (empty($ids)) { return; }
             if (count($ids) > self::INLINE_MAX && class_exists('DatabaseJobQueue')) {
                 (new DatabaseJobQueue())->dispatch('post_notify', array('creator_id' => $creator_id, 'post_id' => $post_id), 'post_notify:' . $post_id);
@@ -34,9 +35,16 @@ class PostNotifier {
         }
     }
 
-    /** Followers ∪ active subscribers, never the creator. */
-    public static function audience_ids($creator_id): array {
-        return (new BroadcastsModel())->recipient_ids((int) $creator_id, array('all'));
+    /** Followers ∪ active subscribers, never the creator; for a subscribers-only post, active subscribers only. */
+    public static function audience_ids($creator_id, $post_id = 0): array {
+        return (new BroadcastsModel())->recipient_ids((int) $creator_id, array(self::segment_for((int) $post_id)));
+    }
+
+    /** The broadcast segment a post is announced to: 'subscribers' when its audience is subscribers, else 'all'. */
+    public static function segment_for($post_id): string {
+        if ((int) $post_id <= 0) { return 'all'; }
+        $post = (new PostsModel())->get_by_id((int) $post_id);
+        return ($post && (string) ($post['audience'] ?? 'free') === 'subscribers') ? 'subscribers' : 'all';
     }
 
     public static function deliver($creator_id, $post_id, array $ids): int {
@@ -52,7 +60,10 @@ class PostNotifier {
         // Only people not told yet: a retried job (or a second publish) never repeats the notice.
         $posts = new PostsModel();
         $fresh = array_values(array_filter($ids, function ($uid) use ($posts, $post_id) { return $posts->claim_post_notice((int) $post_id, (int) $uid); }));
-        $image = PostEmailImage::url($post);   // the post's photo or video frame (blurred when it is gated or adult)
-        return empty($fresh) ? 0 : Notify::many($fresh, 'creator_activity', $title, $body, $link, 'fa-photo-film', false, $image);
+        if ($aud === 'subscribers') {   // a job queued with the whole audience, or an older queue row: never tell a non-subscriber
+            $subs = array_flip((new BroadcastsModel())->recipient_ids((int) $creator_id, array('subscribers')));
+            $fresh = array_values(array_filter($fresh, function ($uid) use ($subs) { return isset($subs[(int) $uid]); }));
+        }
+        return empty($fresh) ? 0 : Notify::many($fresh, 'creator_activity', $title, $body, $link, 'fa-photo-film', false, '');   // no image in the email (2026-10-12): the caption, the creator and a link only
     }
 }

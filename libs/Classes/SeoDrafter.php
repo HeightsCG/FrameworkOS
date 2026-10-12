@@ -738,7 +738,11 @@ class SeoDrafter {
             if ($in) {
                 if ($esc) { $esc = false; $out .= $c; continue; }
                 if ($c === '\\') { $esc = true; $out .= $c; continue; }
-                if ($c === '"') { $in = false; $out .= $c; continue; }
+                if ($c === '"') {   // closing quote only when what follows is JSON structure; otherwise a quote the model forgot to escape ("the "identity block" of the prompt")
+                    $j = $i + 1; while ($j < $n && ($t[$j] === ' ' || $t[$j] === "\n" || $t[$j] === "\r" || $t[$j] === "\t")) { $j++; }
+                    if ($j >= $n || strpos(',:}]', $t[$j]) !== false) { $in = false; $out .= $c; continue; }
+                    $out .= '\\"'; continue;
+                }
                 if ($c === "\n") { $out .= '\n'; continue; }
                 if ($c === "\r") { continue; }
                 if ($c === "\t") { $out .= '\t'; continue; }
@@ -748,6 +752,15 @@ class SeoDrafter {
             $out .= $c;
         }
         return $out;
+    }
+
+    /** Why a reply did not parse: the decoder's message and the text around the first failing position, for the log and the dump. */
+    public static function json_error_hint(string $raw): string {
+        $t = trim(preg_replace('/\s*```$/', '', preg_replace('/^```(?:json)?\s*/i', '', trim($raw))));
+        json_decode($t, true); $msg = json_last_error_msg();
+        if (!preg_match('/^\s*\{/', $t)) { return 'reply does not start with {'; }
+        if (substr(rtrim($t), -1) !== '}') { return $msg . '; reply does not end with } (cut off after ' . strlen($t) . ' bytes)'; }
+        return $msg;
     }
 
     /** Accepts a raw model reply; strips ``` fences and returns the decoded object or null. */
@@ -1426,14 +1439,15 @@ class SeoDrafter {
         if ($existing) {
             $user .= "\n\nCurrent draft to revise (keep what works, apply the editor's note, return the full article):\nTitle: " . (string) $existing['title'] . "\n\n" . (string) $existing['body_md'];
         }
-        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = '';
+        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = ''; $max_tokens = 8000;
         for ($attempt = 1; $attempt <= ($dry_run ? 1 : self::DRAFT_ATTEMPTS); $attempt++) {
             $msg = $user . ($attempt > 1 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
-            $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), 8000, 240, 'medium');
+            $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), $max_tokens, 240, 'medium');
             if (empty($r['ok'])) { $errors = array('Claude: ' . (string) ($r['error'] ?? 'request failed')); continue; }
             $raw = (string) $r['text'];
+            if ((string) ($r['stop_reason'] ?? '') === 'max_tokens') { $errors = array('Claude: reply cut off at the ' . $max_tokens . '-token limit'); $max_tokens = min(16000, $max_tokens * 2); continue; }   // a long article with a table and a FAQ outgrew the limit: not the model's fault, so no instruction, just a bigger limit
             $data = self::parse_json($r['text']);
-            if ($data === null) { $errors = array('reply was not valid JSON'); continue; }
+            if ($data === null) { $errors = array('reply was not valid JSON (' . self::json_error_hint($raw) . '); return one JSON object with every double quote inside a string escaped as \\"'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
             if ($existing_article_id === 0) { $base = $data['slug']; $i = 2; while ((new SeoArticlesModel())->slug_exists($data['slug'])) { $data['slug'] = $base . '-' . $i++; } }
             $data['cluster'] = $cluster; $data['intent'] = $intent; $data['format'] = $format;
