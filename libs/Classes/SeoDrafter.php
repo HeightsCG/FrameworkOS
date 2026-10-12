@@ -213,7 +213,7 @@ class SeoDrafter {
     const ANSWER_WORDS = array(40, 60);
     const ANSWER_SLACK = 6;
     /** Pronouns that may not appear anywhere in a paragraph's first sentence or in the subtitle (relative "that" allowed). */
-    const OPENER_PRONOUNS = '/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i';
+    const OPENER_PRONOUNS = '/\b(it|they|them|this|these|those|he|she|such)\b/i';   // Daniel's list (2026-10-12): its/their are possessives, not back-references
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
@@ -507,6 +507,13 @@ class SeoDrafter {
     }
 
     /** Five-word phrases of a text, lowercased, punctuation dropped, as a set. */
+    /** The audit counts phrases with names and numbers removed, so the stock check does the same: "the Creator plan at $49 a month" and "... at $199 a month" are one phrase. */
+    public static function stock_shingles(string $text): array {
+        $t = preg_replace('/\$?\d[\d,.]*%?/', ' ', (string) $text);
+        try { $t = preg_replace('/\b' . preg_quote(Main::site_name(), '/') . '\b/i', ' ', $t); } catch (\Throwable $e) {}
+        return self::shingles($t);
+    }
+
     public static function shingles(string $text, int $n = 5): array {
         $words = preg_split('/\s+/', trim(strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $text)))), -1, PREG_SPLIT_NO_EMPTY);
         $out = array();
@@ -525,7 +532,7 @@ class SeoDrafter {
      * of published articles and product pages (they are the link text), and anything with the brand name.
      */
     /** The only phrases the stock check leaves alone: the site name and anything with a figure (the audit removes names and numbers before counting). Facts and titles are reworded, not exempted (2026-10-12). */
-    public static function unavoidable_phrase(string $sh): bool { return preg_match('/\d/', $sh) || stripos($sh, Main::site_name()) !== false; }
+    public static function unavoidable_phrase(string $sh): bool { return stripos($sh, Main::site_name()) !== false; }   // numbers are already stripped by stock_shingles()
 
     /** @deprecated kept for reports: the wider exemption used until 2026-10-12. */
     public static function protected_phrase(string $sh): bool {
@@ -584,7 +591,7 @@ class SeoDrafter {
     /** The phrases shared by more than STOCK_SHARE of the given bodies (pure, for tests and reports). */
     public static function stock_phrases_in(array $bodies): array {
         $counts = array(); $n = count($bodies);
-        foreach ($bodies as $b) { foreach (array_keys(self::shingles((string) $b)) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; } }
+        foreach ($bodies as $b) { foreach (array_keys(self::stock_shingles((string) $b)) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; } }
         $out = array();
         if ($n >= 2) { foreach ($counts as $sh => $k) { if ($k >= 2 && $k / $n > self::STOCK_SHARE) { $out[$sh] = $k / $n; } } }
         return $out;
@@ -598,7 +605,7 @@ class SeoDrafter {
             foreach ((new SeoArticlesModel())->published_markdown() as $row) {
                 if ((int) $row['id'] === $except_id || strpos((string) $row['slug'], 'demo-') === 0) { continue; }   // the dev database carries identical demo-* copies; they are not corpus
                 $n++;
-                foreach (array_keys(self::shingles((string) $row['body_md'])) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; }
+                foreach (array_keys(self::stock_shingles((string) $row['body_md'])) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; }
             }
         } catch (\Throwable $e) { return array(); }
         $out = array();
@@ -616,7 +623,7 @@ class SeoDrafter {
         if ($stock === array()) { return array(); }
         $topic = self::tokens($keyword . ' ' . Main::site_name());
         $hits = array();
-        foreach (array_keys(self::shingles($body)) as $sh) {
+        foreach (array_keys(self::stock_shingles($body)) as $sh) {
             if (!isset($stock[$sh])) { continue; }
             $topical = 0; foreach (explode(' ', $sh) as $w) { if (in_array(self::stem($w), $topic, true)) { $topical++; } }
             if ($topical >= 2 || self::unavoidable_phrase($sh)) { continue; }   // the phrase is the topic itself, or carries the site name or a figure (the audit strips names and numbers)
@@ -1439,13 +1446,13 @@ class SeoDrafter {
         if ($existing) {
             $user .= "\n\nCurrent draft to revise (keep what works, apply the editor's note, return the full article):\nTitle: " . (string) $existing['title'] . "\n\n" . (string) $existing['body_md'];
         }
-        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = ''; $max_tokens = 8000;
+        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = ''; $max_tokens = 16000;   // the model's reasoning counts against this ceiling: 8000 cut the two longest articles off mid-sentence (prod, 2026-10-12)
         for ($attempt = 1; $attempt <= ($dry_run ? 1 : self::DRAFT_ATTEMPTS); $attempt++) {
             $msg = $user . ($attempt > 1 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
-            $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), $max_tokens, 240, 'medium');
+            $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), $max_tokens, 420, 'medium');
             if (empty($r['ok'])) { $errors = array('Claude: ' . (string) ($r['error'] ?? 'request failed')); continue; }
             $raw = (string) $r['text'];
-            if ((string) ($r['stop_reason'] ?? '') === 'max_tokens') { $errors = array('Claude: reply cut off at the ' . $max_tokens . '-token limit'); $max_tokens = min(16000, $max_tokens * 2); continue; }   // a long article with a table and a FAQ outgrew the limit: not the model's fault, so no instruction, just a bigger limit
+            if ((string) ($r['stop_reason'] ?? '') === 'max_tokens') { $errors = array('Claude: reply cut off at the ' . $max_tokens . '-token limit'); $max_tokens = min(32000, $max_tokens * 2); continue; }   // a long article with a table and a FAQ outgrew the limit: not the model's fault, so no instruction, just a bigger limit
             $data = self::parse_json($r['text']);
             if ($data === null) { $errors = array('reply was not valid JSON (' . self::json_error_hint($raw) . '); return one JSON object with every double quote inside a string escaped as \\"'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
