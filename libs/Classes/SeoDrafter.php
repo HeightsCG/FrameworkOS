@@ -178,6 +178,11 @@ class SeoDrafter {
                 . (self::$stripped_external ? '; links to domains not on the list were removed: ' . implode(', ', array_slice(array_unique(self::$stripped_external), 0, 4)) : '');
         }
         $err = array_merge($err, self::prose_errors($body, $title));
+        $ex = trim((string) ($a['excerpt'] ?? ''));
+        if ($ex !== '') {   // the subtitle is the first text on the page: same rule as every paragraph's first sentence
+            $ex_first = preg_split('/(?<=[.!?])\s+/', $ex)[0];
+            if (preg_match(self::OPENER_PRONOUNS, $ex_first, $m) || preg_match('/^(That)\b|(?:^|[,;:]\s+|\b(?:and|but|so|because|yet|or)\s+)(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $ex_first, $m)) { $err[] = 'the subtitle (excerpt) names its subject outright and carries no pronoun that points back ("' . ($m[1] !== '' ? $m[1] : ($m[2] ?? 'that')) . '"): "' . mb_substr($ex, 0, 60) . '"'; }
+        }
         return array_merge($err, self::stock_phrase_errors($body, (int) ($a['id'] ?? 0), (string) ($a['target_keyword'] ?? '')));
     }
 
@@ -193,7 +198,7 @@ class SeoDrafter {
      * (rewrite_note "Style notes: ...") and listed by the nightly report as "(style)". The prompt and the retry feedback
      * still ask for them, so most drafts satisfy them; none of them is worth a wasted Claude call.
      */
-    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
+    const SOFT_RULES = '/^(stock phrasing|the first sentence of a paragraph|the subtitle \(excerpt\)|the opening paragraph must be a direct answer|at least 2 "## " headings|paragraph has \d+ sentences|sentences average|the first paragraph must define|step-by-step guide:|checklist:|comparison:|cost breakdown:|troubleshooting:|glossary entry:|the platform fee is stated in|plan prices are stated in|body must be \d+-\d+ words|faq is either empty)/';
 
     public static function is_soft(string $error): bool { return (bool) preg_match(self::SOFT_RULES, $error); }
 
@@ -207,8 +212,8 @@ class SeoDrafter {
     /** The opening paragraph answers the title directly in this many words (g_answer_first); the check allows ANSWER_SLACK either side, the prompt asks for the band itself. */
     const ANSWER_WORDS = array(40, 60);
     const ANSWER_SLACK = 6;
-    /** A back-referring pronoun counts only in the first this-many words of a paragraph's first sentence. */
-    const OPENER_WORDS = 3;
+    /** Pronouns that may not appear anywhere in a paragraph's first sentence or in the subtitle (relative "that" allowed). */
+    const OPENER_PRONOUNS = '/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i';
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
@@ -239,8 +244,8 @@ class SeoDrafter {
             $first_sentence = preg_split('/(?<=[.!?])\s+/', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p))[0];
             // "that" counts only as a back-reference (sentence start, or "that is/means/..."), never as the relative pronoun in "a price that fans pay"
             // a pronoun in the opening words of the first sentence can only point at an earlier paragraph; later in the sentence it points inside it ("sell it together")
-            $opening = implode(' ', array_slice(preg_split('/\s+/', trim($first_sentence)), 0, self::OPENER_WORDS));
-            if ($openers < 6 && (preg_match('/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i', $opening, $m) || preg_match('/^(That)\b|\b(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $opening, $m))) {
+            $opening = $first_sentence;   // the whole first sentence (Daniel's rule 2026-10-12); relative "that" is allowed below
+            if ($openers < 6 && (preg_match(self::OPENER_PRONOUNS, $opening, $m) || preg_match('/^(That)\b|(?:^|[,;:]\s+|\b(?:and|but|so|because|yet|or)\s+)(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $opening, $m))) {
                 $m[1] = (string) ($m[1] !== '' ? $m[1] : ($m[2] ?? 'that')); $err[] = 'the first sentence of a paragraph names its subject outright and carries no pronoun that points back ("' . $m[1] . '"): "' . mb_substr($p, 0, 60) . '"'; $openers++; }   // tightened 2026-10-12 (g_self_contained)
             $n = self::sentence_count($p);
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
@@ -519,6 +524,10 @@ class SeoDrafter {
      * Phrases that are never stock: the product facts the article is required to state (product_facts regexes), the titles
      * of published articles and product pages (they are the link text), and anything with the brand name.
      */
+    /** The only phrases the stock check leaves alone: the site name and anything with a figure (the audit removes names and numbers before counting). Facts and titles are reworded, not exempted (2026-10-12). */
+    public static function unavoidable_phrase(string $sh): bool { return preg_match('/\d/', $sh) || stripos($sh, Main::site_name()) !== false; }
+
+    /** @deprecated kept for reports: the wider exemption used until 2026-10-12. */
     public static function protected_phrase(string $sh): bool {
         if (self::$protected_cache === null) {
             $titles = array();
@@ -547,6 +556,30 @@ class SeoDrafter {
     }
     /** Set false in tests: the stock check otherwise reads every published article on the dev database. */
     public static $check_stock = true;
+
+    /** Chain overlapping five-word phrases into the longer runs they came from ("cash out to your bank on request with no platform hold"), keeping the input order of the first phrase of each run. */
+    public static function stock_runs(array $phrases): array {
+        $by_head = array(); $by_tail = array(); foreach ($phrases as $p) { $w = explode(' ', $p); $by_head[implode(' ', array_slice($w, 0, 4))][] = $p; $by_tail[implode(' ', array_slice($w, 1, 4))][] = $p; }
+        $used = array(); $runs = array();
+        foreach ($phrases as $p) {
+            if (isset($used[$p])) { continue; }
+            $used[$p] = true; $run = explode(' ', $p);
+            for ($i = 0; $i < 40; $i++) {   // extend to the right while an unused phrase starts with the run's last four words
+                $tail = implode(' ', array_slice($run, -4)); $next = null;
+                foreach ($by_head[$tail] ?? array() as $cand) { if (!isset($used[$cand])) { $next = $cand; break; } }
+                if ($next === null) { break; }
+                $used[$next] = true; $run[] = substr(strrchr(' ' . $next, ' '), 1);
+            }
+            for ($i = 0; $i < 40; $i++) {   // and to the left while an unused phrase ends with the run's first four words
+                $head = implode(' ', array_slice($run, 0, 4)); $prev = null;
+                foreach ($by_tail[$head] ?? array() as $cand) { if (!isset($used[$cand])) { $prev = $cand; break; } }
+                if ($prev === null) { break; }
+                $used[$prev] = true; array_unshift($run, strstr($prev, ' ', true));
+            }
+            $runs[] = implode(' ', $run);
+        }
+        return $runs;
+    }
 
     /** The phrases shared by more than STOCK_SHARE of the given bodies (pure, for tests and reports). */
     public static function stock_phrases_in(array $bodies): array {
@@ -586,7 +619,7 @@ class SeoDrafter {
         foreach (array_keys(self::shingles($body)) as $sh) {
             if (!isset($stock[$sh])) { continue; }
             $topical = 0; foreach (explode(' ', $sh) as $w) { if (in_array(self::stem($w), $topic, true)) { $topical++; } }
-            if ($topical >= 2 || self::protected_phrase($sh)) { continue; }   // the phrase is the topic itself, a required product fact, or a title used as link text
+            if ($topical >= 2 || self::unavoidable_phrase($sh)) { continue; }   // the phrase is the topic itself, or carries the site name or a figure (the audit strips names and numbers)
             $hits[$sh] = $stock[$sh];
             if (count($hits) >= 6) { break; }
         }
@@ -1350,6 +1383,7 @@ class SeoDrafter {
         $feature = self::feature_for($cluster);
         $targets = self::link_targets($cluster, $existing_article_id);
         $intent = self::intent_for($keyword, $cluster); $len = self::LENGTHS[$intent];
+        if ($format === '' && !empty($existing['format']) && isset(self::FORMATS[(string) $existing['format']])) { $format = (string) $existing['format']; }   // a rewrite keeps the layout it was given (a restructured glossary stays a glossary); only an explicit --format changes it (2026-10-12)
         if ($format === '' || !isset(self::FORMATS[$format])) {   // the keyword's format, never the one the last published article used
             $last = ''; try { $last = (string) ($articles->last_published_format()); } catch (\Throwable $e) {}
             $format = self::format_for($keyword, $cluster, $last);
@@ -1365,14 +1399,17 @@ class SeoDrafter {
         // the structure is drawn per draft (section count by length band, heading style, length rhythm, FAQ or none), so the corpus never settles on one layout
         $section_bands = array('quick' => array(1, 3), 'howto' => array(2, 5), 'guide' => array(3, 7));
         $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]);
+        if (!empty($avoid['sections_exact'])) { $sections = (int) $avoid['sections_exact']; }   // a restructure names its section count outright
         for ($i = 0; isset($avoid['sections']) && $sections === (int) $avoid['sections'] && $i < 8; $i++) { $sections = random_int($section_bands[$intent][0], $section_bands[$intent][1]); }
         if (isset($avoid['sections']) && $sections === (int) $avoid['sections']) { $sections = $sections > $section_bands[$intent][0] ? $sections - 1 : $sections + 1; }
         $heading_styles = array('short noun phrases ("The first paid post")', 'the exact questions a reader would type, ending in a question mark', 'imperative steps ("Pick the entry price first")',
                                 'a mix: one or two questions, the rest plain statements', 'numbered stages ("1. Choose the tier")', 'contrasts ("Memberships or pay-per-view")', 'the reader\'s situation ("When your audience is under a hundred people")');
-        $rhythms = array('the first section short and the rest longer', 'one long section and the rest short', 'roughly even sections', 'the longest section in the middle', 'sections that get shorter towards the end');
+        $rhythms = array('the first section short and the rest longer', 'one long section and the rest short', 'roughly even sections', 'the longest section in the middle', 'sections that get shorter towards the end', 'two long sections and the rest one paragraph each', 'alternating one-paragraph and four-paragraph sections');
+        if (!empty($avoid['rhythm'])) { $rhythms = array((string) $avoid['rhythm']); }
         $faq_hint = (empty($avoid['faq']) && random_int(1, 10) <= 3) ? 'End with a FAQ of ' . random_int(2, 5) . ' real follow-up questions.' : 'No FAQ.';
         $user .= "\nLength: about $target words of body_md (a " . $len[2] . '; stay between ' . $len[0] . ' and ' . $len[1] . ').';
         $user .= "\nShape: " . $shapes[random_int(0, count($shapes) - 1)] . '.';
+        $user .= "\nSections: exactly $sections \"## \" headings" . (!empty($avoid['sections_exact']) ? ', not one more or fewer' : '') . '.';   // the count was drawn but never told to the model before 2026-10-12, so every rewrite kept its old layout
         $user .= "\nFormat: " . self::FORMATS[$format]['label'] . '. Structure: ' . self::FORMATS[$format]['structure'];
         $user .= "\nHeadings written as " . $heading_styles[random_int(0, count($heading_styles) - 1)] . ' where the format allows, with ' . $rhythms[random_int(0, count($rhythms) - 1)] . '. At least two headings are questions a creator asks.';
         $user .= "\n" . $faq_hint;
@@ -1381,9 +1418,9 @@ class SeoDrafter {
         foreach ($targets as $t) { $user .= '- /blog/' . $t['slug'] . ': ' . $t['title'] . "\n"; }
         if (empty($targets)) { $user .= "(none published yet, link to the product pages instead)\n"; }
         $user .= "Link exactly once to the feature page $feature, where it fits the topic.\n";
-        $stock = array(); try { foreach (array_keys(self::stock_phrases($existing_article_id)) as $sh) { if (!self::protected_phrase($sh)) { $stock[] = $sh; } if (count($stock) >= 40) { break; } } } catch (\Throwable $e) {}
-        if ($stock) { $user .= "\n\nPhrases other articles already use; do not write any of them, word the point differently: \"" . implode('", "', $stock) . '"'; }
-        $user .= "\n\nBefore you answer, check your own draft against this list and fix anything that misses: (1) the opening paragraph is 40 to 60 words, count them; (2) the first word of every paragraph is a noun or a name, never it, its, they, them, their, this, that, these, those, he, she or such; (3) at least two \"## \" headings end with a question mark and the sentence under each answers it; (4) no paragraph has more than six sentences; (5) at least two exact product facts from the context, one with a number; (6) at least two citations to two different sources on the list; (7) none of the phrases listed above appears.";
+        $stock = array(); try { $all = self::stock_phrases($existing_article_id); arsort($all); foreach (array_keys($all) as $sh) { if (!self::unavoidable_phrase($sh)) { $stock[] = $sh; } } $stock = array_slice(self::stock_runs($stock), 0, 60); } catch (\Throwable $e) {}   // every repeated phrase the audit counts, chained into readable runs, most shared first (2026-10-12: product facts and titles included, worded afresh each time)
+        if ($stock) { $user .= "\n\nPhrases other articles already use; do not write any of them, word the point differently (a product fact keeps its numbers but changes its wording; a link to another article uses a short descriptive anchor of two to five words, never that article's title): \"" . implode('", "', $stock) . '"'; }
+        $user .= "\n\nBefore you answer, check your own draft against this list and fix anything that misses: (1) the opening paragraph is 40 to 60 words, count them; (2) the first sentence of every paragraph, and the subtitle, contain none of these words anywhere: it, its, they, them, their, this, these, those, he, she, such (write the noun instead); (3) at least two \"## \" headings end with a question mark and the sentence under each answers it; (4) no paragraph has more than six sentences; (5) at least two exact product facts from the context, one with a number; (6) at least two citations to two different sources on the list; (7) none of the phrases listed above appears.";
         $user .= "\nContext (the only facts you may use):\n" . self::context();
         if ($note !== '') { $user .= "\n\nEditor's note for this rewrite: $note"; }
         if ($existing) {

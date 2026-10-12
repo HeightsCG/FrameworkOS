@@ -17,7 +17,7 @@ $e = function ($s) { return Sections::e($s); };
 <?php endif; ?>
 <div class="sx-plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); ?>
-    <article class="sx-plan<?php echo $hi ? ' sx-plan--hi' : ''; ?>">
+    <div class="sx-plan<?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
         <p class="sx-plan__line"><?php echo $e($t['tagline']); ?></p>
@@ -33,7 +33,7 @@ $e = function ($s) { return Sections::e($s); };
         <?php endif; ?>
         <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
         <div class="sx-plan__cta"><a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo ($t['key'] === PlanTiers::FREE_KEY) ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start with <?php echo $e($t['name']); ?></a></div>
-    </article>
+    </div>
 <?php endforeach; ?>
 </div>
 <?php

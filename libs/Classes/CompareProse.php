@@ -11,9 +11,15 @@
 class CompareProse {
 
     /** The one line that replaces the shared product blocks every page used to repeat. */
-    public static function links_line(): string {
-        return Sections::open('white') . '<p class="sx-p">Everything about ' . Sections::e(Main::site_name()) . ' itself lives on its own pages: <a href="/features">features</a>, <a href="/pricing">pricing and limits</a> and <a href="/features/payouts">payouts</a>.</p>' . Sections::close();
+    public static function links_line(string $voice = ''): string {
+        $t = (string) (self::VOICE[$voice]['links'] ?? '');
+        if ($t === '') { return Sections::open('white') . '<p class="sx-p">Everything about ' . Sections::e(Main::site_name()) . ' itself lives on its own pages: <a href="/features">features</a>, <a href="/pricing">pricing and limits</a> and <a href="/features/payouts">payouts</a>.</p>' . Sections::close(); }
+        return Sections::prose('white', '', array(str_replace(array('({/features})', '({/pricing})', '({/features/payouts})'), array('(/features)', '(/pricing)', '(/features/payouts)'), $t)));
     }
+
+    /** One voice string for the page ('' when the competitor has none). */
+    public static function voice(string $slug, string $key): string { return (string) (self::VOICE[$slug][$key] ?? ''); }
+    public static function voice_list(string $slug, string $key): array { return (array) (self::VOICE[$slug][$key] ?? array()); }
 
     /** Placeholders -> config values. */
     public static function vars(): array {
@@ -52,34 +58,205 @@ class CompareProse {
      * The worked scenario, computed from the competitor's sourced rate (fee_math) and our plans: what a typical creator on
      * that platform keeps there and here on the same gross, with card processing named as separate everywhere.
      */
-    public static function scenario(array $c, int $gross, string $what): array {
+    /**
+     * The worked scenario, computed from the competitor's sourced rate (fee_math) and our plans. The figures are placeholders
+     * filled into a wording that is written per competitor (VOICE[slug]['scenario']); pages without a voice use the default
+     * wording. Card processing is named as separate everywhere.
+     */
+    public static function scenario(array $c, int $gross, string $what, string $voice = ''): array {
         $site = Main::site_name(); $money = function ($n) { return '$' . number_format((float) $n, 0); };
-        $paras = array();
-        $opts = (array) ($c['fee_math'] ?? array());
-        $lines = array();
-        foreach ($opts as $o) {
-            $fee = $gross * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0);
-            $lines[] = $o['label'] . ' keeps ' . $money($fee) . ' of that' . ((float) ($o['monthly'] ?? 0) > 0 ? ' (' . (int) $o['percent'] . '% plus the plan price)' : ' (' . (int) $o['percent'] . '%)') . ', so ' . $money($gross - $fee) . ' is left before card processing, by its [own pricing page](' . $o['source'] . ').';
-        }
-        $ours = array(); $tiers = PagesController::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
-        foreach ($tiers as $t) {
-            $fee = $gross * ((int) $t['limits']['fee_percent']) / 100 + (int) $t['price'];
-            $ours[] = 'the ' . $t['name'] . ' plan takes ' . (int) $t['limits']['fee_percent'] . '% plus $' . number_format((int) $t['price']) . ' a month, ' . $money($fee) . ' in total, leaving ' . $money($gross - $fee);
-        }
-        $paras[] = 'Take a creator on ' . $c['name'] . ' with ' . $money($gross) . ' a month in ' . $what . '. The numbers are round and hypothetical, chosen to show the arithmetic rather than to promise anything.';
-        if ($lines) { $paras[] = implode(' ', $lines); }
-        $paras[] = 'On ' . $site . ' the same ' . $money($gross) . ' works like this: ' . implode('; ', $ours) . '. Card processing is charged separately on every option above, so the gap between platforms is the platform fee and the plan price, nothing else.';
-        $low = reset($tiers); $high = end($tiers);
-        if ($low && $high && $low !== $high) {
-            $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
-            if ($d > 0) {
-                $cross = ceil(((int) $high['price'] - (int) $low['price']) / $d / 100) * 100;
-                $pick = $gross < $cross ? $low['name'] : $high['name'];
-                $paras[] = 'The two ' . $site . ' plans cross at about ' . $money($cross) . ' a month in sales. At ' . $money($gross) . ' this ' . $c['name'] . ' creator is ' . ($gross < $cross ? 'below' : 'above') . ' that line, so ' . $pick . ' is the cheaper plan for them, by ' . $money(abs(($gross * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price']) - ($gross * ((int) $high['limits']['fee_percent']) / 100 + (int) $high['price']))) . ' a month. The plan also sets the included AI credits, storage and AI influencers, so heavy use of the AI tools can tip the choice before the fee does.';
+        $v = array('{site}' => $site, '{gross}' => $money($gross), '{what}' => $what, '{name}' => (string) $c['name']);
+        $opts = array_values((array) ($c['fee_math'] ?? array()));
+        foreach (array(0, 1) as $i) {
+            $o = $opts[$i] ?? null; $k = $i === 0 ? 'them' : 'them2';
+            if ($o) {
+                $fee = $gross * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0);
+                $v += array('{' . $k . '}' => (string) $o['label'], '{' . $k . '_pct}' => rtrim(rtrim(number_format((float) $o['percent'], 2), '0'), '.') . '%', '{' . $k . '_fee}' => $money($fee), '{' . $k . '_left}' => $money($gross - $fee), '{' . $k . '_src}' => (string) $o['source'], '{' . $k . '_monthly}' => $money((float) ($o['monthly'] ?? 0)));
             }
         }
-        return $paras;
+        $tiers = PagesController::selling_tiers(); usort($tiers, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
+        $low = reset($tiers); $high = end($tiers);
+        foreach (array('c' => $low, 's' => $high) as $k => $t) {
+            if (!$t) { continue; }
+            $fee = $gross * ((int) $t['limits']['fee_percent']) / 100 + (int) $t['price'];
+            $v += array('{' . $k . '_name}' => (string) $t['name'], '{' . $k . '_pct}' => (int) $t['limits']['fee_percent'] . '%', '{' . $k . '_price}' => $money((int) $t['price']), '{' . $k . '_total}' => $money($fee), '{' . $k . '_left}' => $money($gross - $fee));
+        }
+        if ($low && $high && $low !== $high) {
+            $d = ((int) $low['limits']['fee_percent'] - (int) $high['limits']['fee_percent']) / 100;
+            $cross = $d > 0 ? ceil(((int) $high['price'] - (int) $low['price']) / $d / 100) * 100 : 0;
+            $v += array('{cross}' => $money($cross), '{pick}' => $gross < $cross ? $low['name'] : $high['name'], '{other}' => $gross < $cross ? $high['name'] : $low['name'], '{side}' => $gross < $cross ? 'below' : 'above',
+                        '{diff}' => $money(abs(($gross * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price']) - ($gross * ((int) $high['limits']['fee_percent']) / 100 + (int) $high['price']))));
+        }
+        $tpl = (array) (self::VOICE[$voice]['scenario'] ?? self::DEFAULT_SCENARIO);
+        if (count($opts) < 1) { $tpl = array_values(array_filter($tpl, function ($t) { return strpos($t, '{them') === false; })); }
+        if (count($opts) < 2) { $tpl = array_values(array_filter($tpl, function ($t) { return strpos($t, '{them2') === false; })); }
+        $out = array();
+        foreach ($tpl as $t) { $out[] = strtr($t, $v); }
+        return $out;
     }
+
+    /** The generic scenario wording (alternatives, best-of and monetize pages). */
+    const DEFAULT_SCENARIO = array(
+        'Take a creator on {name} with {gross} a month in {what}. The numbers are round and hypothetical, chosen to show the arithmetic rather than to promise anything.',
+        '{them} keeps {them_fee} of that ({them_pct}), so {them_left} is left before card processing, by its [own pricing page]({them_src}).',
+        'On {site} the same {gross} works like this: the {c_name} plan takes {c_pct} plus {c_price} a month, {c_total} in total, leaving {c_left}; the {s_name} plan takes {s_pct} plus {s_price} a month, {s_total} in total, leaving {s_left}. Card processing is charged separately on every option above, so the gap between platforms is the platform fee and the plan price, nothing else.',
+        'The two {site} plans cross at about {cross} a month in sales. At {gross} this {name} creator is {side} that line, so {pick} is the cheaper plan for them, by {diff} a month. The plan also sets the included AI credits, storage and AI influencers, so heavy use of the AI tools can tip the choice before the fee does.',
+    );
+
+    /**
+     * Per-competitor wording for every templated spot on a compare page (the scenario, the fee table lead and note, the
+     * "why choose" card, the table caption, the hero tail, the "both at once" FAQ answer, the links line, the closing band).
+     * Written separately per page so no two compare pages share phrasing once names and numbers are removed.
+     */
+    const VOICE = array(
+        'fanvue' => array(
+            'scenario' => array(
+                'Picture a Fanvue creator clearing {gross} a month from {what}; round figures, invented for the arithmetic, not a forecast.',
+                'Fanvue retains {them_pct} of gross revenue under its standard rate, which is {them_fee} here, leaving {them_left} before the card processor takes its part ([Fanvue legal]({them_src})).',
+                'Move the same {gross} to {site} and the sums change shape: {c_name} charges {c_pct} of sales plus {c_price} a month, so {c_total} goes out and {c_left} stays; {s_name} charges {s_pct} plus {s_price}, so {s_total} goes out and {s_left} stays. Card processing still sits on top of each line.',
+                'Between the two {site} plans the break-even is near {cross} a month. This creator is {side} it, so {pick} wins by {diff} a month on fee alone; the extra AI credits, storage and influencer slots on {s_name} are the reason to pick it earlier.',
+            ),
+            'fee_lead' => 'Put a month of real sales through both fee structures and the difference is plain: on {s0}, Fanvue keeps {them_fee}, while the {c_name} plan here costs {us_fee} with its plan price counted in.',
+            'fee_note' => 'Figures are rounded and hypothetical. Fanvue\'s rate is the one on its legal page, linked in the row; our rows add the plan price to the fee so nothing is hidden in the comparison.',
+            'why_text' => 'Your fans pay for more than a subscription, and you would rather post once than nine times.',
+            'why_points' => array('Memberships, pay-per-view, bundles, services and events from the same page', 'One studio that publishes every post to nine networks, paid version behind the lock', 'An inbox that drafts replies in your voice and attaches paid media'),
+            'checked' => 'The Fanvue column was checked on {date} against the pages linked in each row.',
+            'hero_tail' => 'Below: the feature table with sources, who each platform suits, what a move involves, and the fee on real numbers.',
+            'both' => 'Yes. {site} cross-posts to Fanvue from the same studio, so the Fanvue page keeps getting your posts while fans find the new one. Run both for a billing cycle, put the new link in every bio, and let the old renewals lapse on their own.',
+            'links' => 'The product itself is described on three pages rather than repeated here: the [features]({/features}), [pricing and limits]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Build the page while your Fanvue page keeps running, then move your fans at their own pace.',
+        ),
+        'onlyfans' => array(
+            'scenario' => array(
+                'Say an OnlyFans creator brings in {gross} a month across {what}. Treat every figure as illustrative.',
+                'OnlyFans deducts {them_pct} from each fan payment under its own terms, {them_fee} on this month, which leaves {them_left} before payment processing ([terms]({them_src})).',
+                'Here the same month costs less as it grows: {c_name} takes {c_pct} and {c_price} a month, {c_total} all in, with {c_left} left over; {s_name} takes {s_pct} and {s_price}, {s_total} all in, with {s_left} left over. Processing is extra in every case, on both platforms.',
+                '{pick} is the better of our two plans at this volume, by {diff} a month; the lines cross around {cross}, and above that {s_name}\'s lower share outweighs its higher plan price.',
+            ),
+            'fee_lead' => 'The flat 20% is easy to remember and expensive at scale: on {s0} a month OnlyFans keeps {them_fee}; the {c_name} plan here comes to {us_fee} including the plan price.',
+            'fee_note' => 'Hypothetical round sums. OnlyFans\' rate is the figure in its own terms of service, linked in the row; our rows include the monthly plan.',
+            'why_text' => 'You want the page, the audience list and the media to be yours, and your socials to feed it automatically.',
+            'why_points' => array('Export your audience and your media whenever you choose', 'Five ways to sell on one page, not one subscription', 'Every post published to nine networks from the studio'),
+            'checked' => 'OnlyFans facts: terms page checked October 11, 2026; third-party reporting dated {date} where the site blocks automated access.',
+            'hero_tail' => 'Here: what each platform charges and sells, with sources, who OnlyFans suits, what leaving involves, and the arithmetic on a typical page.',
+            'both' => 'Yes, and most creators do for a full billing cycle. Keep posting on OnlyFans, add the new address to every bio and pinned post, and give the new page something OnlyFans cannot sell so fans have a reason to follow.',
+            'links' => 'Our own side is documented once, on the [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}) pages, rather than repeated on each comparison.',
+            'cta' => 'Keep your OnlyFans page live while you set up; fans move when the new page gives them a reason.',
+        ),
+        'patreon' => array(
+            'scenario' => array(
+                'Consider a Patreon creator with {gross} a month in {what}, round numbers chosen for the sums.',
+                'Patreon\'s {them_pct} platform fee for pages published after August 4, 2025 takes {them_fee}, leaving {them_left}; payment processing, currency conversion and payout fees come off after that ([fees overview]({them_src})).',
+                'On {site}, {c_name} also takes {c_pct}, plus its {c_price} plan: {c_total}, leaving {c_left}. {s_name} takes {s_pct} plus {s_price}: {s_total}, leaving {s_left}. Card processing is separate here as well, so the only new cost against Patreon is the plan price.',
+                'At {gross} the cheaper of our plans is {pick}, by {diff}; the crossover sits near {cross} a month, where {s_name}\'s {s_pct} begins to pay for its price.',
+            ),
+            'fee_lead' => 'Patreon and the {c_name} plan share a 10% rate, so the fee table is really about the plan price against Patreon\'s processing and payout charges: on {s0}, Patreon keeps {them_fee} before those extras and {c_name} costs {us_fee} with everything in.',
+            'fee_note' => 'Round numbers. Patreon\'s rate is from its fees overview, linked in the row; its processing, conversion and payout fees are not in the figure, ours are not either, because card processing is separate on both.',
+            'why_text' => 'Your members want more than tiers: paid posts, bundles, booked sessions, live events.',
+            'why_points' => array('Tiers plus pay-per-view, bundles, services and events on one page', 'Posts published to nine networks instead of a share link', 'A DM agent that drafts replies you approve'),
+            'checked' => 'Patreon\'s rows were verified on {date}; every value links to the Patreon help article it came from.',
+            'hero_tail' => 'What follows: the sourced table, who Patreon serves best, how a move works, the trade-offs, and a worked month.',
+            'both' => 'Yes. Export your member list from Patreon, rebuild the tiers here with the same names and prices, and keep Patreon open for one billing cycle so nobody loses access mid-month.',
+            'links' => 'Details of our plans, features and payout terms live on their own pages: [features]({/features}), [pricing]({/pricing}), [payouts]({/features/payouts}).',
+            'cta' => 'Rebuild your tiers here in an afternoon and let members re-join at their own pace.',
+        ),
+        'fansly' => array(
+            'scenario' => array(
+                'A Fansly creator with {gross} a month from {what} is a fair example; the numbers are made up for the arithmetic.',
+                'Fansly\'s {them_pct} comes to {them_fee} on that month and leaves {them_left}, before card processing ([Fansly]({them_src})).',
+                'The same {gross} on {site}: {c_name} is {c_pct} of sales plus {c_price}, {c_total}, with {c_left} remaining; {s_name} is {s_pct} plus {s_price}, {s_total}, with {s_left} remaining. Add card processing to all three.',
+                '{pick} is cheaper for this creator by {diff} a month. The plans swap places around {cross} in monthly sales; past that point {s_name}\'s smaller share covers its price.',
+            ),
+            'fee_lead' => 'Both platforms are measured on the same month of sales here: Fansly\'s {them_pct} takes {them_fee} of {s0}, and {c_name} with its plan price takes {us_fee}.',
+            'fee_note' => 'Hypothetical totals. Fansly\'s rate is the one on its creator application page, linked in the row; our rows include the monthly plan price.',
+            'why_text' => 'Streams are your strength, and you want the sessions, the posts and the sales on a page of your own.',
+            'why_points' => array('Ticketed live sessions in a built-in video room', 'Pay-per-view, bundles, services and memberships together', 'Publishing to nine networks instead of relying on one feed'),
+            'checked' => 'Fansly values checked {date}; the source link beside each one is the page it was read from.',
+            'hero_tail' => 'On this page: the sourced feature table, who Fansly fits, the move, the trade-offs, and one creator\'s month in numbers.',
+            'both' => 'Yes. Keep streaming and posting on Fansly through a billing cycle while the new page fills, use Fansly\'s own messages to point subscribers at it, and let renewals there lapse as people move.',
+            'links' => 'Everything on our side of the table is set out once, on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Set up your tiers and your first session here while Fansly keeps running.',
+        ),
+        'kofi' => array(
+            'scenario' => array(
+                'Imagine a Ko-fi creator taking {gross} a month in {what}, with round figures standing in for real ones.',
+                'Ko-fi Free charges {them_pct} on memberships, shop sales and commissions, {them_fee} on this month, so {them_left} reaches the creator\'s own payment account, less processing ([Ko-fi help]({them_src})).',
+                'The {site} version: {c_name} takes {c_pct} plus {c_price}, {c_total} in all, leaving {c_left}; {s_name} takes {s_pct} plus {s_price}, {s_total} in all, leaving {s_left}. Card processing is extra on each.',
+                'So at this volume Ko-fi is cheaper, and among our plans {pick} is the one to compare it with, {diff} apart from {other}. Our plans cross near {cross} a month; a Ko-fi creator moves for the formats and the publishing, not for the fee.',
+            ),
+            'fee_lead' => 'Ko-fi wins the fee column at this size: {them_fee} on {s0} against {us_fee} for {c_name} with its plan price; the table is here so the trade is visible, not hidden.',
+            'fee_note' => 'Round numbers. Ko-fi\'s rates come from its own help article, linked in the row; ours include the monthly plan.',
+            'why_text' => 'Tips were the start; now you sell memberships, services and events and want them published for you.',
+            'why_points' => array('Services with a fixed price and delivery window, not open commissions', 'Pay-per-view, bundles, memberships and events on one page', 'A studio that posts to nine networks and an inbox that sells'),
+            'checked' => 'Ko-fi rows verified {date} from the help-centre articles linked beside them.',
+            'hero_tail' => 'Here you will find the sourced table, who Ko-fi is right for, how a move works, what you give up, and the sums for a typical page.',
+            'both' => 'Yes, and many creators keep Ko-fi as the tip jar. Download the supporter list, rebuild memberships and shop items here, and point the bios at the new page when it has something to sell.',
+            'links' => 'Our features, plans and payout rules are documented on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Keep the tip jar, move the memberships: build the page and send your supporters the link.',
+        ),
+        'linktree' => array(
+            'scenario' => array(
+                'Take a Linktree creator selling {gross} a month of {what}, in round hypothetical figures.',
+                'On Linktree\'s free plan the {them_pct} fee is {them_fee} and {them_left} remains; on {them2}, the fee is {them2_fee} and {them2_left} remains, before card processing and the per-payout charge ([Linktree help]({them_src})).',
+                'On {site} the month looks like this: {c_name}, {c_pct} plus {c_price}, costs {c_total} and leaves {c_left}; {s_name}, {s_pct} plus {s_price}, costs {s_total} and leaves {s_left}. Card processing applies to every option.',
+                'For product sales alone Linktree Premium is the cheapest line in the table, and {pick} is our closest plan, {diff} from {other}; our plans cross at about {cross}. The reason to move is the memberships, services and events Linktree does not sell.',
+            ),
+            'fee_lead' => 'Linktree\'s cost depends on the plan, so the table shows two Linktree lines against our two plans on the same {s0} of sales; Linktree Free keeps {them_fee}, and {c_name} with its plan price costs {us_fee}.',
+            'fee_note' => 'Hypothetical sums. Linktree\'s rates are from its own fees article and pricing page, linked in the rows; ours include the monthly plan.',
+            'why_text' => 'The link page should take the payment itself, and monthly tiers should be possible.',
+            'why_points' => array('Tracked links plus memberships, pay-per-view, bundles, services and events', 'Nine networks from one studio, paid version behind the lock', 'Fans pay by card or credit wallet without leaving the page'),
+            'checked' => 'Linktree details were read on {date} from the help articles and pricing page linked in each row.',
+            'hero_tail' => 'Covered below: the sourced table, who Linktree suits, the move, the trade-offs, and the fee on a month of product sales.',
+            'both' => 'Yes. Export your contacts from Linktree, rebuild the links here as tracked links, and switch the social bios once the memberships or products are live. There is no renewal to wait for.',
+            'links' => 'Our side of the comparison is written up on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Turn the link page into the shop: build it here, then change the bios.',
+        ),
+        'beacons' => array(
+            'scenario' => array(
+                'Suppose a Beacons creator makes {gross} a month from {what}; the figures are round and illustrative.',
+                'Beacons Free takes {them_pct} ({them_fee}) and leaves {them_left}; {them2} takes {them2_fee} and leaves {them2_left}. Card processing is on top of both ([Beacons pricing]({them_src})).',
+                'The {site} lines on the same month: {c_name} at {c_pct} plus {c_price} costs {c_total} and leaves {c_left}; {s_name} at {s_pct} plus {s_price} costs {s_total} and leaves {s_left}. Card processing again on top.',
+                'Beacons Creator Plus is the cheapest line here, and {pick} is the nearer of our plans, {diff} from {other}. Our two plans cross near {cross}; a Beacons creator moves for direct fan sales and publishing, not for the fee.',
+            ),
+            'fee_lead' => 'The table carries two Beacons lines because its fee depends on the plan: on {s0} of sales Beacons Free keeps {them_fee}, and our {c_name} plan with its price comes to {us_fee}.',
+            'fee_note' => 'Round numbers. Beacons\' plan prices and seller fees are from its pricing page, linked in the rows; our rows add the monthly plan.',
+            'why_text' => 'Fans, not brands, pay your bills, and you want them paying on your page.',
+            'why_points' => array('Memberships, pay-per-view, bundles, services and events sold to fans directly', 'Posts published to nine networks, not only analysed', 'AI influencers whose images and videos you can sell'),
+            'checked' => 'Beacons rows checked {date} (plan prices rechecked October 11, 2026) against the pages linked in each row.',
+            'hero_tail' => 'This page: the sourced table, who Beacons serves, how a move works, what changes, and one month in figures.',
+            'both' => 'Yes. Keep Beacons for the media kit and brand outreach if deals pay your bills, move the fan-facing selling here, and let the link page here point back at the kit.',
+            'links' => 'Our plans, features and payout rules sit on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Keep the media kit, move the fan sales: build your page and send the list the link.',
+        ),
+        'stan' => array(
+            'scenario' => array(
+                'A Stan Store creator with {gross} a month in {what} makes a clean example; the sums are hypothetical.',
+                'Stan Store\'s Creator plan takes no share of sales, only its {them_monthly} a month, so {them_left} is left before card processing ([Stan Store pricing]({them_src})).',
+                'On {site}: {c_name} takes {c_pct} plus {c_price}, {c_total}, leaving {c_left}; {s_name} takes {s_pct} plus {s_price}, {s_total}, leaving {s_left}. Card processing is extra on all three.',
+                'Stan Store is the cheaper line at this volume, and {pick} is our nearer plan, {diff} from {other}. A flat price beats a share once the sales are large; the formats and the publishing are what a Stan Store creator comes here for.',
+            ),
+            'fee_lead' => 'A flat price against a share: Stan Store keeps {them_fee} of {s0} regardless of volume, and our {c_name} plan, fee and price together, keeps {us_fee}.',
+            'fee_note' => 'Hypothetical figures. Stan Store\'s prices and its no-transaction-fee policy are from its pricing page, linked in the row; our rows include the monthly plan.',
+            'why_text' => 'Your fans buy small things often: a paid post, a bundle, a ticket, a message.',
+            'why_points' => array('Pay-per-view, bundles and paid messages from a credit wallet fans load once', 'Memberships, services and events on the same page', 'Nine networks from one studio and a DM agent you approve'),
+            'checked' => 'Stan Store rows verified {date}, prices rechecked October 11, 2026; each links to the help article or pricing page it came from.',
+            'hero_tail' => 'Below: the feature table with sources, who Stan Store is for, the move, the trade-offs, and a month of sales on each side.',
+            'both' => 'Yes. Stan Store\'s plan is monthly, so keep the store open for a cycle while the bookings and the membership move here, then switch the bios when the calendar is live.',
+            'links' => 'Our own features, plans and payout rules are on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Bring the bookings and the membership here while the store runs out its month.',
+        ),
+        'eromify' => array(
+            'scenario' => array(),
+            'fee_lead' => '', 'fee_note' => '',
+            'why_text' => 'You want to generate the character and sell what it makes on the same page.',
+            'why_points' => array('Train the influencer, generate images and video, sell them as paid posts and bundles', 'A DM agent in the character\'s voice, every reply approved by you', 'Posts published to nine networks from the same studio'),
+            'checked' => 'Eromify rows were read on {date} from its pricing page and site, linked beside each value.',
+            'hero_tail' => 'What follows: the sourced table, who Eromify suits, what moving the character involves, and the cost shape of generating and selling in one place.',
+            'both' => 'Yes. Keep generating in Eromify while the character trains here; download your images, upload them to your library, and publish or sell them from the studio.',
+            'links' => 'The selling side is described on [features]({/features}), [pricing]({/pricing}) and [payouts]({/features/payouts}).',
+            'cta' => 'Train the character here, then sell every image from the page it lives on.',
+        ),
+    );
 
     /** The sections for one compare page. */
     public static function compare(string $slug): array {
@@ -108,7 +285,7 @@ class CompareProse {
                 'Fanvue\'s AI tools are inside the fan app: a fan can hear a voice note or take an AI voice call on the platform (' . self::src($c, 'ai') . '). {site}\'s AI sits on the creator side. You train an AI influencer from photos or a description and generate images and short videos of that character. AI captions come with every post, and a DM agent drafts replies in your voice for you to approve. If your fans buy the voice calls themselves, that is a feature you give up; if you want to generate and sell the content, that is the feature you gain.',
                 'Fanvue publishes an open API and an app store for third-party tools, which suits creators who run their business through other software. {site} offers a Claude connector instead, so an AI assistant can draft posts, read your analytics and manage your page through the same account. Both are ways to automate; they point at different tools.',
             )),
-            array('h' => 'A worked scenario: a Fanvue creator with 300 subscribers', 'p' => self::scenario($c, 3000, 'subscriptions and paid messages (300 fans at $10)')),
+            array('h' => 'A worked scenario: a Fanvue creator with 300 subscribers', 'p' => self::scenario($c, 3000, 'subscriptions and paid messages (300 fans at $10)', 'fanvue')),
         );
     }
 
@@ -130,7 +307,7 @@ class CompareProse {
                 'You trade a single familiar format for five. OnlyFans sells subscriptions, tips and pay-per-view (' . self::src($c, 'content') . '). {site} adds bundles, services and events, and prices each one in credits from a wallet fans top up, so a fan who already loaded the wallet buys the next thing without re-entering a card. Memberships stay on the card, billed monthly, as fans expect.',
                 'You trade a flat 20% for a plan price plus a lower share. The share is {fee_short}, and plan charges are monthly and non-refundable, so the fee comparison depends on volume. The scenario below runs the numbers on a typical page.',
             )),
-            array('h' => 'A worked scenario: an OnlyFans creator with 500 subscribers', 'p' => self::scenario($c, 5000, 'subscriptions, tips and pay-per-view (500 fans at $10)')),
+            array('h' => 'A worked scenario: an OnlyFans creator with 500 subscribers', 'p' => self::scenario($c, 5000, 'subscriptions, tips and pay-per-view (500 fans at $10)', 'onlyfans')),
         );
     }
 
@@ -153,7 +330,7 @@ class CompareProse {
                 'Patreon\'s AI is Clips, which suggests shareable clips from videos over eight minutes on iOS (' . self::src($c, 'ai') . '). {site}\'s AI drafts captions, answers DMs for your approval and builds an AI influencer whose images and videos you can sell. They are different tools for different work.',
                 'Annual memberships are a Patreon feature worth naming. A member who prepays a year is a member you keep for a year. {site} bills memberships monthly, with free trials and promo codes to bring people in, so a creator whose income leans on annual prepayment gives that up and gains the trials instead.',
             )),
-            array('h' => 'A worked scenario: a Patreon creator with 400 patrons', 'p' => self::scenario($c, 2400, 'memberships (400 patrons at $6)')),
+            array('h' => 'A worked scenario: a Patreon creator with 400 patrons', 'p' => self::scenario($c, 2400, 'memberships (400 patrons at $6)', 'patreon')),
         );
     }
 
@@ -175,7 +352,7 @@ class CompareProse {
                 'Livestreaming is the real difference. Fansly streams to fans in its app with public, ticketed and one-to-one options. {site} sells tickets to live events and one-to-one sessions and hosts the call in a built-in video room with a waiting room, chat, screen share and host controls; it is a scheduled session, not an always-on stream. A creator who streams daily to a feed loses that format; a creator who sells sessions gains a room that does not depend on Zoom.',
                 'Discovery is the other. Fansly\'s For You feed can surface a new creator to viewers who never searched for them. {site} relies on the social networks: every post goes to nine of them from one studio, with the paid version behind the lock on the page. If your growth comes from Fansly\'s feed, test the move before you commit to it; if it comes from your socials, the studio does more for you than the feed did.',
             )),
-            array('h' => 'A worked scenario: a Fansly creator with 250 subscribers', 'p' => self::scenario($c, 2500, 'subscriptions and pay-per-view (250 fans at $10)')),
+            array('h' => 'A worked scenario: a Fansly creator with 250 subscribers', 'p' => self::scenario($c, 2500, 'subscriptions and pay-per-view (250 fans at $10)', 'fansly')),
         );
     }
 
@@ -197,7 +374,7 @@ class CompareProse {
                 'Ko-fi pays instantly to your own account. {site} pays on request from a balance, which adds a step. The balance is also one ledger across memberships, unlocks, bundles, services and events, with refunds and disputes handled there rather than in your processor dashboard. A creator who likes the money arriving as it is paid will prefer Ko-fi; a creator who wants one place to see every sale will prefer the balance.',
                 'The publishing and the inbox are the gain. Ko-fi has no social scheduler and no AI (' . self::src($c, 'ai') . '). {site} publishes each post to nine networks with AI captions and drafts DM replies for your approval. Welcome and trigger messages go out with paid media attached, and ticketed live sessions run in its own video room. If none of that is work you do, Ko-fi remains the simpler tool.',
             )),
-            array('h' => 'A worked scenario: a Ko-fi creator with 150 members', 'p' => self::scenario($c, 1500, 'memberships and shop sales (150 members at $10)')),
+            array('h' => 'A worked scenario: a Ko-fi creator with 150 members', 'p' => self::scenario($c, 1500, 'memberships and shop sales (150 members at $10)', 'kofi')),
         );
     }
 
@@ -219,7 +396,7 @@ class CompareProse {
                 'The formats are the difference. Linktree sells one-time digital products and courses; {site} sells memberships, pay-per-view, bundles, services and events, with an inbox that attaches paid media to messages. A creator whose income is a $20 template a few times a week has no reason to move; a creator who wants monthly tiers and booked sessions has every reason.',
                 'Both publish to social networks. Linktree\'s planner covers six, including YouTube Shorts; {site}\'s studio covers nine and puts the paid version of each post behind the lock on your page, so the social post and the sale are one action. Linktree\'s AI writes captions and auto-replies to Instagram comments and DMs (' . self::src($c, 'ai') . '); {site}\'s AI does the captions, drafts DM replies for approval across the inbox, and builds AI influencers whose images you sell.',
             )),
-            array('h' => 'A worked scenario: a Linktree creator selling $1,200 of products a month', 'p' => self::scenario($c, 1200, 'digital product and course sales')),
+            array('h' => 'A worked scenario: a Linktree creator selling $1,200 of products a month', 'p' => self::scenario($c, 1200, 'digital product and course sales', 'linktree')),
         );
     }
 
@@ -241,7 +418,7 @@ class CompareProse {
                 'Beacons\' AI is on the business side: Beam, the assistant, plus AI text, image, email and page generation and brand outreach emails, metered by daily credits, 30 on Free, 300 on Creator and unlimited from Creator Plus (' . self::src($c, 'ai') . '). {site}\'s AI is on the content side. An AI influencer is trained from your photos or a description, with images and short videos of that character. Captions come with every post, and a DM agent drafts replies in your voice.',
                 'Publishing is the clearest gap. Beacons analyses posts you made elsewhere; {site} makes the post once and sends it to nine networks from the studio, with the paid version behind the lock. If the posting is the part of your week you want back, that is the feature that decides it.',
             )),
-            array('h' => 'A worked scenario: a Beacons creator selling $1,800 a month', 'p' => self::scenario($c, 1800, 'digital products, appointments and a membership')),
+            array('h' => 'A worked scenario: a Beacons creator selling $1,800 a month', 'p' => self::scenario($c, 1800, 'digital products, appointments and a membership', 'beacons')),
         );
     }
 
@@ -263,7 +440,7 @@ class CompareProse {
                 'The formats are the reason to move, or not to. Stan Store sells one-time products, bookings and subscriptions, and its Pro plan adds the sales tools a course business wants. {site} sells the small, repeated purchases a fan audience makes: a paid post, a bundle of past work, a ticket to a live session, a paid message. All of those come from a wallet the fan already loaded, and memberships stay on the card.',
                 'Publishing and the inbox are the other reasons. Stan Store does not publish posts; Stanley is a separate product for repurposing content. {site}\'s studio publishes each post to nine networks with the paid version behind the lock, and its inbox drafts replies for your approval and attaches paid media to messages. A coach who sells through a funnel will not need those; a creator who sells through a feed will.',
             )),
-            array('h' => 'A worked scenario: a Stan Store creator with $3,600 a month in sales', 'p' => self::scenario($c, 3600, 'courses, bookings and a subscription')),
+            array('h' => 'A worked scenario: a Stan Store creator with $3,600 a month in sales', 'p' => self::scenario($c, 3600, 'courses, bookings and a subscription', 'stan')),
         );
     }
 

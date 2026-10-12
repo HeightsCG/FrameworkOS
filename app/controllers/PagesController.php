@@ -386,11 +386,11 @@ class PagesController extends Controller {
     }
 
     public function termsAction(){
-        $this->page('legal-terms', array('path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-terms', array('own_article' => true, 'path' => '/terms', 'title' => 'Terms of Service', 'description' => 'The terms for using ' . Main::site_name() . ': accounts, purchases, memberships, credits, creator plans and content rules.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function privacyAction(){
-        $this->page('legal-privacy', array('path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
+        $this->page('legal-privacy', array('own_article' => true, 'path' => '/privacy', 'title' => 'Privacy Policy', 'description' => 'What ' . Main::site_name() . ' collects, how it is used and shared, and the choices you have.', 'type' => 'website', 'jsonld' => array(SeoMeta::org()), 'no_guides' => true, 'no_band' => true, 'sections' => true));
     }
 
     public function aboutAction(){
@@ -652,7 +652,7 @@ class PagesController extends Controller {
      * rows from COMPETITORS[*]['fee_math'] (percent, monthly, source: a page on the competitor's own site). Card processing
      * is separate everywhere and is said so. $slugs: the competitors to include ('' = none); $sales: monthly gross figures.
      */
-    public static function fee_example_section(array $slugs, string $bg = 'white', array $sales = array(1000, 5000), string $title = ''): string {
+    public static function fee_example_section(array $slugs, string $bg = 'white', array $sales = array(1000, 5000), string $title = '', string $voice = ''): string {
         $site = Main::site_name(); $e = function ($s) { return Sections::e($s); };
         $money = function ($n) { return '$' . number_format((float) $n, 0); };
         $options = array();
@@ -681,9 +681,12 @@ class PagesController extends Controller {
         $s0 = $sales[0]; $them_fee = $first_them ? $s0 * ((float) $first_them['percent']) / 100 + (float) ($first_them['monthly'] ?? 0) : 0;
         $us_fee = $low ? $s0 * ((int) $low['limits']['fee_percent']) / 100 + (int) $low['price'] : 0;
         $lead = 'On ' . $money($s0) . ' of sales in a month, ' . ($first_them ? $first_them['label'] . ' costs ' . $money($them_fee) . '. ' : '') . $site . '\'s ' . $low['name'] . ' plan costs ' . $money($us_fee) . ' on the same sales, platform fee and plan price together.' . $cross . ' Card processing is charged separately on every option in the table.';
+        $vlead = $voice !== '' ? CompareProse::voice($voice, 'fee_lead') : '';
+        if ($vlead !== '') { $lead = strtr($vlead, array('{s0}' => $money($s0), '{them_fee}' => $money($them_fee), '{us_fee}' => $money($us_fee), '{c_name}' => (string) $low['name'], '{s_name}' => (string) $high['name'], '{them_pct}' => $first_them ? rtrim(rtrim(number_format((float) $first_them['percent'], 2), '0'), '.') . '%' : '')) . $cross; }
         $out = Sections::open($bg, $title !== '' ? $title : 'What does the fee come to on real sales?', $lead);
         $out .= Sections::table($head, $rows, -1);
-        $out .= '<p class="sx-note">Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Plan prices are monthly; a yearly plan changes the monthly figure.</p>';
+        $vnote = $voice !== '' ? CompareProse::voice($voice, 'fee_note') : '';
+        $out .= '<p class="sx-note">' . ($vnote !== '' ? Sections::e($vnote) : 'Round numbers for the arithmetic, not earnings figures.' . ($first_them ? ' Competitor rates come from the linked page on each platform\'s own site.' : '') . ' Plan prices are monthly; a yearly plan changes the monthly figure.') . '</p>';
         return $out . Sections::close();
     }
 
@@ -966,7 +969,7 @@ class PagesController extends Controller {
             SeoMeta::faq($p['faq']),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $p['name'] . ' Alternatives', 'url' => $p['path']))),
         );
-        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'article', 'jsonld' => $jsonld, 'no_band' => true), array('p' => $p, 'faq' => $p['faq']));
+        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'article', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
     }
 
     /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
@@ -998,6 +1001,8 @@ class PagesController extends Controller {
             'a' => (($c['type'] ?? '') === 'ai')   // a generation tool has no fan page to keep live or publish to
                 ? 'Yes. Keep generating in ' . $c['name'] . ' while you build your page here. Download your images, upload them to your Library, and publish or sell them from the Studio.'
                 : 'Yes. Keep your ' . $c['name'] . ' page live while you set up, and publish to both from the studio. Put your new page in every bio so fans can move at their own pace.');
+        $slug = array_search($c, self::COMPETITORS, true);
+        if ($slug !== false && CompareProse::voice((string) $slug, 'both') !== '') { $faq[count($faq) - 1]['a'] = str_replace('{site}', Main::site_name(), CompareProse::voice((string) $slug, 'both')); }
         return $faq;
     }
 

@@ -29,10 +29,16 @@ $sec = function ($n, $per) use ($sentence, $cite, $define, $facts) {
 $body = $sec(4, 320);
 $good = array('title' => 'How creators price a membership tier', 'slug' => 'how-creators-price-a-membership-tier',
     'meta_description' => 'A practical guide to pricing membership tiers for creators: how to set the gap between tiers, what fans compare, and when to raise a price.',
-    'excerpt' => 'Pricing tiers is mostly about the gap between them.', 'body_md' => $body,
+    'excerpt' => 'Pricing tiers is mostly about the gap between the tiers.', 'body_md' => $body,
     'faq' => array(array('q' => 'One?', 'a' => 'Yes.'), array('q' => 'Two?', 'a' => 'Yes.'), array('q' => 'Three?', 'a' => 'Yes.')),
     'secondary_keywords' => array('membership pricing', 'creator tiers'), 'cluster' => 'creator-monetization');
 check('good article validates', SeoDrafter::validate($good) === array(), implode('; ', SeoDrafter::validate($good)));
+$t = $good; $t['excerpt'] = 'Most creators price a tier before they have anything to sell.'; $r = SeoDrafter::validate($t);
+check('subtitle with a pronoun anywhere in its first sentence is noted', count($r) === 1 && strpos($r[0], 'the subtitle (excerpt)') === 0 && SeoDrafter::is_soft($r[0]), implode('; ', $r));
+$t = $good; $t['excerpt'] = 'Write the list, publish it, then leave it alone for four weeks.'; $r = SeoDrafter::validate($t);
+check('subtitle "publish it" is noted (whole sentence, not the first three words)', count($r) === 1 && strpos($r[0], 'the subtitle (excerpt)') === 0, implode('; ', $r));
+$t = $good; $t['excerpt'] = 'The gap that matters is the one between the top two tiers.';
+check('relative "that" in the subtitle is allowed', SeoDrafter::validate($t) === array(), implode('; ', SeoDrafter::validate($t)));
 $t = $good; $t['title'] = str_repeat('x', 61);                         check('title > 60 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['meta_description'] = str_repeat('x', 156);              check('meta > 155 rejected', SeoDrafter::validate($t) !== array());
 $t = $good; $t['meta_description'] = str_repeat('x', 109);              check('meta < 110 rejected', SeoDrafter::validate($t) !== array());

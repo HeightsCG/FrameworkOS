@@ -69,11 +69,11 @@ echo Sections::open('alt', 'Feature guides', 'A closer look at each part of ' . 
 echo '<div class="sx-cards sx-cards--3 fx-guides">';
 foreach ($guides as $gd) {
     list($f, $f_path, $f_shot) = $gd;
-    echo '<article class="sx-card">' . ($f_shot !== '' ? Screenshots::img($f_shot) : '');
+    echo '<div class="sx-card">' . ($f_shot !== '' ? Screenshots::img($f_shot) : '');
     echo '<h3 class="sx-card__title">' . Sections::e(Sections::tc((string) $f['title'])) . '</h3>';
     echo '<p class="sx-card__text">' . Sections::e((string) $f['description']) . '</p>';
     echo '<a class="sx-more" href="' . Sections::e($f_path) . '">' . Sections::e('Explore ' . Sections::tc((string) $f['nav_title'])) . '</a>';
-    echo '</article>';
+    echo '</div>';
 }
 echo '</div>';
 echo Sections::close();

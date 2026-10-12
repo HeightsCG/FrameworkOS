@@ -270,12 +270,12 @@ class Sections {
         $o = '<div class="sx-rows">'; $n = 0;
         foreach ($rows as $r) {
             $img = trim((string) ($r['image'] ?? '')); $flip = ($n++ % 2 === 1);
-            $o .= '<article class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';
+            $o .= '<div class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';   // a div, not <article>: extractors would take a card for the page's main content
             if ($img !== '') { $o .= '<div class="sx-row__media"><img src="' . self::e($img) . '" alt="" loading="lazy" width="1024" height="768"></div>'; }
             $o .= '<div class="sx-row__text"><h3 class="sx-h3">' . self::e(self::tc($r['title'])) . '</h3><p class="sx-p">' . self::e($r['text']) . '</p>';
             if (!empty($r['points'])) { $o .= self::checks((array) $r['points']); }
             if (!empty($r['link'])) { $o .= '<a class="sx-more" href="' . self::e($r['link'][1]) . '">' . self::e($r['link'][0]) . '</a>'; }
-            $o .= '</div></article>';
+            $o .= '</div></div>';
         }
         return $o . '</div>';
     }
@@ -284,14 +284,14 @@ class Sections {
     public static function cards(array $cards, int $cols = 3): string {
         $o = '<div class="sx-cards sx-cards--' . $cols . '">';
         foreach ($cards as $c) {
-            $o .= '<article class="sx-card">';
+            $o .= '<div class="sx-card">';   // a div, not <article> (see rows)
             if (!empty($c['icon'])) { $o .= '<span class="sx-card__icon">' . self::icon($c['icon']) . '</span>'; }
             $o .= '<h3 class="sx-card__title">' . self::e(self::tc($c['title'])) . '</h3>';
             if (!empty($c['text'])) { $o .= '<p class="sx-card__text">' . self::e($c['text']) . '</p>'; }
             if (!empty($c['points'])) { $o .= self::checks((array) $c['points']); }
             if (!empty($c['note'])) { $o .= '<p class="sx-card__note">' . self::e($c['note']) . '</p>'; }
             if (!empty($c['link'])) { $o .= '<a class="sx-more" href="' . self::e($c['link'][1]) . '">' . self::e($c['link'][0]) . '</a>'; }
-            $o .= '</article>';
+            $o .= '</div>';
         }
         return $o . '</div>';
     }
@@ -340,10 +340,10 @@ class Sections {
     }
 
     /** Closing call to action: full-width black band. */
-    public static function cta(string $title, string $text = '', bool $pricing_link = true): string {
+    public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register'): string {
         return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
             . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="/?auth=register" data-auth="register">Start Free</a>'
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($signup) . '" data-auth="register">Start Free</a>'
             . ($pricing_link ? '<a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a>' : '') . '</div></div></section>';
     }
 }

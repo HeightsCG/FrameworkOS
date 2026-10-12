@@ -34,7 +34,7 @@ echo PagesController::fee_example_section($compare_slugs, 'white');
 echo CompareProse::links_line();
 if (!empty($faq)) { echo Sections::faq($faq); }
 
-// Closing band (the layout band is off for this page so the button can carry the creator role).
-echo '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . $e(Sections::tc('Try it alongside ' . $p['name'] . '.')) . '</h2>'
-   . '<p class="sx-cta__text">' . $e('Build your page, publish to your socials and keep your ' . $p['name'] . ' page live while your fans move.') . '</p></div>'
-   . '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="' . $e($signup) . '" data-auth="register">Start Free</a><a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a></div></div></section>';
+// The closing band comes from the layout (outside the page's <article>); the Start Free button keeps the creator role.
+$cta_title = 'Try it alongside ' . $p['name'] . '.';
+$cta_text = 'Build your page, publish to your socials and keep your ' . $p['name'] . ' page live while your fans move.';
+$cta_signup = $signup;

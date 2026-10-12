@@ -5,13 +5,13 @@ $labels = array('fee' => 'Platform fee', 'payout' => 'Payouts', 'content' => 'Wh
 $has_reported = false; foreach ($labels as $k => $l) { if (!empty($c[$k]['reported'])) { $has_reported = true; break; } }
 echo Sections::panel_hero(array(
     'title' => $site . ' vs ' . $c['name'],
-    'lead' => ($slug === 'onlyfans' ? PagesController::quotable_facts()['onlyfans'] : $c['summary']) . ' Here is how the two compare, with sources.',   // onlyfans: the quotable brand sentence replaces the summary
+    'lead' => ($slug === 'onlyfans' ? PagesController::quotable_facts()['onlyfans'] : $c['summary']) . ' ' . (CompareProse::voice($slug, 'hero_tail') ?: 'Here is how the two compare, with sources.'),   // onlyfans: the quotable brand sentence replaces the summary; the tail is worded per competitor
     'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('What does ' . $c['name'] . ' charge, and what do we charge?', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
     'bg_image' => SiteImages::bg('compare_hero'),
     'after_html' => isset(AlternativesPages::PAGES[$slug]) ? '<a class="sx-more" href="/' . $e($slug) . '-alternatives">See All ' . $e($c['name']) . ' Alternatives</a>' : '',
 ));
-echo Sections::open('alt', 'How do the features compare?', $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
+echo Sections::open('alt', 'How do the features compare?', CompareProse::voice($slug, 'checked') !== '' ? str_replace('{date}', date('F j, Y', strtotime($c['checked'])), CompareProse::voice($slug, 'checked')) : $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');
 $trows = array();
 foreach ($labels as $k => $l) {
     $cell = $e($dot($c[$k]['value'])) . ' <a class="sx-src" href="' . $e($c[$k]['source']) . '" rel="nofollow noopener" target="_blank">source</a>' . (!empty($c[$k]['reported']) ? ' <span class="sx-src">reported</span>' : '');
@@ -23,22 +23,22 @@ echo Sections::close();
 
 // One balanced choice: each side gets a one-line summary and its points, so neither column sits half empty.
 // The fee point appears only where the competitor's own sourced rate is a single percentage above ours (PagesController::fee_point).
-$us_points = array_values(array_filter(array(
+$us_points = array_values(array_filter(array_merge(CompareProse::voice_list($slug, 'why_points') ?: array(
     'You post to several social networks and want one studio that publishes to all of them',
     'You sell more than subscriptions: pay-per-view, bundles, services, events and links',
-    'You want AI to draft captions and DM replies in your voice, with your approval',
-    PagesController::fee_point($c))));
+    'You want AI to draft captions and DM replies in your voice, with your approval'), array(PagesController::fee_point($c)))));
 echo Sections::open('white', $c['name'] . ' or ' . $site . '?');
 echo Sections::cards(array(
     array('title' => 'Why choose ' . $c['name'], 'text' => (string) ($c['best_for'] ?? ('Your audience is already on ' . $c['name'] . ' and it covers everything you sell.')),
           'points' => array_map($dot, (array) ($c['strengths'] ?? array()))),
-    array('title' => 'Why choose ' . $site, 'text' => 'You want one page that sells everything and a studio that publishes it everywhere.',
+    array('title' => 'Why choose ' . $site, 'text' => CompareProse::voice($slug, 'why_text') ?: 'You want one page that sells everything and a studio that publishes it everywhere.',
           'points' => array_map($dot, (array) ($c['us_points'] ?? $us_points))),
 ), 2);
 echo Sections::close();
 
 echo CompareProse::render(CompareProse::compare($slug), 'alt');   // this competitor's own prose: who it suits, what moving involves, the trade-offs, a computed scenario
-echo PagesController::fee_example_section(array($slug), 'white');   // the fee table on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
-echo CompareProse::links_line();   // the shared product blocks live on /features, /pricing and /features/payouts, not here
+echo PagesController::fee_example_section(array($slug), 'white', array(1000, 5000), '', $slug);   // the fee table on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
+echo CompareProse::links_line($slug);   // the shared product blocks live on /features, /pricing and /features/payouts, not here
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';
+$cta_text = CompareProse::voice($slug, 'cta') ?: 'Memberships, pay-per-view, services and events, with payouts to your bank.';

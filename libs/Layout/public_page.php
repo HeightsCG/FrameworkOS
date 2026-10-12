@@ -24,13 +24,17 @@
 
 <?php if (!empty($public_meta['sections'])): ?>
     <main class="sx-main" id="pub_main">
+<?php $own_article = !empty($public_meta['own_article']); if (!$own_article): ?><article class="sx-article"><?php endif; ?>
 <?php require $public_view_file; ?>
-<?php if (empty($public_meta['no_band'])) { echo Sections::cta(isset($cta_title) ? (string) $cta_title : 'Start selling from one page.', isset($cta_text) ? (string) $cta_text : 'Memberships, pay-per-view, services and events, with payouts to your bank.', empty($cta_no_pricing)); } ?>
+<?php if (!$own_article): ?></article><?php endif; ?>
+<?php if (empty($public_meta['no_band'])) { echo Sections::cta(isset($cta_title) ? (string) $cta_title : 'Start selling from one page.', isset($cta_text) ? (string) $cta_text : 'Memberships, pay-per-view, services and events, with payouts to your bank.', empty($cta_no_pricing), isset($cta_signup) ? (string) $cta_signup : '/?auth=register'); } ?>
     </main>
 <?php else: ?>
     <main class="pub-main" id="pub_main">
         <div class="ld-wrap pub-wrap">
+<?php $own_article = !empty($public_meta['own_article']); if (!$own_article): ?><article class="pub-article"><?php endif; ?>
 <?php require $public_view_file; ?>
+<?php if (!$own_article): ?></article><?php endif; ?>
         </div>
     </main>
 <?php endif; ?>

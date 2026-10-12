@@ -22,7 +22,7 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$opts = getopt('', array('approved', 'restructure', 'into:', 'from:', 'format:', 'link:', 'dry-run'));
+$opts = getopt('', array('approved', 'restructure::', 'into:', 'from:', 'format:', 'link:', 'sections:', 'rhythm:', 'dry-run'));   // --restructure (the first set) or --restructure=slop2
 $dry = isset($opts['dry-run']);
 
 /** The approved merges, in run order (formats differ from one group to the next, so no two consecutive articles share one). */
@@ -43,11 +43,20 @@ const RESTRUCTURE = array(
     array('into' => 'lora-training-dataset-tips',                       'from' => array(), 'format' => 'checklist',       'link' => '/lora-character-training'),
 );
 
+/** The second a_ai_slop set (2026-10-12): five more articles, each a format none of them had, with a named section count and rhythm. */
+const RESTRUCTURE2 = array(   // live corpus 2026-10-12: section counts 5,6,7 dominate (6 x5, 7 x4, 5 x2), 8 and 9 once each, every section 100-320 words; these five take counts and rhythms the corpus does not have
+    array('into' => 'consistent-ai-character-across-images',    'from' => array(), 'format' => 'glossary',        'link' => '/consistent-ai-model-face',  'sections' => 2,  'rhythm' => 'one long section and one short'),
+    array('into' => 'how-to-train-a-lora-character',           'from' => array(), 'format' => 'checklist',       'link' => '/lora-character-training',   'sections' => 3,  'rhythm' => 'three list-heavy sections of very different lengths: the middle one three times the first'),
+    array('into' => 'how-to-make-money-with-an-ai-influencer',  'from' => array(), 'format' => 'troubleshooting', 'link' => '/features/ai-influencer',   'sections' => 10, 'rhythm' => 'ten short symptom sections of one or two paragraphs each'),
+    array('into' => 'how-to-choose-an-onlyfans-alternative',   'from' => array(), 'format' => 'comparison',      'link' => '/onlyfans-alternatives',     'sections' => 4,  'rhythm' => 'the longest section in the middle'),
+    array('into' => 'how-to-monetize-content-as-a-creator',    'from' => array(), 'format' => 'cost',            'link' => '/monetize-your-content',     'sections' => 8,  'rhythm' => 'two long sections and the rest one paragraph each'),
+);
+
 $groups = array();
 if (isset($opts['approved'])) { $groups = APPROVED; }
-elseif (isset($opts['restructure'])) { $groups = RESTRUCTURE; }
-elseif (!empty($opts['into'])) { $groups[] = array('into' => (string) $opts['into'], 'from' => array_values(array_filter(array_map('trim', explode(',', (string) ($opts['from'] ?? ''))))), 'format' => (string) ($opts['format'] ?? ''), 'link' => (string) ($opts['link'] ?? '')); }
-else { echo "usage: --approved | --restructure | --into=<slug> [--from=<slug,slug>] --format=<x> [--link=/path] [--dry-run]\n"; exit(1); }
+elseif (isset($opts['restructure'])) { $groups = ((string) $opts['restructure'] === 'slop2') ? RESTRUCTURE2 : RESTRUCTURE; }
+elseif (!empty($opts['into'])) { $groups[] = array('into' => (string) $opts['into'], 'from' => array_values(array_filter(array_map('trim', explode(',', (string) ($opts['from'] ?? ''))))), 'format' => (string) ($opts['format'] ?? ''), 'link' => (string) ($opts['link'] ?? ''), 'sections' => (int) ($opts['sections'] ?? 0), 'rhythm' => (string) ($opts['rhythm'] ?? '')); }
+else { echo "usage: --approved | --restructure[=slop2] | --into=<slug> [--from=<slug,slug>] --format=<x> [--link=/path] [--dry-run]\n"; exit(1); }
 
 $articles = new SeoArticlesModel(); $keywords = new SeoKeywordsModel();
 $ok_all = true; $streak = 0;
@@ -73,7 +82,8 @@ foreach ($groups as $g) {
         $note .= ' The articles below are being merged into this one and will redirect here: fold their useful content in (facts, steps, numbers, examples), drop what repeats, keep the slug and the subject, and cover their search intents too (add their target keywords to secondary_keywords).';
         foreach ($sources as $s) { $note .= "\n\n--- Merged article: \"" . $s['title'] . "\" (keyword: " . $s['target_keyword'] . ")\n" . (string) $s['body_md']; }
     }
-    $r = SeoDrafter::draft($kw, $note, (int) $into['id'], false, array(), $format);
+    $avoid = array(); if (!empty($g['sections'])) { $avoid['sections_exact'] = (int) $g['sections']; } if (!empty($g['rhythm'])) { $avoid['rhythm'] = (string) $g['rhythm']; }
+    $r = SeoDrafter::draft($kw, $note, (int) $into['id'], false, $avoid, $format);
     if (empty($r['ok'])) { echo "  -> rewrite FAILED, group left as it was: ", $r['error'], "\n"; $ok_all = false; if (++$streak >= 2) { echo date('c'), " two groups in a row failed: stopping so a bad rule cannot burn every article (fix the rule, rerun)\n"; break; } continue; }
     $streak = 0;
     echo "  -> survivor rewritten and live\n";
