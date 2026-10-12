@@ -187,8 +187,11 @@ class SeoDrafter {
         return array_map('trim', $m[1]);
     }
 
-    /** The opening paragraph answers the title directly in this many words (g_answer_first). */
+    /** The opening paragraph answers the title directly in this many words (g_answer_first); the check allows ANSWER_SLACK either side, the prompt asks for the band itself. */
     const ANSWER_WORDS = array(40, 60);
+    const ANSWER_SLACK = 6;
+    /** A back-referring pronoun counts only in the first this-many words of a paragraph's first sentence. */
+    const OPENER_WORDS = 5;
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
@@ -218,7 +221,9 @@ class SeoDrafter {
             if ($first === null) { $first = $p; }
             $first_sentence = preg_split('/(?<=[.!?])\s+/', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p))[0];
             // "that" counts only as a back-reference (sentence start, or "that is/means/..."), never as the relative pronoun in "a price that fans pay"
-            if ($openers < 6 && (preg_match('/\b(it|they|them|this|these|those|he|she|such)\b/i', $first_sentence, $m) || preg_match('/^(That)\b|\b(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $first_sentence, $m))) {
+            // a pronoun in the opening words of the first sentence can only point at an earlier paragraph; later in the sentence it points inside it ("sell it together")
+            $opening = implode(' ', array_slice(preg_split('/\s+/', trim($first_sentence)), 0, self::OPENER_WORDS));
+            if ($openers < 6 && (preg_match('/\b(it|its|they|them|their|this|these|those|he|she|such)\b/i', $opening, $m) || preg_match('/^(That)\b|\b(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $opening, $m))) {
                 $m[1] = (string) ($m[1] !== '' ? $m[1] : ($m[2] ?? 'that')); $err[] = 'the first sentence of a paragraph names its subject outright and carries no pronoun that points back ("' . $m[1] . '"): "' . mb_substr($p, 0, 60) . '"'; $openers++; }   // tightened 2026-10-12 (g_self_contained)
             $n = self::sentence_count($p);
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
@@ -226,7 +231,7 @@ class SeoDrafter {
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
         if ($first !== null) {   // answer first (g_answer_first): the opening paragraph is a direct 40-60 word answer to the title; context and caveats come after it
             $fw = str_word_count(preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $first));
-            if ($fw < self::ANSWER_WORDS[0] || $fw > self::ANSWER_WORDS[1]) { $err[] = 'the opening paragraph must be a direct answer of ' . self::ANSWER_WORDS[0] . '-' . self::ANSWER_WORDS[1] . ' words to the title (got ' . $fw . '); context and caveats come after it'; }
+            if ($fw < self::ANSWER_WORDS[0] - self::ANSWER_SLACK || $fw > self::ANSWER_WORDS[1] + self::ANSWER_SLACK) { $err[] = 'the opening paragraph must be a direct answer of ' . self::ANSWER_WORDS[0] . '-' . self::ANSWER_WORDS[1] . ' words to the title (got ' . $fw . '); context and caveats come after it'; }
         }
         return $err;   // section_opener_errors() is advice in the prompt, not a gate: its word-matching rejected good openers and failed rewrites (2026-10-11)
     }
@@ -489,7 +494,30 @@ class SeoDrafter {
 
     /** Share of published articles a phrase may appear in before it counts as stock (a_ai_slop). */
     const STOCK_SHARE = 0.20;
+    const STOCK_MIN_ARTICLES = 3;
     private static $stock_cache = null;
+    private static $protected_cache = null;
+
+    /**
+     * Phrases that are never stock: the product facts the article is required to state (product_facts regexes), the titles
+     * of published articles and product pages (they are the link text), and anything with the brand name.
+     */
+    public static function protected_phrase(string $sh): bool {
+        if (self::$protected_cache === null) {
+            $titles = array();
+            try { foreach ((new SeoArticlesModel())->published(50, 0) as $a) { $titles[] = strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', (string) $a['title'])); } } catch (\Throwable $e) {}
+            try { foreach (SeoController::public_pages() as $pg) { $titles[] = strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', (string) $pg['title'])); } } catch (\Throwable $e) {}
+            self::$protected_cache = array('titles' => array_map(function ($t) { return ' ' . preg_replace('/\s+/', ' ', trim($t)) . ' '; }, $titles), 'facts' => self::product_facts(), 'site' => strtolower(Main::site_name()));
+        }
+        $pc = self::$protected_cache;
+        if (strpos($sh, $pc['site']) !== false) { return true; }
+        foreach ($pc['titles'] as $t) { if (strpos($t, ' ' . $sh . ' ') !== false) { return true; } }
+        $readable = preg_replace('/\b(\d+) (?:a|per) month\b/', '$$1 a month', $sh);   // shingles lost the $ and %; the fact regexes want them back loosely
+        foreach ($pc['facts'] as $re) { if (preg_match($re, $sh) || preg_match($re, '$' . $readable) || preg_match($re, preg_replace('/\b(\d+) (?:on|of)\b/', '$1% $2', $sh))) { return true; } }
+        if (preg_match('/\b(credits? a month|ai credits|gb of storage|a month each|of each sale|cash out to your bank|to your bank on request|platform fee)\b/', $sh)) { return true; }   // product-fact wording in any spelling
+        if (preg_match('/\b(creator|studio|free) (?:plan )?(?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
+        return false;
+    }
     /** Set false in tests: the stock check otherwise reads every published article on the dev database. */
     public static $check_stock = true;
 
@@ -508,13 +536,13 @@ class SeoDrafter {
         $counts = array(); $n = 0;
         try {
             foreach ((new SeoArticlesModel())->published_markdown() as $row) {
-                if ((int) $row['id'] === $except_id) { continue; }
+                if ((int) $row['id'] === $except_id || strpos((string) $row['slug'], 'demo-') === 0) { continue; }   // the dev database carries identical demo-* copies; they are not corpus
                 $n++;
                 foreach (array_keys(self::shingles((string) $row['body_md'])) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; }
             }
         } catch (\Throwable $e) { return array(); }
         $out = array();
-        if ($n >= 2) { foreach ($counts as $sh => $k) { if ($k >= 2 && $k / $n > self::STOCK_SHARE) { $out[$sh] = $k / $n; } } }
+        if ($n >= 2) { foreach ($counts as $sh => $k) { if ($k >= self::STOCK_MIN_ARTICLES && $k / $n > self::STOCK_SHARE) { $out[$sh] = $k / $n; } } }
         self::$stock_cache = array('except' => $except_id, 'phrases' => $out);
         return $out;
     }
@@ -531,7 +559,7 @@ class SeoDrafter {
         foreach (array_keys(self::shingles($body)) as $sh) {
             if (!isset($stock[$sh])) { continue; }
             $topical = 0; foreach (explode(' ', $sh) as $w) { if (in_array(self::stem($w), $topic, true)) { $topical++; } }
-            if ($topical >= 2) { continue; }   // the phrase is the topic itself
+            if ($topical >= 2 || self::protected_phrase($sh)) { continue; }   // the phrase is the topic itself, a required product fact, or a title used as link text
             $hits[$sh] = $stock[$sh];
             if (count($hits) >= 6) { break; }
         }

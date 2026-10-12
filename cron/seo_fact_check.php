@@ -112,7 +112,7 @@ $kind = function ($e) { return trim(preg_replace('/[:(].*$/', '', (string) $e));
 $rule_counts = array('before' => array(), 'after' => array());
 
 $articles = new SeoArticlesModel();
-$flagged = array();
+$flagged = array(); $streak = 0;
 $all_published = !empty($opts['id']) ? array() : $articles->published_shapes();
 $shape = SeoDrafter::corpus_shape_flags($all_published);   // slug => reason + what the rewrite must avoid
 $rows = !empty($opts['id']) ? array(array('id' => (int) $opts['id'])) : $all_published;
@@ -190,7 +190,9 @@ foreach ($rows as $row) {
         $avoid = (array) ($shape[(string) $a['slug']]['avoid'] ?? array());
         if ($shape_issue !== '') { $note .= ' The blog reads as one template, so this piece changes shape: ' . (!empty($avoid['faq']) ? 'no FAQ this time (return faq as an empty array). ' : '') . (isset($avoid['sections']) ? 'Use the number of sections the request gives, not ' . (int) $avoid['sections'] . '. ' : '') . 'Follow the heading style and length rhythm the request gives, and do not open the piece the way it opens now.'; }
         echo date('c'), ' rewriting /blog/', $a['slug'], ' (', implode('; ', array_merge($issues, $rule_issues, $shape_issue !== '' ? array('shape: ' . $shape_issue) : array())), ")\n";
-        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id'], false, $avoid, (string) ($opts['format'] ?? '')); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; }
+        try { $r = SeoDrafter::draft($kw, $note, (int) $a['id'], false, $avoid, (string) ($opts['format'] ?? '')); echo '  -> ', !empty($r['ok']) ? 'ok' : ('failed: ' . ($r['error'] ?? '')), "\n"; } catch (\Throwable $e) { echo '  -> error: ', $e->getMessage(), "\n"; $r = array('ok' => false); }
+        $streak = empty($r['ok']) ? $streak + 1 : 0;
+        if ($streak >= 2 && isset($opts['all'])) { echo date('c'), " two rewrites in a row failed: stopping the run so a bad rule cannot burn every article (fix the rule, rerun --rewrite --all)\n"; break; }
         if (!empty($r['ok'])) {   // the rewrite went live: the summary reports what is on the site now, not the reasons it was taken
             $flagged = array_values(array_filter($flagged, function ($f) use ($a) { return strpos($f, '/blog/' . $a['slug'] . ' ') !== 0 && strpos($f, '/blog/' . $a['slug'] . ':') !== 0; }));
             $fresh = $articles->get((int) $a['id']); $left = $fresh ? $rules($fresh) : array();

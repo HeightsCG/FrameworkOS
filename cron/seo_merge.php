@@ -50,7 +50,7 @@ elseif (!empty($opts['into'])) { $groups[] = array('into' => (string) $opts['int
 else { echo "usage: --approved | --restructure | --into=<slug> [--from=<slug,slug>] --format=<x> [--link=/path] [--dry-run]\n"; exit(1); }
 
 $articles = new SeoArticlesModel(); $keywords = new SeoKeywordsModel();
-$ok_all = true;
+$ok_all = true; $streak = 0;
 foreach ($groups as $g) {
     $into = $articles->get_by_slug($g['into'], true);
     if (!$into) { echo date('c'), " SKIP: survivor /blog/{$g['into']} is not a published article here\n"; $ok_all = false; continue; }
@@ -74,7 +74,8 @@ foreach ($groups as $g) {
         foreach ($sources as $s) { $note .= "\n\n--- Merged article: \"" . $s['title'] . "\" (keyword: " . $s['target_keyword'] . ")\n" . (string) $s['body_md']; }
     }
     $r = SeoDrafter::draft($kw, $note, (int) $into['id'], false, array(), $format);
-    if (empty($r['ok'])) { echo "  -> rewrite FAILED, group left as it was: ", $r['error'], "\n"; $ok_all = false; continue; }
+    if (empty($r['ok'])) { echo "  -> rewrite FAILED, group left as it was: ", $r['error'], "\n"; $ok_all = false; if (++$streak >= 2) { echo date('c'), " two groups in a row failed: stopping so a bad rule cannot burn every article (fix the rule, rerun)\n"; break; } continue; }
+    $streak = 0;
     echo "  -> survivor rewritten and live\n";
     foreach ($sources as $s) {
         $articles->archive_into((int) $s['id'], $into['slug']);
