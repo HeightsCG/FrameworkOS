@@ -522,7 +522,7 @@ class SeoDrafter {
         $readable = preg_replace('/\b(\d+) (?:a|per) month\b/', '$$1 a month', $sh);   // shingles lost the $ and %; the fact regexes want them back loosely
         foreach ($pc['facts'] as $re) { if (preg_match($re, $sh) || preg_match($re, '$' . $readable) || preg_match($re, preg_replace('/\b(\d+) (?:on|of)\b/', '$1% $2', $sh))) { return true; } }
         if (preg_match('/\b(credits? a month|ai credits|gb of storage|a month each|of each sale|cash out to your bank|to your bank on request|platform fee|platform hold|card processing|credit wallet|social networks|same person|photos or a)\b/', $sh)) { return true; }   // product-fact wording in any spelling
-        if (preg_match('/\b(creator|studio|free) (?:plan )?(?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
+        if (preg_match('/\b(creator|studio|free) plan\b|\b(creator|studio|free) (?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
         return false;
     }
     /** Set false in tests: the stock check otherwise reads every published article on the dev database. */
@@ -1055,7 +1055,7 @@ class SeoDrafter {
 
     private static function system_prompt(): string {
         $site = Main::site_name();
-        return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked pricing example with round, clearly hypothetical numbers (\"50 members at \$10 is \$500 before fees\") is fine; never present invented numbers as real data or averages. "
+        return "You write practical, plain-English guides for the $site blog, read by independent creators who sell content, memberships and services online. Voice: direct, specific, second person, no hype, no filler, no emoji, sentence-case headings. Never invent statistics, studies, quotes, prices, fees or competitor facts; use only the facts in the context. A worked pricing example with round, clearly hypothetical numbers is fine, with figures chosen for this piece (never the same member count, price and total another article used); never present invented numbers as real data or averages. "
             . "No income promises: never write \"guaranteed\", \"you will make\", \"you can make\", \"you'll earn\" or \"six figures\", and never put an amount per month or year next to make, earn, income or revenue, even in an example, unless it is an honest range such as \"some creators earn between X and Y, and it varies\". "
             . "Name no people at all, real or invented: no founders, no experts, no example creators with names; say \"a fitness creator\" or \"one creator\". "
             . "Plan prices, the platform fee and the refund rule: most pieces need none of them. Where the topic genuinely needs one, state it once, in your own words, with exactly the figures and plan names in the context, in one paragraph that also says why it matters to the reader. Never copy a sentence from the context word for word, and never attach a fee to the Free plan. "
