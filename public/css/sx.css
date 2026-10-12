@@ -911,3 +911,4 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 }
 .sx--pricing .sx-plan__under .sx-plan__founding a { color: var(--sx-t2); text-decoration-color: var(--sx-line); }   /* quiet until hovered: the button is the one accent on the card */
 .sx--pricing .sx-plan__under .sx-plan__founding a:hover { color: var(--sx-ink); text-decoration-color: var(--sx-acc); }
+.sx--pricing .sx-hero__lead, .sx--pricing .sx-note { max-width: none; }   /* full content width, never a narrow column (Daniel's rule) */
