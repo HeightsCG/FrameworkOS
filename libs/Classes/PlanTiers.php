@@ -105,6 +105,12 @@ class PlanTiers {
      * What the Free account includes. Everyone signs up on Free; it follows, subscribes and buys but has no creator
      * tools (Plan::can_use_creator_features needs a paid plan), so its plan card lists these instead of fees and limits.
      */
+    /** What a creator builds on Free before paying (Plan::can_build): the page and the drafts; nothing with a price switches on until Creator or Studio (Plan::can_sell). */
+    const FREE_BUILDS = array(
+        'Your public page at your handle',
+        'Draft posts, tiers and offers, ready to switch on when you upgrade',
+    );
+
     const FREE_INCLUDES = array(
         'Follow creators and get their updates',
         'Join memberships and unlock posts',

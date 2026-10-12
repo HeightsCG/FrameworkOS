@@ -21,7 +21,7 @@ class Proof {
     public static function g2_url(): string { return (string) (SeoMeta::SOCIAL_PROFILES['G2'] ?? ''); }
 
     /** The proof links as a short inline list: Product Hunt always (the listing exists), G2 only once it has reviews. */
-    public static function links(string $class = 'sx-proof'): string {
+    public static function links(string $class = 'sx-proof', string $label = ''): string {   // $label: a few words of context in front of the links ("Also listed on")
         $e = function ($s) { return Sections::e($s); }; $items = array();
         if (self::product_hunt_url() !== '') {
             $badge = self::PRODUCT_HUNT_LAUNCH !== '' ? ' <span class="' . $class . '__badge">Launched ' . $e(date('M j, Y', strtotime(self::PRODUCT_HUNT_LAUNCH))) . '</span>' : '';
@@ -29,6 +29,6 @@ class Proof {
         }
         if (self::G2_REVIEWS && self::g2_url() !== '') { $items[] = '<a class="' . $class . '__a" href="' . $e(self::g2_url()) . '" rel="noopener" target="_blank">Read reviews on G2</a>'; }
         if (empty($items)) { return ''; }
-        return '<p class="' . $class . '">' . implode('<span class="' . $class . '__sep" aria-hidden="true">·</span>', $items) . '</p>';
+        return '<p class="' . $class . '">' . ($label !== '' ? '<span class="' . $class . '__label">' . $e($label) . '</span> ' : '') . implode('<span class="' . $class . '__sep" aria-hidden="true">·</span>', $items) . '</p>';
     }
 }

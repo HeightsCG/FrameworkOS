@@ -3,7 +3,6 @@ $e = function ($s) { return Sections::e($s); };
 ?>
 <section class="sx sx--hero sx--pricing"><div class="ld-wrap sx__in">
     <h1 class="sx-hero__title sx-hero__title--plain">Pricing</h1>
-    <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is free for fans. Creators pick Creator or Studio when they're ready to sell.</p>
 <?php
     // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): one line on the Creator card while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;
@@ -15,19 +14,16 @@ $e = function ($s) { return Sections::e($s); };
     <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
         <?php if ($hi): ?><span class="sx-plan__tag">Most popular</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><span class="sx-plan__role"><?php echo $e($role); ?></span><?php endif; ?></h2>
-        <div class="sx-plan__price"><?php if ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
+        <div class="sx-plan__price"><?php if ($is_free): ?>Free<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <div class="sx-plan__under"><?php if ($founding_left > 0 && $f_plan && $f_from && $t['key'] === Founding::PLAN): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free, <?php echo $e(Founding::fee_label()); ?> fee locked.</a><?php /* no spot counts on public pages (Daniel 2026-10-12) */ ?></p><?php endif; ?></div>
         <div class="sx-plan__cta">
             <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register"><?php echo $is_free ? 'Join Free' : 'Start with ' . $e($t['name']); ?></a>
-            <?php if ($t['key'] === Founding::PLAN): $why = PagesController::why_upfront_sentence(); if ($why !== ''): ?><p class="sx-plan__why"><?php echo $e($why); ?></p><?php endif; endif; ?>
         </div>
         <div class="sx-plan__body">
+        <?php if ($t['key'] === Founding::PLAN): $why = PagesController::why_upfront_sentence(); if ($why !== ''): ?><p class="sx-plan__why"><?php echo $e($why); ?></p><?php endif; endif; ?>
         <?php if ($is_free): ?>
-        <p class="sx-plan__keep">Upgrade to Creator or Studio to sell</p>
-        <dl><?php foreach (PlanTiers::FREE_INCLUDES as $inc): ?><div><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?></dl>
+        <dl><?php foreach (array_merge(PlanTiers::FREE_BUILDS, PlanTiers::FREE_INCLUDES) as $inc): ?><div><dt><?php echo $e($inc); ?></dt><dd>Included</dd></div><?php endforeach; ?></dl>
         <?php else: ?>
-        <p class="sx-plan__keep">Keep <?php echo 100 - (int) $t['limits']['fee_percent']; ?>% of every sale</p>
-        <?php $vs = PagesController::fee_vs_onlyfans($t); if ($vs !== ''): ?><p class="sx-plan__vs"><?php echo $e($vs); ?></p><?php endif; ?>
         <dl><?php foreach (PlanTiers::ROWS as $row): ?><div><dt><?php echo $e($row['label']); ?></dt><dd><?php echo $e(PlanTiers::fmt_tier_limit($t, $row['key'])); ?></dd></div><?php endforeach; ?><?php foreach (PlanTiers::FEATURES as $fk => $fl): ?><div><dt><?php echo $fl; ?></dt><dd><?php echo PlanTiers::has_feature($t, $fk) ? 'Included' : '&mdash;'; ?></dd></div><?php endforeach; ?></dl>
         <?php endif; ?>
         <?php foreach (PlanTiers::addons_for($t['key']) as $ad): ?><p class="sx-plan__addon">Add AI influencers for $<?php echo (int) $ad['price']; ?>/month each, up to <?php echo (int) $ad['max']; ?> more.</p><?php endforeach; ?>
@@ -39,7 +35,7 @@ $e = function ($s) { return Sections::e($s); };
     // What AI credits buy, from the same price list Billing shows (Plan::ai_price_list), so the page can't go stale.
     $vids = array(); foreach (Plan::ai_price_list() as $pr) { if (strpos($pr['label'], 'Video') === 0) { $vids[] = (int) $pr['credits']; } }
 ?>
-<?php echo Proof::links('sx-proof'); ?>
+<?php echo Proof::links('sx-proof', 'Also listed on'); ?>
 <p class="sx-note">On Creator and Studio, more AI credits can be bought any time: $1 buys <?php echo (int) PlanTiers::AI_CREDITS_PER_DOLLAR; ?> AI credits. An AI image uses <?php echo number_format(Plan::ai_price('image')); ?><?php echo $vids ? ', a video ' . number_format(min($vids)) . ' to ' . number_format(max($vids)) . ' depending on style and length' : ''; ?>. Captions and training are included. Card-processing fees are separate from the platform take rate.</p>
 <?php
 echo Sections::close();

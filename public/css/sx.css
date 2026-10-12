@@ -915,3 +915,6 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx-plan__vs { font-size: .78rem; }
 .sx-plan__addon { margin: 8px 0 0; font-size: .78rem; }
 @media (max-width: 820px) { .sx--pricing .sx-plan { padding: 20px; } }
+.sx--pricing .sx-plan__body .sx-plan__why { margin: 0 0 12px; }
+.sx--pricing .sx-plan__body dl { margin-top: 0; }
+.sx-proof__label { color: var(--sx-muted); margin-right: 6px; }
