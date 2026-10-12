@@ -522,7 +522,10 @@ class SeoDrafter {
         $readable = preg_replace('/\b(\d+) (?:a|per) month\b/', '$$1 a month', $sh);   // shingles lost the $ and %; the fact regexes want them back loosely
         foreach ($pc['facts'] as $re) { if (preg_match($re, $sh) || preg_match($re, '$' . $readable) || preg_match($re, preg_replace('/\b(\d+) (?:on|of)\b/', '$1% $2', $sh))) { return true; } }
         if (preg_match('/\b(credits? a month|ai credits|gb of storage|a month each|of each sale|cash out to your bank|to your bank on request|platform fee|platform hold|card processing|credit wallet|social networks|same person|photos or a)\b/', $sh)) { return true; }   // product-fact wording in any spelling
-        if (preg_match('/\b(creator|studio|free) plan\b|\b(creator|studio|free) (?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
+        if (preg_match('/\b(creator|studio|free) plan\b|\b(creator|studio|free) (?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }
+        // a number, or product and source vocabulary, makes a phrase a fact in some spelling; stock is the stylistic filler that carries neither
+        if (preg_match('/\d/', $sh)) { return true; }
+        if (preg_match('/\b(plans?|accounts?|credits?|fees?|sales?|payouts?|bank|wallet|studio|tiers?|memberships?|unlocks?|bundles?|influencers?|irs|ftc|sba|gov|center|centre|help|docs|terms|dollar|dollars|percent|month|monthly|sells?|selling)\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
         return false;
     }
     /** Set false in tests: the stock check otherwise reads every published article on the dev database. */
