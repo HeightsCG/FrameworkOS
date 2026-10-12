@@ -17,7 +17,7 @@ $e = function ($s) { return Sections::e($s); };
         <div class="sx-plan__price"><?php if ($is_free): ?>Free<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <div class="sx-plan__under"><?php if ($founding_left > 0 && $f_plan && $f_from && $t['key'] === Founding::PLAN): ?><p class="sx-plan__founding"><a href="/founding">Founding creators: first month free, <?php echo $e(Founding::fee_label()); ?> fee locked.</a><?php /* no spot counts on public pages (Daniel 2026-10-12) */ ?></p><?php endif; ?></div>
         <div class="sx-plan__cta">
-            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register"><?php echo $is_free ? 'Join Free' : 'Start with ' . $e($t['name']); ?></a>
+            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start Now</a>
         </div>
         <div class="sx-plan__body">
         <?php if ($is_free): ?>
