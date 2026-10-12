@@ -918,3 +918,4 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .sx--pricing .sx-plan__body .sx-plan__why { margin: 0 0 12px; }
 .sx--pricing .sx-plan__body dl { margin-top: 0; }
 .sx-proof__label { color: var(--sx-muted); margin-right: 6px; }
+.sx--pricing .sx-hero__lead { max-width: none; }   /* the intro runs the full width of the cards below it */
