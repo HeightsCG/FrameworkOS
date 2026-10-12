@@ -1,8 +1,9 @@
 <?php
 /**
  * Founding creator offer (/founding). The first SPOTS accounts that start the Creator plan through it get the first
- * month free (the system promo CODE: 100% off one period, no Stripe coupon) and their platform fee locked at the
- * Studio plan's fee for as long as the Creator plan stays active or past due. In return they agree to share a
+ * month free (the system promo CODE: 100% off one period, no Stripe coupon). That is the whole offer since 2026-10-12
+ * (Daniel): FEE_LOCK is off, so new claims pay the Creator plan's own fee. Claims made while the lock was on keep
+ * their fee_percent_override for as long as the Creator plan stays active or past due. In return they agree to share a
  * testimonial, to be featured in the directory and on the home page, and to stay listed in the directory.
  *
  * A spot is held at checkout (BillingService::change_plan, founding_claims 'claimed', released if the charge fails),
@@ -13,8 +14,10 @@ class Founding {
 
     const SPOTS = 100;
     const CODE  = 'FOUNDING';
-    const PLAN  = 'creator';
-    const FEE_FROM = 'studio';   // the tier whose fee is locked in
+    const PLAN  = 'creator';              // the plan the claim link preselects, and the one old fee locks apply to
+    const PLANS = array('creator', 'studio');   // every paid plan takes the offer (Daniel 2026-10-12)
+    const FEE_FROM = 'studio';   // the tier whose fee is locked in (only while FEE_LOCK is on)
+    const FEE_LOCK = false;      // false: a new claim gets the free first month and nothing else; an override already written is still honoured (fee_override)
     const TESTIMONIAL_DAYS = 14;
     const FULL_MESSAGE = 'All founding spots are taken.';
 
@@ -39,6 +42,16 @@ class Founding {
         return (float) ($t['limits']['fee_percent'] ?? 0);
     }
 
+    /** The offer covers this plan. */
+    public static function covers($plan): bool { return in_array((string) $plan, self::PLANS, true); }
+
+    /** "Creator or Studio", from PlanTiers. */
+    public static function plan_names(): string
+    {
+        $n = array(); foreach (self::PLANS as $k) { $t = PlanTiers::get($k); if ($t) { $n[] = (string) $t['name']; } }
+        return implode(' or ', $n);
+    }
+
     public static function plan_name(): string
     {
         $t = PlanTiers::get(self::PLAN);
@@ -49,7 +62,7 @@ class Founding {
     public static function fee_label(): string { return rtrim(rtrim(number_format(self::fee(), 2), '0'), '.') . '%'; }
 
     /** The note on the billing plan tab and the quote line label. */
-    public static function note(): string { return 'Founding offer: first billing period free, ' . self::fee_label() . ' fee locked'; }
+    public static function note(): string { return 'Founding offer: first billing period free' . (self::FEE_LOCK ? ', ' . self::fee_label() . ' fee locked' : ''); }
 
     public static function taken(): int { return (new FoundingClaimsModel())->taken(); }
 
@@ -80,13 +93,13 @@ class Founding {
     }
 
     /**
-     * The founding promo for a plan quote, in BillingService::resolve_promo()'s shape. Only a new Creator plan
+     * The founding promo for a plan quote, in BillingService::resolve_promo()'s shape. Only a new paid plan in PLANS
      * (subscribe from Free), once per account, while spots remain.
      */
     public static function promo($user_id, $plan, array $q): array
     {
         if (!self::$presented) { return array('ok' => false, 'message' => 'That promo code is not valid.'); }
-        if ((string) $plan !== self::PLAN || (string) ($q['mode'] ?? '') !== 'subscribe') { return array('ok' => false, 'message' => 'The founding offer is for starting the ' . self::plan_name() . ' plan.'); }
+        if (!self::covers($plan) || (string) ($q['mode'] ?? '') !== 'subscribe') { return array('ok' => false, 'message' => 'The founding offer is for starting the ' . self::plan_names() . ' plan.'); }
         $c = (new FoundingClaimsModel())->for_user((int) $user_id);
         if ($c && (string) $c['status'] !== 'claimed') { return array('ok' => false, 'message' => 'The founding offer can be used once per account.'); }
         if (!$c && !self::open()) { return array('ok' => false, 'message' => self::FULL_MESSAGE); }
@@ -116,23 +129,23 @@ class Founding {
         self::forget();
     }
 
-    /** The Creator plan started on the founding promo: claim active, account flagged, fee locked. */
+    /** The Creator plan started on the founding promo: claim active, account flagged; the fee locks only while FEE_LOCK is on. */
     public static function activate($user_id): void
     {
         $uid = (int) $user_id;
         if ((new FoundingClaimsModel())->activate($uid) < 1) { return; }   // no held spot: nothing to grant
         (new UsersModel())->set_founding($uid, true);
-        (new BillingAccountsModel())->save($uid, array('fee_percent_override' => self::fee()));
+        if (self::FEE_LOCK) { (new BillingAccountsModel())->save($uid, array('fee_percent_override' => self::fee())); }
         self::forget();
     }
 
     /**
-     * Called with every plan mirror write: leaving the Creator plan (another plan, Free, or a lapse) ends the
-     * founding terms. Cheap when there is nothing to end (one indexed update).
+     * Called with every plan mirror write: leaving the paid plans in PLANS (Free, or a lapse) ends the
+     * founding terms; moving between them does not. Cheap when there is nothing to end (one indexed update).
      */
     public static function on_plan_mirror($user_id, $tier, $status): void
     {
-        if ((string) $tier === self::PLAN && in_array((string) $status, array('active', 'past_due'), true)) { return; }
+        if (self::covers($tier) && in_array((string) $status, array('active', 'past_due'), true)) { return; }
         try {
             if ((new FoundingClaimsModel())->lapse((int) $user_id) > 0) { self::clear((int) $user_id); }
         } catch (\Throwable $e) {

@@ -507,7 +507,7 @@ $(function () {
             <button type="button" class="btn btn-secondary plan__btn plan-cancel" <?php echo $locked ? 'disabled' : ''; ?>>Downgrade to Free</button>
             <?php else: ?>
             <?php $label = ($up ? 'Upgrade to ' : 'Switch to ') . $tier['name']; ?>
-            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>"<?php echo ($founding_on && $tier['key'] === Founding::PLAN) ? ' data-founding="1"' : ''; ?> data-title="<?php echo $e($label); ?>" <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
+            <button type="button" class="btn <?php echo $tier['key'] === $next_up ? 'btn-primary' : 'btn-secondary'; ?> plan__btn plan-go" data-plan="<?php echo $e($tier['key']); ?>"<?php echo ($founding_on && Founding::covers($tier['key'])) ? ' data-founding="1"' : ''; ?> data-title="<?php echo $e($label); ?>" <?php echo $locked ? 'disabled' : ''; ?>><?php echo $e($label); ?></button>
             <?php endif; ?>
         </div>
         <?php endforeach; ?>

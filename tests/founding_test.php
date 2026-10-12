@@ -37,7 +37,8 @@ Founding::present(true);   // as the billing API does when founding=1 comes with
 try {
     $creator = PlanTiers::get(Founding::PLAN);
     $t0 = Founding::taken();
-    check('fee locked at the Studio fee from PlanTiers (' . Founding::fee() . ')', Founding::fee() === (float) PlanTiers::get('studio')['limits']['fee_percent'] && Founding::fee() < (float) $creator['limits']['fee_percent']);
+    check('fee lock is off: the offer is the free first period only', Founding::FEE_LOCK === false);
+    check('offer covers every paid plan', Founding::covers('creator') && Founding::covers('studio') && !Founding::covers('free'));
     check('eligible while on Free with spots left', Founding::eligible($a));
 
     // quote: the FOUNDING promo takes the first month to $0, no payment processor call
@@ -46,7 +47,7 @@ try {
     check('quote has the founding promo line', !empty($q['lines'][1]) && strpos($q['lines'][1][0], 'Promo ' . Founding::CODE) === 0 && (int) $q['lines'][1][1] === -BillingService::plan_cents(Founding::PLAN));
     check('quote still renews at the plan price', (int) $q['recurring'] === BillingService::plan_cents(Founding::PLAN));
     $qs = BillingService::quote_plan($a, 'studio', Founding::CODE);
-    check('founding promo refused for Studio', empty($qs['ok']));
+    check('founding promo accepted for Studio, $0 today', !empty($qs['ok']) && (int) $qs['today'] === 0);
     Founding::present(false);
     check('typed FOUNDING without the founding flag is not a promo', empty(BillingService::quote_plan($a, Founding::PLAN, Founding::CODE)['ok']));
     Founding::present(true);
@@ -57,8 +58,8 @@ try {
     $ua = $row($a);
     $claim = (new FoundingClaimsModel())->for_user($a);
     check('is_founding = 1', (int) $ua['is_founding'] === 1);
-    check('fee override 3.00 on billing_accounts', (new BillingAccountsModel())->fee_override($a) === Founding::fee());
-    check('Plan::fee_percent returns the locked fee', Plan::fee_percent($ua) === Founding::fee());
+    check('no fee override written on billing_accounts', (new BillingAccountsModel())->fee_override($a) === null);
+    check('Plan::fee_percent is the plan\'s own fee', Plan::fee_percent($ua) === (float) $creator['limits']['fee_percent']);
     check('claim active with activated_at', $claim && $claim['status'] === 'active' && !empty($claim['activated_at']));
     check('spots taken went up by one', Founding::taken() === $t0 + 1);
     check('on the Creator plan, active', Plan::tier($ua) === Founding::PLAN);
@@ -113,7 +114,10 @@ try {
     $db->run("UPDATE founding_claims SET status = 'lapsed' WHERE user_id = :u", array(':u' => $a)); Founding::release(0);
     check('fee falls back to the plan fee when the claim is not active', Plan::fee_percent($row($a)) === (float) $creator['limits']['fee_percent']);
     $db->run("UPDATE founding_claims SET status = 'active' WHERE user_id = :u", array(':u' => $a)); Founding::release(0);
-    check('and returns with the active claim', Plan::fee_percent($row($a)) === Founding::fee());
+    check('and stays the plan fee with the active claim (no lock)', Plan::fee_percent($row($a)) === (float) $creator['limits']['fee_percent']);
+    (new BillingAccountsModel())->save($a, array('fee_percent_override' => Founding::fee())); Founding::release(0);
+    check('a lock written before the change is still honoured', Plan::fee_percent($row($a)) === Founding::fee());
+    (new BillingAccountsModel())->save($a, array('fee_percent_override' => null)); Founding::release(0);
 
     // stale held spot (a checkout that died) is released by the cron sweep
     Founding::claim($b);

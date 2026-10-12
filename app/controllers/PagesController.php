@@ -852,21 +852,20 @@ class PagesController extends Controller {
 
     /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
     public static function founding_meta(): array {
-        $c = PlanTiers::get(Founding::PLAN);
-        return array('title' => 'Founding Creators: First Period Free, ' . Founding::fee_label() . ' Fee Locked',
-            'description' => Founding::SPOTS . ' founding spots on the ' . $c['name'] . ' plan, open until they are filled: your first billing period free and the ' . Founding::fee_label() . ' Studio fee locked in while the plan stays active.');
+        return array('title' => 'Founding Creators: First Month Free on ' . Founding::plan_names(),
+            'description' => Founding::SPOTS . ' founding spots on the ' . Founding::plan_names() . ' plan, open until they are filled: your first billing period free, with featured placement in the creator directory and on the home page.');
     }
 
     public static function founding_faq(): array {
-        $c = PlanTiers::get(Founding::PLAN); $price = '$' . number_format((int) $c['price']);
+        $names = Founding::plan_names(); $pp = array(); foreach (Founding::PLANS as $fk) { $ft = PlanTiers::get($fk); if ($ft) { $pp[] = '$' . number_format((int) $ft['price']) . ' a month on ' . $ft['name']; } } $after = implode(' or ', $pp);
         return array(
-            array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $c['name'] . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
-            array('q' => 'What does it cost?', 'a' => 'Your first billing period on ' . $c['name'] . ' is free. After that the plan is ' . $price . ' a month, charged to your card until you cancel. Plan charges are final and non-refundable.'),
+            array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $names . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
+            array('q' => 'What does it cost?', 'a' => 'Your first billing period on ' . $names . ' is free. After that the plan is ' . $after . ', charged to your card until you cancel. Plan charges are final and non-refundable.'),
             array('q' => 'Is the free period always a full month?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date. The free period then runs until that date, and the regular price starts from it.'),
-            array('q' => 'How long does the ' . Founding::fee_label() . ' fee last?', 'a' => 'For as long as your ' . $c['name'] . ' plan stays active, including a short past-due grace period. If you change plans, move to Free or the plan lapses, the founding terms end and do not come back.'),
+            array('q' => 'How long do the founding terms last?', 'a' => 'The free period is your first billing period. Featured placement lasts for as long as your paid plan stays active, including a short past-due grace period. If you move to Free or the plan lapses, the founding terms end and do not come back.'),
             array('q' => 'What do founding creators agree to?', 'a' => 'To share a short testimonial about their experience, which we ask for after two weeks. To be featured in the creator directory and on the home page, and to stay listed in the directory.'),
             array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),
-            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
+            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
         );
     }
 

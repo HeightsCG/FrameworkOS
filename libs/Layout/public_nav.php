@@ -7,7 +7,13 @@ $nav_items = array(array('/features', 'Features'), array('/pricing', 'Pricing'),
 $nav_links = (isset($pub_links) && is_array($pub_links)) ? $pub_links : null;
 $nav_base  = $nav_links ? (string) $nav_links['base'] : '';
 $nav_e     = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); };
+// Founding offer bar above the nav on every public page while spots remain (Daniel 2026-10-12). Not on creator profiles: those are the creator's page, not ours.
+$nav_offer = false;
+if (!$nav_links) { try { $nav_offer = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[nav] founding: ' . $ex->getMessage()); } }
 ?>
+<?php if ($nav_offer): ?>
+    <aside class="fb" aria-label="Founding offer"><p class="fb__in">Founding creators: first month free. <a href="/founding">Claim a spot</a></p></aside>
+<?php endif; ?>
     <header class="ld-nav">
         <div class="ld-wrap ld-nav__inner">
             <a class="ld-brand" href="<?php echo $nav_e($nav_base . '/'); ?>">

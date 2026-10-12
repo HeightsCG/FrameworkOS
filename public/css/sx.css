@@ -963,3 +963,13 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 .hx__intro { max-width: none; }
 @media (min-width: 1101px) { .hx:not(.hx--panel) .hx__in { align-items: center; } }   /* the card is centred against the left column, so the space above and below it is even (Daniel 2026-10-12); stretching it left dead space inside */
 @media (min-width: 1101px) { .hx__w { font-size: clamp(56px, 5.2vw, 85px); } }   /* CREATE / SHARE / EARN at 85px max, Daniel's figure (2026-10-12); was 116px */
+
+/* Founding offer bar above the nav (public_nav.php). With the bar present the nav sticks instead of sitting fixed, so the bar scrolls away and the nav stays; main gives back the nav's height. */
+.fb { background: var(--sx-grey); border-bottom: 1px solid var(--sx-line); }
+.fb__in { max-width: 1320px; margin: 0 auto; padding: 10px clamp(20px, 4vw, 56px); text-align: center; font-size: .875rem; line-height: 1.45; color: var(--sx-ink); }
+.fb__in a { margin-left: 6px; color: var(--sx-ink); font-weight: 600; text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; white-space: nowrap; }
+.fb__in a:hover { color: var(--sx-acc); }
+.fb__in a:focus-visible { outline: 2px solid var(--sx-acc); outline-offset: 2px; border-radius: 2px; }
+body:has(> .fb) > .ld-nav { position: sticky; }
+body:has(> .fb) > main { margin-top: -73px; }
+@media (max-width: 640px) { .fb__in { padding: 8px 16px; } body:has(> .fb) > main { margin-top: -65px; } }

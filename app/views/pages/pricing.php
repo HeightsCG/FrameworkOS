@@ -5,13 +5,13 @@ $e = function ($s) { return Sections::e($s); };
     <h1 class="sx-hero__title sx-hero__title--plain">Pricing</h1>
     <p class="sx-hero__lead"><?php echo $e(Main::site_name()); ?> is one page for your memberships, pay-per-view posts, bundles, services and events, with a studio that publishes everywhere and payouts to your bank. Everyone joins free, and creators can build their page before they pay. When you’re ready to sell, pick Creator or Studio, billed monthly, cancel any time.</p>
 <?php
-    // Founding offer (Founding::SPOTS, first month free, the Studio fee locked on Creator): one line on the Creator card while spots remain.
+    // Founding offer (first month free on Creator; no fee lock since 2026-10-12): one line on the Creator card while spots remain.
     $founding_left = isset($founding_left) ? (int) $founding_left : 0;
     $f_plan = PlanTiers::get(Founding::PLAN); $f_from = PlanTiers::get(Founding::FEE_FROM);
     // Card order: Free, Creator, Studio on desktop; phones put the paid plans first (CSS order by plan key).
 ?>
 <?php if ($founding_left > 0 && $f_plan && $f_from): ?>
-<p class="sx-plans__offer">Founding creators: first month free and the <?php echo $e(Founding::fee_label()); ?> <?php echo $e($f_from['name']); ?> fee locked on the <?php echo $e($f_plan['name']); ?> plan. <a href="/founding">Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
+<p class="sx-plans__offer">Founding creators: first month free on <?php echo $e(Founding::plan_names()); ?>. <a href="/founding">Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
 <?php endif; ?>
 <div class="sx-plans" id="sx_plans">
 <?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>
