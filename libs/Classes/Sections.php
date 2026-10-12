@@ -312,6 +312,24 @@ class Sections {
         return $o . '</tbody></table></div>';
     }
 
+    /**
+     * Prose section: a heading and paragraphs of plain text. Inside a paragraph, [text](https://url) becomes a source link
+     * (nofollow, new tab) and [text](/path) an internal link; everything else is escaped. Used by the compare, alternatives,
+     * best-of and monetize pages for their page-specific copy (CompareProse).
+     */
+    public static function prose(string $bg, string $title, array $paragraphs, string $lead = ''): string {
+        $o = self::open($bg, $title, $lead);
+        foreach ($paragraphs as $p) {
+            $h = self::e($p);
+            $h = preg_replace_callback('/\[([^\]]+)\]\((https?:\/\/[^)\s]+|\/[^)\s]*)\)/', function ($m) {
+                $ext = strpos($m[2], '/') !== 0;
+                return '<a href="' . $m[2] . '"' . ($ext ? ' rel="nofollow noopener" target="_blank"' : '') . '>' . $m[1] . '</a>';   // $m[*] are already escaped text
+            }, $h);
+            $o .= '<p class="sx-p">' . $h . '</p>';
+        }
+        return $o . self::close();
+    }
+
     /** FAQ accordion (questions and answers are plain text). */
     public static function faq(array $faq, string $bg = 'alt'): string {
         $o = self::open($bg) . '<div class="sx-faq"><h2 class="sx-h2" id="sx_faq">Frequently Asked Questions</h2><div class="sx-faq__list">';

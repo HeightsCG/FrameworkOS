@@ -56,8 +56,8 @@ echo Sections::cards(array(
 echo Sections::close();
 
 // What a sale turns into: the platform fee and plan price on round sales figures (from PlanTiers), then the payout terms (Price / the payouts page).
-echo PagesController::fee_example_section(array(), 'alt', array(500, 2000), 'What do you keep from each sale?');
-echo PagesController::payouts_section(array(), 'white');
+echo CompareProse::render(CompareProse::monetize(), 'alt');   // the five ways in prose, what a sale turns into, keeping prices right, a scenario
+echo PagesController::fee_example_section(array(), 'white', array(500, 2000), 'What do you keep from each sale?');
 
 echo Sections::open('alt', 'How do you get fans to the page?', 'Publish everywhere and point back to one place. A studio that posts to your socials and your page at once does the promotion for you every time you publish. The paid version sits behind the lock.');
 echo Sections::rows(array(

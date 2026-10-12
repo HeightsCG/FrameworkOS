@@ -29,11 +29,9 @@ echo Sections::close();
 
 // Worked fee example across the platforms on this list that have a sourced rate (the ones with a /compare page), then payout terms beside the platform the reader is leaving.
 $compare_slugs = array_values(array_filter(array_map(function ($o) { return (string) $o['compare']; }, $p['others'])));
-echo PagesController::fee_example_section($compare_slugs, 'alt');
-echo PagesController::payouts_section(PagesController::COMPETITORS[strtolower($p['name'])] ?? array(), 'white');
-echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
-echo PagesController::switch_section($p['name']);
-echo PagesController::limits_section();
+echo CompareProse::render(CompareProse::alternatives(strtolower($p['name'])), 'alt');   // this page's own prose: choosing, leaving, what changes, a computed scenario
+echo PagesController::fee_example_section($compare_slugs, 'white');
+echo CompareProse::links_line();
 if (!empty($faq)) { echo Sections::faq($faq); }
 
 // Closing band (the layout band is off for this page so the button can carry the creator role).

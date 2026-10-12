@@ -81,7 +81,7 @@ $drift = function ($text) use ($retired, $prices, $fee_fixes, $site, $plans) {
 $article_clusters = (new SeoArticlesModel())->published_clusters();
 $rules = function (array $a) use ($article_clusters) {
     $faq = json_decode((string) ($a['faq'] ?? ''), true);
-    $row = array('title' => (string) $a['title'], 'meta_description' => (string) $a['meta_description'], 'excerpt' => (string) ($a['excerpt'] ?? ''), 'body_md' => (string) $a['body_md'], 'faq' => is_array($faq) ? $faq : array(), 'cluster' => (string) ($a['cluster'] ?? ''));
+    $row = array('id' => (int) $a['id'], 'target_keyword' => (string) ($a['target_keyword'] ?? ''), 'title' => (string) $a['title'], 'meta_description' => (string) $a['meta_description'], 'excerpt' => (string) ($a['excerpt'] ?? ''), 'body_md' => (string) $a['body_md'], 'faq' => is_array($faq) ? $faq : array(), 'cluster' => (string) ($a['cluster'] ?? ''));
     // content rules + link rules + the quotability rules (citations, question headings, prose): an older article that
     // predates a rule is flagged here, and --rewrite regenerates it through the drafter (same slug, goes live on success)
     return array_merge(SeoDrafter::content_errors($row), SeoDrafter::link_errors($row, $article_clusters), SeoDrafter::quotability_errors($row));

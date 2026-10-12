@@ -22,22 +22,23 @@ if ($has_reported) { echo '<p class="sx-note">' . $e($c['name']) . ' blocks auto
 echo Sections::close();
 
 // One balanced choice: each side gets a one-line summary and its points, so neither column sits half empty.
+// The fee point appears only where the competitor's own sourced rate is a single percentage above ours (PagesController::fee_point).
+$us_points = array_values(array_filter(array(
+    'You post to several social networks and want one studio that publishes to all of them',
+    'You sell more than subscriptions: pay-per-view, bundles, services, events and links',
+    'You want AI to draft captions and DM replies in your voice, with your approval',
+    PagesController::fee_point($c))));
 echo Sections::open('white', $c['name'] . ' or ' . $site . '?');
 echo Sections::cards(array(
     array('title' => 'Why choose ' . $c['name'], 'text' => (string) ($c['best_for'] ?? ('Your audience is already on ' . $c['name'] . ' and it covers everything you sell.')),
           'points' => array_map($dot, (array) ($c['strengths'] ?? array()))),
-    array('title' => 'Why choose ' . $site, 'text' => 'You want one page that sells everything and a studio that publishes it everywhere.', 'points' => array_map($dot, (array) ($c['us_points'] ?? array(   // us_points: a competitor that is not a selling platform (eromify)
-        'You post to several social networks and want one studio that publishes to all of them',
-        'You sell more than subscriptions: pay-per-view, bundles, services, events and links',
-        'You want AI to draft captions and DM replies in your voice, with your approval',
-        'You want ' . PagesController::fee_short() . ' instead of a flat 20%')))),
+    array('title' => 'Why choose ' . $site, 'text' => 'You want one page that sells everything and a studio that publishes it everywhere.',
+          'points' => array_map($dot, (array) ($c['us_points'] ?? $us_points))),
 ), 2);
 echo Sections::close();
 
-echo PagesController::fee_example_section(array($slug), 'alt');   // worked fee example on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
-echo PagesController::payouts_section($c, 'white');               // our payout terms beside the competitor's sourced payout row
-echo PagesController::what_you_get_section();   // the product facts already published on /features, /pricing and /features/payouts
-echo PagesController::switch_section($c['name'], ($c['type'] ?? '') === 'ai');
-echo PagesController::limits_section();
+echo CompareProse::render(CompareProse::compare($slug), 'alt');   // this competitor's own prose: who it suits, what moving involves, the trade-offs, a computed scenario
+echo PagesController::fee_example_section(array($slug), 'white');   // the fee table on round sales figures, our plans beside the competitor's sourced rate ('' for a tool that sells nothing)
+echo CompareProse::links_line();   // the shared product blocks live on /features, /pricing and /features/payouts, not here
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';

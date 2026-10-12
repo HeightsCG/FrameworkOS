@@ -177,7 +177,8 @@ class SeoDrafter {
             $err[] = 'body needs at least ' . self::MIN_CITATIONS . ' citations to ' . self::MIN_CITATIONS . ' different sources on the citation list (got ' . count($hosts) . ')'
                 . (self::$stripped_external ? '; links to domains not on the list were removed: ' . implode(', ', array_slice(array_unique(self::$stripped_external), 0, 4)) : '');
         }
-        return array_merge($err, self::prose_errors($body, $title));
+        $err = array_merge($err, self::prose_errors($body, $title));
+        return array_merge($err, self::stock_phrase_errors($body, (int) ($a['id'] ?? 0), (string) ($a['target_keyword'] ?? '')));
     }
 
     /** The "## " headings of a Markdown body, in order. */
@@ -185,6 +186,9 @@ class SeoDrafter {
         preg_match_all('/^##\s+(.+?)\s*$/m', $body, $m);
         return array_map('trim', $m[1]);
     }
+
+    /** The opening paragraph answers the title directly in this many words (g_answer_first). */
+    const ANSWER_WORDS = array(40, 60);
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
@@ -212,11 +216,18 @@ class SeoDrafter {
             $p = trim($p);
             if ($p === '' || preg_match('/^(#|[-*>|]|\d+\.)/', $p)) { continue; }
             if ($first === null) { $first = $p; }
-            if ($openers < 6 && preg_match('/^(This|These|That|Those|They|It|Such)\b/', $p, $m)) { $err[] = 'paragraph opens with "' . $m[1] . '"; name the subject instead: "' . mb_substr($p, 0, 60) . '"'; $openers++; }
+            $first_sentence = preg_split('/(?<=[.!?])\s+/', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $p))[0];
+            // "that" counts only as a back-reference (sentence start, or "that is/means/..."), never as the relative pronoun in "a price that fans pay"
+            if ($openers < 6 && (preg_match('/\b(it|they|them|this|these|those|he|she|such)\b/i', $first_sentence, $m) || preg_match('/^(That)\b|\b(that) (?:is|was|are|were|means|makes|leaves|keeps|works|matters|costs?|takes|gives|applies|does|did|comes|turns|holds|has|had|will|would|should|can|could|changes|adds|pays)\b/i', $first_sentence, $m))) {
+                $m[1] = (string) ($m[1] !== '' ? $m[1] : ($m[2] ?? 'that')); $err[] = 'the first sentence of a paragraph names its subject outright and carries no pronoun that points back ("' . $m[1] . '"): "' . mb_substr($p, 0, 60) . '"'; $openers++; }   // tightened 2026-10-12 (g_self_contained)
             $n = self::sentence_count($p);
             if ($long < 6 && $n > self::PARAGRAPH_MAX_SENTENCES) { $err[] = 'paragraph has ' . $n . ' sentences; keep each paragraph to ' . self::PARAGRAPH_MAX_SENTENCES . ': "' . mb_substr($p, 0, 60) . '"'; $long++; }
         }
         if ($first !== null && !self::opens_with_definition($first)) { $err[] = 'the first paragraph must define the subject in one sentence ("X is ..."): "' . mb_substr($first, 0, 60) . '"'; }
+        if ($first !== null) {   // answer first (g_answer_first): the opening paragraph is a direct 40-60 word answer to the title; context and caveats come after it
+            $fw = str_word_count(preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $first));
+            if ($fw < self::ANSWER_WORDS[0] || $fw > self::ANSWER_WORDS[1]) { $err[] = 'the opening paragraph must be a direct answer of ' . self::ANSWER_WORDS[0] . '-' . self::ANSWER_WORDS[1] . ' words to the title (got ' . $fw . '); context and caveats come after it'; }
+        }
         return $err;   // section_opener_errors() is advice in the prompt, not a gate: its word-matching rejected good openers and failed rewrites (2026-10-11)
     }
 
@@ -466,6 +477,67 @@ class SeoDrafter {
             $kept_keys[$key] = $k; $out['kept'][] = $k;
         }
         return $out;
+    }
+
+    /** Five-word phrases of a text, lowercased, punctuation dropped, as a set. */
+    public static function shingles(string $text, int $n = 5): array {
+        $words = preg_split('/\s+/', trim(strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $text)))), -1, PREG_SPLIT_NO_EMPTY);
+        $out = array();
+        for ($i = 0; $i + $n <= count($words); $i++) { $out[implode(' ', array_slice($words, $i, $n))] = true; }
+        return $out;
+    }
+
+    /** Share of published articles a phrase may appear in before it counts as stock (a_ai_slop). */
+    const STOCK_SHARE = 0.20;
+    private static $stock_cache = null;
+    /** Set false in tests: the stock check otherwise reads every published article on the dev database. */
+    public static $check_stock = true;
+
+    /** The phrases shared by more than STOCK_SHARE of the given bodies (pure, for tests and reports). */
+    public static function stock_phrases_in(array $bodies): array {
+        $counts = array(); $n = count($bodies);
+        foreach ($bodies as $b) { foreach (array_keys(self::shingles((string) $b)) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; } }
+        $out = array();
+        if ($n >= 2) { foreach ($counts as $sh => $k) { if ($k >= 2 && $k / $n > self::STOCK_SHARE) { $out[$sh] = $k / $n; } } }
+        return $out;
+    }
+
+    /** Five-word phrases present in more than STOCK_SHARE of the published articles (at least two), phrase => share. Cached per process. */
+    public static function stock_phrases(int $except_id = 0): array {
+        if (self::$stock_cache !== null && self::$stock_cache['except'] === $except_id) { return self::$stock_cache['phrases']; }
+        $counts = array(); $n = 0;
+        try {
+            foreach ((new SeoArticlesModel())->published_markdown() as $row) {
+                if ((int) $row['id'] === $except_id) { continue; }
+                $n++;
+                foreach (array_keys(self::shingles((string) $row['body_md'])) as $sh) { $counts[$sh] = ($counts[$sh] ?? 0) + 1; }
+            }
+        } catch (\Throwable $e) { return array(); }
+        $out = array();
+        if ($n >= 2) { foreach ($counts as $sh => $k) { if ($k >= 2 && $k / $n > self::STOCK_SHARE) { $out[$sh] = $k / $n; } } }
+        self::$stock_cache = array('except' => $except_id, 'phrases' => $out);
+        return $out;
+    }
+
+    /**
+     * Stock-sentence check: any five-word phrase of this body that already appears in more than STOCK_SHARE of the other
+     * published articles is rejected, except phrases made of the article's own topic terms (its target keyword's stems).
+     */
+    public static function stock_phrase_errors(string $body, int $except_id = 0, string $keyword = '', ?array $stock = null): array {
+        if ($stock === null) { if (!self::$check_stock) { return array(); } $stock = self::stock_phrases($except_id); }
+        if ($stock === array()) { return array(); }
+        $topic = self::tokens($keyword . ' ' . Main::site_name());
+        $hits = array();
+        foreach (array_keys(self::shingles($body)) as $sh) {
+            if (!isset($stock[$sh])) { continue; }
+            $topical = 0; foreach (explode(' ', $sh) as $w) { if (in_array(self::stem($w), $topic, true)) { $topical++; } }
+            if ($topical >= 2) { continue; }   // the phrase is the topic itself
+            $hits[$sh] = $stock[$sh];
+            if (count($hits) >= 6) { break; }
+        }
+        if ($hits === array()) { return array(); }
+        arsort($hits);
+        return array('stock phrasing: these five-word phrases already appear in more than ' . (int) round(self::STOCK_SHARE * 100) . '% of published articles, word them for this piece: "' . implode('", "', array_keys($hits)) . '"');
     }
 
     /** Does a FAQ pair only restate the body: 70% of the answer's content stems already appear in the body? */
@@ -956,7 +1028,7 @@ class SeoDrafter {
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
             . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, a named feature as it works here), in the article's own words. A piece that could be published by any platform is rejected. "
-            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. Open the piece with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first). Open every paragraph by naming its subject (the product, the fan, the tier, the file), never with \"this\", \"these\", \"they\", \"it\" or \"such\", so each paragraph reads correctly on its own. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
+            . "Write sentences of 10 to 25 words and paragraphs of at most six sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
 

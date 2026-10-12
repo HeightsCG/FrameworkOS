@@ -56,9 +56,8 @@ echo Sections::close();
 
 // Worked fee example across every selling platform with a sourced rate (the generation tool has none), then our payout terms.
 $selling = array(); foreach (PagesController::COMPETITORS as $slug => $c) { if (isset(PagesController::COMPETITOR_GROUPS[$c['type'] ?? ''])) { $selling[] = $slug; } }
-echo PagesController::fee_example_section($selling, 'alt');
-echo PagesController::payouts_section(array(), 'white');
-echo PagesController::switch_section();
-echo PagesController::limits_section();
+echo CompareProse::render(CompareProse::best_platforms(), 'alt');   // how to read the fee column, payout terms, ownership, a scenario: from the sourced rows
+echo PagesController::fee_example_section($selling, 'white');
+echo CompareProse::links_line();
 if (!empty($faq)) { echo Sections::faq($faq, 'alt'); }
 $cta_title = 'See it with your own page.';

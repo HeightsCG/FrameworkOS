@@ -49,7 +49,7 @@ class PagesController extends Controller {
      *  Cloudflare bot check that blocked every fetch attempt) are 'Not published' rather than guessed. */
     const COMPETITORS = array(
         'fanvue' => array(
-            'name' => 'Fanvue', 'url' => 'https://www.fanvue.com', 'checked' => '2026-09-21', 'type' => 'fan',
+            'name' => 'Fanvue', 'sells' => 'subscriptions, tips and paid messages', 'url' => 'https://www.fanvue.com', 'checked' => '2026-09-21', 'type' => 'fan',
             'fee_short' => '20% of gross revenue',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Fanvue', 'percent' => 20, 'monthly' => 0, 'source' => 'https://legal.fanvue.com/creator-earnings-payouts')),   // checked 2026-10-11: "the remaining 20% retained by Fanvue as Platform Fees"
             'summary' => 'Fanvue is a subscription platform for creators with a focus on AI tools for chat and voice. It does not publish to your social accounts or give you a link-in-bio style page with services and events.',
@@ -68,7 +68,7 @@ class PagesController extends Controller {
             ),
         ),
         'onlyfans' => array(
-            'name' => 'OnlyFans', 'url' => 'https://onlyfans.com', 'checked' => '2026-09-21', 'type' => 'fan',
+            'name' => 'OnlyFans', 'sells' => 'subscriptions, tips and pay-per-view', 'url' => 'https://onlyfans.com', 'checked' => '2026-09-21', 'type' => 'fan',
             'fee_short' => '20% of each Fan Payment',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'OnlyFans', 'percent' => 20, 'monthly' => 0, 'source' => 'https://onlyfans.com/terms')),
             'summary' => 'OnlyFans is the largest subscription platform for creators. It has the biggest audience and depends entirely on its own app, with no cross-posting and no services or events for sale.',
@@ -88,7 +88,7 @@ class PagesController extends Controller {
             ),
         ),
         'patreon' => array(
-            'name' => 'Patreon', 'url' => 'https://www.patreon.com', 'checked' => '2026-09-25', 'type' => 'membership',
+            'name' => 'Patreon', 'sells' => 'memberships and digital products', 'url' => 'https://www.patreon.com', 'checked' => '2026-09-25', 'type' => 'membership',
             'fee_short' => '10% platform fee, plus processing',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Patreon (pages published after August 4, 2025)', 'percent' => 10, 'monthly' => 0, 'source' => 'https://support.patreon.com/hc/en-us/articles/11111747095181-Creator-fees-overview')),
             'summary' => 'Patreon is a membership platform where creators offer monthly or annual paid tiers, sell digital products and run community chats for their fans. It is used by video creators, podcasters, writers and artists who want recurring income from their audience.',
@@ -107,7 +107,7 @@ class PagesController extends Controller {
             ),
         ),
         'fansly' => array(
-            'name' => 'Fansly', 'url' => 'https://fansly.com', 'checked' => '2026-09-25', 'type' => 'fan',
+            'name' => 'Fansly', 'sells' => 'subscriptions, pay-per-view and livestreams', 'url' => 'https://fansly.com', 'checked' => '2026-09-25', 'type' => 'fan',
             'fee_short' => '20% platform fee',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Fansly', 'percent' => 20, 'monthly' => 0, 'source' => 'https://fansly.com/application')),
             'summary' => 'Fansly is a subscription platform where creators, including adult creators, sell subscriptions, pay-per-view posts, livestreams and paid messages. It includes an internal For You discovery feed that shows creators\' content to new viewers on Fansly.',
@@ -126,7 +126,7 @@ class PagesController extends Controller {
             ),
         ),
         'kofi' => array(
-            'name' => 'Ko-fi', 'url' => 'https://ko-fi.com', 'checked' => '2026-09-25', 'type' => 'membership',
+            'name' => 'Ko-fi', 'sells' => 'tips, memberships and a shop', 'url' => 'https://ko-fi.com', 'checked' => '2026-09-25', 'type' => 'membership',
             'fee_short' => '0% on one-time tips, 5% on the rest',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Ko-fi Free (memberships, shop, commissions)', 'percent' => 5, 'monthly' => 0, 'source' => 'https://help.ko-fi.com/hc/en-us/articles/360002506494-Does-Ko-fi-take-a-fee')),
             'summary' => 'Ko-fi is a creator support platform for tips, memberships, a shop and commissions, used by artists, writers, musicians and streamers. It does not hold earnings for a payout schedule; payments go directly into the creator\'s own connected payment account.',
@@ -145,7 +145,7 @@ class PagesController extends Controller {
             ),
         ),
         'linktree' => array(
-            'name' => 'Linktree', 'url' => 'https://linktr.ee', 'checked' => '2026-09-25', 'type' => 'bio',
+            'name' => 'Linktree', 'sells' => 'a link page with digital products', 'url' => 'https://linktr.ee', 'checked' => '2026-09-25', 'type' => 'bio',
             'fee_short' => '$0 to $35/mo, plus 0% to 12% of sales',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Linktree Free (12% on sales)', 'percent' => 12, 'monthly' => 0, 'source' => 'https://linktr.ee/help/en/articles/11410206-understanding-transaction-and-processing-fees-on-linktree'),
                                 array('label' => 'Linktree Premium ($35/mo, 0% on sales)', 'percent' => 0, 'monthly' => 35, 'source' => 'https://linktr.ee/s/pricing')),
@@ -165,7 +165,7 @@ class PagesController extends Controller {
             ),
         ),
         'beacons' => array(
-            'name' => 'Beacons', 'url' => 'https://beacons.ai', 'checked' => '2026-09-25', 'type' => 'bio',
+            'name' => 'Beacons', 'sells' => 'a link page, a store and email marketing', 'url' => 'https://beacons.ai', 'checked' => '2026-09-25', 'type' => 'bio',
             'fee_short' => '$0 to $100/mo, plus 0% or 9% of sales',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Beacons Free (9% seller fee)', 'percent' => 9, 'monthly' => 0, 'source' => 'https://beacons.ai/i/pricing'),
                                 array('label' => 'Beacons Creator Plus ($30/mo, 0% seller fee)', 'percent' => 0, 'monthly' => 30, 'source' => 'https://beacons.ai/i/pricing')),   // checked 2026-10-11
@@ -185,7 +185,7 @@ class PagesController extends Controller {
             ),
         ),
         'stan' => array(
-            'name' => 'Stan', 'url' => 'https://stan.store', 'checked' => '2026-09-25', 'type' => 'bio',
+            'name' => 'Stan', 'sells' => 'courses, bookings and digital products', 'url' => 'https://stan.store', 'checked' => '2026-09-25', 'type' => 'bio',
             'fee_short' => '$29 or $99/mo, no transaction fee',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Stan Creator ($29/mo, no transaction fee)', 'percent' => 0, 'monthly' => 29, 'source' => 'https://stan.store/blog/stan-store-pricing/')),   // checked 2026-10-11: "plans start at $29/month with zero transaction fees"
             'summary' => 'Stan (Stan Store) is a creator storefront for selling courses, digital products, bookings, subscriptions and communities from a link-in-bio page. It offers two paid plans and no free plan.',
@@ -204,7 +204,7 @@ class PagesController extends Controller {
             ),
         ),
         'eromify' => array(   // type 'ai': an AI generation studio, not a selling platform, so it stays off the best-of groups
-            'name' => 'Eromify', 'url' => 'https://www.eromify.com', 'checked' => '2026-10-08', 'type' => 'ai',
+            'name' => 'Eromify', 'sells' => 'AI images and video you sell somewhere else', 'url' => 'https://www.eromify.com', 'checked' => '2026-10-08', 'type' => 'ai',
             'fee_short' => 'No fan sales listed; monthly plans with generation credits',   // hero panel only
             'summary' => 'Eromify is an AI influencer generator. You train a persona, then generate images and videos of it with a wide choice of models, and post and sell that content somewhere else.',
             'fee'       => array('value' => 'Monthly plans with a monthly credit allowance (Builder, Launch, Growth and Creator, from 500 to 6,000 credits a month). Each image or video model costs a set number of credits. No fan sales or selling fee are listed.', 'source' => 'https://www.eromify.com/pricing'),
@@ -969,6 +969,28 @@ class PagesController extends Controller {
         $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'article', 'jsonld' => $jsonld, 'no_band' => true), array('p' => $p, 'faq' => $p['faq']));
     }
 
+    /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
+    public static function compare_description(array $c): string {
+        $site = Main::site_name();
+        $d = $c['name'] . ' runs ' . (string) ($c['sells'] ?? 'its own platform') . '. ' . $site . ' runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared.';
+        if (mb_strlen($d) > 160) { $d = $c['name'] . ' runs ' . (string) ($c['sells'] ?? 'its own platform') . '. ' . $site . ' runs memberships, pay-per-view, services and events from one page. Fees compared.'; }
+        return $d;
+    }
+
+    /**
+     * The fee bullet on a compare page, competitor-specific and honest: only when the competitor's own sourced rate
+     * (fee_math) is a percentage higher than our lowest selling-plan fee. A flat-price or lower-fee competitor gets no fee
+     * bullet, because the comparison would not favour us. '' = no bullet.
+     */
+    public static function fee_point(array $c): string {
+        $ours = null; foreach (self::selling_tiers() as $t) { $f = (int) $t['limits']['fee_percent']; if ($ours === null || $f > $ours) { $ours = $f; } }   // the higher of our fees (Creator)
+        $opts = (array) ($c['fee_math'] ?? array());
+        if (count($opts) !== 1) { return ''; }   // a platform with a 0% plan (Linktree Premium, Beacons Creator Plus) or no sales (Eromify): no single rate to compare
+        $theirs = ((float) ($opts[0]['monthly'] ?? 0) == 0 && (float) ($opts[0]['percent'] ?? 0) > 0) ? (float) $opts[0]['percent'] : null;
+        if ($ours === null || $theirs === null || $theirs <= $ours) { return ''; }
+        return 'You want ' . self::fee_short() . ' instead of the ' . rtrim(rtrim(number_format($theirs, 2), '0'), '.') . '% ' . $c['name'] . ' keeps' . (!empty($c['fee']['reported']) ? ' (as reported)' : '') . '.';
+    }
+
     /** The competitor's researched questions plus one about using both, shared by the page and its FAQ markup. */
     public static function compare_faq(array $c): array {
         $faq = (array) ($c['faq'] ?? array());
@@ -987,7 +1009,7 @@ class PagesController extends Controller {
         if ($slug === '' || $slug !== $raw || !isset(self::COMPETITORS[$slug])) { Errors::page_not_found(); return; }
         $c = self::COMPETITORS[$slug];
         $path = '/compare/' . $slug; $title = Main::site_name() . ' vs ' . $c['name'];
-        $desc = $c['name'] . ' vs ' . Main::site_name() . ': platform fee (' . self::fee_short() . ' here), what each lets you sell, payout terms and who owns the audience.';   // 110-160 chars for every competitor name
+        $desc = self::compare_description($c);   // leads with what each platform lets you sell and run, 110-160 chars for every competitor name
         $faq = self::compare_faq($c);
         $jsonld = array(
             SeoMeta::article(array('headline' => $title, 'description' => $desc, 'url' => SeoMeta::base() . $path, 'published' => '2026-09-21T00:00:00+00:00', 'modified' => gmdate('c', filemtime(Main::app_path() . '/app/controllers/PagesController.php')))),

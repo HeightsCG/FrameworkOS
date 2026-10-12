@@ -22,7 +22,7 @@ spl_autoload_register(function ($class) use ($root) {
         if (file_exists($src)) { require_once $src; return; }
     }
 });
-$opts = getopt('', array('approved', 'into:', 'from:', 'format:', 'link:', 'dry-run'));
+$opts = getopt('', array('approved', 'restructure', 'into:', 'from:', 'format:', 'link:', 'dry-run'));
 $dry = isset($opts['dry-run']);
 
 /** The approved merges, in run order (formats differ from one group to the next, so no two consecutive articles share one). */
@@ -34,10 +34,20 @@ const APPROVED = array(
     array('into' => 'how-to-choose-an-onlyfans-alternative',  'from' => array(),                                                                          'format' => 'comparison',      'link' => '/onlyfans-alternatives'),
 );
 
+/** The a_ai_slop restructure (2026-10-12): five articles, each into a different format, with a different section count than now. */
+const RESTRUCTURE = array(
+    array('into' => 'custom-ai-influencer-training-when-to-invest',     'from' => array(), 'format' => 'cost',            'link' => '/lora-character-training'),
+    array('into' => 'best-ai-tools-consistent-ai-influencer-characters', 'from' => array(), 'format' => 'comparison',      'link' => '/consistent-ai-model-face'),
+    array('into' => 'how-to-price-a-subscription-tier',                 'from' => array(), 'format' => 'guide',           'link' => '/features/memberships'),
+    array('into' => 'automated-dm-replies-for-creators',                'from' => array(), 'format' => 'troubleshooting', 'link' => '/features/dm-agent'),
+    array('into' => 'lora-training-dataset-tips',                       'from' => array(), 'format' => 'checklist',       'link' => '/lora-character-training'),
+);
+
 $groups = array();
 if (isset($opts['approved'])) { $groups = APPROVED; }
+elseif (isset($opts['restructure'])) { $groups = RESTRUCTURE; }
 elseif (!empty($opts['into'])) { $groups[] = array('into' => (string) $opts['into'], 'from' => array_values(array_filter(array_map('trim', explode(',', (string) ($opts['from'] ?? ''))))), 'format' => (string) ($opts['format'] ?? ''), 'link' => (string) ($opts['link'] ?? '')); }
-else { echo "usage: --approved | --into=<slug> [--from=<slug,slug>] --format=<x> [--link=/path] [--dry-run]\n"; exit(1); }
+else { echo "usage: --approved | --restructure | --into=<slug> [--from=<slug,slug>] --format=<x> [--link=/path] [--dry-run]\n"; exit(1); }
 
 $articles = new SeoArticlesModel(); $keywords = new SeoKeywordsModel();
 $ok_all = true;
@@ -56,7 +66,8 @@ foreach ($groups as $g) {
     // the keyword row behind the survivor (the drafter needs one; a synthetic row works when none is linked)
     $kw = null; foreach ($keywords->all() as $k) { if ((int) $k['article_id'] === (int) $into['id']) { $kw = $k; break; } }
     if (!$kw) { $kw = array('id' => 0, 'keyword' => (string) $into['target_keyword'], 'cluster' => (string) $into['cluster'], 'volume' => 0, 'priority' => 100); }
-    $note = 'Rewrite this article as a ' . SeoDrafter::FORMATS[$format]['label'] . ' (structure: ' . SeoDrafter::FORMATS[$format]['structure'] . ').';
+    $now_sections = count(SeoDrafter::h2_texts((string) $into['body_md']));
+    $note = 'Rewrite this article as a ' . SeoDrafter::FORMATS[$format]['label'] . ' (structure: ' . SeoDrafter::FORMATS[$format]['structure'] . '). Use a different number of sections than it has now (' . $now_sections . ') and different section lengths; word every sentence for this piece, never a stock line used in other articles.';
     if ($g['link'] !== '') { $note .= ' Link once to ' . $g['link'] . ' where it fits.'; }
     if ($sources) {
         $note .= ' The articles below are being merged into this one and will redirect here: fold their useful content in (facts, steps, numbers, examples), drop what repeats, keep the slug and the subject, and cover their search intents too (add their target keywords to secondary_keywords).';
