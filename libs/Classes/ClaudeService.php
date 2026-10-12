@@ -129,6 +129,7 @@ class ClaudeService {
             'ok'          => true,
             'text'        => trim($text),
             'stop_reason' => (string) ($d['stop_reason'] ?? ''),
+            'output_tokens' => (int) ($d['usage']['output_tokens'] ?? 0),
             'error'       => '',
         );
     }

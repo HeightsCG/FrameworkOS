@@ -220,6 +220,8 @@ class SeoDrafter {
 
     /** Claude calls per draft: the first, then up to two retries that list every failed check. */
     const DRAFT_ATTEMPTS = 3;
+    /** The last model call's stop reason, output tokens and ceiling, for the log and the proof runs. */
+    public static $last_usage = array();
 
     /**
      * Quotability rules the audit scores: 10-25 words per sentence on average, paragraphs of at most
@@ -1446,13 +1448,15 @@ class SeoDrafter {
         if ($existing) {
             $user .= "\n\nCurrent draft to revise (keep what works, apply the editor's note, return the full article):\nTitle: " . (string) $existing['title'] . "\n\n" . (string) $existing['body_md'];
         }
-        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = ''; $max_tokens = 16000;   // the model's reasoning counts against this ceiling: 8000 cut the two longest articles off mid-sentence (prod, 2026-10-12)
+        $errors = array(); $data = null; $model = ClaudeService::model(); $raw = ''; $max_tokens = 32000;   // the model's reasoning counts against this ceiling: 8000 cut the two longest articles off (prod 2026-10-12), and one dev attempt spent 16000 before finishing (another needed 8143)
         for ($attempt = 1; $attempt <= ($dry_run ? 1 : self::DRAFT_ATTEMPTS); $attempt++) {
             $msg = $user . ($attempt > 1 && !empty($errors) ? "\n\nYour previous draft failed these checks; fix every one and return the full JSON again:\n- " . implode("\n- ", $errors) : '');
             $r = ClaudeService::chat(self::system_prompt(), array(array('role' => 'user', 'content' => $msg)), $max_tokens, 420, 'medium');
             if (empty($r['ok'])) { $errors = array('Claude: ' . (string) ($r['error'] ?? 'request failed')); continue; }
             $raw = (string) $r['text'];
-            if ((string) ($r['stop_reason'] ?? '') === 'max_tokens') { $errors = array('Claude: reply cut off at the ' . $max_tokens . '-token limit'); $max_tokens = min(32000, $max_tokens * 2); continue; }   // a long article with a table and a FAQ outgrew the limit: not the model's fault, so no instruction, just a bigger limit
+            self::$last_usage = array('stop_reason' => (string) ($r['stop_reason'] ?? ''), 'output_tokens' => (int) ($r['output_tokens'] ?? 0), 'max_tokens' => $max_tokens);
+            error_log('[seo_draft] ' . ($existing ? $existing['slug'] : $keyword) . ' attempt ' . $attempt . ': stop=' . self::$last_usage['stop_reason'] . ' output_tokens=' . self::$last_usage['output_tokens'] . '/' . $max_tokens);
+            if ((string) ($r['stop_reason'] ?? '') === 'max_tokens') { $errors = array('Claude: reply cut off at the ' . $max_tokens . '-token limit'); $max_tokens = min(64000, $max_tokens * 2); continue; }   // a long article with a table and a FAQ outgrew the limit: not the model's fault, so no instruction, just a bigger limit
             $data = self::parse_json($r['text']);
             if ($data === null) { $errors = array('reply was not valid JSON (' . self::json_error_hint($raw) . '); return one JSON object with every double quote inside a string escaped as \\"'); continue; }
             $data['slug'] = $existing ? (string) $existing['slug'] : self::slugify((string) ($data['slug'] ?? $data['title'] ?? $keyword));   // a rewrite never moves the URL
