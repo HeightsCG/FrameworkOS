@@ -958,3 +958,8 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 /* Every hero H1 balances its lines, so one word never wraps alone; the directory hero lead spans the content width like the other panel-less heroes. */
 .hx__big, .sx-hero__title, .bl-top__title, .lg__title { text-wrap: balance; }
 .sx--noimg .sx-hero__text, .sx--noimg .sx-hero__lead { max-width: none; }
+/* Home hero: the left column takes 60% and the card 40%, and the intro fills its column (it was capped at 560px inside a 684px column, which forced every line to wrap). */
+@media (min-width: 1101px) { .hx:not(.hx--panel) .hx__in { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); } }
+.hx__intro { max-width: none; }
+@media (min-width: 1101px) { .hx:not(.hx--panel) .hx__in { align-items: center; } }   /* the card is centred against the left column, so the space above and below it is even (Daniel 2026-10-12); stretching it left dead space inside */
+@media (min-width: 1101px) { .hx__w { font-size: clamp(56px, 5.2vw, 85px); } }   /* CREATE / SHARE / EARN at 85px max, Daniel's figure (2026-10-12); was 116px */
