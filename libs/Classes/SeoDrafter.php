@@ -191,7 +191,7 @@ class SeoDrafter {
     const ANSWER_WORDS = array(40, 60);
     const ANSWER_SLACK = 6;
     /** A back-referring pronoun counts only in the first this-many words of a paragraph's first sentence. */
-    const OPENER_WORDS = 5;
+    const OPENER_WORDS = 3;
 
     /** The most sentences a paragraph may have: a longer one cannot be lifted into an answer whole (the audit's paragraph rule). */
     const PARAGRAPH_MAX_SENTENCES = 6;
@@ -507,14 +507,21 @@ class SeoDrafter {
             $titles = array();
             try { foreach ((new SeoArticlesModel())->published(50, 0) as $a) { $titles[] = strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', (string) $a['title'])); } } catch (\Throwable $e) {}
             try { foreach (SeoController::public_pages() as $pg) { $titles[] = strtolower(preg_replace('/[^a-z0-9\s]+/i', ' ', (string) $pg['title'])); } } catch (\Throwable $e) {}
-            self::$protected_cache = array('titles' => array_map(function ($t) { return ' ' . preg_replace('/\s+/', ' ', trim($t)) . ' '; }, $titles), 'facts' => self::product_facts(), 'site' => strtolower(Main::site_name()));
+            $quads = array();
+            try { $quads += self::shingles(self::context(), 4); } catch (\Throwable $e) {}   // the facts sheet: product facts, page titles, article titles, source labels
+            foreach ($titles as $t) { $quads += self::shingles($t, 4); }
+            foreach (self::KNOWN_SOURCES as $u => $label) { $quads += self::shingles($label, 4); }
+            self::$protected_cache = array('titles' => array_map(function ($t) { return ' ' . preg_replace('/\s+/', ' ', trim($t)) . ' '; }, $titles), 'facts' => self::product_facts(), 'site' => strtolower(Main::site_name()), 'quads' => $quads);
         }
         $pc = self::$protected_cache;
         if (strpos($sh, $pc['site']) !== false) { return true; }
+        // four consecutive words shared with a title, a source label or the facts sheet the model is given: a fact or a link text, not stock
+        $w = explode(' ', $sh);
+        foreach (array(implode(' ', array_slice($w, 0, 4)), implode(' ', array_slice($w, 1, 4))) as $quad) { if (isset($pc['quads'][$quad])) { return true; } }
         foreach ($pc['titles'] as $t) { if (strpos($t, ' ' . $sh . ' ') !== false) { return true; } }
         $readable = preg_replace('/\b(\d+) (?:a|per) month\b/', '$$1 a month', $sh);   // shingles lost the $ and %; the fact regexes want them back loosely
         foreach ($pc['facts'] as $re) { if (preg_match($re, $sh) || preg_match($re, '$' . $readable) || preg_match($re, preg_replace('/\b(\d+) (?:on|of)\b/', '$1% $2', $sh))) { return true; } }
-        if (preg_match('/\b(credits? a month|ai credits|gb of storage|a month each|of each sale|cash out to your bank|to your bank on request|platform fee)\b/', $sh)) { return true; }   // product-fact wording in any spelling
+        if (preg_match('/\b(credits? a month|ai credits|gb of storage|a month each|of each sale|cash out to your bank|to your bank on request|platform fee|platform hold|card processing|credit wallet|social networks|same person|photos or a)\b/', $sh)) { return true; }   // product-fact wording in any spelling
         if (preg_match('/\b(creator|studio|free) (?:plan )?(?:at|is|costs?|takes?|keeps?) \d|\d+ (?:a|per) month|\b\d+ (?:ai )?credits\b|\b\d+ gb\b/', $sh)) { return true; }   // a plan name with its price or fee, a monthly price, credits, storage: config numbers are facts, not stock
         return false;
     }

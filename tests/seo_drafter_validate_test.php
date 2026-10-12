@@ -43,7 +43,7 @@ $t = $good; $t['body_md'] = str_replace('and the FTC covers endorsements at [ftc
                                                                          check('two citations to one host rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace($cite, '', $good['body_md']);   check('no citations rejected', (bool) preg_grep('/citations/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\nThis is the part most creators skip, and the cost shows later.";  check('paragraph opening with "This" rejected', (bool) preg_grep('/names its subject outright/', SeoDrafter::validate($t)));
-$t = $good; $t['body_md'] .= "\n\nFans notice when it changes.";  check('pronoun inside the first sentence rejected (tightened rule)', (bool) preg_grep('/names its subject outright/', SeoDrafter::validate($t)));
+$t = $good; $t['body_md'] .= "\n\nThey notice when fans change.";  check('pronoun in the opening words of the first sentence rejected (tightened rule)', (bool) preg_grep('/names its subject outright/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = str_replace($define, "A membership tier is a monthly price.\n\n", $good['body_md']);  check('opening paragraph under 40 words rejected (answer first)', (bool) preg_grep('/direct answer of 40-60 words/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] = $sec(2, 20) . "## Why?\n\n" . str_repeat('word ', 1200) . ".\n\n"; check('long sentences rejected', (bool) preg_grep('/average/', SeoDrafter::validate($t)));
 $t = $good; $t['body_md'] .= "\n\n" . str_repeat($sentence, 7);     check('paragraph of 7 sentences rejected', (bool) preg_grep('/7 sentences/', SeoDrafter::validate($t)));
