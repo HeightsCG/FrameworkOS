@@ -353,7 +353,15 @@
 
 /* About / Links panels (moved out of the old sidebar) */
 .pf-info{ padding:24px; }
-.pf-info__bio{ font-size:1rem; line-height:1.6; color:#33333a; margin:0 0 1.2rem; max-width:64ch; white-space:pre-wrap; }
+.pf-info__bio{ font-size:1rem; line-height:1.6; color:#33333a; margin:0 0 1.2rem; white-space:pre-wrap; }
+/* About: the bio fills the panel and the facts sit in their own column at the right, so half the panel is never left empty */
+.pf-info--about{ display:grid; grid-template-columns:minmax(0,1fr) 260px; gap:24px 40px; align-items:start; }
+.pf-info--about .pf-info__bio{ margin:0; }
+.pf-info--about .pf-facts{ padding-left:24px; border-left:1px solid var(--pf-line, #ececf0); }
+@media (max-width: 760px){
+    .pf-info--about{ grid-template-columns:1fr; }
+    .pf-info--about .pf-facts{ padding-left:0; border-left:0; }
+}
 .pf-info__empty{ color:var(--pf-muted); font-size:.92rem; margin:0; }
 .pf-info .pf-links{ max-width:520px; }
 

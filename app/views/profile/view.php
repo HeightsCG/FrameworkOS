@@ -451,11 +451,12 @@ $pub_links   = array(
                 <nav class="pf-tabs" role="tablist">
                     <button class="pf-tab is-active" data-panel="content" role="tab">Content</button>
                     <button class="pf-tab" data-panel="plans" role="tab">Membership</button>
-                    <?php if (!empty($service_cards)): ?><button class="pf-tab" data-panel="services" role="tab">Services</button><?php endif; ?>
-                    <?php $has_events_tab = !empty($event_cards) || !empty($replay_cards) || !empty($past_event_cards); ?>
-                    <?php if ($has_events_tab): ?><button class="pf-tab" data-panel="events" role="tab">Events</button><?php endif; ?>
+                    <?php /* Every tab is always there (2026-10-13): one with nothing in it says so, it is never left out. */ ?>
+                    <button class="pf-tab" data-panel="services" role="tab">Services</button>
+                    <?php $has_events_tab = true;   // the Events tab and its panel are always there; empty lists say so ?>
+                    <button class="pf-tab" data-panel="events" role="tab">Events</button>
                     <button class="pf-tab" data-panel="about" role="tab">About</button>
-                    <?php if (!empty($links)): ?><button class="pf-tab" data-panel="links" role="tab">Links</button><?php endif; ?>
+                    <button class="pf-tab" data-panel="links" role="tab">Links</button>
                 </nav>
 
                 <section class="pf-panel is-active" data-panel="content">
@@ -605,6 +606,14 @@ $pub_links   = array(
                         <?php endforeach; ?>
                     </div>
                 </section>
+                <?php else: ?>
+                <section class="pf-panel" data-panel="services">
+                    <div class="pf-empty">
+                        <i class="fa-solid fa-briefcase pf-empty__icon"></i>
+                        <p class="pf-empty__title">No services yet</p>
+                        <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> has no services to book right now.</p>
+                    </div>
+                </section>
                 <?php endif; ?>
 
                 <?php if ($has_events_tab):
@@ -614,12 +623,12 @@ $pub_links   = array(
                     $rh = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'); }; ?>
                 <section class="pf-panel" data-panel="events">
                     <?php
-                    // Sub-tabs inside Events: Upcoming | Replays | Past (only the ones with something in them).
-                    $ev_subs = array_filter(array('upcoming' => !empty($event_cards), 'replays' => !empty($replay_cards), 'past' => !empty($past_only)));
-                    $ev_first = array_keys($ev_subs)[0]; ?>
-                    <?php if (count($ev_subs) > 1): ?>
+                    // Sub-tabs inside Events: Upcoming | Replays, both always shown. Replays opens first only when nothing is upcoming and a replay exists.
+                    $ev_first = (empty($event_cards) && !empty($replay_cards)) ? 'replays' : 'upcoming';
+                    $ev_name = htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?>
+                    <?php if (true): ?>
                     <div class="pel-subs" role="tablist" aria-label="Events">
-                        <?php foreach (array('upcoming' => 'Upcoming', 'replays' => 'Replays', 'past' => 'Past') as $sk => $sl): if (empty($ev_subs[$sk])) { continue; } ?>
+                        <?php foreach (array('upcoming' => 'Upcoming', 'replays' => 'Replays') as $sk => $sl): ?>
                         <button type="button" class="pel-sub<?php echo $sk === $ev_first ? ' is-on' : ''; ?>" role="tab" aria-selected="<?php echo $sk === $ev_first ? 'true' : 'false'; ?>" data-ev-sub="<?php echo $sk; ?>"><?php echo $sl; ?></button>
                         <?php endforeach; ?>
                     </div>
@@ -627,6 +636,12 @@ $pub_links   = array(
                     <?php if (!empty($event_cards)): ?>
                     <div class="pel-list" data-ev-list="upcoming"<?php echo $ev_first !== 'upcoming' ? ' hidden' : ''; ?>>
                         <?php foreach ($event_cards as $ec) { $render_ev_card($ec); } ?>
+                    </div>
+                    <?php else: ?>
+                    <div class="pf-empty" data-ev-list="upcoming"<?php echo $ev_first !== 'upcoming' ? ' hidden' : ''; ?>>
+                        <i class="fa-regular fa-calendar pf-empty__icon"></i>
+                        <p class="pf-empty__title">No upcoming events</p>
+                        <p class="pf-empty__text"><?php echo $ev_name; ?> has nothing scheduled right now.</p>
                     </div>
                     <?php endif; ?>
                     <?php if (!empty($replay_cards)): ?>
@@ -652,6 +667,12 @@ $pub_links   = array(
                         </div>
                         <?php endforeach; ?>
                     </div>
+                    <?php else: ?>
+                    <div class="pf-empty" data-ev-list="replays"<?php echo $ev_first !== 'replays' ? ' hidden' : ''; ?>>
+                        <i class="fa-solid fa-circle-play pf-empty__icon"></i>
+                        <p class="pf-empty__title">No replays yet</p>
+                        <p class="pf-empty__text"><?php echo $ev_name; ?> has no event recordings to watch.</p>
+                    </div>
                     <?php endif; ?>
                     <?php if (!empty($past_only)): ?>
                     <div class="pel-list" data-ev-list="past"<?php echo $ev_first !== 'past' ? ' hidden' : ''; ?>>
@@ -662,7 +683,7 @@ $pub_links   = array(
                 <?php endif; ?>
 
                 <section class="pf-panel" data-panel="about">
-                    <div class="pf-info">
+                    <div class="pf-info<?php echo ($bio !== '' && ($location !== '' || $member_since !== '')) ? ' pf-info--about' : ''; ?>">
                         <?php if ($bio !== ''): ?><p class="pf-info__bio"><?php echo nl2br(htmlspecialchars($bio, ENT_QUOTES, 'UTF-8')); ?></p><?php endif; ?>
                         <dl class="pf-facts">
                             <?php if ($location !== ''): ?><div class="pf-fact"><dt><i class="fa-solid fa-location-dot"></i></dt><dd><?php echo htmlspecialchars($location, ENT_QUOTES, 'UTF-8'); ?></dd></div><?php endif; ?>
@@ -683,6 +704,14 @@ $pub_links   = array(
                             </a>
                             <?php endforeach; ?>
                         </div>
+                    </div>
+                </section>
+                <?php else: ?>
+                <section class="pf-panel" data-panel="links">
+                    <div class="pf-empty">
+                        <i class="fa-solid fa-link pf-empty__icon"></i>
+                        <p class="pf-empty__title">No links yet</p>
+                        <p class="pf-empty__text"><?php echo htmlspecialchars($display_name, ENT_QUOTES, 'UTF-8'); ?> has not added any links.</p>
                     </div>
                 </section>
                 <?php endif; ?>
