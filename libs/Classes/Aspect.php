@@ -101,7 +101,7 @@ class Aspect {
             $on = ($o['key'] === $sel && $o['supported']);
             $out .= '<button type="button" class="' . htmlspecialchars($class, ENT_QUOTES, 'UTF-8') . ($on ? ' is-on' : '') . '" aria-pressed="' . ($on ? 'true' : 'false') . '" '
                 . htmlspecialchars($attr, ENT_QUOTES, 'UTF-8') . '="' . $o['key'] . '" title="' . $o['name'] . '" aria-label="' . $o['name'] . ' ' . $o['label'] . '"' . ($o['supported'] ? '' : ' disabled') . '>'
-                . '<i class="cs-ratio" style="--rw:' . (int) self::RATIOS[$o['key']]['w'] . ';--rh:' . (int) self::RATIOS[$o['key']]['h'] . '" aria-hidden="true"></i><span>' . $o['label'] . '</span></button>';
+                . '<i class="cs-ratio' . (!empty(self::RATIOS[$o['key']]['extra']) ? ' cs-ratio--wide' : '') . '" style="--rw:' . (int) self::RATIOS[$o['key']]['w'] . ';--rh:' . (int) self::RATIOS[$o['key']]['h'] . '" aria-hidden="true"></i><span>' . $o['label'] . '</span></button>';
         }
         return $out;
     }

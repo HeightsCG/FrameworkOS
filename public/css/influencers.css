@@ -1165,3 +1165,13 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-wiz__view .inf-wiz__stage{ background:var(--bg); border:1px solid var(--line); }
 .inf-wiz__view .inf-wiz__stage .inf-gen__idle, .inf-wiz__view .inf-wiz__stage .inf-gen__busy{ color:var(--muted); }
 .inf .inf-steer{ min-height:112px; resize:vertical; line-height:1.5; }
+
+/* Size picker with seven shapes: a wider popover on desktop, two rows on a phone, and a label never runs out of its button. */
+#inf_pop_size{ width:min(560px, calc(100% - 20px)); }
+.inf-seg__opt{ white-space:nowrap; }
+@media (max-width:640px){
+    #inf_pop_size{ width:100%; }
+    .inf-seg:has(> .inf-seg__opt:nth-child(6)){ flex-wrap:wrap; gap:3px; }
+    .inf-seg:has(> .inf-seg__opt:nth-child(6)) > .inf-seg__opt{ flex:1 1 22%; width:auto; }
+}
+.inf-seg__opt:disabled:has(> .cs-ratio--wide){ display:none; }   /* a tool whose model cannot draw a wide shape does not offer it greyed out */
