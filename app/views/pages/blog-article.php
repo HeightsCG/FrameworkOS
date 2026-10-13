@@ -43,7 +43,7 @@ $upd = !empty($a['updated_at']) ? gmdate('Y-m-d', strtotime($a['updated_at'] . '
     <ol class="gd-list<?php echo count($related) === 3 ? ' gd-list--3' : ''; ?>">
         <?php foreach ($related as $r): $img = trim((string) ($r['cover_image_url'] ?? '')); ?>
         <li class="gd-row<?php echo $img === '' ? ' gd-row--noimg' : ''; ?>">
-            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><img src="<?php echo $e(trim((string) ($r['cover_webp_url'] ?? '')) !== '' ? PublicThumbService::cover_small($r['cover_webp_url']) : $img); ?>" alt="<?php echo $e($r['title']); ?>" loading="lazy" decoding="async" width="160" height="120"></a><?php endif; ?>
+            <?php if ($img !== ''): ?><a class="gd-row__img" href="/blog/<?php echo $e($r['slug']); ?>" tabindex="-1" aria-hidden="true"><?php $rw = trim((string) ($r['cover_webp_url'] ?? '')); $rt = $rw !== '' ? PublicThumbService::cover_thumb($rw) : ''; /* 176w for the 88 to 120 px slot when the cover has one */ ?><img src="<?php echo $e($rw !== '' ? PublicThumbService::cover_small($rw) : $img); ?>"<?php if ($rt !== ''): ?> srcset="<?php echo $e($rt); ?> 176w, <?php echo $e(PublicThumbService::cover_small($rw)); ?> 480w" sizes="(max-width: 640px) 88px, 120px"<?php endif; ?> alt="<?php echo $e($r['title']); ?>" loading="lazy" decoding="async" width="160" height="120"></a><?php endif; ?>
             <div class="gd-row__body">
                 <p class="gd-row__topic"><?php echo $e(BlogController::topic($r)); ?></p>
                 <h3 class="gd-row__title"><a href="/blog/<?php echo $e($r['slug']); ?>"><?php echo $e($r['title']); ?></a></h3>

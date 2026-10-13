@@ -106,6 +106,7 @@ class FeedModel extends Model {
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1 AND p.audience = 'free'
                   AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND ua.is_demo = 0 AND " . Plan::paid_sql('ua') . "
+                  AND cp.directory_listed = 1   -- only creators who chose to be listed in the public directory appear on the home page (Daniel 2026-10-12)
                   AND EXISTS (SELECT 1 FROM post_assets pa WHERE pa.post_id = p.id)
                   AND NOT EXISTS (SELECT 1 FROM post_assets pa JOIN media_assets ma ON ma.id = pa.asset_id
                                    WHERE pa.post_id = p.id AND ma.deleted_at IS NULL

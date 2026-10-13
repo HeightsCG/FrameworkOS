@@ -132,6 +132,14 @@ class PublicThumbService {
 
     /* ---- blog covers ---- */
 
+    const THUMB = 176;    // "Keep reading" thumbnails (shown at 88 to 120 px): covers generated since 2026-10-12 carry it, marked by "-t-" in the file name
+
+    /** The 176 wide sibling of a stored 960 cover URL, or '' for a cover made before the small copy existed (cron/cover_thumbs_once.php regenerates those). */
+    public static function cover_thumb($webp_url): string
+    {
+        return preg_match('/-t-960\.webp$/', (string) $webp_url) ? (string) preg_replace('/-960\.webp$/', '-' . self::THUMB . '.webp', (string) $webp_url) : '';
+    }
+
     /** The 480 wide sibling of a stored 960 cover URL. */
     public static function cover_small($webp_url): string
     {
@@ -139,7 +147,7 @@ class PublicThumbService {
     }
 
     /**
-     * WebP copies of an article's cover (960 and 480 wide, each <= 80 KB) next to the JPEG. Saves cover_webp_url
+     * WebP copies of an article's cover (960, 480 and 176 wide, each <= 80 KB) next to the JPEG, named <stem>-t-<width>.webp. Saves cover_webp_url
      * (the 960 one) and removes the previous pair. Returns the new URL, '' on failure. Never throws.
      */
     public static function blog_cover($article_id, $cover_url, $old_webp_url = ''): string
@@ -156,16 +164,16 @@ class PublicThumbService {
             if ($img === false) { return ''; }
             $stem = preg_replace('/\.[a-z0-9]+$/i', '', $key);
             $url = '';
-            foreach (array(self::FEED, self::GRID) as $w) {
+            foreach (array(self::FEED, self::GRID, self::THUMB) as $w) {
                 $bytes = self::fit_webp($img, $w, self::COVER_MAX_BYTES);
-                $u = S3Service::put_public_bytes($stem . '-' . $w . '.webp', $bytes, 'image/webp', self::CACHE);
+                $u = S3Service::put_public_bytes($stem . '-t-' . $w . '.webp', $bytes, 'image/webp', self::CACHE);
                 if ($u === '') { imagedestroy($img); return ''; }
                 if ($w === self::FEED) { $url = $u; }
             }
             imagedestroy($img);
             (new SeoArticlesModel())->update_fields((int) $article_id, array('cover_webp_url' => $url), false);   // a thumbnail is not an edit
             $old_webp_url = (string) $old_webp_url;
-            if ($old_webp_url !== '' && $old_webp_url !== $url) { S3Service::delete_by_url($old_webp_url); S3Service::delete_by_url(self::cover_small($old_webp_url)); }
+            if ($old_webp_url !== '' && $old_webp_url !== $url) { S3Service::delete_by_url($old_webp_url); S3Service::delete_by_url(self::cover_small($old_webp_url)); if (self::cover_thumb($old_webp_url) !== '') { S3Service::delete_by_url(self::cover_thumb($old_webp_url)); } }
             return $url;
         } catch (\Throwable $e) {
             error_log('[public_thumb] blog cover ' . (int) $article_id . ': ' . $e->getMessage());

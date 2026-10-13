@@ -12,7 +12,7 @@ class BlogController extends Controller {
 
     public function __construct(){
         parent::__construct();
-        if (!self::$embedded) { header('Cache-Control: private, max-age=300'); }
+        if (!self::$embedded) { Session::cache_header(300); }
     }
 
     /** Short topic label for covers and the article header, from the target keyword and title. */

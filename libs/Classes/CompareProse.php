@@ -499,7 +499,7 @@ class CompareProse {
     private static function alt_onlyfans(): array {
         $of = PagesController::COMPETITORS['onlyfans']; $checked = date('F j, Y', strtotime($of['checked']));
         return array(
-            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+            array('h' => 'How do you choose among these OnlyFans alternatives?', 'p' => array(
                 'Start from what you sell, not from the platform names. Every option on this list is one of three kinds. A subscription platform copies the OnlyFans model with a different fee or feed. A membership platform is built for patrons. A page like {site} sells several formats at once. A creator whose fans buy one subscription and nothing else is choosing between the first kind; a creator who also sells sessions, bundles or events is choosing the third.',
                 'Then ask three questions of each candidate. Can you take your audience with you if you leave, in a file you can download? What does it sell beyond the subscription, and does it publish to your socials or leave the promotion to you? How does the money reach you: on what schedule, after what hold, from what minimum? The compare pages linked from each card answer those with the platform\'s own sources, and each card is a short version of the same record.',
                 'Weigh the fee last, after the formats and the ownership terms. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside a flat 20%. Plan prices are a separate monthly line on the pricing page.',
@@ -509,19 +509,19 @@ class CompareProse {
                 'The money follows OnlyFans\' terms: a 20% fee is deducted from each fan payment, and creator earnings are available for withdrawal once reflected in the account and above its minimum payout amount (' . self::src($of, 'fee', 'terms') . ', checked October 11, 2026). Third-party reporting describes a holding period of about seven days (' . self::src($of, 'payout') . '). Withdraw what is available before the page goes quiet.',
                 'Give the new page something the old one could not sell before you announce it. A bundle of the back catalogue, a service with a fixed price and a delivery window, a ticketed live session: those are the reasons a fan follows you to a new address. OnlyFans does not offer any of them. Then keep both pages live for a billing cycle and let the old renewals lapse on their own.',
             )),
-            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+            array('h' => 'What changes on {site} for a OnlyFans creator?', 'p' => array(
                 'The page becomes the business. Memberships bill the fan\'s card monthly, with as many tiers as you want. Pay-per-view posts, bundles, services, event tickets and paid messages are paid from a credit wallet fans top up at {credits_per_dollar} credits per dollar. A second purchase needs no card. Every sale lands in one balance net of your plan\'s fee, and you cash out to your bank on request from {payout_min} with no platform hold; event earnings release after the event has taken place.',
                 'The studio does the promotion you used to do by hand. A post written once goes to your page and to nine social networks at the same time, with the paid version behind the lock, and AI captions drafted for each. The inbox drafts replies in your voice for your approval, sends welcome and trigger messages with paid media attached, and runs broadcasts to audience segments.',
                 'The audience list and your media are yours to export at any time, which is the difference that matters most on the day you decide to leave again. Adult content is allowed behind an age check: fans opt in and verify once, creators verify before publishing adult media, and every upload is checked automatically.',
             )),
-            array('h' => 'A worked scenario: 400 subscribers leaving OnlyFans', 'p' => self::scenario($of, 4000, 'subscriptions and pay-per-view (400 fans at $10)')),
+            array('h' => 'A worked scenario: 400 subscribers leaving OnlyFans', 'p' => self::scenario($of, 4000, 'subscriptions and pay-per-view (400 fans at $10)', 'onlyfans')),
         );
     }
 
     private static function alt_fanvue(): array {
         $fv = PagesController::COMPETITORS['fanvue']; $checked = date('F j, Y', strtotime($fv['checked']));
         return array(
-            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+            array('h' => 'How do you choose among these Fanvue alternatives?', 'p' => array(
                 'Fanvue creators usually leave for one of two reasons: they want a page they own, with an audience they can take with them, or they want to sell in more formats than a subscription and paid messages. The list above is sorted by kind of platform for that reason. The subscription platforms keep the model you know; the membership platforms suit regular publishing; {site} is the page that sells every format and publishes everywhere.',
                 'AI creators have a particular question to ask: where does the character live, and who owns it? Fanvue welcomes AI-generated creator accounts and sells fans AI voice calls and voice notes (' . self::src($fv, 'ai') . ', checked ' . $checked . '). A platform that only hosts the page leaves the generation to another tool. {site} trains the character, generates the images and short videos, and sells them from the same page. A DM agent answers in the character\'s voice for your approval.',
                 'For every candidate, check the three things that decide a switch: whether the fan list exports, what the platform sells beyond the subscription, and how payouts work. The compare pages linked from the cards carry those facts with sources, and each card is a short version of the same record.',
@@ -531,20 +531,20 @@ class CompareProse {
                 'Fanvue keeps 20% of gross revenue from paid services and pays by bank transfer, crypto or third-party wallet after a standard pending period of seven days that can run to twenty-eight (' . self::src($fv, 'payout') . ', checked ' . $checked . '). Request what is withdrawable before you stop posting, and expect the last balance to clear on that schedule.',
                 'If the character is AI, train it on {site} before the move: a set of photos of one face, then test that it holds across images, then generate the first month of posts. Each plan includes AI credits every month, {credits_creator} on Creator and {credits_studio} on Studio, and more can be bought at {credits_per_dollar} credits per dollar. The page is ready when it has two tiers, a few pay-per-view posts and a bundle of the archive.',
             )),
-            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+            array('h' => 'What changes on {site} for a Fanvue creator?', 'p' => array(
                 'The formats widen. Alongside memberships and paid messages, the page sells pay-per-view posts, bundles of past work and services with a fixed price and a delivery window. Tickets to live sessions are held in a built-in video room with a waiting room, chat and host controls. Fans pay memberships by card and everything else from a credit wallet, so a second purchase takes one tap.',
                 'The promotion stops being manual. The studio publishes each post to nine social networks and to your page at once, with the paid version behind the lock. The inbox drafts replies for your approval and sends welcome and trigger messages with paid media attached. Fanvue\'s AI voice calls for fans do not exist here; the AI works on the creator\'s side instead.',
                 'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
                 'Adult content is allowed behind an age check, which matters to many Fanvue creators. Fans opt in and verify once, creators verify before publishing adult media, and every upload is checked automatically. Nothing adult is shown to a fan who has not opted in, and the public page stays safe for work.',
             )),
-            array('h' => 'A worked scenario: 200 subscribers leaving Fanvue', 'p' => self::scenario($fv, 2000, 'subscriptions and paid messages (200 fans at $10)')),
+            array('h' => 'A worked scenario: 200 subscribers leaving Fanvue', 'p' => self::scenario($fv, 2000, 'subscriptions and paid messages (200 fans at $10)', 'fanvue')),
         );
     }
 
     private static function alt_patreon(): array {
         $pt = PagesController::COMPETITORS['patreon']; $checked = date('F j, Y', strtotime($pt['checked']));
         return array(
-            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+            array('h' => 'How do you choose among these Patreon alternatives?', 'p' => array(
                 'Start from what your fans pay for. Patreon is built around a recurring tier, so the alternatives fall into three kinds. Tipping and membership tools keep the tier and add one-off support. Storefronts sell products and bookings from a link page. A page like {site} sells memberships beside pay-per-view posts, bundles, services and event tickets.',
                 'Then ask each candidate the same three questions. Does the member list export, with emails, in a file you can download? What does it sell beyond the monthly tier? Does it publish to your social accounts, or is promotion left to you? The compare pages linked from each card answer those from the platform\'s own pages.',
                 'Weigh the fee last, after the formats and the ownership terms. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside Patreon\'s. Plan prices are a separate monthly line on the pricing page.',
@@ -554,19 +554,19 @@ class CompareProse {
                 'The money follows Patreon\'s payout rules. Withdrawals are creator-initiated, a five-day hold applies after a payout method is added, and one-time purchase funds stay pending for up to seven days (' . self::src($pt, 'payout') . '). Clear the balance before the page goes quiet.',
                 'Rebuild the tiers before the email goes out, with the same names and prices so nobody has to relearn the offer. Keep Patreon live for one billing cycle and let the renewals lapse on their own.',
             )),
-            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+            array('h' => 'What changes on {site} for a Patreon creator?', 'p' => array(
                 'The formats widen. Beside membership tiers the page sells pay-per-view posts, bundles of past work, services with a fixed price and tickets to live sessions held in a built-in video room. Members pay by card on a schedule, and everything else is paid from a credit wallet at {credits_per_dollar} credits per dollar.',
                 'Promotion moves into the same tool. Patreon offers a share menu and publishes no automatic posting to social accounts (' . self::src($pt, 'socials') . '). On {site} a post written once goes to your page and to nine social networks together, with the paid version behind the lock.',
                 'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
             )),
-            array('h' => 'A worked scenario: 300 members leaving Patreon', 'p' => self::scenario($pt, 2400, 'memberships (300 members at $8)')),
+            array('h' => 'A worked scenario: 300 members leaving Patreon', 'p' => self::scenario($pt, 2400, 'memberships (300 members at $8)', 'patreon')),
         );
     }
 
     private static function alt_linktree(): array {
         $lt = PagesController::COMPETITORS['linktree']; $checked = date('F j, Y', strtotime($lt['checked']));
         return array(
-            array('h' => 'How do you choose among these alternatives?', 'p' => array(
+            array('h' => 'How do you choose among these Linktree alternatives?', 'p' => array(
                 'Start from what the page has to do after the click. A link page sends the visitor somewhere else to buy. A storefront takes payment on the page for products, courses and bookings. A page like {site} takes payment for memberships, pay-per-view posts, bundles, services and event tickets, and keeps tracked links beside them.',
                 'Then check what each candidate actually sells. Linktree\'s selling guide lists one-time digital products, courses, affiliate links and sponsored links, and does not list recurring memberships or bookings (' . self::src($lt, 'content') . ', checked ' . $checked . '). A creator whose income is recurring needs a page that bills on a schedule.',
                 'Weigh the fee last. {site}\'s platform fee is {fee_short}, and the worked example on this page puts those shares beside Linktree\'s. Plan prices are a separate monthly line on the pricing page.',
@@ -576,12 +576,12 @@ class CompareProse {
                 'Product and course sales settle to the bank account connected to your payment account, on the daily, weekly or monthly schedule you chose (' . self::src($lt, 'payout') . '). Let the last sales settle, then change the link in each bio to the new page.',
                 'Rebuild the links in the same order, so a returning visitor finds what they expect, then add the first thing the old page could not sell.',
             )),
-            array('h' => 'What changes on {site}, in practice?', 'p' => array(
+            array('h' => 'What changes on {site} for a Linktree user?', 'p' => array(
                 'The page sells where it used to point. Memberships bill the fan\'s card on a schedule, and pay-per-view posts, bundles, services and event tickets are paid from a credit wallet at {credits_per_dollar} credits per dollar. Every link on the page is tracked, so you can see which ones are clicked.',
                 'Publishing sits in the same studio. A post written once goes to your page and to nine social networks together, with AI captions drafted for each and the paid version behind the lock.',
-                'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
+                'Earnings from every kind of sale meet in a single balance, after the platform fee of {fee_short}. You move that balance to your bank when you choose, from {payout_min} upward. Your contacts and your media can be exported whenever you like.',
             )),
-            array('h' => 'A worked scenario: a link page that starts selling', 'p' => self::scenario($lt, 1500, 'digital products and bookings')),
+            array('h' => 'A worked scenario: a link page that starts selling', 'p' => self::scenario($lt, 1500, 'digital products and bookings', 'linktree')),
         );
     }
 

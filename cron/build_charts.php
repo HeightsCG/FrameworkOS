@@ -9,7 +9,7 @@ $path = dirname(__DIR__);
 $opts = getopt('', array('base::'));
 $base = rtrim((string) ($opts['base'] ?? 'http://framework.contentos.cvk'), '/');
 $pages = array('/compare/fanvue', '/compare/onlyfans', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/compare/eromify',
-               '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/best-creator-monetization-platforms', '/monetize-your-content',
+               '/best-creator-monetization-platforms', '/monetize-your-content',
                '/pricing', '/features', '/');   // the three screen schematics (Sections::ui_sketch) live here too
 $dir = $path . '/public/images/charts/';
 if (!is_dir($dir)) { mkdir($dir, 0775, true); }

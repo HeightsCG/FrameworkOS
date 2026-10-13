@@ -247,6 +247,9 @@ class SeoMeta {
         $out[] = '<meta name="twitter:title" content="' . $e($og_title) . '">';
         $out[] = '<meta name="twitter:description" content="' . $e($desc) . '">';
         $out[] = '<meta name="twitter:image" content="' . $e($image) . '">';
+        // The Markdown copy of the page, for agents that prefer it (SeoController::markdownAction).
+        $mdp = (string) parse_url($url, PHP_URL_PATH); if ($mdp === '') { $mdp = '/'; }
+        if (empty($m['noindex']) && SeoController::has_markdown($mdp)) { $out[] = '<link rel="alternate" type="text/markdown" href="' . $e(self::base() . ($mdp === '/' ? '/index' : $mdp) . '.md') . '">'; }
         // The page's largest image, fetched early (SEO audit 2026-10-12: a hero background and an article cover on another host were found late). 'preload_image' is the URL; 'preload_srcset' and 'preload_sizes' mirror the <img> when it has them.
         $pre = trim((string) ($m['preload_image'] ?? ''));
         if ($pre !== '') {

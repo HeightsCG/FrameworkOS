@@ -4,8 +4,11 @@
  * libs/Classes/HeyCatch.php (set HeyCatch::ENABLED = false to discontinue; removal steps are in that file's docblock).
  *
  * Included first in every <head>, before google_analytics.php (that file strips ?signed_in=google from the URL,
- * and the sign-up check below has to see it). No build step here, so the SDK is the esm.sh module pinned to the
- * npm `latest` version. `requestBatching: false` because every navigation is a full page load. Autocapture covers
+ * and the sign-up check below has to see it). The SDK is self-hosted: public/js/heycatch-sdk-<version>.js is the
+ * esm.sh bundle of the pinned npm version (HeyCatch::SDK_VERSION), fetched once and committed, so no third-party host
+ * sits in the page load. It is imported after the load event, at idle (Daniel 2026-10-12): nothing of it is requested
+ * before the page has finished loading. To update: download https://esm.sh/@heycatch/sdk@<version>/es2022/sdk.bundle.mjs
+ * to that path and change SDK_VERSION. `requestBatching: false` because every navigation is a full page load. Autocapture covers
  * pageviews and clicks; only identity and business outcomes are sent by hand, read from the API responses (one
  * listener, same idea as the GA map in google_analytics.php). Page scripts send an outcome of their own through
  * CLSHeyCatch('trackEvent', name, props): calls queue until the module below has run init.
@@ -19,7 +22,12 @@ if (!HeyCatch::ENABLED) { return; }
       try { var hc_q = new URLSearchParams(location.search); if (hc_q.get('signed_in') === 'google' && hc_q.get('new') === '1') { window.CLSHeyCatch('trackEvent', 'signup_completed', { method: 'google' }); } } catch (e) {}
     </script>
     <script type="module">
-      import { analytics } from 'https://esm.sh/@heycatch/sdk@<?php echo HeyCatch::SDK_VERSION; ?>';
+      // after the load event, at idle: the SDK never competes with the page for the network or the main thread
+      await new Promise(function (go) {
+        var idle = function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 4000 }); };
+        if (document.readyState === 'complete') { idle(); } else { window.addEventListener('load', idle, { once: true }); }
+      });
+      const { analytics } = await import('/js/heycatch-sdk-<?php echo HeyCatch::SDK_VERSION; ?>.js');
 
       analytics.init({
         projectKey: '<?php echo HeyCatch::PROJECT_KEY; ?>',

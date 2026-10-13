@@ -14,33 +14,30 @@ echo Sections::panel_hero(array(
     'panel'   => Sections::pane('On this list', count($rows) . ' platforms, in the order below.', Sections::pane_rows($rows)),
 ));
 
-// The numbered list: us first (we build it and say so), then each platform with its kind of platform and who it suits.
-echo Sections::open('white', 'Which ' . $p['name'] . ' alternatives are worth considering?', 'We build ' . $site . ', so it is first, and we say so. Each other platform is described from the same sourced record as its comparison page. Prices change, so check each platform\'s own page for current numbers.');
-$cards = array(array('title' => '1. ' . $p['us']['name'], 'text' => $p['us']['text'], 'points' => $p['us']['points'], 'note' => 'Best for: ' . $p['us']['best_for'], 'link' => array('See All Features', '/features')));
+// The numbered list: us first (we build it and say so), then each platform with a paragraph written for this page's reader.
+echo Sections::open('white', 'Which ' . $p['name'] . ' alternatives are worth considering?', 'We build ' . $site . ', so it leads this list of ' . $p['name'] . ' alternatives, and we say so. Every other entry is written for a creator leaving ' . $p['name'] . ', and the points under it come from that platform\'s own pages.');
+$cards = array(array('title' => '1. ' . $p['us']['name'], 'text' => $p['us']['text'], 'points' => $p['us']['points'], 'note' => 'Best for ' . $p['us']['best_for'], 'link' => array('See All Features', '/features')));
 $n = 2;
 foreach ($p['others'] as $o) {
-    $card = array('title' => ($n++) . '. ' . $o['name'], 'text' => $o['text'], 'note' => 'Best for: ' . $o['best_for']);
+    // The paragraph is written for this page's reader (AlternativesPages); the points under it are the platform's sourced strengths, shared data from its compare record.
+    $card = array('title' => ($n++) . '. ' . $o['name'], 'text' => $o['text']);
     $rec = $o['compare'] !== '' ? (PagesController::COMPETITORS[$o['compare']] ?? null) : null;
-    if ($rec) {   // what the platform is, what it does well and who it suits, from the record its compare page is built on (no prices here: they sit in the dated fee table below)
-        $card['text'] = (string) (Sections::cap((string) $rec['summary'], 2)[0] ?? $o['text']);
-        $card['points'] = array_map(function ($s) { $s = trim((string) $s); return preg_match('/[.!?]$/', $s) ? $s : $s . '.'; }, (array) ($rec['strengths'] ?? array()));
-        $card['note'] = 'Best for: ' . (string) ($rec['best_for'] ?? $o['best_for']);
-    }
+    if ($rec) { $card['points'] = array_map(function ($s) { $s = trim((string) $s); return preg_match('/[.!?]$/', $s) ? $s : $s . '.'; }, (array) ($rec['strengths'] ?? array())); }
     if ($o['compare'] !== '') { $card['link'] = array('Compare ' . $site . ' with ' . $o['name'], '/compare/' . $o['compare']); }
     $cards[] = $card;
 }
 echo '<div class="alt-list">' . Sections::cards($cards, 2) . '</div>';
 $alt_checked = ''; foreach ($p['others'] as $o) { if ($o['compare'] !== '' && isset(PagesController::COMPETITORS[$o['compare']])) { $alt_checked = max($alt_checked, (string) (PagesController::COMPETITORS[$o['compare']]['checked'] ?? '')); } }   // the newest date a listed platform's facts were checked
-echo '<p class="sx-note">' . ($alt_checked !== '' ? 'Platform details last checked on ' . $e(date('F j, Y', strtotime($alt_checked))) . ' by the ' . $e($site) . ' team. ' : '') . $e($p['us']['note']) . ' For a sourced, side-by-side look, read <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
+echo '<p class="sx-note">' . ($alt_checked !== '' ? 'The platforms on this ' . $e($p['name']) . ' list were last checked on ' . $e(date('F j, Y', strtotime($alt_checked))) . ' by the ' . $e($site) . ' team. ' : '') . 'The sourced, side-by-side table is in <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
 echo Sections::close();
 
-// Worked fee example across the platforms on this list that have a sourced rate (the ones with a /compare page), then payout terms beside the platform the reader is leaving.
-$compare_slugs = array_values(array_filter(array_map(function ($o) { return (string) $o['compare']; }, $p['others'])));
-echo CompareProse::render(CompareProse::alternatives(strtolower($p['name'])), 'alt');   // this page's own prose: choosing, leaving, what changes, a computed scenario
+// This page's own prose (choosing, leaving, what changes, a worked example). The fee table itself lives on the compare page and
+// the best-of page, so the list pages do not repeat it; the links line and the sources are the ones written for this platform.
 $alt_key = strtolower(preg_replace('/[^a-z]/i', '', (string) $p['name']));
-echo PagesController::fee_example_section(isset(PagesController::COMPETITORS[$alt_key]) ? array($alt_key) : $compare_slugs, 'white', array(1000, 5000), '', $alt_key);   // only the platform the reader is leaving, beside our plans: the all-platforms table lives on the best-of page, so the list pages do not repeat it
-echo Sections::related_guides((string) $p['path'], 'alt', 3);
-echo CompareProse::links_line();
+echo CompareProse::render(CompareProse::alternatives($alt_key), 'alt');
+$alt_n = array_search($alt_key, array_keys(AlternativesPages::PAGES), true);
+echo Sections::related_guides((string) $p['path'], 'alt', 3, 3 * (int) $alt_n);   // each list page shows a different three, so the block is not the same on all of them
+echo CompareProse::links_line($alt_key);
 if (!empty($faq)) { echo Sections::faq($faq); }
 
 // The closing band comes from the layout (outside the page's <article>); the Start Free button keeps the creator role.

@@ -52,5 +52,5 @@ Thumbs.db
 
 /vendor/
 
-# SEO audit screenshots (15 MB of captures; the written report stays tracked)
-docs/claude-seo-audit-*/screenshots/
+# SEO audit output (reports, findings and screenshots written by the claude-seo plugin)
+docs/claude-seo-audit-*

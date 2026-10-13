@@ -16,6 +16,7 @@
     <meta name="description" content="<?php echo $seo_desc; ?>">
     <link rel="canonical" href="<?php echo $seo_base; ?>/">
     <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="alternate" type="text/markdown" href="<?php echo $seo_base; ?>/index.md">
     <link rel="sitemap" type="application/xml" href="/sitemap.xml">
     <meta name="theme-color" content="#050505">
     <meta property="og:type" content="website">

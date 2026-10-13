@@ -479,8 +479,8 @@ class Sections {
      * "Related Guides": the blog articles that belong under this hub page, as a section of in-body links (SeoDrafter::guides_for).
      * Returns '' when no article is published for the page, so a hub never shows an empty block.
      */
-    public static function related_guides(string $path, string $bg = 'white', int $limit = 4): string {
-        $rows = SeoDrafter::guides_for($path, $limit);
+    public static function related_guides(string $path, string $bg = 'white', int $limit = 4, int $offset = 0): string {
+        $rows = array_slice(SeoDrafter::guides_for($path, $limit + $offset), $offset, $limit);   // $offset: pages that share a topic show different articles
         if (empty($rows)) { return ''; }
         $o = self::open($bg, 'Related guides', '', 'guides') . '<dl class="fx-list fx-list--guides">';
         foreach ($rows as $r) {

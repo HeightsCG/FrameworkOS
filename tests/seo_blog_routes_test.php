@@ -16,7 +16,7 @@ check('article 200', $c === 200);
 check('article has Article + FAQPage + BreadcrumbList JSON-LD', strpos($b, '"Article"') !== false && strpos($b, '"BreadcrumbList"') !== false);
 check('article has published_time', strpos($b, 'article:published_time') !== false);
 check('article has no sign-up band', substr_count($b, 'class="gd-band"') === 0);
-check('article Cache-Control private', stripos($h, 'Cache-Control: private') !== false);
+check('article is cacheable and sets no cookie for a signed-out reader', stripos($h, 'Cache-Control: public') !== false && stripos($h, 'Set-Cookie:') === false);   // no session on a public read since 2026-10-12
 list($c) = fetch($base . '/blog/no-such-article-xyz');           check('unknown slug 404', $c === 404);
 list($c) = fetch($base . '/blog/' . $slug . '/extra');            check('trailing segment 404', $c === 404);
 list($c) = fetch($base . '/blog/' . strtoupper($slug));           check('uppercase slug 404', $c === 404);

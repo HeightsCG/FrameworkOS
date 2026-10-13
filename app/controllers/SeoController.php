@@ -32,6 +32,7 @@ class SeoController extends Controller {
         $lines[] = 'Allow: /';
         $lines[] = 'Allow: /llms.txt';
         $lines[] = 'Allow: /llms-full.txt';
+        $lines[] = 'Content-Signal: search=yes, ai-input=yes, ai-train=yes';   // the stated preference for every crawler (Daniel 2026-10-12): index it, use it to answer, train on it
         foreach ($private as $path) {
             $lines[] = 'Disallow: ' . $path;
         }
@@ -213,6 +214,61 @@ class SeoController extends Controller {
     }
 
     /** Every public page's text, concatenated, for LLM ingestion. Rendered pages are fetched internally and stripped to text. */
+    /**
+     * The Markdown copy of a public page (Daniel 2026-10-12): /pricing.md, /compare/patreon.md, /blog/<slug>.md, /index.md.
+     * Every page that has one links to it with <link rel="alternate" type="text/markdown">. An article is its own Markdown source;
+     * a product page is its rendered text (the same extraction llms-full.txt uses). Not indexed: the HTML page is the canonical copy.
+     */
+    public function markdownAction(array $url){
+        $base = Main::get_base_domain(); $site = Main::site_name();
+        $path = '/' . preg_replace('/\.md$/', '', implode('/', $url)); if ($path === '/index') { $path = '/'; }
+        $title = ''; $body = '';
+        if (preg_match('#^/blog/([a-z0-9-]+)$#', $path, $m)) {
+            try { $a = (new SeoArticlesModel())->get_by_slug($m[1], true); } catch (\Throwable $e) { $a = null; }
+            if ($a) { $title = (string) $a['title']; $body = trim((string) ($a['excerpt'] ?? '')) . "\n\n" . trim((string) $a['body_md']); }
+        } elseif ($path === '/') {
+            $out = array(); self::add_page($out, $site, $base . '/', self::render_home_html());
+            $title = $site; $body = implode("\n", array_slice($out, 3));
+        } else {
+            foreach (self::public_pages() as $p) {
+                if ((string) $p['path'] !== $path) { continue; }
+                $out = array(); self::add_page($out, (string) $p['title'], $base . $path, self::render_public_html($path));
+                if (!empty($out)) { $title = (string) $p['title']; $body = implode("\n", array_slice($out, 3)); }
+                break;
+            }
+        }
+        if (trim($body) === '') { Errors::page_not_found(); return; }
+        header('Content-Type: text/markdown; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('X-Robots-Tag: noindex');
+        header('Link: <' . $base . ($path === '/' ? '/' : $path) . '>; rel="canonical"');
+        echo '# ', $title, "\n\n", 'Source: ', $base, ($path === '/' ? '/' : $path), "\n\n", trim($body), "\n";
+    }
+
+    /** Does this public path have a Markdown copy (markdownAction)? The head links to it when it does. */
+    public static function has_markdown(string $path): bool {
+        if ($path === '/' || preg_match('#^/blog/[a-z0-9-]+$#', $path)) { return true; }
+        $seg = explode('/', trim($path, '/'));
+        return isset(PagesController::ROUTES[$seg[0]]) && !in_array($seg[0], array('creators', 'author'), true);   // rendered through PagesController; the directory and the author page are left out
+    }
+
+    /**
+     * OAuth 2.0 Protected Resource Metadata (RFC 9728) for the MCP connector at /mcp, so a client that gets a 401 there can read
+     * how the resource is protected. Tokens are issued per creator in account settings; there is no authorization server to list.
+     */
+    public function protectedResourceAction(){
+        $base = Main::get_base_domain();
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: public, max-age=3600');
+        header('Access-Control-Allow-Origin: *');
+        echo json_encode(array(
+            'resource' => $base . '/mcp',
+            'resource_name' => Main::site_name() . ' MCP connector',
+            'bearer_methods_supported' => array('header'),
+            'resource_documentation' => $base . '/llms.txt',
+        ), JSON_UNESCAPED_SLASHES);
+    }
+
     public function llmsFullAction(){
         $base = Main::get_base_domain(); $site = Main::site_name();
         // Rendering every public page + article is heavy: serve a cached copy for an hour (per host).

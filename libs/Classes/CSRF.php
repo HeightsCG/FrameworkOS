@@ -7,6 +7,7 @@ class CSRF {
 
     public static function token(): string
     {
+        if (session_status() !== PHP_SESSION_ACTIVE) { return ''; }   // a public page served without a session carries no token; the page fetches one from /csrf-token when a form or the sign-in dialog opens
         $token = Session::get(self::SESSION_KEY);
         if (!is_string($token) || $token === '') {
             $token = bin2hex(random_bytes(32));

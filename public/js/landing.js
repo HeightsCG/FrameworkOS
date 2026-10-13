@@ -33,8 +33,27 @@ $(document).ready(function() {
         }
     }
 
+    /* Public pages are served without a session, so the request token is empty until someone needs it. Fetch it once,
+       when the sign-in dialog opens or a public form is first touched, and put it where api.data.js reads it. */
+    var token_asked = false;
+    function ensure_token() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (!meta || meta.getAttribute('content') || token_asked) { return; }
+        token_asked = true;
+        fetch('/csrf-token', { credentials: 'same-origin', cache: 'no-store' })
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (!d || !d.csrf_token) { token_asked = false; return; }
+                meta.setAttribute('content', d.csrf_token);
+                document.querySelectorAll('input[name="csrf_token"]').forEach(function(el) { el.value = d.csrf_token; });
+            })
+            .catch(function() { token_asked = false; });   // csrf-retry.js still recovers on the first post
+    }
+    document.addEventListener('focusin', function(e) { if (e.target && e.target.closest && e.target.closest('form')) { ensure_token(); } });
+
     function open_auth(panel) {
         if (!auth_overlay) { return; }
+        ensure_token();
         last_focused = document.activeElement;
         show_auth_panel(panel);
         auth_overlay.hidden = false;

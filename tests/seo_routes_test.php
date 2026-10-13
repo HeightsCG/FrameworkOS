@@ -100,6 +100,18 @@ $ok = strpos($body, '"@type":"ProfilePage"') !== false && strpos($body, 'Dr. Gla
 echo ($ok ? 'ok   ' : 'FAIL ') . "/author/dr-glauber ProfilePage + bio, no first name, no <article>\n"; if (!$ok) { $fail++; }
 $ch = curl_init($base . '/author/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/author/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+// The first name is in no public file either (a code comment in a stylesheet or an inline script is public), and a signed-out
+// reader of a public page gets no session cookie.
+foreach (array('/css/sx.css', '/css/public.css', '/css/landing.css', '/js/landing.js') as $asset) {
+    $ch = curl_init($base . $asset); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+    $ok = $body !== '' && stripos($body, 'daniel') === false && stripos($body, 'glauber') === false;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$asset carries no name\n"; if (!$ok) { $fail++; }
+}
+foreach (array('/', '/pricing', '/compare/fanvue', '/blog') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_HEADER => true, CURLOPT_NOBODY => true)); $h = (string) curl_exec($ch); curl_close($ch);
+    $ok = stripos($h, 'Set-Cookie:') === false && stripos($h, 'no-store') === false;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p sets no cookie for a signed-out reader and is cacheable\n"; if (!$ok) { $fail++; }
+}
 foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) {
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
     $ok = strpos($body, 'Glauber') === false && stripos($body, 'daniel') === false && strpos($body, '/author/') === false && ($p === '/blog' || strpos($body, '<article') === false);

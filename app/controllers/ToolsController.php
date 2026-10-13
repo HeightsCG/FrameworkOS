@@ -41,7 +41,7 @@ class ToolsController extends Controller {
 
     public function __construct(){
         parent::__construct();
-        header('Cache-Control: private, max-age=300');
+        Session::cache_header(300);
     }
 
     public function indexAction(){ Errors::page_not_found(); }

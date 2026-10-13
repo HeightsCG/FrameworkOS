@@ -116,6 +116,23 @@ class Bootstrap
         exit;
     }
 
+    /** First URL segments that are public reading pages besides PagesController::ROUTES (the home page is ''). */
+    const PUBLIC_READ = array('', 'blog', 'tools', 'robots.txt', 'sitemap.xml', 'llms.txt', 'llms-full.txt', '.well-known');
+
+    /**
+     * True for a GET or HEAD of a public reading page from a visitor with no session cookie, on the platform host. Those
+     * requests run without a session (Session::get() answers null for everything, as it does for any signed-out visitor).
+     */
+    private static function anonymous_public_get($custom): bool
+    {
+        if ($custom) { return false; }   // a creator's domain keeps its own session handling
+        if (!in_array((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'), array('GET', 'HEAD'), true)) { return false; }
+        if (isset($_COOKIE[session_name()])) { return false; }
+        $first = (string) (Main::get_url()[0] ?? '');
+        if (substr($first, -3) === '.md') { return true; }   // the Markdown copy of a public page
+        return in_array($first, self::PUBLIC_READ, true) || isset(PagesController::ROUTES[$first]);
+    }
+
     public function start_app()
     {
         // Store everything in UTC; display layers convert to the viewer's timezone.
@@ -150,7 +167,10 @@ class Bootstrap
         ini_set('session.cookie_httponly', '1');
         ini_set('session.cookie_secure',   $isHttps ? '1' : '0');
         ini_set('session.cookie_samesite', 'Lax');
-        Session::init();
+        // A signed-out visitor reading a public page gets no session: no cookie, no no-store header, so the page is cacheable
+        // (SEO audit 2026-10-12). The session starts when it is needed: any request that already carries the cookie, any POST,
+        // any app route, and /csrf-token, which the sign-in dialog and the public forms call when they open.
+        if (!self::anonymous_public_get($custom)) { Session::init(); }
 
         // A session handed to a creator's domain only works on that host and only for a while. Presented anywhere
         // else (the platform host, another domain) or after its time, it is dropped before anything reads it.
@@ -178,6 +198,15 @@ class Bootstrap
             $this->return_to_custom_domain();
         }
 
+        // The request token for a page that was served without a session (above): the dialog fetches it when it opens.
+        if ((Main::get_url()[0] ?? '') === 'csrf-token') {
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            header('X-Robots-Tag: noindex');
+            echo json_encode(array('csrf_token' => CSRF::token()));
+            return;
+        }
+
         // Public creator profiles live at /@handle. The "@" namespaces them away
         // from real app routes, so intercept before normal controller resolution.
         $url = Main::get_url();
@@ -198,6 +227,16 @@ class Bootstrap
         $crawl = array('robots.txt' => 'robotsAction', 'sitemap.xml' => 'sitemapAction', 'llms.txt' => 'llmsAction', 'llms-full.txt' => 'llmsFullAction');
         if (isset($url[0]) && isset($crawl[$url[0]])) {
             (new SeoController())->{$crawl[$url[0]]}();
+            return;
+        }
+
+        // The Markdown copy of a public page (/pricing.md, /blog/<slug>.md, /index.md) and the MCP connector's resource metadata.
+        if (!empty($url) && substr((string) end($url), -3) === '.md') {
+            (new SeoController())->markdownAction($url);
+            return;
+        }
+        if (($url[0] ?? '') === '.well-known' && ($url[1] ?? '') === 'oauth-protected-resource') {
+            (new SeoController())->protectedResourceAction();
             return;
         }
 

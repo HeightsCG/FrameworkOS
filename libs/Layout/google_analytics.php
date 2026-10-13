@@ -67,9 +67,11 @@
 
     <!-- Microsoft Clarity (session recordings + heatmaps), linked to Bing Webmaster Tools -->
     <script>
-    (function(c,l,a,r,i,t,y){
-        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
-        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";
-        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    (function(c,l,a,r,i){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};   // calls queue until the tag has loaded
+        // loaded after the load event, at idle (2026-10-12): the tag is never requested while the page is still loading
+        var go=function(){var t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";var y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);};
+        var idle=function(){(c.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});};
+        if(l.readyState==="complete"){idle();}else{c.addEventListener("load",idle,{once:true});}
     })(window, document, "clarity", "script", "ymy03mkngt");
     </script>

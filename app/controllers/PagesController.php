@@ -247,12 +247,13 @@ class PagesController extends Controller {
 
     public function __construct(){
         parent::__construct();
-        if (!self::$embedded) { header('Cache-Control: private, max-age=300'); }
+        if (!self::$embedded) { Session::cache_header(300); }
     }
 
     private function page($view, array $meta, array $vars = array()){
         $meta['url'] = SeoMeta::base() . $meta['path'];
         if (!self::$embedded && (int) Session::get('user_id') === 0) { Affiliates::capture($this->get_ip_address()); }   // ?aff=<code> on any public page, signed out: cls_aff + a click
+        if (!self::$embedded && isset($_GET['aff'])) { Session::cache_header(300); }   // the affiliate cookie was just set: this response is private
         if (!isset($meta['jsonld'])) {
             $meta['jsonld'] = array(
                 SeoMeta::org(),
@@ -891,7 +892,7 @@ class PagesController extends Controller {
         $u = Main::get_url();
         if (count($u) === 2 && (string) $u[1] === 'testimonial') { (new FoundingController())->testimonialAction(); return; }   // the app page for founding creators
         if (count($u) > 1) { Errors::page_not_found(); return; }
-        if (!self::$embedded) { header('Cache-Control: private, max-age=60'); }   // the spots counter is at most a minute old
+        if (!self::$embedded) { Session::cache_header(60); }   // the spots counter is at most a minute old
         $path = '/founding'; $m = self::founding_meta(); $faq = self::founding_faq();
         $jsonld = array(
             SeoMeta::faq($faq),
@@ -960,16 +961,9 @@ class PagesController extends Controller {
         $p['us'] = array(
             'name' => $site, 'kind' => 'One page, every way to sell',
             'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to nine social networks.'),
-            'points' => array(
-                'Memberships, pay-per-view, bundles, services and events on one page',
-                'Publishes to nine social networks from one studio',
-                'AI influencers: photos and short videos of the same person, ready to sell',
-                'A DM agent that drafts replies in your voice, with your approval',
-                'Platform fee: ' . self::fee_short(),
-                'Payouts to your bank on request, ' . Price::PAYOUT_MIN_LABEL . ' minimum, no platform hold',
-            ),
-            'note' => 'Plan charges and credit purchases are final and non-refundable.',
-            'best_for' => 'Creators who sell more than a subscription and want one page, one studio and one balance.',
+            'points' => (array) ($p['us_points'] ?? array('Memberships, pay-per-view, bundles, services and events on one page', 'Publishes to nine social networks from one studio', 'Platform fee: ' . self::fee_short())),
+            'note' => '',
+            'best_for' => (string) ($p['us_best'] ?? 'creators who sell more than a subscription and want one page, one studio and one balance.'),
         );
         return $p;
     }

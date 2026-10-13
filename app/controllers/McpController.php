@@ -45,7 +45,7 @@ class McpController extends Controller {
         $creator_id = ($token === '') ? null : (new ApiTokensModel())->resolve($token);
         if (!$creator_id) {
             http_response_code(401);
-            header('WWW-Authenticate: Bearer');
+            header('WWW-Authenticate: Bearer resource_metadata="' . Main::get_base_domain() . '/.well-known/oauth-protected-resource"');   // RFC 9728: where a client reads how this resource is protected
             header('Content-Type: application/json');
             echo json_encode(array('jsonrpc' => '2.0', 'id' => null,
                 'error' => array('code' => -32001, 'message' => 'Unauthorized')));
