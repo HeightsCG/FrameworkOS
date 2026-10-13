@@ -234,7 +234,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('prompt' => $this->text('prompt', 4000));
-        foreach (['model_key', 'image_size', 'num_images', 'seed', 'guidance', 'steps', 'lora_scale'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['model_key', 'image_size', 'num_images', 'seed', 'guidance', 'steps', 'lora_scale', 'style'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_image($cid, $infl, $in, 'studio'));
     }
 

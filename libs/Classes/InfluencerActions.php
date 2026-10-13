@@ -469,7 +469,11 @@ class InfluencerActions {
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
         // The scene comes first, so it is what the model follows; her build and her own defaults follow it (2026-10-13: with
         // the defaults in front, a long body description decided the picture and the scene was ignored).
-        $prompt = InfluencerService::scene_prompt($lead, $user_prompt, $defaults);
+        // The chosen style goes last: scene, her build, then the realism cues. A caller that names no style (scenes, the
+        // connector, automations) adds nothing, as before.
+        $style  = isset(InfluencerService::IMAGE_STYLES[(string) ($in['style'] ?? '')]) ? (string) $in['style'] : 'plain';
+        $suffix = InfluencerService::style_suffix($style, $user_prompt);
+        $prompt = InfluencerService::scene_prompt($lead, $user_prompt, trim($defaults . ($defaults !== '' && $suffix !== '' ? '. ' : '') . $suffix));
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
         $size  = Aspect::for_model($mk, (string) ($in['aspect'] ?? ($in['image_size'] ?? '')));   // 3:4 unless asked: bodies warp in a square frame
@@ -478,7 +482,7 @@ class InfluencerActions {
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
-        $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'overrides' => $overrides,
+        $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'style' => $style, 'overrides' => $overrides,
             'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0)));
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(

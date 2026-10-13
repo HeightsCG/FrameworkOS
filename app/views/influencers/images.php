@@ -23,25 +23,20 @@
                     <figure class="inf-gen__main" id="inf_main" hidden>
                         <img id="inf_main_img" alt="">
                         <button type="button" class="inf-gen__expand" id="inf_expand" title="Expand"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
+                        <button type="button" class="inf-gen__del" id="inf_res_delete" title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
                     </figure>
                 </div>
                 <div class="inf-cv__actions" id="inf_result" hidden>
-                    <?php /* Three rows by what the action is for: use the picture, make more from it, keep or remove it. */ ?>
+                    <?php /* Six equal buttons in two rows: what you do with the picture, then what you make from it. Delete is the bin on the picture itself. */ ?>
                     <div class="inf-acts" role="group" aria-label="Image actions">
-                    <div class="inf-acts__row">
-                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
-                    <button type="button" class="btn btn-secondary" id="inf_res_message"><i class="fa-solid fa-comment-dots"></i> Send In Message</button>
-                    </div>
-                    <div class="inf-acts__row">
+                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Post</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_message"><i class="fa-solid fa-comment-dots"></i> Send</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_again"><i class="fa-solid fa-rotate-right"></i> Run Again</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_video"><i class="fa-solid fa-clapperboard"></i> Make Video</button>
                     <?php if (!$brand): ?>
-                    <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance · <?php echo number_format(Plan::ai_price('enhance')); ?> AI Credits</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance</button>
                     <?php endif; ?>
-                    </div>
-                    <div class="inf-acts__row inf-acts__row--end">
-                    <button type="button" class="btn inf-acts__link" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
-                    <button type="button" class="btn inf-acts__link inf-btn--danger" id="inf_res_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
                     </div>
                 </div>
                 </div>
@@ -63,6 +58,16 @@
                 <div class="inf-opts" id="inf_model">
                     <?php foreach ((array) ($cfg['pickers']['image'] ?? array()) as $i => $o): ?>
                     <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?></span></button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+            <?php if (!$brand): ?>
+            <div class="inf-pop" id="inf_pop_style" hidden>
+                <div class="inf-pop__h">Style</div>
+                <div class="inf-opts" id="inf_style">
+                    <?php foreach (InfluencerService::IMAGE_STYLES as $s_key => $s_def): ?>
+                    <button type="button" class="inf-opt<?php echo $s_key === InfluencerService::IMAGE_STYLE_DEFAULT ? ' is-on' : ''; ?>" data-key="<?php echo $e($s_key); ?>"><span class="inf-opt__t"><?php echo $e($s_def['label']); ?></span><span class="inf-opt__p"><?php echo $e($s_def['purpose']); ?></span></button>
                     <?php endforeach; ?>
                 </div>
             </div>
@@ -99,6 +104,9 @@
                 <span class="inf-cv__sep" aria-hidden="true"></span>
                 <?php if (!$brand): ?>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_model" aria-expanded="false"><span data-pop-label="#inf_model .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <?php endif; ?>
+                <?php if (!$brand): ?>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_style" aria-expanded="false"><span data-pop-label="#inf_style .inf-opt.is-on .inf-opt__t">Style</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <?php endif; ?>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_size" aria-expanded="false"><span data-pop-label="#inf_size .inf-seg__opt.is-on">Size</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <?php if (!$brand): ?>

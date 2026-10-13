@@ -82,6 +82,14 @@ $sp = InfluencerService::scene_prompt('infl_9_ab12 ', 'Close-up portrait at gold
 check('the scene comes right after the trigger word, her build after the scene', strpos($sp, 'infl_9_ab12 Close-up portrait at golden hour. ') === 0 && strpos($sp, 'hourglass figure') > strpos($sp, 'golden hour'));
 check('the full-body reference still gets the whole description', strpos(InfluencerService::angle_prompt($dressed, 'full_front'), 'both feet fully visible') !== false);
 check('the training shots carry the short build too', strpos(InfluencerService::training_prompt($dressed, 8), 'leggings') === false && strpos(InfluencerService::training_prompt($dressed, 8), 'COMPOSITION') === false);
+check('two image styles, Photorealistic first and the default', array_keys(InfluencerService::IMAGE_STYLES) === array('photoreal', 'plain') && InfluencerService::IMAGE_STYLE_DEFAULT === 'photoreal');
+$sfx = InfluencerService::style_suffix('photoreal', 'a beach at sunset');
+check('Photorealistic adds camera, light and skin cues', strpos($sfx, 'full-frame camera') !== false && strpos($sfx, 'visible pores') !== false && strpos($sfx, 'natural believable light') !== false);
+check('and none of the words that push toward digital art', !preg_match('/hyperrealistic|ultra-detailed|8k|masterpiece|perfect skin|flawless/i', $sfx));
+check('As Written adds nothing, and so does an unknown style', InfluencerService::style_suffix('plain', 'x') === '' && InfluencerService::style_suffix('nope', 'x') === '');
+check('a prompt that already carries the cues does not get them twice', InfluencerService::style_suffix('photoreal', 'x. ' . $sfx) === '');
+$full = InfluencerService::scene_prompt('infl_9_ab12 ', 'Close-up portrait at golden hour', trim(InfluencerService::look_defaults($dressed) . '. ' . $sfx));
+check('order is trigger, scene, her build, then the style', strpos($full, 'infl_9_ab12 Close-up portrait at golden hour. ') === 0 && strpos($full, 'hourglass figure') < strpos($full, 'full-frame camera'));
 check('every angle has a prompt and a renderable shape', !array_filter(array_keys(InfluencerService::ANGLES), function ($k) use ($infl) { return InfluencerService::angle_prompt($infl, $k) === '' || !Aspect::valid(InfluencerService::ANGLES[$k]['aspect']); }));
 
 /* ---- angle set ---- */

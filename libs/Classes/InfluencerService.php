@@ -225,6 +225,24 @@ class InfluencerService {
         return trim(mb_substr(implode(' ', $keep), 0, 400), " ,.");
     }
 
+    /**
+     * Styles for a picture made with her trained model (Generate Images, 2026-10-13). Both use the same model; the style only
+     * decides what is added after the scene. 'photoreal' adds camera, light and skin cues in plain photographic terms (no
+     * "hyperrealistic", "8K" or "flawless", which push a model toward digital art). 'plain' adds nothing.
+     */
+    const IMAGE_STYLES = array(
+        'photoreal' => array('label' => 'Photorealistic', 'purpose' => 'Adds camera, light and skin-texture cues',
+            'suffix' => 'Photograph of a real person taken with a full-frame camera and a fast prime lens, shallow depth of field, natural believable light, true colour. Natural skin texture with visible pores, fine flyaway hairs, natural proportions. Not an illustration, a render or an airbrushed image.'),
+        'plain'     => array('label' => 'As Written', 'purpose' => 'Your prompt only, nothing added', 'suffix' => ''),
+    );
+    const IMAGE_STYLE_DEFAULT = 'photoreal';
+
+    /** What a style adds to a prompt ('' for none, an unknown style, or when the prompt already carries it). */
+    public static function style_suffix($style, $prompt = ''){
+        $s = (string) (self::IMAGE_STYLES[(string) $style]['suffix'] ?? '');
+        return ($s !== '' && stripos((string) $prompt, $s) === false) ? $s : '';
+    }
+
     /** One image prompt: the trigger word, the scene as written, then her build and defaults. */
     public static function scene_prompt($lead, $scene, $defaults){
         $scene = trim((string) $scene); $defaults = trim((string) $defaults);

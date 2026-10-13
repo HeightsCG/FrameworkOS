@@ -1176,20 +1176,15 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 }
 .inf-seg__opt:disabled:has(> .cs-ratio--wide){ display:none; }   /* a tool whose model cannot draw a wide shape does not offer it greyed out */
 
-/* Actions under the image preview (2026-10-13): three rows by purpose. A button grows to share its row and never shrinks
-   below its label, so a long label wraps to the next line instead of spilling out of its cell. */
-.inf-acts{ display:flex; flex-direction:column; gap:8px; }
-.inf-acts__row{ display:flex; flex-wrap:wrap; gap:8px; }
-.inf-acts__row > .btn{ flex:1 1 120px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:6px 12px; font-size:13px; white-space:nowrap; }
-.inf-acts__row--end{ justify-content:space-between; padding-top:8px; border-top:1px solid var(--line); }
-.inf-acts__row--end > .btn.inf-acts__link{ flex:0 0 auto; min-height:32px; padding:4px 8px; border:0; background:transparent; color:var(--t2); font-weight:500; }
-.inf-acts__row--end > .btn.inf-acts__link:hover{ background:var(--bg); color:var(--text); }
-.inf-acts__row--end > .btn.inf-acts__link:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
-.inf-acts__row--end > .btn.inf-acts__link:disabled{ opacity:.5; cursor:not-allowed; }
-.inf .inf-acts__row--end > .btn.inf-btn--danger{ color:var(--danger); }
-.inf .inf-acts__row--end > .btn.inf-btn--danger:hover{ background:var(--danger-bg); color:var(--danger); border:0; }
-.inf-acts__row > .btn[hidden]{ display:none; }
-@media (max-width:640px){ .inf-acts__row > .btn{ min-height:44px; } .inf-acts__row--end > .btn.inf-acts__link{ min-height:44px; } }
+/* Actions under the image preview (2026-10-13): six equal buttons, three to a row. Delete is the bin on the picture. */
+.inf-acts{ display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; }
+.inf-acts > .btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; min-width:0; min-height:36px; padding:6px 6px; font-size:13px; white-space:nowrap; }
+.inf-acts > .btn[hidden]{ display:none; }
+.inf-gen__del{ position:absolute; left:8px; bottom:8px; width:32px; height:32px; border-radius:var(--r-sm); border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.inf-gen__del:hover{ background:var(--danger); }
+.inf-gen__del:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--danger); }
+.inf-gen__del:disabled{ opacity:.5; cursor:not-allowed; }
+@media (max-width:640px){ .inf-acts > .btn{ min-height:44px; } .inf-gen__del{ width:44px; height:44px; } }
 /* The other tools keep their one row of actions; there too a long label wraps instead of overflowing. */
 .inf-cv__actions .inf-result__actions{ display:flex; flex-wrap:wrap; }
 .inf-cv__actions .inf-result__actions > .btn{ flex:1 1 120px; }

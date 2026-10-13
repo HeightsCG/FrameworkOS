@@ -87,7 +87,7 @@ jQuery(function ($) {
 
     /* shared: delete one of her files (library soft delete) after a confirm */
     function confirm_delete(what, cb) {
-        Swal.fire({ title: 'Delete this ' + what + '?', text: 'It is removed from your library and from any posts or collections that use it.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
+        Swal.fire({ title: 'Delete this ' + what + '?', text: 'It is removed from your library and collections. A post that uses it keeps it.', icon: 'warning', showCancelButton: true, reverseButtons: true, confirmButtonText: 'Delete', confirmButtonColor: '#e5484d', cancelButtonColor: '#6b6779' })
             .then(function (r) { if (r.isConfirmed) { cb(); } });
     }
     function delete_asset(influencer_id, asset_id, cb) {
@@ -1249,6 +1249,7 @@ jQuery(function ($) {
         function seg_val(id) { return $('#' + id + ' .inf-seg__opt.is-on').data('value'); }
         function seg_set(id, v) { $('#' + id + ' .inf-seg__opt').removeClass('is-on').attr('aria-pressed', 'false').filter('[data-value="' + v + '"]').addClass('is-on').attr('aria-pressed', 'true'); }
         function model_key() { return $('#inf_model .inf-opt.is-on').data('key') || ''; }
+        function style_key() { return $('#inf_style .inf-opt.is-on').data('key') || ''; }   // Photorealistic or As Written
         function model_label(key) { var m = (C.pickers.image || []).filter(function (o) { return o.key === key; })[0]; return m ? m.label : key; }
         function cost() {
             var n = parseInt(seg_val('inf_n'), 10) || 1;
@@ -1273,6 +1274,8 @@ jQuery(function ($) {
             if ($('#inf_size .inf-seg__opt.is-on').prop('disabled')) { seg_set('inf_size', ok[0]); }
         }
         $('#inf_model').on('click', '.inf-opt', function () { $('#inf_model .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); sync_sizes(); cost(); });
+        $('#inf_style').on('click', '.inf-opt', function () { $('#inf_style .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); try { localStorage.setItem('inf_image_style', $(this).data('key')); } catch (e) {} });
+        try { var saved_style = localStorage.getItem('inf_image_style'); if (saved_style && $('#inf_style .inf-opt[data-key="' + saved_style + '"]').length) { $('#inf_style .inf-opt').removeClass('is-on').filter('[data-key="' + saved_style + '"]').addClass('is-on'); } } catch (e) {}
         seg_pick('inf_size'); seg_pick('inf_n');
         $('#inf_prompt_chips').on('click', '.inf-chip--text', function () { $('#inf_prompt').val(prompts[$(this).data('i')]).trigger('focus'); });
         $('#inf_prompt_auto').on('click', function () {
@@ -1294,7 +1297,7 @@ jQuery(function ($) {
             var prompt = $('#inf_prompt').val().trim();
             if (prompt == '') { toastr.error('Write a prompt first'); return; }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
-            var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'),
+            var body = $.extend({ id: inf.id, prompt: prompt, model_key: model_key(), style: style_key(), image_size: seg_val('inf_size'), num_images: seg_val('inf_n'),
                 seed: field('inf_seed'), lora_scale: field('inf_lora'), guidance: field('inf_guidance'), steps: field('inf_steps') }, overrides || {});
             $('#inf_gen_go, #inf_res_again').prop('disabled', true);
             busy('Sending');
@@ -1364,7 +1367,7 @@ jQuery(function ($) {
             $('#inf_prompt').val(words);
             $('#inf_seed').val(seed);
             seg_set('inf_size', aspect_key(current.job.params.image_size || 'square'));
-            generate({ prompt: words, seed: seed, image_size: aspect_key(current.job.params.image_size || 'square'), model_key: current.job.model_key });
+            generate({ prompt: words, seed: seed, image_size: aspect_key(current.job.params.image_size || 'square'), model_key: current.job.model_key, style: (current.job.params && current.job.params.style) || 'plain' });   // the style that picture was made with
         });
         $('#inf_res_video').on('click', function () { if (current) { window.location = '/influencers/videos/' + inf.id + '/' + current.asset.id; } });
         $('#inf_res_download').on('click', function () {
@@ -1393,12 +1396,18 @@ jQuery(function ($) {
         $('#inf_res_enhance').on('click', function () {
             if (!current) { return; }
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
-            var $b = $(this).prop('disabled', true);
-            api('influencer_enhance', { id: inf.id, asset_id: current.asset.id }, function (o) {
-                $b.prop('disabled', false);
-                if (!o || !o.success) { err(o); return; }
-                spend_credits(price_of('enhance', 1)); cost();
-                jobs.unshift(o.job); render_strip(); watch(o.job.id);
+            var $b = $(this), aid = current.asset.id, price = price_of('enhance', 1);
+            // The price is asked about here, not printed on the button.
+            Swal.fire({ title: 'Enhance this image?', text: 'It is upscaled to twice the size with sharper detail. This uses ' + price + ' AI credits.', icon: 'question', showCancelButton: true, reverseButtons: true,
+                confirmButtonText: 'Enhance', cancelButtonText: 'Cancel', confirmButtonColor: '#CD4C00', cancelButtonColor: '#6b6779' }).then(function (r) {
+                if (!r.isConfirmed) { return; }
+                $b.prop('disabled', true);
+                api('influencer_enhance', { id: inf.id, asset_id: aid }, function (o) {
+                    $b.prop('disabled', false);
+                    if (!o || !o.success) { err(o); return; }
+                    spend_credits(price); cost();
+                    jobs.unshift(o.job); render_strip(); watch(o.job.id);
+                });
             });
         });
         $('#inf_expand').on('click', function () { if (current) { $('#inf_lightbox_img').attr('src', current.asset.display_url || current.asset.thumb_url); $('#inf_lightbox').prop('hidden', false); } });
