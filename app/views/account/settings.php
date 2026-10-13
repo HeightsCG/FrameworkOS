@@ -51,6 +51,7 @@
                             <?php if ($my_av === ''): ?><i class="fa-solid fa-user"></i><?php endif; ?>
                         </div>
                         <button type="button" class="btn btn-secondary" id="my_avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload Photo</button>
+                        <?php if (!empty($this->is_creator)): /* a creator has a library to pick from; a fan does not */ ?><button type="button" class="btn btn-secondary gal-pick" data-kind="my_avatar"><i class="fa-regular fa-images"></i> Choose From Gallery</button><?php endif; ?>
                         <button type="button" class="btn btn-secondary" id="my_avatar_remove" <?php echo $my_av === '' ? 'hidden' : ''; ?>>Remove</button>
                     </div>
                     <input type="file" id="my_avatar_file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
@@ -260,6 +261,7 @@
                         <div class="cprofile__cover" id="cover_preview" style="<?php echo !empty($cp['cover_url']) ? 'background-image:url(\'' . htmlspecialchars($cp['cover_url'], ENT_QUOTES, 'UTF-8') . '\')' : ''; ?>">
                             <div class="cprofile__cover-actions">
                                 <button type="button" class="btn btn-secondary" id="cover_upload_btn"><i class="fa-solid fa-camera"></i> Upload Cover</button>
+                                <button type="button" class="btn btn-secondary gal-pick" data-kind="cover"><i class="fa-regular fa-images"></i> Choose From Gallery</button>
                                 <button type="button" class="btn btn-secondary" id="cover_remove" <?php echo empty($cp['cover_url']) ? 'hidden' : ''; ?>>Remove</button>
                             </div>
                         </div>
@@ -272,6 +274,7 @@
                                 <?php if (empty($cp['avatar_url'])): ?><i class="fa-solid fa-user"></i><?php endif; ?>
                             </div>
                             <button type="button" class="btn btn-secondary" id="avatar_upload_btn"><i class="fa-solid fa-camera"></i> Upload Photo</button>
+                            <button type="button" class="btn btn-secondary gal-pick" data-kind="avatar"><i class="fa-regular fa-images"></i> Choose From Gallery</button>
                             <button type="button" class="btn btn-secondary" id="avatar_remove" <?php echo empty($cp['avatar_url']) ? 'hidden' : ''; ?>>Remove</button>
                         </div>
                     </div>
@@ -1425,6 +1428,22 @@
     </div>
 </div>
 
+<?php /* Pick a picture from the creator's own library for a profile photo or cover; it then goes through the same crop and upload as a file. */ ?>
+<div class="modal fade" id="gallery_modal" tabindex="-1" aria-hidden="true" aria-labelledby="gallery_modal_title">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="gallery_modal_title">Choose from your gallery</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="gal-state" id="gallery_state" role="status"></div>
+                <div class="gal-grid" id="gallery_grid"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
 <div class="modal fade" id="crop_modal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -2435,6 +2454,45 @@ $(function () {
             error: function () { toastr.error('Upload failed'); }
         });
     }
+    /* Choose From Gallery: list the creator's library images, then hand the chosen one to the same cropper an upload uses. */
+    var gal_kind = null, gal_next = null;
+    function gal_state(html) { $('#gallery_state').html(html).prop('hidden', html === ''); }
+    $('.gal-pick').on('click', function () {
+        gal_kind = $(this).data('kind'); gal_next = null;
+        $('#gallery_grid').empty(); gal_state('<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading your images');
+        $('#gallery_modal').modal('show');
+        ApiDataSvc.apiCall('post', 'media_list', { type: 'image' }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            if (!o || !o.success) { gal_state('Your images could not be loaded. Close this and try again.'); return; }
+            var ready = (o.assets || []).filter(function (a) { return a.status === 'ready' && a.thumb_url; });
+            if (!ready.length) { gal_state('No images in your gallery yet. Upload one, or make one under Influencers.'); return; }
+            gal_state('');
+            ready.forEach(function (a) {
+                $('<button type="button" class="gal-tile"></button>').attr('aria-label', a.name || 'Image').data('id', a.id)
+                    .append($('<img alt="" loading="lazy">').attr('src', a.thumb_url)).appendTo('#gallery_grid');
+            });
+        });
+    });
+    $('#gallery_grid').on('click', '.gal-tile', function () {
+        var $t = $(this), kind = gal_kind;
+        if ($t.hasClass('is-busy')) { return; }
+        $('#gallery_grid .gal-tile').prop('disabled', true); $t.addClass('is-busy');
+        ApiDataSvc.apiCall('post', 'media_crop_source', { id: $t.data('id') }, function (data) {
+            var o = null; try { o = JSON.parse(data); } catch (e) {}
+            $('#gallery_grid .gal-tile').prop('disabled', false); $t.removeClass('is-busy');
+            if (!o || !o.success) { toastr.error((o && o.message) || 'That image could not be opened'); return; }
+            fetch(o.data_url).then(function (r) { return r.blob(); }).then(function (blob) {
+                gal_next = { kind: kind, blob: blob };
+                $('#gallery_modal').modal('hide');   // the cropper opens once this one has closed (two dialogs never overlap)
+            });
+        });
+    });
+    $('#gallery_modal').on('hidden.bs.modal', function () {
+        if (!gal_next) { return; }
+        var n = gal_next; gal_next = null;
+        openCropper(n.kind, n.blob, $('#' + n.kind + '_preview'));
+    });
+
     $('#my_avatar_upload_btn').on('click', function () { $('#my_avatar_file').trigger('click'); });
     $('#my_avatar_file').on('change', function () { if (this.files[0]) { openCropper('my_avatar', this.files[0], $('#my_avatar_preview')); this.value = ''; } });
     $('#my_avatar_remove').on('click', function () {

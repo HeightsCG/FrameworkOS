@@ -671,3 +671,16 @@
 .settings-lock__actions{ display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; }
 .settings-lock__note{ margin:1rem 0 0; font-size:.8rem; color:var(--muted2); }
 @media (max-width:760px){ .settings-lock{ padding:1.4rem 1.2rem; } .settings-lock__actions .btn{ flex:1 1 100%; min-height:44px; display:inline-flex; align-items:center; justify-content:center; } }
+
+/* Choose From Gallery: a grid of the creator's library images in a dialog. */
+.gal-pick{ display:inline-flex; align-items:center; gap:6px; }
+.gal-state{ display:flex; align-items:center; gap:8px; padding:32px 8px; justify-content:center; color:var(--muted); font-size:14px; text-align:center; }
+.gal-state[hidden]{ display:none; }
+.gal-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(120px, 1fr)); gap:8px; }
+.gal-tile{ position:relative; padding:0; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--bg); overflow:hidden; aspect-ratio:1 / 1; cursor:pointer; }
+.gal-tile img{ display:block; width:100%; height:100%; object-fit:cover; }
+.gal-tile:hover{ border-color:var(--muted2); }
+.gal-tile:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.gal-tile:disabled{ cursor:progress; opacity:.6; }
+.gal-tile.is-busy{ opacity:1; box-shadow:inset 0 0 0 2px var(--acc); }
+@media (max-width:640px){ .gal-grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }

@@ -322,6 +322,28 @@ class ApiMediaController extends BaseApiController {
         $this->jsonSuccess(['assets' => $assets, 'total' => count($assets)]);
     }
 
+    /**
+     * One library image as bytes for the profile photo / cover cropper (Settings, "Choose From Gallery"). The page crops it
+     * and sends the crop through the normal profile upload, so the same size, moderation and metadata rules apply.
+     */
+    public function media_crop_sourceAction(){
+        $user       = $this->require_creator('content', false);
+        $creator_id = (int) $user['user_id'];
+        $a = (new MediaAssetsModel())->get_one($creator_id, (int) ($this->post['id'] ?? 0));
+        if (!$a || (string) $a['type'] !== 'image' || (string) $a['status'] !== 'ready') { $this->jsonError('That image was not found.'); }
+        $key = (string) ($a['display_key'] ?? '') !== '' ? (string) $a['display_key'] : (string) ($a['original_key'] ?? '');
+        $tmp = tempnam(sys_get_temp_dir(), 'crop_');
+        $fail = '';   // the answer ends the request, so the temp file is removed before it is sent
+        if ($key === '' || !S3Service::get_private_to_file($key, $tmp) || (int) @filesize($tmp) <= 0) { $fail = 'That image could not be opened.'; }
+        elseif (filesize($tmp) > 12 * 1024 * 1024) { $fail = 'That image is too large to use here.'; }
+        $info = $fail === '' ? @getimagesize($tmp) : false;
+        if ($fail === '' && ($info === false || !in_array($info['mime'], array('image/jpeg', 'image/png', 'image/webp', 'image/gif'), true))) { $fail = 'That image could not be opened.'; }
+        $bytes = $fail === '' ? (string) file_get_contents($tmp) : '';
+        @unlink($tmp);
+        if ($fail !== '') { $this->jsonError($fail); }
+        $this->jsonSuccess(['data_url' => 'data:' . $info['mime'] . ';base64,' . base64_encode($bytes), 'width' => (int) $info[0], 'height' => (int) $info[1]]);
+    }
+
     /** Full detail for one asset: signed preview, metadata, usage, collections. */
     public function media_getAction(){
         $user       = $this->require_creator('content', false);
