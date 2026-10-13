@@ -21,6 +21,9 @@ class FeedModel extends Model {
         // demo accounts stay out of everyone else's feed; the demo user still sees their own posts.
         $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
         if ($viewer_id > 0) { $params['demo_viewer'] = $viewer_id; }
+        // Subscriber posts appear only for a viewer with an active subscription to that creator (2026-10-13): nobody else gets
+        // even a locked tile. Free and pay-per-view posts are for everyone. Done here, not in PHP, so paging stays exact.
+        $sub_sql = self::subscriber_sql($viewer_id, $params);
         // Cover = the post's is_cover asset, else its first ready asset by sort order.
         // Pulled as correlated scalar subqueries (the ON-clause form trips a MySQL
         // "unknown column" error on the joined alias).
@@ -43,10 +46,17 @@ class FeedModel extends Model {
                 JOIN user_accounts ua ON ua.user_id = p.creator_id
                 LEFT JOIN creator_profiles cp ON cp.user_id = p.creator_id
                 WHERE p.state = 'published' AND p.on_cls = 1
-                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql
+                  AND ua.deleted = 0 AND (ua.user_status IS NULL OR ua.user_status <> 'Disabled') AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql$sub_sql
                 ORDER BY p.published_at DESC, p.id DESC
                 LIMIT $offset, $limit";
         return parent::select($sql, $params);
+    }
+
+    /** The audience clause for the feed: free and pay-per-view for everyone, subscriber posts only with an active subscription to the creator. */
+    private static function subscriber_sql(int $viewer_id, array &$params): string {
+        if ($viewer_id <= 0) { return " AND p.audience IN ('free', 'ppv')"; }
+        $params['sub_viewer'] = $viewer_id;
+        return " AND (p.audience IN ('free', 'ppv') OR EXISTS (SELECT 1 FROM creator_subscriptions cs WHERE cs.subscriber_id = :sub_viewer AND cs.creator_id = p.creator_id AND cs.status = 'active'))";
     }
 
     /**
@@ -64,9 +74,10 @@ class FeedModel extends Model {
         $params    = array('since' => $since_id);
         if ($viewer_id > 0) { $params['bv1'] = $viewer_id; $params['bv2'] = $viewer_id; $params['demo_viewer'] = $viewer_id; }
         $demo_sql  = $viewer_id > 0 ? ' AND (ua.is_demo = 0 OR ua.user_id = :demo_viewer)' : ' AND ua.is_demo = 0';
+        $sub_sql = self::subscriber_sql($viewer_id, $params);   // the "new posts" count follows the same rule as the feed
         $sql = "SELECT COUNT(*) AS c FROM (
                     SELECT p.id FROM posts p JOIN user_accounts ua ON ua.user_id = p.creator_id
-                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql
+                    WHERE p.state = 'published' AND p.on_cls = 1 AND p.id > :since AND " . Plan::paid_sql('ua') . "$block_sql$demo_sql$sub_sql
                     LIMIT $cap
                 ) t";
         $rows = parent::select($sql, $params);

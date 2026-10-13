@@ -49,7 +49,13 @@ class ApiPostsController extends BaseApiController {
             } elseif ($audience === 'ppv') {
                 $entitled = isset($unlocked_map[$id]);
             } else {
-                $entitled = false; // subscribers-only teaser on the card; unlocked in the lightbox
+                // The feed only returns a subscriber post to someone subscribed to its creator (FeedModel::subscriber_sql). They see
+                // it clear when their tier covers it, and as a locked tile when the post is for a higher tier.
+                $s_subs  = new CreatorSubscriptionsModel(); $s_cid = (int) $p['creator_id'];
+                $s_tiers = $posts_model->tiers_for_posts(array($id))[$id] ?? array();
+                $s_price = array(); $s_tid = (int) ($p['tier_id'] ?? 0);
+                if (empty($s_tiers) && $s_tid > 0) { $s_plan = (new CreatorPlansModel())->get_public($s_tid); $s_price[$s_tid] = (int) ($s_plan['price_cents'] ?? 0); }
+                $entitled = $logged && PostsModel::tier_entitled($p, $s_tiers, (array) $s_subs->active_plan_ids($viewer, $s_cid), $s_subs->max_active_tier_price($viewer, $s_cid), $s_price);
             }
 
             $display = trim((string) ($p['display_name'] ?? ''));
