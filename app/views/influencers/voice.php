@@ -33,11 +33,11 @@
         <section class="inf-gen__preview">
             <?php /* The voices just designed appear here, beside the form, to listen to and save: never under it. */ ?>
             <div class="inf-result inf-candcard" id="inf_vd_cands_card">
-                <div class="inf-sec__head"><h2 class="inf-sec__h">Listen And Save</h2></div>
+                <div class="inf-sec__head"><h2 class="inf-sec__h">Listen And Save</h2><span class="inf-wiz__meta" id="inf_vd_cands_meta"></span><button type="button" class="inf-link inf-candcard__dismiss" id="inf_vd_dismiss">Dismiss</button></div>
                 <ol class="inf-cands" id="inf_vd_cands" hidden></ol>
             </div>
             <div class="inf-result" id="inf_vo_voices_card">
-                <div class="inf-sec__head"><h2 class="inf-sec__h">Voices</h2><span class="inf-wiz__meta" id="inf_vo_count"></span></div>
+                <div class="inf-sec__head"><h2 class="inf-sec__h">Voices</h2><span class="inf-wiz__meta" id="inf_vo_count"></span><button type="button" class="btn btn-primary btn-sm inf-voices__next" id="inf_vo_to_speech" hidden><i class="fa-solid fa-microphone-lines"></i> Text To Speech</button></div>
                 <div class="inf-state-loading" id="inf_vo_loading"><span class="spinner-border spinner-border-sm text-primary" role="status"></span> Loading voices…</div>
                 <div class="inf-state-error" id="inf_vo_loaderr" hidden>Could not load <?php echo $her; ?> voices. <button type="button" class="inf-link" id="inf_vo_reload">Try Again</button></div>
                 <div class="inf-empty inf-voices__empty" id="inf_vo_empty" hidden>

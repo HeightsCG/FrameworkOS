@@ -197,18 +197,18 @@ class EventsModel extends Model {
         return (is_array($r) && count($r) === 1) ? $r[0] : null;
     }
 
-    /** Published, non-past-ended events for a creator's profile (soonest first). */
+    /** Published events for a creator's profile that have not ended yet (soonest first). With no end time, an event counts as ended an hour after it starts. */
     public function list_public_for_creator($creator_id){
         return (array) parent::select(
             "SELECT e.*, (SELECT COUNT(*) FROM event_registrations r WHERE r.event_id = e.id AND r.status = 'registered') AS attendees
              FROM events e
              WHERE e.creator_id = :c AND e.status = 'published'
-               AND (e.end_at IS NULL OR e.end_at >= UTC_TIMESTAMP() OR e.start_at >= UTC_TIMESTAMP() )
+               AND COALESCE(e.end_at, e.start_at + INTERVAL 1 HOUR) >= UTC_TIMESTAMP()
              ORDER BY e.start_at ASC",
             array('c' => (int) $creator_id));
     }
 
-    /** A creator's ended events, newest first (the profile's Events tab lists them under "Past Events"). */
+    /** A creator's ended events, newest first. The public profile no longer lists them (2026-10-13). */
     public function list_past_public_for_creator($creator_id, $limit = 20){
         $limit = max(1, min(50, (int) $limit));
         return (array) parent::select(

@@ -1005,6 +1005,9 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 #inf_vo_panel_voices > .inf-gen__preview > .inf-result{ flex:0 0 auto; overflow:visible; }
 #inf_vo_panel_voices > .inf-gen__preview > #inf_vo_voices_card{ flex:1 0 auto; }
 .inf-candcard .inf-cands{ margin:0; padding:0; border-top:0; }
+.inf-candcard .inf-sec__head, #inf_vo_voices_card .inf-sec__head{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.inf-candcard__dismiss, .inf-voices__next{ margin-left:auto; }
+.inf-candcard__dismiss{ font-size:13px; }
 #inf_tk_voice.is-text{ color:var(--muted); font-weight:500; cursor:default; text-decoration:none; }
 #inf_tk_voice[hidden]{ display:none; }
 

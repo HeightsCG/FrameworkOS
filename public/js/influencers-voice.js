@@ -96,6 +96,7 @@ jQuery(function ($) {
             $('#inf_vo_voice').prop('disabled', !voices.length).html(voices.length
                 ? voices.map(function (v) { return '<option value="' + v.id + '"' + (v.is_active ? ' selected' : '') + '>' + esc(v.name) + (v.is_active ? ' (active)' : '') + '</option>'; }).join('')
                 : '<option value="">No voice yet</option>');
+            $('#inf_vo_to_speech').prop('hidden', !voices.length);   // the next step once she has a voice
             if (!voices.length) { view('empty'); speech_cost(); return; }
             $('#inf_vo_list').html(voices.map(function (v) {
                 var s = v.settings || {}, sub = [s.age_vibe, s.keyword, [s.city, s.country].filter(Boolean).join(', '), s.tone].filter(Boolean).join(' · ');
@@ -161,16 +162,23 @@ jQuery(function ($) {
             if (field && map[field]) { $(map[field]).addClass('is-invalid').trigger('focus'); $('#inf_vo_design_card [data-err="' + field + '"]').text(msg).prop('hidden', false); }
             else { $('#inf_vd_err').text(msg).prop('hidden', false); }
         }
+        // The voices just designed, until they are saved or dismissed. A saved one leaves this list: it is under Voices now.
+        // When no more can be saved (the plan's voice limit), the rest go too, so the page never shows voices that lead nowhere.
         function render_cands() {
-            if (!design) { $('#inf_vd_cands').prop('hidden', true).empty(); return; }
-            var at_cap = saved >= cap;
-            $('#inf_vd_cands').prop('hidden', false).html(design.candidates.map(function (c, i) {
-                return '<li class="inf-cand" data-index="' + c.index + '"><span class="inf-cand__n">Candidate ' + (i + 1) + '</span>' +
+            var left = design ? design.candidates.filter(function (c) { return !c.saved; }) : [], at_cap = saved >= cap;
+            if (!left.length || at_cap) { $('#inf_vd_cands').prop('hidden', true).empty(); return; }
+            var any_saved = left.length < design.candidates.length;
+            $('#inf_vd_cands_meta').text(any_saved ? left.length + ' more from this design' : 'Play each one, name the one you like and save it');
+            $('#inf_vd_cands').prop('hidden', false).html(left.map(function (c) {
+                var n = design.candidates.indexOf(c) + 1;
+                return '<li class="inf-cand" data-index="' + c.index + '"><span class="inf-cand__n">Candidate ' + n + '</span>' +
                     '<audio controls preload="none" src="' + esc(c.url) + '"></audio>' +
-                    '<input type="text" class="form-control" maxlength="120" placeholder="Voice name" aria-label="Name for candidate ' + (i + 1) + '" value="' + esc(c.saved ? c.name : '') + '"' + (c.saved ? ' disabled' : '') + '>' +
-                    (c.saved ? '<span class="inf-voice__badge">Saved</span>' : '<button type="button" class="btn btn-secondary btn-sm" data-save' + (at_cap ? ' disabled title="Remove a voice to save another"' : '') + '>Save Voice</button>') + '</li>';
+                    '<input type="text" class="form-control" maxlength="120" placeholder="Voice name" aria-label="Name for candidate ' + n + '">' +
+                    '<button type="button" class="btn btn-secondary btn-sm" data-save>Save Voice</button></li>';
             }).join(''));
         }
+        $('#inf_vd_dismiss').on('click', function () { design = null; $('#inf_vd_cands').prop('hidden', true).empty(); });
+        $('#inf_vo_to_speech').on('click', function () { tab_chosen = true; show_tab('speech'); });
         $('#inf_vd_go').on('click', function () {
             design_errors();
             if (val('#inf_vd_age') === '') { design_errors('age_vibe', 'Describe the age and vibe.'); return; }
@@ -189,7 +197,7 @@ jQuery(function ($) {
             api('influencer_voice_save', { id: inf.id, token: design.token, index: index, name: name }, function (o) {
                 if (!o || !o.success) { $b.prop('disabled', false); err(o, 'That voice could not be saved.'); return; }
                 $.each(design.candidates, function (i, c) { if (c.index === index) { c.saved = true; c.name = o.voice.name; } });
-                toastr.success('Voice saved');
+                toastr.success(o.voice.name + ' saved. Open Text To Speech to use it.');
                 api('influencer_voices', { id: inf.id }, function (r) { if (r && r.success) { voices = r.voices || []; cap = r.cap; saved = r.saved; render_voices(); } render_cands(); });
             });
         });

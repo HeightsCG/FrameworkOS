@@ -283,11 +283,9 @@ class ProfileController extends Controller {
         foreach ($eventsModel->list_public_for_creator($user['user_id']) as $ev) {
             $event_cards[] = $make_event_card($ev);
         }
-        // Ended events stay on the profile ("Past Events"), so nothing a fan saw announced just disappears.
+        // An event that has ended leaves the profile (2026-10-13: a public page never lists events in the past). Its own
+        // page still opens from a direct link, an attendee still finds it under their events, and a replay on sale has its tab below.
         $past_event_cards = array();
-        foreach ($eventsModel->list_past_public_for_creator($user['user_id']) as $ev) {
-            $past_event_cards[] = $make_event_card($ev);
-        }
         // Replays on sale get their own tab: anyone (follower or not) sees them, buys them there and watches on the event page.
         $replay_cards = array();
         foreach ($eventsModel->list_with_replay($user['user_id']) as $ev) {
