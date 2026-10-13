@@ -417,7 +417,7 @@ jQuery(function ($) {
             return '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_body_text">Body Description</label>' + prebuilt_link('inf_body_pre', body_prebuilt()) + '</div>' +
-                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="2000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="10000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_body_pre') +
                 '</div>' +
@@ -803,7 +803,7 @@ jQuery(function ($) {
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="2000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="10000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_set_bodypre') +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
@@ -1001,7 +1001,7 @@ jQuery(function ($) {
             var html = '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
-                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
+                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="10000" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
                 prebuilt_pop('inf_ref_pre', faces) +
                 '</div>' +
                 '<div class="inf-wiz__view inf-face">' +   // the picture on a quiet stage; its versions and the Adjust box sit in a panel beside it once a picture exists
@@ -1009,7 +1009,7 @@ jQuery(function ($) {
                 '<div class="inf-face__side">' +
                 '<div class="inf-field inf-face__versions"><div class="inf-label">Versions</div><div class="inf-ref__row" id="inf_ref_row" hidden></div></div>' +
                 '<div class="inf-adjust inf-field" id="inf_ref_adjust" hidden><label class="inf-label" for="inf_ref_change">Adjust This Image</label>' +
-                '<textarea class="form-control" id="inf_ref_change" maxlength="1000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
+                '<textarea class="form-control" id="inf_ref_change" maxlength="4000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
                 '<button type="button" class="btn btn-secondary" id="inf_ref_apply" disabled>Adjust</button></div>' +
                 '</div>' +
                 '</div></div>' +

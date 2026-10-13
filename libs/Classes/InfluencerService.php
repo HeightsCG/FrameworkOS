@@ -166,8 +166,10 @@ class InfluencerService {
         ),
     );
 
-    /** The longest body description kept (2026-10-13: was 600, which cut a careful description mid-word). The column is TEXT. */
-    const BODY_MAX = 2000;
+    /** The longest body or face description kept (2026-10-13: 600 and then 2,000 both cut a careful description mid-word). Both columns are TEXT. */
+    const BODY_MAX = 10000;
+    /** The longest "adjust this image" instruction. */
+    const CHANGE_MAX = 4000;
 
     /** A body description as stored: one line, at most BODY_MAX characters. */
     public static function body_text($text){

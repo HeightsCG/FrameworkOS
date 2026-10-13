@@ -62,7 +62,7 @@ class InfluencerActions {
         if (isset($in['gender']) && isset(InfluencerService::GENDERS[$in['gender']])) { $f['gender'] = $in['gender']; }
         if (isset($in['input_method']) && in_array($in['input_method'], array('text', 'face_photo'), true)) { $f['input_method'] = $in['input_method']; }
         if (array_key_exists('is_public', $in)) { $f['is_public'] = ((string) $in['is_public'] === '1' || $in['is_public'] === true) ? 1 : 0; }
-        if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, 2000); }
+        if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, InfluencerService::BODY_MAX); }
         if (array_key_exists('reference_model_key', $in)) {
             $mk = InfluencerConfig::resolve_model('reference', (string) $in['reference_model_key']);
             $f['reference_model_key'] = $mk ? (string) $mk['key'] : InfluencerConfig::default_model_key('reference');
@@ -220,7 +220,7 @@ class InfluencerActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from photos.'); }
         $f = array('input_method' => 'text');
-        if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, 2000); }
+        if (array_key_exists('source_description', $in)) { $f['source_description'] = mb_substr(trim((string) $in['source_description']), 0, InfluencerService::BODY_MAX); }
         if (array_key_exists('reference_model_key', $in)) { $mk = InfluencerConfig::resolve_model('reference', (string) $in['reference_model_key']); $f['reference_model_key'] = $mk ? (string) $mk['key'] : ''; }
         $m = new InfluencersModel();
         $m->update_fields($cid, $infl['id'], $f);
@@ -253,7 +253,7 @@ class InfluencerActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from your photos. Add photos with the new look and retrain.'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
-        $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, 1000);
+        $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, InfluencerService::CHANGE_MAX);
         if ($change === '') { return self::fail('Say what should change.'); }
         // The image to change: the one named (a reference candidate or her face photo), else her current reference.
         $base = 0;

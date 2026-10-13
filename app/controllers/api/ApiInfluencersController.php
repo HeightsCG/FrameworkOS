@@ -13,7 +13,7 @@ class ApiInfluencersController extends BaseApiController {
         return $this->require_creator('content', $need_plan ? 'ai' : false);
     }
 
-    private function text($key, $max = 5000){
+    private function text($key, $max = 10000){   // the description fields hold up to InfluencerService::BODY_MAX
         return mb_substr(trim(html_entity_decode((string) ($this->post[$key] ?? ''), ENT_QUOTES, 'UTF-8')), 0, $max);
     }
 
@@ -155,7 +155,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array();
-        if (isset($this->post['source_description']))  { $in['source_description'] = $this->text('source_description', 2000); }
+        if (isset($this->post['source_description']))  { $in['source_description'] = $this->text('source_description', InfluencerService::BODY_MAX); }
         if (isset($this->post['reference_model_key'])) { $in['reference_model_key'] = (string) $this->post['reference_model_key']; }
         $this->answer(InfluencerActions::reference_generate($cid, $infl, $in));
     }
@@ -171,7 +171,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 1000), (int) ($this->post['asset_id'] ?? 0)));
+        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', InfluencerService::CHANGE_MAX), (int) ($this->post['asset_id'] ?? 0)));
     }
 
     /** Her full-body reference: the image or the run in progress, and the price of one run. */
@@ -186,7 +186,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', 1000)];
+        $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', InfluencerService::CHANGE_MAX)];
         if (isset($this->post['body_description'])) { $in['body_description'] = $this->text('body_description', InfluencerService::BODY_MAX); }
         $this->answer(InfluencerActions::body_generate($cid, $infl, $in));
     }
