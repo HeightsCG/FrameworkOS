@@ -917,7 +917,7 @@ jQuery(function ($) {
             $('#inf_photos_train').on('click', function () {
                 var $b = $(this).prop('disabled', true);
                 api('influencer_train', { id: inf.id }, function (o) {
-                    if (o && o.success) { inf = o.influencer; toastr.success('Training started'); show('training'); }
+                    if (o && o.success) { inf = o.influencer; toastr.success('Training started' + (o.liked_added > 0 ? ' with ' + o.liked_added + ' liked image' + (o.liked_added === 1 ? '' : 's') + ' added' : '')); show('training'); }
                     else { err(o); $b.prop('disabled', false); }
                 });
             });
@@ -1208,7 +1208,7 @@ jQuery(function ($) {
                 var $b = $(this).prop('disabled', true);
                 clearTimeout(set_timer);
                 api('influencer_train', { id: inf.id }, function (o) {
-                    if (o && o.success) { inf = o.influencer; toastr.success('Training started'); show('training'); } else { err(o); $b.prop('disabled', false); }
+                    if (o && o.success) { inf = o.influencer; toastr.success('Training started' + (o.liked_added > 0 ? ' with ' + o.liked_added + ' liked image' + (o.liked_added === 1 ? '' : 's') + ' added' : '')); show('training'); } else { err(o); $b.prop('disabled', false); }
                 });
             });
         }

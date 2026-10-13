@@ -44,6 +44,16 @@ img,svg{vertical-align:middle;}
 #app-loadbar{position:fixed; top:0; left:0; height:3px; width:0; background:var(--acc); box-shadow:0 0 8px rgba(255, 106, 19, .5); z-index:99999; opacity:0; pointer-events:none;}
 #app-loadbar.is-active{width:92%; opacity:1; transition:width 9s cubic-bezier(.12,.6,.25,1);}
 #app-loadbar.is-done{width:100%; opacity:0; transition:width .25s ease, opacity .4s ease .2s;}
+/* A clicked control while its request runs (site.js): the label gives way to a spinner, the size stays the same. */
+.is-working{ position:relative; color:transparent !important; pointer-events:none; cursor:progress; }
+.is-working > *{ visibility:hidden; }
+.is-working::after{ content:""; position:absolute; left:50%; top:50%; width:16px; height:16px; margin:-8px 0 0 -8px; border-radius:50%; border:2px solid #8a8a92; border-right-color:transparent; animation:app-spin .7s linear infinite; }
+.btn-primary.is-working::after, .btn-danger.is-working::after{ border-color:#fff; border-right-color:transparent; }
+#app-working{ position:fixed; top:12px; left:50%; transform:translateX(-50%); z-index:99998; display:flex; align-items:center; gap:8px; padding:8px 12px; border-radius:var(--r-sm, 6px); background:#1d1d1f; color:#fff; font-size:14px; font-weight:500; box-shadow:0 1px 2px rgba(0,0,0,.05); pointer-events:none; }
+#app-working[hidden]{ display:none; }
+.app-working__spin{ width:14px; height:14px; border-radius:50%; border:2px solid #fff; border-right-color:transparent; animation:app-spin .7s linear infinite; }
+@keyframes app-spin{ to{ transform:rotate(360deg); } }
+@media (prefers-reduced-motion:reduce){ .is-working::after, .app-working__spin{ animation-duration:2s; } }
 .app-shell{
     margin:0; min-height:100vh; color:var(--text); font-family:var(--font);
     -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;

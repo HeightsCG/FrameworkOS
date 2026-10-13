@@ -414,6 +414,40 @@ $(document).ready(function() {
     });
 
 
+    // Every click that starts a request shows it is working. The control that was clicked gets a spinner until the answer
+    // is back; when that control is gone by then (a confirm dialog's button, a menu item), a small "Working" chip shows
+    // at the top of the page. A page that already shows its own spinner on the button is left alone, and background
+    // requests (status checks on a timer) show nothing.
+    var last_click = { el: null, at: 0 }, chip_n = 0, chip_timer = null;
+    var $chip = $('<div id="app-working" role="status" aria-live="polite" hidden><span class="app-working__spin" aria-hidden="true"></span>Working</div>').appendTo('body');
+    document.addEventListener('click', function (e) {
+        var el = e.target && e.target.closest ? e.target.closest('button, a, .btn, [role="button"], input[type="submit"], input[type="button"]') : null;
+        last_click = { el: el, at: Date.now() };
+    }, true);
+    function chip(on) {
+        chip_n = Math.max(0, chip_n + (on ? 1 : -1));
+        if (chip_n > 0 && !chip_timer && $chip.prop('hidden')) { chip_timer = setTimeout(function () { chip_timer = null; if (chip_n > 0) { $chip.prop('hidden', false); } }, 350); }
+        if (chip_n === 0) { clearTimeout(chip_timer); chip_timer = null; $chip.prop('hidden', true); }
+    }
+    $(document).ajaxSend(function (e, xhr, s) {
+        if (!s || !/\/api\//.test(s.url || '') || Date.now() - last_click.at > 600) { return; }
+        var el = last_click.el;
+        var gone = !el || !document.body.contains(el) || !el.offsetParent || el.closest('.swal2-container, .dropdown-menu');
+        if (gone) { xhr._clsChip = true; chip(true); return; }
+        xhr._clsWork = el; el._clsWorkN = (el._clsWorkN || 0) + 1;
+        setTimeout(function () {   // after the page's own handler had its turn: its spinner wins
+            if (!el._clsWorkN || el.querySelector('.spinner-border, .fa-spin, .fa-spinner') || el.classList.contains('is-busy')) { return; }
+            el.classList.add('is-working'); el.setAttribute('aria-busy', 'true');
+        }, 150);
+    });
+    $(document).ajaxComplete(function (e, xhr) {
+        if (xhr._clsChip) { chip(false); }
+        var el = xhr._clsWork; if (!el) { return; }
+        el._clsWorkN = Math.max(0, (el._clsWorkN || 1) - 1);
+        if (!el._clsWorkN) { el.classList.remove('is-working'); el.removeAttribute('aria-busy'); }
+    });
+
+
     // Admin "Sign in as" (Admin → Users, and a user's admin page): confirm, switch, land on their home page.
     $(document).on('click', '[data-impersonate]', function () {
         var b = this, id = b.getAttribute('data-impersonate'), handle = b.getAttribute('data-handle') || '';

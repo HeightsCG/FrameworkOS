@@ -182,6 +182,20 @@ class InfluencerActions {
     /* ---- training ---- */
 
     /** Train (or retrain): photos path uses her ready uploads, reference path the complete set. */
+    /** The most liked pictures one training takes on top of her own set: enough to steer it, not enough to replace the set. */
+    const LIKED_IN_TRAINING = 20;
+
+    /** Her thumbs-up pictures that are still in her gallery, newest first: what the next training adds to her set. */
+    public static function liked_for_training($cid, array $infl){
+        $im = new InfluencerImagesModel(); $mm = new MediaAssetsModel(); $out = array();
+        foreach ((new InfluencerJobsModel())->rated_asset_ids($cid, $infl['id']) as $aid => $rating) {
+            if ($rating !== 1 || !$im->get_link($cid, $infl['id'], $aid)) { continue; }
+            $a = $mm->get_one($cid, $aid);
+            if ($a && (string) $a['type'] === 'image' && (string) $a['status'] === 'ready') { $out[] = (int) $aid; }
+        }
+        return $out;
+    }
+
     public static function train($cid, array $infl){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('A training run is already in progress.'); }
@@ -198,9 +212,13 @@ class InfluencerActions {
             if (count($ids) < $min) { return self::fail('Upload at least ' . $min . ' photos to train (you have ' . count($ids) . ').'); }
             if (count($ids) > $max) { return self::fail('Training accepts at most ' . $max . ' photos. Remove some to continue.'); }
         }
+        // Pictures the creator gave a thumbs up join the set, so each training learns from what they liked; a thumbs down never does.
+        $liked = array_values(array_diff(self::liked_for_training($cid, $infl), $ids));
+        $liked = array_slice($liked, 0, max(0, min(self::LIKED_IN_TRAINING, (int) InfluencerConfig::get('training_max_photos', 50) - count($ids))));
+        $ids   = array_merge($ids, $liked);
         $r = InfluencerTrainingService::start($cid, $infl, $ids, 'wizard');
         if (empty($r['ok'])) { return self::fail((string) $r['error']); }
-        return self::okr(array('job_id' => (int) $r['job_id'], 'model_id' => (int) $r['model_id'], 'influencer' => self::json($cid, $infl['id'])));
+        return self::okr(array('job_id' => (int) $r['job_id'], 'model_id' => (int) $r['model_id'], 'liked_added' => count($liked), 'influencer' => self::json($cid, $infl['id'])));
     }
 
     public static function models($cid, array $infl){

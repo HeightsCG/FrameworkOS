@@ -145,6 +145,17 @@ class InfluencerJobsModel extends Model {
             "id = :id AND status = 'done' AND (wait_reason IS NULL OR wait_reason = '')", array('id' => (int) $id));
     }
 
+    /** Every picture of this influencer the creator rated, newest run first: asset id => 1 (thumbs up) or -1 (thumbs down). */
+    public function rated_asset_ids($creator_id, $influencer_id){
+        $out = array();
+        $rows = (array) parent::select("SELECT id, result_json FROM influencer_jobs WHERE creator_id = :c AND influencer_id = :i AND result_json LIKE :r ORDER BY id DESC",
+            array('c' => (int) $creator_id, 'i' => (int) $influencer_id, 'r' => '%"ratings"%'));
+        foreach ($rows as $j) {
+            foreach ((array) (self::result($j)['ratings'] ?? array()) as $aid => $r) { $v = (int) ($r['rating'] ?? 0); if ($v !== 0 && !isset($out[(int) $aid])) { $out[(int) $aid] = $v; } }
+        }
+        return $out;
+    }
+
     /** Merge keys into a job's result_json. */
     public function merge_result($id, array $more){
         $job = $this->get_by_id($id);

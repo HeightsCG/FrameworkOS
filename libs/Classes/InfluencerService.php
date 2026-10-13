@@ -300,7 +300,7 @@ class InfluencerService {
      * candid_line() opens the prompt, and she is shown doing what the scene says (4 of 6 in the same test).
      */
     public static function scene_directs_camera($scene){
-        return (bool) preg_match('/\b(camera|lens|eye contact|portrait|headshot|selfie|pos(?:e|es|ed|ing)|close[- ]up|profile|three[- ]quarter|side[- ]on|sideways|from the side|from behind|back view|over (?:her|his|the) shoulder|look(?:s|ing)? (?:away|back|down|up|at|out|over|toward|towards|into|straight)|gaz(?:e|es|ing)|glanc(?:e|es|ing)|facing|front[- ]facing|turn(?:s|ed|ing))\b/i', (string) $scene);
+        return (bool) preg_match('/\b(camera|lens|eye contact|portrait|headshot|selfie|wink(?:s|ing)?|tongue|blow(?:s|ing)? a kiss|pout(?:s|ing)?|duck face|silly face|funny face|mak(?:es|ing) a face|peace sign|pos(?:e|es|ed|ing)|close[- ]up|profile|three[- ]quarter|side[- ]on|sideways|from the side|from behind|back view|over (?:her|his|the) shoulder|look(?:s|ing)? (?:away|back|down|up|at|out|over|toward|towards|into|straight)|gaz(?:e|es|ing)|glanc(?:e|es|ing)|facing|front[- ]facing|turn(?:s|ed|ing))\b/i', (string) $scene);
     }
 
     public static function candid_line($infl){

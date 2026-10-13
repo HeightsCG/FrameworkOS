@@ -1203,3 +1203,4 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 /* The other tools keep their one row of actions; there too a long label wraps instead of overflowing. */
 .inf-cv__actions .inf-result__actions{ display:flex; flex-wrap:wrap; }
 .inf-cv__actions .inf-result__actions > .btn{ flex:1 1 120px; }
+.inf-gen__rate-btn.is-working::after, .inf-gen__del.is-working::after, .inf-gen__expand.is-working::after{ border-color:#fff; border-right-color:transparent; }
