@@ -1008,7 +1008,7 @@ jQuery(function ($) {
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
                 '<div class="inf-ref__row" id="inf_ref_row" hidden></div>' +
                 '<div class="inf-adjust" id="inf_ref_adjust" hidden><label class="visually-hidden" for="inf_ref_change">Adjust this image</label>' +
-                '<input type="text" class="form-control" id="inf_ref_change" maxlength="500" placeholder="Shorter hair, green eyes, a few years older">' +
+                '<textarea class="form-control" id="inf_ref_change" rows="3" maxlength="1000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
                 '<button type="button" class="btn btn-secondary" id="inf_ref_apply" disabled>Adjust</button></div>' +
                 '</div></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_ref_back">Back</button>' +

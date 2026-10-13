@@ -253,7 +253,7 @@ class InfluencerActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from your photos. Add photos with the new look and retrain.'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
-        $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, 500);
+        $change = mb_substr(trim(preg_replace('/\s+/', ' ', (string) $change)), 0, 1000);
         if ($change === '') { return self::fail('Say what should change.'); }
         // The image to change: the one named (a reference candidate or her face photo), else her current reference.
         $base = 0;

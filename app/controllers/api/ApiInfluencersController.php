@@ -171,7 +171,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 500), (int) ($this->post['asset_id'] ?? 0)));
+        $this->answer(InfluencerActions::reference_change($cid, $infl, $this->text('change', 1000), (int) ($this->post['asset_id'] ?? 0)));
     }
 
     /** Her full-body reference: the image or the run in progress, and the price of one run. */
@@ -186,7 +186,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', 500)];
+        $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', 1000)];
         if (isset($this->post['body_description'])) { $in['body_description'] = $this->text('body_description', 600); }
         $this->answer(InfluencerActions::body_generate($cid, $infl, $in));
     }

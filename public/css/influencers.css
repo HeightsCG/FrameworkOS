@@ -140,7 +140,8 @@
 .inf-look .modal-footer .btn{ display:inline-flex; align-items:center; gap:.45rem; }
 .inf-look [hidden]{ display:none; }
 /* Reference step: adjust an image in words, and the Body section under the face */
-.inf-adjust{ display:flex; gap:8px; }
+.inf-adjust{ display:flex; gap:8px; align-items:flex-end; }
+.inf-adjust textarea.form-control{ min-height:88px; resize:vertical; line-height:1.5; }
 .inf-adjust[hidden]{ display:none; }
 .inf-adjust .form-control{ flex:1 1 auto; min-width:0; }
 .inf-adjust .btn{ flex:0 0 auto; }
