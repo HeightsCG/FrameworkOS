@@ -281,7 +281,9 @@ class InfluencerService {
     const SCENE_FIT_OVER = 600;
     public static function scene_needs_fit($scene){
         $scene = (string) $scene;
-        return mb_strlen($scene) > self::SCENE_FIT_OVER || self::scene_has_avoid($scene);
+        if (mb_strlen($scene) > self::SCENE_FIT_OVER || self::scene_has_avoid($scene)) { return true; }
+        // an angle asked for somewhere after the opening words is not followed: the model takes its shot type from the start
+        return mb_strlen($scene) > 160 && (bool) preg_match('/\b(profile|side[- ]on|from the side|sideways|three[- ]quarter|from behind|back view|over (?:her|his|the) shoulder|looking away|turned away|facing away)\b/i', mb_substr($scene, 60));
     }
 
     public static function scene_has_avoid($scene){
@@ -291,15 +293,20 @@ class InfluencerService {
     /** What the scene writer is told: put the pose first, say what to show in place of what to avoid, keep it short. */
     public static function scene_fit_system($noun, $pronoun){
         return 'You rewrite a creator\'s description of one photo so an image model can follow it. The model reads only the first 150 words or so, '
-            . 'and it cannot be told what to leave out: anything that is named tends to appear in the picture, even after "no" or "not". '
-            . 'Write one paragraph of at most 110 words, plain present tense. '
-            . 'FIRST sentence: the camera angle, which way ' . $pronoun . ' body and head are turned, where ' . $pronoun . ' eyes are looking, and how much of ' . $pronoun . ' is in frame. These decide the picture, so they lead. '
-            . 'Then the outfit, the place, the light. '
+            . 'follows the opening words most strongly, and cannot be told what to leave out: anything that is named tends to appear in the picture, even after "no" or "not". '
+            . 'Write one paragraph of at most 90 words, plain present tense. '
+            . 'OPEN with the shot type in the short, standard words photographers use, then where ' . $pronoun . ' face points and where ' . $pronoun . ' eyes look. '
+            . 'When the creator wants ' . $pronoun . ' turned sideways, in three-quarter view, looking away, or anything else that is not face-on, the description must begin with exactly this form: '
+            . '"Side profile photo of a ' . $noun . ', ' . $pronoun . ' face in profile, looking to the right at someone out of frame, photographed from the side." (or "to the left"). '
+            . 'Use it for three-quarter requests too: the model turns ' . $pronoun . ' less than asked, and softer wording such as "three-quarter view", "seen from a side-on view" or "body angled away from the lens" comes out face-on. '
+            . 'For a back view begin with "Photo from behind of a ' . $noun . ', looking back over ' . $pronoun . ' shoulder." or "Photo from behind of a ' . $noun . ', ' . $pronoun . ' face not visible." '
+            . 'When no angle is asked for, open with "Photo of a ' . $noun . '" and the framing (close-up, waist-up, full length). '
+            . 'Then the outfit, the place, the light, the expression. '
             . 'Turn every "not X", "no X" or "avoid X" into what should be seen instead, and never name the thing to avoid. '
-            . 'Example: "not a frontal portrait, no direct eye contact" becomes "seen from the side in three-quarter profile, head turned away from the camera, looking at someone out of frame". '
-            . 'Keep every concrete detail the creator gave: clothes, colours, place, time of day, props, pose, expression. '
+            . 'Only one person is in the picture: a friend, partner or photographer the creator mentions is "someone out of frame", never described and never shown. '
+            . 'Keep every concrete detail the creator gave: clothes, colours, jewellery, place, time of day, props, pose, expression. '
             . 'Leave out sentences about how the photo should feel, quality words, and anything said twice. Add nothing the creator did not ask for. '
-            . 'Call the subject "the ' . $noun . '". Leave out any name. Output only the rewritten description, no quotes, no preamble.';
+            . 'Call the subject "the ' . $noun . '" or "a ' . $noun . '". Leave out any name. Output only the rewritten description, no quotes, no preamble.';
     }
 
     /** With no writer available: the sentences and clauses that only say what to avoid are dropped, so they stop naming it. */

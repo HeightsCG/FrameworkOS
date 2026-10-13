@@ -96,7 +96,7 @@ check('a scene that says what to avoid is fitted', InfluencerService::scene_need
 check('a long scene is fitted', InfluencerService::scene_needs_fit(str_repeat('She walks along the beach at sunset. ', 20)));
 $wa = InfluencerService::scene_without_avoid("Side view on a terrace, head turned to a friend, not a posed smile. Not a frontal portrait, not a centered headshot.\nNo emerald-green clothing.");
 check('without the writer, the avoid-lines are dropped and the rest kept', $wa === 'Side view on a terrace, head turned to a friend.', $wa);
-check('the writer is told to lead with the pose and never name what to avoid', strpos(InfluencerService::scene_fit_system('woman', 'her'), 'FIRST sentence: the camera angle') !== false && strpos(InfluencerService::scene_fit_system('woman', 'her'), 'never name the thing to avoid') !== false);
+check('the writer is told to lead with the pose and never name what to avoid', strpos(InfluencerService::scene_fit_system('woman', 'her'), 'Side profile photo of a woman') !== false && strpos(InfluencerService::scene_fit_system('woman', 'her'), 'never name the thing to avoid') !== false);
 check('two image styles, Photorealistic first and the default', array_keys(InfluencerService::IMAGE_STYLES) === array('photoreal', 'plain') && InfluencerService::IMAGE_STYLE_DEFAULT === 'photoreal');
 $sfx = InfluencerService::style_suffix('photoreal', 'a beach at sunset');
 check('Photorealistic adds camera, light and skin cues', strpos($sfx, 'Candid photograph of a real person') !== false && strpos($sfx, 'visible pores') !== false && strpos($sfx, 'natural believable light') !== false);
