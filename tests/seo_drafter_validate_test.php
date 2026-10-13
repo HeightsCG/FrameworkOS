@@ -282,6 +282,7 @@ $t = $good; $t['body_md'] .= "\n\nSuppose a creator earns \$2,000 a month in sal
 $t = $good; $t['body_md'] .= "\n\nFor example, revenue of \$500 a month covers the plan.";            check('R2 "for example" allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nAt roughly \$2,100 a month gross the Creator share is \$210.";  check('R2 "$X a month gross" worked example allowed', $ok($t), $errs($t));
 $t = $good; $t['body_md'] .= "\n\nPast roughly \$2,100 a month gross the ordering flips.";  check('"the ordering flips" is crossover wording, rejected', !$ok($t));
+check('"once the plan fee comes off" rejected', (bool) SeoDrafter::plan_sum_errors('Sales collect into one balance once the plan fee comes off.'));
 check('"falls as you grow" rejected', (bool) SeoDrafter::plan_sum_errors('The take rate falls as you grow.'));
 check('"net of your plan fee" rejected, "net of your plan\'s platform fee" allowed', (bool) SeoDrafter::plan_sum_errors('Sales land net of your plan fee.') && SeoDrafter::plan_sum_errors("Sales land in one balance, net of your plan's platform fee.") === array());
 $t = $good; $t['body_md'] .= "\n\nYou can run the arithmetic for your own revenue at \$500 a month."; check('R2 "run the arithmetic" allowed', $ok($t), $errs($t));
