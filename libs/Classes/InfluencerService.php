@@ -229,10 +229,12 @@ class InfluencerService {
      * Styles for a picture made with her trained model (Generate Images, 2026-10-13). Both use the same model; the style only
      * decides what is added after the scene. 'photoreal' adds camera, light and skin cues in plain photographic terms (no
      * "hyperrealistic", "8K" or "flawless", which push a model toward digital art). 'plain' adds nothing.
+     * Later the same day the lens and depth-of-field words came out: they asked for a portrait-studio look, and faces came back
+     * more sculpted than her reference (fuller lips, narrower jaw).
      */
     const IMAGE_STYLES = array(
         'photoreal' => array('label' => 'Photorealistic', 'purpose' => 'Adds camera, light and skin-texture cues',
-            'suffix' => 'Photograph of a real person taken with a full-frame camera and a fast prime lens, shallow depth of field, natural believable light, true colour. Natural skin texture with visible pores, fine flyaway hairs, natural proportions. Not an illustration, a render or an airbrushed image.'),
+            'suffix' => 'Candid photograph of a real person, natural believable light, true colour. Natural skin texture with visible pores, fine flyaway hairs, natural proportions, a soft natural face that is not sculpted, contoured or slimmed. Not a glamour portrait, an illustration, a render or an airbrushed image.'),
         'plain'     => array('label' => 'As Written', 'purpose' => 'Your prompt only, nothing added', 'suffix' => ''),
     );
     const IMAGE_STYLE_DEFAULT = 'photoreal';
@@ -241,6 +243,33 @@ class InfluencerService {
     public static function style_suffix($style, $prompt = ''){
         $s = (string) (self::IMAGE_STYLES[(string) $style]['suffix'] ?? '');
         return ($s !== '' && stripos((string) $prompt, $s) === false) ? $s : '';
+    }
+
+    /**
+     * Her face in a few words, for every picture made with her trained model (2026-10-13). The trained model holds her eyes,
+     * hair and nose well, but the lower face drifted from her reference: cheeks, lips, jaw and smile came out differently in
+     * each picture. These are the face words from the description her reference was made from (eyes, brows, nose, cheeks,
+     * lips, jaw, smile, freckles, marks, hair, skin), without its clothing, light, camera and instructions. '' when the
+     * description names no face features. About 260 characters at most.
+     */
+    public static function face_phrase($infl){
+        $text = is_array($infl) ? trim((string) preg_replace('/\s+/', ' ', html_entity_decode((string) ($infl['source_description'] ?? ''), ENT_QUOTES, 'UTF-8'))) : '';
+        if ($text === '') { return ''; }
+        $keep = array(); $len = 0;
+        foreach (preg_split('/\s*(?:[.;:!?]\s+|,\s+(?:and\s+)?|\s+with\s+)/u', $text) as $s) {
+            $s = trim($s, " .,;:");
+            // an instruction's verb goes, the feature it names stays ("Give her a playful, asymmetric smile" -> "a playful, asymmetric smile")
+            $s = trim((string) preg_replace('/^(?:and\s+)?(?:give (?:her|him|them)|add|keep(?: (?:her|his|their))?|preserve(?: (?:this|her|his))?|maintain(?:ing)?)\s+/i', '', $s));
+            if ($s === '' || mb_strlen($s) > 90) { continue; }
+            if (!preg_match('/\b(eyes?|eyelids?|lashes|brows?|eyebrows?|nose|cheeks?|cheekbones?|jaw|jawline|chin|lips?|mouth|smile|teeth|freckles?|dimples?|beauty mark|mole|hair|curls|waves|skin|complexion)\b/i', $s)) { continue; }
+            if (preg_match('/\b(light(?!\s+(?:smile|freckles|brown|blonde|skin|lashes|eyes))|lighting|daylight|sunlight|afternoon|shade|windblown|salty|pulled back|tied back|ponytail|bun|slightly down|bare|camera|lens|focus(?:ed)?|background|backdrop|studio|photo|portrait|image|shirt|t-shirt|top|dress|wearing|makeup|make-up|identity|texture|pores|avoid|unobstructed|looking|eye contact|sitting|standing|outdoors|indoors)\b/i', $s)) { continue; }
+            if ($keep && $len + mb_strlen($s) > 260) { break; }
+            $keep[] = lcfirst($s); $len += mb_strlen($s) + 2;
+        }
+        if (!$keep) { return ''; }
+        $g = strtolower((string) ($infl['gender'] ?? ''));
+        $own = $g === 'man' ? array('His', 'his') : ($g === 'woman' ? array('Her', 'her') : array('Their', 'their'));
+        return $own[0] . ' own face as in ' . $own[1] . ' reference: ' . implode(', ', $keep);
     }
 
     /** One image prompt: the trigger word, the scene as written, then her build and defaults. */

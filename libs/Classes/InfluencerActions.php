@@ -465,6 +465,10 @@ class InfluencerActions {
         }
         // A prompt that already carries her defaults (an older image run again, or pasted back) does not get them twice.
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
+        // Her face words go in front of her build: the trained model alone let the lower face drift from her reference
+        // (2026-10-13). Not added to a prompt that already carries them. Automations keep their own prompt, unchanged.
+        $face = InfluencerService::face_phrase($infl);
+        if ($face !== '' && stripos($user_prompt, $face) === false) { $defaults = trim($face . ($defaults !== '' ? '. ' . $defaults : '')); }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
         // The scene comes first, so it is what the model follows; her build and her own defaults follow it (2026-10-13: with
