@@ -41,7 +41,7 @@ class InfluencerService {
         'left_profile'  => array('label' => 'Left Profile',     'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the LEFT edge of the picture; the camera sees the left cheek and left ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'right_profile' => array('label' => 'Right Profile',    'aspect' => '3:4', 'prompt' => 'Strict side profile, head and shoulders, the head turned a full ninety degrees so the nose points toward the RIGHT edge of the picture; the camera sees the right cheek and right ear, only one eye is visible, the far side of the face is hidden; looking straight ahead, not at the camera'),
         'back'          => array('label' => 'Back View',        'aspect' => '3:4', 'prompt' => 'Seen from directly behind, head and shoulders, the back of the head and hair, face not visible'),
-        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Wide full-length photo taken from several steps back with the camera level at chest height: the whole body from the top of the head to the sneakers on the floor, standing straight facing the camera, arms relaxed at the sides, {outfit}'),
+        'full_front'    => array('label' => 'Full Body Front',  'aspect' => '9:16', 'prompt' => 'Wide full-length photo taken from several steps back with the camera level at chest height: the whole body from the top of the head to the feet on the floor, standing straight facing the camera, arms relaxed at the sides, {outfit}'),
         'full_back'     => array('label' => 'Full Body Back',   'aspect' => '9:16', 'prompt' => 'Full body seen from directly behind, standing straight, arms relaxed at the sides, head to toe in frame, {outfit}'),
     );
 
@@ -50,11 +50,20 @@ class InfluencerService {
         return (self::noun($infl) === 'man') ? 'a fitted tank top and athletic shorts' : 'a fitted crop top and short shorts';
     }
 
+    /**
+     * What she wears in the full-body reference pictures (2026-10-13): plain swimwear, so the creator can see the build they
+     * described. A crop top and leggings hid it. Only the body reference uses this; the training set keeps body_outfit(), so
+     * the trained model does not learn that she is always in swimwear.
+     */
+    public static function body_reference_outfit(array $infl){
+        return (self::noun($infl) === 'man') ? 'wearing plain swim shorts, bare chest, barefoot' : 'wearing a plain solid-colour two-piece swimsuit, barefoot';
+    }
+
     /** The prompt for one angle slot. */
     public static function angle_prompt(array $infl, $slot){
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
-        $def['prompt'] = str_replace('{outfit}', self::body_outfit($infl), (string) $def['prompt']);
+        $def['prompt'] = str_replace('{outfit}', self::body_reference_outfit($infl), (string) $def['prompt']);   // the body reference shows her in swimwear
         $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
         // Her reference is a face, so it cannot fix her body. An edit model copies the body it guesses from the face unless told
         // the reference holds no body at all; so the build is stated first, as the thing being made, and the face second.
@@ -391,6 +400,7 @@ class InfluencerService {
         $out  = (string) $prompt;
         $body = self::body_phrase($infl);
         if ($body !== '') { $out = str_ireplace(array($body . ', ', ', ' . $body, $body), '', $out); }
+        $out = str_replace(self::body_reference_outfit($infl), 'wearing ' . self::body_outfit($infl), $out);   // a refused swimwear shot is rerun in the covered outfit
         if (!preg_match('/\b(wearing|t-shirt|shirt|sweater|hoodie|jacket|dress|jeans|shorts)\b/i', $out)) {
             $out = preg_replace('/^(same person,[^,]*,)/i', '$1 wearing a plain t-shirt and jeans,', $out, 1, $n);
             if (empty($n)) { $out = 'wearing a plain t-shirt and jeans, ' . $out; }

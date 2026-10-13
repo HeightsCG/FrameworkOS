@@ -61,6 +61,13 @@ $base = InfluencerService::base_reference($cid, $infl);
 $refs = InfluencerService::identity_refs($cid, $infl);
 check('she has a base reference image',                 $base > 0 && $refs[0] === $base);
 check('all eight angle slots are defined',              count(InfluencerService::ANGLES) === 8 && count(array_filter(array_keys(InfluencerService::ANGLES), function ($k) { return strpos($k, 'front_close') === 0; })) === 3);
+$w = array('gender' => 'woman', 'body_description' => 'tall, athletic'); $mn = array('gender' => 'man', 'body_description' => '');
+check('the body reference shows a woman in a plain swimsuit', strpos(InfluencerService::angle_prompt($w, 'full_front'), 'plain solid-colour two-piece swimsuit, barefoot') !== false && strpos(InfluencerService::angle_prompt($w, 'full_back'), 'two-piece swimsuit') !== false);
+check('and a man in swim shorts', strpos(InfluencerService::angle_prompt($mn, 'full_front'), 'plain swim shorts, bare chest, barefoot') !== false);
+check('the body reference no longer names sneakers or a crop top', strpos(InfluencerService::angle_prompt($w, 'full_front'), 'sneakers') === false && strpos(InfluencerService::angle_prompt($w, 'full_front'), 'crop top') === false);
+check('close-up slots name no outfit', strpos(InfluencerService::angle_prompt($w, 'front_close_1'), 'swimsuit') === false);
+check('the training set keeps the covered outfit', strpos(InfluencerService::training_prompt($w, 8) . InfluencerService::training_prompt($w, 9), 'swimsuit') === false);
+check('a refused body shot is rerun in the covered outfit', strpos(InfluencerService::softened_prompt($w, InfluencerService::angle_prompt($w, 'full_front')), 'swimsuit') === false && strpos(InfluencerService::softened_prompt($w, InfluencerService::angle_prompt($w, 'full_front')), 'crop top and short shorts') !== false);
 check('every angle has a prompt and a renderable shape', !array_filter(array_keys(InfluencerService::ANGLES), function ($k) use ($infl) { return InfluencerService::angle_prompt($infl, $k) === '' || !Aspect::valid(InfluencerService::ANGLES[$k]['aspect']); }));
 
 /* ---- angle set ---- */
