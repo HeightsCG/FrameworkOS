@@ -1004,12 +1004,14 @@ jQuery(function ($) {
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="2000" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
                 prebuilt_pop('inf_ref_pre', faces) +
                 '</div>' +
-                '<div class="inf-wiz__view">' +
+                '<div class="inf-wiz__view inf-face">' +   // the picture on a quiet stage; its versions and the Adjust box sit in a panel beside it once a picture exists
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
-                '<div class="inf-ref__row" id="inf_ref_row" hidden></div>' +
-                '<div class="inf-adjust" id="inf_ref_adjust" hidden><label class="visually-hidden" for="inf_ref_change">Adjust this image</label>' +
-                '<textarea class="form-control" id="inf_ref_change" rows="3" maxlength="1000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
+                '<div class="inf-face__side">' +
+                '<div class="inf-field inf-face__versions"><div class="inf-label">Versions</div><div class="inf-ref__row" id="inf_ref_row" hidden></div></div>' +
+                '<div class="inf-adjust inf-field" id="inf_ref_adjust" hidden><label class="inf-label" for="inf_ref_change">Adjust This Image</label>' +
+                '<textarea class="form-control" id="inf_ref_change" maxlength="1000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
                 '<button type="button" class="btn btn-secondary" id="inf_ref_apply" disabled>Adjust</button></div>' +
+                '</div>' +
                 '</div></div>' +
                 '<div class="inf-wiz__foot"><button type="button" class="btn btn-secondary" id="inf_ref_back">Back</button>' +
                 '<span class="inf-wiz__meta" id="inf_ref_status"></span>' +
