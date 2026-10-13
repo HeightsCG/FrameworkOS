@@ -84,9 +84,16 @@ a.adm-seg__b{ text-decoration:none; }
 .adm-panel{ display:block; }
 .adm-usec{ scroll-margin-top:80px; }
 .adm-quiet{ margin:0; padding:14px 0 0; font-size:14px; color:var(--muted); }
-.adm-zero{ margin:0 0 24px; font-size:13px; color:var(--muted); }
+.adm-zero{ margin:2px 0 0; font-size:13px; color:var(--muted2); }
+/* A panel with two lists (Verification): each part has its own heading row, a rule between them, filters at the right */
+.adm-part + .adm-part:not([hidden]){ margin-top:24px; padding-top:24px; border-top:1px solid var(--l2); }
+.adm-part[hidden] + .adm-part, .adm-part:first-of-type{ margin-top:0; padding-top:0; border-top:0; }
+.adm-part__h{ display:flex; align-items:center; justify-content:space-between; gap:12px 16px; flex-wrap:wrap; margin:0 0 12px; min-height:34px; }
+.adm-part__h .adm-h3{ margin:0; }
+.adm-part .adm-empty[hidden], .adm-t[hidden]{ display:none; }
 .adm-empty{ display:flex; flex-direction:column; align-items:center; gap:8px; padding:28px 16px; text-align:center; }
-.adm-empty i{ font-size:22px; color:#C9C9CE; }
+.adm-empty i, .adm-empty svg{ font-size:22px; color:#C9C9CE; }
+.adm-box[hidden]{ display:none; }
 .adm-empty p{ margin:0; font-size:14px; color:var(--muted); }
 
 /* ---------- KPI cards ---------- */

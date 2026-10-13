@@ -20,8 +20,9 @@ $total = array_sum($n);
 $show = in_array((string) $this->show, array_keys($n), true) ? (string) $this->show : 'all';
 $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Reports', 'verification' => 'Verification', 'support' => 'Support', 'billing' => 'Billing');
 ?>
+<?php $zero = array(); foreach ($chips as $k => $label) { if ($k !== 'all' && $n[$k] === 0) { $zero[] = $label; } } ?>
 <header class="adm-head">
-    <div><h1 class="adm-head__title">Moderation</h1><p class="adm-head__sub"><?php echo $total > 0 ? number_format($total) . ' item' . ($total === 1 ? '' : 's') . ' waiting on staff' : 'Nothing waiting on staff'; ?></p></div>
+    <div><h1 class="adm-head__title">Moderation</h1><p class="adm-head__sub"><?php echo $total > 0 ? number_format($total) . ' item' . ($total === 1 ? '' : 's') . ' waiting on staff' : 'Nothing waiting on staff'; ?></p><?php if ($zero && $total > 0): ?><p class="adm-zero" id="admQueueZero"<?php echo $show === 'all' ? '' : ' hidden'; ?>>Nothing waiting in <?php echo $e(implode(', ', array_slice($zero, 0, -1)) . (count($zero) > 1 ? ' and ' : '') . end($zero)); ?>.</p><?php endif; ?></div>
     <div class="adm-head__acts">
         <div class="adm-seg" id="admQueueChips" role="tablist" aria-label="Moderation sections">
             <?php foreach ($chips as $k => $label): $c = $k === 'all' ? $total : $n[$k]; ?>
@@ -30,9 +31,10 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         </div>
     </div>
 </header>
-<?php $zero = array(); foreach ($chips as $k => $label) { if ($k !== 'all' && $n[$k] === 0) { $zero[] = $label; } } ?>
 
 <div class="adm-groups" id="admQueue">
+
+    <section class="adm-box" id="admQueueClear"<?php echo ($show === 'all' && $total === 0) ? '' : ' hidden'; ?>><?php echo adm_empty('Nothing waiting on staff', 'fa-circle-check'); ?></section>
 
     <section class="adm-group adm-panel adm-box" data-group="moderation" data-panel="moderation" data-empty="<?php echo $n['moderation'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'moderation') || ($show === 'all' && $n['moderation'] === 0)) ? ' hidden' : ''; ?>>
         <header class="adm-box__h"><h2 class="adm-box__t">Moderation <b class="adm-count" data-count="moderation"><?php echo count($queue); ?></b></h2></header>
@@ -89,9 +91,11 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
 
     <section class="adm-group adm-panel adm-box" data-group="verification" data-panel="verification" data-empty="<?php echo $n['verification'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'verification') || ($show === 'all' && $n['verification'] === 0)) ? ' hidden' : ''; ?>>
         <header class="adm-box__h"><h2 class="adm-box__t">Verification <b class="adm-count" data-count="verification"><?php echo $n['verification']; ?></b></h2></header>
-        <h3 class="adm-h3">Identity requests <span><?php echo count((array) $this->verifications); ?></span></h3>
+        <?php $age_open = (int) $ac['pending'] + (int) $ac['failed']; /* on the All view a part with nothing waiting stays out of the way; the Verification view shows both */ ?>
+        <div class="adm-part" data-part-empty="<?php echo empty($this->verifications) ? '1' : '0'; ?>"<?php echo ($show === 'all' && empty($this->verifications)) ? ' hidden' : ''; ?>>
+        <div class="adm-part__h"><h3 class="adm-h3">Identity requests <b class="adm-count"><?php echo count((array) $this->verifications); ?></b></h3></div>
         <?php if (empty($this->verifications)): ?>
-            <p class="adm-quiet">No pending identity requests.</p>
+            <?php echo adm_empty('No pending identity requests', 'fa-id-card'); ?>
         <?php else: ?>
         <table class="adm-t">
             <thead><tr><th>Creator</th><th>Legal name</th><th>Note</th><th>When</th><th></th></tr></thead>
@@ -112,8 +116,10 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         </table>
         <p class="adm-quiet" id="admVerifNone" hidden>No pending requests.</p>
         <?php endif; ?>
+        </div>
 
-        <div class="adm-box__sub"><h3 class="adm-h3">Age checks <span><?php echo (int) $ac['pending']; ?> pending</span></h3>
+        <div class="adm-part" data-part-empty="<?php echo $age_open === 0 ? '1' : '0'; ?>"<?php echo ($show === 'all' && $age_open === 0) ? ' hidden' : ''; ?>>
+        <div class="adm-part__h"><h3 class="adm-h3">Age checks <b class="adm-count"><?php echo (int) $ac['pending']; ?> pending</b></h3>
             <div class="adm-seg" role="tablist" aria-label="Age check status" id="admAgeTabs">
                 <button type="button" class="adm-seg__b is-on" role="tab" aria-selected="true" data-age="open">Needs a look <b><?php echo (int) $ac['pending'] + (int) $ac['failed']; ?></b></button>
                 <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="pending">Pending <b><?php echo (int) $ac['pending']; ?></b></button>
@@ -122,7 +128,7 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
                 <button type="button" class="adm-seg__b" role="tab" aria-selected="false" data-age="all">All <b><?php echo count((array) $this->age_rows); ?></b></button>
             </div>
         </div>
-        <table class="adm-t">
+        <table class="adm-t" id="admAgeTable"<?php echo $age_open === 0 ? ' hidden' : ''; ?>>
             <thead><tr><th>Account</th><th>Status</th><th>Provider</th><th>Adult content</th><th>Updated</th><th></th></tr></thead>
             <tbody id="admAge">
             <?php foreach ((array) $this->age_rows as $av): $an = trim((string) $av['name']); $an = $an !== '' ? $an : ('@' . $av['u_name']); $st = (string) $av['status']; ?>
@@ -137,7 +143,8 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
             <?php endforeach; ?>
             </tbody>
         </table>
-        <p class="adm-quiet" id="admAgeNone"<?php echo ((int) $ac['pending'] + (int) $ac['failed']) > 0 ? ' hidden' : ''; ?>>No age checks need a look.</p>
+        <div class="adm-empty" id="admAgeNone"<?php echo $age_open > 0 ? ' hidden' : ''; ?>><i class="fa-solid fa-user-check" aria-hidden="true"></i><p>No age checks need a look.</p></div>
+        </div>
     </section>
 
     <section class="adm-group adm-panel adm-box" data-group="support" data-panel="support" data-empty="<?php echo $n['support'] === 0 ? '1' : '0'; ?>"<?php echo (($show !== 'all' && $show !== 'support') || ($show === 'all' && $n['support'] === 0)) ? ' hidden' : ''; ?>>
@@ -190,6 +197,5 @@ $chips = array('all' => 'All', 'moderation' => 'Moderation', 'reports' => 'Repor
         <?php endif; ?>
     </section>
 </div>
-<?php if ($zero && $show === 'all'): ?><p class="adm-zero" id="admQueueZero">Nothing waiting in <?php echo $e(implode(', ', array_slice($zero, 0, -1)) . (count($zero) > 1 ? ' and ' : '') . end($zero)); ?>.</p><?php endif; ?>
 <?php include __DIR__ . '/_shell_end.php'; ?>
 <script src="/js/admin.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/admin.js'); ?>"></script>

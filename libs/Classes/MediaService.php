@@ -513,9 +513,9 @@ class MediaService {
             return;
         }
 
-        // Size the text to roughly the image width; margin from the edges.
-        $fontsize = max(11, (int) round($w / 26));
-        $margin   = max(8, (int) round($w / 60));
+        // Size the text from the image's shorter side, so a wide banner gets the same mark as a portrait, not one a third of its height.
+        $fontsize = self::watermark_fontsize($w, $h);
+        $margin   = max(8, (int) round(min($w, $h) / 60));
         list($tw, $th) = self::text_box($text, $fontsize, $font);
 
         switch ($position) {
@@ -528,11 +528,19 @@ class MediaService {
         self::draw_text($img, $text, $x, $y, $fontsize, $alpha, $font);
     }
 
+    /**
+     * Watermark text size for an image (2026-10-13). It used to follow the width alone: on a 3:1 banner that made the mark
+     * about 12% of the picture's height. The shorter side gives a portrait the size it always had and a banner a mark in proportion.
+     */
+    public static function watermark_fontsize($w, $h): int {
+        return max(11, (int) round(min((int) $w, (int) $h) / 26));
+    }
+
     private static function watermark_tiled($img, $text, $alpha, $font): void
     {
         $w = imagesx($img);
         $h = imagesy($img);
-        $fontsize = max(10, (int) round($w / 34));
+        $fontsize = max(10, (int) round(min($w, $h) / 34));
         list($tw, $th) = self::text_box($text, $fontsize, $font);
         $stepX = $tw + max(60, (int) round($w / 5));
         $stepY = $th + max(60, (int) round($h / 6));

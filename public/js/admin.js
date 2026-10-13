@@ -41,6 +41,8 @@
             chips.querySelectorAll('.adm-chip').forEach(function (c) { var on = c === a; c.classList.toggle('is-on', on); c.setAttribute('aria-selected', on ? 'true' : 'false'); });
             document.querySelectorAll('#admQueue .adm-group').forEach(function (g) { g.hidden = !(k === 'all' ? g.getAttribute('data-empty') !== '1' : g.getAttribute('data-group') === k); });
             var z = document.getElementById('admQueueZero'); if (z) { z.hidden = k !== 'all'; }
+            var clear = document.getElementById('admQueueClear'); if (clear) { clear.hidden = !(k === 'all' && !document.querySelector('#admQueue .adm-group:not([hidden])')); }
+            document.querySelectorAll('#admQueue .adm-part').forEach(function (p) { p.hidden = k === 'all' && p.getAttribute('data-part-empty') === '1'; });
             try { history.replaceState(null, '', k === 'all' ? '/admin/moderation' : '/admin/moderation?show=' + k); } catch (err) {}
         });
     }
@@ -57,7 +59,9 @@
                 var on = f === 'all' || st === f || (f === 'open' && st !== 'verified');
                 r.hidden = !on; if (on) { shown++; }
             });
-            var none = document.getElementById('admAgeNone'); if (none) { none.hidden = shown > 0; none.textContent = f === 'open' ? 'No age checks need a look.' : 'Nothing here.'; }
+            var none = document.getElementById('admAgeNone'), none_p = none ? none.querySelector('p') : null;
+            if (none) { none.hidden = shown > 0; if (none_p) { none_p.textContent = f === 'open' ? 'No age checks need a look.' : 'Nothing here.'; } }
+            var age_table = document.getElementById('admAgeTable'); if (age_table) { age_table.hidden = shown === 0; }
         });
     }
     var ageBody = document.getElementById('admAge');
@@ -80,7 +84,7 @@
                             var k = x.getAttribute('data-age'), b = x.querySelector('b');
                             if (b && (k === 'all' || k === was || (k === 'open' && was !== 'verified'))) { b.textContent = Math.max(0, parseInt(b.textContent, 10) - 1); }
                         });
-                        if (!ageBody.querySelectorAll('.adm-agerow:not([hidden])').length) { var none = document.getElementById('admAgeNone'); if (none) { none.hidden = false; } }
+                        if (!ageBody.querySelectorAll('.adm-agerow:not([hidden])').length) { var none = document.getElementById('admAgeNone'); if (none) { none.hidden = false; } var age_table = document.getElementById('admAgeTable'); if (age_table) { age_table.hidden = true; } }
                     });
                 });
         });

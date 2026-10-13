@@ -90,6 +90,8 @@ check('As Written adds nothing, and so does an unknown style', InfluencerService
 check('a prompt that already carries the cues does not get them twice', InfluencerService::style_suffix('photoreal', 'x. ' . $sfx) === '');
 $full = InfluencerService::scene_prompt('infl_9_ab12 ', 'Close-up portrait at golden hour', trim(InfluencerService::look_defaults($dressed) . '. ' . $sfx));
 check('order is trigger, scene, her build, then the style', strpos($full, 'infl_9_ab12 Close-up portrait at golden hour. ') === 0 && strpos($full, 'hourglass figure') < strpos($full, 'full-frame camera'));
+$view = (string) file_get_contents(dirname(__DIR__) . '/app/views/influencers/images.php');
+check('the Generate Images view closes every div it opens (a stray one put the prompt bar outside the page frame)', preg_match_all('/<div\\b/', $view) === preg_match_all('#</div>#', $view));
 check('every angle has a prompt and a renderable shape', !array_filter(array_keys(InfluencerService::ANGLES), function ($k) use ($infl) { return InfluencerService::angle_prompt($infl, $k) === '' || !Aspect::valid(InfluencerService::ANGLES[$k]['aspect']); }));
 
 /* ---- angle set ---- */

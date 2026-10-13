@@ -49,7 +49,8 @@ foreach (InfluencerConfig::MODELS as $key => $raw) {
 $flux = InfluencerConfig::model('flux_lora_quality');
 check('Flux: all seven ratios',                     count(Aspect::supported($flux)) === 7);
 check('Flux wide uses the 16:9 landscape preset',   Aspect::value_for($flux, '16:9') === 'landscape_16_9');
-check('Flux banner is an explicit 3:1 size',        Aspect::value_for($flux, '3:1') === array('width' => 1536, 'height' => 512) && Aspect::matches(1536, 512, '3:1'));
+check('Flux banner is an explicit 3:1 size',        Aspect::value_for($flux, '3:1') === array('width' => 1920, 'height' => 640) && Aspect::matches(1920, 640, '3:1'));
+check('a banner watermark is sized from its height, a portrait keeps its size', MediaService::watermark_fontsize(1920, 640) === 25 && MediaService::watermark_fontsize(1024, 1365) === 39 && MediaService::watermark_fontsize(1024, 1024) === 39);
 check('models that cannot render a banner fall back', !Aspect::supports(InfluencerConfig::model('grok_edit'), '3:1') && in_array(Aspect::for_model(InfluencerConfig::model('grok_edit'), '3:1'), Aspect::supported(InfluencerConfig::model('grok_edit')), true));
 check('Flux portrait is unchanged (3:4 preset)',    Aspect::value_for($flux, 'portrait') === 'portrait_4_3' && FalProvider::flux_size('portrait') === 'portrait_4_3');
 check('Flux square and landscape are unchanged',    FalProvider::flux_size('square') === 'square_hd' && FalProvider::flux_size('landscape') === 'landscape_4_3');

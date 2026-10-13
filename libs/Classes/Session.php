@@ -12,13 +12,16 @@ class Session {
     }
 
     /**
-     * Cache-Control for a public page: shared caches may keep it for a signed-out visitor who got no cookie in this response;
-     * anyone with a session, or a response that sets a cookie, stays private. Safe to call again later in the request.
+     * Cache-Control for a public page: shared caches may keep it for a signed-out visitor who got no cookie in this response.
+     * Anyone with a session, or a response that sets a cookie, is told to ask again every time: the same address shows a
+     * different page once they sign in or out, and a kept copy made sign-in look like it had failed. Vary: Cookie drops the
+     * kept signed-out copy the moment the sign-in cookie arrives. Safe to call again later in the request.
      */
     public static function cache_header(int $seconds = 300): void {
         if (headers_sent()) { return; }
         $cookie = false; foreach (headers_list() as $h) { if (stripos($h, 'Set-Cookie:') === 0) { $cookie = true; break; } }
-        header('Cache-Control: ' . ((session_status() !== PHP_SESSION_ACTIVE && !$cookie) ? 'public' : 'private') . ', max-age=' . $seconds);
+        header('Cache-Control: ' . ((session_status() !== PHP_SESSION_ACTIVE && !$cookie) ? 'public, max-age=' . $seconds : 'private, no-cache'));
+        header('Vary: Cookie', false);
     }
 
     public static function set($key, $value){
