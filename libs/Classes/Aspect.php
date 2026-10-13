@@ -17,6 +17,8 @@ class Aspect {
         '9:16' => array('label' => '9:16', 'name' => 'Story',     'w' => 9, 'h' => 16),
         '1:1'  => array('label' => '1:1',  'name' => 'Square',    'w' => 1, 'h' => 1),
         '4:3'  => array('label' => '4:3',  'name' => 'Landscape', 'w' => 4, 'h' => 3),
+        '16:9' => array('label' => '16:9', 'name' => 'Wide',      'w' => 16, 'h' => 9, 'extra' => true),
+        '3:1'  => array('label' => '3:1',  'name' => 'Banner',    'w' => 3, 'h' => 1, 'extra' => true),    // a profile cover: the page shows it full width and 300px tall
     );
 
     const LEGACY = array('square' => '1:1', 'portrait' => '3:4', 'landscape' => '4:3');
@@ -77,6 +79,7 @@ class Aspect {
         $sup = is_array($model) ? self::supported($model) : self::keys();
         $out = array();
         foreach (self::RATIOS as $k => $r) {
+            if (!empty($r['extra']) && !in_array($k, $sup, true)) { continue; }   // the wide shapes are offered only where a model renders them, not shown greyed out everywhere else
             $out[] = array('key' => $k, 'label' => $r['label'], 'name' => $r['name'], 'supported' => in_array($k, $sup, true));
         }
         return $out;

@@ -57,7 +57,7 @@ class InfluencerConfig {
 
     /* Output shapes per model family: Aspect ratio key => the value that endpoint takes. */
     const FLUX_ASPECTS = array('1:1' => 'square_hd', '3:4' => 'portrait_4_3', '4:5' => array('width' => 896, 'height' => 1120),
-        '9:16' => 'portrait_16_9', '4:3' => 'landscape_4_3');
+        '9:16' => 'portrait_16_9', '4:3' => 'landscape_4_3', '16:9' => 'landscape_16_9', '3:1' => array('width' => 1536, 'height' => 512));   // 3:1 is the profile banner
     const RATIO_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '4:5' => '4:5', '9:16' => '9:16', '4:3' => '4:3');
     const GROK_ASPECTS = array('1:1' => '1:1', '3:4' => '3:4', '9:16' => '9:16', '4:3' => '4:3');   // no 4:5
     const VIDEO_ASPECTS = array('9:16' => '9:16', '3:4' => '3:4', '1:1' => '1:1', '4:3' => '4:3');   // Seedance / Wan reference-to-video: no 4:5
