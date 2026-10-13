@@ -90,6 +90,13 @@ check('face words stay short', mb_strlen($fp) <= 320, (string) mb_strlen($fp));
 check('a man gets his own wording', strpos(InfluencerService::face_phrase(array('gender' => 'man', 'source_description' => 'Man, 30. Brown eyes, strong jaw.')), 'His own face as in his reference: brown eyes, strong jaw') === 0);
 check('no face words when the description names no features', InfluencerService::face_phrase(array('gender' => 'woman', 'source_description' => 'Phone photo, daylight, grey t-shirt')) === '' && InfluencerService::face_phrase(array()) === '');
 check('the Photorealistic style no longer asks for a portrait lens look', stripos(InfluencerService::IMAGE_STYLES['photoreal']['suffix'], 'prime lens') === false && stripos(InfluencerService::IMAGE_STYLES['photoreal']['suffix'], 'not sculpted') !== false);
+// A long scene, or one that says what to avoid, is fitted to the model before it is sent (2026-10-13).
+check('a short plain scene is sent as written', !InfluencerService::scene_needs_fit('Mirror selfie in a gym, grey leggings and a sports top'));
+check('a scene that says what to avoid is fitted', InfluencerService::scene_needs_fit('Side view on a terrace. Not a frontal portrait, not direct eye contact.'));
+check('a long scene is fitted', InfluencerService::scene_needs_fit(str_repeat('She walks along the beach at sunset. ', 20)));
+$wa = InfluencerService::scene_without_avoid("Side view on a terrace, head turned to a friend, not a posed smile. Not a frontal portrait, not a centered headshot.\nNo emerald-green clothing.");
+check('without the writer, the avoid-lines are dropped and the rest kept', $wa === 'Side view on a terrace, head turned to a friend.', $wa);
+check('the writer is told to lead with the pose and never name what to avoid', strpos(InfluencerService::scene_fit_system('woman', 'her'), 'FIRST sentence: the camera angle') !== false && strpos(InfluencerService::scene_fit_system('woman', 'her'), 'never name the thing to avoid') !== false);
 check('two image styles, Photorealistic first and the default', array_keys(InfluencerService::IMAGE_STYLES) === array('photoreal', 'plain') && InfluencerService::IMAGE_STYLE_DEFAULT === 'photoreal');
 $sfx = InfluencerService::style_suffix('photoreal', 'a beach at sunset');
 check('Photorealistic adds camera, light and skin cues', strpos($sfx, 'Candid photograph of a real person') !== false && strpos($sfx, 'visible pores') !== false && strpos($sfx, 'natural believable light') !== false);

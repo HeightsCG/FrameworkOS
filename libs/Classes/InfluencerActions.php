@@ -465,22 +465,23 @@ class InfluencerActions {
         }
         // A prompt that already carries her defaults (an older image run again, or pasted back) does not get them twice.
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
-        // Her face words: the trained model alone let the lower face drift from her reference (2026-10-13). They are short and
-        // go right after the trigger word, ahead of the scene, because the model reads only the first part of a long prompt:
-        // after a page-long scene they would be cut off. Not added to a prompt that already carries them. Automations keep
-        // their own prompt, unchanged.
+        // Her face words: the trained model alone let the lower face drift from her reference (2026-10-13). They follow the
+        // scene, ahead of her build, so the pose the scene asks for still leads; a long scene is shortened first (fit_scene),
+        // so they are not cut off. Not added to a prompt that already carries them. Automations keep their own prompt.
         $face = InfluencerService::face_phrase($infl);
-        if ($face !== '' && stripos($user_prompt, $face) !== false) { $face = ''; }
+        if ($face !== '' && stripos($user_prompt, $face) === false) { $defaults = trim($face . ($defaults !== '' ? '. ' . $defaults : '')); }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
-        if ($face !== '') { $lead .= $face . '. '; }
         // The scene comes first, so it is what the model follows; her build and her own defaults follow it (2026-10-13: with
         // the defaults in front, a long body description decided the picture and the scene was ignored).
         // The chosen style goes last: scene, her build, then the realism cues. A caller that names no style (scenes, the
         // connector, automations) adds nothing, as before.
         $style  = isset(InfluencerService::IMAGE_STYLES[(string) ($in['style'] ?? '')]) ? (string) $in['style'] : 'plain';
         $suffix = InfluencerService::style_suffix($style, $user_prompt);
-        $prompt = InfluencerService::scene_prompt($lead, $user_prompt, trim($defaults . ($defaults !== '' && $suffix !== '' ? '. ' : '') . $suffix));
+        // A long scene, or one that says what to avoid, is fitted to the model first (pose in front, "not X" turned into what
+        // to show). The creator's own words stay on the job as user_prompt; a short plain scene is sent as written.
+        $scene  = self::fit_scene($infl, $user_prompt);
+        $prompt = InfluencerService::scene_prompt($lead, $scene, trim($defaults . ($defaults !== '' && $suffix !== '' ? '. ' : '') . $suffix));
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
         $size  = Aspect::for_model($mk, (string) ($in['aspect'] ?? ($in['image_size'] ?? '')));   // 3:4 unless asked: bodies warp in a square frame
@@ -489,7 +490,7 @@ class InfluencerActions {
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
-        $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'style' => $style, 'overrides' => $overrides,
+        $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'scene_fitted' => $scene !== $user_prompt ? 1 : 0, 'style' => $style, 'overrides' => $overrides,
             'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0)));
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'image', array(
@@ -501,6 +502,25 @@ class InfluencerActions {
         }
         if ($job_id <= 0) { return self::fail('Could not start the run.'); }
         return self::okr(array('job_id' => $job_id, 'job' => InfluencerJobService::job_json($cid, (new InfluencerJobsModel())->get_by_id($job_id)), 'trigger_word' => $trigger));
+    }
+
+    /**
+     * The scene as the image model gets it. Unchanged unless it is long or says what to avoid (InfluencerService::scene_needs_fit);
+     * then the text writer rewrites it, and if the writer is unavailable, fails or declines, only the avoid-lines are dropped.
+     */
+    public static function fit_scene(array $infl, $scene){
+        $scene = trim((string) $scene);
+        if (!InfluencerService::scene_needs_fit($scene)) { return $scene; }
+        $plain = InfluencerService::scene_without_avoid($scene);
+        $plain = $plain !== '' ? $plain : $scene;
+        if (!ClaudeService::configured()) { return $plain; }
+        list($pr, $po, $ps) = InfluencerService::pronouns($infl);
+        $r = ClaudeService::chat(InfluencerService::scene_fit_system(InfluencerService::noun($infl), $ps), array(array('role' => 'user', 'content' => $scene)), 400, 20, 'low');
+        $text = trim((string) preg_replace('/\s+/', ' ', (string) ($r['text'] ?? '')));
+        $text = trim($text, " \"'");
+        // too short to be the scene, too long to be read, or a refusal: keep the creator's words without the avoid-lines
+        if (empty($r['ok']) || mb_strlen($text) < 40 || mb_strlen($text) > 900 || preg_match('/^(?:i\'m sorry|i am sorry|i can\'t|i cannot|i won\'t|sorry)/i', $text)) { return $plain; }
+        return $text;
     }
 
     /** Image-to-video from one of her stills. $in: asset_id (required), prompt, model_key, duration. */

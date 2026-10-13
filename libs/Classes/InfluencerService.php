@@ -272,6 +272,49 @@ class InfluencerService {
         return $own[0] . ' own face as in ' . $own[1] . ' reference: ' . implode(', ', $keep);
     }
 
+    /**
+     * Does a scene need fitting to the image model before it is sent (2026-10-13)? Two things made pictures ignore what was
+     * asked: the model reads only the first part of a long prompt, so instructions at the end were never seen; and it cannot
+     * be told what to leave out, so "not a frontal portrait, no eye contact" named exactly the picture it then made.
+     * A short scene with nothing to avoid is sent as written.
+     */
+    const SCENE_FIT_OVER = 600;
+    public static function scene_needs_fit($scene){
+        $scene = (string) $scene;
+        return mb_strlen($scene) > self::SCENE_FIT_OVER || self::scene_has_avoid($scene);
+    }
+
+    public static function scene_has_avoid($scene){
+        return (bool) preg_match('/(?:^|[\s.,;:(])(?:no|not|never|avoid|avoiding|without|don\'t|do not|isn\'t|is not|rather than|instead of)\s+\w/i', (string) $scene);
+    }
+
+    /** What the scene writer is told: put the pose first, say what to show in place of what to avoid, keep it short. */
+    public static function scene_fit_system($noun, $pronoun){
+        return 'You rewrite a creator\'s description of one photo so an image model can follow it. The model reads only the first 150 words or so, '
+            . 'and it cannot be told what to leave out: anything that is named tends to appear in the picture, even after "no" or "not". '
+            . 'Write one paragraph of at most 110 words, plain present tense. '
+            . 'FIRST sentence: the camera angle, which way ' . $pronoun . ' body and head are turned, where ' . $pronoun . ' eyes are looking, and how much of ' . $pronoun . ' is in frame. These decide the picture, so they lead. '
+            . 'Then the outfit, the place, the light. '
+            . 'Turn every "not X", "no X" or "avoid X" into what should be seen instead, and never name the thing to avoid. '
+            . 'Example: "not a frontal portrait, no direct eye contact" becomes "seen from the side in three-quarter profile, head turned away from the camera, looking at someone out of frame". '
+            . 'Keep every concrete detail the creator gave: clothes, colours, place, time of day, props, pose, expression. '
+            . 'Leave out sentences about how the photo should feel, quality words, and anything said twice. Add nothing the creator did not ask for. '
+            . 'Call the subject "the ' . $noun . '". Leave out any name. Output only the rewritten description, no quotes, no preamble.';
+    }
+
+    /** With no writer available: the sentences and clauses that only say what to avoid are dropped, so they stop naming it. */
+    public static function scene_without_avoid($scene){
+        $keep = array();
+        foreach (preg_split('/(?<=[.!?])\s+|\n+/', trim((string) $scene)) as $s) {
+            $s = trim($s);
+            if ($s === '' || preg_match('/^(?:no|not|never|avoid|without|don\'t|do not)\b/i', $s)) { continue; }
+            $s = (string) preg_replace('/[,;]\s*(?:and\s+|or\s+)?(?:no|not|never|without|avoid(?:ing)?)\s+[^,;.]+/i', '', $s);
+            $s = trim($s, " ,;");
+            if ($s !== '') { $keep[] = preg_match('/[.!?]$/', $s) ? $s : $s . '.'; }
+        }
+        return trim(implode(' ', $keep));
+    }
+
     /** One image prompt: the trigger word, the scene as written, then her build and defaults. */
     public static function scene_prompt($lead, $scene, $defaults){
         $scene = trim((string) $scene); $defaults = trim((string) $defaults);
