@@ -2,7 +2,7 @@
 $root = dirname(__DIR__);
 putenv('APPLICATION_ENV=development');
 if (is_file("$root/vendor/autoload.php")) { require_once "$root/vendor/autoload.php"; }
-spl_autoload_register(function ($c) use ($root) { foreach (["$root/libs/Classes/$c.php", "$root/app/models/$c.php", "$root/app/$c.php"] as $f) { if (file_exists($f)) { require_once $f; return; } } });
+spl_autoload_register(function ($c) use ($root) { foreach (["$root/libs/Classes/$c.php", "$root/app/models/$c.php", "$root/app/controllers/$c.php", "$root/app/$c.php"] as $f) { if (file_exists($f)) { require_once $f; return; } } });
 
 $fail = 0;
 set_error_handler(function ($no, $str, $file, $line) { echo "FAIL PHP warning: $str at $file:$line\n"; $GLOBALS['fail']++; return true; });

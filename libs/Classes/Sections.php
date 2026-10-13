@@ -479,8 +479,12 @@ class Sections {
      * "Related Guides": the blog articles that belong under this hub page, as a section of in-body links (SeoDrafter::guides_for).
      * Returns '' when no article is published for the page, so a hub never shows an empty block.
      */
-    public static function related_guides(string $path, string $bg = 'white', int $limit = 4, int $offset = 0): string {
-        $rows = array_slice(SeoDrafter::guides_for($path, $limit + $offset), $offset, $limit);   // $offset: pages that share a topic show different articles
+    public static function related_guides(string $path, string $bg = 'white', int $limit = 4, int $offset = 0, string $prefer = ''): string {
+        // $prefer: an article whose slug names this page's platform leads the block. $offset turns the rest of the pool (it wraps), so pages that share a topic show different articles.
+        $pool = SeoDrafter::guides_for($path, 12); $first = array(); $rest = array();
+        foreach ($pool as $r) { if ($prefer !== '' && strpos((string) $r['slug'], $prefer) !== false) { $first[] = $r; } else { $rest[] = $r; } }
+        if ($offset > 0 && count($rest) > 1) { $k = $offset % count($rest); $rest = array_merge(array_slice($rest, $k), array_slice($rest, 0, $k)); }
+        $rows = array_slice(array_merge($first, $rest), 0, $limit);
         if (empty($rows)) { return ''; }
         $o = self::open($bg, 'Related guides', '', 'guides') . '<dl class="fx-list fx-list--guides">';
         foreach ($rows as $r) {

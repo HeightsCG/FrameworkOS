@@ -248,7 +248,7 @@ class CompareProse {
         'stan' => array(
             'scenario' => array(
                 'A Stan Store creator with {gross} a month in {what} makes a clean example; the sums are hypothetical.',
-                'Stan Store\'s Creator plan takes no share of sales, only its {them_monthly} a month, so {them_left} is left before card processing ([Stan Store pricing]({them_src})).',
+                'Stan Store\'s Creator plan takes no share of sales, so the full {gross} is left before card processing; its {them_monthly} a month is a separate line ([Stan Store pricing]({them_src})).',
                 'On {site}: {c_name} takes {c_pct}, {c_total}, leaving {c_left}; {s_name} takes {s_pct}, {s_total}, leaving {s_left}. Card processing is extra on all three, and every monthly plan price, ours and Stan Store\'s, is a separate line.',
                 'Stan Store takes no share of sales, and our two plans sit {diff} apart on this month. The formats and the publishing are what a Stan Store creator comes here for.',
             ),
@@ -300,7 +300,7 @@ class CompareProse {
                 'Run both for one full billing cycle. Fans who renew on Fanvue keep renewing until you turn the page off, and {site} can cross-post to Fanvue from the same studio, so the Fanvue page stays fed while people move. Nothing has to be cancelled on day one, and renewals on the old page lapse on their own once you stop posting there.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'Fanvue keeps 20% of gross revenue from paid services and the creator receives 80% (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site} charges {fee_short} plus a monthly plan price. A small page pays a plan price it would not pay on Fanvue, and a larger page pays a much smaller share. The worked scenario on this page puts both side by side.',
+                'Fanvue keeps 20% of gross revenue from paid services and the creator receives 80% (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site} charges {fee_short}. Its monthly plan price is a separate line, which Fanvue does not have. The worked scenario on this page puts both side by side.',
                 'Fanvue\'s AI tools are inside the fan app: a fan can hear a voice note or take an AI voice call on the platform (' . self::src($c, 'ai') . '). {site}\'s AI sits on the creator side. You train an AI influencer from photos or a description and generate images and short videos of that character. AI captions come with every post, and a DM agent drafts replies in your voice for you to approve. If your fans buy the voice calls themselves, that is a feature you give up; if you want to generate and sell the content, that is the feature you gain.',
                 'Fanvue publishes an open API and an app store for third-party tools, which suits creators who run their business through other software. {site} offers a Claude connector instead, so an AI assistant can draft posts, read your analytics and manage your page through the same account. Both are ways to automate; they point at different tools.',
             )),
@@ -389,8 +389,8 @@ class CompareProse {
                 'Keep the Ko-fi page as a tip jar if you like; many creators do. Point the memberships, the shop and the commissions at the new page, where a commission becomes a service with a fixed price and a delivery window, and keep the Ko-fi link for one-off thanks. Nothing has to be closed on day one.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'On fee alone, Ko-fi wins at small volume. Its 0% on one-time tips and 5% on the rest beats {site}\'s {fee_short} plus a monthly plan price until a page sells enough for the plan price to be small next to the sales. The scenario below shows the crossing point; below it, the reason to move is the formats and the publishing, not the fee.',
-                'Ko-fi pays instantly to your own account. {site} pays on request from a balance, which adds a step. The balance is also one ledger across memberships, unlocks, bundles, services and events, with refunds and disputes handled there rather than in your processor dashboard. A creator who likes the money arriving as it is paid will prefer Ko-fi; a creator who wants one place to see every sale will prefer the balance.',
+                'On fee alone, Ko-fi wins at small volume. Its 0% on one-time tips and 5% on the rest is a lower share than {site}\'s {fee_short}, and Ko-fi Free has no monthly price. The reason to move is the formats and the publishing, not the fee.',
+                'Ko-fi pays instantly to your own account. {site} pays on request from a balance, which adds a step. The balance is also one ledger across memberships, unlocks, bundles, services and events, rather than a processor dashboard. A creator who likes the money arriving as it is paid will prefer Ko-fi; a creator who wants one place to see every sale will prefer the balance.',
                 'The publishing and the inbox are the gain. Ko-fi has no social scheduler and no AI (' . self::src($c, 'ai') . '). {site} publishes each post to nine networks with AI captions and drafts DM replies for your approval. Welcome and trigger messages go out with paid media attached, and ticketed live sessions run in its own video room. If none of that is work you do, Ko-fi remains the simpler tool.',
             )),
             array('h' => 'A worked scenario: a Ko-fi creator with 150 members', 'p' => self::scenario($c, 1500, 'memberships and shop sales (150 members at $10)', 'kofi')),
@@ -433,7 +433,7 @@ class CompareProse {
                 'The media kit is the thing to keep if brand deals pay your bills. Many creators keep a Beacons page for the kit and the brand outreach and move the fan-facing selling to {site}, with the link page on {site} pointing back at the kit. Both can run at once; nothing has to be cancelled.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'Beacons charges a 9% seller fee on the Free and Creator plans ($10 a month) and 0% on Creator Plus at $30 a month and Creator Max at $100 (' . self::src($c, 'fee') . ', checked ' . $checked . '). A Creator Plus subscriber pays no share of sales, so for product sales Beacons Plus is the cheaper option on fee; {site} charges {fee_short} plus its plan price. The scenario below puts both Beacons options beside our plans.',
+                'Beacons charges a 9% seller fee on the Free and Creator plans ($10 a month) and 0% on Creator Plus at $30 a month and Creator Max at $100 (' . self::src($c, 'fee') . ', checked ' . $checked . '). A Creator Plus subscriber pays no share of sales, so for product sales Beacons Plus is the cheaper option on fee; {site} charges {fee_short}, and its plan price is a separate monthly line. The scenario below puts both Beacons options beside our plans.',
                 'Beacons\' AI is on the business side: Beam, the assistant, plus AI text, image, email and page generation and brand outreach emails, metered by daily credits, 30 on Free, 300 on Creator and unlimited from Creator Plus (' . self::src($c, 'ai') . '). {site}\'s AI is on the content side. An AI influencer is trained from your photos or a description, with images and short videos of that character. Captions come with every post, and a DM agent drafts replies in your voice.',
                 'Publishing is the clearest gap. Beacons analyses posts you made elsewhere; {site} makes the post once and sends it to nine networks from the studio, with the paid version behind the lock. If the posting is the part of your week you want back, that is the feature that decides it.',
             )),
@@ -478,7 +478,7 @@ class CompareProse {
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
                 'Eromify offers more generation models than {site} does, and a workflow canvas for batch work. A creator who experiments across many models, or who generates in volume for several personas, may keep Eromify for that and bring the results here to sell. {site} runs its generation through its own provider and prices it in credits; the number of AI influencers is {inf_creator} on Creator and {inf_studio} on Studio, with more available as a monthly add-on.',
-                'Eromify has no platform fee because it has no sales; its cost is the plan and the credits. {site} charges {fee_short} on sales plus the plan price, and the plan includes the credits. The comparison is a tool cost against a tool cost plus a selling fee, so it only makes sense once the images are earning something.',
+                'Eromify has no platform fee because it has no sales; its cost is the plan and the credits. {site} charges {fee_short} on sales. Its plan price is a separate monthly line, and the plan includes the credits. Eromify is a generation tool, and {site} is a generation tool with a selling side.',
                 'Ownership of the character is the long-term question. On {site} the trained character, its images and your audience list are yours to export at any time. On Eromify the outputs are downloadable and the fan relationship does not exist, because the fans are on whatever platform you sell through. If that platform is this one, the character and the audience end up in the same place.',
             )),
             array('h' => 'A worked scenario: an Eromify creator who starts selling here', 'p' => array(
@@ -605,7 +605,7 @@ class CompareProse {
                 'Publishing follows the same line. Linktree\'s planner posts to six networks and the rest of the list leaves social posting to you; {site}\'s studio publishes each post to nine networks with the paid version behind the lock on your page, so the promotion and the sale are one action.',
             )),
             array('h' => 'A worked scenario: the same creator on three platforms', 'p' => array_merge(
-                array('Take a creator with $2,800 a month across memberships and single purchases, round and hypothetical. On a 20% subscription platform the platform keeps $560 and $2,240 is left before card processing. On Stan Store Creator the platform keeps $29 and $2,771 is left, because Stan Store takes no share of sales (' . self::src($c['stan'], 'fee') . ').'),
+                array('Take a creator with $2,800 a month across memberships and single purchases, round and hypothetical. On a 20% subscription platform the platform keeps $560 and $2,240 is left before card processing. On Stan Store Creator the platform takes no share of sales, so the $2,800 is left before card processing, and its $29 a month is a separate line (' . self::src($c['stan'], 'fee') . ').'),
                 array_slice(self::scenario($c['fanvue'], 2800, 'memberships and single purchases'), 2)
             )),
         );

@@ -36,7 +36,7 @@ echo Sections::close();
 $alt_key = strtolower(preg_replace('/[^a-z]/i', '', (string) $p['name']));
 echo CompareProse::render(CompareProse::alternatives($alt_key), 'alt');
 $alt_n = array_search($alt_key, array_keys(AlternativesPages::PAGES), true);
-echo Sections::related_guides((string) $p['path'], 'alt', 3, 3 * (int) $alt_n);   // each list page shows a different three, so the block is not the same on all of them
+echo Sections::related_guides((string) $p['path'], 'alt', 3, (int) $alt_n, $alt_key);   // this platform's own article first, then a different turn of the pool on each list page
 echo CompareProse::links_line($alt_key);
 if (!empty($faq)) { echo Sections::faq($faq); }
 

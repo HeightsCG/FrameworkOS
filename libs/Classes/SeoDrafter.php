@@ -15,10 +15,10 @@ class SeoDrafter {
      */
     const CLUSTERS = array(
         'pricing-and-fees' => array('label' => 'Pricing, fees and plans', 'feature' => '/pricing', 'intent' => 'howto',
-            'links' => array('/pricing', '/features/payouts', '/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan'),
+            'links' => array('/pricing', '/features/payouts', '/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan'),
             'related' => array('platform-comparisons', 'creator-payouts')),
         'platform-comparisons' => array('label' => 'Platform comparisons', 'feature' => '/best-creator-monetization-platforms', 'intent' => 'guide',
-            'links' => array('/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/pricing', '/features', '/features/link-in-bio', '/features/payouts'),
+            'links' => array('/best-creator-monetization-platforms', '/onlyfans-alternatives', '/fanvue-alternatives', '/patreon-alternatives', '/linktree-alternatives', '/compare/onlyfans', '/compare/fanvue', '/compare/patreon', '/compare/fansly', '/compare/kofi', '/compare/linktree', '/compare/beacons', '/compare/stan', '/pricing', '/features', '/features/link-in-bio', '/features/payouts'),
             'related' => array('pricing-and-fees', 'creator-payouts')),
         'creator-payouts' => array('label' => 'Creator payouts', 'feature' => '/features/payouts', 'intent' => 'guide',
             'links' => array('/features/payouts', '/pricing', '/features/memberships', '/features/pay-per-view', '/monetize-your-content'),
@@ -993,7 +993,7 @@ class SeoDrafter {
      * sales and the plan price is a separate monthly line. No article says where one plan "starts covering itself" or which sales
      * level flips the choice. Shared with the one-time text-fix scripts.
      */
-    const CROSSOVER = '/break-?even|pays? for itself|pays? for its price|cover(?:s|ing)? itself|cover(?:s|ing)? its (?:own )?(?:price|cost)|once you sell|once monthly sales pass|crossover|cross(?:es)? (?:at|near|around)|lines cross|swap places|the order flips|plan (?:maths?|arithmetic) changes|where the (?:better|cheaper|pricier) plan changes|starts? to cost more than a plan price|sales level where/i';
+    const CROSSOVER = '/break-?even|pays? for itself|pays? for its price|cover(?:s|ing)? itself|cover(?:s|ing)? its (?:own )?(?:price|cost)|once you sell|once monthly sales pass|crossover|cross(?:es)? (?:at|near|around)|lines cross|swap places|the order flips|plan (?:maths?|arithmetic) changes|where the (?:better|cheaper|pricier) plan changes|starts? to cost more than a plan price|sales level where|(?:reverses?|flips?|changes?) the answer|the answer (?:reverses|flips)|the right plan changes|wins once sales|(?:subtract|minus|less) (?:any |the )?plan (?:charge|price)|plan (?:charge|price) (?:out\b|comes off)|after the plan charge|clear both the plan price|minus two deductions|training pays|pays (?:off|back)\b|carrying its weight/i';
 
     /**
      * The fee folded into the plan price (hard rule, Daniel 2026-10-12): a sum that adds a plan's monthly price to a fee amount
@@ -1016,6 +1016,16 @@ class SeoDrafter {
                 if (!preg_match('/\$(?:' . $pr . ')\b(?!\s*%)/', $sentence) || !preg_match('/\b(?:fee|fees|share|cut|commission)\b|%/i', $sentence)) { continue; }
                 if (preg_match('/\b(?:leaving|leaves|remains?|is left|are left|nets?|net of)\b/i', $sentence) && preg_match_all('/\$[\d,]+/', $sentence) >= 3) {
                     $err[] = 'takes the platform fee and the plan price off one sales figure ("' . mb_substr(trim($sentence), 0, 50) . '"): state the fee as a percentage of sales and the plan price as a separate monthly line';
+                    break;
+                }
+            }
+            // a percentage and a plan price joined into one charge ("a 10% cut plus a $49 plan takes $145"), or a plan charge rolled into one total ("the $49 plan charge ... totals $113.80")
+            foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $sentence) {
+                if (!preg_match('/\$(?:' . $pr . ')\b(?!\s*%)/', $sentence)) { continue; }
+                $joined = preg_match('/\d\s*%(?:\s+(?:cut|fee|share|commission|take|platform fee))?\s*(?:plus|\+|on top of)\s+(?:a\s+|the\s+)?\$(?:' . $pr . ')\b/i', $sentence);
+                $total = preg_match('/\b(?:totals?|adds? up to|comes? to|combined|altogether|in all)\b(?![^.]{0,30}\b(?:a year|per year|annually|yearly)\b)/i', $sentence) && preg_match_all('/\$[\d,]+(?:\.\d+)?/', $sentence) >= 2 && !preg_match('/\b(?:a year|per year|annually|yearly)\b/i', $sentence);
+                if ($joined || $total) {
+                    $err[] = 'adds the platform fee to the plan price in one sum ("' . mb_substr(trim($sentence), 0, 50) . '"): state the fee as a percentage of sales and the plan price as a separate monthly line';
                     break;
                 }
             }

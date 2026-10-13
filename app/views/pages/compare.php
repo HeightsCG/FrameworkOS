@@ -46,7 +46,7 @@ if ($fee_block === '') {   // a generation tool with no sales side: the diagram 
 }
 echo $fee_block;
 echo CompareProse::siblings_line($slug);
-echo Sections::related_guides('/compare/' . $slug, 'white', 3);
+echo Sections::related_guides('/compare/' . $slug, 'white', 3, (int) array_search($slug, array_keys(PagesController::COMPETITORS), true), $slug);   // this competitor's own article first, then a different turn of the pool per page
 echo CompareProse::links_line($slug);   // the shared product blocks live on /features, /pricing and /features/payouts, not here
 if (!empty($faq)) { echo Sections::faq($faq); }
 $cta_title = 'Try it alongside ' . $c['name'] . '.';
