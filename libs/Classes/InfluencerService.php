@@ -296,9 +296,17 @@ class InfluencerService {
     const SCENE_FIT_OVER = 600;
     public static function scene_needs_fit($scene){
         $scene = (string) $scene;
-        if (mb_strlen($scene) > self::SCENE_FIT_OVER || self::scene_has_avoid($scene)) { return true; }
+        if (mb_strlen($scene) > self::SCENE_FIT_OVER || self::scene_has_avoid($scene) || self::scene_has_others($scene)) { return true; }
         // an angle asked for somewhere after the opening words is not followed: the model takes its shot type from the start
         return mb_strlen($scene) > 160 && (bool) preg_match('/\b(profile|side[- ]on|from the side|sideways|three[- ]quarter|from behind|back view|over (?:her|his|the) shoulder|looking away|turned away|facing away)\b/i', mb_substr($scene, 60));
+    }
+
+    /**
+     * The scene puts other people in the picture. The trained model draws every person with her face and body (a party scene
+     * on prod 2026-10-13 came out with three of her), so the scene writer has to keep them far back and faceless.
+     */
+    public static function scene_has_others($scene){
+        return (bool) preg_match('/\b(guests?|crowd(?:s|ed)?|friends?|girlfriends?|boyfriends?|people|partygoers|party|strangers|couples?|group|men|women|girls|guys|waiters?|waitress(?:es)?|bartenders?|audience|fans|dancers|bridesmaids|colleagues|coworkers|family|kids|children|husband|wife|partner|(?:with|and|beside|next to) (?:a|an|another|one|two|three|some|other) (?:man|woman|guy|girl|model))\b/i', (string) $scene);
     }
 
     public static function scene_has_avoid($scene){
@@ -307,6 +315,7 @@ class InfluencerService {
 
     /** What the scene writer is told: put the pose first, say what to show in place of what to avoid, keep it short. */
     public static function scene_fit_system($noun, $pronoun){
+        $pronoun_obj = ($pronoun === 'his') ? 'him' : (($pronoun === 'their') ? 'them' : 'her');
         return 'You rewrite a creator\'s description of one photo so an image model can follow it. The model reads only the first 150 words or so, '
             . 'follows the opening words most strongly, and cannot be told what to leave out: anything that is named tends to appear in the picture, even after "no" or "not". '
             . 'Write one paragraph of at most 90 words, plain present tense. '
@@ -316,9 +325,13 @@ class InfluencerService {
             . 'Use it for three-quarter requests too: the model turns ' . $pronoun . ' less than asked, and softer wording such as "three-quarter view", "seen from a side-on view" or "body angled away from the lens" comes out face-on. '
             . 'For a back view begin with "Photo from behind of a ' . $noun . ', looking back over ' . $pronoun . ' shoulder." or "Photo from behind of a ' . $noun . ', ' . $pronoun . ' face not visible." '
             . 'When no angle is asked for, open with "Photo of a ' . $noun . '" and the framing (close-up, waist-up, full length). '
+            . 'When the creator does not say where ' . $pronoun . ' face points or where ' . $pronoun . ' eyes look, leave both out: never write that ' . $pronoun . ' eyes are on the camera or the lens unless the creator asked for it. '
             . 'Then the outfit, the place, the light, the expression. '
             . 'Turn every "not X", "no X" or "avoid X" into what should be seen instead, and never name the thing to avoid. '
-            . 'Only one person is in the picture: a friend, partner or photographer the creator mentions is "someone out of frame", never described and never shown. '
+            . 'The ' . $noun . ' is the only person whose face or figure is seen: the model gives every person it draws ' . $pronoun . ' face and body, so a second person comes out as ' . $pronoun . ' double. '
+            . 'A friend, partner or photographer the creator mentions is "someone out of frame", never described and never shown. '
+            . 'Guests, a crowd or staff the creator asks for are written once, as the last sentence, in exactly this form: "Far behind ' . $pronoun_obj . ', small out-of-focus figures of other guests, seen from behind." (or "other people"). '
+            . 'Never place anyone beside or around ' . $pronoun_obj . ', never give them clothes, drinks or faces, and do not use the words crowd, mingling or surrounded. Show a party or a busy place through its setting: tables, glasses, lights, decorations. '
             . 'Keep every concrete detail the creator gave: clothes, colours, jewellery, place, time of day, props, pose, expression. '
             . 'Leave out sentences about how the photo should feel, quality words, and anything said twice. Add nothing the creator did not ask for. '
             . 'Call the subject "the ' . $noun . '" or "a ' . $noun . '". Leave out any name. Output only the rewritten description, no quotes, no preamble.';

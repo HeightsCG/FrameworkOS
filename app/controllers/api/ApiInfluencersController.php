@@ -241,7 +241,7 @@ class ApiInfluencersController extends BaseApiController {
     public function influencer_jobs_listAction(){
         $user = $this->ai_user(false);
         $cid  = (int) $user['user_id'];
-        $this->answer(InfluencerActions::jobs($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (string) ($this->post['type'] ?? ''), (int) ($this->post['limit'] ?? 24)));
+        $this->answer(InfluencerActions::jobs($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (string) ($this->post['type'] ?? ''), (int) ($this->post['limit'] ?? 24), !empty($this->post['with_files'])));
     }
 
     /** Retry a failed generation (same prompt and seed). */

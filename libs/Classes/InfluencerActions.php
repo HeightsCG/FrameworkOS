@@ -627,11 +627,27 @@ class InfluencerActions {
         return self::okr(array('message' => 'File removed.' . ($kept > 0 ? ' It stays on the ' . ($kept === 1 ? 'post that uses it.' : $kept . ' posts that use it.') : ''), 'asset_id' => $aid, 'kept_for_posts' => $kept));
     }
 
-    /** Recent jobs (by type list) as job_json rows. */
-    public static function jobs($cid, array $infl, $types = '', $limit = 24){
+    /**
+     * Recent jobs (by type list) as job_json rows. With $with_files, only runs that still have a file in the library or are
+     * still being made count toward $limit: a failed run or one whose pictures were deleted must not push an older picture out.
+     */
+    public static function jobs($cid, array $infl, $types = '', $limit = 24, $with_files = false){
         $types = array_values(array_intersect(array_map('trim', explode(',', (string) $types)), InfluencerJobsModel::TYPES));
-        $out = array();
-        foreach ((new InfluencerJobsModel())->list_for_influencer($cid, $infl['id'], $types, (int) $limit) as $j) { $out[] = InfluencerJobService::job_json($cid, $j); }
+        $limit = max(1, min(200, (int) $limit));
+        $jm = new InfluencerJobsModel(); $out = array(); $before = 0;
+        for ($page = 0; $page < 10 && count($out) < $limit; $page++) {
+            $rows = $jm->list_for_influencer($cid, $infl['id'], $types, $with_files ? 100 : $limit, $before);
+            foreach ($rows as $j) {
+                $before = (int) $j['id'];
+                if (count($out) >= $limit) { break; }
+                if (!$with_files) { $out[] = InfluencerJobService::job_json($cid, $j); continue; }
+                $pending = in_array((string) $j['status'], array('queued', 'submitting', 'running', 'landing'), true);
+                if (!$pending && (string) $j['status'] !== 'done') { continue; }
+                $json = InfluencerJobService::job_json($cid, $j);
+                if ($pending || !empty($json['assets'])) { $out[] = $json; }
+            }
+            if (!$with_files || count($rows) < 100) { break; }
+        }
         return self::okr(array('jobs' => $out));
     }
 }

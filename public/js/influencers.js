@@ -1348,7 +1348,7 @@ jQuery(function ($) {
             });
             drop_broken('#inf_strip');
         }
-        api('influencer_jobs_list', { id: inf.id, type: 'image,enhance', limit: 24 }, function (o) {
+        api('influencer_jobs_list', { id: inf.id, type: 'image,enhance', limit: 200, with_files: 1 }, function (o) {
             if (!o || !o.success) { return; }
             jobs = o.jobs || []; render_strip();
             var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];
@@ -1533,7 +1533,7 @@ jQuery(function ($) {
                 select(j, j.assets[0]); render_strip();
             });
         }
-        api('influencer_jobs_list', { id: inf.id, type: 'video', limit: 24 }, function (o) {
+        api('influencer_jobs_list', { id: inf.id, type: 'video', limit: 200, with_files: 1 }, function (o) {
             if (!o || !o.success) { return; }
             jobs = o.jobs || []; render_strip();
             var running = jobs.filter(function (j) { return ['queued', 'submitting', 'running', 'landing'].indexOf(j.status) >= 0; })[0];

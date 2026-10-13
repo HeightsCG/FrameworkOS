@@ -100,6 +100,9 @@ check('the Photorealistic style asks for no portrait lens look and names nothing
 check('a short plain scene is sent as written', !InfluencerService::scene_needs_fit('Mirror selfie in a gym, grey leggings and a sports top'));
 check('a scene that says what to avoid is fitted', InfluencerService::scene_needs_fit('Side view on a terrace. Not a frontal portrait, not direct eye contact.'));
 check('a long scene is fitted', InfluencerService::scene_needs_fit(str_repeat('She walks along the beach at sunset. ', 20)));
+check('a scene with other people in it is fitted', InfluencerService::scene_needs_fit('At a beach club party in a red dress, guests around her') && InfluencerService::scene_needs_fit('Laughing with two friends at a rooftop bar'));
+check('a scene with nobody else in it is not counted as having other people', !InfluencerService::scene_has_others('Mirror selfie in a gym, grey leggings and a sports top') && !InfluencerService::scene_has_others('Reading on a sofa, cream knit jumper, window light'));
+check('the scene writer keeps other people far back and faceless', strpos(InfluencerService::scene_fit_system('woman', 'her'), 'Far behind her, small out-of-focus figures of other guests, seen from behind.') !== false && strpos(InfluencerService::scene_fit_system('man', 'his'), 'Far behind him,') !== false);
 $wa = InfluencerService::scene_without_avoid("Side view on a terrace, head turned to a friend, not a posed smile. Not a frontal portrait, not a centered headshot.\nNo emerald-green clothing.");
 check('without the writer, the avoid-lines are dropped and the rest kept', $wa === 'Side view on a terrace, head turned to a friend.', $wa);
 check('the writer is told to lead with the pose and never name what to avoid', strpos(InfluencerService::scene_fit_system('woman', 'her'), 'Side profile photo of a woman') !== false && strpos(InfluencerService::scene_fit_system('woman', 'her'), 'never name the thing to avoid') !== false);
