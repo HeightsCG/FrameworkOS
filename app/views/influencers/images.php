@@ -26,16 +26,23 @@
                     </figure>
                 </div>
                 <div class="inf-cv__actions" id="inf_result" hidden>
-                    <div class="inf-result__actions inf-result__actions--only">
+                    <?php /* Three rows by what the action is for: use the picture, make more from it, keep or remove it. */ ?>
+                    <div class="inf-acts" role="group" aria-label="Image actions">
+                    <div class="inf-acts__row">
+                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
+                    <button type="button" class="btn btn-secondary" id="inf_res_message"><i class="fa-solid fa-comment-dots"></i> Send In Message</button>
+                    </div>
+                    <div class="inf-acts__row">
                     <button type="button" class="btn btn-secondary" id="inf_res_again"><i class="fa-solid fa-rotate-right"></i> Run Again</button>
                     <button type="button" class="btn btn-secondary" id="inf_res_video"><i class="fa-solid fa-clapperboard"></i> Make Video</button>
                     <?php if (!$brand): ?>
                     <button type="button" class="btn btn-secondary" id="inf_res_enhance"><i class="fa-solid fa-magnifying-glass-plus"></i> Enhance · <?php echo number_format(Plan::ai_price('enhance')); ?> AI Credits</button>
                     <?php endif; ?>
-                    <button type="button" class="btn btn-secondary" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
-                    <button type="button" class="btn btn-secondary" id="inf_res_post"><i class="fa-solid fa-feather-pointed"></i> Use In Post</button>
-                    <button type="button" class="btn btn-secondary" id="inf_res_message"><i class="fa-solid fa-comment-dots"></i> Send In Message</button>
-                    <button type="button" class="btn btn-secondary inf-btn--danger" id="inf_res_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
+                    </div>
+                    <div class="inf-acts__row inf-acts__row--end">
+                    <button type="button" class="btn inf-acts__link" id="inf_res_download"><i class="fa-solid fa-download"></i> Download</button>
+                    <button type="button" class="btn inf-acts__link inf-btn--danger" id="inf_res_delete"><i class="fa-regular fa-trash-can"></i> Delete</button>
+                    </div>
                 </div>
                 </div>
             </aside>

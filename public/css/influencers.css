@@ -1175,3 +1175,21 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
     .inf-seg:has(> .inf-seg__opt:nth-child(6)) > .inf-seg__opt{ flex:1 1 22%; width:auto; }
 }
 .inf-seg__opt:disabled:has(> .cs-ratio--wide){ display:none; }   /* a tool whose model cannot draw a wide shape does not offer it greyed out */
+
+/* Actions under the image preview (2026-10-13): three rows by purpose. A button grows to share its row and never shrinks
+   below its label, so a long label wraps to the next line instead of spilling out of its cell. */
+.inf-acts{ display:flex; flex-direction:column; gap:8px; }
+.inf-acts__row{ display:flex; flex-wrap:wrap; gap:8px; }
+.inf-acts__row > .btn{ flex:1 1 120px; display:inline-flex; align-items:center; justify-content:center; gap:6px; min-height:36px; padding:6px 12px; font-size:13px; white-space:nowrap; }
+.inf-acts__row--end{ justify-content:space-between; padding-top:8px; border-top:1px solid var(--line); }
+.inf-acts__row--end > .btn.inf-acts__link{ flex:0 0 auto; min-height:32px; padding:4px 8px; border:0; background:transparent; color:var(--t2); font-weight:500; }
+.inf-acts__row--end > .btn.inf-acts__link:hover{ background:var(--bg); color:var(--text); }
+.inf-acts__row--end > .btn.inf-acts__link:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.inf-acts__row--end > .btn.inf-acts__link:disabled{ opacity:.5; cursor:not-allowed; }
+.inf .inf-acts__row--end > .btn.inf-btn--danger{ color:var(--danger); }
+.inf .inf-acts__row--end > .btn.inf-btn--danger:hover{ background:var(--danger-bg); color:var(--danger); border:0; }
+.inf-acts__row > .btn[hidden]{ display:none; }
+@media (max-width:640px){ .inf-acts__row > .btn{ min-height:44px; } .inf-acts__row--end > .btn.inf-acts__link{ min-height:44px; } }
+/* The other tools keep their one row of actions; there too a long label wraps instead of overflowing. */
+.inf-cv__actions .inf-result__actions{ display:flex; flex-wrap:wrap; }
+.inf-cv__actions .inf-result__actions > .btn{ flex:1 1 120px; }
