@@ -806,7 +806,8 @@ jQuery(function ($) {
                 '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="10000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_set_bodypre') +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light" aria-describedby="inf_set_defaults_note">' + esc(inf.prompt_defaults || '') + '</textarea>' +
+                '<p class="inf-field__note" id="inf_set_defaults_note">Optional. Added to every image and video, so it can conflict with what you type for a single one.</p></div>' +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2></div>' + ((window.TUT_BTN || {})['21'] || '') + '</div>' +

@@ -535,7 +535,8 @@ class InfluencerActions {
         if (!$mk) { return self::fail('No video model is configured.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 2000);
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
-        $prompt   = trim(($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
+        // What the creator typed for this clip leads; her standing text follows it, as on images (it used to go in front).
+        $prompt   = InfluencerService::scene_prompt('', $user_prompt, $defaults);
         $durs = array_values((array) ($mk['durations'] ?? array()));
         $dur  = (string) ($in['duration'] ?? ($durs[0] ?? '5'));
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }

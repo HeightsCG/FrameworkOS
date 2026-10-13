@@ -88,6 +88,9 @@ $fp = InfluencerService::face_phrase(array('gender' => 'woman', 'source_descript
 check('hair and skin words are kept', $fp === 'Sun-lightened blonde waves past the shoulders, tanned skin', $fp);
 check('eyes, nose, smile, clothing, light and pose are left out', !preg_match('/eyes|nose|smile|freckles|t-shirt|shade|camera|windblown|26/i', $fp), $fp);
 check('nothing is added when the description names no hair or skin', InfluencerService::face_phrase(array('gender' => 'woman', 'source_description' => 'Phone photo, blue eyes, wide smile, grey t-shirt')) === '' && InfluencerService::face_phrase(array()) === '');
+// Always Add To Prompts: empty unless the creator fills it, and always after what they typed for this picture or clip.
+check('her standing text follows the typed prompt', InfluencerService::scene_prompt('', 'She turns and waves', 'film grain') === 'She turns and waves. film grain' && InfluencerService::scene_prompt('', 'She turns and waves', '') === 'She turns and waves');
+check('a new influencer has no standing text', InfluencerService::look_defaults(array('gender' => 'woman')) === '');
 // No angle, gaze or pose asked for: the prompt opens with the candid line.
 check('a scene with no angle or gaze does not direct the camera', !InfluencerService::scene_directs_camera('Sitting at a kitchen table eating breakfast, oversized striped shirt, messy morning hair'));
 check('a portrait, a selfie, a gaze or an angle does', InfluencerService::scene_directs_camera('Front-facing portrait, soft smile') && InfluencerService::scene_directs_camera('Mirror selfie in a gym') && InfluencerService::scene_directs_camera('On a beach, looking out to sea') && InfluencerService::scene_directs_camera('Side profile on a train platform'));
