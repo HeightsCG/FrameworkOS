@@ -1,7 +1,9 @@
 <?php
 /**
  * Ninth one-time text pass (2026-10-13): thirteen articles called Free "the fan account". They now say what /pricing says:
- * a creator can build and preview a page on Free, and publishing and selling need Creator or Studio.
+ * a creator can build and preview a page on Free, and publishing and selling need Creator or Studio. Eight sentences that tied
+ * the plan choice to sales volume are removed or reworded. (No article says where AI credits can be bought, so that wording
+ * change is in the pages only: /terms and the pricing FAQ.)
  * Exact-string edits, pure text, no AI calls. Ends by checking every published article (body and FAQ) against
  * SeoDrafter::plan_sum_errors() and by listing any sentence that still calls Free a fan account.
  * Usage: APPLICATION_ENV=production php cron/seo_text_fixes_2026-10-13i.php [--dry-run|--apply]
@@ -74,6 +76,34 @@ $edits = array(
     ),
 );
 $fields = array();
+
+// Sentences that tied the plan choice to sales volume (2026-10-13 decisions 1, 3, 5, 8, 9, 10, 12, 14), removed or reworded
+$more = array(
+    'how-to-monetize-content-as-a-creator' => array(
+        ' The ways of weighing a take rate against a flat charge are set out in comparing platform costs.' => '',
+        'Five extras would add $75 a month, and at that point the larger plan deserves a second look.' => 'Five extras would add $75 a month.',
+    ),
+    'how-to-pick-a-creator-monetization-platform' => array(
+        'Creator platform pricing comparison is the work of setting take rates, monthly plan charges and the tools you still buy against your own sales.'
+            => 'Creator platform pricing comparison is the work of reading take rates, monthly plan charges and the tools you still buy, each on its own line.',
+    ),
+    'fanvue-alternative' => array(
+        'Plan arithmetic picks the tier, a sourced head-to-head sits in the ' => 'A sourced head-to-head sits in the ',
+    ),
+    'consistent-ai-character-across-images' => array(
+        'Plan choice changes what each sale returns, so pick with your volume in mind. ' => '',
+    ),
+    'custom-ai-influencer-training-when-to-invest' => array(
+        ' The difference matters to a training decision because the percentage grows with your sales while the plan charge stays fixed.' => '',
+    ),
+    'online-creator-platform' => array(
+        'Match the plan to today\'s volume on the [pricing page](/pricing), then revisit the choice after one quarter.' => 'The [pricing page](/pricing) lists every limit by plan.',
+    ),
+    'how-to-price-a-subscription-tier' => array(
+        ' The gap between the two selling plans bites hardest at low prices and high volume, where a few percentage points decide how much of each renewal survives.' => '',
+    ),
+);
+foreach ($more as $k => $v) { $edits[$k] = array_merge((array) ($edits[$k] ?? array()), $v); }
 
 // every article, body and FAQ answers: the balance is net of the platform's percentage, never "net of the plan fee" (which reads as the plan price)
 $global = array('net of your plan fee' => 'net of your plan\'s platform fee', 'net of the plan fee' => 'net of the platform fee');

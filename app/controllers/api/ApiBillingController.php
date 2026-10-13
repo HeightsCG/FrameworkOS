@@ -179,7 +179,7 @@ class ApiBillingController extends BaseApiController {
     /* ---------- AI credits ($1 = 10 credits, PlanTiers::AI_CREDITS_PER_DOLLAR) ---------- */
 
     public function buy_ai_creditsAction(){
-        $user    = $this->require_creator('owner');
+        $user    = $this->require_creator('owner', true, 'buy AI credits');   // one-time AI credit purchases are for Creator and Studio only: a Free account is turned away here (the Billing page shows it no purchase controls either)
         $dollars = (int) ($this->post['dollars'] ?? 0);
         if (!in_array($dollars, PlanTiers::AI_PACKS, true)) {
             $this->jsonError('Choose a valid credit pack');

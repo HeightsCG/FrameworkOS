@@ -47,9 +47,9 @@ class PageDates {
         '/monetize-your-content' => array('2026-10-13', '359b3dc15754'),
         '/onlyfans-alternatives' => array('2026-10-13', '5988bc401fce'),
         '/patreon-alternatives' => array('2026-10-13', '9c419c66fb3c'),
-        '/pricing' => array('2026-10-13', '20f7b364c6eb'),
+        '/pricing' => array('2026-10-13', '1dc17e8c09b2'),
         '/privacy' => array('2026-10-12', '010544fcb1f3'),
-        '/terms' => array('2026-10-12', '7daa2e504aee'),
+        '/terms' => array('2026-10-13', 'bcabc60c9009'),
         '/tools/ai-influencer-persona' => array('2026-10-12', '5e26a9a550f3'),
         '/tools/fan-questions' => array('2026-10-12', 'e247eb2d7414'),
     );
