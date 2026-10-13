@@ -59,14 +59,14 @@ class ApiInfluencerImagesController extends BaseApiController {
         $user = $this->ai_user();
         set_time_limit(120);
         $this->answer(InfluencerImageActions::replicate_prepare((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)),
-            (int) ($this->post['source_asset_id'] ?? 0), (string) ($this->post['mode'] ?? 'style'), $this->text('instruction', 500)));
+            (int) ($this->post['source_asset_id'] ?? 0), (string) ($this->post['mode'] ?? 'style'), $this->text('instruction', InfluencerService::TEXT_MAX)));
     }
 
     public function influencer_replicateAction(){
         $user = $this->ai_user();
         set_time_limit(120);
         $in = array('source_asset_id' => (int) ($this->post['source_asset_id'] ?? 0), 'mode' => (string) ($this->post['mode'] ?? 'style'),
-            'prompt' => $this->text('prompt', 4000), 'instruction' => $this->text('instruction', 500),
+            'prompt' => $this->text('prompt', InfluencerService::TEXT_MAX), 'instruction' => $this->text('instruction', InfluencerService::TEXT_MAX),
             'mask' => (string) ($this->post['mask'] ?? '1') !== '0', 'face' => $this->json_field('face'), 'strokes' => (array) $this->json_field('strokes'));
         foreach (['aspect', 'num_images', 'model_key'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerImageActions::replicate((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $in, 'studio'));
@@ -76,7 +76,7 @@ class ApiInfluencerImagesController extends BaseApiController {
 
     public function media_editAction(){
         $user = $this->ai_user();
-        $this->answer(InfluencerImageActions::edit_image((int) $user['user_id'], (int) ($this->post['asset_id'] ?? 0), $this->text('instruction', 1500), (string) ($this->post['model_key'] ?? ''), 'studio'));
+        $this->answer(InfluencerImageActions::edit_image((int) $user['user_id'], (int) ($this->post['asset_id'] ?? 0), $this->text('instruction', InfluencerService::TEXT_MAX), (string) ($this->post['model_key'] ?? ''), 'studio'));
     }
 
     public function media_versionsAction(){
@@ -106,7 +106,7 @@ class ApiInfluencerImagesController extends BaseApiController {
     public function influencer_carousel_startAction(){
         $user = $this->ai_user();
         set_time_limit(180);
-        $in = array('seed_asset_id' => (int) ($this->post['seed_asset_id'] ?? 0), 'seed_text' => $this->text('seed_text', 2000), 'count' => (int) ($this->post['count'] ?? 0));
+        $in = array('seed_asset_id' => (int) ($this->post['seed_asset_id'] ?? 0), 'seed_text' => $this->text('seed_text', InfluencerService::TEXT_MAX), 'count' => (int) ($this->post['count'] ?? 0));
         foreach (['focus', 'aspect', 'model_key'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerImageActions::carousel_start((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $in, 'studio'));
     }
@@ -163,7 +163,7 @@ class ApiInfluencerImagesController extends BaseApiController {
     /** Create (id 0) or update one of the creator's own scenes. Field errors come back as errors[] like the admin dialog. */
     public function scene_saveAction(){
         $user = $this->ai_user();
-        $f = array('title' => $this->text('title', 120), 'category' => $this->text('category', 60), 'base_prompt' => $this->text('base_prompt', 4000),
+        $f = array('title' => $this->text('title', 120), 'category' => $this->text('category', 60), 'base_prompt' => $this->text('base_prompt', InfluencerService::TEXT_MAX),
             'is_adult' => (string) ($this->post['is_adult'] ?? '0') === '1', 'default_aspect' => (string) ($this->post['default_aspect'] ?? ''),
             'sort_order' => (int) ($this->post['sort_order'] ?? 0));
         $r = SceneTemplates::save((int) $user['user_id'], (int) ($this->post['id'] ?? 0), $f);

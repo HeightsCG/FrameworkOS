@@ -284,7 +284,7 @@ class InfluencerImageActions {
         if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No replicate model is configured.'); }
         $mode   = (($in['mode'] ?? '') === 'exact') ? 'exact' : 'style';
         $extra  = self::one_line($in['instruction'] ?? '', 500);
-        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
+        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         $face   = FaceMask::clean_box($in['face'] ?? null);
         $want_mask = !array_key_exists('mask', $in) || !empty($in['mask']);
         if ($prompt === '' || ($want_mask && $face === null && empty($in['strokes']) && !array_key_exists('face', $in))) {
@@ -356,7 +356,7 @@ class InfluencerImageActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $src = self::image($cid, $aid);
         if (!$src) { return self::fail('Pick a ready image to edit.'); }
-        $instruction = mb_substr(trim((string) $instruction), 0, 1500);
+        $instruction = mb_substr(trim((string) $instruction), 0, InfluencerService::TEXT_MAX);
         if ($instruction === '') { return self::fail('Describe the change you want.'); }
         if ((string) $model_key === '') { $first = self::edit_models($src); $model_key = (string) ($first[0]['key'] ?? ''); }   // unless asked, the model that keeps this image's shape
         $m_err = ''; $model = self::model_for('edit', $model_key, $m_err);
@@ -468,7 +468,7 @@ class InfluencerImageActions {
         if ($count < self::CAROUSEL_MIN || $count > self::CAROUSEL_MAX) { return self::fail('A carousel has ' . self::CAROUSEL_MIN . ' to ' . self::CAROUSEL_MAX . ' images.'); }
         $focus = isset(self::CAROUSEL_FOCUS[$in['focus'] ?? '']) ? (string) $in['focus'] : 'angles';
         $with_her = ($focus !== 'without_her');
-        $seed_text = mb_substr(trim((string) ($in['seed_text'] ?? '')), 0, 2000);
+        $seed_text = mb_substr(trim((string) ($in['seed_text'] ?? '')), 0, InfluencerService::TEXT_MAX);
         $seed = !empty($in['seed_asset_id']) ? self::image($cid, (int) $in['seed_asset_id']) : null;
         if (!empty($in['seed_asset_id']) && !$seed) { return self::fail('Pick a ready image as the seed scene.'); }
         if (!$seed && $seed_text === '') { return self::fail('Give the carousel a seed scene: an image or a description.'); }

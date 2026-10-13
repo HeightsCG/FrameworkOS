@@ -21,7 +21,7 @@ class InfluencerService {
      * textarea rows, placeholder. {Her} in a label follows the influencer's gender.
      */
     const PERSONA = array(
-        'persona_description'   => array('label' => 'Description',               'max' => 3000, 'rows' => 3, 'placeholder' => '24, grew up in Tampa, moved to Miami for nursing school'),
+        'persona_description'   => array('label' => 'Description',               'max' => 20000, 'rows' => 3, 'placeholder' => '24, grew up in Tampa, moved to Miami for nursing school'),
         'persona_personality'   => array('label' => 'Personality',               'max' => 1000, 'rows' => 2, 'placeholder' => 'Warm, teasing, a little shy at first'),
         'persona_speaking'      => array('label' => 'Way Of Speaking',           'max' => 1000, 'rows' => 2, 'placeholder' => 'Short sentences, lowercase, no emoji'),
         'persona_niche'         => array('label' => 'Niche',                     'max' => 255,  'rows' => 1, 'placeholder' => 'Fitness and gym life'),
@@ -192,9 +192,11 @@ class InfluencerService {
     );
 
     /** The longest body or face description kept (2026-10-13: 600 and then 2,000 both cut a careful description mid-word). Both columns are TEXT. */
-    const BODY_MAX = 10000;
+    const BODY_MAX = 20000;
     /** The longest "adjust this image" instruction, and the longest "add to every photo" line of the training set. */
-    const CHANGE_MAX = 4000;
+    const CHANGE_MAX = 20000;
+    /** Prompts, scripts and instructions are not cut to a short length (Daniel, 2026-10-13: stop limiting the character count). This only keeps a value inside its TEXT column. */
+    const TEXT_MAX = 20000;
 
     /** A body description as stored: one line, at most BODY_MAX characters. */
     public static function body_text($text){

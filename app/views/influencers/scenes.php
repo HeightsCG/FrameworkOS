@@ -31,7 +31,7 @@
                 <form class="inf-sedit" id="infSceneEditForm" autocomplete="off" onsubmit="return false;">
                     <input type="hidden" id="infSceneEditId" value="0">
                     <div class="ai-field"><label class="ai-label" for="infSceneEditName">Title</label><input type="text" class="form-control" id="infSceneEditName" maxlength="120" placeholder="Rooftop Cafe"><p class="ai-error" data-err="title" role="alert" hidden></p></div>
-                    <div class="ai-field"><label class="ai-label" for="infSceneEditPrompt">Base Prompt</label><textarea class="form-control" id="infSceneEditPrompt" rows="5" maxlength="4000" placeholder="photo of a {subject} at a rooftop cafe at golden hour, iced coffee in hand"></textarea><p class="ai-error" data-err="base_prompt" role="alert" hidden></p></div>
+                    <div class="ai-field"><label class="ai-label" for="infSceneEditPrompt">Base Prompt</label><textarea class="form-control" id="infSceneEditPrompt" rows="5" placeholder="photo of a {subject} at a rooftop cafe at golden hour, iced coffee in hand"></textarea><p class="ai-error" data-err="base_prompt" role="alert" hidden></p></div>
                     <div class="ai-field"><div class="ai-label" id="infSceneEditAspectLabel">Shape</div><div class="inf-seg" id="infSceneEditAspect" role="group" aria-labelledby="infSceneEditAspectLabel"></div><p class="ai-error" data-err="default_aspect" role="alert" hidden></p></div>
                     <div class="inf-sedit__foot">
                         <div class="inf-sedit__thumb">

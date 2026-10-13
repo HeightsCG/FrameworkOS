@@ -68,8 +68,8 @@ class InfluencerActions {
             $f['reference_model_key'] = $mk ? (string) $mk['key'] : InfluencerConfig::default_model_key('reference');
         }
         if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, InfluencerService::CHANGE_MAX); }
-        if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, 2000); }
-        if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, 2000); }
+        if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, InfluencerService::TEXT_MAX); }
+        if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, InfluencerService::TEXT_MAX); }
         if (array_key_exists('body_description', $in)) { $f['body_description'] = InfluencerService::body_text($in['body_description']); }
         foreach (InfluencerService::PERSONA as $col => $def) {
             if (array_key_exists($col, $in)) { $f[$col] = mb_substr(trim((string) $in[$col]), 0, (int) $def['max']); }
@@ -456,7 +456,7 @@ class InfluencerActions {
         if ((string) $infl['status'] !== 'ready' || empty($infl['active_model_id'])) { return self::fail($infl['name'] . ' has no trained model yet.'); }
         $model = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']);
         if (!$model || (string) $model['status'] !== 'ready') { return self::fail($infl['name'] . '\'s active model is not ready.'); }
-        $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
+        $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         if ($user_prompt === '') { return self::fail('Write a prompt first.'); }
         $defaults = InfluencerService::look_defaults($infl);   // her body words, then her own Always Add To Prompts
         $trigger  = (string) $model['trigger_word'];
@@ -533,7 +533,7 @@ class InfluencerActions {
         // Any ready image in the creator's Studio Library can be animated (get_one already scopes it to them).
         $mk = InfluencerConfig::resolve_model('video', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No video model is configured.'); }
-        $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 2000);
+        $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         $defaults = trim((string) ($infl['prompt_defaults'] ?? ''));
         // What the creator typed for this clip leads; her standing text follows it, as on images (it used to go in front).
         $prompt   = InfluencerService::scene_prompt('', $user_prompt, $defaults);
@@ -582,7 +582,7 @@ class InfluencerActions {
         $trigger = '';
         if (!empty($infl['active_model_id'])) { $mdl = (new InfluencerModelsModel())->get_by_id($infl['active_model_id']); $trigger = $mdl ? (string) $mdl['trigger_word'] : ''; }
         if (!ClaudeService::configured()) { return self::fail('Prompt writing is not available right now.'); }
-        $hint = mb_substr(trim((string) $hint), 0, 500);
+        $hint = mb_substr(trim((string) $hint), 0, InfluencerService::TEXT_MAX);
         $noun = InfluencerService::noun($infl);
         list($pr, $po, $ps) = InfluencerService::pronouns($infl);
         if ($kind === 'video') {

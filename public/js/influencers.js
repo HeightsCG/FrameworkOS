@@ -417,7 +417,7 @@ jQuery(function ($) {
             return '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_body_text">Body Description</label>' + prebuilt_link('inf_body_pre', body_prebuilt()) + '</div>' +
-                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="10000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_body_pre') +
                 '</div>' +
@@ -704,7 +704,7 @@ jQuery(function ($) {
                     '<figure class="inf-look__pane"><div class="inf-look__img inf-look__img--next" id="inf_look_next"></div><figcaption>After</figcaption></figure>' +
                     '</div>' +
                     '<div class="inf-field"><label class="inf-label" for="inf_look_text">What Should Change</label>' +
-                    '<textarea class="form-control" id="inf_look_text" rows="2" maxlength="500" placeholder="' + esc(LOOK_IDEAS[0]) + '"></textarea>' +
+                    '<textarea class="form-control" id="inf_look_text" rows="2" placeholder="' + esc(LOOK_IDEAS[0]) + '"></textarea>' +
                     '<div class="inf-chips" id="inf_look_ideas">' + LOOK_IDEAS.map(function (t) { return '<button type="button" class="inf-chip">' + esc(t) + '</button>'; }).join('') + '</div></div>' +
                     '<p class="inf-err" id="inf_look_err" role="alert" hidden></p>' +
                     '</div>' +
@@ -803,12 +803,12 @@ jQuery(function ($) {
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="10000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_set_bodypre') +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light" aria-describedby="inf_set_defaults_note">' + esc(inf.prompt_defaults || '') + '</textarea>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" placeholder="film grain, natural light" aria-describedby="inf_set_defaults_note">' + esc(inf.prompt_defaults || '') + '</textarea>' +
                 '<p class="inf-field__note" id="inf_set_defaults_note">Optional. Added to every image and video, so it can conflict with what you type for a single one.</p></div>' +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" maxlength="2000" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_negative">Never Include</label><textarea class="form-control" id="inf_set_negative" rows="3" placeholder="blurry, extra fingers">' + esc(inf.negative_prompt) + '</textarea></div>' +
                 '</div></section>' +
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Persona</h2></div>' + ((window.TUT_BTN || {})['21'] || '') + '</div>' +
                 '<div class="inf-about__fields inf-persona">' + persona_fields() + '</div>' +
@@ -1002,7 +1002,7 @@ jQuery(function ($) {
             var html = '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
-                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" maxlength="10000" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
+                '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
                 prebuilt_pop('inf_ref_pre', faces) +
                 '</div>' +
                 '<div class="inf-wiz__view inf-face">' +   // the picture on a quiet stage; its versions and the Adjust box sit in a panel beside it once a picture exists
@@ -1010,7 +1010,7 @@ jQuery(function ($) {
                 '<div class="inf-face__side">' +
                 '<div class="inf-field inf-face__versions"><div class="inf-label">Versions</div><div class="inf-ref__row" id="inf_ref_row" hidden></div></div>' +
                 '<div class="inf-adjust inf-field" id="inf_ref_adjust" hidden><label class="inf-label" for="inf_ref_change">Adjust This Image</label>' +
-                '<textarea class="form-control" id="inf_ref_change" maxlength="4000" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
+                '<textarea class="form-control" id="inf_ref_change" placeholder="Shorter hair, green eyes, a few years older"></textarea>' +
                 '<button type="button" class="btn btn-secondary" id="inf_ref_apply" disabled>Adjust</button></div>' +
                 '</div>' +
                 '</div></div>' +
@@ -1132,7 +1132,7 @@ jQuery(function ($) {
         function render_set() {
             clearTimeout(set_timer);
             var size = LIM.set_size, his = (inf.gender === 'man') ? 'His' : 'Her';
-            var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><textarea class="form-control inf-steer" id="inf_steer" rows="4" maxlength="4000" placeholder="soft natural light, minimal makeup">' + esc(inf.steer_text) + '</textarea></div></div>' +
+            var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><textarea class="form-control inf-steer" id="inf_steer" rows="4" placeholder="soft natural light, minimal makeup">' + esc(inf.steer_text) + '</textarea></div></div>' +
                 '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + his + ' face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
                 '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +

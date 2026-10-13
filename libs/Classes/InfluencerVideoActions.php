@@ -314,7 +314,7 @@ class InfluencerVideoActions {
         @unlink($tmp);
         if (empty($mod['ok'])) { return self::fail($mod['error'], array('blocked_source' => true)); }
 
-        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 4000);
+        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         $opts = array('subject' => (string) ($in['subject'] ?? ''), 'outfit' => (($in['outfit'] ?? '') === 'reference') ? 'reference' : 'video',
             'lock_others' => !empty($in['lock_others']), 'remove_text' => !empty($in['remove_text']), 'ref_count' => count($refs));
         if ($prompt === '') {
@@ -458,7 +458,7 @@ class InfluencerVideoActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $b = self::scene_build($cid, $infl, $in);
         if (empty($b['ok'])) { return $b; }
-        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, 6000);
+        $prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         if ($prompt === '') { $prompt = (string) $b['prompt']; }
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'scene', array(

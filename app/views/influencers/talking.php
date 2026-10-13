@@ -20,7 +20,7 @@
             </div>
             <div class="inf-field" id="inf_tk_script_wrap">
                 <div class="inf-field__row"><label class="inf-label" for="inf_tk_script">Script</label><a class="inf-link" data-href="/influencers/voice/<?php echo (int) $infl['id']; ?>" id="inf_tk_voice" hidden></a></div>
-                <textarea class="form-control inf-gen__prompt" id="inf_tk_script" rows="7" maxlength="20000" placeholder="Okay, I have to tell you something"></textarea>
+                <textarea class="form-control inf-gen__prompt" id="inf_tk_script" rows="7" placeholder="Okay, I have to tell you something"></textarea>
             </div>
             <div class="inf-field" id="inf_tk_audio_wrap" hidden>
                 <div class="inf-label" id="inf_tk_aud_label">Recording</div>

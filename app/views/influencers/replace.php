@@ -16,7 +16,7 @@
             <div class="inf-after" id="inf_rp_after">
             <div class="inf-field">
                 <label class="inf-label" for="inf_rp_subject">Who Does <?php echo $e($infl['name']); ?> Replace</label>
-                <input type="text" class="form-control" id="inf_rp_subject" maxlength="200" placeholder="Woman in the red jacket">
+                <input type="text" class="form-control" id="inf_rp_subject" placeholder="Woman in the red jacket">
             </div>
             <div class="inf-field">
                 <div class="inf-label">What <?php echo ((string) ($infl['gender'] ?? '') === 'man') ? 'He Wears' : 'She Wears'; ?></div>
@@ -41,7 +41,7 @@
                 <summary>Prompt</summary>
                 <div class="inf-field">
                     <div class="inf-field__row"><label class="visually-hidden" for="inf_rp_prompt">Prompt</label><button type="button" class="inf-link" id="inf_rp_rewrite" hidden><i class="fa-solid fa-rotate-right"></i> Rewrite</button></div>
-                <textarea class="form-control inf-gen__prompt" id="inf_rp_prompt" maxlength="4000" rows="7" placeholder="Choose a source video" disabled></textarea>
+                <textarea class="form-control inf-gen__prompt" id="inf_rp_prompt" rows="7" placeholder="Choose a source video" disabled></textarea>
                 </div>
             </details>
                 <p class="inf-err" id="inf_rp_err" role="alert" hidden></p>

@@ -65,14 +65,14 @@ class ApiInfluencerVideosController extends BaseApiController {
         $user = $this->ai_user();
         set_time_limit(120);
         $in = array('video_asset_id' => (int) ($this->post['video_asset_id'] ?? 0), 'image_asset_id' => (int) ($this->post['image_asset_id'] ?? 0),
-            'quality' => (string) ($this->post['quality'] ?? ''), 'model_key' => (string) ($this->post['model_key'] ?? ''), 'prompt' => $this->text('prompt', 1500));
+            'quality' => (string) ($this->post['quality'] ?? ''), 'model_key' => (string) ($this->post['model_key'] ?? ''), 'prompt' => $this->text('prompt', InfluencerService::TEXT_MAX));
         $this->answer(InfluencerVideoActions::motion_start((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $in, 'studio'));
     }
 
     /* ---- character replacement ---- */
 
     private function replace_in(){
-        return array('video_asset_id' => (int) ($this->post['video_asset_id'] ?? 0), 'subject' => $this->text('subject', 200),
+        return array('video_asset_id' => (int) ($this->post['video_asset_id'] ?? 0), 'subject' => $this->text('subject', InfluencerService::TEXT_MAX),
             'outfit' => ((string) ($this->post['outfit'] ?? 'video') === 'reference') ? 'reference' : 'video',
             'lock_others' => $this->on('lock_others'), 'remove_text' => $this->on('remove_text'), 'model_key' => (string) ($this->post['model_key'] ?? ''));
     }
@@ -87,7 +87,7 @@ class ApiInfluencerVideosController extends BaseApiController {
         $user = $this->ai_user();
         set_time_limit(300);
         $in = $this->replace_in();
-        $in['prompt']   = $this->text('prompt', 4000);
+        $in['prompt']   = $this->text('prompt', InfluencerService::TEXT_MAX);
         $in['attested'] = $this->on('attested');
         $this->answer(InfluencerVideoActions::replace_start((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $in, 'studio'));
     }
@@ -95,8 +95,8 @@ class ApiInfluencerVideosController extends BaseApiController {
     /* ---- long dialogue scenes ---- */
 
     private function scene_in(){
-        $in = array('lines' => (array) $this->json_field('lines'), 'setting' => $this->text('setting', 800), 'second' => (string) ($this->post['second'] ?? 'none'),
-            'second_influencer_id' => (int) ($this->post['second_influencer_id'] ?? 0), 'second_description' => $this->text('second_description', 300),
+        $in = array('lines' => (array) $this->json_field('lines'), 'setting' => $this->text('setting', InfluencerService::TEXT_MAX), 'second' => (string) ($this->post['second'] ?? 'none'),
+            'second_influencer_id' => (int) ($this->post['second_influencer_id'] ?? 0), 'second_description' => $this->text('second_description', InfluencerService::TEXT_MAX),
             'second_gender' => (string) ($this->post['second_gender'] ?? 'woman'), 'seconds' => (int) ($this->post['seconds'] ?? 0));
         foreach (['aspect', 'model_key'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         return $in;
@@ -110,7 +110,7 @@ class ApiInfluencerVideosController extends BaseApiController {
     public function influencer_scene_startAction(){
         $user = $this->ai_user();
         $in = $this->scene_in();
-        $in['prompt'] = $this->text('prompt', 6000);
+        $in['prompt'] = $this->text('prompt', InfluencerService::TEXT_MAX);
         $this->answer(InfluencerVideoActions::scene_start((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $in, 'studio'));
     }
 }

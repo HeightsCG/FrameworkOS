@@ -188,7 +188,7 @@ window.AiTools = (function ($) {
               '<figure class="ai-edit__img"><img id="aiEditImg" alt=""><div class="ai-edit__busy" id="aiEditBusy" hidden><span class="spinner-border text-primary" role="status"></span><p id="aiEditBusyText">Generating</p></div></figure>' +
               '<div class="ai-edit__form">' +
                 '<div class="ai-field"><label class="ai-label" for="aiEditInstruction">Change</label>' +
-                '<textarea class="form-control" id="aiEditInstruction" rows="4" maxlength="1500" placeholder="Make the dress red"></textarea>' +
+                '<textarea class="form-control" id="aiEditInstruction" rows="4" placeholder="Make the dress red"></textarea>' +
                 '<p class="ai-error" id="aiEditError" role="alert" hidden></p></div>' +
                 '<div class="ai-field"><div class="ai-label" id="aiEditModelLabel">Model</div><div class="ai-opts" id="aiEditModels" role="group" aria-labelledby="aiEditModelLabel"></div></div>' +
               '</div>' +

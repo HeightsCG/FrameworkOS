@@ -49,7 +49,7 @@
                 </button>
                 <div class="inf-cv__write">
                     <label class="visually-hidden" for="inf_car_text">Scene</label>
-                    <textarea class="form-control inf-cv__prompt" id="inf_car_text" maxlength="2000" rows="2" placeholder="Morning coffee on a balcony, white robe, potted plants, a small dog"></textarea>
+                    <textarea class="form-control inf-cv__prompt" id="inf_car_text" rows="2" placeholder="Morning coffee on a balcony, white robe, potted plants, a small dog"></textarea>
                 </div>
             </div>
             <p class="inf-err" id="inf_car_err" role="alert" hidden></p>

@@ -32,7 +32,7 @@
             </div>
             <div class="inf-field">
                 <label class="inf-label" for="inf_mo_prompt">Extra Direction (Optional)</label>
-                <input type="text" class="form-control" id="inf_mo_prompt" maxlength="1500" placeholder="Dancing in a bedroom, smiling">
+                <input type="text" class="form-control" id="inf_mo_prompt" placeholder="Dancing in a bedroom, smiling">
             </div>
 
             <div class="inf-gen__submit">

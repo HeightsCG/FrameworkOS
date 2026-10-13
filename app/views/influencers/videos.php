@@ -72,7 +72,7 @@
                 <button type="button" class="inf-cv__source" data-pop="inf_pop_still" aria-expanded="false" aria-label="Choose the image to animate"><img alt="" data-pop-thumb="#inf_stills .inf-photo.is-on img" hidden><span class="inf-cv__sourceph"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span></span></button>
                 <div class="inf-cv__write">
                     <label class="visually-hidden" for="inf_vprompt">How it should move</label>
-                    <textarea class="form-control inf-cv__prompt" id="inf_vprompt" rows="2" maxlength="2000" placeholder="<?php echo $e($gp['video'][0]); ?>"></textarea>
+                    <textarea class="form-control inf-cv__prompt" id="inf_vprompt" rows="2" placeholder="<?php echo $e($gp['video'][0]); ?>"></textarea>
                 </div>
             </div>
             <div class="inf-cv__bar">

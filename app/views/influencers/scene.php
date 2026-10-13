@@ -17,7 +17,7 @@
                 <select class="form-select" id="inf_sc_other"><?php foreach ($others as $r): ?><option value="<?php echo (int) $r['id']; ?>"><?php echo $e($r['name']); ?></option><?php endforeach; ?></select>
             </div>
                 <div class="inf-grid" id="inf_sc_desc_wrap" hidden>
-                <div class="inf-field inf-field--full"><label class="inf-label" for="inf_sc_desc">What The Other Person Looks Like</label><input type="text" class="form-control" id="inf_sc_desc" maxlength="300" placeholder="Tall blonde woman in a denim jacket"></div>
+                <div class="inf-field inf-field--full"><label class="inf-label" for="inf_sc_desc">What The Other Person Looks Like</label><input type="text" class="form-control" id="inf_sc_desc" placeholder="Tall blonde woman in a denim jacket"></div>
                 <div class="inf-field inf-field--full"><div class="inf-label">The Other Person Is A</div>
                     <div class="inf-seg" id="inf_sc_gender" role="group" aria-label="Gender"><button type="button" class="inf-seg__opt is-on" data-value="woman" aria-pressed="true"><span>Woman</span></button><button type="button" class="inf-seg__opt" data-value="man" aria-pressed="false"><span>Man</span></button></div></div>
             </div>
@@ -36,12 +36,12 @@
             </div>
 
             <label class="inf-label" for="inf_sc_setting">Where It Happens</label>
-            <input type="text" class="form-control" id="inf_sc_setting" maxlength="800" placeholder="A parked car at dusk, phone on the dashboard">
+            <input type="text" class="form-control" id="inf_sc_setting" placeholder="A parked car at dusk, phone on the dashboard">
             <div class="inf-script__head">
                 <label class="inf-label" for="inf_sc_script">What Is Said</label>
                 <span class="inf-script__names" id="inf_sc_names" hidden></span>
             </div>
-            <textarea class="form-control inf-script__text" id="inf_sc_script" maxlength="12000"></textarea>
+            <textarea class="form-control inf-script__text" id="inf_sc_script"></textarea>
             <p class="inf-err" id="inf_sc_err" role="alert" hidden></p>
             <div class="inf-cv__bar">
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_swho" aria-expanded="false"><i class="fa-solid fa-user-plus" aria-hidden="true"></i> <span data-pop-label="#inf_sc_second .inf-seg__opt.is-on" data-pop-prefix="With " data-pop-none="No One" data-pop-default="Add Someone Else">Add Someone Else</span></button>

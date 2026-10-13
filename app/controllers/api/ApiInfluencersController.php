@@ -233,7 +233,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $in = array('prompt' => $this->text('prompt', 4000));
+        $in = array('prompt' => $this->text('prompt', InfluencerService::TEXT_MAX));
         foreach (['model_key', 'image_size', 'num_images', 'seed', 'guidance', 'steps', 'lora_scale', 'style'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_image($cid, $infl, $in, 'studio'));
     }
@@ -256,7 +256,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $kind = ((string) ($this->post['kind'] ?? 'image') === 'video') ? 'video' : 'image';
-        $this->answer(InfluencerActions::prompt_auto($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->text('hint', 500), $kind));
+        $this->answer(InfluencerActions::prompt_auto($cid, $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->text('hint', InfluencerService::TEXT_MAX), $kind));
     }
 
     /** Delete one of her generated/uploaded files from the library. */
@@ -282,7 +282,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $in = array('asset_id' => (int) ($this->post['asset_id'] ?? 0), 'prompt' => $this->text('prompt', 2000));
+        $in = array('asset_id' => (int) ($this->post['asset_id'] ?? 0), 'prompt' => $this->text('prompt', InfluencerService::TEXT_MAX));
         foreach (['model_key', 'duration'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         $this->answer(InfluencerActions::generate_video($cid, $infl, $in, 'studio'));
     }

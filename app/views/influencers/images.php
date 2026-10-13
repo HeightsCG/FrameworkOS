@@ -92,7 +92,7 @@
             <?php endif; ?>
 
             <label class="visually-hidden" for="inf_prompt">Describe the photo</label>
-            <textarea class="form-control inf-cv__prompt" id="inf_prompt" rows="2" maxlength="4000" placeholder="<?php echo $e($ideas[0] ?? ''); ?>"></textarea>
+            <textarea class="form-control inf-cv__prompt" id="inf_prompt" rows="2" placeholder="<?php echo $e($ideas[0] ?? ''); ?>"></textarea>
             <div class="inf-cv__bar">
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_ideas" aria-expanded="false"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Ideas</button>
                 <?php if (!$brand): ?>

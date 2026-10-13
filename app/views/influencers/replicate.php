@@ -73,7 +73,7 @@
             </div>
             <div class="inf-pop inf-pop--stay" id="inf_pop_rmore" hidden>
                 <div class="inf-pop__h">More Settings</div>
-                <div class="inf-field"><label class="inf-label" for="inf_rep_extra">Extra Instruction</label><input type="text" class="form-control" id="inf_rep_extra" maxlength="500" placeholder="Golden hour light"></div>
+                <div class="inf-field"><label class="inf-label" for="inf_rep_extra">Extra Instruction</label><input type="text" class="form-control" id="inf_rep_extra" placeholder="Golden hour light"></div>
                 <div class="inf-field" style="margin-top:12px"><div class="inf-label">Images</div><div class="inf-seg" id="inf_rep_n" role="group" aria-label="Images">
                     <?php foreach (array(1, 2, 3, 4) as $n): ?><button type="button" class="inf-seg__opt<?php echo $n === 1 ? ' is-on' : ''; ?>" data-value="<?php echo $n; ?>" aria-pressed="<?php echo $n === 1 ? 'true' : 'false'; ?>"><span><?php echo $n; ?></span></button><?php endforeach; ?>
                 </div></div>
@@ -83,7 +83,7 @@
                 <button type="button" class="inf-cv__source" id="inf_rep_srcbtn" aria-label="Source photo"><img alt="" data-pop-thumb="#inf_rep_img" hidden><span class="inf-cv__sourceph"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span></span></button>
                 <div class="inf-cv__write">
                     <label class="visually-hidden" for="inf_rep_prompt">Prompt</label>
-                    <textarea class="form-control inf-cv__prompt" id="inf_rep_prompt" maxlength="4000" rows="2" placeholder="Choose a source photo" disabled></textarea>
+                    <textarea class="form-control inf-cv__prompt" id="inf_rep_prompt" rows="2" placeholder="Choose a source photo" disabled></textarea>
                 </div>
             </div>
             <p class="inf-err" id="inf_rep_err" role="alert" hidden></p>
