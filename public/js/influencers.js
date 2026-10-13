@@ -1131,7 +1131,7 @@ jQuery(function ($) {
         function render_set() {
             clearTimeout(set_timer);
             var size = LIM.set_size, his = (inf.gender === 'man') ? 'His' : 'Her';
-            var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><input type="text" class="form-control" id="inf_steer" maxlength="1000" placeholder="soft natural light, minimal makeup" value="' + esc(inf.steer_text) + '"></div></div>' +
+            var html = '<div class="inf-grid" id="inf_set_form"><div class="inf-field inf-field--full"><label class="inf-label" for="inf_steer">Add To Every Photo</label><textarea class="form-control inf-steer" id="inf_steer" rows="4" maxlength="4000" placeholder="soft natural light, minimal makeup">' + esc(inf.steer_text) + '</textarea></div></div>' +
                 '<p class="inf-note" id="inf_set_stale" role="status" hidden><i class="fa-solid fa-circle-info" aria-hidden="true"></i> ' + his + ' face or body changed after these photos were made. Regenerate them so the model learns the new look.</p>' +
                 '<div class="inf-setprog" id="inf_set_prog" hidden><span class="inf-setprog__n"><strong id="inf_set_done">0</strong> of ' + size + '</span><div class="inf-counter__bar"><div class="inf-counter__fill" id="inf_set_bar"></div></div></div>' +
                 '<div class="inf-photos inf-photos--set" id="inf_set_grid" hidden></div>' +

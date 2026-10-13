@@ -1164,3 +1164,4 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 /* Every wizard step uses the same light stage as the Face step, so an empty or loading picture area is not a black slab. */
 .inf-wiz__view .inf-wiz__stage{ background:var(--bg); border:1px solid var(--line); }
 .inf-wiz__view .inf-wiz__stage .inf-gen__idle, .inf-wiz__view .inf-wiz__stage .inf-gen__busy{ color:var(--muted); }
+.inf .inf-steer{ min-height:112px; resize:vertical; line-height:1.5; }

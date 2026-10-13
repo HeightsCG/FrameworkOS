@@ -203,7 +203,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
-        $this->answer(InfluencerActions::training_set_start($cid, $infl, isset($this->post['steer_text']) ? $this->text('steer_text', 1000) : null));
+        $this->answer(InfluencerActions::training_set_start($cid, $infl, isset($this->post['steer_text']) ? $this->text('steer_text', InfluencerService::CHANGE_MAX) : null));
     }
 
     public function influencer_training_set_statusAction(){

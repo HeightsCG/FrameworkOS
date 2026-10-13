@@ -67,7 +67,7 @@ class InfluencerActions {
             $mk = InfluencerConfig::resolve_model('reference', (string) $in['reference_model_key']);
             $f['reference_model_key'] = $mk ? (string) $mk['key'] : InfluencerConfig::default_model_key('reference');
         }
-        if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, 1000); }
+        if (array_key_exists('steer_text', $in))      { $f['steer_text'] = mb_substr(trim((string) $in['steer_text']), 0, InfluencerService::CHANGE_MAX); }
         if (array_key_exists('prompt_defaults', $in)) { $f['prompt_defaults'] = mb_substr(trim((string) $in['prompt_defaults']), 0, 2000); }
         if (array_key_exists('negative_prompt', $in)) { $f['negative_prompt'] = mb_substr(trim((string) $in['negative_prompt']), 0, 2000); }
         if (array_key_exists('body_description', $in)) { $f['body_description'] = InfluencerService::body_text($in['body_description']); }
@@ -346,11 +346,11 @@ class InfluencerActions {
         if (empty($infl['reference_asset_id'])) { return self::fail('Approve a reference image first.'); }
         if (!empty($infl['pending_model_id'])) { return self::fail('Training is in progress.'); }
         $m = new InfluencersModel();
-        if ($steer_text !== null) { $m->update_fields($cid, $infl['id'], array('steer_text' => mb_substr(trim((string) $steer_text), 0, 1000))); $infl = $m->get_one($cid, $infl['id']); }
+        if ($steer_text !== null) { $m->update_fields($cid, $infl['id'], array('steer_text' => mb_substr(trim((string) $steer_text), 0, InfluencerService::CHANGE_MAX))); $infl = $m->get_one($cid, $infl['id']); }
         $model = InfluencerConfig::resolve_model('training_set', '');
         if (!$model) { return self::fail('No training-set model is configured.'); }
         $size  = (int) InfluencerConfig::get('training_set_size', 10);
-        $steer = trim((string) $infl['steer_text']);
+        $steer = trim((string) preg_replace('/\s+/', ' ', (string) $infl['steer_text']));   // typed in a multi-line box; one line inside each prompt
         $im = new InfluencerImagesModel();
         if (!empty($infl['training_set_group'])) {   // an earlier set is set aside so only the current one trains
             foreach ($im->list_for_influencer($cid, $infl['id'], 'training') as $old) { $im->set_excluded($cid, $infl['id'], $old['id'], 1); }
