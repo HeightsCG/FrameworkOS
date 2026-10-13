@@ -60,6 +60,7 @@ class ProfileController extends Controller {
             return;
         }
 
+        Session::cache_header(300);   // a signed-out read has no session and no cookie, so it may be cached briefly; a signed-in one stays private
         // A creator with their own domain: logged-out visitors (and crawlers) go there, so the page has one address.
         // Signed-in fans stay here, where their session is. 302 (the canonical tag carries the SEO): a cached 301
         // would keep sending people to the domain after the creator removes it.

@@ -96,7 +96,7 @@ foreach (array('/tools', '/tools/fanquestions', '/tools/fan-questions/x', '/tool
 }
 // Author page (2026-10-12): ProfilePage markup, the name, no first name anywhere; /author/<other> is a 404; the name appears only on the allowed pages.
 $ch = curl_init($base . '/author/dr-glauber'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
-$ok = strpos($body, '"@type":"ProfilePage"') !== false && strpos($body, 'Dr. Glauber') !== false && strpos($body, 'Cybersecurity in the Age of AI') !== false && stripos($body, 'daniel') === false && strpos($body, '<article') === false;
+$ok = strpos($body, '"@type":["ProfilePage","WebPage"]') !== false && strpos($body, 'Dr. Glauber') !== false && strpos($body, 'Cybersecurity in the Age of AI') !== false && stripos($body, 'daniel') === false && strpos($body, '<article') === false;
 echo ($ok ? 'ok   ' : 'FAIL ') . "/author/dr-glauber ProfilePage + bio, no first name, no <article>\n"; if (!$ok) { $fail++; }
 $ch = curl_init($base . '/author/x'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
 echo ($code === 404 ? 'ok   ' : 'FAIL ') . "/author/x → 404 ($code)\n"; if ($code !== 404) { $fail++; }

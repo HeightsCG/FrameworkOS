@@ -27,14 +27,14 @@ echo '<ol class="fx-steps">'
     . '<li><h3>Upload once</h3><p>Add a photo or a video in the studio. AI drafts the caption in your voice and trims it for each network.</p></li>'
     . '<li><h3>Publish everywhere</h3><p>The same post goes to your page and to the nine networks you connect, now, on a schedule, or by an automation.</p></li>'
     . '<li><h3>Fans pay on your page</h3><p>They follow for free, join a tier, unlock a post, buy a bundle or book a session, from one wallet they load once.</p></li>'
-    . '<li class="is-last"><h3>Cash out</h3><p>Every sale lands in one balance net of your plan fee, ' . $e($fee) . '. Payouts go to your bank on request from ' . $e($min) . '.</p></li>'
+    . '<li class="is-last"><h3>Cash out</h3><p>Every sale lands in one balance net of your plan\'s platform fee, ' . $e($fee) . '. Payouts go to your bank on request from ' . $e($min) . '.</p></li>'
     . '</ol>';
 echo Sections::close();
 
 /* What fans can buy, as a table a reader uses: how each thing is paid for, what the fan gets, and when the money is yours. */
 echo Sections::open('alt', 'What can fans buy from your page?', 'Six ways to be paid, all on the one page at your handle.', 'sell');
 echo Sections::table(array('What you sell', 'How fans pay', 'What the fan gets', 'When it reaches your balance'), array(
-    array($e('Membership tiers'), $e('By card, on the tier\'s billing interval, with a free trial if you set one.'), $e('Every post you target at that tier, for as long as they stay.'), $e('Each billing, net of the plan fee.')),
+    array($e('Membership tiers'), $e('By card, on the tier\'s billing interval, with a free trial if you set one.'), $e('Every post you target at that tier, for as long as they stay.'), $e('Each billing, net of the platform fee.')),
     array($e('Pay-per-view posts'), $e('From the credit wallet, in one tap.'), $e('That post, unblurred, kept in their purchases.'), $e('At the unlock.')),
     array($e('Bundles'), $e('From the credit wallet.'), $e('A set of media from your library, saved to their purchases.'), $e('At the purchase.')),
     array($e('Services'), $e('From the credit wallet when they book.'), $e('The booking, with access details shared after purchase.'), $e('At the booking.')),
@@ -79,7 +79,7 @@ echo Sections::close();
 /* Payouts: the facts, in prose, as the jump target. */
 echo Sections::prose_id('white', 'How do payouts work?', 'payouts', array(
     'Every sale lands in one balance, net of your plan\'s platform fee, which is ' . $fee . '. Memberships bill the fan\'s card; unlocks, bundles, services and tickets are paid from the fan\'s credit wallet. Earnings from an event are released after the event has taken place.',
-    'You cash out to your bank on request from a ' . $min . ' balance, with no platform hold on content, membership or service sales. Payouts are available in every country our payment processor supports, and your audience list, media and posts export whenever you want them.',
+    'You cash out to your bank on request from a ' . $min . ' balance, with no platform hold on content, membership or service sales. Earnings from an event are released after the event has taken place. Payouts are available in every country our payment processor supports, and your audience list, media and posts export whenever you want them.',
 ), 'One balance, paid to your bank on request.');
 
 /* The detailed pages, as a plain list a reader scans. */

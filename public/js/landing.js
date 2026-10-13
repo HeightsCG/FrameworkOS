@@ -346,8 +346,10 @@ $(document).ready(function() {
             tabs.forEach(function(t, k) {
                 var on = k === i;
                 t.classList.toggle('is-on', on);
-                t.setAttribute('aria-selected', on ? 'true' : 'false');
-                t.setAttribute('tabindex', on ? '0' : '-1');
+                if (t.tagName === 'BUTTON') {   // the small eyebrow words are decoration, not tabs
+                    t.setAttribute('aria-selected', on ? 'true' : 'false');
+                    t.setAttribute('tabindex', on ? '0' : '-1');
+                }
                 var bar = t.querySelector('.hx__bar i');
                 bar.style.animation = 'none';
                 void bar.offsetWidth;

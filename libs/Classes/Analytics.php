@@ -4,8 +4,10 @@
  * /admin/analytics and the creator dashboard (SiteAnalyticsModel). Google Analytics and HeyCatch keep running beside it;
  * this is the copy we own.
  *
- *  - begin()    runs early in Bootstrap for every web request: reads or sets the visitor cookie (cls_vid, 2 years, random)
- *               and the session cookie (cls_sid, 30 minutes idle). Both are plain random ids, never derived from the IP.
+ *  - begin()    runs early in Bootstrap for a request that has a session: reads or sets the visitor cookie (cls_vid, 2 years,
+ *               random) and the session cookie (cls_sid, 30 minutes idle). Both are plain random ids, never derived from the IP.
+ *  - defer()    runs instead for a signed-out read of a public page: that response sets no cookie, and the page reports its
+ *               own view after load (beacon_script() -> POST /a/pv -> beacon(), which sets the cookies and writes the row).
  *  - pageview() runs from the <head> include every HTML page shares (libs/Layout/google_analytics.php): one row per
  *               page, with the external referrer and UTM tags on the session's landing hit, device/browser/os from the
  *               user agent, the country from an edge header when the host sends one, the signed-in account, and the
@@ -31,6 +33,52 @@ class Analytics {
     private static $new_session = false;
     private static $begun = false;
     private static $recorded = false;
+    private static $deferred = false;
+
+    /** Paths the page-view beacon answers on (Bootstrap routes it before the session starts). */
+    const BEACON_PATH = '/a/pv';
+
+    /**
+     * A signed-out read of a public page (Bootstrap::anonymous_public_get): the response sets no cookie and records nothing,
+     * so it stays cacheable. beacon_script() in the <head> then reports the view after load, and beacon() does the cookie
+     * work and the row on that request instead.
+     */
+    public static function defer(): void { self::$deferred = true; self::$begun = true; }
+
+    /** The after-load page-view call for a deferred page; '' on every other request. */
+    public static function beacon_script(): string {
+        if (!self::$deferred) { return ''; }
+        $status = (int) (http_response_code() ?: 200) === 404 ? 404 : 200;
+        return '<script>(function(){var go=function(){try{var d=new URLSearchParams();d.set("p",location.pathname);d.set("q",location.search.slice(0,500));d.set("r",(document.referrer||"").slice(0,255));d.set("s","' . $status . '");'
+            . 'fetch("' . self::BEACON_PATH . '",{method:"POST",body:d,credentials:"same-origin",keepalive:true}).catch(function(){});}catch(e){}};'
+            . 'if(document.readyState==="complete"){setTimeout(go,0);}else{window.addEventListener("load",function(){setTimeout(go,0);},{once:true});}})();</script>' . "\n";
+    }
+
+    /**
+     * The beacon request: reads or sets the two cookies (still HttpOnly, set by this response, never by a page) and records
+     * the page view the script describes. Only a same-site POST counts; the path, referrer and UTM tags come from the page,
+     * the creator from the handle in the path. Always answers 204.
+     */
+    public static function beacon(): void {
+        if (!headers_sent()) { http_response_code(204); header('Cache-Control: no-store'); header('X-Robots-Tag: noindex'); }
+        try {
+            if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { return; }
+            $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
+            $from = (string) ($_SERVER['HTTP_ORIGIN'] ?? ($_SERVER['HTTP_REFERER'] ?? ''));
+            if ($host === '' || strtolower((string) (parse_url($from, PHP_URL_HOST) ?: '')) !== $host) { return; }
+            $path = (string) ($_POST['p'] ?? '');
+            if ($path === '' || $path[0] !== '/' || strpos($path, '//') === 0 || strlen($path) > 255 || preg_match('/[\x00-\x1f<>"]/', $path)) { return; }
+            self::$begun = false; self::$deferred = false;
+            self::begin();
+            $utm = array(); parse_str(ltrim(mb_substr((string) ($_POST['q'] ?? ''), 0, 500), '?'), $utm);
+            $creator = 0;
+            if (preg_match('#^/@([A-Za-z0-9_.-]{1,60})(?:/|$)#', $path, $m)) {
+                $u = (new UsersModel())->get_user_by_username($m[1]);
+                $creator = (int) ($u['user_id'] ?? ($u[0]['user_id'] ?? 0));
+            }
+            self::record_view($path, (string) ($_POST['r'] ?? ''), $utm, (string) ($_POST['s'] ?? '') === '404' ? 404 : 200, $creator);
+        } catch (\Throwable $e) { error_log('[analytics] beacon: ' . $e->getMessage()); }
+    }
 
     /** Bot user agents (the same list the blog view counter uses): never recorded. */
     const BOT_RE = '/bot|crawl|spider|slurp|facebookexternalhit|preview|lighthouse|headless|curl|wget|python|GPTBot|ClaudeBot|Bytespider|Googlebot|bingbot|DuckDuckBot|Applebot|PetalBot|Semrush|Ahrefs|MJ12|DotBot|YandexBot|pingdom|uptime/i';
@@ -67,36 +115,39 @@ class Analytics {
     public static function pageview(): void {
         if (self::$recorded || php_sapi_name() === 'cli') { return; }
         self::$recorded = true;
+        if (self::$deferred) { return; }   // reported after load by beacon_script()
         try {
             self::begin();
-            if (self::is_bot() || self::$visitor === '') { return; }
             if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'GET') { return; }
-            $uri  = (string) ($_SERVER['REQUEST_URI'] ?? '/');
-            $path = (string) (parse_url($uri, PHP_URL_PATH) ?: '/');
-            if (self::excluded($path)) { return; }   // staff and the admin pages are never analytics
-            $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
-            $row  = self::base_row('pageview', '');
-            $row['path']   = mb_substr($path, 0, 255);
-            $row['host']   = mb_substr($host, 0, 100);
-            $row['status'] = (int) (http_response_code() ?: 200);
-            // the external referrer and the UTM tags belong to the session's landing hit
-            $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
-            $ref_host = strtolower((string) (parse_url($ref, PHP_URL_HOST) ?: ''));
-            if ($ref_host !== '' && $ref_host !== $host && preg_replace('/^www\./', '', $ref_host) !== preg_replace('/^www\./', '', $host)) {
-                $row['referrer_host'] = mb_substr(preg_replace('/^www\./', '', $ref_host), 0, 100);
-                $row['referrer']      = mb_substr($ref, 0, 255);
-            }
-            foreach (array('utm_source', 'utm_medium', 'utm_campaign') as $k) { $row[$k] = mb_substr(trim((string) ($_GET[$k] ?? '')), 0, $k === 'utm_campaign' ? 150 : 100); }
-            $row['is_landing'] = self::$new_session ? 1 : 0;
-            $row['is_new']     = self::$new_visitor ? 1 : 0;
-            $row['landing']    = self::$new_session ? mb_substr($path, 0, 255) : self::session_landing();
-            $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
-            $row += self::ua($ua);
-            $row['country'] = self::country();
-            $row['creator_id'] = (int) self::$creator_id;
-            (new SiteAnalyticsModel())->record($row);
-            if (random_int(1, 1000) === 1) { (new SiteAnalyticsModel())->purge(self::KEEP_DAYS); }
+            $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
+            self::record_view((string) (parse_url($uri, PHP_URL_PATH) ?: '/'), (string) ($_SERVER['HTTP_REFERER'] ?? ''), $_GET, (int) (http_response_code() ?: 200), (int) self::$creator_id);
         } catch (\Throwable $e) { error_log('[analytics] pageview: ' . $e->getMessage()); }
+    }
+
+    /** The page-view row itself, shared by pageview() (the request that rendered the page) and beacon() (the page reporting itself). */
+    private static function record_view(string $path, string $ref, array $utm, int $status, int $creator_id): void {
+        if (self::is_bot() || self::$visitor === '') { return; }
+        if (self::excluded($path)) { return; }   // staff and the admin pages are never analytics
+        $host = strtolower(preg_replace('/:\d+$/', '', (string) ($_SERVER['HTTP_HOST'] ?? '')));
+        $row  = self::base_row('pageview', '');
+        $row['path']   = mb_substr($path, 0, 255);
+        $row['host']   = mb_substr($host, 0, 100);
+        $row['status'] = $status;
+        // the external referrer and the UTM tags belong to the session's landing hit
+        $ref_host = strtolower((string) (parse_url($ref, PHP_URL_HOST) ?: ''));
+        if ($ref_host !== '' && $ref_host !== $host && preg_replace('/^www\./', '', $ref_host) !== preg_replace('/^www\./', '', $host)) {
+            $row['referrer_host'] = mb_substr(preg_replace('/^www\./', '', $ref_host), 0, 100);
+            $row['referrer']      = mb_substr($ref, 0, 255);
+        }
+        foreach (array('utm_source', 'utm_medium', 'utm_campaign') as $k) { $v = $utm[$k] ?? ''; $row[$k] = mb_substr(trim(is_string($v) ? $v : ''), 0, $k === 'utm_campaign' ? 150 : 100); }
+        $row['is_landing'] = self::$new_session ? 1 : 0;
+        $row['is_new']     = self::$new_visitor ? 1 : 0;
+        $row['landing']    = self::$new_session ? mb_substr($path, 0, 255) : self::session_landing();
+        $row += self::ua((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        $row['country'] = self::country();
+        $row['creator_id'] = $creator_id;
+        (new SiteAnalyticsModel())->record($row);
+        if (random_int(1, 1000) === 1) { (new SiteAnalyticsModel())->purge(self::KEEP_DAYS); }
     }
 
     /**

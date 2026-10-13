@@ -52,7 +52,7 @@ class BlogController extends Controller {
         unset($meta['path']);
         // one WebPage node unless the page is an Article (crawlers that look for WebPage/Article read FAQPage-only markup as none)
         $types = array_map(function ($b) { return is_array($b) ? (string) ($b['@type'] ?? '') : ''; }, (array) ($meta['jsonld'] ?? array()));
-        if (!array_intersect(array('Article', 'BlogPosting', 'WebPage'), $types)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }
+        if (!in_array('WebPage', $types, true)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }   // an Article points at it as mainEntityOfPage; a typed page node is merged with it (SeoMeta::merge_page_node)
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
     }
 
@@ -118,7 +118,7 @@ class BlogController extends Controller {
         $anch[0] = SeoDrafter::place_cta($anch[0], (int) $a['id']);   // the signup aside sits at a different point per article (end, after the first section, before the last)
         $cw = trim((string) ($a['cover_webp_url'] ?? ''));   // the cover is the largest element on the page: preload it, with the same candidates the <img> offers
         $this->page('blog-article', array('preload_image' => $cw !== '' ? $cw : (string) ($a['cover_image_url'] ?? ''), 'preload_srcset' => $cw !== '' ? PublicThumbService::cover_small($cw) . ' 480w, ' . $cw . ' 960w' : '', 'preload_sizes' => '(max-width: 900px) 100vw, 340px', 'path' => $path, 'title' => $a['title'], 'description' => $a['meta_description'], 'type' => 'article', 'published' => $published, 'modified' => $modified,
-                'image' => $a['cover_image_url'] ?: null, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),   // the view has its one <article>
+                'image' => $a['cover_image_url'] ?: null, 'page_modified' => $modified, 'jsonld' => $jsonld, 'noindex' => $preview, 'no_guides' => true, 'no_band' => true),   // the view has its one <article>
             array('a' => $a, 'faq' => $faq, 'related' => $articles->related($a, 3), 'preview' => $preview, 'body' => $anch[0], 'toc' => $anch[1], 'topic' => self::topic($a)));
     }
 

@@ -196,13 +196,38 @@ class SeoMeta {
         return array('@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => $main);
     }
 
+    /** Page types that are a WebPage with a more specific name. */
+    const PAGE_TYPES = array('AboutPage', 'ProfilePage', 'ContactPage', 'CollectionPage');
+
+    /**
+     * A page that carries both a typed page node and a WebPage node gets one node instead: "@type": ["AboutPage", "WebPage"],
+     * the WebPage's @id, and the fields of both (the typed node's own values win; isPartOf is the WebSite by reference).
+     * A page with only one of the two is left as it is.
+     */
+    public static function merge_page_node(array $blocks): array {
+        $typed = null; $web = null;
+        foreach ($blocks as $i => $b) {
+            if (!is_array($b) || !is_string($b['@type'] ?? null)) { continue; }
+            if ($typed === null && in_array($b['@type'], self::PAGE_TYPES, true)) { $typed = $i; }
+            elseif ($web === null && $b['@type'] === 'WebPage') { $web = $i; }
+        }
+        if ($typed === null || $web === null) { return $blocks; }
+        $t = $blocks[$typed]; $w = $blocks[$web];
+        $node = array('@type' => array($t['@type'], 'WebPage'), '@id' => (string) ($w['@id'] ?? ''));
+        foreach ($t as $k => $v) { if ($k !== '@type' && $k !== '@id' && $k !== '@context') { $node[$k] = $v; } }
+        foreach ($w as $k => $v) { if (!isset($node[$k]) && $k !== '@context') { $node[$k] = $v; } }
+        $node['isPartOf'] = self::website_ref();
+        $blocks[$typed] = $node; unset($blocks[$web]);
+        return array_values($blocks);
+    }
+
     /** Article schema for guides/comparisons. $m: headline, description, url, published, modified, image. */
     public static function article(array $m): array {
         $a = array(
             '@context' => 'https://schema.org', '@type' => 'Article',
             'headline' => (string) $m['headline'], 'description' => (string) $m['description'],
             '@id' => (string) $m['url'] . '#article',
-            'mainEntityOfPage' => array('@type' => 'WebPage', '@id' => (string) $m['url']), 'url' => (string) $m['url'],
+            'mainEntityOfPage' => array('@id' => (string) $m['url'] . '#webpage'), 'url' => (string) $m['url'],   // the WebPage node the page defines (BlogController / PagesController add it)
             'image' => (string) ($m['image'] ?? self::default_image()),
             'author' => !empty($m['person']) ? self::author() : self::org_ref(),   // blog articles: the Person (AUTHOR_NAME); product pages keep the Organization, so the name stays on the four allowed places
             'publisher' => self::org_ref(),
@@ -249,7 +274,7 @@ class SeoMeta {
         $out[] = '<meta name="twitter:image" content="' . $e($image) . '">';
         // The Markdown copy of the page, for agents that prefer it (SeoController::markdownAction).
         $mdp = (string) parse_url($url, PHP_URL_PATH); if ($mdp === '') { $mdp = '/'; }
-        if (empty($m['noindex']) && SeoController::has_markdown($mdp)) { $out[] = '<link rel="alternate" type="text/markdown" href="' . $e(self::base() . ($mdp === '/' ? '/index' : $mdp) . '.md') . '">'; }
+        if (empty($m['noindex']) && stripos((string) ($m['robots'] ?? ''), 'noindex') === false && SeoController::has_markdown($mdp)) { $out[] = '<link rel="alternate" type="text/markdown" href="' . $e(self::base() . ($mdp === '/' ? '/index' : $mdp) . '.md') . '">'; }
         // The page's largest image, fetched early (SEO audit 2026-10-12: a hero background and an article cover on another host were found late). 'preload_image' is the URL; 'preload_srcset' and 'preload_sizes' mirror the <img> when it has them.
         $pre = trim((string) ($m['preload_image'] ?? ''));
         if ($pre !== '') {
@@ -266,6 +291,8 @@ class SeoMeta {
             } else {
                 $blocks = is_array($j) ? $j : array();
             }
+            // one node per page: a typed page (AboutPage, ProfilePage, ContactPage, CollectionPage) and the generic WebPage for the same URL become one
+            $blocks = self::merge_page_node($blocks);
             // a page that points at the site's Organization or WebSite by @id also carries the full node, once
             $all = json_encode($blocks, JSON_UNESCAPED_SLASHES);
             $defines = function ($id) use ($blocks) { foreach ($blocks as $b) { if (is_array($b) && (string) ($b['@id'] ?? '') === $id && count($b) > 2) { return true; } } return false; };

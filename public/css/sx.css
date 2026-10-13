@@ -1069,3 +1069,27 @@ p.sf__h, p.cos-form-title { display: block; }
     .sx .sx-table th, .sx .sx-table th.is-hi, .sx .sx-table .sx-tlink, .sx .sx-plan__addon, .gd-table th { font-size: .875rem !important; }
     .tl-consent input { width: 24px; height: 24px; }
 }
+
+/* Home hero (2026-10-13): the wordmark is a small one-line eyebrow above the H1; under the H1 sit the fee line and the two buttons. */
+.hx--eyebrow .hx__intro { margin-top: 0; max-width: 640px; }
+.hx:not(.hx--panel) .hx__words--eyebrow { flex-direction: row; flex-wrap: nowrap; align-items: flex-start; gap: 16px; margin: 0 0 20px; }
+.hx:not(.hx--panel) .hx__words--eyebrow .hx__w { padding: 0 0 8px; font-size: .875rem; line-height: 1.2; font-weight: 800; letter-spacing: .14em; color: var(--sx-muted); cursor: default; white-space: nowrap; }
+.hx:not(.hx--panel) .hx__words--eyebrow .hx__w:hover { color: var(--sx-muted); }
+.hx:not(.hx--panel) .hx__words--eyebrow .hx__w.is-on { color: var(--sx-ink); }
+.hx__words--eyebrow .hx__bar { left: 0; bottom: 0; height: 2px; }
+.hx__sub { margin: 0; font-size: 1.125rem; line-height: 1.5; font-weight: 600; color: var(--sx-acc); }
+.hx--eyebrow .hx__intro .sx-acts { margin-top: 28px; }
+.hx--eyebrow p.hx__h { margin-top: 0; }
+@media (max-width: 640px) {
+    .hx--eyebrow .hx__intro > .hx__words--eyebrow { order: 0; margin-bottom: 16px; }
+    .hx--eyebrow .hx__intro > .hx__sub { order: 2; font-size: 1rem; }
+    .hx--eyebrow .hx__intro > .sx-acts { order: 3; margin-top: 24px; }
+}
+/* Phone tap targets (re-audit 2026-10-13): short footer profile links, source links and the pricing offer link are at least 44 x 44. */
+@media (max-width: 640px) {
+    .sf__social a { min-width: 44px; justify-content: center; }
+    a.sx-src, .sx-table a.sx-src, .hx__vsr a.sx-src { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px; }
+    .sx-plans__offer a { display: inline-flex; align-items: center; min-height: 44px; }
+}
+@media (max-width: 640px) { .hx__opt small, .hx__nd small, .hx__sw small { font-size: .875rem; } }   /* card helper lines meet the 14px phone minimum */
+.hx__p--foot { margin: 16px 0 0; }

@@ -4,17 +4,16 @@ $site = Main::site_name();
 $home_faq = PagesController::home_faq();   // shared with the FAQPage markup in login_form.php
 $handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
 /* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
-// Hero (heycatch D1.1, D1.2, D1.6, D2.1): the H1 names the buyer and the product; the eyebrow above it states the fee wedge from config
-// (what each selling plan keeps, against OnlyFans' sourced rate); the CTA says Start Free; the founding line shows while spots remain.
-$eyebrow = PagesController::fee_wedge_sentence();
-$founding_left = 0; try { $founding_left = Founding::remaining(); } catch (\Throwable $ex) { error_log('[home] founding: ' . $ex->getMessage()); }
+// Hero (2026-10-13): four things on the left, in this order: the CREATE. SHARE. EARN. wordmark as a small one-line eyebrow, the H1,
+// the fee line from config (what each selling plan keeps, against OnlyFans' sourced rate), and the two buttons. The definition
+// paragraph lives in the "What is" block below; the founding offer is in the announcement bar.
 echo Sections::tab_hero(array(
     'id' => 'home',
-    'eyebrow' => $eyebrow,
+    'words_eyebrow' => true,
+    'start' => 2,   // the card opens on Earn ("You decide who sees every post.") and then turns through the other two
     'title' => 'One page to sell your content, and a studio that posts it everywhere.',
-    'lead' => $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
+    'sub' => PagesController::fee_wedge_sentence(),
     'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'under' => $founding_left > 0 ? '<a class="hx__under" href="/founding">Founding creators: first month free.</a>'   /* no spot counts on public pages (Daniel 2026-10-12) */ : '',
     'tabs' => array(
         array('word' => 'Create.', 'pane' => Sections::pane('Upload once, use everywhere.', 'Draft it, schedule it, publish now, or let an automation post for you.', Sections::pane_timeline(array(
             array('Draft', 'Work in progress, visible only to you.'), array('Scheduled', 'Queued for the moment you choose.'), array('Published', 'Live on your page, on your schedule or automatically.'))))),
@@ -28,6 +27,7 @@ echo Sections::tab_hero(array(
 
 // What the product is, in sentences that stand alone (SEO audit 2026-10-12: the home page had no definition and never mentioned AI influencers or teams outside the FAQ).
 echo Sections::prose('alt', 'What is ' . $site . '?', array(
+    $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
     $site . ' is a creator monetization platform: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets. A studio publishes each post to nine social networks. The platform fee is ' . PagesController::fee_short() . ', and plan prices are a separate monthly line on the pricing page.',
     'It also includes an [AI influencer generator](/features/ai-influencer) that creates photos and video of one consistent character, and [team seats for people who run creator accounts](/ai-ofm-tools). To see where it sits among the options, read [best creator monetization platforms](/best-creator-monetization-platforms).',
 ));
@@ -45,7 +45,7 @@ echo Sections::open('alt');
 echo Sections::rows(array(
     array('title' => 'Publish everywhere at once', 'text' => 'Upload once in the studio. AI writes the caption in your brand voice, and the post goes to your page and your social accounts at the same time.',
           'points' => array('Nine social networks from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
-    array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's fee, and you cash out to your bank anytime.",
+    array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's platform fee, and you cash out to your bank anytime.",
           'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice'),
           // the after-state (heycatch D1.5, D2.3) as a schematic drawing of the Analytics dashboard with invented figures, never a screenshot
           'image' => Sections::ui_sketch_url('analytics'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Analytics dashboard, drawn as a schematic.',

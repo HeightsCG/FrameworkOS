@@ -162,7 +162,7 @@ class PagesController extends Controller {
         ),
         'linktree' => array(
             'name' => 'Linktree', 'sells' => 'a link page with digital products', 'url' => 'https://linktr.ee', 'checked' => '2026-09-25', 'type' => 'bio',
-            'fee_short' => '$0 to $35/mo, plus 0% to 12% of sales',   // hero panel only; the table shows the sourced 'fee' row
+            'fee_short' => '0% to 12% of sales (plans $0 to $35/mo)',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Linktree Free (12% on sales)', 'percent' => 12, 'monthly' => 0, 'source' => 'https://linktr.ee/help/en/articles/11410206-understanding-transaction-and-processing-fees-on-linktree'),
                                 array('label' => 'Linktree Premium ($35/mo, 0% on sales)', 'percent' => 0, 'monthly' => 35, 'source' => 'https://linktr.ee/s/pricing')),
             'summary' => 'Linktree is a link-in-bio page that lets creators share links, collect contacts and sell digital products and courses from one URL. Selling digital products and courses through Linktree is only available in selected countries.',
@@ -182,7 +182,7 @@ class PagesController extends Controller {
         ),
         'beacons' => array(
             'name' => 'Beacons', 'sells' => 'a link page, a store and email marketing', 'url' => 'https://beacons.ai', 'checked' => '2026-09-25', 'type' => 'bio',
-            'fee_short' => '$0 to $100/mo, plus 0% or 9% of sales',   // hero panel only; the table shows the sourced 'fee' row
+            'fee_short' => '0% or 9% of sales (plans $0 to $100/mo)',   // hero panel only; the table shows the sourced 'fee' row
             'fee_math' => array(array('label' => 'Beacons Free (9% seller fee)', 'percent' => 9, 'monthly' => 0, 'source' => 'https://beacons.ai/i/pricing'),
                                 array('label' => 'Beacons Creator Plus ($30/mo, 0% seller fee)', 'percent' => 0, 'monthly' => 30, 'source' => 'https://beacons.ai/i/pricing')),   // checked 2026-10-11
             'summary' => 'Beacons is a creator business platform that combines a link-in-bio page, website, store, email marketing and media kit. Its social features track and analyze posts but do not publish them to your social accounts.',
@@ -268,7 +268,7 @@ class PagesController extends Controller {
         $types = array_map(function ($b) { return is_array($b) ? (string) ($b['@type'] ?? '') : ''; }, (array) $meta['jsonld']);
         if (!in_array('Organization', $types, true)) { $meta['jsonld'][] = SeoMeta::org(); }
         if (empty($meta['page_modified'])) { $meta['page_modified'] = PageDates::iso((string) $meta['path']); }   // the day this page's text last changed (cron/build_page_dates.php)
-        if (!array_intersect(array('Article', 'BlogPosting', 'WebPage'), $types)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }
+        if (!in_array('WebPage', $types, true)) { $meta['jsonld'][] = SeoMeta::webpage($meta); }   // an Article points at it as mainEntityOfPage; a typed page node is merged with it (SeoMeta::merge_page_node)
         unset($meta['path']);
         $meta['sections'] = true;   // full-width section system (libs/Classes/Sections.php)
         $this->view->public_page(Main::app_path() . '/app/views/pages/' . $view . '.php', $meta, $vars);
@@ -285,6 +285,8 @@ class PagesController extends Controller {
     }
 
     /** Said wherever plan prices or credit purchases are mentioned. */
+    /** The one description of the Free plan (2026-10-13): the pricing page says it in these words wherever Free is described, and so do the home FAQ and the fee sentence. */
+    const FREE_LINE = 'Free is the account everyone starts with: it costs nothing and needs no card. Fans follow, join and buy on it, and creators build their page and drafts on it. Publishing and selling start on Creator or Studio.';
     const FINAL_NOTE = 'Plan charges and credit purchases are final and non-refundable.';
 
     /** Old feature slugs => new ones (301). */
@@ -312,15 +314,7 @@ class PagesController extends Controller {
             '{max_photos}'       => (string) (int) InfluencerConfig::get('training_max_photos', 50),
             '{payout_min}'       => Price::PAYOUT_MIN_LABEL,
         );
-        // wherever plan prices appear (fee_sentence), the non-refundable line follows
-        foreach ($pages as $k => $p) {
-            foreach (array('rows' => 'text', 'faq' => 'a') as $list => $field) {
-                foreach ((array) ($p[$list] ?? array()) as $i => $item) {
-                    $v = (string) ($item[$field] ?? '');
-                    if (strpos($v, '{fee_sentence}') !== false && strpos($v, '{final_note}') === false) { $pages[$k][$list][$i][$field] = $v . ' {final_note}'; }
-                }
-            }
-        }
+        // the non-refundable line lives on /pricing, /terms and checkout only (Decision 2026-10-13), so nothing is appended here
         $map = array();
         foreach ($vars as $k => $v) { $map[$k] = addcslashes((string) $v, '"\\/'); }
         return json_decode(strtr(json_encode($pages, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $map), true);
@@ -460,7 +454,7 @@ class PagesController extends Controller {
         $rows = self::pricing_rows();
         $ai_first = PlanTiers::lowest_including('influencers');
         $faq  = array(
-            array('q' => 'Is there a free plan?', 'a' => 'Yes. Everyone starts with a Free account, which costs nothing and needs no card. It lets you follow creators, join memberships, unlock posts and buy tickets and bookings. To sell, upgrade to Creator or Studio, which include your page, memberships, pay-per-view, publishing and payouts.'),
+            array('q' => 'Is there a free plan?', 'a' => 'Yes. ' . self::FREE_LINE),
             array('q' => 'What is the platform take rate?', 'a' => self::fee_sentence()),
             array('q' => 'Can I buy AI credits on any plan?', 'a' => 'AI tools are part of Creator and Studio, which include AI credits every month. Buy more at any time. Credits pay for AI images and video' . ($ai_first ? ', and for AI influencers on ' . $ai_first['name'] . ' and up' : '') . '.'),
             array('q' => 'Are plans and credits refundable?', 'a' => 'No. Plan charges and credit purchases are final and non-refundable. You can cancel a plan at any time and keep it until the end of the paid period.'),
@@ -491,7 +485,7 @@ class PagesController extends Controller {
 
     /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        return trim(self::plan_price_sentence() . ' Free needs no card and is the account everyone starts with, to follow, subscribe and buy; it cannot sell and pays no fee. Selling starts on Creator, and the platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());
+        return trim(self::plan_price_sentence() . ' ' . self::FREE_LINE . ' Free pays no platform fee because it sells nothing. The platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
@@ -548,7 +542,7 @@ class PagesController extends Controller {
         $selling = self::selling_tiers(); usort($selling, function ($a, $b) { return (int) $a['rank'] <=> (int) $b['rank']; });
         $first = $selling ? (string) $selling[0]['name'] : 'Creator';
         // 110-160 characters: the description the audit scores
-        return 'Plans: ' . $plans . ' a month. Free is for fans; selling starts on ' . $first . '. Platform fee ' . self::fee_short() . '. Charges are final.';
+        return 'Plans: ' . $plans . ' a month. Free is the starting account; selling starts on ' . $first . '. Platform fee ' . self::fee_short() . '.';
     }
 
     /** Our column of the comparison table, derived from PlanTiers so it can't drift. */
@@ -571,14 +565,14 @@ class PagesController extends Controller {
         return array(
             array('q' => 'Who can see my content?', 'a' => 'You choose for each post: everyone, subscribers only, or pay-per-view at a price you set. Subscriber and paid posts show blurred to everyone else.'),
             array('q' => 'How do fans pay?', 'a' => 'Fans pay for memberships by card, on the schedule you set. Pay-per-view posts, bundles, services and event tickets are paid from a credit wallet, at 10 credits to the dollar.'),
-            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee (' . self::fee_short() . '). You cash out to your bank on request, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold.'),
+            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee (' . self::fee_short() . '). You cash out to your bank on request, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold. Earnings from an event are released after the event has taken place.'),
             array('q' => 'Can people follow me for free?', 'a' => 'Yes. Following is free, and you can also offer a free membership tier.'),
             array('q' => 'What do the plans cost?', 'a' => self::plan_cost_answer()),
             array('q' => 'How is my data and money handled?', 'a' => self::DATA_MONEY_ANSWER),
         );
     }
 
-    const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card. Plan charges and credit purchases are final and non-refundable.';
+    const DATA_MONEY_ANSWER = 'We store what the product needs. For creators that is your profile, content, prices, sales and the list of who follows, subscribes and buys. For fans it is an email address, purchases, memberships and messages. Creator data is never sold. Card numbers never reach our servers: cards and bank payouts are handled by a secure payment processor, and we keep only a reference to a saved card.';
 
 
     /**
@@ -600,8 +594,7 @@ class PagesController extends Controller {
         $out = Sections::open('white', 'What you get on ' . $site, $lead);
         $out .= Sections::checks($items, 2, true);
         $out .= '<p class="sx-note">The platform fee is ' . Sections::e(self::fee_short()) . '. Free accounts pay no fee because they cannot sell. Card processing fees are separate, as on every platform. '
-            . 'Every sale lands in one balance, net of that fee. Payouts go to your bank on request, with no platform hold, once your balance reaches the minimum shown on the <a href="/features/payouts">payouts page</a>. '
-            . Sections::e(self::FINAL_NOTE) . '</p>';
+            . 'Every sale lands in one balance, net of that fee. Payouts go to your bank on request, with no platform hold, once your balance reaches the minimum shown on the <a href="/features/payouts">payouts page</a>. Earnings from an event are released after the event has taken place.</p>';
         return $out . Sections::close();
     }
 
@@ -623,12 +616,12 @@ class PagesController extends Controller {
         $lead = 'A switch takes an afternoon: create a free page, pick a selling plan, add your tiers, and keep ' . ($from !== '' && !$tool ? $from : 'your other pages') . ' live while fans move. The steps below are the same for every creator.';
         $out = Sections::open('alt', 'How does a switch to ' . $site . ' work?', $lead);
         $out .= Sections::cards(array(
-            array('title' => '1. Create your page', 'text' => 'Sign up for a Free account with no card. Your page lives at ' . $host . '/@handle. Add your photo, bio and links, and it is live the same minute.'),
+            array('title' => '1. Create your page', 'text' => 'Sign up for a Free account with no card and build your page: photo, bio and links. It goes live at ' . $host . '/@handle when you pick a plan.'),
             array('title' => '2. Pick a selling plan', 'text' => 'Choose ' . $plan_list . ' in Billing when you are ready to sell. Both plans include memberships, pay-per-view, bundles, services and events. The platform fee is ' . self::fee_short() . '.'),
             array('title' => '3. Set your tiers and first paid posts', 'text' => 'Upload media to your Library, create two membership tiers, and put your strongest pieces behind pay-per-view. Drafts save on Free, and selling starts the moment your plan is active.'),
             $keep,
             array('title' => '5. Publish from one studio', 'text' => 'Connect your social accounts and every post goes to your socials and your page at once, with the paid version behind the lock. ' . self::our_facts()['socials'] . '.'),
-            array('title' => '6. Cash out', 'text' => 'Every sale lands in one balance, net of your plan\'s fee. Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
+            array('title' => '6. Cash out', 'text' => 'Every sale lands in one balance, net of your plan\'s platform fee. Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.'),
         ), 3);
         return $out . Sections::close();
     }
@@ -652,7 +645,7 @@ class PagesController extends Controller {
         $items[] = 'Going over a limit locks the extra items until you upgrade or remove some. Nothing is deleted.';
         $items[] = 'Adult content is allowed behind an age check. Fans opt in and verify once, and creators verify before publishing adult media.';
         $items[] = 'Payouts go to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum. Earnings from an event are released after the event has taken place.';
-        $items[] = 'Content sales are final. ' . self::FINAL_NOTE;
+        $items[] = 'Content sales are final.';
         $out = Sections::open('white', 'What are the limits?', 'Limits are set by plan, and ' . $site . ' states them up front. Here is what changes between ' . implode(' and ', array_map(function ($t) { return $t['name']; }, $tiers)) . ', and the rules that apply to every plan.');
         $out .= Sections::checks($items, 2);
         return $out . Sections::close();
@@ -731,10 +724,10 @@ class PagesController extends Controller {
             'Cash out on request, from a ' . Price::PAYOUT_MIN_LABEL . ' balance, to your bank. There is no platform hold on content, membership or service sales.',
             'Earnings from an event are released after the event has taken place.',
             'Fans pay memberships by card. Unlocks, bundles, services and tickets are paid from a credit wallet ($1 = ' . (int) Price::CREDITS_PER_DOLLAR . ' credits).',
-            'Content sales are final. ' . self::FINAL_NOTE,
+            'Content sales are final.',
         );
         $cards = array(array('title' => $site, 'text' => 'Payout terms as the payouts page states them.', 'points' => $ours, 'link' => array('How Payouts Work', '/features/payouts')));
-        $lead = 'Payouts on ' . $site . ' go to your bank on request from a ' . Price::PAYOUT_MIN_LABEL . ' balance, with no platform hold.';
+        $lead = 'Payouts on ' . $site . ' go to your bank on request from a ' . Price::PAYOUT_MIN_LABEL . ' balance, with no platform hold. Earnings from an event are released after the event has taken place.';
         if (!empty($c['payout']['value'])) {
             $them = array_values(array_filter(array_map('trim', preg_split('/(?<=[.!?])\s+/', rtrim((string) $c['payout']['value'], '.') . '.'))));
             $cards[] = array('title' => $c['name'], 'text' => !empty($c['payout']['reported']) ? 'Payout terms for ' . $c['name'] . ', from third-party reporting because its site blocks automated access.' : 'Payout terms as ' . $c['name'] . ' publishes them.', 'points' => $them);
@@ -781,7 +774,7 @@ class PagesController extends Controller {
         foreach (self::selling_tiers() as $t) { $bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on the ' . $t['name'] . ' plan ($' . number_format((int) $t['price']) . '/month)'; }
         $last = array_pop($bits);
         $list = (count($bits) > 0) ? implode(', ', $bits) . ' and ' . $last : $last;
-        return Main::site_name() . '\'s platform fee is ' . $list . '. Free accounts are for fans and cannot sell, so they pay no platform fee. Card processing fees are separate.';
+        return Main::site_name() . '\'s platform fee is ' . $list . '. Free accounts cannot publish or sell, so they pay no platform fee. Card processing fees are separate.';
     }
 
     /**
@@ -800,7 +793,7 @@ class PagesController extends Controller {
             'fee'          => self::fee_sentence(),
             'onlyfans'     => $site . ' is an OnlyFans alternative: one page for memberships, pay-per-view posts, bundles, services and live events. It adds a studio that publishes to nine social networks, AI influencers and an AI-assisted inbox. Its platform fee is ' . self::fee_short() . ($of_pct !== '' ? ', against the ' . $of_pct . ' OnlyFans keeps under its terms' : '') . '.',
             'ai_influencer'=> 'On ' . $site . ' you can create an AI influencer from your photos or a description, generate photos and short videos of the same person, and sell them as pay-per-view posts, paid messages or membership content' . ($inf ? ' (AI influencers included: ' . implode(', ', $inf) . ')' : '') . '.',
-            'payouts'      => 'Every sale on ' . $site . ', from memberships and unlocks to bundles, services and events, lands in one balance net of your plan\'s fee, and you cash out to your bank whenever you want with no per-payout fee.',
+            'payouts'      => 'Every sale on ' . $site . ', from memberships and unlocks to bundles, services and events, lands in one balance net of your plan\'s platform fee, and you cash out to your bank whenever you want with no per-payout fee.',
             'events'       => $site . ' sells tickets to live events and 1:1 sessions and hosts the call itself, in a built-in video room with a waiting room, chat, screen share and host controls, so fans join without Zoom or a separate link.',
             'link_in_bio'  => $site . ' is a link-in-bio page that takes payments: your page at ' . $host . '/@handle holds tracked links plus memberships, pay-per-view posts, bundles, services and events, fans pay by card or credit wallet, and earnings pay out to your bank.',
         );
@@ -808,7 +801,7 @@ class PagesController extends Controller {
 
     public static function our_facts(): array {
         return array(
-            'fee'       => self::fee_short() . ' (Free is for fans and cannot sell)',
+            'fee'       => self::fee_short() . ' (Free cannot sell)',
             'payout'    => 'Direct to your bank account',
             'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
             'socials'   => 'Publishes to nine social networks from one studio',
@@ -879,12 +872,12 @@ class PagesController extends Controller {
         $names = Founding::plan_names(); $pp = array(); foreach (Founding::PLANS as $fk) { $ft = PlanTiers::get($fk); if ($ft) { $pp[] = '$' . number_format((int) $ft['price']) . ' a month on ' . $ft['name']; } } $after = implode(' or ', $pp);
         return array(
             array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $names . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
-            array('q' => 'What does it cost?', 'a' => 'Your first billing period on ' . $names . ' is free. After that the plan is ' . $after . ', charged to your card until you cancel. Plan charges are final and non-refundable.'),
+            array('q' => 'What does it cost?', 'a' => 'Your first billing period on ' . $names . ' is free. After that the plan is ' . $after . ', charged to your card until you cancel.'),
             array('q' => 'Is the free period always a full month?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date. The free period then runs until that date, and the regular price starts from it.'),
             array('q' => 'How long do the founding terms last?', 'a' => 'The free period is your first billing period. Featured placement lasts for as long as your paid plan stays active, including a short past-due grace period. If you move to Free or the plan lapses, the founding terms end and do not come back.'),
             array('q' => 'What do founding creators agree to?', 'a' => 'To share a short testimonial about their experience, which we ask for after two weeks. To be featured in the creator directory and on the home page, and to stay listed in the directory.'),
             array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),
-            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.'),
+            array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.'),
         );
     }
 

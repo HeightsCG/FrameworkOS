@@ -83,7 +83,7 @@ class CompareProse {
         foreach (array(0, 1) as $i) {
             $o = $opts[$i] ?? null; $k = $i === 0 ? 'them' : 'them2';
             if ($o) {
-                $fee = $gross * ((float) $o['percent']) / 100 + (float) ($o['monthly'] ?? 0);
+                $fee = $gross * ((float) $o['percent']) / 100;   // the share of sales alone: a competitor's monthly price is a separate line too, never folded in ({them_monthly})
                 $v += array('{' . $k . '}' => (string) $o['label'], '{' . $k . '_pct}' => rtrim(rtrim(number_format((float) $o['percent'], 2), '0'), '.') . '%', '{' . $k . '_fee}' => $money($fee), '{' . $k . '_left}' => $money($gross - $fee), '{' . $k . '_src}' => (string) $o['source'], '{' . $k . '_monthly}' => $money((float) ($o['monthly'] ?? 0)));
             }
         }
@@ -110,7 +110,7 @@ class CompareProse {
         'Take a creator on {name} with {gross} a month in {what}. The numbers are round and hypothetical, chosen to show the arithmetic rather than to promise anything.',
         '{them} keeps {them_fee} of that ({them_pct}), so {them_left} is left before card processing, by its [own pricing page]({them_src}).',
         'On {site} the same {gross} works like this: the {c_name} plan keeps {c_pct}, {c_total}, leaving {c_left}; the {s_name} plan keeps {s_pct}, {s_total}, leaving {s_left}. Card processing is charged separately on every option above. The monthly plan prices are a separate line, shown on the pricing page, not in these figures.',
-        'On the share alone {s_name} leaves {diff} more of that month than {c_name}. The plan also sets the included AI credits, storage and AI influencers, so heavy use of the AI tools can tip the choice before the fee does.',
+        'The plan also sets the included AI credits, storage and AI influencers, which are listed on the pricing page.',
     );
 
     /**
@@ -124,7 +124,7 @@ class CompareProse {
                 'Picture a Fanvue creator clearing {gross} a month from {what}; round figures, invented for the arithmetic, not a forecast.',
                 'Fanvue retains {them_pct} of gross revenue under its standard rate, which is {them_fee} here, leaving {them_left} before the card processor takes its part ([Fanvue legal]({them_src})).',
                 'Move the same {gross} to {site} and the sums change shape: {c_name} keeps {c_pct} of sales, so {c_total} goes out and {c_left} stays; {s_name} keeps {s_pct}, so {s_total} goes out and {s_left} stays. Card processing still sits on top of each line, and the monthly plan price is its own line on the pricing page.',
-                'Between the two {site} plans the share alone separates them by {diff} a month in {s_name}\'s favour; the extra AI credits, storage and influencer slots on {s_name} are the other reason to pick it.',
+                'The two {site} plans also differ in AI credits, storage and influencer slots, which are listed on the pricing page.',
             ),
             'fee_lead' => 'Put a month of example sales through both shares and the difference is plain: on {s0}, Fanvue keeps {them_fee}, while the {c_name} plan here keeps {us_fee}. Plan prices are a separate monthly line.',
             'fee_note' => 'Figures are rounded and hypothetical. Fanvue\'s rate is the one on its legal page, linked in the row; our rows show the share of sales alone, and the plan prices are on the pricing page.',
@@ -142,7 +142,7 @@ class CompareProse {
                 'Say an OnlyFans creator brings in {gross} a month across {what}. Treat every figure as illustrative.',
                 'OnlyFans deducts {them_pct} from each fan payment under its own terms, {them_fee} on this month, which leaves {them_left} before payment processing ([terms]({them_src})).',
                 'Here the same month keeps more of itself: {c_name} takes {c_pct}, {c_total}, with {c_left} left over; {s_name} takes {s_pct}, {s_total}, with {s_left} left over. Processing is extra in every case, on both platforms, and the plan prices sit on the pricing page rather than in these sums.',
-                'On the share alone {s_name} leaves {diff} more than {c_name} on this month, and the gap widens with every sale.',
+                'The two plans also differ in seats, AI credits and storage, which the pricing page lists.',
             ),
             'fee_lead' => 'The flat 20% is easy to remember and expensive at scale: on {s0} a month OnlyFans keeps {them_fee}; the {c_name} plan here keeps {us_fee}, with the plan price a separate monthly line.',
             'fee_note' => 'Hypothetical round sums. OnlyFans\' rate is the figure in its own terms of service, linked in the row; our rows are the share of sales alone.',
@@ -160,7 +160,7 @@ class CompareProse {
                 'Consider a Patreon creator with {gross} a month in {what}, round numbers chosen for the sums.',
                 'Patreon\'s {them_pct} platform fee for pages published after August 4, 2025 takes {them_fee}, leaving {them_left}; payment processing, currency conversion and payout fees come off after that ([fees overview]({them_src})).',
                 'On {site}, {c_name} also takes {c_pct}: {c_total}, leaving {c_left}. {s_name} takes {s_pct}: {s_total}, leaving {s_left}. Card processing is separate here as well; the monthly plan price is listed on the pricing page, not inside these sums.',
-                'At {gross} the lower share is {s_name}\'s, by {diff} on the month; the gap grows with the sales.',
+                'What each plan includes beyond the share, from seats to AI credits, is on the pricing page.',
             ),
             'fee_lead' => 'Patreon and the {c_name} plan share a 10% rate, so on {s0} both keep {us_fee} before Patreon\'s processing and payout charges; the plan price here is a separate monthly line.',
             'fee_note' => 'Round numbers. Patreon\'s rate is from its fees overview, linked in the row; its processing, conversion and payout fees are not in the figure, ours are not either, because card processing is separate on both.',
@@ -178,7 +178,7 @@ class CompareProse {
                 'A Fansly creator with {gross} a month from {what} is a fair example; the numbers are made up for the arithmetic.',
                 'Fansly\'s {them_pct} comes to {them_fee} on that month and leaves {them_left}, before card processing ([Fansly]({them_src})).',
                 'The same {gross} on {site}: {c_name} is {c_pct} of sales, {c_total}, with {c_left} remaining; {s_name} is {s_pct}, {s_total}, with {s_left} remaining. Add card processing to all three; the plan prices are a separate monthly line.',
-                '{s_name}\'s share leaves this creator {diff} more a month than {c_name}\'s, and higher sales widen that.',
+                'Seats, AI credits and storage differ between the two plans as well, as the pricing page sets out.',
             ),
             'fee_lead' => 'Both platforms are measured on the same month of sales here: Fansly\'s {them_pct} takes {them_fee} of {s0}, and {c_name} takes {us_fee}; the plan price is a separate monthly line.',
             'fee_note' => 'Hypothetical totals. Fansly\'s rate is the one on its creator application page, linked in the row; our rows are the share of sales alone.',
@@ -196,9 +196,9 @@ class CompareProse {
                 'Imagine a Ko-fi creator taking {gross} a month in {what}, with round figures standing in for real ones.',
                 'Ko-fi Free charges {them_pct} on memberships, shop sales and commissions, {them_fee} on this month, so {them_left} reaches the creator\'s own payment account, less processing ([Ko-fi help]({them_src})).',
                 'The {site} version: {c_name} takes {c_pct}, {c_total}, leaving {c_left}; {s_name} takes {s_pct}, {s_total}, leaving {s_left}. Card processing is extra on each, and the monthly plan price is a separate line on the pricing page.',
-                'So on the share alone Ko-fi keeps less of this month than either of our plans, which sit {diff} apart from each other. A Ko-fi creator moves for the formats and the publishing, not for the fee.',
+                'So on the share alone Ko-fi keeps less of this month than either of our plans. A Ko-fi creator moves for the formats and the publishing, not for the fee.',
             ),
-            'fee_lead' => 'Ko-fi wins the fee column at this size: {them_fee} on {s0} against {us_fee} for {c_name}; the plan price is a separate monthly line, and the table is here so the trade is visible, not hidden.',
+            'fee_lead' => 'Ko-fi keeps the smaller share: {them_fee} on {s0} against {us_fee} for {c_name}; the plan price is a separate monthly line, and the table is here so the trade is visible, not hidden.',
             'fee_note' => 'Round numbers. Ko-fi\'s rates come from its own help article, linked in the row; ours are the share of sales alone.',
             'why_text' => 'Tips were the start; now you sell memberships, services and events and want them published for you.',
             'why_points' => array('Services with a fixed price and delivery window, not open commissions', 'Pay-per-view, bundles, memberships and events on one page', 'A studio that posts to nine networks and an inbox that sells'),
@@ -212,9 +212,9 @@ class CompareProse {
         'linktree' => array(
             'scenario' => array(
                 'Take a Linktree creator selling {gross} a month of {what}, in round hypothetical figures.',
-                'On Linktree\'s free plan the {them_pct} fee is {them_fee} and {them_left} remains; on {them2}, the fee is {them2_fee} and {them2_left} remains, before card processing and the per-payout charge ([Linktree help]({them_src})).',
+                'On Linktree\'s free plan the {them_pct} fee is {them_fee} and {them_left} remains; {them2} takes no share of sales, so the full {gross} remains, and its monthly price is a separate line. Card processing and the per-payout charge come off both ([Linktree help]({them_src})).',
                 'On {site} the month looks like this: {c_name}, at {c_pct}, keeps {c_total} and leaves {c_left}; {s_name}, at {s_pct}, keeps {s_total} and leaves {s_left}. Card processing applies to every option, and the plan prices are their own monthly line.',
-                'For product sales alone Linktree Premium takes no share, and our two plans sit {diff} apart on this month. The reason to move is the memberships, services and events Linktree does not sell.',
+                'For product sales alone Linktree Premium takes no share. The reason to move is the memberships, services and events Linktree does not sell.',
             ),
             'fee_lead' => 'Linktree\'s share depends on the plan, so the table shows two Linktree lines against our two plans on the same {s0} of sales; Linktree Free keeps {them_fee}, and {c_name} keeps {us_fee}. Monthly plan prices, theirs and ours, are separate lines.',
             'fee_note' => 'Hypothetical sums. Linktree\'s rates are from its own fees article and pricing page, linked in the rows; every row is the share of sales alone.',
@@ -230,9 +230,9 @@ class CompareProse {
         'beacons' => array(
             'scenario' => array(
                 'Suppose a Beacons creator makes {gross} a month from {what}; the figures are round and illustrative.',
-                'Beacons Free takes {them_pct} ({them_fee}) and leaves {them_left}; {them2} takes {them2_fee} and leaves {them2_left}. Card processing is on top of both ([Beacons pricing]({them_src})).',
+                'Beacons Free takes {them_pct} ({them_fee}) and leaves {them_left}; {them2} takes no share of sales, so the full {gross} is left, and its monthly price is a separate line. Card processing is on top of both ([Beacons pricing]({them_src})).',
                 'The {site} lines on the same month: {c_name} at {c_pct} keeps {c_total} and leaves {c_left}; {s_name} at {s_pct} keeps {s_total} and leaves {s_left}. Card processing again on top; plan prices are listed separately.',
-                'Beacons Creator Plus takes no share of sales, and our two plans are {diff} apart on this month. A Beacons creator moves for direct fan sales and publishing, not for the fee.',
+                'Beacons Creator Plus takes no share of sales. A Beacons creator moves for direct fan sales and publishing, not for the fee.',
             ),
             'fee_lead' => 'The table carries two Beacons lines because its share depends on the plan: on {s0} of sales Beacons Free keeps {them_fee}, and our {c_name} plan keeps {us_fee}. Plan prices are a separate monthly line on both sides.',
             'fee_note' => 'Round numbers. Beacons\' seller fees are from its pricing page, linked in the rows; every row is the share of sales alone.',
@@ -250,9 +250,9 @@ class CompareProse {
                 'A Stan Store creator with {gross} a month in {what} makes a clean example; the sums are hypothetical.',
                 'Stan Store\'s Creator plan takes no share of sales, so the full {gross} is left before card processing; its {them_monthly} a month is a separate line ([Stan Store pricing]({them_src})).',
                 'On {site}: {c_name} takes {c_pct}, {c_total}, leaving {c_left}; {s_name} takes {s_pct}, {s_total}, leaving {s_left}. Card processing is extra on all three, and every monthly plan price, ours and Stan Store\'s, is a separate line.',
-                'Stan Store takes no share of sales, and our two plans sit {diff} apart on this month. The formats and the publishing are what a Stan Store creator comes here for.',
+                'Stan Store takes no share of sales. The formats and the publishing are what a Stan Store creator comes here for.',
             ),
-            'fee_lead' => 'A flat price against a share: Stan Store takes no share of {s0}, and our {c_name} plan keeps {us_fee}. The monthly prices on both sides are separate lines.',
+            'fee_lead' => 'Stan Store takes no share of {s0}, and our {c_name} plan keeps {us_fee}. The monthly prices on both sides are separate lines.',
             'fee_note' => 'Hypothetical figures. Stan Store\'s no-transaction-fee policy is from its pricing page, linked in the row; our rows are the share of sales alone.',
             'why_text' => 'Your fans buy small things often: a paid post, a bundle, a ticket, a message.',
             'why_points' => array('Pay-per-view, bundles and paid messages from a credit wallet fans load once', 'Memberships, services and events on the same page', 'Nine networks from one studio and a DM agent you approve'),
@@ -292,11 +292,11 @@ class CompareProse {
             array('h' => 'Who is Fanvue for, and why?', 'p' => array(
                 'Fanvue is a subscription platform where fans pay for posts, tips and paid messages. Its recent features are built around AI: voice calls, voice notes and analytics are listed on its own site (' . self::src($c, 'ai') . ', checked ' . $checked . '). A creator who sells one subscription and wants those AI tools inside the same app is the creator Fanvue is built for. It also welcomes AI-generated creator accounts, which most subscription platforms do not say out loud.',
                 'The fit is weaker when your income comes from more than one thing. Fanvue does not publish social posting or a services and events layer (' . self::src($c, 'socials') . '). A creator who also sells coaching calls, ticketed sessions or bundles of past work runs those somewhere else and links out. That is the difference {site} is built around. The page, the paid posts, the bundles, the services, the events and the inbox sit in one place. The studio publishes each post to nine social networks at once.',
-                'Keep Fanvue if your audience is already there, you sell nothing but the subscription and paid messages, and the AI voice tools matter to your fans. Consider the move if you want one page that sells every format and a fee that falls as you grow.',
+                'Keep Fanvue if your audience is already there, you sell nothing but the subscription and paid messages, and the AI voice tools matter to your fans. Consider the move if you want one page that sells every format and a lower share on the Studio plan.',
             )),
             array('h' => 'What does moving from Fanvue to {site} involve?', 'p' => array(
                 'Start with your own files, not with Fanvue. Fanvue does not publish whether a creator can export the fan list (' . self::src($c, 'ownership') . '), so plan on telling fans yourself: a pinned post, a paid-message broadcast and the new link in every social bio. Upload your library to {site} first, set two membership tiers and put your strongest pieces behind pay-per-view, so the page has something to buy on the day you announce it.',
-                'Money already earned on Fanvue follows Fanvue\'s terms. Its standard pending period is seven days and can run to twenty-eight (' . self::src($c, 'payout') . '), and it pays by bank transfer, crypto or third-party wallet. Request what is withdrawable before you stop posting there, and expect the last balance to clear on that schedule rather than on yours. On {site} every sale lands in one balance, net of your plan\'s fee, and you cash out to your bank on request from a {payout_min} balance with no platform hold.',
+                'Money already earned on Fanvue follows Fanvue\'s terms. Its standard pending period is seven days and can run to twenty-eight (' . self::src($c, 'payout') . '), and it pays by bank transfer, crypto or third-party wallet. Request what is withdrawable before you stop posting there, and expect the last balance to clear on that schedule rather than on yours. On {site} every sale lands in one balance, net of your plan\'s platform fee, and you cash out to your bank on request from a {payout_min} balance with no platform hold; event earnings release after the event.',
                 'Run both for one full billing cycle. Fans who renew on Fanvue keep renewing until you turn the page off, and {site} can cross-post to Fanvue from the same studio, so the Fanvue page stays fed while people move. Nothing has to be cancelled on day one, and renewals on the old page lapse on their own once you stop posting there.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
@@ -318,13 +318,13 @@ class CompareProse {
             )),
             array('h' => 'What does moving from OnlyFans to {site} involve?', 'p' => array(
                 'Because OnlyFans publishes no subscriber export, the audience moves one fan at a time, through your own messages. Pin a post with the new link, send a mass message that says what the new page adds (bundles, services, events, the things OnlyFans does not sell), and change every social bio to the new address. Creators who make the new page better rather than merely cheaper keep more of the audience.',
-                'Payouts already earned stay on OnlyFans\' schedule. Third-party reporting describes bank transfer and e-wallet payouts after a holding period of about seven days (' . self::src($c, 'payout') . '). OnlyFans\' own terms say earnings become available for withdrawal once reflected in the account and above its minimum payout amount (' . self::src($c, 'fee', 'terms') . '). Withdraw what is available before you wind the page down. On {site}, sales land in one balance net of your fee and pay out to your bank on request from {payout_min}, with no platform hold on content, membership or service sales.',
+                'Payouts already earned stay on OnlyFans\' schedule. Third-party reporting describes bank transfer and e-wallet payouts after a holding period of about seven days (' . self::src($c, 'payout') . '). OnlyFans\' own terms say earnings become available for withdrawal once reflected in the account and above its minimum payout amount (' . self::src($c, 'fee', 'terms') . '). Withdraw what is available before you wind the page down. On {site}, sales land in one balance net of your fee and pay out to your bank on request from {payout_min}, with no platform hold on content, membership or service sales; event earnings release after the event.',
                 'Keep the OnlyFans page live for a full billing cycle while fans move. Give the new page something OnlyFans never had: a bundle of your back catalogue, a service with a fixed price, or a ticketed live session. Renewals on OnlyFans lapse on their own as you stop posting there; nothing has to be cancelled on day one.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
                 'You trade the biggest audience for a page you own. OnlyFans brings discovery to creators whose fans look for them there. {site} brings a page whose audience list and media you can export at any time. Its studio pushes every post to the social networks you already post on. If your traffic comes from OnlyFans search, the move costs you that; if it comes from your socials, the move costs you nothing and gives you the publishing tool.',
                 'You trade a single familiar format for five. OnlyFans sells subscriptions, tips and pay-per-view (' . self::src($c, 'content') . '). {site} adds bundles, services and events, and prices each one in credits from a wallet fans top up, so a fan who already loaded the wallet buys the next thing without re-entering a card. Memberships stay on the card, billed monthly, as fans expect.',
-                'You trade a flat 20% share for a lower one. The share here is {fee_short}. Plan charges are a separate monthly line and are non-refundable. The scenario below runs the shares on an example page.',
+                'You trade a flat 20% share for a lower one. The share here is {fee_short}. Plan charges are a separate monthly line. The scenario below runs the shares on an example page.',
             )),
             array('h' => 'A worked scenario: an OnlyFans creator with 500 subscribers', 'p' => self::scenario($c, 5000, 'subscriptions, tips and pay-per-view (500 fans at $10)', 'onlyfans')),
         );
@@ -340,11 +340,11 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Patreon to {site} involve?', 'p' => array(
                 'Patreon lets you take your members with you. The Relationship manager exports the member list, including emails, as a CSV (' . self::src($c, 'ownership') . '). Download it before you announce anything, then email members with the new link and the reason: the tier they know, plus the posts, bundles or sessions they could not buy on Patreon. {site} imports nothing automatically, so the email is the migration.',
-                'Money on Patreon follows Patreon\'s payout rules. Withdrawals are creator-initiated, by bank transfer or online wallet; a five-day hold applies after you add a payout method, and one-time purchase funds stay pending up to seven days, or seventy-five for iOS in-app purchases (' . self::src($c, 'payout') . '). Clear the balance before you move. On {site} every sale lands in one balance net of your plan\'s fee, and you cash out on request from {payout_min} with no platform hold.',
+                'Money on Patreon follows Patreon\'s payout rules. Withdrawals are creator-initiated, by bank transfer or online wallet; a five-day hold applies after you add a payout method, and one-time purchase funds stay pending up to seven days, or seventy-five for iOS in-app purchases (' . self::src($c, 'payout') . '). Clear the balance before you move. On {site} every sale lands in one balance net of your plan\'s platform fee, and you cash out on request from {payout_min} with no platform hold; event earnings release after the event.',
                 'Rebuild the tiers before the email goes out: the same names, the same prices, the same perks, so a member sees the page they expected. Keep Patreon live for one billing cycle so nobody loses access mid-month, and let the Patreon renewals lapse as members re-join on the new page.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'Patreon charges a 10% platform fee for pages published after August 4, 2025, with payment processing from 2.9% plus $0.30, currency conversion and payout fees on top; older pages sit on legacy rates of 5%, 8% or 11% (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site}\'s Creator plan also takes 10%, so at that level the comparison is the plan price against Patreon\'s extra fees, and the Studio plan\'s 3% is where the share drops. The scenario below runs it.',
+                'Patreon charges a 10% platform fee for pages published after August 4, 2025, with payment processing from 2.9% plus $0.30, currency conversion and payout fees on top; older pages sit on legacy rates of 5%, 8% or 11% (' . self::src($c, 'fee') . ', checked ' . $checked . '). {site}\'s Creator plan also takes 10%, and the Studio plan takes 3%. Plan prices are a separate monthly line. The scenario below runs the shares.',
                 'Patreon hosts your video and runs community chats and polls inside the membership. {site} does not host a community chat. Its inbox handles one-to-one and broadcast messages with paid media attached, and its events sell seats to live sessions held in a built-in video room. A creator whose members gather in a chat loses that; a creator whose members pay for sessions gains the room.',
                 'Patreon\'s AI is Clips, which suggests shareable clips from videos over eight minutes on iOS (' . self::src($c, 'ai') . '). {site}\'s AI drafts captions, answers DMs for your approval and builds an AI influencer whose images and videos you can sell. They are different tools for different work.',
                 'Annual memberships are a Patreon feature worth naming. A member who prepays a year is a member you keep for a year. {site} bills memberships monthly, with free trials and promo codes to bring people in, so a creator whose income leans on annual prepayment gives that up and gains the trials instead.',
@@ -363,7 +363,7 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Fansly to {site} involve?', 'p' => array(
                 'Fansly does not publish a fan export, so the move runs through your own announcements: a pinned post, a paid-message broadcast to every subscriber and the new link in every bio. Build the new page first so the announcement has somewhere to send people: the same tiers, the strongest pieces behind pay-per-view, a bundle of the back catalogue and, if you stream, a ticketed live session on the calendar.',
-                'Fansly pays by ACH or SEPA bank transfer or e-wallet. Once verified, a creator can withdraw amounts above $20 as often as they like, and bank transfers typically arrive within three business days (' . self::src($c, 'payout') . '). Take the balance out before you stop posting. On {site} every sale lands in one balance net of your plan\'s fee, and you cash out on request from {payout_min} with no platform hold; event earnings release after the event has taken place.',
+                'Fansly pays by ACH or SEPA bank transfer or e-wallet. Once verified, a creator can withdraw amounts above $20 as often as they like, and bank transfers typically arrive within three business days (' . self::src($c, 'payout') . '). Take the balance out before you stop posting. On {site} every sale lands in one balance net of your plan\'s platform fee, and you cash out on request from {payout_min} with no platform hold; event earnings release after the event has taken place.',
                 'Keep both pages live for a billing cycle. Fansly\'s automated and keyword-triggered messages can keep telling subscribers where the new page is, and {site}\'s studio publishes to your socials so the move does not depend on the Fansly feed. Renewals on Fansly lapse on their own as you stop posting there.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
@@ -385,11 +385,11 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Ko-fi to {site} involve?', 'p' => array(
                 'Ko-fi lets you leave with your people. Supporter and member lists, including supporter emails, download as CSV files (' . self::src($c, 'ownership') . '), so the migration is an email: the new link, the tier they know at the same price, and the things they could not buy before. Rebuild the tiers and the shop items as bundles or pay-per-view posts before you send it.',
-                'There is no balance to wait for. Ko-fi paid you as each supporter paid, so there is nothing pending on Ko-fi\'s side when you move. On {site} the model is different. Sales land in one balance net of your plan\'s fee. Memberships bill the fan\'s card monthly and everything else is paid from a credit wallet. You cash out to your bank on request from {payout_min} with no platform hold.',
+                'There is no balance to wait for. Ko-fi paid you as each supporter paid, so there is nothing pending on Ko-fi\'s side when you move. On {site} the model is different. Sales land in one balance net of your plan\'s platform fee. Memberships bill the fan\'s card monthly and everything else is paid from a credit wallet. You cash out to your bank on request from {payout_min} with no platform hold; event earnings release after the event.',
                 'Keep the Ko-fi page as a tip jar if you like; many creators do. Point the memberships, the shop and the commissions at the new page, where a commission becomes a service with a fixed price and a delivery window, and keep the Ko-fi link for one-off thanks. Nothing has to be closed on day one.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
-                'On fee alone, Ko-fi wins at small volume. Its 0% on one-time tips and 5% on the rest is a lower share than {site}\'s {fee_short}, and Ko-fi Free has no monthly price. The reason to move is the formats and the publishing, not the fee.',
+                'On fee alone, Ko-fi keeps the smaller share. Its 0% on one-time tips and 5% on the rest is a lower share than {site}\'s {fee_short}, and Ko-fi Free has no monthly price. The reason to move is the formats and the publishing, not the fee.',
                 'Ko-fi pays instantly to your own account. {site} pays on request from a balance, which adds a step. The balance is also one ledger across memberships, unlocks, bundles, services and events, rather than a processor dashboard. A creator who likes the money arriving as it is paid will prefer Ko-fi; a creator who wants one place to see every sale will prefer the balance.',
                 'The publishing and the inbox are the gain. Ko-fi has no social scheduler and no AI (' . self::src($c, 'ai') . '). {site} publishes each post to nine networks with AI captions and drafts DM replies for your approval. Welcome and trigger messages go out with paid media attached, and ticketed live sessions run in its own video room. If none of that is work you do, Ko-fi remains the simpler tool.',
             )),
@@ -407,7 +407,7 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Linktree to {site} involve?', 'p' => array(
                 'The contacts come with you: Linktree exports audience contacts as a CSV from the Audience tab on every plan (' . self::src($c, 'ownership') . '). Download it, recreate the links on your {site} page as tracked links, and email the list once the memberships or products are live. The social bios change last, once the new page has something to sell.',
-                'Sales already made settle on Linktree\'s terms. Product and course sales pay out to the bank account connected to your payment account on the daily, weekly or monthly schedule you chose, and affiliate commissions, US only, are usually paid monthly once they reach $10 (' . self::src($c, 'payout') . '). There is little to wait for. On {site} every sale lands in one balance net of your plan\'s fee and pays out on request from {payout_min} with no platform hold.',
+                'Sales already made settle on Linktree\'s terms. Product and course sales pay out to the bank account connected to your payment account on the daily, weekly or monthly schedule you chose, and affiliate commissions, US only, are usually paid monthly once they reach $10 (' . self::src($c, 'payout') . '). There is little to wait for. On {site} every sale lands in one balance net of your plan\'s platform fee and pays out on request from {payout_min} with no platform hold; event earnings release after the event.',
                 'Keep the Linktree page until the socials point at the new address, then let it go; there is no renewal to lapse. Social Planner users lose their scheduler at that point, which is why the studio\'s publishing to nine networks is usually the first thing a Linktree creator sets up on the new page.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
@@ -429,7 +429,7 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Beacons to {site} involve?', 'p' => array(
                 'Your audience comes with you: contacts download as a CSV from Beacons\' Audience Manager (' . self::src($c, 'ownership') . '), while automatic export to email tools is a paid feature. Export the CSV, build the page, then email the list with the new link and what it adds. Products become bundles or pay-per-view posts, appointments become services with a fixed price and a delivery window, and a membership tier keeps its name and price.',
-                'Store funds on Beacons go to your connected payment account and from there to your bank on a daily, weekly or custom schedule; affiliate commissions cash out from the Payouts tab (' . self::src($c, 'payout') . '). Nothing much is pending when you leave. On {site} sales land in one balance net of your plan\'s fee, and you cash out on request from {payout_min} with no platform hold.',
+                'Store funds on Beacons go to your connected payment account and from there to your bank on a daily, weekly or custom schedule; affiliate commissions cash out from the Payouts tab (' . self::src($c, 'payout') . '). Nothing much is pending when you leave. On {site} sales land in one balance net of your plan\'s platform fee, and you cash out on request from {payout_min} with no platform hold; event earnings release after the event.',
                 'The media kit is the thing to keep if brand deals pay your bills. Many creators keep a Beacons page for the kit and the brand outreach and move the fan-facing selling to {site}, with the link page on {site} pointing back at the kit. Both can run at once; nothing has to be cancelled.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
@@ -451,7 +451,7 @@ class CompareProse {
             )),
             array('h' => 'What does moving from Stan Store to {site} involve?', 'p' => array(
                 'Customer and order data download as a CSV from Stan Store\'s Income tab (' . self::src($c, 'ownership') . '), so your buyers come with you. Recreate the bookings as services, the subscription as a membership tier, the course as a bundle of posts or as a pay-per-view series, and email the list once the page sells those things. Courses with hosted video are the hardest part to move; {site} stores media in your library rather than as a course player.',
-                'Cash out of Stan Store first. A creator withdraws the full available balance, minimum $10, from the Income tab; it reaches the bank in 24 to 48 hours once sales have finished processing, which takes two to seven business days in the US (' . self::src($c, 'payout') . '). On {site} sales land in one balance net of your plan\'s fee, and you cash out on request from {payout_min}, with no platform hold on content, membership or service sales.',
+                'Cash out of Stan Store first. A creator withdraws the full available balance, minimum $10, from the Income tab; it reaches the bank in 24 to 48 hours once sales have finished processing, which takes two to seven business days in the US (' . self::src($c, 'payout') . '). On {site} sales land in one balance net of your plan\'s platform fee, and you cash out on request from {payout_min}, with no platform hold on content, membership or service sales; event earnings release after the event.',
                 'Run both while the course buyers finish. Stan Store\'s plan is monthly, so the store can stay open for a cycle while the new page takes the bookings and the memberships; point the social bios at the new page when the calendar there is live.',
             )),
             array('h' => 'What are the trade-offs in plain terms?', 'p' => array(
@@ -482,9 +482,9 @@ class CompareProse {
                 'Ownership of the character is the long-term question. On {site} the trained character, its images and your audience list are yours to export at any time. On Eromify the outputs are downloadable and the fan relationship does not exist, because the fans are on whatever platform you sell through. If that platform is this one, the character and the audience end up in the same place.',
             )),
             array('h' => 'A worked scenario: an Eromify creator who starts selling here', 'p' => array(
-                'Take a creator who generates on Eromify and sells 200 pay-per-view unlocks a month at $5 on another platform. The numbers are round and hypothetical. That is $1,000 a month gross wherever it is sold, and the selling platform\'s fee comes off it there; Eromify\'s plan and credits are a separate cost on top, because Eromify takes no part in the sale.',
+                'Take a creator who generates on Eromify and sells 200 pay-per-view unlocks a month at $5 on another platform. The numbers are round and hypothetical. That is $1,000 a month gross wherever it is sold, and the selling platform\'s fee comes off it there. Eromify takes no part in the sale, so its plan and credits are a separate line.',
                 'Moved to {site}, the same 200 unlocks are paid from fans\' credit wallets at {credits_per_dollar} credits per dollar. The Creator plan keeps {fee_creator}% of each sale and includes {credits_creator} AI credits a month for generating the next month\'s images, so the generation tool and the selling fee are one account; Studio keeps {fee_studio}% and includes {credits_studio} credits and {inf_studio} AI influencers. The monthly plan prices are a separate line on the pricing page.',
-                'Whether that beats Eromify plus a separate selling platform depends on that platform\'s fee and on how many credits the creator burns; the scenario cannot be run on Eromify\'s side because it publishes no fan sales. What it does show is the shape of the decision: one bill for generating and selling, against two.',
+                'The scenario cannot be run on Eromify\'s side because it publishes no fan sales. What it does show is where each product sits: one tool for generating and selling, against two.',
             )),
         );
     }
@@ -510,7 +510,7 @@ class CompareProse {
                 'Give the new page something the old one could not sell before you announce it. A bundle of the back catalogue, a service with a fixed price and a delivery window, a ticketed live session: those are the reasons a fan follows you to a new address. OnlyFans does not offer any of them. Then keep both pages live for a billing cycle and let the old renewals lapse on their own.',
             )),
             array('h' => 'What changes on {site} for a OnlyFans creator?', 'p' => array(
-                'The page becomes the business. Memberships bill the fan\'s card monthly, with as many tiers as you want. Pay-per-view posts, bundles, services, event tickets and paid messages are paid from a credit wallet fans top up at {credits_per_dollar} credits per dollar. A second purchase needs no card. Every sale lands in one balance net of your plan\'s fee, and you cash out to your bank on request from {payout_min} with no platform hold; event earnings release after the event has taken place.',
+                'The page becomes the business. Memberships bill the fan\'s card monthly, with as many tiers as you want. Pay-per-view posts, bundles, services, event tickets and paid messages are paid from a credit wallet fans top up at {credits_per_dollar} credits per dollar. A second purchase needs no card. Every sale lands in one balance net of your plan\'s platform fee, and you cash out to your bank on request from {payout_min} with no platform hold; event earnings release after the event has taken place.',
                 'The studio does the promotion you used to do by hand. A post written once goes to your page and to nine social networks at the same time, with the paid version behind the lock, and AI captions drafted for each. The inbox drafts replies in your voice for your approval, sends welcome and trigger messages with paid media attached, and runs broadcasts to audience segments.',
                 'The audience list and your media are yours to export at any time, which is the difference that matters most on the day you decide to leave again. Adult content is allowed behind an age check: fans opt in and verify once, creators verify before publishing adult media, and every upload is checked automatically.',
             )),
@@ -534,7 +534,7 @@ class CompareProse {
             array('h' => 'What changes on {site} for a Fanvue creator?', 'p' => array(
                 'The formats widen. Alongside memberships and paid messages, the page sells pay-per-view posts, bundles of past work and services with a fixed price and a delivery window. Tickets to live sessions are held in a built-in video room with a waiting room, chat and host controls. Fans pay memberships by card and everything else from a credit wallet, so a second purchase takes one tap.',
                 'The promotion stops being manual. The studio publishes each post to nine social networks and to your page at once, with the paid version behind the lock. The inbox drafts replies for your approval and sends welcome and trigger messages with paid media attached. Fanvue\'s AI voice calls for fans do not exist here; the AI works on the creator\'s side instead.',
-                'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
+                'The money is one balance. Every sale lands net of your plan\'s platform fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
                 'Adult content is allowed behind an age check, which matters to many Fanvue creators. Fans opt in and verify once, creators verify before publishing adult media, and every upload is checked automatically. Nothing adult is shown to a fan who has not opted in, and the public page stays safe for work.',
             )),
             array('h' => 'A worked scenario: 200 subscribers leaving Fanvue', 'p' => self::scenario($fv, 2000, 'subscriptions and paid messages (200 fans at $10)', 'fanvue')),
@@ -557,7 +557,7 @@ class CompareProse {
             array('h' => 'What changes on {site} for a Patreon creator?', 'p' => array(
                 'The formats widen. Beside membership tiers the page sells pay-per-view posts, bundles of past work, services with a fixed price and tickets to live sessions held in a built-in video room. Members pay by card on a schedule, and everything else is paid from a credit wallet at {credits_per_dollar} credits per dollar.',
                 'Promotion moves into the same tool. Patreon offers a share menu and publishes no automatic posting to social accounts (' . self::src($pt, 'socials') . '). On {site} a post written once goes to your page and to nine social networks together, with the paid version behind the lock.',
-                'The money is one balance. Every sale lands net of your plan\'s fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
+                'The money is one balance. Every sale lands net of your plan\'s platform fee, {fee_short}, and pays out to your bank on request from {payout_min} with no platform hold; event earnings release after the event. The audience list and your media export at any time.',
             )),
             array('h' => 'A worked scenario: 300 members leaving Patreon', 'p' => self::scenario($pt, 2400, 'memberships (300 members at $8)', 'patreon')),
         );
@@ -620,8 +620,8 @@ class CompareProse {
                 'A bundle turns the back catalogue into a product: a themed set of past media at a discount to the sum of the parts. It needs no new work, only a title and a price, and it is the easiest upsell after a single unlock. A service is custom work at a fixed price with a clear scope and a delivery window you can keep, and it is where a small audience earns the most per fan. An event sells seats to a live session ahead of time, caps the room, and can be recorded and sold afterwards as a bundle.',
             )),
             array('h' => 'What does a sale turn into on {site}?', 'p' => array(
-                'Every sale lands in one balance, net of your plan\'s platform fee of {fee_short}. Memberships bill the fan\'s card; unlocks, bundles, services and tickets are paid from a credit wallet at {credits_per_dollar} credits per dollar. Card processing is separate, as on every platform, and the plan price is a fixed monthly cost that the fee example below puts next to the sales.',
-                'You cash out on request from a {payout_min} balance to your bank, with no platform hold on content, membership or service sales. Earnings from an event release after the event has taken place, so a cancelled session never leaves a fan unpaid. Content sales are final, and plan charges and credit purchases are non-refundable. If a sale is reversed, the amount comes out of the same balance.',
+                'Every sale lands in one balance, net of your plan\'s platform fee of {fee_short}. Memberships bill the fan\'s card; unlocks, bundles, services and tickets are paid from a credit wallet at {credits_per_dollar} credits per dollar. Card processing is separate, as on every platform, and the plan price is a separate monthly line.',
+                'You cash out on request from a {payout_min} balance to your bank, with no platform hold on content, membership or service sales. Earnings from an event release after the event has taken place, so a cancelled session never leaves a fan unpaid. Content sales are final. If a sale is reversed, the amount comes out of the same balance.',
                 'What reaches the bank is self-employment income. The [IRS self-employed individuals tax center](https://www.irs.gov/businesses/small-businesses-self-employed/self-employed-individuals-tax-center) sets out the estimated payments due on it, and the [IRS page on Form 1099-K](https://www.irs.gov/businesses/understanding-your-form-1099-k) explains what a payment processor reports about your sales once you pass the threshold on that page. A sponsored post on your socials needs a disclosure, in the wording the [FTC\'s Disclosures 101 for influencers](https://www.ftc.gov/business-guidance/resources/disclosures-101-social-media-influencers) describes.',
                 'The balance is also the ledger. Every membership, unlock, bundle, service and ticket shows in one place with the fan who paid, which is what makes the audience tab useful: the people who bought are tagged, and a broadcast to buyers is a few clicks rather than a spreadsheet.',
             )),

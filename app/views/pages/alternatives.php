@@ -11,11 +11,11 @@ echo Sections::panel_hero(array(
     'title'   => $p['title'],
     'lead'    => $p['intro'],
     'buttons' => array(array('Start Free', $signup, 'primary', 'register'), array('Compare All Platforms', '/best-creator-monetization-platforms', 'secondary')),
-    'panel'   => Sections::pane('On this list', count($rows) . ' platforms, in the order below.', Sections::pane_rows($rows)),
+    'panel'   => Sections::pane('On this list', count($rows) . ' platforms, in the order below.', Sections::pane_rows(array_slice($rows, 0, 6), count($rows) > 6 ? '<p class="hx__p hx__p--foot">And ' . (count($rows) - 6) . ' more, listed below.</p>' : '')),   // a long list would push the heading off the first screen
 ));
 
 // The numbered list: us first (we build it and say so), then each platform with a paragraph written for this page's reader.
-echo Sections::open('white', 'Which ' . $p['name'] . ' alternatives are worth considering?', 'We build ' . $site . ', so it leads this list of ' . $p['name'] . ' alternatives, and we say so. Every other entry is written for a creator leaving ' . $p['name'] . ', and the points under it come from that platform\'s own pages.');
+echo Sections::open('white', 'Which ' . $p['name'] . ' alternatives are worth considering?', 'We build ' . $site . ', so it leads this list of ' . $p['name'] . ' alternatives, and we say so. Every other entry is written for a creator leaving ' . $p['name'] . ', and the points under it come from that platform\'s own pages, linked beside each one or in its comparison.');
 $cards = array(array('title' => '1. ' . $p['us']['name'], 'text' => $p['us']['text'], 'points' => $p['us']['points'], 'note' => 'Best for ' . $p['us']['best_for'], 'link' => array('See All Features', '/features')));
 $n = 2;
 foreach ($p['others'] as $o) {
@@ -24,10 +24,15 @@ foreach ($p['others'] as $o) {
     $rec = $o['compare'] !== '' ? (PagesController::COMPETITORS[$o['compare']] ?? null) : null;
     if ($rec) { $card['points'] = array_map(function ($s) { $s = trim((string) $s); return preg_match('/[.!?]$/', $s) ? $s : $s . '.'; }, (array) ($rec['strengths'] ?? array())); }
     if ($o['compare'] !== '') { $card['link'] = array('Compare ' . $site . ' with ' . $o['name'], '/compare/' . $o['compare']); }
+    // A platform with no compare page carries its own sourced record (AlternativesPages::RECORDS): each point links to the platform's page it was read from.
+    $own = AlternativesPages::RECORDS[$o['name']] ?? null;
+    if (!$rec && $own) {
+        $card['points_html'] = array_map(function ($f) use ($e) { return $e($f[0]) . ' <a class="sx-src" href="' . $e($f[1]) . '" rel="noopener" target="_blank">source</a>'; }, (array) $own['facts']);
+    }
     $cards[] = $card;
 }
 echo '<div class="alt-list">' . Sections::cards($cards, 2) . '</div>';
-$alt_checked = ''; foreach ($p['others'] as $o) { if ($o['compare'] !== '' && isset(PagesController::COMPETITORS[$o['compare']])) { $alt_checked = max($alt_checked, (string) (PagesController::COMPETITORS[$o['compare']]['checked'] ?? '')); } }   // the newest date a listed platform's facts were checked
+$alt_checked = ''; foreach ($p['others'] as $o) { if (isset(AlternativesPages::RECORDS[$o['name']])) { $alt_checked = max($alt_checked, (string) AlternativesPages::RECORDS[$o['name']]['checked']); } if ($o['compare'] !== '' && isset(PagesController::COMPETITORS[$o['compare']])) { $alt_checked = max($alt_checked, (string) (PagesController::COMPETITORS[$o['compare']]['checked'] ?? '')); } }   // the newest date a listed platform's facts were checked
 echo '<p class="sx-note">' . ($alt_checked !== '' ? 'The platforms on this ' . $e($p['name']) . ' list were last checked on ' . $e(date('F j, Y', strtotime($alt_checked))) . ' by the ' . $e($site) . ' team. ' : '') . 'The sourced, side-by-side table is in <a href="/compare/' . $e(strtolower($p['name'])) . '">' . $e($site . ' vs ' . $p['name']) . '</a>.</p>';
 echo Sections::close();
 

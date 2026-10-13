@@ -2,7 +2,7 @@
 /**
  * Seventh one-time text pass (SEO re-audit 2026-10-13): nine articles still folded the platform fee into the plan price, or said when a plan or a training spend "pays off"
  * ("a 10% cut plus a $49 plan takes $145", "the cost of selling that month totals $113.80") and named a sales level where the
- * better plan changes. The fee is stated as a percentage of sales alone; the plan price is a separate monthly line.
+ * better plan changes. Four articles also get the event exception beside "no platform hold". The fee is stated as a percentage of sales alone; the plan price is a separate monthly line.
  * Exact-string edits, pure text, no AI calls. Ends by checking every published article against SeoDrafter::plan_sum_errors().
  * Usage: APPLICATION_ENV=production php cron/seo_text_fixes_2026-10-13g.php [--dry-run|--apply]
  */
@@ -31,6 +31,8 @@ $edits = array(
             => 'Apply the new cut to last month\'s real sales, note any plan charge on its own line, and compare the result',
     ),
     'custom-ai-influencer-training-when-to-invest' => array(
+        'goes to your bank on request with no platform hold.'
+            => 'goes to your bank on request with no platform hold; ticket earnings from an event release after the event.',
         'Timing the spend decides whether training pays.'
             => 'Timing the spend matters more than the size of it.',
         'A month of sales reaches your balance minus two deductions: a percentage taken from each sale, and the flat monthly plan charge.'
@@ -41,6 +43,8 @@ $edits = array(
             => 'The $49 plan charge is billed on its own, as a separate monthly line, and card processing and tax are separate again.',
     ),
     'how-to-monetize-content-as-a-creator' => array(
+        'when you want the money, with no platform hold.'
+            => 'when you want the money, with no platform hold; ticket earnings release after the event.',
         'sales in, platform share out, plan price out, card costs out, tax set aside.'
             => 'sales in, platform share out, card costs out, tax set aside.',
         'The monthly plan charge comes off after the platform share, so $720 becomes $671 for the example month. Nothing about the charge responds to effort: a $100 month and an $800 month are billed the same. Quiet months, not good ones, show you whether a plan is carrying its weight.'
@@ -51,6 +55,8 @@ $edits = array(
             => 'Treat the $720 as a figure',
     ),
     'fanvue-alternative' => array(
+        'whenever you ask, with no holding period, as the'
+            => 'whenever you ask, with no holding period except on event tickets, which release after the event, as the',
         'Then add the monthly plan charge, because a flat subscription behaves nothing like a percentage once volume climbs.'
             => 'Then note the monthly plan charge on its own line, because a flat subscription is not a percentage of sales.',
         'Plan price plus a share of each sale: 10% on Creator, 3% on Studio'
@@ -76,6 +82,8 @@ $edits = array(
             => 'The numbers matter because the fee comes out of every sale your inbox closes, and the plan price is a separate monthly line.',
     ),
     'how-to-price-a-subscription-tier' => array(
+        'when you request them, with no platform hold.'
+            => 'when you request them, with no platform hold; event earnings release after the event.',
         'Plan charges buy more than a lower rate, which matters when you divide the monthly cost across your members.'
             => 'Plan charges buy more than a lower rate.',
     ),
@@ -90,6 +98,9 @@ $fields = array(
         'platform share, plan charge, card costs, tax and what reaches the bank.' => 'the platform share, card costs, tax and what reaches the bank.')),
 );
 
+// every article, body and FAQ answers: the balance is net of the platform's percentage, never "net of the plan fee" (which reads as the plan price)
+$global = array('net of your plan fee' => 'net of your plan\'s platform fee', 'net of the plan fee' => 'net of the platform fee');
+
 $articles = new SeoArticlesModel(); $n = 0; $missing = array(); $still = 0;
 $dir = sys_get_temp_dir() . '/cls_seo_backup_' . gmdate('Y-m-d');
 foreach ($articles->published_markdown() as $row) {
@@ -100,7 +111,15 @@ foreach ($articles->published_markdown() as $row) {
         if (strpos($body, $old) === false) { if (strpos($body, $new) === false) { $missing[] = "/blog/$slug not found: \"" . mb_substr($old, 0, 70) . "\""; } continue; }
         $body = str_replace($old, $new, $body); $n++; $notes[] = '"' . mb_substr($old, 0, 40) . '..."';
     }
+    foreach ($global as $old => $new) { if (strpos($body, $old) !== false) { $body = str_replace($old, $new, $body); $n++; $notes[] = '"' . $old . '"'; } }
     $set = array();
+    $faq_raw = (string) ($a['faq'] ?? ''); $fq = json_decode($faq_raw, true); $faq_text = '';
+    if (is_array($fq)) {
+        $fq_new = $fq;
+        foreach ($fq_new as $i => $f) { if (is_array($f) && isset($f['a'])) { $fq_new[$i]['a'] = str_replace(array_keys($global), array_values($global), (string) $f['a']); } }
+        if ($fq_new !== $fq) { $set['faq'] = json_encode($fq_new, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES); $n++; $notes[] = 'faq'; }
+        foreach ($fq_new as $f) { if (is_array($f)) { $faq_text .= "\n" . (string) ($f['q'] ?? '') . "\n" . (string) ($f['a'] ?? ''); } }
+    }
     foreach ((array) ($fields[$slug] ?? array()) as $f => $map) {
         $v = (string) ($a[$f] ?? '');
         foreach ($map as $old => $new) {
@@ -112,7 +131,7 @@ foreach ($articles->published_markdown() as $row) {
     if ($body !== (string) $a['body_md']) { $set['body_md'] = $body; $set['body_html'] = SeoDrafter::render_body($body); }
     // the closing check runs on the text as it will read after this pass
     $now = array_merge($a, $set);
-    $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $now['title'] . "\n" . $now['meta_description'] . "\n" . $now['excerpt'] . "\n" . $now['body_md']);
+    $plain = preg_replace('/\[([^\]]*)\]\([^)]*\)/', '$1', $now['title'] . "\n" . $now['meta_description'] . "\n" . $now['excerpt'] . "\n" . $now['body_md'] . $faq_text);
     foreach (preg_split('/(?<=[.!?])\s+|\n+/', $plain) as $s) { if (SeoDrafter::plan_sum_errors($s)) { echo "STILL: /blog/$slug: " . trim($s) . "\n"; $still++; } }
     if (empty($set)) { continue; }
     echo date('c'), " /blog/$slug: ", implode('; ', $notes), "\n";

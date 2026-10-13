@@ -45,7 +45,7 @@ echo Sections::close();
 echo Sections::open('alt', 'What do you set up once you upgrade?');
 echo Sections::rows(array(
     array('title' => 'Tiers, codes and bundles in one place',
-          'text' => 'Memberships, discount codes and content bundles live on one Settings screen. Set a tier\'s price and billing interval, switch it on when it is ready, and add a code for a launch. Every sale lands in your balance net of your plan fee, and you cash out to your bank from ' . Price::PAYOUT_MIN_LABEL . '.',
+          'text' => 'Memberships, discount codes and content bundles live on one Settings screen. Set a tier\'s price and billing interval, switch it on when it is ready, and add a code for a launch. Every sale lands in your balance net of your plan\'s platform fee, and you cash out to your bank from ' . Price::PAYOUT_MIN_LABEL . '.',
           'points' => array('As many tiers as you want, each with its own price, interval and trial', 'Promo codes with a cap or an expiry', 'Bundles built from media already in your library'),
           'link' => array('See memberships', '/features/memberships'),
           'image' => Sections::ui_sketch_url('plans'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Membership Plans screen in Settings, drawn as a schematic.',
@@ -90,7 +90,7 @@ if ($st) {
     ));
 }
 
-echo Sections::open('alt', 'Compare plans', 'Free is the account everyone starts with. Creator and Studio are for selling: they differ in fee, limits and AI tools, and include everything below the limits.');
+echo Sections::open('alt', 'Compare plans', PagesController::FREE_LINE . ' Creator and Studio differ in fee, limits and AI tools, and include everything below the limits.');
 echo '<div class="pt">' . Sections::table($head, $trows, $hi) . '</div>';
 echo Sections::close();
 

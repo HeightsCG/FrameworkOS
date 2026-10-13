@@ -1,5 +1,5 @@
 <?php Analytics::pageview(); /* first-party page view (analytics_events), recorded once per rendered page; GA and Clarity below stay as they are */ ?>
-    <!-- Google tag (gtag.js) -->
+<?php echo Analytics::beacon_script(); /* a cacheable page reports its own view after load */ ?>    <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-KQBG52F6SZ"></script>
     <script>
       window.dataLayer = window.dataLayer || [];

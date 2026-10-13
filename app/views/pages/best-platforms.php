@@ -16,7 +16,7 @@ echo Sections::panel_hero(array(
 ));
 echo Sections::open('white', 'How do you judge a creator platform?');
 echo Sections::cards(array(
-    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools charge a monthly price plus 0% to 12% of sales. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', and its plan prices are a separate monthly line.'),
+    array('icon' => 'bank', 'title' => 'Fee', 'text' => 'Subscription platforms keep about 20%. Link-in-bio tools keep 0% to 12% of sales, and their monthly prices are a separate line. ' . Main::site_name() . ' takes ' . PagesController::fee_short() . ', and its plan prices are a separate monthly line.'),
     array('icon' => 'package', 'title' => 'What you can sell', 'text' => 'Subscriptions only, or also pay-per-view, bundles, services and events.'),
     array('icon' => 'send', 'title' => 'Where your fans are', 'text' => 'A platform that publishes to your socials brings people in; one that does not makes you do it by hand.'),
     array('icon' => 'shield', 'title' => 'Ownership and payouts', 'text' => 'Can you export your audience and media if you leave, and how long is the payout hold?'),
@@ -52,7 +52,7 @@ foreach (PagesController::COMPETITOR_GROUPS as $type => $g) {
     if (empty($cards)) { continue; }
     echo '<div class="bp-group"><h3 class="bp-group__title">' . $e(Sections::tc($g[0])) . '</h3><p class="bp-group__lead">' . $e($g[1]) . '</p>' . Sections::cards($cards, max(2, min(3, count($cards)))) . '</div>';
 }
-echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($site) . '</h3><p class="bp-group__lead">For creators who sell more than subscriptions from one page: pay-per-view, bundles, services and events. They publish to all their socials from one studio and want a fee that falls as they grow.</p>'
+echo '<div class="bp-group bp-group--us"><h3 class="bp-group__title">' . $e($site) . '</h3><p class="bp-group__lead">For creators who sell more than subscriptions from one page: pay-per-view, bundles, services and events. They publish to all their socials from one studio and want a lower share on the higher plan.</p>'
    . Sections::buttons(array(array('See the features', '/features', 'secondary'))) . '</div>';
 echo Sections::close();
 

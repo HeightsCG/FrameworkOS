@@ -144,18 +144,27 @@ class Sections {
     public static function tab_hero(array $h): string {
         $id = preg_replace('/[^a-z0-9_]/', '', strtolower((string) ($h['id'] ?? 'hx')));
         $start = (int) ($h['start'] ?? 0);
+        $small = !empty($h['words_eyebrow']);   // the words as one small line above the H1 (home page): decoration that marks which card is showing, not tabs
         $words = ''; $panes = '';
         foreach ($h['tabs'] as $i => $t) {
             $k = $id . '_' . $i; $on = ($i === $start);
+            if ($small) {
+                $words .= '<span class="hx__w' . ($on ? ' is-on' : '') . '" data-hx="' . $i . '">' . self::e($t['word']) . '<span class="hx__bar"><i></i></span></span>';
+                // the card's title is a line of text here, not a heading: the page's outline is the H1 and the sections below
+                $panes .= '<div class="hx__pane" data-hx="' . $i . '"' . ($on ? '' : ' hidden') . '>' . preg_replace(array('#<h2 class="hx__h#', '#</h2>#'), array('<p class="hx__h', '</p>'), (string) $t['pane']) . '</div>';
+                continue;
+            }
             $words .= '<button type="button" class="hx__w' . ($on ? ' is-on' : '') . '" role="tab" id="' . $k . '_t" aria-selected="' . ($on ? 'true' : 'false') . '" aria-controls="' . $k . '_p"' . ($on ? '' : ' tabindex="-1"') . ' data-hx="' . $i . '">' . self::e($t['word']) . '<span class="hx__bar" aria-hidden="true"><i></i></span></button>';
             $panes .= '<div class="hx__pane" role="tabpanel" id="' . $k . '_p" aria-labelledby="' . $k . '_t" data-hx="' . $i . '"' . ($on ? '' : ' hidden') . '>' . $t['pane'] . '</div>';
         }
         $title = trim((string) ($h['title'] ?? ''));
-        $o = '<section class="sx hx"><div class="hx__in"><div class="hx__left">';
-        $o .= $title === '' ? '<h1 class="hx__words" role="tablist">' . $words . '</h1>' : '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>';
+        $o = '<section class="sx hx' . ($small ? ' hx--eyebrow' : '') . '"><div class="hx__in"><div class="hx__left">';
+        if (!$small) { $o .= $title === '' ? '<h1 class="hx__words" role="tablist">' . $words . '</h1>' : '<div class="hx__words" role="tablist" aria-label="' . self::e($title) . '">' . $words . '</div>'; }
         $o .= '<div class="hx__intro">';
-        if (!empty($h['eyebrow'])) { $o .= '<p class="hx__eyebrow">' . self::e($h['eyebrow']) . '</p>'; }   // the one line above the H1 (the fee wedge on the home page)
+        if ($small) { $o .= '<p class="hx__words hx__words--eyebrow" aria-hidden="true">' . $words . '</p>'; }
+        if (!empty($h['eyebrow'])) { $o .= '<p class="hx__eyebrow">' . self::e($h['eyebrow']) . '</p>'; }   // one line above the H1
         if ($title !== '') { $o .= '<h1 class="hx__title">' . self::e($title) . '</h1>'; }   // the H1 as written, not title-cased: it is a sentence
+        if (!empty($h['sub'])) { $o .= '<p class="hx__sub">' . self::e($h['sub']) . '</p>'; }   // one line directly under the H1 (the fee line on the home page)
         if (!empty($h['tag'])) { $o .= '<span class="hx__tag">' . self::e($h['tag']) . '</span>'; }
         if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'hx__lead'); }
         $o .= self::buttons((array) ($h['buttons'] ?? array()));
@@ -503,6 +512,7 @@ class Sections {
             $o .= '<h3 class="sx-card__title">' . self::e(self::tc($c['title'])) . '</h3>';
             if (!empty($c['text'])) { $o .= self::paragraphs((string) $c['text'], 'sx-card__text'); }
             if (!empty($c['points'])) { $o .= self::checks((array) $c['points']); }
+            if (!empty($c['points_html'])) { $o .= self::checks((array) $c['points_html'], 1, true); }   // caller-escaped points that carry a source link
             if (!empty($c['note'])) { $o .= self::paragraphs((string) $c['note'], 'sx-card__note'); }
             if (!empty($c['link'])) { $o .= '<a class="sx-more" href="' . self::e($c['link'][1]) . '">' . self::e($c['link'][0]) . '</a>'; }
             $o .= '</div>';

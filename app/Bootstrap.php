@@ -116,6 +116,8 @@ class Bootstrap
         exit;
     }
 
+    /** First URL segments the router answers itself (before any controller lookup) that keep their session. */
+    const SESSION_ROUTES = array('api', 'mcp', 'go', 'mail-image', '_handoff', 'domain-check', 'csrf-token', 'a');
     /** First URL segments that are public reading pages besides PagesController::ROUTES (the home page is ''). */
     const PUBLIC_READ = array('', 'blog', 'tools', 'robots.txt', 'sitemap.xml', 'llms.txt', 'llms-full.txt', '.well-known');
 
@@ -130,7 +132,10 @@ class Bootstrap
         if (isset($_COOKIE[session_name()])) { return false; }
         $first = (string) (Main::get_url()[0] ?? '');
         if (substr($first, -3) === '.md') { return true; }   // the Markdown copy of a public page
-        return in_array($first, self::PUBLIC_READ, true) || isset(PagesController::ROUTES[$first]);
+        if (in_array($first, self::PUBLIC_READ, true) || isset(PagesController::ROUTES[$first])) { return true; }
+        if ($first[0] === '@') { return true; }   // a creator's public profile, read signed out
+        // a path no route answers ends in the 404 page, which needs no session either
+        return !in_array($first, self::SESSION_ROUTES, true) && !class_exists(Main::controller_name());
     }
 
     public function start_app()
@@ -141,7 +146,6 @@ class Bootstrap
         date_default_timezone_set('UTC');
         $env = Main::get_environment();
         SecurityHeaders::send();   // HSTS (https only), nosniff, Referrer-Policy, X-Frame-Options, report-only CSP; app.ini security_headers = off turns it off
-        Analytics::begin();   // first-party analytics cookies (visitor + session), before any output; crawlers and the CLI are skipped
         $config = Main::get_config();
         $domain = $config[$env]['domain'];
 
@@ -170,7 +174,14 @@ class Bootstrap
         // A signed-out visitor reading a public page gets no session: no cookie, no no-store header, so the page is cacheable
         // (SEO audit 2026-10-12). The session starts when it is needed: any request that already carries the cookie, any POST,
         // any app route, and /csrf-token, which the sign-in dialog and the public forms call when they open.
-        if (!self::anonymous_public_get($custom)) { Session::init(); }
+        // The page-view beacon a cacheable page sends after load: it sets the two analytics cookies and records the view. No session.
+        if (!$custom && implode('/', array_slice(Main::get_url(), 0, 2)) === ltrim(Analytics::BEACON_PATH, '/')) { Analytics::beacon(); return; }
+        if (self::anonymous_public_get($custom)) {
+            Analytics::defer();   // no cookie on this response: the page reports its own view after load
+        } else {
+            Analytics::begin();   // first-party analytics cookies (visitor + session), before any output; crawlers and the CLI are skipped
+            Session::init();
+        }
 
         // A session handed to a creator's domain only works on that host and only for a while. Presented anywhere
         // else (the platform host, another domain) or after its time, it is dropped before anything reads it.
@@ -207,6 +218,12 @@ class Bootstrap
             return;
         }
 
+        // The Markdown copy of a public page (/pricing.md, /blog/<slug>.md, /index.md) and the MCP connector's resource metadata.
+        $url = Main::get_url();
+        if (!empty($url) && substr((string) end($url), -3) === '.md') {
+            (new SeoController())->markdownAction($url);
+            return;
+        }
         // Public creator profiles live at /@handle. The "@" namespaces them away
         // from real app routes, so intercept before normal controller resolution.
         $url = Main::get_url();
@@ -230,11 +247,6 @@ class Bootstrap
             return;
         }
 
-        // The Markdown copy of a public page (/pricing.md, /blog/<slug>.md, /index.md) and the MCP connector's resource metadata.
-        if (!empty($url) && substr((string) end($url), -3) === '.md') {
-            (new SeoController())->markdownAction($url);
-            return;
-        }
         if (($url[0] ?? '') === '.well-known' && ($url[1] ?? '') === 'oauth-protected-resource') {
             (new SeoController())->protectedResourceAction();
             return;

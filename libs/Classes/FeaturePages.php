@@ -66,7 +66,7 @@ class FeaturePages {
                 array('q' => 'Do I need my own photos?', 'a' => 'No. You can describe a face instead and the studio generates a reference image, then builds the training set from it. Using your own photos gives you a character that looks like a specific person.'),
                 array('q' => 'How long does training take?', 'a' => 'A few minutes, once per character. After that, every image is the same person and no retraining is needed.'),
                 array('q' => 'Can I make video as well?', 'a' => 'Yes. Any generated still can be turned into a short clip with a motion prompt.'),
-                array('q' => 'What does it cost?', 'a' => 'Generation uses the AI credits included with your plan, and you can top up at any time. Training is included with your plan. {final_note}'),
+                array('q' => 'What does it cost?', 'a' => 'Generation uses the AI credits included with your plan, and you can top up at any time. Training is included with your plan.'),
             ),
             'cta' => array('title' => 'Build your AI influencer today', 'text' => 'Train once, then generate and sell from one page.'),
         ),
@@ -128,10 +128,10 @@ class FeaturePages {
         'payouts' => array(
             'nav_title'   => 'Payouts',
             'title'       => 'Creator Payouts',
-            'description' => 'Every membership, unlock, bundle, service and event sale lands in one balance, net of your plan fee. Cash out to your bank on request, with no platform hold.',
+            'description' => 'Every membership, unlock, bundle, service and event sale lands in one balance after your plan\'s platform fee. Cash out on request; event earnings release later.',
             'hero' => array(
                 'title' => 'Everything you earn, in one balance',
-                'lead'  => 'A creator payout on {site} is the transfer of your balance to your bank, made when you ask for it. Fans pay by card for memberships and with a credit wallet for everything else. Your earnings collect in one place, net of your plan fee, and you cash out to your bank whenever you want.',
+                'lead'  => 'A creator payout on {site} is the transfer of your balance to your bank, made when you ask for it. Fans pay by card for memberships and with a credit wallet for everything else. Your earnings collect in one place, net of your plan\'s platform fee, and you cash out to your bank whenever you want.',
             ),
             'related' => array('memberships', 'pay-per-view', 'services-and-events'),
             'rows' => array(
@@ -158,6 +158,7 @@ class FeaturePages {
                     'points' => array(
                         'Minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', paid on request',
                         'No platform hold, our payment processor\'s own payout timing applies',
+                        'Event earnings are released after the event has taken place',
                         'Available in every country our payment processor supports for creator payouts',
                         'A reversed sale or a dispute is shown in your balance, with the fan, the item and the date',
                     ),
@@ -172,7 +173,7 @@ class FeaturePages {
             'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
                 array('q' => 'How do fans pay?', 'a' => 'Memberships bill by card on your schedule. Everything else is bought with a credit wallet, which fans top up in one tap.'),
-                array('q' => 'When can I cash out?', 'a' => 'The minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', and payouts are made on request only. Connect your bank once, then cash out whenever your balance is above the minimum. We apply no platform hold, so our payment processor\'s own payout timing applies. Payouts are available in every country our payment processor supports for creator payouts.'),
+                array('q' => 'When can I cash out?', 'a' => 'The minimum payout is ' . Price::PAYOUT_MIN_LABEL . ', and payouts are made on request only. Connect your bank once, then cash out whenever your balance is above the minimum. We apply no platform hold, so our payment processor\'s own payout timing applies. Earnings from an event are released after the event has taken place. Payouts are available in every country our payment processor supports for creator payouts.'),
                 array('q' => 'What does the platform take?', 'a' => 'A percentage of what you earn, set by your plan and shown on the pricing page.'),
                 array('q' => 'What happens if a sale is reversed?', 'a' => 'A reversed sale takes the credits back on both sides and removes the access it paid for, and your balance shows it straight away.'),
                 array('q' => 'How is my data and money handled?', 'a' => PagesController::DATA_MONEY_ANSWER),
@@ -277,10 +278,10 @@ class FeaturePages {
                 ),
                 array(
                     'title'  => 'One wallet for fans',
-                    'text'   => 'Fans top up a credit wallet once (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and unlock in one tap. Credit purchases are final and non-refundable.',
+                    'text'   => 'Fans top up a credit wallet once (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and unlock in one tap.',
                     'points' => array(
                         'Optional automatic top-ups, so a fan never stops at an empty wallet',
-                        'You earn the price in credits, net of your plan fee, and cash out to your bank',
+                        'You earn the price in credits, net of your plan\'s platform fee, and cash out to your bank',
                     ),
                     'link' => array('See how payouts work', '/features/payouts'),
                 ),
@@ -293,7 +294,7 @@ class FeaturePages {
             'fan_side' => 'The fan sees a blurred preview with the price, taps unlock and pays from the credit wallet. A fan with an empty wallet tops it up by card first. A bought bundle sits in the fan\'s purchases, ready to download.',   // what the fan sees
             'limits'   => array('fee_percent'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
-                array('q' => 'How do fans pay for an unlock?', 'a' => 'With credits from their wallet. ' . Price::CREDITS_PER_DOLLAR . ' credits cost $1, and a wallet is topped up by card in one step. Credit purchases are final and non-refundable.'),
+                array('q' => 'How do fans pay for an unlock?', 'a' => 'With credits from their wallet. ' . Price::CREDITS_PER_DOLLAR . ' credits cost $1, and a wallet is topped up by card in one step.'),
                 array('q' => 'What can I charge?', 'a' => 'Any price from ' . Price::MIN_CREDITS . ' to ' . Price::MAX_CREDITS . ' credits on a post, a message or a bundle.'),
                 array('q' => 'Do members get pay-per-view posts free?', 'a' => 'No. Pay-per-view is priced for everyone. Put your regular content on your membership tiers and keep pay-per-view for your strongest single pieces.'),
                 array('q' => 'What does the platform take?', 'a' => '{fee_sentence}'),
@@ -349,8 +350,8 @@ class FeaturePages {
             'faq' => array(
                 array('q' => 'Is it a replacement for my current link-in-bio tool?', 'a' => 'Yes. It holds your links like any bio page, and it also takes payments for memberships, pay-per-view, bundles, services and events.'),
                 array('q' => 'Can I see which links get clicked?', 'a' => 'Yes. Every link counts its clicks, and the totals show in your dashboard.'),
-                array('q' => 'Can I use my own domain?', 'a' => 'Yes, on the {domain_plan} plan. Point your domain at us and your page answers on it. {final_note}'),
-                array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan fee, and you cash out to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum.'),
+                array('q' => 'Can I use my own domain?', 'a' => 'Yes, on the {domain_plan} plan. Point your domain at us and your page answers on it.'),
+                array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee, and you cash out to your bank on request with a ' . Price::PAYOUT_MIN_LABEL . ' minimum.'),
             ),
             'cta' => array('title' => 'Put one link in every bio', 'text' => 'Links, memberships and sales on one page.'),
         ),
@@ -498,7 +499,7 @@ class FeaturePages {
             'fan_side' => 'A fan who types your domain sees your page, your services and your events on your own address. A fan already signed in on our site arrives signed in. Payment works from the same card and the same wallet as before.',   // what the fan sees
             'limits'   => array('custom_domain'),   // PlanTiers rows and features that bear on this page
             'faq' => array(
-                array('q' => 'Which plan includes custom domains?', 'a' => 'The {domain_plan} plan. {final_note}'),
+                array('q' => 'Which plan includes custom domains?', 'a' => 'The {domain_plan} plan.'),
                 array('q' => 'What do I need to change at my domain provider?', 'a' => 'A verification record plus the routing records we show you (two for a bare domain and its www version), all shown in settings with the exact values to copy.'),
                 array('q' => 'Do I need my own certificate?', 'a' => 'No. A certificate is issued automatically once your records point at us.'),
                 array('q' => 'Will fans have to sign in again?', 'a' => 'No. A signed-in fan is handed to your domain with their session, so they can buy and join straight away.'),
@@ -557,7 +558,7 @@ class FeaturePages {
                 array('q' => 'What is a LoRA?', 'a' => 'A small add-on to an image model, trained on one person, so the model can draw that person in any scene. {site} trains and stores it for you.'),
                 array('q' => 'How many photos do I need?', 'a' => 'Between 10 and 50 photos of the same person, with different angles and lighting. If you have none, describe a face and the studio builds the set.'),
                 array('q' => 'How long does training take?', 'a' => 'A few minutes, once per character. You do not retrain to make new images.'),
-                array('q' => 'What does it cost?', 'a' => 'Training is included with your plan. Generating images and video uses the AI credits included with your plan, and you can top up at any time. {final_note}'),
+                array('q' => 'What does it cost?', 'a' => 'Training is included with your plan. Generating images and video uses the AI credits included with your plan, and you can top up at any time.'),
             ),
             'cta' => array('title' => 'Train your first character', 'text' => 'Photos or a description in, a consistent character out.'),
         ),

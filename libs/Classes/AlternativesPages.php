@@ -9,6 +9,76 @@
  */
 class AlternativesPages {
 
+    /**
+     * Sourced records for listed platforms that have no /compare page: each fact was read on the platform's own page on the
+     * 'checked' date and links to it. A platform with neither a compare record nor an entry here is not listed (2026-10-13:
+     * LoyalFans and JustFor.Fans were removed, because their terms could not be read from their own pages).
+     */
+    const RECORDS = array(
+        'Buy Me a Coffee' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Charges a 5% transaction fee on what supporters pay.', 'https://help.buymeacoffee.com/en/articles/4539170-frequently-asked-questions'),
+            array('Your supporter list is yours and exports at any time.', 'https://help.buymeacoffee.com/en/articles/4539170-frequently-asked-questions'),
+            array('A payout can be requested once the balance reaches $10.', 'https://help.buymeacoffee.com/en/articles/6364717-when-are-payouts-processed'),
+            array('Its terms prohibit nudity and sexual content.', 'https://buymeacoffee.com/terms'),
+        )),
+        'Memberful' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Takes a 4.9% transaction fee on each purchase or renewal; its monthly price is a separate line.', 'https://memberful.com/pricing/'),
+            array('Payments reach your bank through your own payment processor account.', 'https://memberful.com/docs/overview/getting-started/payment-processing'),
+            array('Members export as a CSV file from the Members tab.', 'https://memberful.com/docs/metrics-and-analytics/compare-and-export/export-data'),
+        )),
+        'Substack' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Takes a 10% share of paid subscription revenue, and nothing while a publication is free.', 'https://substack.com/features'),
+            array('Posts and the complete subscriber list export at any time.', 'https://substack.com/features'),
+            array('Does not allow porn; erotic literature and nudity for artistic or journalistic purposes are allowed.', 'https://substack.com/content'),
+        )),
+        'Gumroad' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Charges 10% and $0.50 per sale from your own links, 30% when a buyer finds you through its Discover marketplace, and no monthly fee.', 'https://gumroad.com/pricing'),
+            array('Customers and their purchases download as a CSV file.', 'https://gumroad.com/help/article/268-customer-dashboard'),
+            array('A payout needs a balance of at least $100.', 'https://gumroad.com/help/article/13-getting-paid'),
+            array('Does not allow sales of sexually explicit content.', 'https://gumroad.com/help/article/156-gumroad-and-adult-content'),
+        )),
+        'Podia' => array('checked' => '2026-10-13', 'facts' => array(
+            array('The entry plan takes a 5% transaction fee and the two higher plans take none; plan prices are a separate monthly line.', 'https://www.podia.com/pricing'),
+            array('Your contacts export as a CSV file sent by email.', 'https://help.podia.com/en/articles/366-exporting-your-audience-customer-list'),
+            array('Its terms prohibit nudity and sexual content.', 'https://www.podia.com/terms'),
+        )),
+        'Ghost' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Charges a plan price and no transaction fee of its own; payment processor fees still apply.', 'https://ghost.org/pricing/'),
+            array('Member data imports and exports as CSV at any time.', 'https://ghost.org/pricing/'),
+            array('Revenue is paid to you directly by your payment processor.', 'https://ghost.org/integrations/stripe/'),
+        )),
+        'Carrd' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Takes payment only through payment-enabled forms and embedded third-party widgets, on its paid plans.', 'https://carrd.com/pro'),
+            array('Publishes to custom domains you own on its paid plans.', 'https://carrd.com/pro'),
+            array('Site analytics come from third-party tools you connect.', 'https://carrd.com/pro'),
+        )),
+        'Hopp by Wix' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Sells digital products and services, collects tips, and takes bookings on the page.', 'https://www.hopp.co/'),
+            array('States a 0% transaction fee on every plan.', 'https://www.hopp.co/hopp-vs-linktree'),
+            array('Runs on your own URL.', 'https://www.hopp.co/'),
+        )),
+        'Milkshake' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Takes a fee on each sale: 12% on Free and Lite, 9% on Pro and 7% on Pro+, before card processing.', 'https://milkshake.app/pricing/'),
+            array('A custom domain is on its Pro+ plan.', 'https://milkshake.app/pricing/'),
+            array('Insights data exports on its Pro plan.', 'https://milkshake.app/pricing/'),
+        )),
+        'Campsite.bio' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Collects tips and takes paid requests from followers on every plan.', 'https://campsite.bio/pricing'),
+            array('Its transaction fee is shown as 0% for a limited time.', 'https://campsite.bio/pricing'),
+            array('Your own domain and in-depth analytics start on its Pro plan.', 'https://campsite.bio/pricing'),
+        )),
+        'Later' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Its link page sends followers to your website or online shop.', 'https://later.com/link-in-bio/'),
+            array('Link in Bio analytics are part of its paid scheduling plans, which start with a 14-day free trial.', 'https://later.com/pricing/'),
+        )),
+        'Passes' => array('checked' => '2026-10-13', 'facts' => array(
+            array('Safe-for-work only: its guidelines do not allow explicit adult content, nudity or pornography.', 'https://www.passes.com/guidelines'),
+            array('Sells exclusive content, livestreams, membership tiers, one-to-one video calls, paid messages and digital products.', 'https://www.passes.com/faq'),
+            array('Its terms state a 20% fee on card sales, while its home page advertises 10%.', 'https://www.passes.com/terms'),
+            array('Its terms pay sale proceeds every two weeks, by bank transfer.', 'https://www.passes.com/terms'),
+        )),
+    );
+
     const PAGES = array(
 
         'onlyfans' => array(
@@ -27,18 +97,14 @@ class AlternativesPages {
                       'text' => 'Patreon fits an OnlyFans creator who publishes on a schedule and wants paid tiers with community chats. You gain a member list you can download, emails included. Its limit is the format: it is built around tiers and one-time digital products.'),
                 array('name' => 'Ko-fi', 'compare' => 'kofi', 'kind' => 'Tips and memberships',
                       'text' => 'Ko-fi suits a creator leaving OnlyFans for tips, commissions and a small shop. It pays straight into your own payment account, with no payout schedule to wait on. Its limit is reach: it publishes nothing about posting to social accounts, so promotion stays manual.'),
-                array('name' => 'LoyalFans', 'compare' => '', 'kind' => 'Subscription platform',
-                      'text' => 'LoyalFans is another subscription platform, so it changes the least about how an OnlyFans creator sells. We hold no sourced record for it. Read its own fee, payout and export pages before you move fans there.'),
-                array('name' => 'JustFor.Fans', 'compare' => '', 'kind' => 'Subscription platform',
-                      'text' => 'JustFor.Fans is a subscription platform as well. We have not checked its terms against its own pages, so it carries no facts here. Treat it like any unlisted option and read its fee and payout terms first.'),
-                array('name' => 'Passes', 'compare' => '', 'kind' => 'Fan platform',
-                      'text' => 'Passes is a fan platform aimed at creators who already have a social following. We hold no sourced record for it. Compare its own terms with what you have on OnlyFans before deciding.'),
+                array('name' => 'Passes', 'compare' => '', 'kind' => 'Safe-for-work memberships',
+                      'text' => 'Passes sells memberships, livestreams, paid messages and video calls, so the formats will feel familiar to an OnlyFans creator. Its own rules allow safe-for-work content only, which rules it out for adult creators. Read its fee terms closely, because its pages state more than one rate.'),
             ),
             'faq' => array(
                 array('q' => 'What is the best OnlyFans alternative?', 'a' => 'It depends on what you sell. If you only sell one subscription and your fans are already on a subscription app, another subscription platform is the smallest change. If you also sell pay-per-view, bundles, services or events, {site} puts all of it on one page. The same goes if you want your posts published to your socials.'),
-                array('q' => 'Which OnlyFans alternative has the lowest fee?', 'a' => '{site}\'s platform fee is {fee_short}, against the share OnlyFans deducts from each fan payment. The other platforms on this list set their own rates, so read each pricing page before you move. Plan charges and credit purchases on {site} are final and non-refundable.'),
+                array('q' => 'Which OnlyFans alternative has the lowest fee?', 'a' => '{site}\'s platform fee is {fee_short}, against the share OnlyFans deducts from each fan payment. The other platforms on this list set their own rates, so read each pricing page before you move.'),
                 array('q' => 'Can I keep my OnlyFans page while I try another platform?', 'a' => 'Yes. Run both for a full billing cycle. Build the new page, tell your fans and put the new link in every bio. Let renewals lapse naturally rather than canceling anyone.'),
-                array('q' => 'How do payouts work after leaving OnlyFans?', 'a' => 'On {site} each sale is added to a single balance after your plan\'s platform fee. Once it passes {payout_min} you can send it to your bank whenever you ask, and the platform holds nothing back.'),
+                array('q' => 'How do payouts work after leaving OnlyFans?', 'a' => 'On {site} each sale is added to a single balance after your plan\'s platform fee. Once it passes {payout_min} you can send it to your bank whenever you ask, and the platform holds nothing back. Ticket earnings from an event are the exception: they are released after the event.'),
                 array('q' => 'Can I sell adult content on {site}?', 'a' => 'Yes, within the content policy. Adult posts are only shown to fans who opt in, and every upload is checked automatically.'),
             ),
         ),
@@ -56,14 +122,12 @@ class AlternativesPages {
                 array('name' => 'Fansly', 'compare' => 'fansly', 'kind' => 'Subscription platform',
                       'text' => 'Fansly gives a Fanvue creator the same model with a discovery feed and ticketed livestreams. The share it keeps is the same, and no fan export is published. Choose it for reach inside the app, not for ownership.'),
                 array('name' => 'Patreon', 'compare' => 'patreon', 'kind' => 'Membership platform',
-                      'text' => 'Patreon answers the ownership question a Fanvue creator usually asks: the member list downloads as a file, emails included. It suits regular publishing in tiers. Check its content rules before moving an AI character page, since we hold no sourced record on that point.'),
-                array('name' => 'LoyalFans', 'compare' => '', 'kind' => 'Subscription platform',
-                      'text' => 'LoyalFans keeps a Fanvue creator on a subscription app. We have no sourced record for it, so nothing here says how it treats AI characters or fan exports. Ask those two questions on its own pages first.'),
-                array('name' => 'Passes', 'compare' => '', 'kind' => 'Fan platform',
-                      'text' => 'Passes is a fan platform for creators with a social following, which makes it a sideways move from Fanvue. We hold no sourced record for it. Read its payout and export terms before you announce a new address.'),
+                      'text' => 'Patreon answers the ownership question a Fanvue creator usually asks: the member list downloads as a file, emails included. It suits regular publishing in tiers. Check its content rules before moving an AI character page.'),
+                array('name' => 'Passes', 'compare' => '', 'kind' => 'Safe-for-work memberships',
+                      'text' => 'Passes gives a Fanvue creator membership tiers, paid messages and one-to-one video calls. It is safe-for-work only by its own rules, and its guidelines say nothing general about AI characters. Check which fee rate applies to you before moving.'),
                 array('name' => 'Ko-fi', 'compare' => 'kofi', 'kind' => 'Tips and memberships',
                       'text' => 'Ko-fi fits a Fanvue creator who wants tips, commissions and a shop beside a membership. Supporter lists download as files, and money arrives in your own payment account at once. Its limit is promotion, since it publishes nothing about posting to social accounts.'),
-                array('name' => 'Stan', 'compare' => 'stan', 'kind' => 'Link-in-bio storefront',
+                array('name' => 'Stan Store', 'compare' => 'stan', 'kind' => 'Link-in-bio storefront',
                       'text' => 'Stan Store suits a Fanvue creator moving toward courses, bookings and digital products. It charges a flat monthly price and no share of sales. It is a storefront, not a fan feed, so subscribers who came for posts need a new habit.'),
             ),
             'faq' => array(
@@ -71,7 +135,7 @@ class AlternativesPages {
                 array('q' => 'Is there a Fanvue alternative for AI creators?', 'a' => 'Yes. On {site} you can create an AI influencer from photos or a description, then generate photos and short videos of the same person. You sell them as pay-per-view posts, paid messages or membership content. AI media is labeled when it is cross-posted to your socials.'),
                 array('q' => 'Which Fanvue alternative has the lowest fee?', 'a' => 'Fanvue keeps a share of gross revenue, and {site}\'s platform fee is {fee_short}. Rates elsewhere move, so look at each platform\'s pricing page on the day you decide. Card processing comes on top on nearly all of them.'),
                 array('q' => 'Can I keep posting to Fanvue while I move?', 'a' => 'Yes. {site} can cross-post to Fanvue from the same studio, so you can run both pages while your fans move at their own pace.'),
-                array('q' => 'How do I get paid on {site} after Fanvue?', 'a' => 'Memberships, paid posts and paid messages all collect in the same balance. When it is above {payout_min} you request a payout, and it goes to your bank with no holding period from us.'),
+                array('q' => 'How do I get paid on {site} after Fanvue?', 'a' => 'Memberships, paid posts and paid messages all collect in the same balance. When it is above {payout_min} you request a payout, and it goes to your bank with no holding period from us. Event tickets are the one exception, released after the event.'),
             ),
         ),
 
@@ -95,6 +159,18 @@ class AlternativesPages {
                       'text' => 'Stan Store fits a Patreon creator whose members really want courses, bookings and downloads. It charges a flat monthly price with no share of sales, and customer data downloads as a file. It is a storefront first, so a member used to a feed of posts finds a shop.'),
                 array('name' => 'Beacons', 'compare' => 'beacons', 'kind' => 'Link-in-bio storefront',
                       'text' => 'Beacons suits a Patreon creator who also does brand deals: a store, email marketing and a media kit sit in one tool. Memberships are on its higher plans only. Its lower plans keep a seller fee on each sale.'),
+                array('name' => 'Buy Me a Coffee', 'compare' => '', 'kind' => 'Tips, memberships and shop',
+                      'text' => 'Buy Me a Coffee keeps the monthly membership a Patreon creator already runs and adds one-off tips and a small shop. Supporters are yours, and the list exports. Its terms rule out nudity and sexual content, and a payout has to be requested.'),
+                array('name' => 'Memberful', 'compare' => '', 'kind' => 'Membership software for your site',
+                      'text' => 'Memberful suits a Patreon creator who already has a website and wants members to join there. It adds memberships to your own site and leaves the audience and the content with you. There is no discovery, so every member arrives through your own channels.'),
+                array('name' => 'Substack', 'compare' => '', 'kind' => 'Paid newsletter subscriptions',
+                      'text' => 'Substack fits a Patreon creator whose members mostly read. Posts and podcasts go out by email, with free and paid subscribers on one list that exports. What you sell is a subscription to a publication, so single products and bookings have no place there.'),
+                array('name' => 'Gumroad', 'compare' => '', 'kind' => 'Digital products and memberships',
+                      'text' => 'Gumroad suits a Patreon creator whose members really want files: ebooks, courses, presets and downloads, with memberships beside them. There is no monthly price, only a cut of each sale. Buyers who find you through its marketplace cost a much larger cut.'),
+                array('name' => 'Podia', 'compare' => '', 'kind' => 'Courses, downloads and community',
+                      'text' => 'Podia fits a Patreon creator ready to teach: courses, downloads, coaching and a community sit in one store. You pay for the plan whether or not you sell that month. Its terms prohibit nudity and sexual content.'),
+                array('name' => 'Ghost', 'compare' => '', 'kind' => 'Publishing with paid memberships',
+                      'text' => 'Ghost suits a Patreon creator who wants a publication on a site they control, with paid tiers and tips. It takes no cut of its own from a subscription. It is a publishing tool first, so a catalogue of one-off products is not what it is for.'),
             ),
             'faq' => array(
                 array('q' => 'What is the best Patreon alternative?', 'a' => 'The answer follows what your members pay for. If you only take tips and commissions, a tipping platform is the smallest change. If you also sell pay-per-view posts, bundles, services or event tickets, {site} puts all of it on one page and publishes each post to your social accounts.'),
@@ -121,6 +197,20 @@ class AlternativesPages {
                       'text' => 'Ko-fi fits a Linktree user who wants supporters to tip or join a membership from the bio link. Money arrives in your own payment account straight away. It is a support page, not a link hub, so your other links need a home.'),
                 array('name' => 'Patreon', 'compare' => 'patreon', 'kind' => 'Membership platform',
                       'text' => 'Patreon suits a Linktree user ready to turn followers into paying members, with tiers and community chats. It is a membership site, not a link page, so you would still keep a bio link pointing at it. Its member list downloads with emails.'),
+                array('name' => 'Carrd', 'compare' => '', 'kind' => 'One-page site builder',
+                      'text' => 'Carrd gives a Linktree user a full one-page site in place of a list of links. It has no checkout of its own, so payment means embedding a provider you already use. That takes one of its paid plans.'),
+                array('name' => 'Hopp by Wix', 'compare' => '', 'kind' => 'Link-in-bio storefront',
+                      'text' => 'Hopp is close to Linktree in shape, a link page, with selling built in: digital products, services, tips and bookings. Its public pages do not show its plan prices, so check what the selling tools cost before you switch.'),
+                array('name' => 'Milkshake', 'compare' => '', 'kind' => 'Mobile card-style site',
+                      'text' => 'Milkshake suits a Linktree user who builds on a phone and wants swipeable cards instead of a list. It sells digital files from the page. It keeps a cut of every sale on every plan, the largest on the free one.'),
+                array('name' => 'Campsite.bio', 'compare' => '', 'kind' => 'Link page with tips',
+                      'text' => 'Campsite.bio stays closest to what Linktree does: a link page with analytics. Followers can tip or pay for a request from the page. It has no product checkout, so anything else you sell still lives elsewhere.'),
+                array('name' => 'Later', 'compare' => '', 'kind' => 'Social scheduler with a link page',
+                      'text' => 'Later suits a Linktree user who mainly wants scheduling, with the link page as part of the same tool. The page sends followers out to your site or shop and takes no payment itself. It comes with a paid scheduling plan.'),
+                array('name' => 'Buy Me a Coffee', 'compare' => '', 'kind' => 'Tips, memberships and shop',
+                      'text' => 'Buy Me a Coffee fits a Linktree user whose bio link should collect support: tips, a membership and a few shop items. It is a support page, so your other links need a home somewhere else. Its terms rule out nudity and sexual content.'),
+                array('name' => 'Gumroad', 'compare' => '', 'kind' => 'Digital products and memberships',
+                      'text' => 'Gumroad suits a Linktree user whose links mostly lead to things for sale. A product page takes payment directly, with no monthly price. It is a store, not a link hub, and it keeps a cut of each sale.'),
             ),
             'faq' => array(
                 array('q' => 'What is the best Linktree alternative?', 'a' => 'It depends on what the page has to do. If it only lists links, any link page works. If it has to take payment for memberships, pay-per-view posts, bookings or event tickets, {site} sells all of them from the same page that holds your links.'),

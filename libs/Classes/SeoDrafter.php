@@ -482,7 +482,7 @@ class SeoDrafter {
         // feature names alone are generic words; at least one hit must be a number from config (fee, price, credits, storage, influencers, payout, credit rate)
         $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet'; });   // 'nine networks' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
         if (count($hits) < self::PRODUCT_FACTS_MIN || count($numeric) < 1) {
-            return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
+            return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s platform fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
         }
         return array();
     }
@@ -912,6 +912,7 @@ class SeoDrafter {
             PagesController::plan_price_sentence(),
             PagesController::FINAL_NOTE,
             'Free accounts are for fans and cannot sell',
+            'Free accounts cannot publish or sell',
         )));
     }
 
@@ -993,7 +994,7 @@ class SeoDrafter {
      * sales and the plan price is a separate monthly line. No article says where one plan "starts covering itself" or which sales
      * level flips the choice. Shared with the one-time text-fix scripts.
      */
-    const CROSSOVER = '/break-?even|pays? for itself|pays? for its price|cover(?:s|ing)? itself|cover(?:s|ing)? its (?:own )?(?:price|cost)|once you sell|once monthly sales pass|crossover|cross(?:es)? (?:at|near|around)|lines cross|swap places|the order flips|plan (?:maths?|arithmetic) changes|where the (?:better|cheaper|pricier) plan changes|starts? to cost more than a plan price|sales level where|(?:reverses?|flips?|changes?) the answer|the answer (?:reverses|flips)|the right plan changes|wins once sales|(?:subtract|minus|less) (?:any |the )?plan (?:charge|price)|plan (?:charge|price) (?:out\b|comes off)|after the plan charge|clear both the plan price|minus two deductions|training pays|pays (?:off|back)\b|carrying its weight/i';
+    const CROSSOVER = '/break-?even|pays? for itself|pays? for its price|cover(?:s|ing)? itself|cover(?:s|ing)? its (?:own )?(?:price|cost)|once you sell|once monthly sales pass|crossover|cross(?:es)? (?:at|near|around)|lines cross|swap places|the order flips|plan (?:maths?|arithmetic) changes|where the (?:better|cheaper|pricier) plan changes|starts? to cost more than a plan price|sales level where|(?:reverses?|flips?|changes?) the answer|the answer (?:reverses|flips)|the right plan changes|wins once sales|(?:subtract|minus|less) (?:any |the )?plan (?:charge|price)|plan (?:charge|price) (?:out\b|comes off)|after the plan charge|clear both the plan price|minus two deductions|training pays|pays (?:off|back)\b|carrying its weight|(?:maths?|ordering|gap|answer) flips|falls as (?:you|they) grow|drops with volume|cheaper (?:option|plan) changes|plan (?:wins|is ahead)|pick the (?:lower total|one that wins)|when the arithmetic says|the right plan at|net of (?:your|the) plan fee/i';
 
     /**
      * The fee folded into the plan price (hard rule, Daniel 2026-10-12): a sum that adds a plan's monthly price to a fee amount
@@ -1241,7 +1242,7 @@ class SeoDrafter {
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
-            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's fee or price, the included AI credits or storage, the payout minimum, the credit rate, the nine networks, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
+            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's platform fee or price, the included AI credits or storage, the payout minimum, the credit rate, the nine networks, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most four sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
@@ -1412,13 +1413,13 @@ class SeoDrafter {
         $site = preg_quote(Main::site_name(), '/');
         return array(
             // "Creator Link Studio's platform fee is 10% of each sale on the Creator plan ($49/month) and 3% ... Free accounts ... Card processing fees are separate." (any prices, possibly doubled lead-in)
-            '/(?:' . $site . '\'s platform fee is )+\d+% of each sale on the \w+ plan \(\$[\d,]+\/month\)(?:(?:,| and) \d+% of each sale on the \w+ plan \(\$[\d,]+\/month\))*\.(?:\s*Free accounts are for fans and cannot sell, so they pay no platform fee\.)?(?:\s*Card processing fees are separate\.)?/u',
+            '/(?:' . $site . '\'s platform fee is )+\d+% of each sale on the \w+ plan \(\$[\d,]+\/month\)(?:(?:,| and) \d+% of each sale on the \w+ plan \(\$[\d,]+\/month\))*\.(?:\s*Free accounts (?:are for fans and cannot sell|cannot publish or sell), so they pay no platform fee\.)?(?:\s*Card processing fees are separate\.)?/u',
             // "Free $0, Creator $49, Studio $199, all per month."
             '/(?:\b[A-Z]\w+ \$[\d,]+, )+[A-Z]\w+ \$[\d,]+, all per month\./u',
             // the refund rule, wherever it was appended
             '/' . preg_quote(PagesController::FINAL_NOTE, '/') . '/u',
             // the Free-account sentence in every variant ("..., so they pay no platform fee." / "..., so inbox automation is not included there.")
-            '/Free accounts are for fans and cannot sell[^.!?\n]*[.!?]/u',
+            '/Free accounts (?:are for fans and cannot sell|cannot publish or sell)[^.!?\n]*[.!?]/u',
         );
     }
 

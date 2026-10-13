@@ -184,7 +184,7 @@ class SeoController extends Controller {
         $l[] = '## Facts';
         foreach (PagesController::quotable_facts() as $fact) { $l[] = '- ' . $fact; }
         $l[] = '- ' . $site . ' publishes to nine social networks: ' . self::NETWORKS . ', plus Fanvue cross-posting.';
-        $l[] = '- Plan charges and credit purchases on ' . $site . ' are final and non-refundable; a plan can be canceled at any time and runs to the end of the paid period.';
+        $l[] = '- A plan on ' . $site . ' can be canceled at any time and runs to the end of the paid period.';
         $l[] = '- Payouts go to your bank: earnings collect as credits (' . Price::CREDITS_PER_DOLLAR . ' credits = $1) and you cash them out to your own bank account on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum.';
         $l[] = '- ' . $site . ' has a Claude connector (MCP server) so a creator can run their account from Claude: posts, messages, analytics and more.';
         $l[] = '';
@@ -223,12 +223,39 @@ class SeoController extends Controller {
         $base = Main::get_base_domain(); $site = Main::site_name();
         $path = '/' . preg_replace('/\.md$/', '', implode('/', $url)); if ($path === '/index') { $path = '/'; }
         $title = ''; $body = '';
+        self::$md = true;
         if (preg_match('#^/blog/([a-z0-9-]+)$#', $path, $m)) {
             try { $a = (new SeoArticlesModel())->get_by_slug($m[1], true); } catch (\Throwable $e) { $a = null; }
-            if ($a) { $title = (string) $a['title']; $body = trim((string) ($a['excerpt'] ?? '')) . "\n\n" . trim((string) $a['body_md']); }
+            if ($a) {
+                $title = (string) $a['title'];
+                $dates = array();
+                if (!empty($a['published_at'])) { $dates[] = 'Published: ' . gmdate('Y-m-d', strtotime($a['published_at'] . ' UTC')); }
+                if (!empty($a['updated_at']) && substr((string) $a['updated_at'], 0, 10) > substr((string) ($a['published_at'] ?? ''), 0, 10)) { $dates[] = 'Updated: ' . gmdate('Y-m-d', strtotime($a['updated_at'] . ' UTC')); }
+                $body = ($dates ? implode('. ', $dates) . ".\n\n" : '') . trim((string) ($a['excerpt'] ?? '')) . "\n\n" . trim((string) $a['body_md']);
+            }
         } elseif ($path === '/') {
             $out = array(); self::add_page($out, $site, $base . '/', self::render_home_html());
             $title = $site; $body = implode("\n", array_slice($out, 3));
+        } elseif ($path === '/blog') {
+            // the index is a list, so it is written as one: a line per article, newest first
+            $title = 'Creator Monetization Guides'; $rows = array();
+            try { $rows = (array) (new SeoArticlesModel())->published(200, 0); } catch (\Throwable $e) { error_log('[seo] markdown blog: ' . $e->getMessage()); }
+            foreach ($rows as $r) {
+                $when = !empty($r['published_at']) ? ' (' . gmdate('Y-m-d', strtotime($r['published_at'] . ' UTC')) . ')' : '';
+                $body .= '- [' . str_replace(array('[', ']'), '', (string) $r['title']) . '](' . $base . '/blog/' . $r['slug'] . ')' . $when . ': ' . trim((string) ($r['excerpt'] ?? '')) . "\n";
+            }
+        } elseif (preg_match('#^/tools/([a-z0-9-]+)$#', $path, $m) && isset(ToolsController::TOOLS[$m[1]])) {
+            $slug = $m[1]; $t = (string) ToolsController::TOOLS[$slug]['title'];
+            $out = array(); self::add_page($out, $t, $base . $path, self::render_route_html('tools/' . $slug, function () use ($slug) { (new ToolsController())->{str_replace('-', '', $slug) . 'Action'}(); }));
+            if (!empty($out)) { $title = $t; $body = implode("\n", array_slice($out, 3)); }
+        } elseif (preg_match('#^/@([a-z0-9_]+)$#', $path, $m)) {
+            // a creator's profile: its name, its description and its own links, read from the page as a signed-out visitor sees it
+            $html = self::render_route_html('@' . $m[1], function () { (new ProfileController())->viewAction(); });
+            if ($html !== '' && stripos($html, 'content="noindex') === false && preg_match('/<meta name="description" content="([^"]*)"/', $html, $d) && preg_match('/<meta property="og:title" content="([^"]*)"/', $html, $t)) {
+                $title = html_entity_decode($t[1], ENT_QUOTES, 'UTF-8') . ' (@' . $m[1] . ')';
+                $body = html_entity_decode($d[1], ENT_QUOTES, 'UTF-8');
+                if (preg_match('/"sameAs":\[([^\]]*)\]/', $html, $sa)) { foreach ((array) json_decode('[' . $sa[1] . ']', true) as $l) { $body .= "\n- " . $l; } }
+            }
         } else {
             foreach (self::public_pages() as $p) {
                 if ((string) $p['path'] !== $path) { continue; }
@@ -237,19 +264,63 @@ class SeoController extends Controller {
                 break;
             }
         }
+        self::$md = false;
         if (trim($body) === '') { Errors::page_not_found(); return; }
+        header_remove('Set-Cookie');
         header('Content-Type: text/markdown; charset=utf-8');
         header('Cache-Control: public, max-age=3600');
         header('X-Robots-Tag: noindex');
         header('Link: <' . $base . ($path === '/' ? '/' : $path) . '>; rel="canonical"');
-        echo '# ', $title, "\n\n", 'Source: ', $base, ($path === '/' ? '/' : $path), "\n\n", trim($body), "\n";
+        echo '# ', $title, "\n\n", 'Source: ', $base, ($path === '/' ? '/' : $path), "\n\n", self::markdown_shape(trim($body)), "\n";
+    }
+
+    /** True while markdownAction() builds a page: html_to_text() then writes links as [label](url). */
+    private static $md = false;
+
+    /** Output of a routed page (blog index, a tool, a profile) captured for its text; '' when it answers 404 or fails. */
+    private static function render_route_html(string $route, callable $run): string {
+        $saved = $_GET; $_GET['url'] = $route; $code = http_response_code(); $html = '';
+        ob_start();
+        try { $run(); $html = (string) ob_get_clean(); if (http_response_code() === 404) { $html = ''; } }
+        catch (\Throwable $e) { ob_end_clean(); error_log('[seo] markdown render ' . $route . ': ' . $e->getMessage()); $html = ''; }
+        finally { $_GET = $saved; if (http_response_code() !== $code) { http_response_code($code); } }
+        return $html;
+    }
+
+    /**
+     * Plain page text made valid Markdown: heading levels run "#", "##", "###" with no gap, and every run of "a | b | c" lines
+     * becomes a pipe table with a header separator row (rows padded to the header's width).
+     */
+    public static function markdown_shape(string $text): string {
+        if (!preg_match('/^## /m', $text)) { $text = preg_replace(array('/^### /m', '/^#### /m'), array('## ', '### '), $text); }
+        $out = array(); $run = array();
+        $flush = function () use (&$out, &$run) {
+            if (count($run) < 2) { foreach ($run as $r) { $out[] = $r; } $run = array(); return; }
+            $rows = array_map(function ($r) { return array_map('trim', explode(' | ', $r)); }, $run);
+            $w = max(array_map('count', $rows));
+            if ($out && trim((string) end($out)) !== '') { $out[] = ''; }
+            foreach ($rows as $i => $cells) {
+                $cells = array_pad(array_map(function ($c) { return str_replace('|', '\\|', $c); }, $cells), $w, '');
+                $out[] = '| ' . implode(' | ', $cells) . ' |';
+                if ($i === 0) { $out[] = '|' . str_repeat(' --- |', $w); }
+            }
+            $out[] = ''; $run = array();
+        };
+        foreach (explode("\n", $text) as $ln) {
+            if (strpos($ln, ' | ') !== false && $ln[0] !== '#' && strpos($ln, '| ') !== 0) { $run[] = $ln; continue; }
+            if ($run && trim($ln) === '' ) { continue; }   // blank lines between the rows of one table
+            $flush(); $out[] = $ln;
+        }
+        $flush();
+        return trim(preg_replace('/\n{3,}/', "\n\n", implode("\n", $out)));
     }
 
     /** Does this public path have a Markdown copy (markdownAction)? The head links to it when it does. */
     public static function has_markdown(string $path): bool {
-        if ($path === '/' || preg_match('#^/blog/[a-z0-9-]+$#', $path)) { return true; }
+        if ($path === '/' || $path === '/blog' || preg_match('#^/blog/[a-z0-9-]+$#', $path) || preg_match('#^/@[a-z0-9_]+$#', $path)) { return true; }
         $seg = explode('/', trim($path, '/'));
-        return isset(PagesController::ROUTES[$seg[0]]) && !in_array($seg[0], array('creators', 'author'), true);   // rendered through PagesController; the directory and the author page are left out
+        if ($seg[0] === 'tools') { return isset(ToolsController::TOOLS[$seg[1] ?? '']) && count($seg) === 2; }
+        return isset(PagesController::ROUTES[$seg[0]]) && $seg[0] !== 'author';   // rendered through PagesController; the author page is left out
     }
 
     /**
@@ -374,6 +445,7 @@ class SeoController extends Controller {
         $html = preg_replace('/<button\b[^>]*>.*?<\/button>/is', '', $html);
         $html = preg_replace('/<a\b[^>]*class="[^"]*\bsx-btn\b[^"]*"[^>]*>.*?<\/a>/is', '', $html);
         $html = preg_replace('/<div class="hx__words"[^>]*>\s*<\/div>/is', '', $html);
+        $html = preg_replace('/<p class="hx__words hx__words--eyebrow".*?<\/p>/is', '', $html);   // the decorative wordmark above the home H1
         // check marks are "Yes"; an empty header cell gets a label so no table cell is blank
         $html = preg_replace('/<span class="sx-vh">.*?<\/span>/is', '', $html);   // the hidden word beside a check mark: the svg below already becomes "Yes"
         $html = preg_replace('/<figcaption\b.*?<\/figcaption>/is', '', $html);       // a caption without its picture is an orphan line in a text file
@@ -396,7 +468,8 @@ class SeoController extends Controller {
             if ($href[0] === '/' && (strlen($href) < 2 || $href[1] !== '/')) { $href = $base . $href; }
             if (!preg_match('#^https?://#i', $href)) { return $m[2]; }
             $label = trim(strip_tags($m[2]));
-            return $label === '' ? '' : $m[2] . ' (' . $href . ')';
+            if ($label === '') { return ''; }
+            return self::$md ? '[' . $label . '](' . $href . ')' : $m[2] . ' (' . $href . ')';   // a Markdown copy gets a real link
         }, $html);
         $html = preg_replace('/<h1[^>]*>(.*?)<\/h1>/is', "\n## $1\n", $html);
         $html = preg_replace('/<h2[^>]*>(.*?)<\/h2>/is', "\n### $1\n", $html);

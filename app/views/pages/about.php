@@ -40,9 +40,8 @@ echo Sections::close();
 echo Sections::open('alt', 'How creators get paid');
 echo Sections::checks(array(
     'Every sale lands in one balance, net of your plan\'s platform fee (' . PagesController::fee_short() . ').',
-    'Cash out on request to your bank, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold.',
+    'Cash out on request to your bank, from a ' . Price::PAYOUT_MIN_LABEL . ' minimum, with no platform hold. Earnings from an event are released after the event has taken place.',
     'Payouts are available in every country our payment processor supports.',
-    'Plan charges and credit purchases are final and non-refundable.',
 ));
 echo '<p class="sx-p"><a href="/features/payouts">How payouts work</a></p>';
 echo Sections::close();

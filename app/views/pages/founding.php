@@ -45,9 +45,9 @@ echo Sections::open('alt', 'The Terms');
 echo Sections::checks(array(
     'For accounts starting the ' . $names . ' plan from Free. One spot per account, ' . number_format(Founding::SPOTS) . ' founding spots, open until they are filled.',
     'Your first billing period is free. Then ' . $after . ', charged to your card on the same date each month until you cancel.',
-    'Plan charges are final and non-refundable. Cancel any time from Billing and keep the plan to the end of the paid period.',
+    'Cancel any time from Billing and keep the plan to the end of the paid period.',
     'Founding placement lasts while your paid plan is active or in its past-due grace period. Moving to Free or a lapse ends the founding terms for good.',
-    'Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold.',
+    'Payouts go to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.',
 ));
 echo Sections::close();
 
