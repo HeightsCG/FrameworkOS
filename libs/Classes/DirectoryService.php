@@ -60,8 +60,8 @@ class DirectoryService {
     }
 
     /**
-     * Turn the listing on or off from Settings. On needs a category and a profile photo, and both images
-     * must pass the adult check. ['ok', 'message'] or ['ok' => false, 'message'].
+     * Turn the listing on or off from Settings. On needs a category; with a profile photo, both images
+     * must pass the adult check, and without one the choice is saved and the creator shows once a photo is added. ['ok', 'message'] or ['ok' => false, 'message'].
      */
     public static function save($user_id, $listed, $category): array {
         $m = new CreatorProfileModel();
@@ -72,7 +72,12 @@ class DirectoryService {
             return array('ok' => true, 'message' => 'You\'re no longer listed in the directory.');
         }
         if (!isset($choices[$category])) { return array('ok' => false, 'message' => 'Choose a category.'); }
-        if ((string) ($p['avatar_url'] ?? '') === '') { return array('ok' => false, 'message' => 'Add a profile photo first. The directory shows it on your card.'); }
+        // No photo yet is not an error (2026-10-13): the choice and the category are saved, and the directory itself leaves a
+        // creator without a photo out (CreatorProfileModel::directory_where). Adding a photo queues the image check.
+        if ((string) ($p['avatar_url'] ?? '') === '') {
+            $m->set_directory($user_id, true, $category);
+            return array('ok' => true, 'message' => 'Saved. You\'ll appear in the directory once you add a profile photo and have a published post whose images aren\'t adult content.');
+        }
         $check = self::check_images($p);
         if (!$check['ok']) { return array('ok' => false, 'message' => $check['message']); }
         $m->set_directory($user_id, true, $category);
