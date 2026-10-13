@@ -1209,7 +1209,7 @@ class SeoDrafter {
         foreach (PagesController::our_facts() as $k => $v) { $lines[] = ucfirst($k) . ': ' . $v; }
         // the fee as data, not as a sentence the model can lift: a sentence copied word for word is rejected by content_errors()
         $fee_bits = array(); foreach (PagesController::selling_tiers() as $t) { $fee_bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on ' . $t['name'] . ' ($' . number_format((int) $t['price']) . ' a month)'; }
-        $lines[] = 'Platform fee (state it in your own words, at most once): ' . implode('; ', $fee_bits) . '. Free is the fan account: it sells nothing and pays no fee. Card processing is charged separately. Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
+        $lines[] = 'Platform fee (state it in your own words, at most once): ' . implode('; ', $fee_bits) . '. Free is the account everyone starts with: a creator can build and preview their page on it, publishing and selling need a paid plan, and it pays no fee (say this in your own words, never "the fan account"). Card processing is charged separately. Never describe the fee as a range, never attach a fee to the Free plan, and never write "20%" about ' . $site . '.';
         foreach (PagesController::pricing_rows() as $r) {
             $t = (array) ($r['tier'] ?? array()); $lim = (array) ($t['limits'] ?? array());
             if (empty($t['name'])) { continue; }
