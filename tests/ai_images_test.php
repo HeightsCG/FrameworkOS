@@ -74,6 +74,14 @@ check('clothing written into the body description does not reach the body refere
 check('the build and the composition lines are kept', strpos($dp, 'hourglass figure with a narrow waist and rounded hips') !== false && strpos($dp, 'both feet fully visible') !== false);
 check('the swimsuit is stated as the only clothing, after the description', strpos($dp, 'Clothing in this picture: a plain solid-colour two-piece swimsuit, barefoot, and nothing else.') > strpos($dp, 'hourglass figure'));
 check('a description with no clothing is passed whole', InfluencerService::body_unclothed('tall, athletic, long legs, narrow waist') === 'tall, athletic, long legs, narrow waist');
+$bp = InfluencerService::build_phrase($dressed);
+check('scene prompts carry her build in a few words, not the whole description', $bp !== '' && mb_strlen($bp) <= 400 && strpos($bp, 'hourglass figure') !== false);
+check('the short build has no clothing, composition or reference instructions', !preg_match('/leggings|sneakers|COMPOSITION|reference|front-facing|feet/i', $bp));
+check('a short description comes through unchanged', InfluencerService::build_phrase(array('body_description' => 'tall, athletic, long legs, narrow waist')) === 'tall, athletic, long legs, narrow waist');
+$sp = InfluencerService::scene_prompt('infl_9_ab12 ', 'Close-up portrait at golden hour', InfluencerService::look_defaults($dressed));
+check('the scene comes right after the trigger word, her build after the scene', strpos($sp, 'infl_9_ab12 Close-up portrait at golden hour. ') === 0 && strpos($sp, 'hourglass figure') > strpos($sp, 'golden hour'));
+check('the full-body reference still gets the whole description', strpos(InfluencerService::angle_prompt($dressed, 'full_front'), 'both feet fully visible') !== false);
+check('the training shots carry the short build too', strpos(InfluencerService::training_prompt($dressed, 8), 'leggings') === false && strpos(InfluencerService::training_prompt($dressed, 8), 'COMPOSITION') === false);
 check('every angle has a prompt and a renderable shape', !array_filter(array_keys(InfluencerService::ANGLES), function ($k) use ($infl) { return InfluencerService::angle_prompt($infl, $k) === '' || !Aspect::valid(InfluencerService::ANGLES[$k]['aspect']); }));
 
 /* ---- angle set ---- */

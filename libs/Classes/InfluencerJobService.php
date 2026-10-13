@@ -866,8 +866,8 @@ class InfluencerJobService {
         // The creator's words go to the model as written: only the trigger word (the model's ID token) and the
         // influencer's own saved prompt defaults are added, the same as a hand-made render.
         // The trigger word goes first unless the defaults or the scene already carry it.
-        $parts = array((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger : '', $defaults, $scene);
-        $prompt = trim(implode(' ', array_filter($parts, 'strlen')));
+        // The scene first, as written, so it is what the model follows; her build and defaults after it.
+        $prompt = InfluencerService::scene_prompt((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger . ' ' : '', $scene, $defaults);
         $mk = InfluencerConfig::resolve_model('image', (string) ($rule['influencer_model_key'] ?? ''));
         if (!$mk) { return array('ok' => false, 'error' => 'No image model is configured.'); }
 

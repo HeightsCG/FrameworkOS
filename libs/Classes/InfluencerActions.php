@@ -379,7 +379,7 @@ class InfluencerActions {
      */
     public static function training_set_stale($cid, array $infl, array $jobs){
         $ref  = (int) ($infl['reference_asset_id'] ?? 0);
-        $body = InfluencerService::body_phrase($infl);
+        $body = InfluencerService::build_phrase($infl);   // the words the training prompts carry
         $bref = InfluencerService::body_reference($cid, $infl);
         $vars = InfluencerService::TRAINING_VARIATIONS;
         foreach ($jobs as $j) {
@@ -467,7 +467,9 @@ class InfluencerActions {
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
-        $prompt = trim($lead . ($defaults !== '' ? $defaults . ' ' : '') . $user_prompt);
+        // The scene comes first, so it is what the model follows; her build and her own defaults follow it (2026-10-13: with
+        // the defaults in front, a long body description decided the picture and the scene was ignored).
+        $prompt = InfluencerService::scene_prompt($lead, $user_prompt, $defaults);
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
         $size  = Aspect::for_model($mk, (string) ($in['aspect'] ?? ($in['image_size'] ?? '')));   // 3:4 unless asked: bodies warp in a square frame

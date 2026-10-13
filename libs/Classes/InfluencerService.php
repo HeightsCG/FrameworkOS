@@ -206,6 +206,33 @@ class InfluencerService {
      * the trained model; the body comes from these words, so they go on every image prompt, on her full-body
      * reference and on the full-body shots of the training set.
      */
+    /**
+     * Her build in a few words, for scene prompts (2026-10-13). The full body description can be a page long and is written
+     * for one picture, the full-body reference: it names a pose, a studio background, lighting and an outfit. Put in front of
+     * every scene prompt, it made every image that full-body studio shot and pushed the scene past what the model reads.
+     * This keeps only the sentences about her build (no clothing, no composition, camera, background, light, pose or face),
+     * about 300 characters at most. A short description ("tall, athletic, long legs") comes through unchanged.
+     */
+    public static function build_phrase($infl){
+        $keep = array(); $len = 0;
+        foreach (preg_split('/(?<=[.!?;])\s+/', self::body_unclothed(self::body_phrase($infl))) as $s) {
+            $s = trim($s);
+            if ($s === '') { continue; }
+            if (preg_match('/\b(composition|camera|lens|fram(?:e|es|ed|ing)|crop(?:ped)?|background|backdrop|studio|lighting|light|shadows?|reference|image|images|photo(?:graph|graphy)?s?|picture|render(?:ed|ing)?|video|videos|avoid|priorit(?:y|ies)|full[- ]length|full[- ]body|head[- ]to[- ]toe|standing|stands?|walking|sitting|pos(?:e|es|ed|ing)|facing|front[- ]facing|feet|perspective|social media|consisten(?:t|cy)|identity|facial|face|smile|hair|eyes?|expression|retouch(?:ed|ing)?|skin texture)\b/i', $s)) { continue; }
+            if ($keep && $len + mb_strlen($s) > 300) { break; }
+            $keep[] = $s; $len += mb_strlen($s) + 1;
+        }
+        return trim(mb_substr(implode(' ', $keep), 0, 400), " ,.");
+    }
+
+    /** One image prompt: the trigger word, the scene as written, then her build and defaults. */
+    public static function scene_prompt($lead, $scene, $defaults){
+        $scene = trim((string) $scene); $defaults = trim((string) $defaults);
+        if ($defaults === '') { return trim($lead . $scene); }
+        if ($scene === '') { return trim($lead . $defaults); }
+        return trim($lead . $scene . (preg_match('/[.!?]$/', $scene) ? ' ' : '. ') . $defaults);
+    }
+
     public static function body_phrase($infl){
         return is_array($infl) ? self::body_text($infl['body_description'] ?? '') : '';
     }
@@ -233,7 +260,7 @@ class InfluencerService {
 
     /** What is added to every image prompt for her: the body words, then her own Always Add To Prompts text. */
     public static function look_defaults($infl){
-        $body = self::body_phrase($infl);
+        $body = self::build_phrase($infl);   // her build in a few words; the full description is for her body reference only
         $own  = trim((string) (is_array($infl) ? ($infl['prompt_defaults'] ?? '') : ''));
         return trim($body . (($body !== '' && $own !== '') ? ', ' : '') . $own);
     }
@@ -386,7 +413,7 @@ class InfluencerService {
     /** One training-set prompt for her: the variation with her body words filled in. */
     public static function training_variation(array $infl, $i){
         $vars = self::TRAINING_VARIATIONS;
-        $body = self::body_phrase($infl);
+        $body = self::build_phrase($infl);
         return str_replace(array('{body}', '{outfit}'), array($body !== '' ? $body . ', ' : '', self::body_outfit($infl)), $vars[((int) $i) % count($vars)]);
     }
 
@@ -398,7 +425,7 @@ class InfluencerService {
      */
     public static function training_prompt(array $infl, $i, $has_body_ref = false){
         $vars = self::TRAINING_VARIATIONS; $v = $vars[((int) $i) % count($vars)];
-        $body = self::body_phrase($infl); $pr = self::pronouns($infl);
+        $body = self::build_phrase($infl); $pr = self::pronouns($infl);
         $intro = $has_body_ref
             ? 'The first image is ' . $pr[2] . ' face, the second ' . $pr[2] . ' body: the same ' . self::noun($infl) . ' in this picture, with the same face, hair, skin tone and exactly the build of the second image, in natural real-life proportions, nothing enlarged or exaggerated. '
             : '';
@@ -415,7 +442,7 @@ class InfluencerService {
     public static function softened_prompt(array $infl, $prompt){
         $out  = (string) $prompt;
         $body = self::body_phrase($infl);
-        foreach (array_unique(array($body, self::body_unclothed($body))) as $b) { if ($b !== '') { $out = str_ireplace(array($b . ', ', ', ' . $b, $b), '', $out); } }
+        foreach (array_unique(array($body, self::body_unclothed($body), self::build_phrase($infl))) as $b) { if ($b !== '') { $out = str_ireplace(array($b . ', ', ', ' . $b, $b), '', $out); } }
         // a refused swimwear shot is rerun in the covered outfit: the outfit is swapped and the "nothing else" line goes
         $out = str_replace(self::body_reference_outfit($infl), 'wearing ' . self::body_outfit($infl), $out);
         $out = preg_replace('/Clothing in this picture: .*? or shoes\. /', '', $out);
