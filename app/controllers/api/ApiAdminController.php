@@ -267,6 +267,16 @@ class ApiAdminController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Two-step sign-in reset']);
     }
 
+    /** Diagnostics: run the quality check on one finished picture and record the answer on its job. Nothing is rejected or made again. */
+    public function admin_generation_checkAction(){
+        $this->admin_guard();
+        $job = (new InfluencerJobsModel())->get_by_id((int) ($this->post['job_id'] ?? 0));
+        if (!$job) { $this->jsonError('Job not found'); }
+        $r = ImageQualityCheck::run($job);
+        if (empty($r['ok'])) { $this->jsonError((string) $r['error']); }
+        $this->jsonSuccess(['message' => 'Quality check recorded: ' . ImageQualityCheck::verdict($r['quality']), 'quality' => $r['quality']]);
+    }
+
     /** Reset an account's age verification: the row goes and the adult toggle turns off; the next trigger runs a fresh check. */
     public function admin_reset_age_verificationAction(){
         $this->admin_guard();

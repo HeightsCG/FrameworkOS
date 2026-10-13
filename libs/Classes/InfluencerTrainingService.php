@@ -69,7 +69,7 @@ class InfluencerTrainingService {
         $zip_key = (string) ($p['zip_key'] ?? '');
         if ($zip_key === '') {
             $zip_key = 'vault/' . $cid . '/influencers/' . $iid . '/models/' . $model_id . '/images.zip';
-            $n = self::build_zip($cid, (array) ($p['asset_ids'] ?? array()), (string) ($p['trigger_word'] ?? ''), $zip_key);
+            $n = self::build_zip($cid, (array) ($p['asset_ids'] ?? array()), (string) ($p['trigger_word'] ?? ''), $zip_key, (array) ((new InfluencersModel())->get_by_id($iid) ?: array()));
             $p['zip_key'] = $zip_key;
             $p['zip_images'] = $n;
             (new InfluencerJobsModel())->transition($job['id'], null, array('params_json' => json_encode($p)));
@@ -90,7 +90,8 @@ class InfluencerTrainingService {
      * side with GD, and add it to a ZIP that is stored privately at $zip_key. Returns the
      * number of images packed; throws when the set is unusable.
      */
-    private static function build_zip($creator_id, array $asset_ids, $trigger_word, $zip_key){
+    private static function build_zip($creator_id, array $asset_ids, $trigger_word, $zip_key, array $infl = array()){
+        $jm = new InfluencerJobsModel();
         if (!class_exists('ZipArchive')) { throw new RuntimeException('ZIP support is not available on this server'); }
         $mm = new MediaAssetsModel();
         $zip_path = tempnam(sys_get_temp_dir(), 'infltrain') . '.zip';
@@ -112,7 +113,17 @@ class InfluencerTrainingService {
             if ($total + $size > $max_bytes) { @unlink($out); if ($out !== $src) { @unlink($src); } break; }
             $name = sprintf('img_%02d.jpg', $n + 1);
             $zip->addFile($out, $name);
-            if ($trigger_word !== '') { $zip->addFromString(sprintf('img_%02d.txt', $n + 1), $trigger_word); }
+            if ($trigger_word !== '') {
+                // With descriptive captions on, the caption says what the picture shows, so only her face and build are left
+                // to the trigger word (InfluencerService::training_caption). Off: the trigger word alone, as before.
+                $caption = $trigger_word;
+                if (InfluencerService::training_descriptive()) {
+                    $shot = $jm->training_shot_for_asset($creator_id, $aid);
+                    $caption = $shot ? InfluencerService::training_caption($infl, $trigger_word, (int) $shot['group_index'], (int) (InfluencerJobsModel::params($shot)['shot_version'] ?? 1))
+                                     : InfluencerService::training_caption($infl, $trigger_word);
+                }
+                $zip->addFromString(sprintf('img_%02d.txt', $n + 1), $caption);
+            }
             $tmp_files[] = $out; if ($out !== $src) { $tmp_files[] = $src; }
             $total += $size; $n++;
         }

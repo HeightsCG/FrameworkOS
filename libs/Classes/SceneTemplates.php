@@ -206,7 +206,7 @@ class SceneTemplates {
         $r = InfluencerActions::generate_image($cid, $infl, array(
             'prompt' => self::prompt_for($tpl, $infl), 'model_key' => (string) $model_key, 'num_images' => self::VARIANTS,
             'aspect' => ($aspect !== '') ? $aspect : (string) $tpl['default_aspect'],
-            'extra_params' => array('template_id' => (int) $tpl['id']),
+            'extra_params' => array('template_id' => (int) $tpl['id']), 'as_written' => true,
         ), $origin);
         if (!empty($r['ok'])) { $tpl['mine'] = ((int) ($tpl['creator_id'] ?? 0) === (int) $cid && (int) $cid > 0); $r['template'] = self::json($tpl); }
         return $r;

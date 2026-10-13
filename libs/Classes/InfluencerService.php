@@ -231,10 +231,12 @@ class InfluencerService {
      * "hyperrealistic", "8K" or "flawless", which push a model toward digital art). 'plain' adds nothing.
      * Later the same day the lens and depth-of-field words came out: they asked for a portrait-studio look, and faces came back
      * more sculpted than her reference (fuller lips, narrower jaw).
+     * The style says only what to show: this model has no way to be told what to avoid, so "not a glamour portrait, not a
+     * render" named the very looks it was meant to prevent.
      */
     const IMAGE_STYLES = array(
         'photoreal' => array('label' => 'Photorealistic', 'purpose' => 'Adds camera, light and skin-texture cues',
-            'suffix' => 'Candid photograph of a real person, natural believable light, true colour. Natural skin texture with visible pores, fine flyaway hairs, natural proportions, a soft natural face that is not sculpted, contoured or slimmed. Not a glamour portrait, an illustration, a render or an airbrushed image.'),
+            'suffix' => 'Candid photograph of a real person, natural believable light, true colour. Natural skin texture with visible pores, fine flyaway hairs, natural proportions, a soft natural face with its own fullness. An everyday unretouched snapshot.'),
         'plain'     => array('label' => 'As Written', 'purpose' => 'Your prompt only, nothing added', 'suffix' => ''),
     );
     const IMAGE_STYLE_DEFAULT = 'photoreal';
@@ -246,11 +248,11 @@ class InfluencerService {
     }
 
     /**
-     * Her face in a few words, for every picture made with her trained model (2026-10-13). The trained model holds her eyes,
-     * hair and nose well, but the lower face drifted from her reference: cheeks, lips, jaw and smile came out differently in
-     * each picture. These are the face words from the description her reference was made from (eyes, brows, nose, cheeks,
-     * lips, jaw, smile, freckles, marks, hair, skin), without its clothing, light, camera and instructions. '' when the
-     * description names no face features. About 260 characters at most.
+     * Her hair and skin in a few words, for every picture made with her trained model (2026-10-13). First this carried her
+     * whole face (eyes, brows, nose, lips, smile). Tested the same day, those words turned every picture into a tight,
+     * camera-facing portrait with the same smile, whatever the scene was: naming her eyes and smile asks the model to show
+     * them. Hair and skin words keep her hair length, colour and skin tone steady without that pull, so only those are kept.
+     * Taken from the description her reference was made from. '' when it names neither. About 160 characters at most.
      */
     public static function face_phrase($infl){
         $text = is_array($infl) ? trim((string) preg_replace('/\s+/', ' ', html_entity_decode((string) ($infl['source_description'] ?? ''), ENT_QUOTES, 'UTF-8'))) : '';
@@ -261,15 +263,28 @@ class InfluencerService {
             // an instruction's verb goes, the feature it names stays ("Give her a playful, asymmetric smile" -> "a playful, asymmetric smile")
             $s = trim((string) preg_replace('/^(?:and\s+)?(?:give (?:her|him|them)|add|keep(?: (?:her|his|their))?|preserve(?: (?:this|her|his))?|maintain(?:ing)?)\s+/i', '', $s));
             if ($s === '' || mb_strlen($s) > 90) { continue; }
-            if (!preg_match('/\b(eyes?|eyelids?|lashes|brows?|eyebrows?|nose|cheeks?|cheekbones?|jaw|jawline|chin|lips?|mouth|smile|teeth|freckles?|dimples?|beauty mark|mole|hair|curls|waves|skin|complexion)\b/i', $s)) { continue; }
+            if (!preg_match('/\b(hair|curls|waves|skin|complexion)\b/i', $s)) { continue; }
+            if (preg_match('/\b(eyes?|eyelids?|lashes|brows?|eyebrows?|nose|cheeks?|cheekbones?|jaw|jawline|chin|lips?|mouth|smile|teeth|freckles?|freckled|dimples?|beauty mark|mole|face|smooth|retouch(?:ed|ing)?|texture)\b/i', $s)) { continue; }   // face features pull the picture into a portrait
             if (preg_match('/\b(light(?!\s+(?:smile|freckles|brown|blonde|skin|lashes|eyes))|lighting|daylight|sunlight|afternoon|shade|windblown|salty|pulled back|tied back|ponytail|bun|slightly down|bare|camera|lens|focus(?:ed)?|background|backdrop|studio|photo|portrait|image|shirt|t-shirt|top|dress|wearing|makeup|make-up|identity|texture|pores|avoid|unobstructed|looking|eye contact|sitting|standing|outdoors|indoors)\b/i', $s)) { continue; }
-            if ($keep && $len + mb_strlen($s) > 260) { break; }
+            if ($keep && $len + mb_strlen($s) > 160) { break; }
             $keep[] = lcfirst($s); $len += mb_strlen($s) + 2;
         }
         if (!$keep) { return ''; }
-        $g = strtolower((string) ($infl['gender'] ?? ''));
-        $own = $g === 'man' ? array('His', 'his') : ($g === 'woman' ? array('Her', 'her') : array('Their', 'their'));
-        return $own[0] . ' own face as in ' . $own[1] . ' reference: ' . implode(', ', $keep);
+        return ucfirst(implode(', ', $keep));
+    }
+
+    /**
+     * Did the creator say how she faces the camera (an angle, a gaze, a portrait, a selfie, a pose)? When they did not, the
+     * trained model's habit is a face-on picture looking at the camera, in every scene (tested 2026-10-13: 6 of 6). Then
+     * candid_line() opens the prompt, and she is shown doing what the scene says (4 of 6 in the same test).
+     */
+    public static function scene_directs_camera($scene){
+        return (bool) preg_match('/\b(camera|lens|eye contact|portrait|headshot|selfie|pos(?:e|es|ed|ing)|close[- ]up|profile|three[- ]quarter|side[- ]on|sideways|from the side|from behind|back view|over (?:her|his|the) shoulder|look(?:s|ing)? (?:away|back|down|up|at|out|over|toward|towards|into|straight)|gaz(?:e|es|ing)|glanc(?:e|es|ing)|facing|front[- ]facing|turn(?:s|ed|ing))\b/i', (string) $scene);
+    }
+
+    public static function candid_line($infl){
+        $n = self::noun(is_array($infl) ? $infl : array()); $pr = self::pronouns(is_array($infl) ? $infl : array());
+        return 'Candid photo of a ' . $n . ' absorbed in what ' . $pr[0] . ' is doing, ' . $pr[2] . ' eyes on it, unaware of the camera.';
     }
 
     /**
@@ -494,6 +509,39 @@ class InfluencerService {
     }
 
     /** Training-set variations (reference path). Each becomes one 1:1 job; the user can add steering. {body} is where her body words go (training_variation). */
+/**
+     * The new shot list (version 2, 2026-10-13; see training_descriptive). The first list had her facing or looking at the camera in most shots, and a
+     * model trained on it pulled every picture toward a face-on portrait. Here seven of ten look away or are turned: two
+     * three-quarter views, two side profiles (one each way), a close-up looking aside, a walking full-length shot and a seated
+     * sideways shot. Three keep her facing the camera so her face is still learned straight on. The close-up stays at
+     * position 7 and the three body shots at 8 to 10, as before.
+     */
+    const TRAINING_VARIATIONS_V2 = array(
+        'same person, front-facing head and shoulders, looking at the camera, wearing a plain grey t-shirt, neutral expression, flat daylight from a window, plain wall behind',
+        'same person, head and shoulders in three-quarter view with the head turned to the left, looking away from the camera at something to the left, wearing a white tank top, small smile, window light from one side, living room behind',
+        'same person, three-quarter view with the head turned to the right, looking down at a phone held in one hand, wearing an oversized hoodie, relaxed expression, warm evening lamp light indoors',
+        'same person, side profile facing left, the face in full profile, looking straight ahead, hair tucked behind the ear, wearing a knit sweater, overcast daylight outdoors',
+        'same person, side profile facing right, the face in full profile, alone in the frame, laughing mid-laugh with eyes crinkled, wearing a plain white t-shirt, bright daylight, street behind slightly out of focus',
+        'same person, seen from behind, looking back over the shoulder at the camera, wearing a denim jacket, late afternoon sun, park behind',
+        'same person, close-up of the face, head tilted, looking off to one side, the collar of a dark t-shirt just in frame, serious expression, light from one side only, dim room',
+        'same person, full body walking, head to toe in frame, seen from a three-quarter angle, looking ahead along the street, {body}{outfit}, overcast daylight, city street behind',
+        'same person, from the waist up, facing the camera, {body}at home in a plain fitted t-shirt, hair undone, soft expression, morning light, bedroom behind',
+        'same person, from the knees up, seated sideways to the camera on a low wall, alone in the frame, head turned to look along the promenade, {body}wearing a loose linen shirt over a t-shirt and shorts, sunglasses pushed up on the head, big smile, harsh midday sun, beach promenade behind',
+    );
+    /**
+     * Off until a trial training has shown the new shot list and the descriptive captions give a better model: with it off,
+     * training sets and captions are exactly what they were. InfluencerConfig 'training_descriptive' turns it on; a trial
+     * script can set $training_descriptive for one run.
+     */
+    public static $training_descriptive = null;
+    public static function training_descriptive(){
+        return self::$training_descriptive !== null ? (bool) self::$training_descriptive : (bool) InfluencerConfig::get('training_descriptive', 0);
+    }
+    /** The shot list in use, and its version number (recorded on each training-set job). */
+    public static function training_vars(){ return self::training_descriptive() ? self::TRAINING_VARIATIONS_V2 : self::TRAINING_VARIATIONS; }
+    public static function training_version(){ return self::training_descriptive() ? 2 : 1; }
+
+    /** The first shot list, in use until the new one is validated. A set made from it can be captioned by what each picture shows. */
     const TRAINING_VARIATIONS = array(
         'same person, front-facing head and shoulders, wearing a plain grey t-shirt, neutral expression, flat daylight from a window, plain wall behind',
         'same person, three-quarter view turned slightly left, wearing a white tank top, small smile, window light from one side, living room behind',
@@ -507,9 +555,26 @@ class InfluencerService {
         'same person, from the knees up, {body}wearing a loose linen shirt over a t-shirt and shorts, sunglasses pushed up on the head, big smile, harsh midday sun, beach promenade behind',
     );
 
+    /**
+     * The caption that goes with one training picture (2026-10-13). Until now every picture was captioned with the trigger
+     * word alone, so the model tied everything in the set to her name: her face, but also the camera-facing pose, the gaze
+     * and the clothes. A caption that says what the picture shows (angle, gaze, expression, clothing, light, place) leaves
+     * only what is never described, her face and build, to the trigger word. $shot is 1-based; $version picks the list the
+     * picture was made from. A picture with no known shot (an uploaded photo) gets the trigger word and the subject only.
+     */
+    public static function training_caption(array $infl, $trigger, $shot = 0, $version = 1){
+        $lead = trim((string) $trigger . ', a ' . self::noun($infl), ', ');
+        $vars = ((int) $version >= 2) ? self::TRAINING_VARIATIONS_V2 : self::TRAINING_VARIATIONS;
+        if ((int) $shot < 1) { return $lead; }
+        $v = $vars[((int) $shot - 1) % count($vars)];
+        $v = str_replace(array('{body}', '{outfit}'), array('', 'wearing ' . self::body_outfit($infl)), $v);
+        $v = trim((string) preg_replace('/^same person,\s*/i', '', $v));
+        return $lead . ', ' . $v;
+    }
+
     /** One training-set prompt for her: the variation with her body words filled in. */
     public static function training_variation(array $infl, $i){
-        $vars = self::TRAINING_VARIATIONS;
+        $vars = self::training_vars();
         $body = self::build_phrase($infl);
         return str_replace(array('{body}', '{outfit}'), array($body !== '' ? $body . ', ' : '', self::body_outfit($infl)), $vars[((int) $i) % count($vars)]);
     }
@@ -521,7 +586,7 @@ class InfluencerService {
      * as whatever the model guesses.
      */
     public static function training_prompt(array $infl, $i, $has_body_ref = false){
-        $vars = self::TRAINING_VARIATIONS; $v = $vars[((int) $i) % count($vars)];
+        $vars = self::training_vars(); $v = $vars[((int) $i) % count($vars)];
         $body = self::build_phrase($infl); $pr = self::pronouns($infl);
         $intro = $has_body_ref
             ? 'The first image is ' . $pr[2] . ' face, the second ' . $pr[2] . ' body: the same ' . self::noun($infl) . ' in this picture, with the same face, hair, skin tone and exactly the build of the second image, in natural real-life proportions, nothing enlarged or exaggerated. '

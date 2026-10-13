@@ -361,7 +361,7 @@ class InfluencerActions {
         $ids  = array();
         for ($i = 1; $i <= $size; $i++) {
             $prompt = InfluencerService::realistic(InfluencerService::training_prompt($infl, $i - 1, $body_ref > 0) . ($steer !== '' ? ', ' . $steer : ''));
-            $params = array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square');
+            $params = array('aspect_ratio' => '1:1', 'num_images' => 1, 'image_size' => 'square', 'shot_version' => InfluencerService::training_version());   // which shot list the slot number refers to (for its training caption)
             // Every shot gets her full-body reference next to her face, so her build matches across the whole set, not only the full-length ones.
             if ($body_ref > 0) { $params['image_asset_ids'] = array($body_ref); }
             $ids[] = InfluencerJobService::create_job($cid, (int) $infl['id'], 'training_set', array(
@@ -381,8 +381,8 @@ class InfluencerActions {
         $ref  = (int) ($infl['reference_asset_id'] ?? 0);
         $body = InfluencerService::build_phrase($infl);   // the words the training prompts carry
         $bref = InfluencerService::body_reference($cid, $infl);
-        $vars = InfluencerService::TRAINING_VARIATIONS;
         foreach ($jobs as $j) {
+            $vars = ((int) (InfluencerJobsModel::params($j)['shot_version'] ?? 1) >= 2) ? InfluencerService::TRAINING_VARIATIONS_V2 : InfluencerService::TRAINING_VARIATIONS;
             if (in_array((string) $j['status'], array('failed', 'cancelled'), true)) { continue; }
             if ($ref > 0 && (int) $j['input_asset_id'] !== $ref) { return true; }
             $i = max(1, (int) $j['group_index']) - 1;
@@ -465,10 +465,9 @@ class InfluencerActions {
         }
         // A prompt that already carries her defaults (an older image run again, or pasted back) does not get them twice.
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
-        // Her face words: the trained model alone let the lower face drift from her reference (2026-10-13). They follow the
-        // scene, ahead of her build, so the pose the scene asks for still leads; a long scene is shortened first (fit_scene),
-        // so they are not cut off. Not added to a prompt that already carries them. Automations keep their own prompt.
-        $face = InfluencerService::face_phrase($infl);
+        // Her hair and skin words follow the scene, ahead of her build (InfluencerService::face_phrase). Not added to a prompt
+        // that already carries them. Automations keep their own prompt.
+        $face = $as_written ? '' : InfluencerService::face_phrase($infl);
         if ($face !== '' && stripos($user_prompt, $face) === false) { $defaults = trim($face . ($defaults !== '' ? '. ' . $defaults : '')); }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
@@ -480,7 +479,9 @@ class InfluencerActions {
         $suffix = InfluencerService::style_suffix($style, $user_prompt);
         // A long scene, or one that says what to avoid, is fitted to the model first (pose in front, "not X" turned into what
         // to show). The creator's own words stay on the job as user_prompt; a short plain scene is sent as written.
-        $scene  = self::fit_scene($infl, $user_prompt);
+        $scene  = $as_written ? $user_prompt : self::fit_scene($infl, $user_prompt);
+        // No angle, gaze or pose asked for: open with the candid line, so she is doing what the scene says and not posing for the camera.
+        if (!$as_written && !InfluencerService::scene_directs_camera($user_prompt)) { $lead .= InfluencerService::candid_line($infl) . ' '; }
         $prompt = InfluencerService::scene_prompt($lead, $scene, trim($defaults . ($defaults !== '' && $suffix !== '' ? '. ' : '') . $suffix));
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }

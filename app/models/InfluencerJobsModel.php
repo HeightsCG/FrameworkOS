@@ -156,6 +156,38 @@ class InfluencerJobsModel extends Model {
             'id = :id', array('id' => (int) $id));
     }
 
+    /** The training-set job that made this picture (its slot number and shot list version), or null for an uploaded photo. */
+    public function training_shot_for_asset($creator_id, $asset_id){
+        $r = parent::select("SELECT group_index, params_json FROM influencer_jobs WHERE creator_id = :c AND type = 'training_set' AND result_asset_id = :a ORDER BY id DESC LIMIT 1",
+            array('c' => (int) $creator_id, 'a' => (int) $asset_id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
+    /** Admin diagnostics: the newest generation jobs of every creator, with the creator and the influencer named. */
+    public function admin_recent($limit = 200, $type = ''){
+        $w = ''; $b = array();
+        if ((string) $type !== '') { $w = 'WHERE j.type = :t'; $b['t'] = (string) $type; }
+        return (array) parent::select(
+            "SELECT j.id, j.creator_id, j.influencer_id, j.type, j.status, j.origin, j.model_key, j.provider, j.endpoint, j.seed, j.params_json, j.result_json,
+                    j.error, j.cost_usd, j.credits_charged, j.created_at, j.finished_at, i.name AS influencer_name, u.u_name, u.first_name, u.last_name
+             FROM influencer_jobs j
+             LEFT JOIN influencers i ON i.id = j.influencer_id
+             LEFT JOIN user_accounts u ON u.user_id = j.creator_id
+             $w ORDER BY j.id DESC LIMIT " . max(1, min(500, (int) $limit)), $b);
+    }
+
+    /** Admin diagnostics: one job with the creator, the influencer and the trained model it used. */
+    public function admin_detail($id){
+        $r = parent::select(
+            "SELECT j.*, i.name AS influencer_name, u.u_name, u.first_name, u.last_name, m.trigger_word, m.status AS trained_status, m.created_at AS trained_at
+             FROM influencer_jobs j
+             LEFT JOIN influencers i ON i.id = j.influencer_id
+             LEFT JOIN user_accounts u ON u.user_id = j.creator_id
+             LEFT JOIN influencer_models m ON m.id = j.model_id
+             WHERE j.id = :id", array('id' => (int) $id));
+        return (is_array($r) && count($r) === 1) ? $r[0] : null;
+    }
+
     public static function params(array $job){
         $p = json_decode((string) ($job['params_json'] ?? '{}'), true);
         return is_array($p) ? $p : array();

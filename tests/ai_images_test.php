@@ -82,14 +82,17 @@ $sp = InfluencerService::scene_prompt('infl_9_ab12 ', 'Close-up portrait at gold
 check('the scene comes right after the trigger word, her build after the scene', strpos($sp, 'infl_9_ab12 Close-up portrait at golden hour. ') === 0 && strpos($sp, 'hourglass figure') > strpos($sp, 'golden hour'));
 check('the full-body reference still gets the whole description', strpos(InfluencerService::angle_prompt($dressed, 'full_front'), 'both feet fully visible') !== false);
 check('the training shots carry the short build too', strpos(InfluencerService::training_prompt($dressed, 8), 'leggings') === false && strpos(InfluencerService::training_prompt($dressed, 8), 'COMPOSITION') === false);
-// Her face words on every picture made with her trained model (2026-10-13: the lower face drifted from her reference).
+// Her hair and skin words on every picture made with her trained model (2026-10-13). Her eyes, nose and smile were named
+// at first: that made every picture a tight camera-facing portrait, so only hair and skin are kept.
 $fp = InfluencerService::face_phrase(array('gender' => 'woman', 'source_description' => 'Woman, 26. Sun-lightened blonde waves past the shoulders, darker at the roots. Blue eyes, tanned skin with a few sun freckles, slim nose, wide easy smile showing teeth. Hair slightly salty and windblown. Plain grey t-shirt. Bright open shade outdoors, looking straight at the camera.'));
-check('face words keep her eyes, nose and smile', strpos($fp, 'Her own face as in her reference: ') === 0 && strpos($fp, 'blue eyes') !== false && strpos($fp, 'slim nose') !== false && strpos($fp, 'wide easy smile showing teeth') !== false, $fp);
-check('face words leave out clothing, light, pose and age', !preg_match('/t-shirt|shade|camera|windblown|26/i', $fp), $fp);
-check('face words stay short', mb_strlen($fp) <= 320, (string) mb_strlen($fp));
-check('a man gets his own wording', strpos(InfluencerService::face_phrase(array('gender' => 'man', 'source_description' => 'Man, 30. Brown eyes, strong jaw.')), 'His own face as in his reference: brown eyes, strong jaw') === 0);
-check('no face words when the description names no features', InfluencerService::face_phrase(array('gender' => 'woman', 'source_description' => 'Phone photo, daylight, grey t-shirt')) === '' && InfluencerService::face_phrase(array()) === '');
-check('the Photorealistic style no longer asks for a portrait lens look', stripos(InfluencerService::IMAGE_STYLES['photoreal']['suffix'], 'prime lens') === false && stripos(InfluencerService::IMAGE_STYLES['photoreal']['suffix'], 'not sculpted') !== false);
+check('hair and skin words are kept', $fp === 'Sun-lightened blonde waves past the shoulders, tanned skin', $fp);
+check('eyes, nose, smile, clothing, light and pose are left out', !preg_match('/eyes|nose|smile|freckles|t-shirt|shade|camera|windblown|26/i', $fp), $fp);
+check('nothing is added when the description names no hair or skin', InfluencerService::face_phrase(array('gender' => 'woman', 'source_description' => 'Phone photo, blue eyes, wide smile, grey t-shirt')) === '' && InfluencerService::face_phrase(array()) === '');
+// No angle, gaze or pose asked for: the prompt opens with the candid line.
+check('a scene with no angle or gaze does not direct the camera', !InfluencerService::scene_directs_camera('Sitting at a kitchen table eating breakfast, oversized striped shirt, messy morning hair'));
+check('a portrait, a selfie, a gaze or an angle does', InfluencerService::scene_directs_camera('Front-facing portrait, soft smile') && InfluencerService::scene_directs_camera('Mirror selfie in a gym') && InfluencerService::scene_directs_camera('On a beach, looking out to sea') && InfluencerService::scene_directs_camera('Side profile on a train platform'));
+check('the candid line follows the influencer', InfluencerService::candid_line(array('gender' => 'man')) === 'Candid photo of a man absorbed in what he is doing, his eyes on it, unaware of the camera.' && strpos(InfluencerService::candid_line(array('gender' => 'woman')), 'a woman absorbed in what she is doing, her eyes on it') !== false);
+check('the Photorealistic style asks for no portrait lens look and names nothing to avoid', stripos(InfluencerService::IMAGE_STYLES['photoreal']['suffix'], 'prime lens') === false && !InfluencerService::scene_has_avoid(InfluencerService::IMAGE_STYLES['photoreal']['suffix']));
 // A long scene, or one that says what to avoid, is fitted to the model before it is sent (2026-10-13).
 check('a short plain scene is sent as written', !InfluencerService::scene_needs_fit('Mirror selfie in a gym, grey leggings and a sports top'));
 check('a scene that says what to avoid is fitted', InfluencerService::scene_needs_fit('Side view on a terrace. Not a frontal portrait, not direct eye contact.'));
@@ -251,15 +254,18 @@ if (!empty($to['ok'])) {
 $sm = new SceneTemplatesModel();
 $t1 = $sm->add(array('title' => 'Test Cafe', 'category' => 'Test', 'base_prompt' => 'photo of a {subject} at a cafe', 'is_adult' => 0, 'default_aspect' => '4:5', 'is_active' => 1));
 $t2 = $sm->add(array('title' => 'Test Adult', 'category' => 'Test', 'base_prompt' => 'photo of a {subject}', 'is_adult' => 1, 'default_aspect' => 'portrait', 'is_active' => 1));
-$ids = function ($user) { return array_column(SceneTemplates::for_user($user)['templates'], 'id'); };
-check('an SFW account sees only SFW templates',         in_array($t1, $ids(array('adult_content_enabled' => 0)), true) && !in_array($t2, $ids(array('adult_content_enabled' => 0)), true));
-check('an adult-enabled account sees both',             in_array($t1, $ids(array('adult_content_enabled' => 1)), true) && in_array($t2, $ids(array('adult_content_enabled' => 1)), true));
+// Since 2026-10-09 a creator's scenes are their own copies of the starter scenes; which starters an account is given on its
+// first look is decided by list_active(shows_adult), so that is what these checks read (they used to read for_user()).
+$ids_adult = function () use ($sm) { return array_map('intval', array_column($sm->list_active(true), 'id')); };   // an account with adult content on and its age verified
+$ids = function ($user) use ($sm) { return array_map('intval', array_column($sm->list_active(SceneTemplates::shows_adult($user)), 'id')); };
+check('an SFW account is given only SFW starter scenes',         in_array($t1, $ids(array('adult_content_enabled' => 0)), true) && !in_array($t2, $ids(array('adult_content_enabled' => 0)), true));
+check('an account allowed adult content is given both',             in_array($t1, $ids_adult(), true) && in_array($t2, $ids_adult(), true));
 check('{subject} follows the influencer',               SceneTemplates::prompt_for($sm->get_one($t1), $infl) === 'photo of a ' . InfluencerService::noun($infl) . ' at a cafe');
 check('an older shape name is stored as a ratio',       (string) $sm->get_one($t2)['default_aspect'] === '3:4');
 check('an adult template cannot be run by an SFW account', empty(SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 0), $infl, $t2)['ok']));
 check('a scene with a non-image model key is refused',  empty(($r = SceneTemplates::run($cid, array('user_id' => $cid, 'adult_content_enabled' => 1), $infl, $t1, '', 'grok_edit'))['ok']) && strpos($r['error'], 'does not do image') !== false, json_encode($r));
 $sm->set_active($t1, false);
-check('an inactive template is not listed or runnable', !in_array($t1, $ids(array('adult_content_enabled' => 1)), true) && empty(SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1)['ok']));
+check('an inactive template is not listed or runnable', !in_array($t1, $ids_adult(), true) && empty(SceneTemplates::run($cid, array('user_id' => $cid), $infl, $t1)['ok']));
 check('voting on an image not from a scene is refused', empty(SceneTemplates::vote($cid, $src, 1)['ok']));
 foreach (array($t1, $t2) as $t) { $sm->sql("DELETE FROM scene_templates WHERE id = :id", array(':id' => $t)); }
 

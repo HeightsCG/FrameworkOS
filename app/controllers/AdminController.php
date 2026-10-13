@@ -36,7 +36,7 @@ class AdminController extends Controller {
     const SECTIONS = array(
         'today' => array('today'), 'moderation' => array('moderation'), 'users' => array('users'), 'financials' => array('financials'),
         'sales' => array('sales'), 'billing' => array('billing'),
-        'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs'),
+        'growth' => array('growth', 'leads', 'founding', 'affiliates'), 'content' => array('content', 'scenes', 'niches'), 'system' => array('system', 'jobs', 'generations'),
         'analytics' => array('analytics', 'analytics_pages', 'analytics_sources', 'analytics_conversions', 'analytics_product', 'analytics_creators'),
     );
 
@@ -336,6 +336,33 @@ class AdminController extends Controller {
     public function jobsAction(){
         $this->shell('jobs');
         $this->view->cron_jobs = CronRuns::status();
+        $this->view->render();
+    }
+
+    /** /admin/generations — AI generation jobs of every creator, newest first (diagnostics). ?type=image|video|... narrows it. */
+    public function generationsAction(){
+        $this->shell('generations');
+        $type = preg_replace('/[^a-z_]/', '', (string) ($_GET['type'] ?? 'image'));
+        $this->view->gen_type = $type;
+        $this->view->gen_rows = array();
+        try { $this->view->gen_rows = (new InfluencerJobsModel())->admin_recent(200, $type === 'all' ? '' : $type); } catch (\Throwable $e) { error_log('[admin] generations: ' . $e->getMessage()); }
+        $this->view->render();
+    }
+
+    /** /admin/generation/<id> — everything about one generation job: what was typed, what was sent, to which model, with which settings. */
+    public function generationAction(){
+        $this->shell('generations');
+        $url = Main::get_url();
+        $job = (new InfluencerJobsModel())->admin_detail((int) ($url[2] ?? 0));
+        if (!$job) { Errors::page_not_found(); return; }
+        $this->view->job = $job;
+        $this->view->job_model = InfluencerConfig::MODELS[(string) $job['model_key']] ?? array();
+        $this->view->job_image = '';
+        if (!empty($job['result_asset_id'])) {
+            $a = (new MediaAssetsModel())->get_one((int) $job['creator_id'], (int) $job['result_asset_id']);
+            $key = $a ? (string) ($a['display_key'] ?: ($a['original_key'] ?: $a['thumb_key'])) : '';
+            if ($key !== '') { $this->view->job_image = S3Service::presigned_get_url($key, 900); }
+        }
         $this->view->render();
     }
 

@@ -156,7 +156,8 @@ class ClaudeService {
         if (isset($d['ok']) && $d['ok'] === false) { return $d; }
         $out = '';
         foreach ((array) ($d['content'] ?? array()) as $block) { if (($block['type'] ?? '') === 'text') { $out = (string) $block['text']; break; } }
-        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '');
+        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '',
+            'input_tokens' => (int) ($d['usage']['input_tokens'] ?? 0), 'output_tokens' => (int) ($d['usage']['output_tokens'] ?? 0));   // what the call used, for cost records
     }
 
     /**
@@ -189,7 +190,8 @@ class ClaudeService {
         if (isset($d['ok']) && $d['ok'] === false) { return $d; }
         $out = '';
         foreach ((array) ($d['content'] ?? array()) as $block) { if (($block['type'] ?? '') === 'text') { $out = (string) $block['text']; break; } }
-        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '');
+        return array('ok' => true, 'text' => trim($out), 'stop_reason' => (string) ($d['stop_reason'] ?? ''), 'error' => '',
+            'input_tokens' => (int) ($d['usage']['input_tokens'] ?? 0), 'output_tokens' => (int) ($d['usage']['output_tokens'] ?? 0));
     }
 
     /** Drop empties, merge consecutive same-role turns, ensure the list starts and ends with a user turn. */

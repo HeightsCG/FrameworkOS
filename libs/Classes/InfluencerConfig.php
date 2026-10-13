@@ -225,6 +225,7 @@ class InfluencerConfig {
         'ceiling_training'            => 3600,
         'training_steps'              => 1000,
         'training_set_size'           => 10,
+        'training_descriptive'        => 0,    // 1 = the new shot list + a descriptive caption per training picture (off until validated by a trial)
         'training_min_photos'         => 10,
         'training_max_photos'         => 50,
         'training_lora_scale'         => 1.0,

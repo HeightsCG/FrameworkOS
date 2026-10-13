@@ -47,6 +47,21 @@
         });
     }
 
+    /* ---- Generation diagnostics: run the quality check on one finished picture ---- */
+    var gen_check = document.getElementById('admGenCheck');
+    if (gen_check) {
+        gen_check.addEventListener('click', function () {
+            var label = gen_check.textContent;
+            gen_check.disabled = true; gen_check.textContent = 'Checking…';
+            ApiDataSvc.apiCall('post', 'admin_generation_check', { job_id: gen_check.getAttribute('data-job') }, function (r) {
+                var o = null; try { o = JSON.parse(r); } catch (err) { o = null; }
+                if (o && o.success) { toastr.success(o.message); window.location.reload(); return; }
+                gen_check.disabled = false; gen_check.textContent = label;
+                toastr.error(o && o.message ? o.message : 'Could not run the check.');
+            });
+        });
+    }
+
     /* ---- Age checks: status switch + reset ---- */
     var ageTabs = document.getElementById('admAgeTabs');
     if (ageTabs) {
