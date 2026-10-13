@@ -957,6 +957,7 @@ class InfluencerJobService {
                 'display_url' => ($a['status'] === 'ready') ? MediaService::signed_url($a, $a['type'] === 'video' ? 'poster' : 'display', $creator_id, InfluencerService::URL_TTL) : '',
                 'video_url'   => ($a['status'] === 'ready' && $a['type'] === 'video') ? MediaService::signed_variant($a, 'original', 900) : '',
                 'moderation'  => (string) $a['moderation_status'],
+                'rating'      => (int) ($result['ratings'][(int) $a['id']]['rating'] ?? 0),   // the creator's thumbs up (1) or down (-1)
             );
         }
         $p = InfluencerJobsModel::params($job);

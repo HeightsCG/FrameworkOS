@@ -1188,6 +1188,17 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-gen__del:hover{ background:var(--danger); }
 .inf-gen__del:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--danger); }
 .inf-gen__del:disabled{ opacity:.5; cursor:not-allowed; }
+.inf-gen__rate{ position:absolute; right:8px; bottom:8px; display:flex; gap:4px; }
+.inf-gen__rate-btn{ width:32px; height:32px; border-radius:var(--r-sm); border:none; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+.inf-gen__rate-btn:hover{ background:rgba(0,0,0,.8); }
+.inf-gen__rate-btn.is-on{ background:var(--acc); }
+.inf-gen__rate-btn--down.is-on{ background:var(--danger); }
+.inf-gen__rate-btn:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+.inf-gen__rate-btn:disabled{ opacity:.5; cursor:not-allowed; }
+.inf-strip__item{ position:relative; }
+.inf-strip__rated{ position:absolute; right:4px; bottom:4px; width:20px; height:20px; border-radius:var(--r-sm); background:var(--acc); color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.inf-strip__rated--down{ background:var(--danger); }
+@media (max-width:640px){ .inf-gen__rate-btn{ width:44px; height:44px; } }
 @media (max-width:640px){ .inf-acts > .btn{ min-height:44px; } .inf-gen__del{ width:44px; height:44px; } }
 /* The other tools keep their one row of actions; there too a long label wraps instead of overflowing. */
 .inf-cv__actions .inf-result__actions{ display:flex; flex-wrap:wrap; }

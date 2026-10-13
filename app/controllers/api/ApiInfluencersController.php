@@ -266,6 +266,13 @@ class ApiInfluencersController extends BaseApiController {
         $this->answer(InfluencerActions::delete_asset($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (int) ($this->post['asset_id'] ?? 0)));
     }
 
+    /** Thumbs up / down on one generated picture (rating 1, -1, or 0 to clear). */
+    public function influencer_image_rateAction(){
+        $user = $this->ai_user(false);
+        $cid  = (int) $user['user_id'];
+        $this->answer(InfluencerActions::rate_image($cid, $this->owned($cid, (int) ($this->post['id'] ?? 0)), (int) ($this->post['job_id'] ?? 0), (int) ($this->post['asset_id'] ?? 0), (int) ($this->post['rating'] ?? 0)));
+    }
+
     /** Short-lived download URL for one of her assets (original rendition). */
     public function influencer_asset_urlAction(){
         $user = $this->ai_user(false);

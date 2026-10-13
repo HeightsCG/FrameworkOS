@@ -1330,15 +1330,32 @@ jQuery(function ($) {
             $('#inf_idle').prop('hidden', true); $('#inf_main, #inf_result').prop('hidden', false);
             $('#inf_main_img').attr('src', current.asset.display_url || current.asset.thumb_url);
             $('#inf_strip .inf-strip__item').removeClass('is-on').filter('[data-asset="' + current.asset.id + '"]').addClass('is-on');
+            show_rating();
         }
+        function show_rating() {
+            var r = current ? (current.asset.rating || 0) : 0;
+            $('#inf_res_up').toggleClass('is-on', r === 1).attr('aria-pressed', r === 1 ? 'true' : 'false');
+            $('#inf_res_down').toggleClass('is-on', r === -1).attr('aria-pressed', r === -1 ? 'true' : 'false');
+        }
+        // Thumbs up or down on the picture shown; the same button again clears it. Saved with the run that made the picture.
+        $('#inf_res_up, #inf_res_down').on('click', function () {
+            if (!current) { return; }
+            var a = current.asset, was = a.rating || 0, want = parseInt($(this).data('rating'), 10), next = (was === want) ? 0 : want;
+            a.rating = next; show_rating(); render_strip();
+            api('influencer_image_rate', { id: inf.id, job_id: current.job.id, asset_id: a.id, rating: next }, function (o) {
+                if (o && o.success) { return; }
+                a.rating = was; show_rating(); render_strip(); err(o);
+            });
+        });
         function select(job, asset) { current = { job: job, asset: asset }; show_current(); }
+        function rated_mark(a) { return a.rating ? '<span class="inf-strip__rated' + (a.rating < 0 ? ' inf-strip__rated--down' : '') + '"><i class="fa-solid fa-thumbs-' + (a.rating < 0 ? 'down' : 'up') + '" aria-hidden="true"></i></span>' : ''; }
         function render_strip() {
             var $s = $('#inf_strip').empty();
             jobs.forEach(function (j) {
                 if (j.assets && j.assets.length) {
                     j.assets.forEach(function (a) {
                         if (a.status !== 'ready' || !a.thumb_url) { return; }
-                        var $t = $('<button type="button" class="inf-strip__item' + (current && current.asset.id === a.id ? ' is-on' : '') + '">').attr('data-asset', a.id).append('<img src="' + esc(a.thumb_url) + '" alt="">');
+                        var $t = $('<button type="button" class="inf-strip__item' + (current && current.asset.id === a.id ? ' is-on' : '') + '">').attr('data-asset', a.id).append('<img src="' + esc(a.thumb_url) + '" alt="">' + rated_mark(a));
                         $t.on('click', function () { select(j, a); });
                         $s.append($t);
                     });

@@ -467,7 +467,8 @@ class InfluencerActions {
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
         // Her hair and skin words follow the scene, ahead of her build (InfluencerService::face_phrase). Not added to a prompt
         // that already carries them. Automations keep their own prompt.
-        $face = $as_written ? '' : InfluencerService::face_phrase($infl);
+        // A hairstyle the creator asked for wins over her stored one: then only her hair colour is added (scene_names_hair).
+        $face = $as_written ? '' : InfluencerService::face_phrase($infl, InfluencerService::scene_names_hair($user_prompt));
         if ($face !== '' && stripos($user_prompt, $face) === false) { $defaults = trim($face . ($defaults !== '' ? '. ' . $defaults : '')); }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
@@ -625,6 +626,23 @@ class InfluencerActions {
         if ((int) $infl['reference_asset_id'] === $aid) { $f['reference_asset_id'] = null; }
         if (!empty($f)) { (new InfluencersModel())->update_fields($cid, $infl['id'], $f); }
         return self::okr(array('message' => 'File removed.' . ($kept > 0 ? ' It stays on the ' . ($kept === 1 ? 'post that uses it.' : $kept . ' posts that use it.') : ''), 'asset_id' => $aid, 'kept_for_posts' => $kept));
+    }
+
+    /**
+     * Thumbs up (1), thumbs down (-1) or cleared (0) on one generated picture. Kept on the run that made it (result_json
+     * 'ratings'), beside its prompt, seed and model, so a later training set can be chosen from the liked pictures and the
+     * disliked ones can be studied. Rating never starts a training by itself.
+     */
+    public static function rate_image($cid, array $infl, $job_id, $asset_id, $rating){
+        $rating = max(-1, min(1, (int) $rating)); $asset_id = (int) $asset_id;
+        $jm = new InfluencerJobsModel(); $job = $jm->get_one($cid, (int) $job_id);
+        if (!$job || (int) $job['influencer_id'] !== (int) $infl['id']) { return self::fail('That picture does not belong to this influencer.'); }
+        $result = InfluencerJobsModel::result($job);
+        if (!in_array($asset_id, array_map('intval', (array) ($result['asset_ids'] ?? array())), true)) { return self::fail('That picture does not belong to this run.'); }
+        $ratings = (array) ($result['ratings'] ?? array());
+        if ($rating === 0) { unset($ratings[$asset_id]); } else { $ratings[$asset_id] = array('rating' => $rating, 'at' => gmdate('Y-m-d H:i:s')); }
+        $jm->merge_result((int) $job['id'], array('ratings' => $ratings));
+        return self::okr(array('asset_id' => $asset_id, 'rating' => $rating));
     }
 
     /**

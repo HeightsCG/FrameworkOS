@@ -256,7 +256,25 @@ class InfluencerService {
      * them. Hair and skin words keep her hair length, colour and skin tone steady without that pull, so only those are kept.
      * Taken from the description her reference was made from. '' when it names neither. About 160 characters at most.
      */
-    public static function face_phrase($infl){
+    /**
+     * Did the creator say how her hair should be (a ponytail, a bun, wet, windblown, a part, hair up)? Then their words decide
+     * the hairstyle, and face_phrase() adds her hair colour only: her stored length and style ("shoulder-length", "waves")
+     * argue with the request. Tested 2026-10-13 on four hairstyles: with the stored words a wet, slicked-back request came
+     * out as her usual dry loose hair; colour was the same in every picture either way.
+     */
+    public static function scene_names_hair($scene){
+        return (bool) preg_match('/\b(hair|hairstyle|haircut|ponytail|pigtails?|braids?|braided|plaits?|updo|top[- ]?knot|bangs|fringe|curls|curly|wavy|straightened|slicked|windblown|windswept|tousled|bedhead|(?:messy|low|high|sleek|tight|loose) bun|(?:cent(?:er|re)|side|middle) part(?:ing)?)\b/i', (string) $scene);
+    }
+
+    /** One hair clause cut down to its colour ("Shoulder-length dark brown hair" -> "dark brown hair"); '' when it names no colour. */
+    public static function hair_colour_only($clause){
+        if (!preg_match_all('/\b(platinum|ash|strawberry|dirty|sandy|golden|honey|caramel|jet|dark|light|medium|deep|warm|cool|blonde?|brunette|brown|black|red|auburn|ginger|copper|chestnut|silver|gr[ae]y|white|pink|blue|purple|green)\b/i', (string) $clause, $m)) { return ''; }
+        $words = array_map('strtolower', $m[1]);
+        if (!array_diff($words, array('dark', 'light', 'medium', 'deep', 'warm', 'cool'))) { return ''; }   // a shade with no colour says nothing
+        return implode(' ', $words) . ' hair';
+    }
+
+    public static function face_phrase($infl, $hair_colour_only = false){
         $text = is_array($infl) ? trim((string) preg_replace('/\s+/', ' ', html_entity_decode((string) ($infl['source_description'] ?? ''), ENT_QUOTES, 'UTF-8'))) : '';
         if ($text === '') { return ''; }
         $keep = array(); $len = 0;
@@ -268,6 +286,7 @@ class InfluencerService {
             if (!preg_match('/\b(hair|curls|waves|skin|complexion)\b/i', $s)) { continue; }
             if (preg_match('/\b(eyes?|eyelids?|lashes|brows?|eyebrows?|nose|cheeks?|cheekbones?|jaw|jawline|chin|lips?|mouth|smile|teeth|freckles?|freckled|dimples?|beauty mark|mole|face|smooth|retouch(?:ed|ing)?|texture)\b/i', $s)) { continue; }   // face features pull the picture into a portrait
             if (preg_match('/\b(light(?!\s+(?:smile|freckles|brown|blonde|skin|lashes|eyes))|lighting|daylight|sunlight|afternoon|shade|windblown|salty|pulled back|tied back|ponytail|bun|slightly down|bare|camera|lens|focus(?:ed)?|background|backdrop|studio|photo|portrait|image|shirt|t-shirt|top|dress|wearing|makeup|make-up|identity|texture|pores|avoid|unobstructed|looking|eye contact|sitting|standing|outdoors|indoors)\b/i', $s)) { continue; }
+            if ($hair_colour_only && preg_match('/\b(hair|curls|waves)\b/i', $s)) { $s = self::hair_colour_only($s); if ($s === '' || in_array($s, $keep, true)) { continue; } }
             if ($keep && $len + mb_strlen($s) > 160) { break; }
             $keep[] = lcfirst($s); $len += mb_strlen($s) + 2;
         }

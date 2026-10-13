@@ -24,6 +24,10 @@
                         <img id="inf_main_img" alt="">
                         <button type="button" class="inf-gen__expand" id="inf_expand" title="Expand"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
                         <button type="button" class="inf-gen__del" id="inf_res_delete" title="Delete" aria-label="Delete"><i class="fa-regular fa-trash-can" aria-hidden="true"></i></button>
+                        <div class="inf-gen__rate" role="group" aria-label="Rate this image">
+                            <button type="button" class="inf-gen__rate-btn" id="inf_res_up" data-rating="1" title="Good Result" aria-label="Good Result" aria-pressed="false"><i class="fa-regular fa-thumbs-up" aria-hidden="true"></i></button>
+                            <button type="button" class="inf-gen__rate-btn inf-gen__rate-btn--down" id="inf_res_down" data-rating="-1" title="Bad Result" aria-label="Bad Result" aria-pressed="false"><i class="fa-regular fa-thumbs-down" aria-hidden="true"></i></button>
+                        </div>
                     </figure>
                 </div>
                 <div class="inf-cv__actions" id="inf_result" hidden>
