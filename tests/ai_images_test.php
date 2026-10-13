@@ -68,6 +68,12 @@ check('the body reference no longer names sneakers or a crop top', strpos(Influe
 check('close-up slots name no outfit', strpos(InfluencerService::angle_prompt($w, 'front_close_1'), 'swimsuit') === false);
 check('the training set keeps the covered outfit', strpos(InfluencerService::training_prompt($w, 8) . InfluencerService::training_prompt($w, 9), 'swimsuit') === false);
 check('a refused body shot is rerun in the covered outfit', strpos(InfluencerService::softened_prompt($w, InfluencerService::angle_prompt($w, 'full_front')), 'swimsuit') === false && strpos(InfluencerService::softened_prompt($w, InfluencerService::angle_prompt($w, 'full_front')), 'crop top and short shorts') !== false);
+$dressed = array('gender' => 'woman', 'body_description' => 'Photorealistic 24-year-old woman, 170 cm tall, hourglass figure with a narrow waist and rounded hips. Dress her in a fitted, body-contouring outfit: a flattering fitted top with a clean neckline, high-waisted fitted leggings and minimalist white sneakers. Her clothing should make her actual body clearly visible. COMPOSITION: Full-length head-to-toe reference, front-facing, both feet fully visible.');
+$dp = InfluencerService::angle_prompt($dressed, 'full_front');
+check('clothing written into the body description does not reach the body reference', stripos($dp, 'leggings and minimalist') === false && stripos($dp, 'fitted top with') === false && stripos($dp, 'Her clothing should') === false);
+check('the build and the composition lines are kept', strpos($dp, 'hourglass figure with a narrow waist and rounded hips') !== false && strpos($dp, 'both feet fully visible') !== false);
+check('the swimsuit is stated as the only clothing, after the description', strpos($dp, 'Clothing in this picture: a plain solid-colour two-piece swimsuit, barefoot, and nothing else.') > strpos($dp, 'hourglass figure'));
+check('a description with no clothing is passed whole', InfluencerService::body_unclothed('tall, athletic, long legs, narrow waist') === 'tall, athletic, long legs, narrow waist');
 check('every angle has a prompt and a renderable shape', !array_filter(array_keys(InfluencerService::ANGLES), function ($k) use ($infl) { return InfluencerService::angle_prompt($infl, $k) === '' || !Aspect::valid(InfluencerService::ANGLES[$k]['aspect']); }));
 
 /* ---- angle set ---- */

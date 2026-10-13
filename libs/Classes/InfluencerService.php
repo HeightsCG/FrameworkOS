@@ -59,12 +59,26 @@ class InfluencerService {
         return (self::noun($infl) === 'man') ? 'wearing plain swim shorts, bare chest, barefoot' : 'wearing a plain solid-colour two-piece swimsuit, barefoot';
     }
 
+    /**
+     * A body description with its clothing sentences taken out. Creators often write an outfit into the description
+     * ("fitted top, high-waisted leggings, white sneakers"), and the image model follows those words over the outfit the
+     * body reference asks for, which hides the build the picture exists to show.
+     */
+    public static function body_unclothed($text){
+        $keep = array();
+        foreach (preg_split('/(?<=[.!?;])\s+/', trim((string) $text)) as $sentence) {
+            if (preg_match('/\b(wear(?:s|ing)?|dress(?:ed)?(?: her| him)?|cloth(?:es|ing|ed)|outfit|attire|garment|leggings?|trousers|pants|jeans|shorts|skirt|top|t-?shirt|shirt|blouse|sweater|hoodie|jacket|bra|sneakers?|shoes?|footwear|heels|boots|socks|activewear|athleisure|sportswear|swimsuit|bikini|lingerie|neckline)\b/i', $sentence)) { continue; }
+            $keep[] = $sentence;
+        }
+        return trim(implode(' ', $keep), " ,");
+    }
+
     /** The prompt for one angle slot. */
     public static function angle_prompt(array $infl, $slot){
         $def = self::ANGLES[$slot] ?? null;
         if (!$def) { return ''; }
         $def['prompt'] = str_replace('{outfit}', self::body_reference_outfit($infl), (string) $def['prompt']);   // the body reference shows her in swimwear
-        $body = (strpos((string) $slot, 'full_') === 0) ? self::body_phrase($infl) : '';   // the full-body slots show her build
+        $body = (strpos((string) $slot, 'full_') === 0) ? self::body_unclothed(self::body_phrase($infl)) : '';   // the full-body slots show her build; clothing named in her description is left out, the picture sets its own
         // Her reference is a face, so it cannot fix her body. An edit model copies the body it guesses from the face unless told
         // the reference holds no body at all; so the build is stated first, as the thing being made, and the face second.
         $keep = ($body !== '') ? 'identical face, hair and skin tone' : 'identical face, hair, skin tone and body';
@@ -73,6 +87,8 @@ class InfluencerService {
         $build = ($body !== '')
             ? 'The reference image shows only this ' . $noun . '\'s face and hair; ' . $pr[2] . ' body is not in it. Build ' . $pr[2] . ' body from these words, and it must be clearly visible in the picture: ' . $body . '. '
             : '';
+        // The outfit is fixed for this picture, whatever the description said about clothes: stated again, last, so it wins.
+        if ($full) { $build .= 'Clothing in this picture: ' . preg_replace('/^wearing /', '', self::body_reference_outfit($infl)) . ', and nothing else. No top, t-shirt, leggings, trousers, skirt, dress, socks or shoes. '; }
         return ($full ? $def['prompt'] . '. ' : '') . $build
             . 'Keep the exact same ' . $noun . ' as in the reference image: ' . $keep . '. '
             . ($full ? '' : $def['prompt'] . '. ')
@@ -399,8 +415,10 @@ class InfluencerService {
     public static function softened_prompt(array $infl, $prompt){
         $out  = (string) $prompt;
         $body = self::body_phrase($infl);
-        if ($body !== '') { $out = str_ireplace(array($body . ', ', ', ' . $body, $body), '', $out); }
-        $out = str_replace(self::body_reference_outfit($infl), 'wearing ' . self::body_outfit($infl), $out);   // a refused swimwear shot is rerun in the covered outfit
+        foreach (array_unique(array($body, self::body_unclothed($body))) as $b) { if ($b !== '') { $out = str_ireplace(array($b . ', ', ', ' . $b, $b), '', $out); } }
+        // a refused swimwear shot is rerun in the covered outfit: the outfit is swapped and the "nothing else" line goes
+        $out = str_replace(self::body_reference_outfit($infl), 'wearing ' . self::body_outfit($infl), $out);
+        $out = preg_replace('/Clothing in this picture: .*? or shoes\. /', '', $out);
         if (!preg_match('/\b(wearing|t-shirt|shirt|sweater|hoodie|jacket|dress|jeans|shorts)\b/i', $out)) {
             $out = preg_replace('/^(same person,[^,]*,)/i', '$1 wearing a plain t-shirt and jeans,', $out, 1, $n);
             if (empty($n)) { $out = 'wearing a plain t-shirt and jeans, ' . $out; }
