@@ -465,12 +465,15 @@ class InfluencerActions {
         }
         // A prompt that already carries her defaults (an older image run again, or pasted back) does not get them twice.
         if ($defaults !== '' && stripos($user_prompt, $defaults) !== false) { $defaults = ''; }
-        // Her face words go in front of her build: the trained model alone let the lower face drift from her reference
-        // (2026-10-13). Not added to a prompt that already carries them. Automations keep their own prompt, unchanged.
+        // Her face words: the trained model alone let the lower face drift from her reference (2026-10-13). They are short and
+        // go right after the trigger word, ahead of the scene, because the model reads only the first part of a long prompt:
+        // after a page-long scene they would be cut off. Not added to a prompt that already carries them. Automations keep
+        // their own prompt, unchanged.
         $face = InfluencerService::face_phrase($infl);
-        if ($face !== '' && stripos($user_prompt, $face) === false) { $defaults = trim($face . ($defaults !== '' ? '. ' . $defaults : '')); }
+        if ($face !== '' && stripos($user_prompt, $face) !== false) { $face = ''; }
         // The trigger word identifies her to the model; the user never has to type it.
         $lead = ($trigger !== '' && stripos($defaults . ' ' . $user_prompt, $trigger) === false) ? $trigger . ' ' : '';
+        if ($face !== '') { $lead .= $face . '. '; }
         // The scene comes first, so it is what the model follows; her build and her own defaults follow it (2026-10-13: with
         // the defaults in front, a long body description decided the picture and the scene was ignored).
         // The chosen style goes last: scene, her build, then the realism cues. A caller that names no style (scenes, the
