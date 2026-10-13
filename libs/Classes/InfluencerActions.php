@@ -578,8 +578,10 @@ class InfluencerActions {
         if (!$link) { return self::fail('That file does not belong to this influencer.'); }
         $mm = new MediaAssetsModel();
         $a  = $mm->get_one($cid, $aid);
+        $kept = 0;
         if ($a) {
-            $mm->soft_delete($cid, $aid);
+            if ($mm->sold_asset_ids(array($aid), $cid)) { return self::fail('This file has been bought (in a post, message, or bundle), so it cannot be removed. Buyers keep it.'); }
+            $r = $mm->remove_from_library($cid, $aid); $kept = (int) $r['posts'];   // a post that uses it keeps it: the file leaves the gallery and the library only
             (new CollectionsModel())->remove_asset_everywhere($aid);
         }
         $im->detach($cid, $infl['id'], $aid);
@@ -587,7 +589,7 @@ class InfluencerActions {
         if ((int) $infl['face_asset_id'] === $aid) { $f['face_asset_id'] = null; }
         if ((int) $infl['reference_asset_id'] === $aid) { $f['reference_asset_id'] = null; }
         if (!empty($f)) { (new InfluencersModel())->update_fields($cid, $infl['id'], $f); }
-        return self::okr(array('message' => 'File removed.', 'asset_id' => $aid));
+        return self::okr(array('message' => 'File removed.' . ($kept > 0 ? ' It stays on the ' . ($kept === 1 ? 'post that uses it.' : $kept . ' posts that use it.') : ''), 'asset_id' => $aid, 'kept_for_posts' => $kept));
     }
 
     /** Recent jobs (by type list) as job_json rows. */

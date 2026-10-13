@@ -123,6 +123,7 @@ class PostsModel extends Model {
      * first asset is the cover unless $cover_id names another in the list.
      */
     public function set_assets($creator_id, $post_id, array $asset_ids, $cover_id = 0){
+        $before = array_column((array) parent::select("SELECT asset_id FROM post_assets WHERE post_id = :p", array('p' => (int) $post_id)), 'asset_id');
         parent::delete_all('post_assets', 'post_id = :p', array('p' => (int) $post_id));
         $order = 0; $first = null;
         foreach ($asset_ids as $aid) {
@@ -147,6 +148,7 @@ class PostsModel extends Model {
             parent::update('post_assets', array('is_cover' => 1), 'post_id = :p AND asset_id = :a',
                 array('p' => (int) $post_id, 'a' => (int) $cover));
         }
+        (new MediaAssetsModel())->release_hidden($creator_id, $before);   // a file hidden from the library that this post just dropped is no longer needed
         return true;
     }
 
@@ -454,6 +456,7 @@ class PostsModel extends Model {
         $res = parent::delete('posts', 'id = :id AND creator_id = :c', 1,
             array('id' => (int) $id, 'c' => (int) $creator_id));
         PublicThumbService::queue_purge(array('assets' => $asset_ids));   // its media may no longer be in any free post
+        (new MediaAssetsModel())->release_hidden($creator_id, $asset_ids);   // files that were only kept for this post
         return $res;
     }
 

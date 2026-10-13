@@ -186,6 +186,47 @@ class MediaAssetsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /**
+     * Remove a file from the library. A file a post still uses is part of that post, so it is only hidden from the library
+     * (library_hidden_at) and the post keeps showing it; a file no post uses is deleted (soft, as before).
+     * Returns array('posts' => how many posts keep it, 'hidden' => bool).
+     */
+    public function remove_from_library($creator_id, $id){
+        $n = parent::select("SELECT COUNT(DISTINCT pa.post_id) AS n FROM post_assets pa JOIN posts p ON p.id = pa.post_id WHERE pa.asset_id = :a AND p.creator_id = :c",
+            array('a' => (int) $id, 'c' => (int) $creator_id));
+        $n = (int) ($n[0]['n'] ?? 0);
+        if ($n === 0) { $this->soft_delete($creator_id, $id); return array('posts' => 0, 'hidden' => false); }
+        parent::update('media_assets', array('library_hidden_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND creator_id = :c AND deleted_at IS NULL AND library_hidden_at IS NULL', array('id' => (int) $id, 'c' => (int) $creator_id));
+        return array('posts' => $n, 'hidden' => true);
+    }
+
+    /** Files that were hidden from the library and are no longer in any post (their post was deleted or dropped them): now really deleted. */
+    public function release_hidden($creator_id, array $ids){
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+        if (!$ids) { return 0; }
+        $rows = parent::select("SELECT ma.id FROM media_assets ma WHERE ma.creator_id = :c AND ma.id IN (" . implode(',', $ids) . ") AND ma.deleted_at IS NULL AND ma.library_hidden_at IS NOT NULL
+                                 AND NOT EXISTS (SELECT 1 FROM post_assets pa WHERE pa.asset_id = ma.id)", array('c' => (int) $creator_id));
+        foreach ((array) $rows as $r) { $this->soft_delete($creator_id, (int) $r['id']); }
+        return count((array) $rows);
+    }
+
+    /** Files that were deleted while a post still pointed at them (before 2026-10-13 some delete paths left the post with nothing to show). */
+    public function deleted_but_on_posts(){
+        return (array) parent::select(
+            "SELECT ma.id, ma.creator_id, ma.filename, ma.deleted_at, COUNT(DISTINCT p.id) AS posts,
+                    SUM(p.state = 'published') AS published, GROUP_CONCAT(DISTINCT p.id ORDER BY p.id) AS post_ids
+             FROM media_assets ma JOIN post_assets pa ON pa.asset_id = ma.id JOIN posts p ON p.id = pa.post_id AND p.creator_id = ma.creator_id
+             WHERE ma.deleted_at IS NOT NULL AND ma.status = 'ready'
+             GROUP BY ma.id ORDER BY ma.id ASC");
+    }
+
+    /** Bring one of those files back for its posts: no longer deleted, hidden from the library. */
+    public function restore_for_posts($id){
+        return parent::update('media_assets', array('deleted_at' => null, 'library_hidden_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id AND deleted_at IS NOT NULL', array('id' => (int) $id));
+    }
+
     public function soft_delete($creator_id, $id){
         $res = parent::update('media_assets',
             array('deleted_at' => date('Y-m-d H:i:s'), 'updated_at' => date('Y-m-d H:i:s')),
@@ -223,7 +264,7 @@ class MediaAssetsModel extends Model {
      */
     public function get_for_creator($creator_id, array $filters = array()){
         $params = array('c' => (int) $creator_id);
-        $where  = array('a.creator_id = :c', 'a.deleted_at IS NULL', "COALESCE(a.source, '') <> 'recording'");   // call recordings live on their event
+        $where  = array('a.creator_id = :c', 'a.deleted_at IS NULL', 'a.library_hidden_at IS NULL', "COALESCE(a.source, '') <> 'recording'");   // hidden: removed from the library while a post still uses it   // call recordings live on their event
         $join   = '';
 
         if (!empty($filters['type']) && in_array($filters['type'], array('image','video','gif','audio'), true)) {
@@ -275,7 +316,7 @@ class MediaAssetsModel extends Model {
 
     public function count_for_creator($creator_id){
         $rows = parent::select(
-            "SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL AND " . self::NOT_RECORDING,
+            "SELECT COUNT(*) AS n FROM media_assets WHERE creator_id = :c AND deleted_at IS NULL AND library_hidden_at IS NULL AND " . self::NOT_RECORDING,
             array('c' => (int) $creator_id)
         );
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['n'] : 0;

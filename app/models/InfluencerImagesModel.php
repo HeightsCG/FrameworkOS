@@ -45,7 +45,7 @@ class InfluencerImagesModel extends Model {
     /** Rows joined to their ready media assets for one role (or all roles when $role = ''). */
     public function list_for_influencer($creator_id, $influencer_id, $role = '', $include_excluded = false){
         $params = array('c' => (int) $creator_id, 'i' => (int) $influencer_id);
-        $where  = 'ii.creator_id = :c AND ii.influencer_id = :i AND a.deleted_at IS NULL';
+        $where  = 'ii.creator_id = :c AND ii.influencer_id = :i AND a.deleted_at IS NULL AND a.library_hidden_at IS NULL';   // hidden: removed from the library while a post still uses it
         if ($role !== '') { $where .= ' AND ii.role = :r'; $params['r'] = (string) $role; }
         if (!$include_excluded) { $where .= ' AND ii.is_excluded = 0'; }
         return (array) parent::select(

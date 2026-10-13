@@ -1,6 +1,6 @@
 <?php
 /**
- * Ninth one-time text pass (2026-10-13): thirteen articles called Free "the fan account". They now say what /pricing says:
+ * Ninth one-time text pass (2026-10-13): fourteen articles called Free "the fan account". They now say what /pricing says:
  * a creator can build and preview a page on Free, and publishing and selling need Creator or Studio. Eight sentences that tied
  * the plan choice to sales volume are removed or reworded. (No article says where AI credits can be bought, so that wording
  * change is in the pages only: /terms and the pricing FAQ.)
@@ -102,6 +102,10 @@ $more = array(
     'how-to-price-a-subscription-tier' => array(
         ' The gap between the two selling plans bites hardest at low prices and high volume, where a few percentage points decide how much of each renewal survives.' => '',
     ),
+);
+$more['how-to-make-money-with-an-ai-influencer'] = array(
+    'Fan accounts are free, carry no selling tools and pay no platform share.'
+        => 'Free lets a creator build and preview a page, and publishing and selling need Creator or Studio, so Free pays no platform share.',
 );
 foreach ($more as $k => $v) { $edits[$k] = array_merge((array) ($edits[$k] ?? array()), $v); }
 

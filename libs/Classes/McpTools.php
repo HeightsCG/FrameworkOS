@@ -644,7 +644,7 @@ class McpTools {
             case 'storage_usage':return array('bytes' => (int) (new MediaAssetsModel())->total_bytes($cid), 'count' => (int) (new MediaAssetsModel())->count_for_creator($cid));
             case 'get_plan_usage': return Plan::usage(self::user($cid));
             case 'set_media_description': return $ok((new MediaAssetsModel())->set_description($cid, $iid, (string) ($a['description'] ?? '')));
-            case 'delete_media': return $ok((new MediaAssetsModel())->soft_delete($cid, $iid));
+            case 'delete_media': if ((new MediaAssetsModel())->sold_asset_ids(array($iid), $cid)) { throw new InvalidArgumentException('This file has been bought, so it cannot be removed. Buyers keep it.'); } $r = (new MediaAssetsModel())->remove_from_library($cid, $iid); (new CollectionsModel())->remove_asset_everywhere($iid); return array('ok' => true, 'kept_for_posts' => (int) $r['posts']);   // a post that uses the file keeps it
 
             // Collections
             case 'list_collections':  return array('collections' => (array) (new CollectionsModel())->get_for_creator($cid));

@@ -444,10 +444,9 @@ class ApiMediaController extends BaseApiController {
         if ($model->sold_asset_ids([$id], $creator_id)) {   // buyers keep what they paid for
             $this->jsonError('This file has been bought (in a post, message, or bundle), so it cannot be removed. Buyers keep it.');
         }
-        $model->soft_delete($creator_id, $id);
+        $r = $model->remove_from_library($creator_id, $id);   // a post that uses the file keeps it
         (new CollectionsModel())->remove_asset_everywhere($id);
-        $r = (new PostsModel())->detach_asset($creator_id, $id);
-        $this->jsonSuccess(['affected_posts' => $r['affected'], 'unpublished' => $r['unpublished'], 'message' => 'File removed.' . $this->detach_note($r)]);
+        $this->jsonSuccess(['affected_posts' => 0, 'unpublished' => 0, 'kept_for_posts' => $r['posts'], 'message' => 'File removed from your library.' . $this->kept_note($r['posts'])]);
     }
 
     /** Bulk actions over selected assets: add to collection, tag, or delete. */
@@ -481,11 +480,11 @@ class ApiMediaController extends BaseApiController {
             $n    = 0;
             foreach ($owned as $id) {
                 if (in_array($id, $sold, true)) { continue; }
-                $model->soft_delete($creator_id, $id); $col->remove_asset_everywhere($id); $n++;
-                $r = (new PostsModel())->detach_asset($creator_id, $id); $tot['affected'] += $r['affected']; $tot['unpublished'] += $r['unpublished'];
+                $r = $model->remove_from_library($creator_id, $id); $col->remove_asset_everywhere($id); $n++;
+                if ($r['hidden']) { $tot['affected']++; }   // still on its posts
             }
             if ($n === 0) { $this->jsonError(count($sold) . ' file(s) have been bought, so they cannot be removed. Buyers keep them.'); }
-            $msg = $n . ' file(s) removed.' . $this->detach_note($tot);
+            $msg = $n . ' file(s) removed from your library.' . ($tot['affected'] > 0 ? ' ' . $tot['affected'] . ' stay on the posts that use them.' : '');
             if ($sold) { $msg .= ' ' . count($sold) . ' bought file(s) kept for buyers.'; }
             $this->jsonSuccess(['message' => $msg, 'unpublished' => $tot['unpublished']]);
         }
@@ -493,6 +492,11 @@ class ApiMediaController extends BaseApiController {
     }
 
     /** "2 posts lost their only media and are back in Drafts" — or nothing when no post changed state. */
+    /** "It stays on the 2 posts that use it." — or nothing when no post uses the file. */
+    private function kept_note(int $posts): string{
+        return $posts <= 0 ? '' : ' It stays on the ' . ($posts === 1 ? 'post that uses it.' : $posts . ' posts that use it.');
+    }
+
     private function detach_note(array $r): string{
         $n = (int) ($r['unpublished'] ?? 0);
         if ($n <= 0) { return ''; }
