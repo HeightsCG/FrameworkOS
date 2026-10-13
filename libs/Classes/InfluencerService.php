@@ -166,9 +166,12 @@ class InfluencerService {
         ),
     );
 
-    /** A body description as stored: one line, at most 600 characters. */
+    /** The longest body description kept (2026-10-13: was 600, which cut a careful description mid-word). The column is TEXT. */
+    const BODY_MAX = 2000;
+
+    /** A body description as stored: one line, at most BODY_MAX characters. */
     public static function body_text($text){
-        return mb_substr(trim(preg_replace('/\s+/', ' ', (string) $text), " ,"), 0, 600);
+        return mb_substr(trim(preg_replace('/\s+/', ' ', (string) $text), " ,"), 0, self::BODY_MAX);
     }
 
     /**

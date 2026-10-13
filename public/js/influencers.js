@@ -417,7 +417,7 @@ jQuery(function ($) {
             return '<div class="inf-wiz__split">' +
                 '<div class="inf-wiz__form">' +
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_body_text">Body Description</label>' + prebuilt_link('inf_body_pre', body_prebuilt()) + '</div>' +
-                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<textarea class="form-control inf-wiz__desc" id="inf_body_text" maxlength="2000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_body_pre') +
                 '</div>' +
@@ -803,7 +803,7 @@ jQuery(function ($) {
                 '<section class="inf-sec inf-about__col"><div class="inf-sec__head"><div><h2 class="inf-sec__h">Image Defaults</h2></div></div>' +
                 '<div class="inf-about__fields">' +
                 '<div class="inf-field"><div class="inf-label">Gender</div>' + seg_html('inf_set_gender', [{ value: 'woman', label: 'Woman' }, { value: 'man', label: 'Man' }], inf.gender) + '</div>' +
-                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="600" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
+                '<div class="inf-field"><label class="inf-label" for="inf_set_bodytext">Body Description</label><textarea class="form-control" id="inf_set_bodytext" rows="3" maxlength="2000" placeholder="Tall, athletic, long legs, narrow waist">' + esc(inf.body_description || '') + '</textarea>' +
                 '</div>' +
                 body_prebuilt_html('inf_set_bodypre') +
                 '<div class="inf-field"><label class="inf-label" for="inf_set_defaults">Always Add To Prompts</label><textarea class="form-control" id="inf_set_defaults" rows="3" maxlength="2000" placeholder="film grain, natural light">' + esc(inf.prompt_defaults) + '</textarea></div>' +

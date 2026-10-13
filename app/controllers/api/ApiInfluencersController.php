@@ -61,7 +61,7 @@ class ApiInfluencersController extends BaseApiController {
         $user = $this->ai_user();
         $this->answer(InfluencerActions::create((int) $user['user_id'], $this->text('name', 120), (string) ($this->post['path'] ?? 'photos'), (string) ($this->post['gender'] ?? ''),
             (string) ($this->post['input_method'] ?? 'text'), (string) ($this->post['is_public'] ?? '0') === '1',
-            array('body_description' => $this->text('body_description', 600))));
+            array('body_description' => $this->text('body_description', InfluencerService::BODY_MAX))));
     }
 
     /** Persist wizard inputs + the step the user is on (any subset of the settable fields). */
@@ -187,7 +187,7 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in   = ['asset_id' => (int) ($this->post['asset_id'] ?? 0), 'change' => $this->text('change', 1000)];
-        if (isset($this->post['body_description'])) { $in['body_description'] = $this->text('body_description', 600); }
+        if (isset($this->post['body_description'])) { $in['body_description'] = $this->text('body_description', InfluencerService::BODY_MAX); }
         $this->answer(InfluencerActions::body_generate($cid, $infl, $in));
     }
 
