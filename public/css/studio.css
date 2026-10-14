@@ -339,6 +339,17 @@
 .cs-pv__handle{ font-size:.76rem; color:var(--muted); }
 .cs-pv__media--carousel .cs-pv__slide video{ width:100%; height:100%; object-fit:cover; display:block; background:#121212; }
 
+/* Story preview: 9:16, the cover whole and centred on a blurred copy of itself (same layout SocialFrame sends) */
+.cs-pv__story{ position:relative; width:100%; max-width:300px; margin:0 auto; aspect-ratio:9/16; background:#121212; border-radius:8px; overflow:hidden; }
+.cs-pv__storybg{ position:absolute; inset:-24px; background:center/cover no-repeat; filter:blur(22px) brightness(.72); }
+.cs-pv__storyfg{ position:absolute; inset:0; width:100%; height:100%; object-fit:contain; display:block; }
+.cs-pv__story.is-teaser .cs-pv__storyfg{ filter:blur(20px) brightness(.82); }
+.cs-pv__storyph{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:#6B6B6B; font-size:1.8rem; }
+.cs-pv__storybar{ position:absolute; top:8px; left:8px; right:8px; height:2px; border-radius:2px; background:rgba(255, 255, 255, .85); z-index:2; }
+.cs-pv__storyhead{ position:absolute; top:16px; left:10px; right:10px; display:flex; align-items:center; gap:8px; z-index:2; }
+.cs-pv__storyhead .cs-pv__avatar{ width:28px; height:28px; font-size:.75rem; }
+.cs-pv__storyname{ font-size:13px; font-weight:600; color:#fff; text-shadow:0 1px 2px rgba(0, 0, 0, .5); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+
 /* ===================== SCHEDULER ===================== */
 .cs-sched{ display:flex; flex-direction:column; gap:.8rem; }
 .cs-sched__card{ display:flex; align-items:center; gap:1.1rem; padding:1.05rem 1.2rem; border:1px solid var(--line); border-radius:var(--r-sm); background:var(--surface); transition:border-color .14s, box-shadow .14s; }

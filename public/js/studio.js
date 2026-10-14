@@ -778,7 +778,7 @@ jQuery(function ($) {
         var id = String($(this).data('acct')); if (this.checked) composer.share.add(id); else composer.share.delete(id);
         $(document).trigger('cs:dest-changed', [composer]);
         $(this).closest('.cs-pe__dest').toggleClass('is-on', this.checked);
-        peUpdateDestCount(); peMarkDirty();
+        peUpdateDestCount(); peMarkDirty(); renderPreview();
     });
     $('#csPeDestSearch').on('input', function () {
         var q = String(this.value || '').trim().toLowerCase(), shown = 0;
@@ -1194,7 +1194,32 @@ jQuery(function ($) {
     }
 
     /* ---- preview ---- */
+    /* A Story is on for at least one ticked account: the preview gets a Story view (Instagram and Facebook Stories are 9:16). */
+    function peStoryOn() { return (composer.story_accounts || []).some(function (id) { return composer.share && composer.share.has(String(id)); }); }
+    function peSetView(v) { composer.view = v; $('#csCompView .cs-pe__viewopt').each(function () { var on = $(this).data('view') === v; $(this).toggleClass('is-on', on).attr('aria-pressed', on ? 'true' : 'false'); }); }
+    /* What the Story looks like: the cover whole and centred on a blurred copy of itself, as SocialFrame makes it on the server. */
+    function renderStoryPreview() {
+        var a = composer.assets[0], cr = CFG.creator || {};
+        var teaser = composer.audience === 'subscribers';   // members-only posts send the blurred teaser, never the media
+        var fg = '', bg = '';
+        if (a && a.thumb_url) {
+            bg = '<div class="cs-pv__storybg" style="background-image:url(\'' + esc(a.thumb_url) + '\')"></div>';
+            fg = (a.type === 'video' && a.video_url && !teaser)
+                ? '<video class="cs-pv__storyfg" src="' + esc(a.video_url) + '" poster="' + esc(a.thumb_url) + '" muted loop autoplay playsinline></video>'
+                : '<img class="cs-pv__storyfg" src="' + esc(a.thumb_url) + '" alt="">';
+        } else {
+            fg = '<div class="cs-pv__storyph"><i class="fa-solid fa-image"></i></div>';
+        }
+        var avStyle = cr.avatar_url ? (' style="background-image:url(\'' + esc(cr.avatar_url) + '\')"') : '';
+        var head = '<div class="cs-pv__storyhead"><span class="cs-pv__avatar"' + avStyle + '>' + (cr.avatar_url ? '' : esc((cr.display_name || '?').charAt(0).toUpperCase())) + '</span>' +
+            '<span class="cs-pv__storyname">' + esc(cr.u_name || cr.display_name || 'handle') + '</span></div>';
+        $('#csPreviewCard').html('<div class="cs-pv__story' + (teaser ? ' is-teaser' : '') + '"><div class="cs-pv__storybar"></div>' + head + bg + fg + '</div>');
+    }
     function renderPreview() {
+        var storyOn = peStoryOn();
+        $('#csCompViewStory').prop('hidden', !storyOn);
+        if (!storyOn && composer.view === 'story') { peSetView('sub'); }
+        if (composer.view === 'story') { if (pvTimer) { clearInterval(pvTimer); pvTimer = null; } renderStoryPreview(); return; }
         var isPpv = composer.audience === 'ppv';
         // PPV is locked for everyone until purchased, so it shows locked in both preview views.
         var locked = isPpv || (composer.view === 'pub' && composer.audience === 'subscribers');
@@ -1263,7 +1288,9 @@ jQuery(function ($) {
         var $body = $('#csPreviewCard .cs-pv__body');
         if ($body.length) { $body.html(cap + meta); } else { renderPreview(); }
     }
-    $('#csCompView').on('click', '.cs-pe__viewopt', function () { composer.view = $(this).data('view'); $('#csCompView .cs-pe__viewopt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); renderPreview(); });
+    $('#csCompView').on('click', '.cs-pe__viewopt', function () { peSetView($(this).data('view')); renderPreview(); });
+    // Post As Story switched (studio-ai.js): show the Story view straight away when it is turned on.
+    $(document).on('cs:story-changed', function (e, on) { if (on) { peSetView('story'); } renderPreview(); });
 
     /* ---- field handlers ---- */
     $('#csPeCaptionAuto').on('click', function () {

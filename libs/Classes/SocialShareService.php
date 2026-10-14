@@ -87,10 +87,12 @@ class SocialShareService {
 
             // Captions, the carousel slice, the AI label or disclosure line, and Stories: one plan, built without the network.
             $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
-            $plan = self::plan($promo, $accounts, $items, array(
+            $opts = array(
                 'ai'      => AiDisclosure::applies($post['ai_disclosure'] ?? null, $live),
                 'stories' => array_filter(explode(',', (string) ($post['story_accounts'] ?? '')), 'strlen'),
-            ));
+            );
+            $opts += self::fitted_media($accounts, $items, $opts['stories']);
+            $plan = self::plan($promo, $accounts, $items, $opts);
             if (empty($plan['accounts'])) { return array('ok' => false, 'shared' => 0, 'error' => implode(' ', $plan['notes'])); }
             $valid = $plan['accounts'];
 
@@ -116,7 +118,8 @@ class SocialShareService {
      *
      * $accounts: rows of id, platform, ai_disclosure_text. $items: uploaded media, cover first, each
      * array('url', 'video' => bool, 'tall' => bool (9:16)). $opts: 'ai' => disclose this post as AI media,
-     * 'stories' => account ids that get it as a Story.
+     * 'stories' => account ids that get it as a Story, 'story_media' => the cover fitted into 9:16 (used when no item
+     * is 9:16), 'platform_items' => platform => items to use in place of $items (fitted_media).
      *
      * Returns accounts (the ids that are sent to), media (urls), platform_configurations,
      * account_configurations and notes (what was left out, and why).
@@ -133,6 +136,7 @@ class SocialShareService {
         $media   = array_column($items, 'url');
         $out     = array('accounts' => array(), 'media' => $media, 'platform_configurations' => array(), 'account_configurations' => array(), 'notes' => array());
         $tall    = array_values(array_filter($items, function ($i) { return !empty($i['tall']); }));
+        if (empty($tall)) { $tall = array_values((array) ($opts['story_media'] ?? array())); }   // the cover fitted into 9:16 (fitted_media)
 
         $feed = array();   // platform => accounts posting to the feed
         foreach ($accounts as $a) {
@@ -158,7 +162,7 @@ class SocialShareService {
             if ($flag !== '') { $cfg[$flag] = true; }
             $fit = self::caption_for($platform, $caption);
             if ($fit !== $caption) { $cfg['caption'] = $fit; }
-            $slice = array_column(self::media_for($platform, $items), 'url');
+            $slice = array_column(self::media_for($platform, $opts['platform_items'][$platform] ?? $items), 'url');   // Instagram: pictures fitted to its shapes
             if ($slice !== $media) { $cfg['media'] = array_map(function ($u) { return array('url' => $u); }, $slice); }
             if (!empty($cfg)) { $out['platform_configurations'][$platform] = $cfg; }
             if (!$ai || $flag !== '') { continue; }
@@ -190,6 +194,8 @@ class SocialShareService {
         $n = count($items);
         if ($n > 0 && !isset($items[$n - 1]['tall'])) {
             $items[$n - 1]['tall'] = Aspect::matches((int) ($asset['width'] ?? 0), (int) ($asset['height'] ?? 0), '9:16', 0.04);
+            $items[$n - 1]['w'] = (int) ($asset['width'] ?? 0);
+            $items[$n - 1]['h'] = (int) ($asset['height'] ?? 0);
         }
         return $items;
     }
@@ -289,7 +295,7 @@ class SocialShareService {
     /** push_media, keeping track of whether the item is a video. */
     private static function push_item($key, $mime, $is_video, array $items){
         $urls = self::push_media($key, $mime, array());
-        if (!empty($urls)) { $items[] = array('url' => $urls[0], 'video' => (bool) $is_video); }
+        if (!empty($urls)) { $items[] = array('url' => $urls[0], 'video' => (bool) $is_video, 'key' => (string) $key, 'mime' => (string) $mime); }
         return $items;
     }
 
@@ -298,10 +304,18 @@ class SocialShareService {
         if ($key === '') { return $media_urls; }
         $tmp = tempnam(sys_get_temp_dir(), 'share');
         if ($tmp === false || !S3Service::get_private_to_file($key, $tmp)) { @unlink($tmp); return $media_urls; }
-        $size = (int) filesize($tmp);
-        if ($size <= 0) { @unlink($tmp); return $media_urls; }
+        $url = self::push_file($tmp, $mime);
+        @unlink($tmp);
+        if ($url !== '') { $media_urls[] = $url; }
+        return $media_urls;
+    }
+
+    /** Upload a local file to Post for Me's media store; returns its media_url, or '' on failure. The file is left in place. */
+    private static function push_file($tmp, $mime): string{
+        $size = (int) @filesize($tmp);
+        if ($size <= 0) { return ''; }
         $up = PostForMeService::create_upload_url();
-        if (!is_array($up) || count($up) !== 2) { @unlink($tmp); return $media_urls; }
+        if (!is_array($up) || count($up) !== 2) { return ''; }
         list($media_url, $upload_url) = $up;
         $fh = fopen($tmp, 'rb');
         $ch = curl_init($upload_url);
@@ -311,10 +325,81 @@ class SocialShareService {
             CURLOPT_HTTPHEADER => array('Content-Type: ' . ($mime !== '' ? $mime : 'application/octet-stream')),
         ));
         curl_exec($ch); $ucode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); $err = curl_error($ch); curl_close($ch);
-        fclose($fh); @unlink($tmp);
-        if ($ucode >= 200 && $ucode < 300) { $media_urls[] = $media_url; }
-        else { error_log('[social share] media upload HTTP ' . $ucode . ' ' . $err); }
-        return $media_urls;
+        fclose($fh);
+        if ($ucode >= 200 && $ucode < 300) { return (string) $media_url; }
+        error_log('[social share] media upload HTTP ' . $ucode . ' ' . $err);
+        return '';
+    }
+
+    /**
+     * Media in the shape each placement needs (SocialFrame): a Story gets the cover fitted into 9:16 when no item is
+     * 9:16, and Instagram feed pictures outside 4:5 to 1.91:1 are fitted into the nearest allowed shape. Returns the
+     * extra plan() options ('story_media', 'platform_items'); a failed fit leaves plan() to report or send as before.
+     */
+    private static function fitted_media(array $accounts, array $items, array $stories): array{
+        $out = array();
+        if (empty($items)) { return $out; }
+        $stories = array_map('strval', $stories);
+        $want_story = false; $ig_feed = false;
+        foreach ($accounts as $a) {
+            $platform = strtolower((string) $a['platform']);
+            $story = in_array((string) $a['id'], $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true);
+            if ($story) { $want_story = true; } elseif ($platform === 'instagram') { $ig_feed = true; }
+        }
+        if ($want_story && !in_array(true, array_column($items, 'tall'), true)) {
+            $s = self::fit_item($items[0], function ($w, $h) { return Aspect::matches($w, $h, '9:16', 0.04) ? null : array(SocialFrame::STORY_W, SocialFrame::STORY_H); });
+            if ($s) { $out['story_media'] = array($s); }
+        }
+        if ($ig_feed) {
+            $ig = array(); $changed = false;
+            foreach (self::media_for('instagram', $items) as $it) {
+                $f = null;
+                // A stored size inside Instagram's range needs no download; an unknown size is measured from the file.
+                $known = (int) ($it['w'] ?? 0) > 0 && (int) ($it['h'] ?? 0) > 0;
+                if (empty($it['video']) && (!$known || SocialFrame::instagram_frame($it['w'], $it['h']))) {
+                    $f = self::fit_item($it, function ($w, $h) { return SocialFrame::instagram_frame($w, $h); });
+                }
+                if ($f) { $changed = true; }
+                $ig[] = $f ?: $it;
+            }
+            if ($changed) { $out['platform_items'] = array('instagram' => $ig); }
+        }
+        return $out;
+    }
+
+    /**
+     * One uploaded item re-made in the frame $frame_for(width, height) returns, measured from the file itself, and
+     * uploaded. Returns the item unchanged when it already fits (null frame), null when it could not be made.
+     */
+    private static function fit_item(array $item, callable $frame_for): ?array{
+        if ((string) ($item['key'] ?? '') === '') { return null; }
+        $video = !empty($item['video']);
+        $src = tempnam(sys_get_temp_dir(), 'frame');
+        if ($src === false) { return null; }
+        $dst = $src . ($video ? '.mp4' : '.jpg');
+        $res = null;
+        if (S3Service::get_private_to_file((string) $item['key'], $src)) {
+            list($sw, $sh) = $video ? self::video_size($src) : (array_slice((array) @getimagesize($src), 0, 2) + array(0, 0));
+            $frame = ($sw > 0 && $sh > 0) ? $frame_for((int) $sw, (int) $sh) : null;
+            if ($sw > 0 && $sh > 0 && !$frame) {
+                $res = $item + array('w' => (int) $sw, 'h' => (int) $sh);   // already the right shape
+                $res['tall'] = Aspect::matches((int) $sw, (int) $sh, '9:16', 0.04);
+            } elseif ($frame) {
+                list($w, $h) = $frame;
+                $ok = $video ? SocialFrame::video($src, $dst, $w, $h) : SocialFrame::image($src, $dst, $w, $h);
+                $url = $ok ? self::push_file($dst, $video ? 'video/mp4' : 'image/jpeg') : '';
+                if ($url !== '') { $res = array('url' => $url, 'video' => $video, 'tall' => Aspect::matches($w, $h, '9:16', 0.04), 'w' => (int) $w, 'h' => (int) $h); }
+                else { error_log('[social share] could not fit media to ' . $w . 'x' . $h); }
+            }
+        }
+        @unlink($src); @unlink($dst);
+        return $res;
+    }
+
+    /** Width and height of a video file (ffprobe), or array(0, 0). */
+    private static function video_size($path): array{
+        $p = VideoTools::probe($path);
+        return array((int) ($p['width'] ?? 0), (int) ($p['height'] ?? 0));
     }
 
     /** Safe for mainstream socials: media (image, or a video's poster frame) cleared as non-adult. */

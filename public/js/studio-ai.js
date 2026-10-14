@@ -89,6 +89,7 @@ jQuery(function ($) {
             var id = String($(this).closest('.cs-pe__story').data('story'));
             c.story_accounts = c.story_accounts.filter(function (x) { return x !== id; });
             if (this.checked) { c.story_accounts.push(id); }
+            $(document).trigger('cs:story-changed', [this.checked]);
         });
         $('#csPeAiDisclose').off('change').on('change', function () { c.ai_disclosure = this.checked ? 1 : 0; });
     }

@@ -74,6 +74,13 @@ $plain = SocialShareService::plan('Sunday reset.', $accounts, $items, array('ai'
 check('no such note when the post is not AI',           empty($plain['notes']));
 $none = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'u2', 'video' => false, 'tall' => false)), array('stories' => array('ig1')));
 check('a Story with no 9:16 media is skipped with a reason', empty($none['accounts']) && count($none['notes']) === 1 && strpos($none['notes'][0], '9:16') !== false);
+$fit = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'u2', 'video' => false, 'tall' => false)), array('stories' => array('ig1'), 'story_media' => array(array('url' => 'u2-916', 'video' => false, 'tall' => true))));
+$fc = $fit['account_configurations'][0]['configuration'] ?? array();
+check('a Story with no 9:16 media goes out with the cover fitted into 9:16', $fit['accounts'] === array('ig1') && ($fc['placement'] ?? '') === 'stories' && ($fc['media'][0]['url'] ?? '') === 'u2-916' && empty($fit['notes']));
+$igfit = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'tallpic', 'video' => false)), array('platform_items' => array('instagram' => array(array('url' => 'tallpic-45', 'video' => false)))));
+check('Instagram feed gets its fitted picture',          ($igfit['platform_configurations']['instagram']['media'][0]['url'] ?? '') === 'tallpic-45');
+check('Instagram frame: taller than 4:5 becomes 4:5, wider than 1.91:1 becomes 1.91:1, in range untouched',
+    SocialFrame::instagram_frame(1080, 1920) === array(1080, 1350) && SocialFrame::instagram_frame(3000, 1000) === array(1080, 566) && SocialFrame::instagram_frame(1080, 1350) === null && SocialFrame::instagram_frame(1920, 1080) === null);
 
 /* ---- inbox: first-reply disclosure ---- */
 check('the first-reply disclosure is never blank',      AiDisclosure::first_reply_text('  ') === AiDisclosure::DEFAULT_FIRST_REPLY && AiDisclosure::first_reply_text('<b>Heads up:</b> AI helps here') === 'Heads up: AI helps here');

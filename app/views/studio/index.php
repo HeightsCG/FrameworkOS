@@ -433,6 +433,7 @@
                         <div class="cs-pe__viewseg" id="csCompView" role="group" aria-label="Preview as">
                             <button type="button" class="cs-pe__viewopt is-on" aria-pressed="true" data-view="sub">Subscriber</button>
                             <button type="button" class="cs-pe__viewopt" aria-pressed="false" data-view="pub">Public</button>
+                            <button type="button" class="cs-pe__viewopt" aria-pressed="false" data-view="story" id="csCompViewStory" hidden>Story</button>
                         </div>
                     </div>
                     <div class="cs-preview-wrap">
