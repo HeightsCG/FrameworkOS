@@ -96,6 +96,12 @@ class SocialAccountsModel extends Model {
         return $n;
     }
 
+    /** The account now belongs to $user_id (it signed in to the network from that user's settings). */
+    public function reassign($pfm_id, $user_id){
+        return parent::update('user_social_accounts', array('user_id' => (int) $user_id, 'updated_at' => date('Y-m-d H:i:s')),
+            'post_for_me_social_account_id = :pfm_id', array('pfm_id' => (string) $pfm_id));
+    }
+
     public function mark_disconnected($user_id, $pfm_id){
         return parent::update(
             'user_social_accounts',

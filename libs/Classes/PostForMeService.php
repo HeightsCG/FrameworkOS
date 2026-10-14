@@ -101,6 +101,13 @@ class PostForMeService {
         return ($code === 200 && is_array($body)) ? $body : null;
     }
 
+    /** Set whose account this is (our user id as external_id). Returns true on success. */
+    public static function set_external_id($id, $external_id): bool
+    {
+        list($code) = self::request('PATCH', '/social-accounts/' . urlencode((string) $id), array('external_id' => (string) $external_id));
+        return ($code >= 200 && $code < 300);
+    }
+
     /** Disconnect a connected account. Returns true on success. */
     public static function disconnect($id): bool
     {

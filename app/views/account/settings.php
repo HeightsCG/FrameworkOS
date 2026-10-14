@@ -1759,7 +1759,7 @@ $(function () {
             });
         });
     });
-    if (params.get('error') === '1') { toastr.error('Connection was not completed'); }
+    if (params.get('error') === '1') { toastr.error('Connection was not completed.' + (params.get('why') ? ' ' + params.get('why') : ''), '', { timeOut: 0, closeButton: true }); }
     if (params.get('fanvue_connected') === '1') { toastr.success('Fanvue connected'); }
     if (params.get('fanvue_error')) {
         var fverr = { denied: 'Fanvue access was not granted.', state: 'The Fanvue sign-in expired. Try again.',

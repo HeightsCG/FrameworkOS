@@ -223,18 +223,30 @@ class AccountController extends Controller {
             exit;
         }
 
-        if (($_GET['isSuccess'] ?? '') === 'true') {
-            // Re-list this user's accounts by external_id and upsert them locally.
-            $accounts      = PostForMeService::get_accounts($user_id);
-            $accountsModel = new SocialAccountsModel();
-            foreach ($accounts as $acct) {
-                if (!empty($acct['id'])) {
-                    $accountsModel->upsert_from_pfm($user_id, $acct);
-                }
+        // A collaborator connects the owner's accounts (ApiSocialIntegrationsController::social_user sent the owner's id).
+        if (!empty($urow['team_role']) && (int) ($urow['created_by'] ?? 0) > 0) { $user_id = (int) $urow['created_by']; }
+        $accountsModel = new SocialAccountsModel();
+
+        // Post for Me refuses an account already connected under another of our user ids ("External Id already exists for
+        // account spc_..."). The person just signed in to that account on the network, so it is theirs: move it to them on
+        // Post for Me and here. Its existing connection (tokens) stays valid.
+        $moved = 0;
+        $error = (string) ($_GET['error'] ?? '');
+        if (preg_match_all('/External Id already exists for account (spc_[A-Za-z0-9]+)/', $error, $mm)) {
+            foreach (array_unique($mm[1]) as $pfm_id) {
+                if (!PostForMeService::set_external_id($pfm_id, $user_id)) { continue; }
+                if ($accountsModel->get_by_pfm_id($pfm_id)) { $accountsModel->reassign($pfm_id, $user_id); }
+                $moved++;
             }
+        }
+
+        if (($_GET['isSuccess'] ?? '') === 'true' || $moved > 0) {
+            // Re-list this user's accounts by external_id and bring the local rows in line.
+            $accountsModel->sync_from_pfm($user_id, PostForMeService::get_accounts($user_id));
             Header('Location: /account/settings?section=connected&connected=1');
         } else {
-            Header('Location: /account/settings?section=connected&error=1');
+            $why = trim(preg_replace('/\s*\|\s*/', '. ', $error));
+            Header('Location: /account/settings?section=connected&error=1' . ($why !== '' ? '&why=' . rawurlencode(mb_substr($why, 0, 200)) : ''));
         }
         exit;
     }
