@@ -77,19 +77,29 @@ class SocialAccountsModel extends Model {
     }
 
     /**
-     * Bring this user's rows in line with Post for Me's list for them (PostForMeService::get_accounts): add an account
-     * connected there and missing here, and update the status of a row whose status changed. Rows that already match are
-     * left alone, so connected_at keeps its date; accounts disconnected there and unknown here are not added.
-     * Returns how many rows changed.
+     * Bring the local rows in line with Post for Me's list for one user (PostForMeService::get_accounts($user_id), which only
+     * returns accounts whose external_id is that user). Post for Me decides who owns an account: a row for one of these
+     * accounts that sits under another user, or has a different status, is moved and updated; a second row for the same
+     * account is removed. An account connected there and missing here is added; one disconnected there and unknown here is not.
+     * Rows that already match are left alone, so connected_at keeps its date. Returns how many accounts changed.
      */
     public function sync_from_pfm($user_id, array $accounts): int {
         $n = 0;
         foreach ($accounts as $pa) {
             if (!is_array($pa) || empty($pa['id'])) { continue; }
             $status = (string) ($pa['status'] ?? 'connected');
-            $have = $this->get_by_pfm_id($pa['id']);
-            if ($have && (int) $have['user_id'] !== (int) $user_id) { continue; }   // another user's row: never moved here
-            if ($have ? (string) $have['status'] === $status : $status !== 'connected') { continue; }
+            $rows = parent::select("SELECT * FROM user_social_accounts WHERE post_for_me_social_account_id = :p ORDER BY id", array('p' => (string) $pa['id']));
+            $rows = is_array($rows) ? $rows : array();
+            if (!$rows) {
+                if ($status !== 'connected') { continue; }
+                $this->upsert_from_pfm($user_id, $pa);
+                $n++;
+                continue;
+            }
+            foreach (array_slice($rows, 1) as $dup) { parent::delete('user_social_accounts', 'id = :id', 1, array('id' => (int) $dup['id'])); }
+            $have = $rows[0];
+            if ((int) $have['user_id'] === (int) $user_id && (string) $have['status'] === $status && count($rows) === 1) { continue; }
+            if ((int) $have['user_id'] !== (int) $user_id) { $this->reassign($pa['id'], $user_id); }
             $this->upsert_from_pfm($user_id, $pa);
             $n++;
         }
