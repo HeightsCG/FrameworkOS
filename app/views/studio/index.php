@@ -628,7 +628,7 @@
                             </div>
                             <div class="cs-ae__field">
                                 <span class="cs-ae__label" id="csSchedVideoDurLabel">Length</span>
-                                <div class="cs-seg cs-ae__seg" id="csSchedVideoDurs" role="group" aria-labelledby="csSchedVideoDurLabel"></div>
+                                <div class="cs-seg cs-ae__seg cs-ae__seg--grid cs-ae__seg--stack" id="csSchedVideoDurs" role="group" aria-labelledby="csSchedVideoDurLabel"></div>
                             </div>
                         </div>
                     </section>

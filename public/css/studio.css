@@ -574,6 +574,10 @@
 #csSchedulerModal .cs-ae__seg--grid{ flex-wrap:wrap; gap:1px; background:rgba(29, 29, 29, .1); }
 #csSchedulerModal .cs-ae__seg--grid .cs-seg__opt{ flex:1 1 max(140px, calc(25% - 1px)); width:auto; border-left:0; }
 #csSchedulerModal .cs-ae__seg--grid .cs-seg__opt.is-on{ background:linear-gradient(var(--vsoft), var(--vsoft)), #fff; }   /* the soft tint is translucent; keep the gray gap color from showing through */
+/* video Length: any number of lengths (2 to 7+ per style). Seconds over credits in each tile, up to 7 a row, extra rows stretch to fill */
+#csSchedulerModal .cs-ae__seg--stack .cs-seg__opt{ flex:1 1 max(112px, calc(100% / var(--per, 7) - 1px)); flex-direction:column; height:60px; gap:2px; padding:0 6px; }
+#csSchedulerModal .cs-ae__seg--stack .cs-seg__meta{ font-size:12px; font-weight:500; color:var(--muted); }
+#csSchedulerModal .cs-ae__seg--stack .cs-seg__opt.is-on .cs-seg__meta{ color:inherit; opacity:.8; }
 #csSchedulerModal .cs-ae__seg .cs-seg__opt:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--acc); position:relative; z-index:1; }
 /* Influencer face picker: trigger looks like a select; the panel lists every influencer with her picture and scrolls */
 #csSchedulerModal .cs-ae__srcpic{ display:inline-flex; align-items:center; justify-content:center; flex:none; width:28px; height:28px; border-radius:50%; overflow:hidden; background:var(--line2); color:var(--t2); font-size:12px; font-weight:600; }
