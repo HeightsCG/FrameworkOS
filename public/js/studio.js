@@ -744,13 +744,14 @@ jQuery(function ($) {
         accounts.forEach(function (a) {
             var on = composer.share.has(String(a.id));
             var off = a.status && a.status !== 'connected';
+            var posted = composer.state === 'published' && composer.shared_before && composer.shared_before.has(String(a.id));   // already went out: stays ticked, cannot be sent twice
             var name = a.username || a.platform, plat = socialPlatformName(a.platform);
             var id = 'csPeDest_' + String(a.id).replace(/[^A-Za-z0-9_-]/g, '_');
-            $wrap.append('<label class="cs-pe__dest' + (on ? ' is-on' : '') + (off ? ' is-off' : '') + '" for="' + id + '" data-search="' + esc((name + ' ' + plat).toLowerCase()) + '">' +
-                '<input class="form-check-input" type="checkbox" id="' + id + '" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + (off ? ' disabled' : '') + '>' +
+            $wrap.append('<label class="cs-pe__dest' + (on ? ' is-on' : '') + (off ? ' is-off' : '') + (posted ? ' is-posted' : '') + '" for="' + id + '" data-search="' + esc((name + ' ' + plat).toLowerCase()) + '">' +
+                '<input class="form-check-input" type="checkbox" id="' + id + '" data-acct="' + esc(a.id) + '"' + (on ? ' checked' : '') + (off || posted ? ' disabled' : '') + '>' +
                 '<i class="' + socialIconClass(a.platform) + ' cs-pe__desticon" aria-hidden="true"></i>' +
                 '<span class="cs-pe__destname" title="' + esc(name) + '">' + esc(name) + '</span>' +
-                (off ? '<span class="cs-pe__deststate">Disconnected</span>' : '') +
+                (off ? '<span class="cs-pe__deststate">Disconnected</span>' : (posted ? '<span class="cs-pe__deststate cs-pe__deststate--posted">Posted</span>' : '')) +
                 '<span class="cs-pe__destplat">' + esc(plat) + '</span></label>');
         });
         peUpdateDestCount();        $(document).trigger('cs:dest-rendered', [composer, accounts]);
@@ -936,7 +937,7 @@ jQuery(function ($) {
             if (/price/i.test(reason)) { if (!priceBad) errors.push({ key: 'price', msg: reason, $f: $('#csCompPpvPrice'), focus: '#csCompPpvPrice' }); }
             else errors.push({ key: 'media', msg: reason, focus: '#csCompMedia [data-pe-add], #csCompCaption' });
         }
-        var offSel = $('#csCompSocial input[data-acct]:checked:disabled').length;
+        var offSel = $('#csCompSocial .cs-pe__dest.is-off:not(.is-posted) input[data-acct]:checked').length;   // a row already posted to is disabled on purpose
         if (offSel) errors.push({ key: 'share', msg: 'A selected account is disconnected. Unselect it or reconnect it in Settings.', focus: '#csPeDestSearch' });
         if (kind === 'schedule') {
             var d = peScheduleDate();
@@ -983,6 +984,7 @@ jQuery(function ($) {
         composer = { id: null, caption: compose_caption, audience: 'free', tier_ids: allTierIds(), lastTiers: allTierIds(), ppv_price: 50, lastPpv: 50, comments_enabled: 1, on_cls: 1, assets: [], coverDisplay: '', coverBlurred: '', view: 'sub', validation: { ok: false, reason: '' }, saveTimer: null, mode: 'now', dirty: false, section: 'content', moderation: 'ok' };
         compose_caption = '';
         composer.share = new Set();
+        composer.shared_before = new Set();
         composer.state = 'draft';
         resetScheduleUI();
         setSaveStatus('');
@@ -1000,6 +1002,7 @@ jQuery(function ($) {
         composer.comments_enabled = (p.comments_enabled != null) ? p.comments_enabled : 1;
         composer.on_cls = (p.on_cls != null) ? (p.on_cls ? 1 : 0) : 1;
         composer.share = new Set((p.shared_accounts || []).map(String));
+        composer.shared_before = new Set(composer.share);   // already sent there: saving a published post shares only to accounts ticked since
         composer.ai_disclosure = (p.ai_disclosure == null) ? null : p.ai_disclosure;   // null = on when the post has AI media
         composer.story_accounts = (p.story_accounts || []).map(String);
         composer.state = p.state || 'draft';
@@ -1397,7 +1400,13 @@ jQuery(function ($) {
                 else { fail({ message: 'Add a photo, video, or caption before publishing.' }); }
                 return;
             }
-            if (kind === 'update') { done(); peSnapshot(); toastr.success('Changes saved'); composerModal.hide(); afterComposer(); return; }
+            if (kind === 'update') {
+                // A published post goes to newly ticked social accounts now; the ones it already went to are not sent again.
+                var added = Array.from(composer.share).filter(function (id) { return !composer.shared_before.has(id); });
+                if (!added.length) { done(); peSnapshot(); toastr.success('Changes saved'); composerModal.hide(); afterComposer(); return; }
+                ApiDataSvc.apiCall('post', 'post_share', shareOpts({ id: composer.id, share_accounts: added }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; added.forEach(function (id) { composer.shared_before.add(id); }); toastr.success('Changes saved. ' + o.message); if (o.share_error) { toastr.warning(o.share_error); } composerModal.hide(); afterComposer(); } else fail(o); });
+                return;
+            }
             if (kind === 'draft') ApiDataSvc.apiCall('post', 'post_save_draft', { id: composer.id }, function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Draft saved'); composerModal.hide(); afterComposer(); } else fail(o); });
             else if (kind === 'schedule') ApiDataSvc.apiCall('post', 'post_schedule', shareOpts({ id: composer.id, scheduled_at: $('#csCompSchedAt').val(), share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Post scheduled'); if (o.share_error) { toastr.warning(o.share_error); } composerModal.hide(); afterComposer(); } else fail(o); });
             else ApiDataSvc.apiCall('post', 'post_publish', shareOpts({ id: composer.id, share_accounts: Array.from(composer.share) }), function (resp) { var o = JSON.parse(resp); done(); if (o.success) { composer.dirty = false; toastr.success('Published'); if (o.share_error) { toastr.warning(o.share_error); } composerModal.hide(); afterComposer(); } else fail(o); });

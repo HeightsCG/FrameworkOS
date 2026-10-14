@@ -748,6 +748,7 @@
 #csComposer .cs-pe__destname{ font-size:15px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 #csComposer .cs-pe__destplat{ font-size:13px; color:var(--muted); margin-left:auto; flex:none; }
 #csComposer .cs-pe__deststate{ font-size:12px; color:var(--danger); flex:none; }
+#csComposer .cs-pe__deststate--posted{ color:var(--muted2); }
 #csComposer .cs-pe__empty{ font-size:14px; color:var(--muted); margin:8px 0 0; }
 #csComposer .cs-pe__empty[hidden]{ display:none; }
 #csComposer .cs-pe__empty a{ color:var(--acc-ink); text-decoration:underline; }

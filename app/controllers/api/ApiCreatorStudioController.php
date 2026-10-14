@@ -995,6 +995,7 @@ class ApiCreatorStudioController extends BaseApiController {
         foreach ((new SocialAccountsModel())->get_connected_for_user($creator_id) as $a) {
             if (in_array((string) $a['post_for_me_social_account_id'], $req, true)) { $n++; }
         }
+        if (in_array(FanvueShareService::ACCOUNT_ID, $req, true)) { $n++; }   // the Fanvue mirror is not a Post for Me account; SocialShareService reports if it is not connected
         if ($n === 0) { $this->jsonError('Those accounts are not connected.'); }
         $this->require_caption_for_shares($post, $accounts);
         $post = $this->save_share_options(new PostsModel(), $creator_id, $post);
