@@ -2158,7 +2158,8 @@ jQuery(function ($) {
         dur = String(dur || '');
         if (durs.indexOf(dur) < 0) { dur = durs.length ? durs[0] : ''; }
         $('#csSchedVideoDur').val(dur);
-        var $d = $('#csSchedVideoDurs').empty();
+        // even rows of at most 7 (8 lengths = 4 + 4, never 7 + 1)
+        var $d = $('#csSchedVideoDurs').empty().css('--per', Math.ceil(durs.length / Math.max(1, Math.ceil(durs.length / 7))));
         durs.forEach(function (s) { $d.append($('<button type="button" class="cs-seg__opt">').attr('data-vdur', s).toggleClass('is-on', s === dur)
             .append($('<span>').text(s + ' seconds'), $('<span class="cs-seg__meta">').text(fmtNum(videoPrice(m, s)) + ' AI credits'))); });
         syncPressed('#csSchedVideoDurs');
