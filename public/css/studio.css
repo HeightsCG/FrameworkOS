@@ -988,9 +988,21 @@ body.cs-private .cs-pv__media:hover .cs-pv__slide video{
 .cs-dv__version.is-on{ background:var(--vsoft); border-color:var(--acc); color:var(--acc-ink); font-weight:600; cursor:default; }
 
 /* composer: caption mode and the Hook Overlay line */
-#csComposer .cs-pe__capmode{ width:auto; height:28px; min-height:28px; padding:0 28px 0 8px; font-size:13px; border-radius:2px; background-position:right 8px center; }
+/* under the caption: the AI writer as one joined control (mode | Write a caption) on the left, the count on the right */
+#csComposer .cs-pe__capbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:8px; }
+#csComposer .cs-pe__capai{ display:inline-flex; align-items:stretch; height:32px; border:1px solid rgba(29, 29, 29, .14); border-radius:2px; background:#fff; }
+#csComposer .cs-pe__capmode{ width:auto; height:100%; min-height:0; padding:0 28px 0 10px; font-size:13px; border:0; border-radius:2px 0 0 2px; background-color:transparent; background-position:right 8px center; box-shadow:none; }
+#csComposer .cs-pe__capmode:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--acc); }
+#csComposer .cs-pe__capbtn{ display:inline-flex; align-items:center; gap:6px; padding:0 12px; border:0; border-left:1px solid rgba(29, 29, 29, .14); border-radius:0 2px 2px 0; background:none; font-size:13px; font-weight:600; color:var(--text); white-space:nowrap; cursor:pointer; transition:background .12s; }
+#csComposer .cs-pe__capbtn i{ color:var(--acc-ink); }
+#csComposer .cs-pe__capbtn:hover{ background:rgba(29, 29, 29, .04); }
+#csComposer .cs-pe__capbtn:active{ background:rgba(29, 29, 29, .08); }
+#csComposer .cs-pe__capbtn:focus-visible{ outline:none; box-shadow:inset 0 0 0 2px var(--acc); }
+#csComposer .cs-pe__capbtn:disabled, #csComposer .cs-pe__capbtn.is-busy{ color:var(--muted); cursor:progress; background:none; }
+#csComposer .cs-pe__capbtn .spinner-border{ width:.8em; height:.8em; border-width:.15em; }
+#csComposer .cs-pe__labelrow .tut-btn{ margin-right:-10px; }   /* its padding aside, Watch How lines up with the box's right edge */
 #csComposer .cs-pe__hook{ display:flex; align-items:center; gap:12px; margin-top:8px; padding:8px 12px; border:1px solid var(--line); border-radius:2px; background:rgba(29, 29, 29, .02); font-size:13px; }
 #csComposer .cs-pe__hook[hidden]{ display:none; }
 #csComposer .cs-pe__hooklabel{ flex:0 0 auto; color:var(--muted); font-weight:500; }
 #csComposer .cs-pe__hooktext{ flex:1 1 auto; min-width:0; color:var(--text); font-weight:600; }
-@media (max-width:640px){ #csComposer .cs-pe__capmode{ height:40px; font-size:16px; } #csComposer .cs-pe__hook{ flex-wrap:wrap; } }
+@media (max-width:640px){ #csComposer .cs-pe__capai{ height:40px; } #csComposer .cs-pe__capmode{ font-size:16px; } #csComposer .cs-pe__hook{ flex-wrap:wrap; } }
