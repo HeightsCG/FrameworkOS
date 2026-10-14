@@ -1108,7 +1108,7 @@ class McpTools {
                 if (!$rule) { throw new InvalidArgumentException('Automation not found'); }
                 if (Plan::is_locked($user, 'automations', (int) $rule['id'])) { throw new RuntimeException(Plan::locked_message($user, 'automations')); }
                 $res = AutoPostService::run_rule($rule, $user);
-                (new SchedulerRunsModel())->add((int) $rule['id'], $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+                (new SchedulerRunsModel())->add((int) $rule['id'], $cid, $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message'], (array) ($res['meta'] ?? array()));
                 (new SchedulerRulesModel())->set_last_run((int) $rule['id'], $res['ok'] ? 'success' : 'failed');
                 if (empty($res['ok'])) { throw new RuntimeException($res['message']); }
                 return array('post_id' => (int) $res['post_id'], 'message' => $res['message']);

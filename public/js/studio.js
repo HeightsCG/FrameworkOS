@@ -2122,7 +2122,8 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         var $c = $('#csSchedCredits');
         if (kind !== 'post') { $c.removeClass('is-low').text('Scheduled messages don\'t use AI credits.'); return; }
-        var per = (parseInt(CFG.ai.image_price, 10) || 0) + schedVideoCredits();
+        var still = (schedIsVideo() && schedForm.image_source === 'influencer' && CFG.ai.inf_video_image_price) ? CFG.ai.inf_video_image_price : CFG.ai.image_price;
+        var per = (parseInt(still, 10) || 0) + schedVideoCredits();
         var runs = (schedForm.cadence === 'weekly') ? Math.round($('#csSchedDays .cs-ae__day.is-on').length * 52 / 12) : 30;
         var bal = parseInt(CFG.ai.balance, 10) || 0;
         var low = bal < per * runs;
@@ -2130,7 +2131,12 @@ jQuery(function ($) {
             + (low ? ' <a href="/account/billing?tab=credits">Buy credits</a>' : ''));
     }
     /* Video automations: the still, then animating it with the chosen style (credits per CFG.ai.video_models). */
-    function schedVideoModels() { return (CFG.ai && CFG.ai.video_models) || []; }
+    // An influencer automation never offers a model that refuses a realistic face (Seedance); it starts on Cinematic, 10 seconds.
+    var SCHED_INF_VIDEO = { key: 'kling_v3', dur: '10' };
+    function schedVideoModels() {
+        var all = (CFG.ai && CFG.ai.video_models) || [];
+        return schedForm.image_source === 'influencer' ? all.filter(function (m) { return m.faces !== false; }) : all;
+    }
     function schedIsVideo() { return schedForm.media_type === 'video'; }
     function schedVideoCredits() {
         if (!schedIsVideo()) { return 0; }
@@ -2141,7 +2147,11 @@ jQuery(function ($) {
     function schedTitleCase(t) { return String(t).replace(/\b\w/g, function (c) { return c.toUpperCase(); }); }
     function renderSchedVideoModels(key, dur) {
         var models = schedVideoModels();
-        if (!models.some(function (m) { return m.key === key; })) { key = models.length ? models[0].key : ''; }
+        if (!models.some(function (m) { return m.key === key; })) {
+            var inf = schedForm.image_source === 'influencer' && models.some(function (m) { return m.key === SCHED_INF_VIDEO.key; });
+            key = inf ? SCHED_INF_VIDEO.key : (models.length ? models[0].key : '');
+            if (inf) { dur = SCHED_INF_VIDEO.dur; }
+        }
         $('#csSchedVideoModel').val(key);
         var $m = $('#csSchedVideoModels').empty();
         models.forEach(function (m) {
@@ -2165,7 +2175,7 @@ jQuery(function ($) {
         syncPressed('#csSchedVideoDurs');
         updateSchedSummaries();
     }
-    $('#csSchedVideoModels').on('click', '.cs-seg__opt', function () { renderSchedVideoModels($(this).attr('data-vmodel'), $('#csSchedVideoDur').val()); updateSchedSummaries(); });
+    $('#csSchedVideoModels').on('click', '.cs-seg__opt', function () { schedForm.video_picked = true; renderSchedVideoModels($(this).attr('data-vmodel'), $('#csSchedVideoDur').val()); updateSchedSummaries(); });
     $('#csSchedVideoDurs').on('click', '.cs-seg__opt', function () { renderSchedVideoDurations($(this).attr('data-vdur')); });
     function setSchedMedia(media) {
         schedForm.media_type = (media === 'video' && schedVideoModels().length) ? 'video' : 'image';
@@ -2337,6 +2347,7 @@ jQuery(function ($) {
         schedForm.cadence = rule ? rule.cadence : 'daily';
         schedForm.influencer_id = rule ? String(rule.influencer_id || '') : '';
         schedForm.media_type = rule ? (rule.media_type || 'image') : 'image';
+        schedForm.video_picked = !!(rule && rule.video_model_key);   // a saved automation keeps its style (unless it refuses her face)
         $('#csSchedVideoPrompt').val(rule ? (rule.video_prompt || '') : '');
         renderSchedVideoModels(rule ? rule.video_model_key : '', rule ? rule.video_duration : '');
         setSchedMedia(schedForm.media_type);
@@ -2434,6 +2445,9 @@ jQuery(function ($) {
             schedForm.influencer_id = want;
         } else { schedClearError('influencer'); }
         syncSchedSourceTiles();
+        // The styles offered follow the source; an influencer video starts on Cinematic, 10 seconds, until a style is picked.
+        if (isInf && !schedForm.video_picked) { renderSchedVideoModels(SCHED_INF_VIDEO.key, SCHED_INF_VIDEO.dur); }
+        else { renderSchedVideoModels($('#csSchedVideoModel').val(), $('#csSchedVideoDur').val()); }
         updateSchedSummaries();
     }
     $('#csSchedInfluencer').on('change', function () {

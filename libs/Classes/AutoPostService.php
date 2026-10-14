@@ -28,13 +28,39 @@ class AutoPostService {
         $image_brief = trim(rtrim($scene, " .") . (empty($parts['shared']) ? '' : '. ' . implode(' ', $parts['shared'])));
         if ($image_brief === '') { return self::fail(null, 'This automation has no scene to generate from.'); }
         $size      = Aspect::normalize($rule['size'] ?? '', '1:1');
+        $is_inf    = (($rule['image_source'] ?? 'brand') === 'influencer');
+        $is_video  = ((string) ($rule['media_type'] ?? 'image') === 'video');
+
+        // No image or video model is ever asked to draw words: they misspell them. The line goes on afterwards in code.
+        // Influencer video: the AI step plans this run from the whole brief (a still with no text, the hook line, one action).
+        // Image (and brand video): words the scene asks for come out of the prompt and are overlaid on the result.
+        $plan = null; $overlay = '';
+        $meta = array('image_prompt' => '', 'hook_line' => '', 'motion_action' => '', 'image_model' => '', 'video_model' => '');
+        if ($is_inf && $is_video) {
+            $cap_inf = (new InfluencersModel())->get_one($creator_id, (int) ($rule['influencer_id'] ?? 0));
+            if (!$cap_inf) { return self::fail(null, 'This automation has no influencer selected.'); }
+            $plan = AutomationPlan::video($cap_inf, $topic, (string) ($rule['video_prompt'] ?? ''), (new SchedulerRunsModel())->recent_hooks((int) ($rule['id'] ?? 0), AutomationPlan::RECENT));
+            if (empty($plan['ok'])) { return self::fail(null, 'Planning failed: ' . $plan['error']); }
+            $image_brief = $plan['image_prompt'];
+            $overlay     = $plan['hook'];
+            $meta['hook_line'] = $plan['hook']; $meta['motion_action'] = $plan['motion'];
+        } else {
+            $tx = AutomationPlan::text_from_scene($image_brief);
+            if ($tx['line'] !== '') { $image_brief = $tx['scene']; $overlay = $tx['line']; $meta['hook_line'] = $tx['line']; }
+        }
+        if ($overlay !== '' && !TextOverlay::available()) { return self::fail(null, 'On-screen text is not available on this server (no font).'); }
+        $meta['image_prompt'] = $image_brief;
 
         // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
-        $asset_id = 0;
-        if (($rule['image_source'] ?? 'brand') === 'influencer') {
-            $ir = InfluencerJobService::run_for_rule($rule, $user, $image_brief, $size);
+        $asset_id = 0; $still_price = 0;
+        if ($is_inf) {
+            // A video automation starts from Nano Banana Pro drawing her from her approved reference pictures.
+            $ir = InfluencerJobService::run_for_rule($rule, $user, $image_brief, $size, $plan ? array('model_key' => self::VIDEO_BASE_MODEL) : array());
             if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
             $asset_id = (int) $ir['asset_id'];
+            $still_price = (int) ($ir['price'] ?? 0);
+            $meta['image_model'] = (string) ($ir['model_key'] ?? '');
+            $meta['image_prompt'] = (string) ($ir['prompt'] ?? $image_brief);
             $gen = array('ok' => true);
         } else {
             $pay = Plan::charge_ai($user, 'image', 'Automation image: ' . mb_substr($topic, 0, 60));
@@ -43,6 +69,14 @@ class AutoPostService {
             error_log('[automation] rule ' . (int) ($rule['id'] ?? 0) . ' image prompt: ' . $prompt);
             $gen = ImageGenService::generate($prompt, $size);
             if (empty($gen['ok'])) { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image failed'); }
+            $still_price = (int) $pay['price'];
+            $meta['image_model'] = 'brand'; $meta['image_prompt'] = $prompt;
+            // A still that will be animated keeps no text (the video gets the line); a posted image gets it now.
+            if (!empty($gen['ok']) && $overlay !== '' && !$is_video) {
+                $burned = TextOverlay::burn_image($gen['bytes'], $overlay);
+                if ($burned === '') { (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation text overlay failed'); return self::fail(null, 'The on-screen line could not be added to the image.'); }
+                $gen['bytes'] = $burned; $gen['ext'] = 'png';
+            }
         }
         if (empty($gen['ok'])) { return self::fail(null, 'Image generation failed: ' . ($gen['error'] ?? 'unknown error')); }
         if ((int) ($rule['id'] ?? 0) > 0) { (new SchedulerRulesModel())->set_scene_history((int) $rule['id'], $history); }
@@ -70,31 +104,50 @@ class AutoPostService {
         $media->set_ready($creator_id, $asset_id, $r);
         }
 
+        // 2b) An influencer image automation whose scene asked for words: they go on in code, as a new Library image.
+        if ($is_inf && !$is_video && $overlay !== '') {
+            $burned = self::burn_asset($creator_id, $user, $asset_id, $overlay, $topic);
+            if ($burned <= 0) { return self::fail(null, 'The on-screen line could not be added to the image.'); }
+            $asset_id = $burned;
+        }
+
         // 3) Caption: AI, written from the scene line. When the creator wrote caption instructions, those are the only
         // instructions, and the formatting rules they state are also enforced in code after the model answers.
         $cap_infl  = ((int) ($rule['influencer_id'] ?? 0) > 0) ? (new InfluencersModel())->get_one($creator_id, (int) $rule['influencer_id']) : null;
         $cap_opts  = array('mode' => (($rule['caption_mode'] ?? '') === 'hook_overlay' ? 'standard' : (string) ($rule['caption_mode'] ?? 'standard')),   /* rules saved through the connector before hook_overlay was refused */ 'persona' => InfluencerService::persona_block($cap_infl));
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
         $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
-        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($scene !== '' ? $scene : $image_brief, $use_brand ? $cb : array(), $style, $parts['caption'], $cap_opts), $parts['caption'])
+        $cap_scene = $plan ? $plan['image_prompt'] : ($scene !== '' ? $scene : $image_brief);   // a planned run's caption follows the picture it shows
+        $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($cap_scene, $use_brand ? $cb : array(), $style, $parts['caption'], $cap_opts), $parts['caption'])
                                 : $fixed;
         if ($caption === '') { $caption = $fixed; }   // never publish the saved prompt as a caption
 
         // 3b) Video: animate the still (Studio's image-to-video job, either image source). The post is made when the
         // video lands (finish_video), so a failed render leaves no half-made post behind; the still stays in the Library.
-        if ((string) ($rule['media_type'] ?? 'image') === 'video') {
-            $motion = trim((string) ($rule['video_prompt'] ?? ''));
-            $v = MediaVideoJob::start($user, $asset_id, (string) ($rule['video_model_key'] ?? ''), $motion !== '' ? $motion : $scene,
-                (string) ($rule['video_duration'] ?? ''), array('auto_post' => array('rule_id' => (int) ($rule['id'] ?? 0), 'caption' => $caption)));
+        if ($is_video) {
+            // Influencer: only the planned action goes to the video model (never the brief), on a model that accepts her face.
+            if ($plan) {
+                list($vkey, $vdur) = self::influencer_video_model((string) ($rule['video_model_key'] ?? ''), (string) ($rule['video_duration'] ?? ''));
+                $motion = $plan['motion'];
+            } else {
+                $vkey = (string) ($rule['video_model_key'] ?? ''); $vdur = (string) ($rule['video_duration'] ?? '');
+                $motion = trim((string) ($rule['video_prompt'] ?? ''));
+                if ($motion === '') { $motion = $scene; }
+            }
+            $vm = InfluencerConfig::resolve_model('video', $vkey);
+            $meta['video_model'] = $vm ? (string) $vm['key'] : $vkey;
+            if ($meta['motion_action'] === '') { $meta['motion_action'] = $motion; }
+            $v = MediaVideoJob::start($user, $asset_id, $vkey, $motion, $vdur,
+                array('overlay_text' => $overlay, 'auto_post' => array('rule_id' => (int) ($rule['id'] ?? 0), 'caption' => $caption, 'meta' => $meta)));
             if (empty($v['ok'])) {
                 // No video, no post: give back the still's credits too (it stays in the Library).
-                (new AiCreditsModel())->refund_once($creator_id, Plan::ai_price('image', array('params' => array('num_images' => 1))), 'automation still #' . (int) $asset_id);
-                return self::fail(null, 'Video failed: ' . (string) $v['message'] . ' The image credits were returned.');
+                (new AiCreditsModel())->refund_once($creator_id, $still_price > 0 ? $still_price : Plan::ai_price('image', array('params' => array('num_images' => 1))), 'automation still #' . (int) $asset_id);
+                return self::fail(null, 'Video failed: ' . (string) $v['message'] . ' The image credits were returned.', $meta);
             }
-            return array('ok' => true, 'post_id' => null, 'status' => 'rendering', 'message' => 'The video is rendering. The post publishes when it is ready.');
+            return array('ok' => true, 'post_id' => null, 'status' => 'rendering', 'message' => 'The video is rendering. The post publishes when it is ready.', 'meta' => $meta);
         }
 
-        return self::publish($user, $rule, $asset_id, $caption);
+        return self::publish($user, $rule, $asset_id, $caption) + array('meta' => $meta);
     }
 
     /**
@@ -114,8 +167,39 @@ class AutoPostService {
         } else {
             $res = self::fail(null, 'Video failed: ' . ((string) $error !== '' ? (string) $error : 'the render did not finish'));
         }
-        (new SchedulerRunsModel())->add($rule_id, $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message']);
+        (new SchedulerRunsModel())->add($rule_id, $cid, $res['ok'] ? 'success' : 'failed', $res['post_id'], $res['message'], (array) ($auto['meta'] ?? array()));
         (new SchedulerRulesModel())->set_last_run($rule_id, $res['ok'] ? 'success' : 'failed');
+    }
+
+    /** Video automations of an influencer start from Nano Banana Pro drawing her from her approved references. */
+    const VIDEO_BASE_MODEL = 'prompt_match_pro';
+    /** And animate on Kling 3.0 (Cinematic), 10 seconds, unless the rule picked another model that accepts a realistic face. */
+    const VIDEO_DEFAULT_MODEL = 'kling_v3';
+    const VIDEO_DEFAULT_SECONDS = '10';
+
+    /** [model key, seconds] for an influencer video: the rule's choice, unless it is empty or a model that refuses realistic faces (Seedance). */
+    public static function influencer_video_model($key, $dur){
+        $m = ((string) $key !== '') ? InfluencerConfig::resolve_model('video', (string) $key) : null;
+        if (!$m || ((string) $m['key'] !== (string) $key) || !empty($m['no_real_faces'])) { return array(self::VIDEO_DEFAULT_MODEL, self::VIDEO_DEFAULT_SECONDS); }
+        return array((string) $m['key'], (string) $dur);
+    }
+
+    /** Overlay $line on a ready image asset; the result is a new Library image. Returns its id, 0 on failure. */
+    private static function burn_asset($cid, array $user, $asset_id, $line, $topic){
+        $a = (new MediaAssetsModel())->get_one($cid, (int) $asset_id);
+        if (!$a || (string) $a['status'] !== 'ready') { return 0; }
+        $tmp = tempnam(sys_get_temp_dir(), 'burn');
+        if ($tmp === false || !S3Service::get_private_to_file((string) ($a['original_key'] ?: $a['display_key']), $tmp)) { @unlink($tmp); return 0; }
+        $out = TextOverlay::burn_image((string) file_get_contents($tmp), $line);
+        @unlink($tmp);
+        if ($out === '') { return 0; }
+        try {
+            $r = MediaIngestService::ingest_image($cid, $user, $out, 'png', 'image/png', 'Scheduled · ' . mb_substr((string) $topic, 0, 40), false);
+        } catch (\Throwable $e) {
+            error_log('[automation] text overlay ingest failed: ' . $e->getMessage());
+            return 0;
+        }
+        return (int) $r['asset_id'];
     }
 
     /** Create the post around $asset_id, publish it and cross-post it (steps 4-6 of a run). */
@@ -163,7 +247,7 @@ class AutoPostService {
         return array('ok' => true, 'post_id' => $post_id, 'message' => $message);
     }
 
-    private static function fail($post_id, $message){
-        return array('ok' => false, 'post_id' => $post_id, 'message' => $message);
+    private static function fail($post_id, $message, array $meta = array()){
+        return array('ok' => false, 'post_id' => $post_id, 'message' => $message, 'meta' => $meta);
     }
 }

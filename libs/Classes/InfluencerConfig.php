@@ -147,21 +147,22 @@ class InfluencerConfig {
         // of output at each resolution, and credits follow resolution and length (run_credits). fal refuses a start frame that shows
         // a recognisable real-looking face ("likenesses of real people"): the run fails with a plain message and the credits come back.
         // `audio` = native sound can be switched on (off by default); `end_frame` = an optional last frame.
+        // `no_real_faces`: refuses a realistic face, so influencer automations never use it (AutoPostService::influencer_video_model).
         'seedance_20_fast' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/fast/image-to-video'),
             'label' => 'Fast Realism', 'purpose' => 'Seedance 2.0 Fast', 'price_usd' => 0.2419, 'price_unit' => 'second',
             'res_usd' => array('480p' => 0.1076, '720p' => 0.2419), 'resolution' => '720p',
             'durations' => array('4', '5', '6', '8', '10', '12', '15'), 'min_seconds' => 4, 'max_seconds' => 15,
-            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v'),
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v', 'no_real_faces' => true),
         'seedance_20' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/image-to-video'),
             'label' => 'Realistic Motion', 'purpose' => 'Seedance 2.0', 'price_usd' => 0.3024, 'price_unit' => 'second',
             'res_usd' => array('480p' => 0.1345, '720p' => 0.3024, '1080p' => 0.6804, '4k' => 1.5552), 'resolution' => '720p',
             'durations' => array('4', '5', '6', '8', '10', '12', '15'), 'min_seconds' => 4, 'max_seconds' => 15,
-            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v'),
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v', 'no_real_faces' => true),
         'seedance_25' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.5/image-to-video'),
             'label' => 'Long Take', 'purpose' => 'Seedance 2.5, up to 30 seconds', 'price_usd' => 0.473, 'price_unit' => 'second',
             'res_usd' => array('480p' => 0.2205, '720p' => 0.473, '1080p' => 1.164), 'resolution' => '720p',
             'durations' => array('4', '5', '8', '10', '15', '20', '25', '30'), 'min_seconds' => 4, 'max_seconds' => 30,
-            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v',
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v', 'no_real_faces' => true,
             'plans' => array('creator', 'studio')),
         // -- motion control (a reference motion video + a first frame -> video); priced per second of the reference video --
         'kling_v3_motion_std' => array('provider' => 'fal', 'op' => 'motion', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/motion-control'),

@@ -143,7 +143,8 @@ class MediaVideoJob {
         $res = FalProvider::fetch_result((array) $payload['handle']);
         $out = null;
         foreach ((array) ($res['outputs'] ?? array()) as $o) { if (($o['kind'] ?? '') === 'video') { $out = $o; break; } }
-        if (empty($res['ok']) || !$out) { return $fail('The video came back empty. Try again.'); }
+        if (empty($res['ok'])) { return $fail((string) ($res['error'] ?? '') !== '' ? (string) $res['error'] : 'The video failed. Try again.'); }   // the model's own refusal, e.g. a realistic face Seedance will not animate
+        if (!$out) { return $fail('The video came back empty. Try again.'); }
         if (!FalProvider::output_url_allowed((string) ($out['url'] ?? ''))) {   // only ever download from fal's own hosts
             error_log('[media_video] asset ' . $aid . ': unexpected output host ' . parse_url((string) ($out['url'] ?? ''), PHP_URL_HOST));
             return $fail('The video came back from an unexpected address. Try again.');
@@ -151,6 +152,13 @@ class MediaVideoJob {
         $user = BillingService::user($cid);
         try {
             $v = MediaIngestService::fetch_video($out['url'], (int) InfluencerConfig::get('output_max_video_bytes', 1073741824), 540);
+            // An automation's hook line is burned on in code (TextOverlay), never drawn by the model. No line on the video, no post.
+            if (trim((string) ($payload['overlay_text'] ?? '')) !== '') {
+                $burned = TextOverlay::burn_video($v['path'], (string) $payload['overlay_text']);
+                if ($burned === '') { @unlink($v['path']); return $fail('The on-screen line could not be added to the video.'); }
+                @unlink($v['path']);
+                $v = array('path' => $burned, 'ext' => 'mp4', 'mime' => 'video/mp4', 'bytes' => (int) filesize($burned));
+            }
             MediaIngestService::ingest_video_file($cid, $user, $v['path'], $v['ext'], $v['mime'], $v['bytes'], preg_replace('/\.mp4$/', '', (string) $asset['filename']), '', $aid, true);
         } catch (\Throwable $e) {
             return $fail($e->getMessage());

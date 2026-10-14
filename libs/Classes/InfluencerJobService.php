@@ -894,7 +894,7 @@ class InfluencerJobService {
      * inline (same state machine as the queue). Returns ['ok', 'asset_id', 'job_id', 'error'].
      * The prompt is the trigger word + the influencer's prompt defaults + the scene as typed; nothing else.
      */
-    public static function run_for_rule(array $rule, array $user, $topic, $size){
+    public static function run_for_rule(array $rule, array $user, $topic, $size, array $opts = array()){
         $cid = (int) ($user['user_id'] ?? 0);
         $infl = (new InfluencersModel())->get_one($cid, (int) ($rule['influencer_id'] ?? 0));
         if (!$infl) { return array('ok' => false, 'error' => 'This automation has no influencer selected.'); }
@@ -904,29 +904,42 @@ class InfluencerJobService {
         if (!$model || (string) $model['status'] !== 'ready') { return array('ok' => false, 'error' => $infl['name'] . ' has no active model.'); }
         if (!InfluencerConfig::enabled()) { return array('ok' => false, 'error' => 'Rendering is not configured (no provider key).'); }
 
+        // $opts['model_key']: a reference-picture model (video automations use Nano Banana Pro from her approved references).
+        $mk = InfluencerConfig::resolve_model('image', (string) ($opts['model_key'] ?? ($rule['influencer_model_key'] ?? '')));
+        if (!$mk) { return array('ok' => false, 'error' => 'No image model is configured.'); }
+        $by_refs = (($mk['identity'] ?? '') === 'refs');
+
         // Nothing is spent when the account cannot pay for the image.
         Plan::grant_monthly($user);
-        $price = Plan::ai_price('image', array('params' => array('num_images' => 1)));
+        $price = Plan::ai_price('image', array('model_key' => (string) $mk['key'], 'params' => array('num_images' => 1)));
         $balance = (new AiCreditsModel())->get_balance($cid);
         if ($balance < $price) { return array('ok' => false, 'error' => Plan::credits_message('image', $price, $balance)); }
 
-        // $topic is the scene AutoPostService picked from the saved prompt, verbatim; it is never rewritten here.
+        // $topic is the scene AutoPostService picked from the saved prompt (or the AI step's image prompt), never rewritten here.
         $scene    = trim((string) $topic);
         $trigger  = (string) $model['trigger_word'];
         $defaults = InfluencerService::look_defaults($infl);
-        // The creator's words go to the model as written: only the trigger word (the model's ID token) and the
-        // influencer's own saved prompt defaults are added, the same as a hand-made render.
-        // The trigger word goes first unless the defaults or the scene already carry it.
-        // The scene first, as written, so it is what the model follows; her build and defaults after it.
-        $prompt = InfluencerService::scene_prompt((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger . ' ' : '', $scene, $defaults);
-        $mk = InfluencerConfig::resolve_model('image', (string) ($rule['influencer_model_key'] ?? ''));
-        if (!$mk) { return array('ok' => false, 'error' => 'No image model is configured.'); }
+        $params   = array('image_size' => Aspect::for_model($mk, $size), 'num_images' => 1, 'scene' => (string) $scene);
+        if ($by_refs) {
+            // Her approved reference pictures stand in for her trained weights; the prompt names no trigger word.
+            $ref_ids = InfluencerService::identity_refs($cid, $infl, (int) ($mk['max_refs'] ?? 4));
+            if (empty($ref_ids)) { return array('ok' => false, 'error' => $mk['label'] . ' needs a reference image of ' . $infl['name'] . '. Add one under References first.'); }
+            $own = ($defaults !== '' && stripos($scene, $defaults) === false) ? $defaults : '';
+            $prompt = InfluencerService::reference_prompt($infl, $scene, $own, 'photoreal');
+            $params += array('image_asset_ids' => $ref_ids, 'by_refs' => 1, 'user_prompt' => $scene);
+        } else {
+            // The creator's words go to the model as written: only the trigger word (the model's ID token) and the
+            // influencer's own saved prompt defaults are added, the same as a hand-made render.
+            // The trigger word goes first unless the defaults or the scene already carry it.
+            // The scene first, as written, so it is what the model follows; her build and defaults after it.
+            $prompt = InfluencerService::scene_prompt((stripos($defaults . ' ' . $scene, $trigger) === false) ? $trigger . ' ' : '', $scene, $defaults);
+        }
 
         try {
             $job_id = self::create_job($cid, (int) $infl['id'], 'image', array(
                 'origin' => 'scheduler', 'rule_id' => (int) ($rule['id'] ?? 0), 'model_key' => (string) $mk['key'], 'model_id' => (int) $model['id'],
                 'prompt' => $prompt, 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''),
-                'params' => array('image_size' => Aspect::for_model($mk, $size), 'num_images' => 1, 'scene' => (string) $scene),
+                'params' => $params,
             ), false);
         } catch (PlanLimitException $e) {
             return array('ok' => false, 'error' => $e->getMessage());
@@ -935,13 +948,14 @@ class InfluencerJobService {
         error_log('[influencer] rule ' . (int) ($rule['id'] ?? 0) . ' job ' . $job_id . ' prompt: ' . $prompt);
         $job = self::run_inline($job_id);
         if (!$job) { return array('ok' => false, 'error' => 'Job vanished.'); }
+        $base = array('job_id' => $job_id, 'model_key' => (string) $mk['key'], 'prompt' => $prompt, 'price' => (int) ($job['credits_charged'] ?? $price));
         if ((string) $job['status'] === 'done' && (int) $job['result_asset_id'] > 0) {
-            return array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'job_id' => $job_id, 'error' => '');
+            return $base + array('ok' => true, 'asset_id' => (int) $job['result_asset_id'], 'error' => '');
         }
         if (in_array((string) $job['status'], array('failed', 'cancelled'), true)) {
-            return array('ok' => false, 'job_id' => $job_id, 'error' => (string) $job['error']);
+            return $base + array('ok' => false, 'error' => (string) $job['error']);
         }
-        return array('ok' => false, 'job_id' => $job_id, 'error' => 'The image is still generating; it will land in the vault but this run did not publish.');
+        return $base + array('ok' => false, 'error' => 'The image is still generating; it will land in the vault but this run did not publish.');
     }
 
     public static function handle(array $job){

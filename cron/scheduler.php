@@ -119,7 +119,7 @@ foreach ($due as $rule) {
         if (!$user) { throw new RuntimeException('creator ' . $rule['creator_id'] . ' not found'); }
 
         $res = (($rule['kind'] ?? 'post') === 'message') ? MessageBlastService::run_rule($rule, $user) : AutoPostService::run_rule($rule, $user);
-        $runsM->add((int) $rule['id'], (int) $rule['creator_id'], $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message']);
+        $runsM->add((int) $rule['id'], (int) $rule['creator_id'], $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message'], (array) ($res['meta'] ?? array()));
         $rulesM->set_last_run((int) $rule['id'], $res['status'] ?? ($res['ok'] ? 'success' : 'failed'));
         fwrite(STDOUT, date('c') . " rule {$rule['id']} \"{$rule['name']}\": " . ($res['ok'] ? 'OK' : 'FAIL') . ' — ' . $res['message'] . "\n");
     } catch (\Throwable $e) {

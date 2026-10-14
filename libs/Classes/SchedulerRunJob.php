@@ -18,7 +18,7 @@ class SchedulerRunJob {
         } catch (\Throwable $e) {
             $res = ['ok' => false, 'post_id' => null, 'message' => 'Worker error: ' . $e->getMessage()];
         }
-        $runsM->add($rule_id, $creator_id, $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message']);
+        $runsM->add($rule_id, $creator_id, $res['status'] ?? ($res['ok'] ? 'success' : 'failed'), $res['post_id'], $res['message'], (array) ($res['meta'] ?? array()));
         $rulesM->set_last_run($rule_id, $res['status'] ?? ($res['ok'] ? 'success' : 'failed'));
         return ($res['ok'] ? 'OK' : 'FAIL') . ' — ' . $res['message'];
     }
