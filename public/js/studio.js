@@ -2084,6 +2084,16 @@ jQuery(function ($) {
     var SCHED_SECTIONS = ['content', 'publishing', 'destinations', 'schedule'];
     var schedOpener = null;   // element that opened the editor; focus goes back to it on close
 
+    var schedCurrent = 'content';
+    /* A new automation walks the sections in order: Back / Next, and Create only on the last one. Editing saves from anywhere. */
+    function schedIsNew() { return !(parseInt($('#csSchedId').val(), 10) > 0); }
+    function schedSaveLabel() { var kind = $('#csSchedKind').val() || 'post'; return schedIsNew() ? (kind === 'message' ? 'Create message' : 'Create automation') : 'Save Changes'; }
+    function updateSchedFooter() {
+        var list = schedSections(), i = list.indexOf(schedCurrent), stepping = schedIsNew();
+        $('#csSchedBack').prop('hidden', !stepping || i <= 0);
+        if (!schedSaving) { $('#csSchedSave').text(stepping && i < list.length - 1 ? 'Next' : schedSaveLabel()); }
+    }
+    $('#csSchedBack').on('click', function () { var list = schedSections(), i = list.indexOf(schedCurrent); if (i > 0) { showSchedSection(list[i - 1], true); } });
     function schedSections() { return SCHED_SECTIONS.filter(function (k) { return k !== 'publishing' || $('#csSchedKind').val() === 'post'; }); }
     function showSchedSection(key, focusHeading) {
         if (schedSections().indexOf(key) < 0) { key = 'content'; }
@@ -2093,6 +2103,7 @@ jQuery(function ($) {
             if (on) { $(this).attr('aria-current', 'true'); } else { $(this).removeAttr('aria-current'); }
         });
         $('#csSchedNavSelect').val(key);
+        schedCurrent = key; updateSchedFooter();
         $('#csSchedMain').scrollTop(0);
         if (focusHeading) { var h = document.getElementById('csSchedH_' + key); if (h) { h.focus({ preventScroll: true }); } }
     }
@@ -2337,8 +2348,9 @@ jQuery(function ($) {
         $('#csSchedStatus').prop('hidden', !rule).toggleClass('is-active', !!(rule && rule.active));
         $('#csSchedStatusText').text(rule && rule.active ? 'Active' : 'Paused');
         $('#csSchedDelete').prop('hidden', !rule).text(kind === 'message' ? 'Delete message' : 'Delete automation');
-        $('#csSchedSave').prop('disabled', false).text(rule ? 'Save Changes' : (kind === 'message' ? 'Create message' : 'Create automation'));
+        $('#csSchedSave').prop('disabled', false);
         updateSchedSummaries();
+        schedPickOpen(false);
         showSchedSection('content', false);
         schedModal.show();
         $('#csSchedulerModal').off('shown.bs.modal.ae').one('shown.bs.modal.ae', function () { $('#csSchedName').trigger('focus'); });
@@ -2364,27 +2376,68 @@ jQuery(function ($) {
     // Image source: Brand photo or a trained influencer. Switching to Brand hides the influencer
     // field but keeps the choice, so switching back restores it.
     $('#csSchedImageSource').on('click', '.cs-seg__opt', function () { if (!this.disabled) { setSchedImageSource($(this).data('src')); } });
+    function syncSchedSourceTiles() {
+        $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
+        syncPressed('#csSchedImageSource');
+        $('#csSchedInfluencerWrap').prop('hidden', schedForm.image_source !== 'influencer');
+        // the face picker shows the selected influencer
+        var id = String(schedForm.influencer_id || ''), $opt = $('#csSchedInfPanel .cs-ae__pickopt[data-inf="' + id + '"]');
+        $('#csSchedInfPanel .cs-ae__pickopt').each(function () { var on = $(this).attr('data-inf') === id; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false'); });
+        $('#csSchedInfTrigger .cs-ae__srcpic').html($opt.find('.cs-ae__srcpic').html() || '');
+        $('#csSchedInfTrigger .cs-ae__pickname').text($opt.children().last().text().trim() || 'Pick an influencer');
+    }
+    /* Influencer face picker: a listbox panel under the trigger; search appears when there are more than 6 */
+    function schedPickOpen(open) {
+        $('#csSchedInfPanel').prop('hidden', !open);
+        $('#csSchedInfTrigger').attr('aria-expanded', open ? 'true' : 'false');
+        if (!open) { return; }
+        $('#csSchedInfSearch').val('').trigger('input');
+        // fit the panel inside the scrolling section: open upward when there is more room above, and cap the list to the room it has
+        var main = document.getElementById('csSchedMain').getBoundingClientRect(), trig = document.getElementById('csSchedInfTrigger').getBoundingClientRect();
+        var below = main.bottom - trig.bottom - 12, above = trig.top - main.top - 12, up = below < 240 && above > below;
+        var room = (up ? above : below) - ($('#csSchedInfSearch').outerHeight(true) || 0) - 10;
+        $('#csSchedInfPanel').toggleClass('is-up', up).find('.cs-ae__picklist').css('max-height', Math.max(132, Math.min(264, room)) + 'px');
+        var $f = $('#csSchedInfSearch');
+        ($f.length ? $f : $('#csSchedInfPanel .cs-ae__pickopt.is-on, #csSchedInfPanel .cs-ae__pickopt').first()).trigger('focus');
+    }
+    function schedPickChoose(id) {
+        $('#csSchedInfluencer').val(String(id)).trigger('change');
+        schedPickOpen(false);
+        $('#csSchedInfTrigger').trigger('focus');
+    }
+    $('#csSchedInfTrigger').on('click', function () { schedPickOpen($('#csSchedInfPanel').prop('hidden')); });
+    $('#csSchedInfPanel').on('click', '.cs-ae__pickopt', function () { schedPickChoose($(this).attr('data-inf')); });
+    $('#csSchedInfSearch').on('input', function () {
+        var q = $(this).val().trim().toLowerCase(), n = 0;
+        $('#csSchedInfPanel .cs-ae__pickopt').each(function () { var hit = q === '' || $(this).attr('data-name').indexOf(q) >= 0; $(this).prop('hidden', !hit); if (hit) { n++; } });
+        $('#csSchedInfPanel .cs-ae__pickempty').prop('hidden', n > 0);
+    });
+    $('#csSchedInfPanel').on('keydown', function (e) {
+        var $opts = $('#csSchedInfPanel .cs-ae__pickopt:not([hidden])'), i = $opts.index(document.activeElement);
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); schedPickOpen(false); $('#csSchedInfTrigger').trigger('focus'); }
+        else if (e.key === 'ArrowDown') { e.preventDefault(); $opts.eq(Math.min(i + 1, $opts.length - 1)).trigger('focus'); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) { $('#csSchedInfSearch').trigger('focus'); } else { $opts.eq(i - 1).trigger('focus'); } }
+        else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); schedPickChoose($opts.eq(i).attr('data-inf')); }
+        else if (e.key === 'Enter' && $opts.length === 1) { e.preventDefault(); schedPickChoose($opts.eq(0).attr('data-inf')); }
+    });
+    $(document).on('mousedown', function (e) { if (!$('#csSchedInfPanel').prop('hidden') && !$(e.target).closest('#csSchedInfPick').length) { schedPickOpen(false); } });
     function setSchedImageSource(src, selectedId) {
         var influencers = (CFG.influencers && CFG.influencers.ready) || [];
         if (src === 'influencer' && !influencers.length) { toastr.info('Train an influencer first.'); src = 'brand'; }
         schedForm.image_source = (src === 'influencer') ? 'influencer' : 'brand';
-        $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
-        syncPressed('#csSchedImageSource');
         var isInf = schedForm.image_source === 'influencer';
-        $('#csSchedInfluencerWrap').prop('hidden', !isInf);
-
-        $('#csSchedTopic').attr('placeholder', '');
         if (isInf) {
             var want = selectedId ? String(selectedId) : (schedForm.influencer_id || '');
             if (!want || !influencers.some(function (i) { return String(i.id) === want; })) { want = String(influencers[0].id); }
             $('#csSchedInfluencer').val(want);
             schedForm.influencer_id = want;
         } else { schedClearError('influencer'); }
+        syncSchedSourceTiles();
         updateSchedSummaries();
     }
     $('#csSchedInfluencer').on('change', function () {
         schedForm.influencer_id = String($('#csSchedInfluencer').val() || '');
-        schedClearError('influencer'); updateSchedSummaries();
+        schedClearError('influencer'); syncSchedSourceTiles(); updateSchedSummaries();
         // A new influencer automation starts with her default share targets.
         if (parseInt($('#csSchedId').val(), 10) > 0) { return; }
         var inf = ((CFG.influencers && CFG.influencers.ready) || []).filter(function (i) { return String(i.id) === schedForm.influencer_id; })[0];
@@ -2427,7 +2480,7 @@ jQuery(function ($) {
             if (!schedTargetsChecked().length) { errors.push({ key: 'targets', msg: 'Pick who gets the message.', focus: '#csSchedTargets input' }); }
         } else {
             if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source === 'influencer' ? 'Describe the scene.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
-            if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfluencer' }); }
+            if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfTrigger' }); }
         }
         if (schedForm.cadence === 'weekly' && !$('#csSchedDays .cs-ae__day.is-on').length) { errors.push({ key: 'days', msg: 'Pick at least one day of the week.', focus: '#csSchedDays .cs-ae__day' }); }
         errors.forEach(function (e) { schedSetError(e.key, e.msg); });
@@ -2438,6 +2491,15 @@ jQuery(function ($) {
     $('#csSchedSave').on('click', function () {
         if (schedSaving) { return; }
         var errors = validateSchedForm();
+        var steps = schedSections(), at = steps.indexOf(schedCurrent);
+        if (schedIsNew() && at < steps.length - 1) {
+            // Next: only this section's problems hold you here; later sections are checked when you reach them
+            var here = errors.filter(function (e) { return SCHED_ERR_SECTION[e.key] === schedCurrent; });
+            errors.forEach(function (e) { if (SCHED_ERR_SECTION[e.key] !== schedCurrent) { schedClearError(e.key); } });
+            if (here.length) { setTimeout(function () { $(here[0].focus).first().trigger('focus'); }, 30); return; }
+            showSchedSection(steps[at + 1], true);
+            return;
+        }
         if (errors.length) {
             var first = errors[0];
             showSchedSection(SCHED_ERR_SECTION[first.key], false);

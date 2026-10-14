@@ -540,7 +540,7 @@
 
                         <div class="cs-ae__field">
                             <label class="cs-ae__label" for="csSchedName">Name</label>
-                            <input type="text" class="form-control" id="csSchedName" maxlength="190" autocomplete="off" aria-describedby="csSchedErr_name">
+                            <input type="text" class="form-control" id="csSchedName" maxlength="190" autocomplete="off" placeholder="Morning coffee post" aria-describedby="csSchedErr_name">
                             <p class="cs-ae__error" id="csSchedErr_name" role="alert" hidden></p>
                         </div>
 
@@ -549,34 +549,7 @@
                             <div class="form-check form-switch cs-ae__switch"><input class="form-check-input" type="checkbox" role="switch" id="csSchedMsgAi"></div>
                         </div>
 
-                        <div class="cs-ae__field" id="csSchedTopicWrap">
-                            <label class="cs-ae__label" for="csSchedTopic"><span data-kind="post">Scene</span><span data-kind="message" hidden>Topic</span></label>
-                            <textarea class="form-control cs-ae__textarea" id="csSchedTopic" rows="5" aria-describedby="csSchedErr_topic"></textarea>
-                            <p class="cs-ae__error" id="csSchedErr_topic" role="alert" hidden></p>
-                        </div>
-
-                        <div class="cs-ae__field" id="csSchedMsgTextWrap" data-kind="message" hidden>
-                            <label class="cs-ae__label" for="csSchedMsgText">Message</label>
-                            <textarea class="form-control cs-ae__textarea" id="csSchedMsgText" rows="5" maxlength="5000" aria-describedby="csSchedErr_message"></textarea>
-                            <p class="cs-ae__error" id="csSchedErr_message" role="alert" hidden></p>
-                        </div>
-
-                        <div class="cs-ae__row" data-kind="post">
-                            <div class="cs-ae__field" id="csSchedMediaWrap">
-                                <span class="cs-ae__label" id="csSchedMediaLabel">Post As</span>
-                                <div class="cs-seg cs-ae__seg" id="csSchedMedia" role="group" aria-labelledby="csSchedMediaLabel">
-                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-media="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Image</span></button>
-                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-media="video"><i class="fa-solid fa-film" aria-hidden="true"></i><span>Video</span></button>
-                                </div>
-                            </div>
-                            <div class="cs-ae__field">
-                                <span class="cs-ae__label" id="csSchedShapeLabel">Format</span>
-                                <div class="cs-seg cs-ae__seg" id="csSchedShape" role="group" aria-labelledby="csSchedShapeLabel">
-                                    <?php echo Aspect::seg_buttons('cs-seg__opt', 'data-size'); ?>
-                                </div>
-                            </div>
-                        </div>
-
+                        <?php /* Source: Brand Photo or Influencer; Influencer opens a face picker that scales to any number of influencers (the select holds the value). */ ?>
                         <div class="cs-ae__row" data-kind="post">
                             <div class="cs-ae__field">
                                 <span class="cs-ae__label" id="csSchedImageSourceLabel">Source</span>
@@ -586,13 +559,58 @@
                                 </div>
                             </div>
                             <div class="cs-ae__field cs-ae__reveal" id="csSchedInfluencerWrap" hidden>
-                                <label class="cs-ae__label" for="csSchedInfluencer">Influencer</label>
-                                <select id="csSchedInfluencer" class="form-select" aria-describedby="csSchedErr_influencer">
+                                <span class="cs-ae__label" id="csSchedInfluencerLabel">Influencer</span>
+                                <div class="cs-ae__pick" id="csSchedInfPick">
+                                    <button type="button" class="cs-ae__picktrigger" id="csSchedInfTrigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="csSchedInfluencerLabel csSchedInfTrigger" aria-describedby="csSchedErr_influencer">
+                                        <span class="cs-ae__srcpic" aria-hidden="true"></span><span class="cs-ae__pickname"></span><i class="fa-solid fa-chevron-down cs-ae__pickcaret" aria-hidden="true"></i>
+                                    </button>
+                                    <div class="cs-ae__pickpanel" id="csSchedInfPanel" hidden>
+                                        <?php if (count((array) ($this->influencers['ready'] ?? array())) > 6): ?>
+                                        <input type="search" class="form-control cs-ae__picksearch" id="csSchedInfSearch" placeholder="Search influencers" autocomplete="off" aria-label="Search influencers">
+                                        <?php endif; ?>
+                                        <ul class="cs-ae__picklist" role="listbox" aria-labelledby="csSchedInfluencerLabel">
+                                            <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): $inf_name = htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?>
+                                            <li class="cs-ae__pickopt" role="option" tabindex="-1" aria-selected="false" data-inf="<?php echo (int) $inf['id']; ?>" data-name="<?php echo htmlspecialchars(mb_strtolower((string) $inf['name']), ENT_QUOTES, 'UTF-8'); ?>"><span class="cs-ae__srcpic" aria-hidden="true"><?php if (($inf['cover_url'] ?? '') !== ''): ?><img src="<?php echo htmlspecialchars((string) $inf['cover_url'], ENT_QUOTES, 'UTF-8'); ?>" alt="" loading="lazy"><?php else: echo htmlspecialchars(mb_strtoupper(mb_substr((string) $inf['name'], 0, 1)), ENT_QUOTES, 'UTF-8'); endif; ?></span><span><?php echo $inf_name; ?></span></li>
+                                            <?php endforeach; ?>
+                                        </ul>
+                                        <p class="cs-ae__pickempty" hidden>No influencer by that name</p>
+                                    </div>
+                                </div>
+                                <select id="csSchedInfluencer" class="form-select" hidden tabindex="-1" aria-hidden="true">
                                     <?php foreach ((array) ($this->influencers['ready'] ?? array()) as $inf): ?>
                                     <option value="<?php echo (int) $inf['id']; ?>"><?php echo htmlspecialchars((string) $inf['name'], ENT_QUOTES, 'UTF-8'); ?></option>
                                     <?php endforeach; ?>
                                 </select>
                                 <p class="cs-ae__error" id="csSchedErr_influencer" role="alert" hidden></p>
+                            </div>
+                        </div>
+
+                        <div class="cs-ae__field" id="csSchedTopicWrap">
+                            <label class="cs-ae__label" for="csSchedTopic"><span data-kind="post">Scene</span><span data-kind="message" hidden>Topic</span></label>
+                            <textarea class="form-control cs-ae__textarea" id="csSchedTopic" rows="4" placeholder="Reading by a sunny window with a coffee, soft morning light" aria-describedby="csSchedErr_topic"></textarea>
+                            <p class="cs-ae__error" id="csSchedErr_topic" role="alert" hidden></p>
+                        </div>
+
+                        <div class="cs-ae__field" id="csSchedMsgTextWrap" data-kind="message" hidden>
+                            <label class="cs-ae__label" for="csSchedMsgText">Message</label>
+                            <textarea class="form-control cs-ae__textarea" id="csSchedMsgText" rows="5" maxlength="5000" aria-describedby="csSchedErr_message"></textarea>
+                            <p class="cs-ae__error" id="csSchedErr_message" role="alert" hidden></p>
+                        </div>
+
+                        <?php /* Post As + Format: one row of equal tiles; each Format tile draws its frame at the real shape. */ ?>
+                        <div class="cs-ae__output" data-kind="post">
+                            <div class="cs-ae__field" id="csSchedMediaWrap">
+                                <span class="cs-ae__label" id="csSchedMediaLabel">Post As</span>
+                                <div class="cs-seg cs-ae__seg cs-ae__seg--tiles" id="csSchedMedia" role="group" aria-labelledby="csSchedMediaLabel">
+                                    <button type="button" class="cs-seg__opt is-on" aria-pressed="true" data-media="image"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Image</span></button>
+                                    <button type="button" class="cs-seg__opt" aria-pressed="false" data-media="video"><i class="fa-solid fa-film" aria-hidden="true"></i><span>Video</span></button>
+                                </div>
+                            </div>
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedShapeLabel">Format</span>
+                                <div class="cs-seg cs-ae__seg cs-ae__seg--tiles" id="csSchedShape" role="group" aria-labelledby="csSchedShapeLabel">
+                                    <?php echo Aspect::seg_buttons('cs-seg__opt', 'data-size'); ?>
+                                </div>
                             </div>
                         </div>
 
@@ -713,6 +731,7 @@
                 <button type="button" class="cs-ae__delete" id="csSchedDelete" hidden>Delete automation</button>
                 <div class="cs-ae__actions">
                     <button type="button" class="btn cs-ae__btn cs-ae__btn--ghost" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn cs-ae__btn cs-ae__btn--ghost" id="csSchedBack" hidden>Back</button>
                     <button type="button" class="btn btn-primary cs-ae__btn" id="csSchedSave">Save Changes</button>
                 </div>
             </footer>

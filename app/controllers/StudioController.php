@@ -71,7 +71,12 @@ class StudioController extends Controller {
                 $row = array('id' => (int) $inf['id'], 'name' => (string) $inf['name'], 'status' => (string) $inf['status'],
                     'share_accounts' => InfluencersModel::share_accounts($inf));
                 $infl_all[] = $row;
-                if ((string) $inf['status'] === 'ready' && !empty($inf['active_model_id']) && !Plan::is_locked($user, 'influencers', (int) $inf['id'])) { $infl_ready[] = $row; }
+                if ((string) $inf['status'] === 'ready' && !empty($inf['active_model_id']) && !Plan::is_locked($user, 'influencers', (int) $inf['id'])) {
+                    // her picture on the automation editor's Source tiles
+                    $cover = (new InfluencerImagesModel())->cover_asset((int) ($user['user_id'] ?? 0), (int) $inf['id']);
+                    $row['cover_url'] = $cover ? MediaService::signed_url($cover, 'thumb', (int) ($user['user_id'] ?? 0)) : '';
+                    $infl_ready[] = $row;
+                }
             }
             $this->view->influencers = array('all' => $infl_all, 'ready' => $infl_ready);
 
