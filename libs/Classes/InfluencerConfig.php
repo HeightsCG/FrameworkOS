@@ -177,6 +177,14 @@ class InfluencerConfig {
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
             'price_usd' => 0.03, 'price_unit' => 'image',
             'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8), 'family' => 'clarity'),
+        // -- generation from her reference pictures (no trained weights): follows expressions, props and actions the trained model drops.
+        //    Dev test 2026-10-13, three scenes, seven things asked for in each: trained model 25 of 35, Prompt Match 40 of 42, Prompt Match Pro 42 of 42. --
+        'prompt_match' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
+            'label' => 'Prompt Match', 'purpose' => 'Follows expressions, props and actions',
+            'price_usd' => 0.04, 'price_unit' => 'image', 'credits' => 60, 'params' => array(), 'family' => 'seedream', 'aspects' => self::SEEDREAM_ASPECTS, 'max_refs' => 10, 'identity' => 'refs'),
+        'prompt_match_pro' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/nano-banana-pro/edit'),
+            'label' => 'Prompt Match Pro', 'purpose' => 'Closest to your prompt, most realistic',
+            'price_usd' => 0.15, 'price_unit' => 'image', 'credits' => 200, 'params' => array('resolution' => '2K'), 'family' => 'nano_banana', 'aspects' => self::RATIO_ASPECTS, 'max_refs' => 8, 'identity' => 'refs'),
         // -- training --
         'flux_lora_fast_training' => array('provider' => 'fal', 'op' => 'training', 'endpoints' => array('fal' => 'fal-ai/flux-lora-fast-training'),
             'label' => 'Standard Training', 'purpose' => 'Flux LoRA, about 1000 steps',
@@ -187,7 +195,7 @@ class InfluencerConfig {
     const PICKERS = array(
         'reference'    => array('flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),
         'training_set' => array('seedream_45_edit', 'nano_banana_edit'),   // Seedream first (2026-10-07 A/B): real light and grain where Nano Banana returns a glossy render
-        'image'        => array('flux_lora_quality', 'flux_lora_fast'),
+        'image'        => array('flux_lora_quality', 'flux_lora_fast', 'prompt_match', 'prompt_match_pro'),
         'video'        => array('hailuo_02', 'kling_v3'),
         'enhance'      => array('clarity_upscaler'),
         'training'     => array('flux_lora_fast_training'),

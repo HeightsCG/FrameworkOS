@@ -1252,9 +1252,11 @@ jQuery(function ($) {
         function model_key() { return $('#inf_model .inf-opt.is-on').data('key') || ''; }
         function style_key() { return $('#inf_style .inf-opt.is-on').data('key') || ''; }   // Photorealistic or As Written
         function model_label(key) { var m = (C.pickers.image || []).filter(function (o) { return o.key === key; })[0]; return m ? m.label : key; }
+        // A model with its own price (Prompt Match) costs that; the others cost the plan's image price.
+        function image_price(n, key) { var k = key || model_key(), m = (C.pickers.image || []).filter(function (o) { return o.key === k; })[0]; return (m && m.credits > 0) ? m.credits * (n || 1) : price_of('image', n); }
         function cost() {
             var n = parseInt(seg_val('inf_n'), 10) || 1;
-            $('#inf_gen_cost').html(credits_html(price_of('image', n)));
+            $('#inf_gen_cost').html(credits_html(image_price(n)));
         }
 
         $('#inf_who').on('change', function () { window.location = '/influencers/images/' + this.value; });
@@ -1304,7 +1306,7 @@ jQuery(function ($) {
             busy('Sending');
             api('influencer_generate_image', body, function (o) {
                 if (!o || !o.success) { err(o); $('#inf_gen_go, #inf_res_again').prop('disabled', false); show_current(); return; }
-                spend_credits(price_of('image', parseInt(body.num_images, 10) || 1)); cost();
+                spend_credits(image_price(parseInt(body.num_images, 10) || 1, body.model_key)); cost();
                 jobs.unshift(o.job); render_strip();
                 watch(o.job.id);
             });

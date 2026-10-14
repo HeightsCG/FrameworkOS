@@ -736,7 +736,7 @@ class InfluencerJobService {
         $ttl = (int) InfluencerConfig::get('input_url_ttl', 1800);
         $mm  = new MediaAssetsModel();
 
-        if ($type === 'image') {
+        if ($type === 'image' && ($model['identity'] ?? '') !== 'refs') {   // a reference-picture model takes her pictures (image_asset_ids below), not her weights
             $model_row = !empty($job['model_id']) ? (new InfluencerModelsModel())->get_by_id($job['model_id']) : null;
             if (!$model_row || (string) $model_row['status'] !== 'ready') { return array('error' => 'This influencer has no active trained model'); }
             $url = '';
@@ -776,6 +776,7 @@ class InfluencerJobService {
             $req['image_urls'] = array_slice($req['image_urls'], 0, (int) $model['max_refs']);
         }
         if (in_array($type, array('replicate', 'edit', 'angle', 'carousel'), true) && empty($req['image_urls'])) { return array('error' => 'A source image is required'); }
+        if ($type === 'image' && ($model['identity'] ?? '') === 'refs' && empty($req['image_urls'])) { return array('error' => 'Her reference image is not available'); }
         if (!empty($p['video_asset_id'])) {   // motion reference / source video for replacement
             $v = $mm->get_one($job['creator_id'], (int) $p['video_asset_id']);
             if (!$v || (string) $v['type'] !== 'video' || (string) $v['status'] !== 'ready') { return array('error' => 'The source video is not ready'); }

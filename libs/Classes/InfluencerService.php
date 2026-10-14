@@ -371,6 +371,28 @@ class InfluencerService {
         return trim(implode(' ', $keep));
     }
 
+    /** Does the scene put packaging, products or signs in the picture (a shop, a box, a bottle, a poster)? */
+    public static function scene_shows_labels($scene){
+        return (bool) preg_match('/\\b(supermarket|grocery|store|shop(?:s|ping)?|aisle|market|pharmacy|mall|box(?:es)?|pack(?:et|age|ages|aging)?s?|bottles?|cans?|cartons?|jars?|products?|labels?|logos?|brands?|signs?|billboards?|posters?|banners?|menus?|cereal|soda|beer|wine|energy drink|takeaway|take-out|delivery)\\b/i', (string) $scene);
+    }
+
+    /**
+     * The prompt for a model that draws her from her reference pictures (InfluencerConfig 'identity' => 'refs'). These
+     * models read the whole prompt and follow it, so the creator's words go in as written, with no fitting and no trigger
+     * word. Her build keeps her body hers; the last sentence keeps real brand names off packaging and signs (the first
+     * test printed real pizza brands on the boxes).
+     */
+    public static function reference_prompt($infl, $scene, $defaults = '', $style = 'plain'){
+        $n = self::noun(is_array($infl) ? $infl : array()); $pr = self::pronouns(is_array($infl) ? $infl : array());
+        $scene = trim((string) $scene); $defaults = trim((string) $defaults);
+        $out = ($style === 'photoreal' ? 'A candid phone photo of the ' : 'A photo of the ') . $n . ' from the reference images, keeping ' . $pr[2] . ' exact face, hair colour, skin tone and body. '
+            . $scene . (preg_match('/[.!?]$/', $scene) ? '' : '.');
+        if ($defaults !== '') { $out .= ' ' . $defaults . (preg_match('/[.!?]$/', $defaults) ? '' : '.'); }
+        if ($style === 'photoreal') { $out .= ' Natural skin texture, an unposed moment.'; }
+        // Only where packaging or signs belong in the scene: said about a park bench, the model drew boxes and labels to match the sentence.
+        return $out . (self::scene_shows_labels($scene) ? ' Every package, sign and label in the picture is generic, with invented names.' : '');
+    }
+
     /** One image prompt: the trigger word, the scene as written, then her build and defaults. */
     public static function scene_prompt($lead, $scene, $defaults){
         $scene = trim((string) $scene); $defaults = trim((string) $defaults);

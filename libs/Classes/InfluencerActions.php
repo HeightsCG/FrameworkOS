@@ -476,6 +476,7 @@ class InfluencerActions {
         if (!$model || (string) $model['status'] !== 'ready') { return self::fail($infl['name'] . '\'s active model is not ready.'); }
         $user_prompt = mb_substr(trim((string) ($in['prompt'] ?? '')), 0, InfluencerService::TEXT_MAX);
         if ($user_prompt === '') { return self::fail('Write a prompt first.'); }
+        $as_written = !empty($in['as_written']);   // a scene template's prompt is sent as it is: no fitting, no hair words, no candid line
         $defaults = InfluencerService::look_defaults($infl);   // her body words, then her own Always Add To Prompts
         $trigger  = (string) $model['trigger_word'];
         if ($defaults !== '' && $trigger !== '' && stripos($defaults, $trigger) !== false && stripos($user_prompt, $trigger) !== false) {
@@ -504,12 +505,23 @@ class InfluencerActions {
         $prompt = InfluencerService::scene_prompt($lead, $scene, trim($defaults . ($defaults !== '' && $suffix !== '' ? '. ' : '') . $suffix));
         $mk = InfluencerConfig::resolve_model('image', (string) ($in['model_key'] ?? ''));
         if (!$mk) { return self::fail('No image model is configured.'); }
+        // A model that draws her from her reference pictures gets the creator's words as written, and her pictures in place of her weights.
+        $by_refs = (($mk['identity'] ?? '') === 'refs'); $ref_ids = array();
+        if ($by_refs) {
+            $ref_ids = InfluencerService::identity_refs($cid, $infl, (int) ($mk['max_refs'] ?? 4));
+            if (empty($ref_ids)) { return self::fail($mk['label'] . ' needs a reference image of ' . $infl['name'] . '. Add one under References first.'); }
+            $own = InfluencerService::look_defaults($infl);
+            if ($own !== '' && stripos($user_prompt, $own) !== false) { $own = ''; }
+            $prompt = InfluencerService::reference_prompt($infl, $user_prompt, $own, $style);
+            $scene  = $user_prompt;
+        }
         $size  = Aspect::for_model($mk, (string) ($in['aspect'] ?? ($in['image_size'] ?? '')));   // 3:4 unless asked: bodies warp in a square frame
         $n     = max(1, min(4, (int) ($in['num_images'] ?? 1)));
         $seed  = (int) ($in['seed'] ?? 0);
         $overrides = array();
         if (isset($in['guidance']) && $in['guidance'] !== '') { $overrides['guidance_scale'] = max(1, min(20, (float) $in['guidance'])); }
         if (isset($in['steps']) && $in['steps'] !== '')       { $overrides['num_inference_steps'] = max(4, min(50, (int) $in['steps'])); }
+        if ($by_refs) { $overrides = array(); $in['extra_params'] = array_merge((array) ($in['extra_params'] ?? array()), array('image_asset_ids' => $ref_ids, 'by_refs' => 1)); }   // steps and guidance belong to the trained model
         $params = array_merge((array) ($in['extra_params'] ?? array()), array('image_size' => $size, 'num_images' => $n, 'user_prompt' => $user_prompt, 'scene_fitted' => $scene !== $user_prompt ? 1 : 0, 'style' => $style, 'overrides' => $overrides,
             'lora_scale' => (isset($in['lora_scale']) && $in['lora_scale'] !== '') ? max(0.1, min(2.0, (float) $in['lora_scale'])) : (float) InfluencerConfig::get('training_lora_scale', 1.0)));
         try {
