@@ -85,28 +85,37 @@ class SocialShareService {
                 }
             }
 
-            // Captions, the carousel slice, the AI label or disclosure line, and Stories: one plan, built without the network.
+            // Captions, the carousel slice, the AI label or disclosure line, and Stories: built without the network.
+            // One Post for Me post takes each account once, so accounts set to Feed and Story get a second post for the Story.
             $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
-            $opts = array(
-                'ai'      => AiDisclosure::applies($post['ai_disclosure'] ?? null, $live),
-                'stories' => array_filter(explode(',', (string) ($post['story_accounts'] ?? '')), 'strlen'),
-            );
-            $opts += self::fitted_media($accounts, $items, $opts['stories']);
-            $plan = self::plan($promo, $accounts, $items, $opts);
-            if (empty($plan['accounts'])) { return array('ok' => false, 'shared' => 0, 'error' => implode(' ', $plan['notes'])); }
-            $valid = $plan['accounts'];
+            $place = self::placements($post['story_accounts'] ?? '');
+            $opts = array('ai' => AiDisclosure::applies($post['ai_disclosure'] ?? null, $live), 'stories' => $place['story']);
+            $opts += self::fitted_media($accounts, $items, $place['story'], $place['both']);
+            $runs = array(array($accounts, $opts));
+            $both = array_values(array_filter($accounts, function ($a) use ($place) { return in_array((string) $a['id'], $place['both'], true); }));
+            if (!empty($both)) { $runs[] = array($both, array('stories' => $place['both']) + $opts); }
 
-            $res = PostForMeService::create_post($valid, $promo, $plan['media'], $scheduled_iso, false, $plan['platform_configurations'], $plan['account_configurations']);
-            if (is_array($res) && isset($res['id'])) {
-                (new SocialPostsModel())->create(
-                    (int) $user['user_id'], (string) $res['id'], $promo,
-                    (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $valid, (int) $post['id']
-                );
-                return array('ok' => true, 'shared' => count($valid), 'error' => implode(' ', $plan['notes']));
+            $shared = 0; $notes = array(); $errors = array();
+            foreach ($runs as $run) {
+                $plan = self::plan($promo, $run[0], $items, $run[1]);
+                $notes = array_merge($notes, $plan['notes']);
+                if (empty($plan['accounts'])) { continue; }
+                $res = PostForMeService::create_post($plan['accounts'], $promo, $plan['media'], $scheduled_iso, false, $plan['platform_configurations'], $plan['account_configurations']);
+                if (is_array($res) && isset($res['id'])) {
+                    (new SocialPostsModel())->create(
+                        (int) $user['user_id'], (string) $res['id'], $promo,
+                        (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $plan['accounts'], (int) $post['id']
+                    );
+                    $shared = max($shared, count($plan['accounts']));
+                } else {
+                    $err = is_array($res) ? (string) ($res['_error'] ?? 'unknown error') : 'no response from Post for Me';
+                    error_log('[social share] create_post failed: ' . $err);
+                    $errors[] = $err;
+                }
             }
-            $err = is_array($res) ? (string) ($res['_error'] ?? 'unknown error') : 'no response from Post for Me';
-            error_log('[social share] create_post failed: ' . $err);
-            return array('ok' => false, 'shared' => 0, 'error' => $err);
+            $notes = array_values(array_unique($notes));
+            if ($shared === 0) { return array('ok' => false, 'shared' => 0, 'error' => trim(implode(' ', array_merge($errors, $notes)))); }
+            return array('ok' => empty($errors), 'shared' => $shared, 'error' => trim(implode(' ', array_merge($errors, $notes))));
         } catch (\Throwable $e) {
             error_log('[social share] failed: ' . $e->getMessage());
             return array('ok' => false, 'shared' => 0, 'error' => $e->getMessage());
@@ -187,6 +196,22 @@ class SocialShareService {
         if (mb_stripos($caption, $line) !== false) { return self::caption_for($platform, $caption); }   // already says it
         $tail = "\n\n" . $line;
         return self::caption_for($platform, $caption, self::length_for($platform, $tail)) . $tail;
+    }
+
+    /**
+     * Where each Story-capable account gets the post, from posts.story_accounts: "<id>" = Story only,
+     * "both:<id>" = feed post and Story. Accounts not listed get a feed post. Returns array('story' => ids, 'both' => ids).
+     */
+    public static function placements($stored): array {
+        $out = array('story' => array(), 'both' => array());
+        foreach (explode(',', (string) $stored) as $v) {
+            $v = trim($v);
+            if ($v === '') { continue; }
+            if (strpos($v, 'both:') === 0) { $out['both'][] = substr($v, 5); } else { $out['story'][] = $v; }
+        }
+        $out['story'] = array_values(array_diff(array_unique($out['story']), $out['both']));
+        $out['both']  = array_values(array_unique($out['both']));
+        return $out;
     }
 
     /** Mark the item just uploaded for $asset as 9:16 or not (Stories take only 9:16). */
@@ -336,15 +361,16 @@ class SocialShareService {
      * 9:16, and Instagram feed pictures outside 4:5 to 1.91:1 are fitted into the nearest allowed shape. Returns the
      * extra plan() options ('story_media', 'platform_items'); a failed fit leaves plan() to report or send as before.
      */
-    private static function fitted_media(array $accounts, array $items, array $stories): array{
+    private static function fitted_media(array $accounts, array $items, array $story_only, array $both = array()): array{
         $out = array();
         if (empty($items)) { return $out; }
-        $stories = array_map('strval', $stories);
+        $story_only = array_map('strval', $story_only); $both = array_map('strval', $both);
         $want_story = false; $ig_feed = false;
         foreach ($accounts as $a) {
-            $platform = strtolower((string) $a['platform']);
-            $story = in_array((string) $a['id'], $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true);
-            if ($story) { $want_story = true; } elseif ($platform === 'instagram') { $ig_feed = true; }
+            $platform = strtolower((string) $a['platform']); $id = (string) $a['id'];
+            $can = in_array($platform, AiDisclosure::STORY_PLATFORMS, true);
+            if ($can && (in_array($id, $story_only, true) || in_array($id, $both, true))) { $want_story = true; }
+            if ($platform === 'instagram' && !($can && in_array($id, $story_only, true))) { $ig_feed = true; }   // feed or Both
         }
         if ($want_story && !in_array(true, array_column($items, 'tall'), true)) {
             $s = self::fit_item($items[0], function ($w, $h) { return Aspect::matches($w, $h, '9:16', 0.04) ? null : array(SocialFrame::STORY_W, SocialFrame::STORY_H); });

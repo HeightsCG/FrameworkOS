@@ -86,7 +86,7 @@ class McpTools {
             'description' => 'Optional cross-post targets: connected social account ids (see list_share_targets) and/or "fanvue" to mirror the full post to the connected Fanvue account.');
         $t[] = array('name' => 'list_share_targets', 'description' => 'Connected cross-post targets (social accounts + Fanvue) usable as share_accounts.', 'inputSchema' => $none);
         $ai_disc = array('type' => 'boolean', 'description' => 'AI disclosure on the cross-posts. Default: on when the post has AI-generated or AI-edited media (TikTok and YouTube get their AI flag, other platforms get a disclosure line on the caption).');
-        $story   = array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Instagram or Facebook account ids (from share_accounts) that get this post as a Story instead of a feed post. Stories take only 9:16 media.');
+        $story   = array('type' => 'array', 'items' => array('type' => 'string'), 'description' => 'Instagram or Facebook account ids (from share_accounts) that get this post as a Story instead of a feed post; prefix an id with "both:" to post it to the feed and as a Story. Media that is not 9:16 is fitted into 9:16 for the Story. Leave out for feed posts only.');
         $t[] = array('name' => 'publish_post',  'description' => 'Publish a post now (fails if it has no ready media). Optionally cross-post.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id'),
             'properties' => array('id' => array('type' => 'integer'), 'share_accounts' => $share, 'ai_disclosure' => $ai_disc, 'story_accounts' => $story)));

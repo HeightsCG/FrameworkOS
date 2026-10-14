@@ -759,7 +759,9 @@ jQuery(function ($) {
     /* Cross-post choices kept on the composer by studio-ai.js: the AI disclosure switch and Story placement. */
     function shareOpts(body) {
         body.ai_disclosure = (composer.ai_disclosure == null) ? '' : (composer.ai_disclosure ? '1' : '0');
-        body.story_accounts = (composer.story_accounts || []).filter(function (id) { return composer.share.has(String(id)); });
+        // "<id>" = Story, "both:<id>" = feed and Story (studio-ai.js). Sent even when empty, so switching back to Feed clears it.
+        var st = (composer.story_accounts || []).filter(function (e) { return composer.share.has(String(e).replace(/^both:/, '')); });
+        body.story_accounts = st.length ? st : '';
         return body;
     }
     function peUpdateDestCount() {
@@ -1195,7 +1197,7 @@ jQuery(function ($) {
 
     /* ---- preview ---- */
     /* A Story is on for at least one ticked account: the preview gets a Story view (Instagram and Facebook Stories are 9:16). */
-    function peStoryOn() { return (composer.story_accounts || []).some(function (id) { return composer.share && composer.share.has(String(id)); }); }
+    function peStoryOn() { return (composer.story_accounts || []).some(function (e) { return composer.share && composer.share.has(String(e).replace(/^both:/, '')); }); }
     function peSetView(v) { composer.view = v; $('#csCompView .cs-pe__viewopt').each(function () { var on = $(this).data('view') === v; $(this).toggleClass('is-on', on).attr('aria-pressed', on ? 'true' : 'false'); }); }
     /* What the Story looks like: the cover whole and centred on a blurred copy of itself, as SocialFrame makes it on the server. */
     function renderStoryPreview() {
@@ -1514,18 +1516,30 @@ jQuery(function ($) {
         var soc = CFG.social || { accounts: [], can_post: false };
         if (!soc.accounts || !soc.accounts.length) { toastr.info('Connect social accounts in Settings first.'); return; }
         if (!soc.can_post) { toastr.info('Sharing to social is not part of your current plan.'); return; }
+        // Instagram and Facebook can take the post in the feed, as a Story, or both (same choice as the editor).
         var boxes = soc.accounts.map(function (a) {
-            return '<label class="cs-social"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>';
+            var story = ['instagram', 'facebook'].indexOf(String(a.platform).toLowerCase()) >= 0;
+            return '<div class="cs-sharerow"><label class="cs-social"><input class="form-check-input" type="checkbox" value="' + esc(a.id) + '"><i class="' + socialIconClass(a.platform) + '"></i><span class="cs-social__name">' + esc(a.username || a.platform) + '</span></label>' +
+                (story ? '<div class="cs-seg cs-seg--sm cs-sharerow__place" role="radiogroup" aria-label="Post to" data-for="' + esc(a.id) + '" hidden>' +
+                    [['feed', 'Feed'], ['story', 'Story'], ['both', 'Both']].map(function (p, i) { return '<button type="button" class="cs-seg__opt' + (i === 0 ? ' is-on' : '') + '" role="radio" aria-checked="' + (i === 0 ? 'true' : 'false') + '" data-place="' + p[0] + '">' + p[1] + '</button>'; }).join('') +
+                '</div>' : '') + '</div>';
         }).join('');
         dialog({
             title: 'Share to Social', okText: 'Share',
-            bodyHtml: '<div class="cs-comp__social" id="csShareBoxes">' + boxes + '</div>',
+            bodyHtml: '<div class="cs-sharelist" id="csShareBoxes">' + boxes + '</div>',
             onOk: function () {
                 var ids = $('#csShareBoxes input:checked').map(function () { return this.value; }).get();
                 if (!ids.length) { toastr.info('Pick at least one account.'); return false; }
-                ApiDataSvc.apiCall('post', 'post_share', { id: id, share_accounts: ids }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); loadPosts(); } else err(o); });
+                var story = [];
+                ids.forEach(function (aid) {
+                    var v = $('#csShareBoxes .cs-sharerow__place').filter(function () { return String($(this).data('for')) === aid; }).find('.is-on').data('place');
+                    if (v === 'story') { story.push(aid); } else if (v === 'both') { story.push('both:' + aid); }
+                });
+                ApiDataSvc.apiCall('post', 'post_share', { id: id, share_accounts: ids, story_accounts: story.length ? story : '' }, function (resp) { var o = JSON.parse(resp); if (o.success) { toastr.success(o.message); if (o.share_error) { toastr.warning(o.share_error); } loadPosts(); } else err(o); });
             }
         });
+        $('#csShareBoxes').on('change', 'input[type=checkbox]', function () { $(this).closest('.cs-sharerow').find('.cs-sharerow__place').prop('hidden', !this.checked); })
+            .on('click', '.cs-sharerow__place [data-place]', function () { $(this).siblings().removeClass('is-on').attr('aria-checked', 'false'); $(this).addClass('is-on').attr('aria-checked', 'true'); });
     }
     function hasPostFilters() { return !!(postFilters.state || postFilters.search); }
 

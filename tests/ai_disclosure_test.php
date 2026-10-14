@@ -78,6 +78,11 @@ $fit = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 
 $fc = $fit['account_configurations'][0]['configuration'] ?? array();
 check('a Story with no 9:16 media goes out with the cover fitted into 9:16', $fit['accounts'] === array('ig1') && ($fc['placement'] ?? '') === 'stories' && ($fc['media'][0]['url'] ?? '') === 'u2-916' && empty($fit['notes']));
 $igfit = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'tallpic', 'video' => false)), array('platform_items' => array('instagram' => array(array('url' => 'tallpic-45', 'video' => false)))));
+$pl = SocialShareService::placements('ig1,both:fb1,,both:ig2');
+check('placements: plain id = Story, both:id = feed and Story', $pl['story'] === array('ig1') && $pl['both'] === array('fb1', 'ig2'));
+check('placements: empty means feed everywhere',       SocialShareService::placements('') === array('story' => array(), 'both' => array()));
+$bothplan = SocialShareService::plan('Hi', array($accounts[0]), array(array('url' => 'u9', 'video' => false, 'tall' => true)), array());
+check('a Both account still gets a normal feed post in the first send', $bothplan['accounts'] === array('ig1') && empty($bothplan['account_configurations']));
 check('Instagram feed gets its fitted picture',          ($igfit['platform_configurations']['instagram']['media'][0]['url'] ?? '') === 'tallpic-45');
 check('Instagram frame: taller than 4:5 becomes 4:5, wider than 1.91:1 becomes 1.91:1, in range untouched',
     SocialFrame::instagram_frame(1080, 1920) === array(1080, 1350) && SocialFrame::instagram_frame(3000, 1000) === array(1080, 566) && SocialFrame::instagram_frame(1080, 1350) === null && SocialFrame::instagram_frame(1920, 1080) === null);

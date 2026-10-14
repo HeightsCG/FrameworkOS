@@ -67,6 +67,13 @@ jQuery(function ($) {
 
     /* ---- composer: AI disclosure and Story placement on the Distribution section ---- */
     var STORY_PLATFORMS = ['instagram', 'facebook'];
+    // c.story_accounts entries: "<id>" = Story instead of a feed post, "both:<id>" = feed post and Story; not listed = feed only.
+    function place_of(c, id) { var s = c.story_accounts || []; return s.indexOf('both:' + id) >= 0 ? 'both' : (s.indexOf(id) >= 0 ? 'story' : 'feed'); }
+    function set_place(c, id, v) {
+        c.story_accounts = (c.story_accounts || []).filter(function (x) { return x !== id && x !== 'both:' + id; });
+        if (v === 'story') { c.story_accounts.push(id); } else if (v === 'both') { c.story_accounts.push('both:' + id); }
+    }
+    var PLACES = [['feed', 'Feed'], ['story', 'Story'], ['both', 'Both']];
     function has_ai(c) { return (c.assets || []).some(function (a) { return a.provenance === 'generated' || a.provenance === 'edited'; }); }
     function dest_extras(c, accounts) {
         var $wrap = $('#csCompSocial');
@@ -76,20 +83,22 @@ jQuery(function ($) {
             if (STORY_PLATFORMS.indexOf(String(a.platform).toLowerCase()) < 0) { return; }
             var $box = $wrap.find('input[data-acct]').filter(function () { return String($(this).data('acct')) === String(a.id); });
             if (!$box.length || $box.prop('disabled')) { return; }
-            var on = c.story_accounts.indexOf(String(a.id)) >= 0, id = 'csPeStory_' + String(a.id).replace(/[^A-Za-z0-9_-]/g, '_');
-            $box.closest('.cs-pe__dest').after('<label class="cs-pe__story" for="' + id + '" data-story="' + T.esc(a.id) + '"' + ($box.prop('checked') ? '' : ' hidden') + '>' +
-                '<span class="cs-pe__storylabel">Post As Story</span>' +
-                '<span class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="' + id + '"' + (on ? ' checked' : '') + '></span></label>');
+            var cur = place_of(c, String(a.id));
+            $box.closest('.cs-pe__dest').after('<div class="cs-pe__story" data-story="' + T.esc(a.id) + '"' + ($box.prop('checked') ? '' : ' hidden') + '>' +
+                '<span class="cs-pe__storylabel">Post To</span>' +
+                '<div class="cs-pe__viewseg cs-pe__place" role="radiogroup" aria-label="Post to">' + PLACES.map(function (p) {
+                    return '<button type="button" class="cs-pe__viewopt' + (p[0] === cur ? ' is-on' : '') + '" role="radio" aria-checked="' + (p[0] === cur ? 'true' : 'false') + '" data-place="' + p[0] + '">' + p[1] + '</button>';
+                }).join('') + '</div></div>');
         });
         if (has_ai(c)) {
             $wrap.after('<div class="cs-pe__switchrow" id="csPeAiRow"><label class="cs-pe__switchtext" for="csPeAiDisclose"><span class="cs-pe__switchlabel">AI Disclosure</span></label>' +
                 '<div class="form-check form-switch cs-pe__switch"><input class="form-check-input" type="checkbox" role="switch" id="csPeAiDisclose"' + (c.ai_disclosure === 0 || c.ai_disclosure === '0' ? '' : ' checked') + '></div></div>');
         }
-        $wrap.off('change.csx').on('change.csx', '.cs-pe__story input', function () {
-            var id = String($(this).closest('.cs-pe__story').data('story'));
-            c.story_accounts = c.story_accounts.filter(function (x) { return x !== id; });
-            if (this.checked) { c.story_accounts.push(id); }
-            $(document).trigger('cs:story-changed', [this.checked]);
+        $wrap.off('click.csx').on('click.csx', '.cs-pe__place [data-place]', function () {
+            var id = String($(this).closest('.cs-pe__story').data('story')), v = String($(this).data('place'));
+            set_place(c, id, v);
+            $(this).siblings().removeClass('is-on').attr('aria-checked', 'false'); $(this).addClass('is-on').attr('aria-checked', 'true');
+            $(document).trigger('cs:story-changed', [v !== 'feed']);
         });
         $('#csPeAiDisclose').off('change').on('change', function () { c.ai_disclosure = this.checked ? 1 : 0; });
     }
@@ -103,7 +112,10 @@ jQuery(function ($) {
         $('#csCompSocial .cs-pe__story').each(function () {
             var id = String($(this).data('story')), on = c.share.has(id);
             $(this).prop('hidden', !on);
-            if (!on) { $(this).find('input').prop('checked', false); c.story_accounts = (c.story_accounts || []).filter(function (x) { return x !== id; }); }
+            if (!on && place_of(c, id) !== 'feed') {
+                set_place(c, id, 'feed');
+                $(this).find('[data-place]').removeClass('is-on').attr('aria-checked', 'false').filter('[data-place="feed"]').addClass('is-on').attr('aria-checked', 'true');
+            }
         });
     });
     /* ---- composer: the on-video line a Hook Overlay caption was written to follow ---- */

@@ -65,10 +65,11 @@ class PostsModel extends Model {
             $d = $fields['ai_disclosure'];
             $data['ai_disclosure'] = ($d === null || $d === '') ? null : (((int) $d === 1) ? 1 : 0);
         }
-        // Social accounts that get this post as a Story instead of a feed post.
+        // Social accounts that get this post as a Story: "<id>" = Story instead of a feed post, "both:<id>" = feed post and Story
+        // (SocialShareService::placements). An empty value clears them.
         if (array_key_exists('story_accounts', $fields)) {
             $ids = is_array($fields['story_accounts']) ? $fields['story_accounts'] : explode(',', (string) $fields['story_accounts']);
-            $ids = array_values(array_unique(array_filter(array_map(function ($v) { return preg_replace('/[^A-Za-z0-9_\-]/', '', (string) $v); }, $ids), 'strlen')));
+            $ids = array_values(array_unique(array_filter(array_map(function ($v) { return preg_replace('/[^A-Za-z0-9_\-:]/', '', (string) $v); }, $ids), 'strlen')));
             $data['story_accounts'] = mb_substr(implode(',', $ids), 0, 1024);
         }
         if (array_key_exists('campaign_id', $fields)) { $data['campaign_id'] = ((int) $fields['campaign_id'] > 0) ? (int) $fields['campaign_id'] : null; }
