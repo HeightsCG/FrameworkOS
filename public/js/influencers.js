@@ -1545,7 +1545,7 @@ jQuery(function ($) {
             if (script === '') { $('#inf_vcost').text(''); return; }
             talk_timer = setTimeout(function () {
                 var m = talk_opt();
-                api('influencer_talking_scene_build', { id: inf.id, script: script, setting: $('#inf_tsetting').val().trim(), model_key: m ? m.key : '', resolution: seg_val('inf_vq') || '' }, function (o) {
+                api('influencer_talking_scene_build', { id: inf.id, script: script, setting: $('#inf_tsetting').val().trim(), model_key: m ? m.key : '', resolution: seg_val('inf_vq') || '', voice_id: saved_voice || '' }, function (o) {
                     if (mode !== 'talk') { return; }
                     if (!o || !o.success) { $('#inf_vcost').text((o && o.message) || ''); return; }
                     talk_cost = o.price;
@@ -1555,16 +1555,37 @@ jQuery(function ($) {
         }
         $('#inf_tscript, #inf_tsetting').on('input', talk_price);
         $('#inf_tmodel').on('click', '.inf-opt', function () { $('#inf_tmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); extras(); });
-        $('#inf_taudio').on('click', function () {
-            if (voice) { voice = null; $('#inf_taudio_t').text('Voice Sample'); $(this).attr('aria-pressed', 'false'); return; }
-            if (!window.AiTools) { return; }
-            AiTools.pick_image({ title: 'Choose A Voice Sample', type: 'audio' }, function (a) { if (a) { voice = a; $('#inf_taudio_t').text('Voice Sample Set'); $('#inf_taudio').attr('aria-pressed', 'true'); } });
+        // Voice: one of her saved voices (Voice tab; the script is spoken in it), an audio file from the Library or uploaded, or none.
+        var saved_voice = 0;
+        function voice_label(t) { $('#inf_taudio_t').text(t); }
+        function voices_list() {
+            api('influencer_voices', { id: inf.id }, function (o) {
+                var vs = (o && o.success) ? (o.voices || []) : [];
+                var html = '<button type="button" class="inf-opt' + (!saved_voice && !voice ? ' is-on' : '') + '" data-voice="0"><span class="inf-opt__t">No Voice</span><span class="inf-opt__p">The model picks a voice</span></button>';
+                html += vs.map(function (v) { return '<button type="button" class="inf-opt' + (saved_voice === v.id ? ' is-on' : '') + '" data-voice="' + v.id + '" data-name="' + esc(v.name) + '"><span class="inf-opt__t">' + esc(v.name) + '</span><span class="inf-opt__p">' + (v.is_active ? 'Active voice · ' : '') + 'Speaks the script in this voice</span></button>'; }).join('');
+                html += '<button type="button" class="inf-opt' + (voice ? ' is-on' : '') + '" data-voice="file"><span class="inf-opt__t">Audio File</span><span class="inf-opt__p">' + (voice ? esc(voice.name || 'Chosen file') : 'Choose or upload a recording to follow') + '</span></button>';
+                if (!vs.length) { html += '<a class="inf-link" href="/influencers/voice/' + inf.id + '">Design A Voice For ' + esc(inf.name || 'Her') + '</a>'; }
+                $('#inf_tvoice').html(html);
+                if (!saved_voice && !voice) { var act = vs.filter(function (v) { return v.is_active; })[0]; if (act) { saved_voice = act.id; voice_label(act.name); $('#inf_tvoice .inf-opt').removeClass('is-on').filter('[data-voice="' + act.id + '"]').addClass('is-on'); talk_price(); } }
+            });
+        }
+        $('#inf_tvoice').on('click', '.inf-opt', function () {
+            var v = String($(this).data('voice'));
+            if (v === 'file') {
+                if (!window.AiTools) { return; }
+                AiTools.pick_image({ title: 'Choose A Voice Recording', type: 'audio' }, function (a) { if (a) { voice = a; saved_voice = 0; voice_label('Audio File'); voices_list(); talk_price(); } });
+                return;
+            }
+            saved_voice = parseInt(v, 10) || 0; voice = null;
+            voice_label(saved_voice ? String($(this).data('name')) : 'Voice');
+            $('#inf_tvoice .inf-opt').removeClass('is-on'); $(this).addClass('is-on');
+            talk_price();
         });
         function set_mode(m) {
             mode = m;
             $('#inf_vid_form [data-mode]').each(function () { this.hidden = $(this).data('mode') !== mode; });
             $('#inf_vgo').html(mode === 'talk' ? '<i class="fa-solid fa-comment-dots"></i> Generate Scene' : '<i class="fa-solid fa-clapperboard"></i> Generate Video');
-            if (mode !== 'talk') { $('#inf_vgo').prop('disabled', !still); }
+            if (mode !== 'talk') { $('#inf_vgo').prop('disabled', !still); } else { voices_list(); }
             extras();
         }
         $('#inf_vmode').on('click', '.inf-seg__opt', function () {
@@ -1686,6 +1707,7 @@ jQuery(function ($) {
             busy('Sending');
             var body = { id: inf.id, script: script, setting: $('#inf_tsetting').val().trim(), model_key: m ? m.key : '', resolution: seg_val('inf_vq') || '' };
             if (voice) { body.audio_asset_ids = [voice.id]; }
+            if (saved_voice) { body.voice_id = saved_voice; }
             api('influencer_talking_scene_start', body, function (o) {
                 if (!o || !o.success) { err(o); $b.prop('disabled', false); show_current(); return; }
                 spend_credits(o.price || talk_cost); talk_price();

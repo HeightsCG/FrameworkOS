@@ -489,6 +489,7 @@ class InfluencerVideoActions {
         $res = InfluencerConfig::resolution_for($model, (string) ($in['resolution'] ?? ''));
         $b['resolution'] = $res;
         $b['price'] = (int) InfluencerConfig::run_credits($model, (int) $b['seconds'], $res);
+        if ((int) ($in['voice_id'] ?? 0) > 0) { $b['voice_price'] = (int) InfluencerVoiceActions::speak_once_price($in['script'] ?? ''); $b['price'] += $b['voice_price']; }
         $b['plans'] = array_values((array) ($model['plans'] ?? array()));
         return $b;
     }
@@ -498,22 +499,38 @@ class InfluencerVideoActions {
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $b = self::talking_scene_build($cid, $infl, $in);
         if (empty($b['ok'])) { return $b; }
+        // Her saved voice (Voice tab): the script is spoken once in it and the scene follows that audio, at its length.
+        $voice = null;
+        if ((int) ($in['voice_id'] ?? 0) > 0) {
+            $model = InfluencerConfig::model((string) $b['model_key']);
+            if ($model && !InfluencerConfig::plan_allows($model, InfluencerJobService::user($cid))) {
+                return self::fail($model['label'] . ' is on the ' . InfluencerConfig::plans_label($model) . ' plans. Upgrade to use it.', array('need_upgrade' => true));
+            }
+            $voice = InfluencerVoiceActions::speak_once($cid, InfluencerJobService::user($cid), $infl, (int) $in['voice_id'], implode(' ', array_column($b['lines'], 'text')));
+            if (empty($voice['ok'])) { return $voice; }
+            if ($voice['duration'] > 0) {
+                $secs = max((int) $b['min_seconds'], min((int) $b['max_seconds'], (int) ceil($voice['duration'] + 0.6)));
+                if ($secs !== (int) $b['seconds']) { $b = self::talking_scene_build($cid, $infl, array('seconds' => $secs) + $in); }
+            }
+        }
         $audio = array();
         foreach (array_slice(array_map('intval', (array) ($in['audio_asset_ids'] ?? array())), 0, 3) as $auid) {
             $au = $auid > 0 ? (new MediaAssetsModel())->get_one($cid, $auid) : null;
             if ($au && (string) $au['type'] === 'audio' && (string) $au['status'] === 'ready') { $audio[] = $auid; }
         }
         $prompt = (string) $b['prompt'];
-        if (!empty($audio)) { $prompt .= ' Her voice and delivery follow @Audio1.'; }
+        if (!empty($audio) || $voice) { $prompt .= ' Her voice and delivery follow @Audio1: she speaks exactly that audio.'; }
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'scene', array(
                 'origin' => $origin, 'model_key' => (string) $b['model_key'], 'prompt' => $prompt,
                 'params' => array('duration' => (int) $b['seconds'], 'aspect' => (string) $b['aspect'], 'image_asset_ids' => $b['images'],
                     'lines' => $b['lines'], 'cast' => array_column($b['cast'], 'label'), 'setting' => self::one_line($in['setting'] ?? '', 800),
-                    'talking_scene' => 1, 'audio_asset_ids' => $audio,
+                    'talking_scene' => 1, 'audio_asset_ids' => $audio, 'audio_keys' => $voice ? array((string) $voice['key']) : array(),
+                    'voice_name' => $voice ? (string) $voice['voice_name'] : '',
                     'overrides' => array('resolution' => (string) $b['resolution'], 'generate_audio' => true)),
             ));
         } catch (PlanLimitException $e) {
+            if ($voice && (int) $voice['price'] > 0) { (new AiCreditsModel())->apply_delta($cid, (int) $voice['price'], 'refund', 'Refund: Talking Scene voice'); }
             return self::fail($e->getMessage(), $e->limit);
         }
         if ($job_id <= 0) { return self::fail('Could not start the talking scene.'); }

@@ -118,6 +118,17 @@ window.AiTools = (function ($) {
         $picker.on('change', '#aiPickerFile', function () {
             var file = this.files && this.files[0];
             if (!file) { return; }
+            if (String(file.type).indexOf('video') === 0) {   // videos go up in parts (resumable), like Content Studio's uploads
+                picker_state('<span class="spinner-border spinner-border-sm text-primary"></span> <span id="aiPickerPct">Uploading</span>');
+                $('#aiPickerUpload').prop('disabled', true);
+                upload_video(file, function (pct) { $('#aiPickerPct').text('Uploading ' + pct + '%'); }, function (asset, msg) {
+                    $('#aiPickerUpload').prop('disabled', false);
+                    if (!asset) { picker_state(''); toastr.error(msg || 'Upload failed. Try again.'); return; }
+                    bootstrap.Modal.getOrCreateInstance($picker[0]).hide();
+                    if (picker_cb) { picker_cb(asset); }
+                });
+                return;
+            }
             var audio = picker_filter.type === 'audio';
             if (file.size > (audio ? 30 : 15) * 1048576) { toastr.error(audio ? 'That audio file is too large. Audio can be up to 30 MB.' : 'That image is too large. Images can be up to 15 MB.'); return; }
             var fd = new FormData(); fd.append('file', file);
@@ -143,7 +154,7 @@ window.AiTools = (function ($) {
             if (!o || !o.success) { picker_state('<span class="ai-picker__err">Could not load your library. <button type="button" class="btn btn-link p-0" id="aiPickerRetry">Try Again</button></span>'); $('#aiPickerRetry').on('click', picker_load); return; }
             picker_assets = (o.assets || []).filter(function (a) { return a.status === 'ready' && (a.thumb_url || a.type === 'audio') && a.moderation !== 'blocked' && (picker_filter.type !== 'media' || a.type !== 'audio'); });
             if (!picker_assets.length) {
-                picker_state(picker_filter.search ? 'Nothing matches that search.' : (video ? 'No videos in your library yet. Upload one in Content Studio.' : (audio ? 'No audio in your library yet. Upload a file to start.' : 'No images in your library yet. Upload one to start.')));
+                picker_state(picker_filter.search ? 'Nothing matches that search.' : (video ? 'No videos in your library yet. Upload one to start.' : (audio ? 'No audio in your library yet. Upload a file to start.' : 'No images in your library yet. Upload one to start.')));
                 return;
             }
             picker_state('');
@@ -160,15 +171,16 @@ window.AiTools = (function ($) {
             }).join(''));
         });
     }
-    /* opts: { title, influencer, type: 'image' (default) | 'video' | 'audio' }. Videos are picked from the Library only (uploads go through Content Studio). */
+    /* opts: { title, influencer, type: 'image' (default) | 'video' | 'audio' | 'media' }. Every type can be uploaded right here. */
     function pick_image(opts, cb) {
         picker_build();
         opts = opts || {};
         picker_cb = cb;
         picker_filter = { search: '', influencer: parseInt(opts.influencer, 10) || 0, type: (opts.type === 'video' || opts.type === 'audio' || opts.type === 'media') ? opts.type : 'image' };
         $('#aiPickerTitle').text(opts.title || (picker_filter.type === 'video' ? 'Choose a Video' : (picker_filter.type === 'audio' ? 'Choose an Audio File' : (picker_filter.type === 'media' ? 'Choose a Clip Or Image' : 'Choose an Image'))));
-        $('#aiPickerUpload').prop('hidden', picker_filter.type === 'video' || picker_filter.type === 'media');
-        $('#aiPickerFile').attr('accept', picker_filter.type === 'audio' ? 'audio/mpeg,audio/wav,audio/x-wav,audio/mp4,.mp3,.wav,.m4a' : 'image/jpeg,image/png,image/webp');
+        $('#aiPickerUpload').prop('hidden', false);
+        $('#aiPickerFile').attr('accept', { audio: 'audio/mpeg,audio/wav,audio/x-wav,audio/mp4,.mp3,.wav,.m4a', video: 'video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm',
+            media: 'image/jpeg,image/png,image/webp,video/mp4,video/quicktime,video/webm,.mp4,.mov,.webm' }[picker_filter.type] || 'image/jpeg,image/png,image/webp');
         $('#aiPickerSearch').val('');
         bootstrap.Modal.getOrCreateInstance($picker[0]).show();
         picker_load();
@@ -362,6 +374,73 @@ window.AiTools = (function ($) {
         });
     }
 
+    /* =====================================================================
+     * Video upload in parts (media_upload_init / _chunk / _complete, the same flow as Content Studio's tray):
+     * upload_video(file, on_progress(percent), cb(asset | null, message))
+     * =================================================================== */
+    function api_form(ep, fd) {
+        var csrf = document.querySelector('meta[name="csrf-token"]');
+        if (csrf && !fd.has('csrf_token')) { fd.append('csrf_token', csrf.getAttribute('content')); }
+        return $.ajax({ url: '/api/' + ep, method: 'POST', data: fd, dataType: 'json', processData: false, contentType: false });
+    }
+    // One frame from the file and its size, so the server has a poster even when it cannot decode the video.
+    function poster_frame(file, done) {
+        var url = null, meta = { duration: 0, width: 0, height: 0 }, over = false;
+        function finish(blob) { if (over) { return; } over = true; if (url) { URL.revokeObjectURL(url); } done(blob || null, meta); }
+        try {
+            url = URL.createObjectURL(file);
+            var v = document.createElement('video'), timer = setTimeout(function () { finish(null); }, 8000);
+            v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+            v.addEventListener('error', function () { clearTimeout(timer); finish(null); });
+            v.addEventListener('loadedmetadata', function () {
+                meta = { duration: Math.round(v.duration || 0), width: v.videoWidth || 0, height: v.videoHeight || 0 };
+                try { v.currentTime = Math.min(1, Math.max(0, (v.duration || 0) / 2)); } catch (e) { clearTimeout(timer); finish(null); }
+            });
+            v.addEventListener('seeked', function () {
+                try {
+                    var s = Math.min(1, 1280 / (v.videoWidth || 1)), c = document.createElement('canvas');
+                    c.width = Math.round(v.videoWidth * s); c.height = Math.round(v.videoHeight * s);
+                    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+                    c.toBlob(function (b) { clearTimeout(timer); finish(b); }, 'image/jpeg', 0.86);
+                } catch (e) { clearTimeout(timer); finish(null); }
+            });
+        } catch (e) { finish(null); }
+    }
+    function upload_video(file, on_progress, cb) {
+        api('media_upload_init', { filename: file.name, mime: file.type, bytes_total: file.size, client_token: file.name + '|' + file.size + '|' + file.lastModified }, function (init) {
+            if (!init || !init.success) { cb(null, (init && init.message) || 'Could not start the upload.'); return; }
+            var part = init.part_size || 8388608, total = Math.ceil(file.size / part), had = {};
+            (init.uploaded_parts || []).forEach(function (p) { had[p] = true; });
+            function send(p) {
+                if (p > total) { return finish(); }
+                if (had[p]) { return send(p + 1); }
+                var fd = new FormData(); fd.append('session_id', init.session_id); fd.append('part_number', p); fd.append('chunk', file.slice((p - 1) * part, Math.min(p * part, file.size)));
+                var tries = 0;
+                (function attempt() {
+                    tries++;
+                    api_form('media_upload_chunk', fd).done(function (o) {
+                        if (o && o.success) { on_progress(Math.min(96, Math.round(p / total * 96))); send(p + 1); }
+                        else if (tries < 3) { setTimeout(attempt, 800 * tries); }
+                        else { cb(null, (o && o.message) || 'Part of the upload failed. Try again.'); }
+                    }).fail(function () { if (tries < 4) { setTimeout(attempt, 1000 * tries); } else { cb(null, 'The connection dropped. Try again to resume.'); } });
+                })();
+            }
+            function finish() {
+                on_progress(98);
+                poster_frame(file, function (blob, meta) {
+                    var fd = new FormData();
+                    fd.append('session_id', init.session_id);
+                    fd.append('client_duration', meta.duration); fd.append('client_width', meta.width); fd.append('client_height', meta.height);
+                    if (blob) { fd.append('poster', blob, 'poster.jpg'); }
+                    api_form('media_upload_complete', fd).done(function (o) {
+                        if (o && o.success && o.asset) { on_progress(100); cb(o.asset, ''); } else { cb(null, (o && o.message) || 'Could not finish the upload.'); }
+                    }).fail(function () { cb(null, 'Could not finish the upload. Try again.'); });
+                });
+            }
+            send(1);
+        });
+    }
+
     /* Export the frame at `seconds` of a Library video as a new image: cb(asset) on success, cb(null) on failure (already reported). */
     function export_frame(asset_id, seconds, cb) {
         api('media_extract_frame', { asset_id: asset_id, seconds: Math.max(0, Number(seconds) || 0).toFixed(2) }, function (o) {
@@ -373,7 +452,7 @@ window.AiTools = (function ($) {
     return {
         export_frame: export_frame, clock: clock,
         esc: esc, api: api, err: err, patch_children: patch_children, credits_html: credits_html, can_afford: can_afford, poll_job: poll_job, status_text: status_text,
-        pick_image: pick_image, edit: edit, enhance_video: enhance_video,
+        pick_image: pick_image, edit: edit, enhance_video: enhance_video, upload_video: upload_video,
         set_balance: function (n) { balance = parseInt(n, 10) || 0; },
         get_balance: function () { return balance; }
     };

@@ -284,6 +284,35 @@ class InfluencerVoiceActions {
         return self::okr(array('job_id' => $job_id, 'job' => self::job_json($cid, $job_id)));
     }
 
+    /** What one read of $text in a saved voice costs (Talking Scene: the script spoken once in her voice). */
+    public static function speak_once_price($text){
+        return Plan::ai_price('speech', array('params' => array('chars' => mb_strlen(trim((string) $text)), 'takes' => 1)));
+    }
+
+    /**
+     * Speak $text once in one of her saved voices (Talking Scene follows it), charged as one speech take. The audio goes to
+     * temporary storage. Returns ['ok', 'key', 'duration', 'price'] or a failure with the credits returned.
+     */
+    public static function speak_once($cid, array $user, array $infl, $voice_row, $text){
+        if (!ElevenLabsService::configured()) { return self::fail('Voice is not set up yet.'); }
+        $text = trim((string) $text);
+        if ($text === '') { return self::fail('Write what she says.'); }
+        if (mb_strlen($text) > ElevenLabsService::SPEECH_MAX) { return self::fail('The script is too long for one read.'); }
+        $v = (new InfluencerVoicesModel())->get_one((int) $cid, (int) $voice_row);
+        if (!$v || (int) $v['influencer_id'] !== (int) $infl['id']) { return self::fail('Pick one of ' . $infl['name'] . '\'s voices.'); }
+        $pay = Plan::charge_ai($user, 'speech', 'Talking Scene voice: ' . mb_substr($text, 0, 40), array('params' => array('chars' => mb_strlen($text), 'takes' => 1)));
+        if (empty($pay['ok'])) { return self::fail($pay['message'], array('need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance'])); }
+        $back = function ($why) use ($cid, $pay) { if ((int) $pay['price'] > 0) { (new AiCreditsModel())->apply_delta((int) $cid, (int) $pay['price'], 'refund', 'Refund: Talking Scene voice'); } return self::fail($why); };
+        $r = ElevenLabsService::speak((string) $v['voice_id'], $text, random_int(1, 2147483647));
+        if (empty($r['ok'])) { return $back((string) $r['error']); }
+        $path = self::write_tmp($r['bytes']);
+        $dur  = ($path !== '') ? (float) VideoTools::probe($path)['duration'] : 0.0;
+        if ($path !== '') { @unlink($path); }
+        $key = self::tmp_key($cid, 'scene_voice');
+        if (!S3Service::put_private_bytes($key, $r['bytes'], 'audio/mpeg')) { return $back('The voice could not be stored. Try again.'); }
+        return self::okr(array('key' => $key, 'duration' => round($dur, 2), 'price' => (int) $pay['price'], 'voice_name' => (string) $v['name']));
+    }
+
     /** Called by the job engine: render the takes of a speech job into temporary storage. Returns ['ok', 'takes' => [['key', 'duration']]]. */
     public static function render_takes(array $job){
         $cid = (int) $job['creator_id'];

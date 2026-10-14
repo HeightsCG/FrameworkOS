@@ -1004,6 +1004,67 @@ class ApiCreatorStudioController extends BaseApiController {
         $this->jsonSuccess(['message' => 'Shared to ' . $n . ' account' . ($n > 1 ? 's' : '') . '.', 'share_error' => $share_error]);
     }
 
+    /* ---------- Platform media checks (MediaCompliance), run in the background as the composer changes ---------- */
+
+    /**
+     * Class the composer's media for each chosen destination and start any versions that are missing. Takes the composer's
+     * current state (it may not be saved yet): asset_ids (cover first), audience, share_accounts, story_accounts
+     * ("<id>" Story, "both:<id>" Feed and Story). Returns per destination the state and, per image, the version.
+     */
+    public function post_media_checkAction(){
+        $user = $this->require_creator('content', false);
+        $cid  = (int) $user['user_id'];
+        $ids  = array_values(array_unique(array_filter(array_map('intval', (array) ($this->post['asset_ids'] ?? [])))));
+        $mm   = new MediaAssetsModel();
+        $rows = [];
+        foreach ($ids as $i => $id) {
+            $a = $mm->get_one($cid, $id);
+            if (!$a || (string) $a['status'] !== 'ready') { continue; }
+            $rows[] = $a + ['asset_id' => (int) $a['id'], 'is_cover' => $i === 0 ? 1 : 0];
+        }
+        $post  = ['audience' => in_array((string) ($this->post['audience'] ?? 'free'), ['free', 'subscribers', 'ppv'], true) ? (string) $this->post['audience'] : 'free'];
+        $items = SocialShareService::items_for_post($post, $rows);
+        $req   = array_map('strval', (array) ($this->post['share_accounts'] ?? []));
+        $place = SocialShareService::placements(is_array($this->post['story_accounts'] ?? null) ? implode(',', $this->post['story_accounts']) : (string) ($this->post['story_accounts'] ?? ''));
+        $dests = [];
+        foreach ((new SocialAccountsModel())->get_connected_for_user($cid) as $a) {
+            $id = (string) $a['post_for_me_social_account_id'];
+            if (!in_array($id, $req, true)) { continue; }
+            $p = strtolower((string) $a['platform']); $story_ok = in_array($p, AiDisclosure::STORY_PLATFORMS, true);
+            $pls = ($story_ok && in_array($id, $place['story'], true)) ? ['story'] : (($story_ok && in_array($id, $place['both'], true)) ? ['feed', 'story'] : ['feed']);
+            foreach ($pls as $pl) { $dests[] = ['id' => $id, 'platform' => $p, 'placement' => $pl, 'username' => (string) ($a['username'] ?? '')]; }
+        }
+        $r = empty($items) ? ['destinations' => [], 'busy' => false, 'review' => 0] : MediaCompliance::check($cid, $items, $dests);
+        $this->jsonSuccess($r + ['asset_ids' => array_values(array_map(function ($i) { return (int) $i['asset']['id']; }, $items))]);
+    }
+
+    /** Approve a proposed version (its picture changes shape): it may now be published. */
+    public function media_variant_approveAction(){
+        $user = $this->require_creator('content', false);
+        $r = MediaCompliance::approve((int) $user['user_id'], (int) ($this->post['id'] ?? 0));
+        if (empty($r['ok'])) { $this->jsonError($r['error']); }
+        $this->jsonSuccess(['variant' => $r['variant']]);
+    }
+
+    /** Make the version again another way: fit (whole picture on a blurred fill) or crop (top | center | bottom). */
+    public function media_variant_redoAction(){
+        $user = $this->require_creator('content', false);
+        $cid  = (int) $user['user_id'];
+        $a = (new MediaAssetsModel())->get_one($cid, (int) ($this->post['asset_id'] ?? 0));
+        if (!$a || (string) $a['status'] !== 'ready') { $this->jsonError('That file is not ready.'); }
+        $method = ((string) ($this->post['method'] ?? 'fit') === 'crop') ? 'crop' : 'fit';
+        $focus  = in_array((string) ($this->post['focus'] ?? 'center'), ['top', 'center', 'bottom'], true) ? (string) $this->post['focus'] : 'center';
+        $platform = strtolower((string) ($this->post['platform'] ?? '')); $placement = ((string) ($this->post['placement'] ?? 'feed') === 'story') ? 'story' : 'feed';
+        $teaser = (string) ($this->post['teaser'] ?? '0') === '1';
+        if ((string) $a['type'] === 'video') {   // a video takes a while: in the background, the composer keeps checking
+            MediaCompliance::start_variant($cid, (int) $a['id'], $teaser, $platform, $placement, $method, $focus);
+            $this->jsonSuccess(['variant' => ['id' => 0, 'state' => 'processing']]);
+        }
+        $v = MediaCompliance::make_variant($cid, $a, $teaser, $platform, $placement, $method, $focus);
+        if (!$v) { $this->jsonError('That version could not be made. Try again.'); }
+        $this->jsonSuccess(['variant' => MediaCompliance::variant_json($cid, $v)]);
+    }
+
     /* ---------- Content Studio: posts list ---------- */
 
     public function posts_listAction(){

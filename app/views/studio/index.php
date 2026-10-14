@@ -392,6 +392,7 @@
                         <p class="cs-pe__empty" id="csPeDestEmpty" hidden></p>
                         <p class="cs-pe__empty" id="csPeDestNone" hidden>No accounts match that filter.</p>
                         <p class="cs-pe__error" id="csPeErr_share" role="alert" hidden></p>
+                        <p class="cs-pe__mcnote" id="csPeMcNote" role="status" hidden></p>
                     </section>
 
                     <section class="cs-pe__section" data-section="publish" aria-labelledby="csPeH_publish" hidden>

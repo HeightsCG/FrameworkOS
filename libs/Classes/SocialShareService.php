@@ -16,12 +16,12 @@ class SocialShareService {
      * The pseudo id 'fanvue' in $account_ids routes to FanvueShareService (full-post mirror);
      * everything else is a Post for Me social account id.
      */
-    public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null){
+    public static function share(array $user, array $post, array $account_ids, $scheduled_iso = null, array $opts = array()){
         $account_ids = array_values(array_map('strval', $account_ids));
         $fanvue      = in_array(FanvueShareService::ACCOUNT_ID, $account_ids, true);
         $account_ids = array_values(array_diff($account_ids, array(FanvueShareService::ACCOUNT_ID)));
 
-        $res = self::share_social($user, $post, $account_ids, $scheduled_iso);
+        $res = self::share_social($user, $post, $account_ids, $scheduled_iso, $opts);
         if ($fanvue && class_exists('DatabaseJobQueue') && FanvueShareService::has_video($post)) {
             // Videos upload in the background so publishing doesn't wait on them; a failure arrives as a notification.
             (new DatabaseJobQueue())->dispatch('fanvue_share', array('user_id' => (int) $user['user_id'], 'post_id' => (int) $post['id'], 'scheduled_iso' => $scheduled_iso), 'fanvue_share:' . (int) $post['id']);
@@ -40,7 +40,7 @@ class SocialShareService {
         return $res;
     }
 
-    private static function share_social(array $user, array $post, array $account_ids, $scheduled_iso = null){
+    private static function share_social(array $user, array $post, array $account_ids, $scheduled_iso = null, array $opts = array()){
         try {
             if (empty($account_ids)) { return array('ok' => true, 'shared' => 0, 'error' => ''); }
             if (!Plan::can_social_post($user)) { return array('ok' => false, 'shared' => 0, 'error' => 'Your plan does not include social posting.'); }
@@ -59,47 +59,69 @@ class SocialShareService {
 
             $promo = trim((string) $post['caption']);
             $assets = (new PostsModel())->get_assets((int) $post['id']);
-            $cover = null;
-            foreach ($assets as $a) { if ((int) $a['is_cover'] === 1) { $cover = $a; break; } }
-            if (!$cover && !empty($assets)) { $cover = $assets[0]; }
+            $items = self::items_for_post($post, $assets);
+            $cid = (int) $user['user_id'];
 
-            // Uploaded items as array('url' => ..., 'video' => bool), cover first.
-            $items = array();
-            if ($cover) {
-                if ($post['audience'] === 'subscribers' || !self::sfw($cover)) {
-                    // Teaser only (members-only post, or an adult / not-yet-cleared image on mainstream socials):
-                    // the blurred still, never the media itself.
-                    $items = self::tag_shape(self::push_item((string) ($cover['blurred_key'] ?? ''), 'image/jpeg', false, $items), $cover);
-                } else {
-                    $items = self::tag_shape(self::push_asset($cover, $items), $cover);
-                }
-            }
-            // Free posts go out as a carousel: the rest of the post's media after the cover.
-            // Adult-flagged or blocked extras are left off.
-            if ($cover && $post['audience'] === 'free') {
-                foreach ($assets as $a) {
-                    if (count($items) >= self::MAX_MEDIA) { break; }
-                    if ((int) $a['asset_id'] === (int) $cover['asset_id'] || !empty($a['deleted_at'])) { continue; }
-                    if (!self::sfw($a)) { continue; }
-                    $items = self::tag_shape(self::push_asset($a, $items), $a);
+            // Every image each destination would get passes the platform's rules first (MediaCompliance::resolve, the
+            // authoritative check): the original when it fits, a technical version made without asking, or a reshaped
+            // one only once approved. A destination still waiting for an approval is held, never sent unapproved.
+            $place = self::placements($post['story_accounts'] ?? '');
+            $uploaded = array(); $notes = array(); $held = array(); $media_by = array('feed' => array(), 'story' => array());
+            $ok_feed = array(); $ok_story = array();
+            foreach ($accounts as $acc) {
+                $id = (string) $acc['id']; $platform = strtolower((string) $acc['platform']);
+                $story_ok = in_array($platform, AiDisclosure::STORY_PLATFORMS, true);
+                $places = ($story_ok && in_array($id, $place['story'], true)) ? array('story') : (($story_ok && in_array($id, $place['both'], true)) ? array('feed', 'story') : array('feed'));
+                if (isset($opts['places'][$id])) { $places = array_values(array_intersect($places, (array) $opts['places'][$id])); }   // a held share sends only what was held
+                foreach ($places as $pl) {
+                    $list = ($pl === 'story') ? array_slice($items, 0, 1) : self::media_for($platform, $items);
+                    $sent = array(); $stop = '';
+                    foreach ($list as $it) {
+                        $r = MediaCompliance::resolve($cid, $it['asset'], $it['teaser'], $platform, $pl, $it['video']);
+                        if ($r['state'] === 'held' || $r['state'] === 'unsupported') { $stop = $r['state'] . ':' . $r['reason']; break; }
+                        if (!isset($uploaded[$r['key']])) {
+                            // dry_run (tests): nothing leaves the server; the S3 key stands in for the uploaded URL
+                            $up = !empty($opts['dry_run']) ? array(array('url' => 's3:' . $r['key'], 'video' => $it['video'], 'key' => $r['key']))
+                                : self::push_item($r['key'], $it['video'] ? 'video/mp4' : 'image/jpeg', $it['video'], array());
+                            $uploaded[$r['key']] = $up ? $up[0] : null;
+                        }
+                        if ($uploaded[$r['key']]) { $sent[] = $uploaded[$r['key']] + array('tall' => $pl === 'story'); }
+                    }
+                    $label = MediaCompliance::name($platform) . ($pl === 'story' ? ' Story' : '');
+                    if ($stop !== '') {
+                        list($why, $reason) = explode(':', $stop, 2);
+                        if ($why === 'held') { $held[$id][] = $pl; $notes[] = $label . ' is held: ' . $reason . '. It is published once you approve it.'; }
+                        else { $notes[] = $label . ' was skipped: ' . $reason; }
+                        continue;
+                    }
+                    if (empty($sent) && !empty($list)) { $notes[] = $label . ' was skipped: the media could not be uploaded.'; continue; }
+                    $media_by[$pl][$platform] = $sent;
+                    if ($pl === 'story') { $ok_story[] = $id; } else { $ok_feed[] = $id; }
                 }
             }
 
             // Captions, the carousel slice, the AI label or disclosure line, and Stories: built without the network.
             // One Post for Me post takes each account once, so accounts set to Feed and Story get a second post for the Story.
             $live = array_filter($assets, function ($a) { return empty($a['deleted_at']); });
-            $place = self::placements($post['story_accounts'] ?? '');
-            $opts = array('ai' => AiDisclosure::applies($post['ai_disclosure'] ?? null, $live), 'stories' => $place['story']);
-            $opts += self::fitted_media($accounts, $items, $place['story'], $place['both']);
-            $runs = array(array($accounts, $opts));
-            $both = array_values(array_filter($accounts, function ($a) use ($place) { return in_array((string) $a['id'], $place['both'], true); }));
-            if (!empty($both)) { $runs[] = array($both, array('stories' => $place['both']) + $opts); }
+            $ai = AiDisclosure::applies($post['ai_disclosure'] ?? null, $live);
+            // A Story for a Feed + Story account that goes alone (its feed post was sent earlier) runs like a Story-only one.
+            $story_only = array_values(array_diff(array_merge(array_intersect($ok_story, $place['story']), array_diff(array_intersect($ok_story, $place['both']), $ok_feed)), $ok_feed));
+            $both_story = array_values(array_intersect($ok_story, $place['both'], $ok_feed));
+            $by_id = array(); foreach ($accounts as $acc) { $by_id[(string) $acc['id']] = $acc; }
+            $pick = function (array $ids) use ($by_id) { $o = array(); foreach (array_unique($ids) as $i) { if (isset($by_id[$i])) { $o[] = $by_id[$i]; } } return $o; };
+            $first = function (array $by) { foreach ($by as $l) { return $l; } return array(); };
+            $base = array('ai' => $ai, 'platform_items' => $media_by['feed'], 'story_media_by' => $media_by['story']);
+            $runs = array();
+            $main = $pick(array_merge($ok_feed, $story_only));
+            if (!empty($main)) { $runs[] = array($main, array('stories' => $story_only) + $base, $first($media_by['feed']) ?: $first($media_by['story'])); }
+            if (!empty($both_story)) { $runs[] = array($pick($both_story), array('stories' => $both_story) + $base, $first($media_by['story'])); }
 
-            $shared = 0; $notes = array(); $errors = array();
+            $shared = 0; $errors = array(); $dry = array();
             foreach ($runs as $run) {
-                $plan = self::plan($promo, $run[0], $items, $run[1]);
+                $plan = self::plan($promo, $run[0], (array) $run[2], $run[1]);
                 $notes = array_merge($notes, $plan['notes']);
                 if (empty($plan['accounts'])) { continue; }
+                if (!empty($opts['dry_run'])) { $dry[] = $plan; $shared = max($shared, count($plan['accounts'])); continue; }
                 $res = PostForMeService::create_post($plan['accounts'], $promo, $plan['media'], $scheduled_iso, false, $plan['platform_configurations'], $plan['account_configurations']);
                 if (is_array($res) && isset($res['id'])) {
                     (new SocialPostsModel())->create(
@@ -113,13 +135,43 @@ class SocialShareService {
                     $errors[] = $err;
                 }
             }
+            // Held destinations: published by ShareHeldJob as soon as their images are approved; the creator is asked to review.
+            if (!empty($held) && empty($opts['from_held']) && empty($opts['dry_run'])) {
+                ShareHeldJob::queue((int) $user['user_id'], (int) $post['id'], $held, $scheduled_iso);
+                $names = array(); foreach (array_keys($held) as $hid) { $names[] = MediaCompliance::name($by_id[$hid]['platform'] ?? ''); }
+                MediaCompliance::notify_review((int) $user['user_id'], (int) $post['id'], $names);
+            }
             $notes = array_values(array_unique($notes));
-            if ($shared === 0) { return array('ok' => false, 'shared' => 0, 'error' => trim(implode(' ', array_merge($errors, $notes)))); }
-            return array('ok' => empty($errors), 'shared' => $shared, 'error' => trim(implode(' ', array_merge($errors, $notes))));
+            $out = array('held' => array_map('strval', array_keys($held)), 'held_places' => $held) + (!empty($opts['dry_run']) ? array('plans' => $dry) : array());
+            // Held is not a failure: it goes out once approved. Nothing sent and nothing held is.
+            return $out + array('ok' => empty($errors) && ($shared > 0 || !empty($held)), 'shared' => $shared, 'error' => trim(implode(' ', array_merge($errors, $notes))));
         } catch (\Throwable $e) {
             error_log('[social share] failed: ' . $e->getMessage());
             return array('ok' => false, 'shared' => 0, 'error' => $e->getMessage());
         }
+    }
+
+    /**
+     * The media a cross-post of $post sends, in order (cover first), before any upload: [['asset' => row (with 'id'),
+     * 'teaser' => bool (the blurred still: a members-only post, or adult / not-yet-cleared media), 'video' => bool]].
+     * Free posts send the rest of their cleared media as a carousel.
+     */
+    public static function items_for_post(array $post, array $assets): array {
+        $cover = null;
+        foreach ($assets as $a) { if ((int) $a['is_cover'] === 1 && empty($a['deleted_at'])) { $cover = $a; break; } }
+        if (!$cover) { foreach ($assets as $a) { if (empty($a['deleted_at'])) { $cover = $a; break; } } }
+        if (!$cover) { return array(); }
+        $row = function ($a, $teaser) { $a['id'] = (int) $a['asset_id']; return array('asset' => $a, 'teaser' => (bool) $teaser, 'video' => !$teaser && (string) $a['type'] === 'video'); };
+        $teaser = ((string) ($post['audience'] ?? 'free') === 'subscribers') || !self::sfw($cover);
+        $items = array($row($cover, $teaser));
+        if ((string) ($post['audience'] ?? 'free') === 'free') {
+            foreach ($assets as $a) {
+                if (count($items) >= self::MAX_MEDIA) { break; }
+                if ((int) $a['asset_id'] === (int) $cover['asset_id'] || !empty($a['deleted_at']) || !self::sfw($a)) { continue; }
+                $items[] = $row($a, false);
+            }
+        }
+        return $items;
     }
 
     /**
@@ -128,7 +180,7 @@ class SocialShareService {
      * $accounts: rows of id, platform, ai_disclosure_text. $items: uploaded media, cover first, each
      * array('url', 'video' => bool, 'tall' => bool (9:16)). $opts: 'ai' => disclose this post as AI media,
      * 'stories' => account ids that get it as a Story, 'story_media' => the cover fitted into 9:16 (used when no item
-     * is 9:16), 'platform_items' => platform => items to use in place of $items (fitted_media).
+     * is 9:16), 'story_media_by' => platform => Story items, 'platform_items' => platform => feed items in place of $items (both checked by MediaCompliance).
      *
      * Returns accounts (the ids that are sent to), media (urls), platform_configurations,
      * account_configurations and notes (what was left out, and why).
@@ -145,19 +197,20 @@ class SocialShareService {
         $media   = array_column($items, 'url');
         $out     = array('accounts' => array(), 'media' => $media, 'platform_configurations' => array(), 'account_configurations' => array(), 'notes' => array());
         $tall    = array_values(array_filter($items, function ($i) { return !empty($i['tall']); }));
-        if (empty($tall)) { $tall = array_values((array) ($opts['story_media'] ?? array())); }   // the cover fitted into 9:16 (fitted_media)
+        if (empty($tall)) { $tall = array_values((array) ($opts['story_media'] ?? array())); }   // the cover fitted into 9:16
 
         $feed = array();   // platform => accounts posting to the feed
         foreach ($accounts as $a) {
             $id = (string) $a['id']; $platform = strtolower((string) $a['platform']);
             if (in_array($id, $stories, true) && in_array($platform, AiDisclosure::STORY_PLATFORMS, true)) {
-                if (empty($tall)) { $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: Stories need 9:16 media.'; continue; }
+                $story = isset($opts['story_media_by'][$platform]) ? array_values((array) $opts['story_media_by'][$platform]) : $tall;   // checked per platform (MediaCompliance)
+                if (empty($story)) { $out['notes'][] = 'The ' . ucfirst($platform) . ' Story was skipped: Stories need 9:16 media.'; continue; }
                 // The Story still goes out; the creator is told it cannot carry the disclosure line.
                 if ($ai) { $out['notes'][] = 'Stories have no caption, so the ' . ucfirst($platform) . ' Story carries no AI disclosure line.'; }
                 $out['accounts'][] = $id;
                 $out['account_configurations'][] = array('social_account_id' => $id, 'configuration' => array(
                     'placement' => 'stories',
-                    'media'     => array_map(function ($i) { return array('url' => $i['url']); }, $tall),
+                    'media'     => array_map(function ($i) { return array('url' => $i['url']); }, $story),
                 ));
                 continue;
             }
@@ -212,17 +265,6 @@ class SocialShareService {
         $out['story'] = array_values(array_diff(array_unique($out['story']), $out['both']));
         $out['both']  = array_values(array_unique($out['both']));
         return $out;
-    }
-
-    /** Mark the item just uploaded for $asset as 9:16 or not (Stories take only 9:16). */
-    private static function tag_shape(array $items, array $asset): array {
-        $n = count($items);
-        if ($n > 0 && !isset($items[$n - 1]['tall'])) {
-            $items[$n - 1]['tall'] = Aspect::matches((int) ($asset['width'] ?? 0), (int) ($asset['height'] ?? 0), '9:16', 0.04);
-            $items[$n - 1]['w'] = (int) ($asset['width'] ?? 0);
-            $items[$n - 1]['h'] = (int) ($asset['height'] ?? 0);
-        }
-        return $items;
     }
 
     /** Hard post-length limits per platform (Post for Me platform keys). Everything else is effectively unlimited. */
@@ -303,20 +345,6 @@ class SocialShareService {
         return array_slice($items, 0, $limit);
     }
 
-    /** Upload one asset: images as the display rendition, videos as the clip (falling back to the poster). */
-    private static function push_asset(array $asset, array $items){
-        if ((string) $asset['type'] !== 'video') {
-            return self::push_item((string) ($asset['display_key'] ?? ''), 'image/jpeg', false, $items);
-        }
-        $before = count($items);
-        $items  = self::push_item((string) ($asset['original_key'] ?? ''), (string) ($asset['mime'] ?: 'video/mp4'), true, $items);
-        if (count($items) === $before) {
-            error_log('[social share] video upload failed for asset ' . (int) $asset['asset_id'] . ', sending the poster instead');
-            $items = self::push_item((string) ($asset['poster_key'] ?? ''), 'image/jpeg', false, $items);
-        }
-        return $items;
-    }
-
     /** push_media, keeping track of whether the item is a video. */
     private static function push_item($key, $mime, $is_video, array $items){
         $urls = self::push_media($key, $mime, array());
@@ -354,78 +382,6 @@ class SocialShareService {
         if ($ucode >= 200 && $ucode < 300) { return (string) $media_url; }
         error_log('[social share] media upload HTTP ' . $ucode . ' ' . $err);
         return '';
-    }
-
-    /**
-     * Media in the shape each placement needs (SocialFrame): a Story gets the cover fitted into 9:16 when no item is
-     * 9:16, and Instagram feed pictures outside 4:5 to 1.91:1 are fitted into the nearest allowed shape. Returns the
-     * extra plan() options ('story_media', 'platform_items'); a failed fit leaves plan() to report or send as before.
-     */
-    private static function fitted_media(array $accounts, array $items, array $story_only, array $both = array()): array{
-        $out = array();
-        if (empty($items)) { return $out; }
-        $story_only = array_map('strval', $story_only); $both = array_map('strval', $both);
-        $want_story = false; $ig_feed = false;
-        foreach ($accounts as $a) {
-            $platform = strtolower((string) $a['platform']); $id = (string) $a['id'];
-            $can = in_array($platform, AiDisclosure::STORY_PLATFORMS, true);
-            if ($can && (in_array($id, $story_only, true) || in_array($id, $both, true))) { $want_story = true; }
-            if ($platform === 'instagram' && !($can && in_array($id, $story_only, true))) { $ig_feed = true; }   // feed or Both
-        }
-        if ($want_story && !in_array(true, array_column($items, 'tall'), true)) {
-            $s = self::fit_item($items[0], function ($w, $h) { return Aspect::matches($w, $h, '9:16', 0.04) ? null : array(SocialFrame::STORY_W, SocialFrame::STORY_H); });
-            if ($s) { $out['story_media'] = array($s); }
-        }
-        if ($ig_feed) {
-            $ig = array(); $changed = false;
-            foreach (self::media_for('instagram', $items) as $it) {
-                $f = null;
-                // A stored size inside Instagram's range needs no download; an unknown size is measured from the file.
-                $known = (int) ($it['w'] ?? 0) > 0 && (int) ($it['h'] ?? 0) > 0;
-                if (empty($it['video']) && (!$known || SocialFrame::instagram_frame($it['w'], $it['h']))) {
-                    $f = self::fit_item($it, function ($w, $h) { return SocialFrame::instagram_frame($w, $h); });
-                }
-                if ($f) { $changed = true; }
-                $ig[] = $f ?: $it;
-            }
-            if ($changed) { $out['platform_items'] = array('instagram' => $ig); }
-        }
-        return $out;
-    }
-
-    /**
-     * One uploaded item re-made in the frame $frame_for(width, height) returns, measured from the file itself, and
-     * uploaded. Returns the item unchanged when it already fits (null frame), null when it could not be made.
-     */
-    private static function fit_item(array $item, callable $frame_for): ?array{
-        if ((string) ($item['key'] ?? '') === '') { return null; }
-        $video = !empty($item['video']);
-        $src = tempnam(sys_get_temp_dir(), 'frame');
-        if ($src === false) { return null; }
-        $dst = $src . ($video ? '.mp4' : '.jpg');
-        $res = null;
-        if (S3Service::get_private_to_file((string) $item['key'], $src)) {
-            list($sw, $sh) = $video ? self::video_size($src) : (array_slice((array) @getimagesize($src), 0, 2) + array(0, 0));
-            $frame = ($sw > 0 && $sh > 0) ? $frame_for((int) $sw, (int) $sh) : null;
-            if ($sw > 0 && $sh > 0 && !$frame) {
-                $res = $item + array('w' => (int) $sw, 'h' => (int) $sh);   // already the right shape
-                $res['tall'] = Aspect::matches((int) $sw, (int) $sh, '9:16', 0.04);
-            } elseif ($frame) {
-                list($w, $h) = $frame;
-                $ok = $video ? SocialFrame::video($src, $dst, $w, $h) : SocialFrame::image($src, $dst, $w, $h);
-                $url = $ok ? self::push_file($dst, $video ? 'video/mp4' : 'image/jpeg') : '';
-                if ($url !== '') { $res = array('url' => $url, 'video' => $video, 'tall' => Aspect::matches($w, $h, '9:16', 0.04), 'w' => (int) $w, 'h' => (int) $h); }
-                else { error_log('[social share] could not fit media to ' . $w . 'x' . $h); }
-            }
-        }
-        @unlink($src); @unlink($dst);
-        return $res;
-    }
-
-    /** Width and height of a video file (ffprobe), or array(0, 0). */
-    private static function video_size($path): array{
-        $p = VideoTools::probe($path);
-        return array((int) ($p['width'] ?? 0), (int) ($p['height'] ?? 0));
     }
 
     /** Safe for mainstream socials: media (image, or a video's poster frame) cleared as non-adult. */

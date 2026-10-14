@@ -116,6 +116,7 @@ class ApiInfluencerVideosController extends BaseApiController {
             'seconds' => (int) ($this->post['seconds'] ?? 0));
         foreach (['model_key', 'resolution', 'aspect'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
         if (isset($this->post['audio_asset_ids']) && is_array($this->post['audio_asset_ids'])) { $in['audio_asset_ids'] = array_map('intval', $this->post['audio_asset_ids']); }
+        if (!empty($this->post['voice_id'])) { $in['voice_id'] = (int) $this->post['voice_id']; }
         return $in;
     }
 

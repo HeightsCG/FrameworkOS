@@ -764,6 +764,33 @@
 #csComposer .cs-pe__destplat{ font-size:13px; color:var(--muted); margin-left:auto; flex:none; }
 #csComposer .cs-pe__deststate{ font-size:12px; color:var(--danger); flex:none; }
 #csComposer .cs-pe__deststate--posted{ color:var(--muted2); }
+/* platform media check per account: shown only when something needs attention or is being prepared */
+#csComposer .cs-pe__mc{ display:inline-flex; align-items:center; gap:6px; flex:none; font-size:12px; color:var(--muted); white-space:nowrap; }
+#csComposer .cs-pe__mc .spinner-border{ width:.8em; height:.8em; border-width:.14em; }
+#csComposer .cs-pe__mc--unsupported{ color:var(--danger); }
+#csComposer .cs-pe__mc--approved{ color:var(--muted2); }
+#csComposer .cs-pe__mc--review{ height:24px; padding:0 10px; border:1px solid var(--acc); border-radius:2px; background:var(--vsoft); color:var(--acc-ink); font-weight:600; cursor:pointer; }
+#csComposer .cs-pe__mc--review:hover{ background:#fff; }
+#csComposer .cs-pe__mc--review:focus-visible{ outline:none; box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--acc); }
+#csComposer .cs-pe__mcnote{ margin:8px 0 0; font-size:13px; color:var(--acc-ink); }
+#csComposer .cs-pe__mcnote[hidden]{ display:none; }
+/* review overlay: original and adjusted side by side */
+#csComposer .cs-mc{ position:absolute; inset:0; z-index:20; display:flex; align-items:center; justify-content:center; padding:24px; background:rgba(17, 17, 17, .45); }
+#csComposer .cs-mc[hidden]{ display:none; }
+#csComposer .cs-mc__panel{ width:min(760px, 100%); max-height:100%; overflow:auto; display:flex; flex-direction:column; gap:14px; padding:20px; background:#fff; border-radius:4px; box-shadow:0 12px 40px rgba(0, 0, 0, .25); }
+#csComposer .cs-mc__head{ display:flex; align-items:center; justify-content:space-between; gap:12px; }
+#csComposer .cs-mc__title{ margin:0; font-size:18px; font-weight:600; color:var(--text); }
+#csComposer .cs-mc__why{ margin:0; font-size:14px; color:var(--t2); }
+#csComposer .cs-mc__pair{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+#csComposer .cs-mc__fig{ margin:0; display:flex; flex-direction:column; gap:6px; min-width:0; }
+#csComposer .cs-mc__fig figcaption{ font-size:12px; color:var(--muted); text-align:center; }
+#csComposer .cs-mc__media{ height:340px; display:flex; align-items:center; justify-content:center; background:#F3F3F3; border-radius:2px; overflow:hidden; }
+#csComposer .cs-mc__media img, #csComposer .cs-mc__media video{ max-width:100%; max-height:100%; object-fit:contain; display:block; }
+#csComposer .cs-mc__busy{ display:flex; flex-direction:column; align-items:center; gap:8px; color:var(--muted); font-size:13px; }
+#csComposer .cs-mc__opts{ display:flex; flex-wrap:wrap; gap:10px; }
+#csComposer .cs-mc__opts .cs-pe__viewopt.is-on{ color:var(--acc-ink); background:var(--vsoft); }
+#csComposer .cs-mc__foot{ display:flex; justify-content:flex-end; gap:10px; }
+@media (max-width:640px){ #csComposer .cs-mc{ padding:12px; } #csComposer .cs-mc__media{ height:220px; } #csComposer .cs-mc__foot .btn{ flex:1 1 0; min-height:44px; } }
 #csComposer .cs-pe__empty{ font-size:14px; color:var(--muted); margin:8px 0 0; }
 #csComposer .cs-pe__empty[hidden]{ display:none; }
 #csComposer .cs-pe__empty a{ color:var(--acc-ink); text-decoration:underline; }

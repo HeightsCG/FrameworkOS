@@ -49,6 +49,8 @@ $handlers = [
     'clip_render'    => 'ClipRenderJob',
     'public_thumb'   => 'PublicThumbJob',
     'tool_run'       => 'ToolRunJob',
+    'media_variant'  => 'MediaVariantJob',
+    'share_held'     => 'ShareHeldJob',
 ];
 
 CronRuns::start('queue_worker');

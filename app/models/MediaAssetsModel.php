@@ -136,6 +136,38 @@ class MediaAssetsModel extends Model {
             array('id' => (int) $id, 'c' => (int) $creator_id));
     }
 
+    /* ---- platform versions of an image (MediaCompliance): source = 'variant', hidden from the Library ---- */
+
+    /**
+     * Store a prepared version of $source_id. $tags: "v:<key>|s:<state>|...". $f: original_key, display_key, thumb_key,
+     * width, height, bytes. Moderation is the source's (it is the same picture). Returns the new row, or null.
+     */
+    public function add_variant($creator_id, $source_id, $tags, array $f, array $source, $type = 'image'){
+        $video = ((string) $type === 'video');
+        $id = (int) $this->add($creator_id, $video ? 'video' : 'image', 'variant-' . (int) $source_id . ($video ? '.mp4' : '.jpg'), $video ? 'video/mp4' : 'image/jpeg', 'processing', 'edited');
+        if ($id <= 0) { return null; }
+        $now = date('Y-m-d H:i:s');
+        parent::update('media_assets', array('source' => 'variant', 'library_hidden_at' => $now, 'source_asset_id' => (int) $source_id,
+            'tags' => mb_substr((string) $tags, 0, 512), 'updated_at' => $now), 'id = :id AND creator_id = :c', array('id' => $id, 'c' => (int) $creator_id));
+        $this->set_ready($creator_id, $id, $f + array('moderation_status' => (string) ($source['moderation_status'] ?? 'pending'),
+            'moderation_score' => $source['moderation_score'] ?? null, 'moderation_labels' => $source['moderation_labels'] ?? null));
+        if (!empty($source['is_adult'])) { parent::update('media_assets', array('is_adult' => 1), 'id = :id', array('id' => $id)); }
+        return $this->get_variant($creator_id, $id);
+    }
+
+    /** The current version of $source_id for one cache key ("instagram.feed.o.r1"), or null. */
+    public function variant_for($creator_id, $source_id, $key){
+        $rows = parent::select("SELECT * FROM media_assets WHERE creator_id = :c AND source = 'variant' AND source_asset_id = :s AND deleted_at IS NULL AND tags LIKE :k ORDER BY id DESC LIMIT 1",
+            array('c' => (int) $creator_id, 's' => (int) $source_id, 'k' => 'v:' . str_replace(array('%', '_'), array('\\%', '\\_'), (string) $key) . '|%'));
+        return (is_array($rows) && $rows) ? $rows[0] : null;
+    }
+
+    /** One version row (a hidden variant), or null. */
+    public function get_variant($creator_id, $id){
+        $rows = parent::select("SELECT * FROM media_assets WHERE id = :id AND creator_id = :c AND source = 'variant' AND deleted_at IS NULL", array('id' => (int) $id, 'c' => (int) $creator_id));
+        return (is_array($rows) && count($rows) === 1) ? $rows[0] : null;
+    }
+
     /** Comma-separated tags (e.g. "influencer:12,generated") — the only write path for the column. */
     public function set_tags($creator_id, $id, $tags){
         return parent::update('media_assets',

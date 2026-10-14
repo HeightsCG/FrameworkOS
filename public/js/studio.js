@@ -1204,7 +1204,12 @@ jQuery(function ($) {
         var a = composer.assets[0], cr = CFG.creator || {};
         var teaser = composer.audience === 'subscribers';   // members-only posts send the blurred teaser, never the media
         var fg = '', bg = '';
-        if (a && a.thumb_url) {
+        var sv = (typeof mc !== 'undefined' && mc.story) || null;
+        if (sv && sv.display_url) {   // the prepared version itself (MediaCompliance): exactly what goes out
+            fg = sv.video ? '<video class="cs-pv__storyfg" src="' + esc(sv.display_url) + '" poster="' + esc(sv.thumb_url) + '" muted loop autoplay playsinline></video>'
+                          : '<img class="cs-pv__storyfg" src="' + esc(sv.display_url) + '" alt="">';
+            teaser = false;
+        } else if (a && a.thumb_url) {
             bg = '<div class="cs-pv__storybg" style="background-image:url(\'' + esc(a.thumb_url) + '\')"></div>';
             fg = (a.type === 'video' && a.video_url && !teaser)
                 ? '<video class="cs-pv__storyfg" src="' + esc(a.video_url) + '" poster="' + esc(a.thumb_url) + '" muted loop autoplay playsinline></video>'
@@ -1218,6 +1223,7 @@ jQuery(function ($) {
         $('#csPreviewCard').html('<div class="cs-pv__story' + (teaser ? ' is-teaser' : '') + '"><div class="cs-pv__storybar"></div>' + head + bg + fg + '</div>');
     }
     function renderPreview() {
+        peMediaCheckSoon();   // every change the preview follows (media, audience, destinations, placement) re-checks the media in the background
         var storyOn = peStoryOn();
         $('#csCompViewStory').prop('hidden', !storyOn);
         if (!storyOn && composer.view === 'story') { peSetView('sub'); }
@@ -1264,6 +1270,142 @@ jQuery(function ($) {
         pvAutoplay();
     }
     var pvTimer = null;
+
+    /* ---- platform media checks (MediaCompliance), in the background ----
+       Every change re-checks the chosen media against each chosen destination's rules. Fitting versions are made without
+       asking; a change of shape is proposed and needs approval (Review). The composer never waits on this; Publish holds
+       any destination still waiting for approval, and the server checks everything again before sending. */
+    var mc = { timer: null, poll: null, seq: 0, key: '', res: null, toasted: {} };
+    function peMcBody() {
+        var shared = composer.shared_before || new Set();
+        var ids = (composer.assets || []).filter(function (a) { return !a.missing; }).map(function (a) { return a.id; });
+        var share = Array.from(composer.share || []).filter(function (id) { return composer.state !== 'published' || !shared.has(id); });   // already posted: nothing to check
+        return { asset_ids: ids, audience: composer.audience || 'free', share_accounts: share,
+            story_accounts: (composer.story_accounts || []).filter(function (e) { return share.indexOf(String(e).replace(/^both:/, '')) >= 0; }) };
+    }
+    function peMediaCheckSoon(force) {
+        clearTimeout(mc.timer);
+        mc.timer = setTimeout(function () { peMediaCheck(force); }, 500);   // rapid changes (ticking several accounts) make one check
+    }
+    function peMediaCheck(force) {
+        if (!composer || !$('#csComposer').hasClass('show')) { return; }
+        var body = peMcBody(), key = JSON.stringify(body);
+        if (!body.asset_ids.length || !body.share_accounts.length) { mc.key = key; mc.res = null; peMcRender(); return; }
+        if (!force && key === mc.key && mc.res && !mc.res.busy) { return; }
+        mc.key = key; var my = ++mc.seq;
+        ApiDataSvc.apiCall('post', 'post_media_check', body, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            if (my !== mc.seq || !o || !o.success) { return; }   // an older answer, for media or accounts that have since changed
+            mc.res = o; peMcRender();
+            clearTimeout(mc.poll);
+            if (o.busy) { mc.poll = setTimeout(function () { peMediaCheck(true); }, 3000); }   // versions still being made
+        });
+    }
+    var MC_LABEL = { adjusting: 'Preparing', review: 'Review', approved: 'Approved', unsupported: 'Not Supported' };
+    function peMcRender() {
+        $('#csCompSocial .cs-pe__mc').remove();
+        var res = mc.res, review = 0;
+        if (res) {
+            var by = {};
+            (res.destinations || []).forEach(function (d) {
+                var cur = by[d.account_id], rank = { compatible: 0, adjusted: 1, approved: 2, adjusting: 3, review: 4, unsupported: 5 };
+                if (!cur || rank[d.status] > rank[cur.status]) { by[d.account_id] = d; }
+                if (d.status === 'review') { review++; }
+            });
+            Object.keys(by).forEach(function (id) {
+                var d = by[id], label = MC_LABEL[d.status];
+                if (!label) { return; }   // fits as it is, or was adjusted without changing the picture: nothing to show
+                var $row = $('#csCompSocial input[data-acct]').filter(function () { return String($(this).data('acct')) === id; }).closest('.cs-pe__dest');
+                var why = ((d.items || []).filter(function (r) { return r.reasons && r.reasons.length; })[0] || { reasons: [] }).reasons.join(' ');
+                var el = d.status === 'review'
+                    ? $('<button type="button" class="cs-pe__mc cs-pe__mc--review">').text(label).attr('data-mc', id).attr('title', why)
+                    : $('<span class="cs-pe__mc">').addClass('cs-pe__mc--' + d.status).attr('title', why).html(d.status === 'adjusting' ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> ' + label : label);
+                $row.find('.cs-pe__destplat').before(el);
+                if (d.status === 'review' && !mc.toasted[d.account_id + d.placement]) {
+                    mc.toasted[d.account_id + d.placement] = 1;
+                    toastr.info('Click to compare and approve.', 'An image adjustment is ready for ' + d.name + (d.placement === 'story' ? ' Stories' : ''), { timeOut: 7000, onclick: function () { peMcOpen(d.account_id); } });
+                }
+            });
+        }
+        // The Story preview shows the real prepared 9:16 version once there is one.
+        var sv = null;
+        ((res && res.destinations) || []).forEach(function (d) { if (d.placement === 'story' && !sv) { var r = (d.items || [])[0]; if (r && r.variant && r.variant.display_url) { sv = r.variant; } } });
+        var was = mc.story; mc.story = sv;
+        if (composer.view === 'story' && ((was && was.id) !== (sv && sv.id))) { renderStoryPreview(); }
+        $('#csPeMcNote').prop('hidden', !review).text(review ? review + ' image' + (review === 1 ? ' needs' : 's need') + ' your review before ' + (review === 1 ? 'it goes' : 'they go') + ' out.' : '');
+    }
+    $('#csCompSocial').on('click', '.cs-pe__mc--review', function (e) { e.preventDefault(); e.stopPropagation(); peMcOpen(String($(this).data('mc'))); });
+
+    /* Review: the original and the adjusted image side by side; approve, try it another way, or skip the account. */
+    var mcCur = null;
+    function peMcOpen(account_id) {
+        var res = mc.res; if (!res) { return; }
+        var d = (res.destinations || []).filter(function (x) { return x.account_id === account_id && x.status === 'review'; })[0];
+        if (!d) { return; }
+        var row = (d.items || []).filter(function (r) { return r.status === 'approval' && r.variant && r.variant.state !== 'approved'; })[0];
+        if (!row) { return; }
+        mcCur = { d: d, row: row };
+        var asset = (composer.assets || []).filter(function (a) { return a.id === row.asset_id; })[0] || {};
+        var orig = row.teaser ? (composer.coverBlurred || asset.thumb_url) : (asset.thumb_url || '');
+        if (!$('#csMc').length) {
+            $('#csComposer .cs-pe__surface').append(
+                '<div class="cs-mc" id="csMc" role="dialog" aria-modal="true" aria-labelledby="csMcTitle" hidden><div class="cs-mc__panel">' +
+                '<div class="cs-mc__head"><h3 class="cs-mc__title" id="csMcTitle"></h3><button type="button" class="btn-close" id="csMcClose" aria-label="Close"></button></div>' +
+                '<p class="cs-mc__why" id="csMcWhy"></p>' +
+                '<div class="cs-mc__pair"><figure class="cs-mc__fig"><div class="cs-mc__media" id="csMcOrig"></div><figcaption>Original</figcaption></figure>' +
+                '<figure class="cs-mc__fig"><div class="cs-mc__media" id="csMcNew"></div><figcaption>Adjusted</figcaption></figure></div>' +
+                '<div class="cs-mc__opts"><div class="cs-pe__viewseg" role="group" aria-label="How to change the shape"><button type="button" class="cs-pe__viewopt" data-mcm="fit">Fit</button><button type="button" class="cs-pe__viewopt" data-mcm="crop">Crop</button></div>' +
+                '<div class="cs-pe__viewseg" id="csMcFocus" role="group" aria-label="Keep"><button type="button" class="cs-pe__viewopt" data-mcf="top">Top</button><button type="button" class="cs-pe__viewopt" data-mcf="center">Center</button><button type="button" class="cs-pe__viewopt" data-mcf="bottom">Bottom</button></div></div>' +
+                '<div class="cs-mc__foot"><button type="button" class="btn btn-outline-secondary" id="csMcSkip">Skip This Account</button><button type="button" class="btn btn-primary" id="csMcOk">Approve</button></div>' +
+                '</div></div>');
+            $('#csMcClose').on('click', function () { $('#csMc').prop('hidden', true); });
+            $('#csMc').on('click', '[data-mcm]', function () { peMcRedo($(this).data('mcm'), mcCur.row.variant.focus || 'center'); })
+                      .on('click', '[data-mcf]', function () { peMcRedo('crop', $(this).data('mcf')); });
+            $('#csMcOk').on('click', function () {
+                var $b = $(this).prop('disabled', true);
+                ApiDataSvc.apiCall('post', 'media_variant_approve', { id: mcCur.row.variant.id }, function (resp) {
+                    var o = null; try { o = JSON.parse(resp); } catch (e) {}
+                    $b.prop('disabled', false);
+                    if (!o || !o.success) { toastr.error((o && o.message) || 'Could not approve that image.'); return; }
+                    $('#csMc').prop('hidden', true); toastr.success('Approved for ' + mcCur.d.name);
+                    peMediaCheck(true);
+                    // Approving after Publish: the held account goes out on its own within a few minutes (ShareHeldJob).
+                });
+            });
+            $('#csMcSkip').on('click', function () {
+                var id = mcCur.d.account_id;
+                $('#csCompSocial input[data-acct]').filter(function () { return String($(this).data('acct')) === id; }).prop('checked', false).trigger('change');
+                $('#csMc').prop('hidden', true);
+            });
+        }
+        $('#csMcTitle').text('Review the image for ' + d.name + (d.placement === 'story' ? ' Stories' : ''));
+        $('#csMcWhy').text((row.reasons || []).join(' ') + ' Approve it to publish there, or skip this account.');
+        $('#csMcOrig').html(asset.type === 'video' && !row.teaser ? '<video src="' + esc(asset.video_url || '') + '" poster="' + esc(orig) + '" muted playsinline controls></video>' : '<img src="' + esc(orig) + '" alt="Original">');
+        peMcShowVariant(row.variant);
+        $('#csMc').prop('hidden', false);
+        setTimeout(function () { $('#csMcOk').trigger('focus'); }, 30);
+    }
+    function peMcShowVariant(v) {
+        var busy = !v || v.state === 'processing';
+        $('#csMcNew').html(busy ? '<div class="cs-mc__busy"><span class="spinner-border" role="status"></span><p>Preparing</p></div>'
+            : (v.video ? '<video src="' + esc(v.display_url) + '" poster="' + esc(v.thumb_url) + '" muted playsinline controls></video>' : '<img src="' + esc(v.display_url || v.thumb_url) + '" alt="Adjusted">'));
+        $('#csMcOk').prop('disabled', busy);
+        var m = (v && v.method) || 'fit';
+        $('#csMc [data-mcm]').removeClass('is-on').attr('aria-pressed', 'false').filter('[data-mcm="' + m + '"]').addClass('is-on').attr('aria-pressed', 'true');
+        $('#csMcFocus').prop('hidden', m !== 'crop');
+        $('#csMc [data-mcf]').removeClass('is-on').attr('aria-pressed', 'false').filter('[data-mcf="' + ((v && v.focus) || 'center') + '"]').addClass('is-on').attr('aria-pressed', 'true');
+    }
+    function peMcRedo(method, focus) {
+        if (!mcCur) { return; }
+        var r = mcCur.row, d = mcCur.d;
+        peMcShowVariant(null);
+        ApiDataSvc.apiCall('post', 'media_variant_redo', { asset_id: r.asset_id, platform: d.platform, placement: d.placement, teaser: r.teaser ? '1' : '0', method: method, focus: focus }, function (resp) {
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            if (!o || !o.success) { toastr.error((o && o.message) || 'Could not make that version.'); peMcShowVariant(r.variant); return; }
+            r.variant = o.variant; peMcShowVariant(o.variant);
+            if (o.variant.state === 'processing') { var t = setInterval(function () { peMediaCheck(true); var nd = ((mc.res || {}).destinations || []).filter(function (x) { return x.account_id === d.account_id && x.placement === d.placement; })[0]; var nr = nd && (nd.items || []).filter(function (x) { return x.asset_id === r.asset_id; })[0]; if (nr && nr.variant && nr.variant.state !== 'processing') { clearInterval(t); r.variant = nr.variant; peMcShowVariant(nr.variant); } }, 3500); }
+        });
+    }
     function pvGo(dir) {
         var $slides = $('#csPreviewCard .cs-pv__slide'); var n = $slides.length; if (n < 2) return;
         var cur = $slides.index($slides.filter('.is-on'));

@@ -821,6 +821,13 @@ class InfluencerJobService {
             }
             if (!empty($aus)) { $req['audio_urls'] = $aus; }
         }
+        if (!empty($p['audio_keys'])) {   // audio made for this run (Talking Scene: the script spoken in her saved voice)
+            foreach (array_slice((array) $p['audio_keys'], 0, 3) as $ak) {
+                if (!FaceMask::owns_key($job['creator_id'], (string) $ak)) { continue; }
+                $u = S3Service::presigned_get_url((string) $ak, max($ttl, 3600));
+                if ($u !== '') { $req['audio_urls'] = array_slice(array_merge((array) ($req['audio_urls'] ?? array()), array($u)), 0, 3); }
+            }
+        }
         if ($type === 'talking') {
             $akey = (string) ($p['audio_key'] ?? '');
             if ($akey === '' || !FaceMask::owns_key($job['creator_id'], $akey)) { return array('error' => 'The speech audio is missing'); }

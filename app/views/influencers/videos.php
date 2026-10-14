@@ -81,6 +81,10 @@
                     <?php endforeach; ?>
                 </div>
             </div>
+            <div class="inf-pop" id="inf_pop_tvoice" hidden>
+                <div class="inf-pop__h">Voice</div>
+                <div class="inf-opts" id="inf_tvoice"><span class="inf-wiz__meta">Loading voices…</span></div>
+            </div>
             <div class="inf-seg inf-cv__mode" id="inf_vmode" role="group" aria-label="Mode">
                 <button type="button" class="inf-seg__opt is-on" data-value="animate" aria-pressed="true"><span>Animate Image</span></button>
                 <button type="button" class="inf-seg__opt" data-value="talk" aria-pressed="false"><span>Talking Scene</span></button>
@@ -114,7 +118,7 @@
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_vdur" data-mode="animate" aria-expanded="false"><span data-pop-label="#inf_vdur .inf-seg__opt.is-on">Length</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <?php if (!empty($talk_opts)): ?>
                 <button type="button" class="inf-cvchip" data-pop="inf_pop_tmodel" data-mode="talk" aria-expanded="false" hidden><span data-pop-label="#inf_tmodel .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
-                <button type="button" class="inf-cvchip" id="inf_taudio" data-mode="talk" hidden><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i> <span id="inf_taudio_t">Voice Sample</span></button>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_tvoice" data-mode="talk" aria-expanded="false" hidden><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i> <span id="inf_taudio_t">Voice</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <?php endif; ?>
                 <button type="button" class="inf-cvchip" id="inf_vq_chip" data-pop="inf_pop_vq" aria-expanded="false" hidden><span data-pop-label="#inf_vq .inf-seg__opt.is-on">Quality</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
                 <button type="button" class="inf-cvchip" id="inf_vaudio" data-mode="animate" aria-pressed="false" hidden><i class="fa-solid fa-volume-xmark" aria-hidden="true"></i> <span>Sound Off</span></button>
