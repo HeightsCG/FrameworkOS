@@ -45,6 +45,15 @@ class ApiSocialIntegrationsController extends BaseApiController {
         $this->jsonSuccess(['url' => $url]);
     }
 
+    /**
+     * Re-read the owner's accounts from Post for Me after the Integrations tab loads: an account approved on the network
+     * shows even when the browser never came back through AccountController::social_callback. changed > 0 = reload.
+     */
+    public function social_syncAction(){
+        $user = $this->social_user('manage');
+        $this->jsonSuccess(['changed' => (new SocialAccountsModel())->sync_from_pfm((int) $user['user_id'], PostForMeService::get_accounts((int) $user['user_id']))]);
+    }
+
     /** Save the AI disclosure line for one connected account (blank = the default line). */
     public function social_disclosure_saveAction(){
         $user   = $this->social_user('manage');

@@ -44,7 +44,7 @@ class ApiRoutes {
             'domain_add', 'domain_verify', 'domain_set_primary', 'domain_remove',
         ],
         'ApiSocialIntegrationsController' => [
-            'connect_account', 'disconnect_account', 'social_disclosure_save', 'fanvue_connect',
+            'connect_account', 'disconnect_account', 'social_sync', 'social_disclosure_save', 'fanvue_connect',
             'fanvue_disconnect',
         ],
         'ApiSupportController' => [

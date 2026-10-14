@@ -3082,6 +3082,13 @@ $(function () {
             if (o.success) { window.location = o.url; } else { toastr.error(o.message); }
         });
     }
+    // Post for Me holds the connections: check it once the page is up, and reload when an account came or went there
+    if ($('.conn-connect').length) {
+        ApiDataSvc.apiCall('post', 'social_sync', {}, function (data) {
+            var o = JSON.parse(data);
+            if (o.success && o.changed > 0) { window.location = '/account/settings?section=connected'; }
+        });
+    }
     $('.conn-connect').on('click', function () {
         var platform = $(this).data('platform');
         if (platform !== 'bluesky') { start_social_connect({ platform: platform }); return; }

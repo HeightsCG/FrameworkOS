@@ -76,6 +76,26 @@ class SocialAccountsModel extends Model {
             'user_id = :u AND post_for_me_social_account_id = :p', array('u' => (int) $user_id, 'p' => (string) $pfm_id));
     }
 
+    /**
+     * Bring this user's rows in line with Post for Me's list for them (PostForMeService::get_accounts): add an account
+     * connected there and missing here, and update the status of a row whose status changed. Rows that already match are
+     * left alone, so connected_at keeps its date; accounts disconnected there and unknown here are not added.
+     * Returns how many rows changed.
+     */
+    public function sync_from_pfm($user_id, array $accounts): int {
+        $n = 0;
+        foreach ($accounts as $pa) {
+            if (!is_array($pa) || empty($pa['id'])) { continue; }
+            $status = (string) ($pa['status'] ?? 'connected');
+            $have = $this->get_by_pfm_id($pa['id']);
+            if ($have && (int) $have['user_id'] !== (int) $user_id) { continue; }   // another user's row: never moved here
+            if ($have ? (string) $have['status'] === $status : $status !== 'connected') { continue; }
+            $this->upsert_from_pfm($user_id, $pa);
+            $n++;
+        }
+        return $n;
+    }
+
     public function mark_disconnected($user_id, $pfm_id){
         return parent::update(
             'user_social_accounts',
