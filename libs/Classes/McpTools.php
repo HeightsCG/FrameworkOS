@@ -356,7 +356,7 @@ class McpTools {
         $infl = array('type' => 'object', 'required' => array('influencer_id'), 'properties' => array('influencer_id' => array('type' => 'integer')));
         $t[] = array('name' => 'list_influencers', 'description' => 'List the creator\'s AI influencers with status, trigger word and counts. Status ready = trained and usable.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_influencer', 'description' => 'One influencer: status, path, wizard step, trigger word, prompt defaults, counts, cover image.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, video_enhance, replicate, edit, angle, motion, replace, scene), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) how many reference images it accepts (max_refs), and for per-second video models credits_per_second with min_seconds and max_seconds (credits shows the price at the shortest default length). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
+        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, video_enhance, replicate, edit, angle, motion, replace, scene, dialogue), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) how many reference images it accepts (max_refs), and for per-second video models credits_per_second with min_seconds and max_seconds (credits shows the price at the shortest default length). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_influencer', 'description' => 'Create an influencer. path "photos" = train from 10-50 uploaded photos (add_influencer_photo); path "reference" = describe the face or upload one face photo, generate a reference, then a 10-image training set. gender (woman or man) is required so prompts describe the right person; ask the user rather than assuming.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'gender'),
             'properties' => array('name' => array('type' => 'string', 'description' => 'Unique per account'),
@@ -409,10 +409,13 @@ class McpTools {
                 'image_size' => array('type' => 'string', 'enum' => self::shapes(), 'description' => 'Output shape: 3:4 (default), 4:5, 9:16, 1:1 or 4:3. square, portrait and landscape still work.'),
                 'num_images' => array('type' => 'integer', 'description' => '1-4'), 'seed' => array('type' => 'integer', 'description' => 'Pin to reproduce'),
                 'guidance' => array('type' => 'number'), 'steps' => array('type' => 'integer'), 'lora_scale' => array('type' => 'number', 'description' => 'Likeness strength 0.1-2, default 1'))));
-        $t[] = array('name' => 'generate_influencer_video', 'description' => 'Image-to-video from one of the influencer\'s stills (a generated/enhanced/reference asset id). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_influencer_video', 'description' => 'Image-to-video from one of the influencer\'s stills (a generated/enhanced/reference asset id). Seedance models (seedance_20_fast, seedance_20, seedance_25) also take resolution, audio (native sound, default off) and end_asset_id (an optional last frame); they refuse a still where a real-looking face is recognisable (the job fails with the credits returned). seedance_25 is on the Creator and Studio plans. Price per length and resolution: influencer_model_options.video credits_table. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'), 'prompt' => array('type' => 'string', 'description' => 'The motion'),
                 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.video'), 'duration' => array('type' => 'string', 'description' => 'Seconds; must be one the model offers'),
+                'resolution' => array('type' => 'string', 'description' => 'One of the model\'s resolutions (480p, 720p, 1080p, 4k); default its own'),
+                'audio' => array('type' => 'boolean', 'description' => 'Native sound, for a model with audio'),
+                'end_asset_id' => array('type' => 'integer', 'description' => 'Library image for the last frame, for a model with end_frame'),
                 )));
         $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of the influencer\'s images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
@@ -467,7 +470,14 @@ class McpTools {
             'type' => 'object', 'required' => array('influencer_id', 'video_asset_id', 'attested'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'video_asset_id' => array('type' => 'integer'), 'attested' => array('type' => 'boolean', 'description' => 'True only when the user has confirmed they own or have rights to the source video'),
                 'subject' => array('type' => 'string'), 'outfit' => array('type' => 'string', 'enum' => array('video', 'reference')), 'lock_others' => array('type' => 'boolean', 'description' => 'Leave other people unchanged'),
-                'remove_text' => array('type' => 'boolean', 'description' => 'Remove on-screen text and subtitles'), 'model_key' => array('type' => 'string'))));
+                'remove_text' => array('type' => 'boolean', 'description' => 'Remove on-screen text and subtitles'), 'model_key' => array('type' => 'string'),
+                'resolution' => array('type' => 'string', 'description' => 'For a Seedance model: 480p, 720p, 1080p (or 4k on 2.0)'), 'audio' => array('type' => 'boolean', 'description' => 'For a Seedance model: native sound'))));
+        $t[] = array('name' => 'generate_talking_scene', 'description' => 'Talking Scene: the influencer says a script in one continuous take with native sound (Seedance reference-to-video, influencer_model_options purpose dialogue; seedance_25_ref is on the Creator and Studio plans). The length follows the script (4 to 30 seconds). Seedance refuses references where a real-looking face is recognisable, so this can fail with the credits returned. Optional audio_asset_ids: up to 3 Library audio files her voice follows. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('influencer_id', 'script'),
+            'properties' => array('influencer_id' => array('type' => 'integer'), 'script' => array('type' => 'string', 'description' => 'What she says; one line per paragraph'),
+                'setting' => array('type' => 'string'), 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.dialogue'),
+                'resolution' => array('type' => 'string'), 'seconds' => array('type' => 'integer', 'description' => 'Optional; default follows the script'),
+                'audio_asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer')))));
         $t[] = array('name' => 'generate_scene_video', 'description' => 'A dialogue scene in one continuous take, up to 30 seconds, with one or two characters speaking. lines are spoken in order: each has speaker (1 or 2), text (the exact words), and optionally cue (acting direction) and say (a pronunciation note). The second character is another influencer (second=influencer, second_influencer_id) or a described extra (second=described, second_description). model_key wan_30_scene_final (Final, 1080p) or wan_30_scene_draft (Draft, 480p: check the take cheaply first). Costs AI credits per second (influencer_model_options, purpose scene). Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'lines'),
             'properties' => array('influencer_id' => array('type' => 'integer'),
@@ -542,7 +552,7 @@ class McpTools {
     const AI_TOOLS = array(
         'design_voice', 'edit_image', 'enhance_influencer_image', 'enhance_video', 'generate_angle_set', 'generate_carousel',
         'generate_from_scene_template', 'generate_image', 'generate_influencer_image', 'generate_influencer_reference',
-        'generate_influencer_training_set', 'generate_influencer_video', 'generate_motion_video', 'generate_scene_video', 'generate_speech',
+        'generate_influencer_training_set', 'generate_influencer_video', 'generate_motion_video', 'generate_scene_video', 'generate_speech', 'generate_talking_scene',
         'generate_talking_video', 'regenerate_carousel_slot', 'replace_character_in_video', 'replicate_influencer_image',
         'retry_influencer_training_slot', 'run_automation_now', 'save_voice', 'train_influencer', 'write_influencer_prompt',
     );
@@ -925,7 +935,7 @@ class McpTools {
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
             case 'influencer_model_options': {
                 $out = array('enabled' => InfluencerConfig::enabled(), 'shapes' => Aspect::options());
-                foreach (array('reference', 'image', 'video', 'enhance', 'video_enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene', 'talking', 'speech', 'voice_design') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
+                foreach (array('reference', 'image', 'video', 'enhance', 'video_enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene', 'dialogue', 'talking', 'speech', 'voice_design') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
                 // Flat-priced purposes carry no price of their own on the model: fill in what a run actually costs.
                 foreach (array('image', 'enhance') as $purpose) {
                     foreach ($out[$purpose] as $i => $o) { if ($o['credits'] === null) { $out[$purpose][$i]['credits'] = Plan::ai_price($purpose, array('model_key' => $o['key'])); } }
@@ -1059,9 +1069,13 @@ class McpTools {
             }
             case 'replace_character_in_video': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
-                $in = array_intersect_key($a, array_flip(array('video_asset_id', 'subject', 'outfit', 'lock_others', 'remove_text', 'model_key')));
+                $in = array_intersect_key($a, array_flip(array('video_asset_id', 'subject', 'outfit', 'lock_others', 'remove_text', 'model_key', 'resolution', 'audio')));
                 $in['attested'] = isset($a['attested']) && $a['attested'] === true;   // only an explicit true counts
                 return self::result(InfluencerVideoActions::replace_start($cid, self::influencer_usable($cid, $a), $in, 'studio'));
+            }
+            case 'generate_talking_scene': {
+                self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
+                return self::result(InfluencerVideoActions::talking_scene_start($cid, self::influencer_usable($cid, $a), array_intersect_key($a, array_flip(array('script', 'setting', 'model_key', 'resolution', 'seconds', 'audio_asset_ids'))), 'studio'));
             }
             case 'generate_scene_video': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');

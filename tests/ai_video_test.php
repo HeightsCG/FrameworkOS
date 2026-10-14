@@ -68,8 +68,24 @@ check('motion is priced per second of the reference',   Plan::ai_price('motion',
 check('replacement is priced per second of the source', Plan::ai_price('replace', array('model_key' => 'wan_30_ref', 'params' => array('duration' => 5))) === 350);
 check('a scene is priced per second, Draft under Final', Plan::ai_price('scene', array('model_key' => 'wan_30_scene_draft', 'params' => array('duration' => 10))) === 350
     && Plan::ai_price('scene', array('model_key' => 'wan_30_scene_final', 'params' => array('duration' => 10))) === 1400);
-check('only models that accept her references are offered', array_column(InfluencerConfig::picker_options('scene'), 'key') === array('wan_30_scene_final', 'wan_30_scene_draft')
-    && array_column(InfluencerConfig::picker_options('replace'), 'key') === array('wan_30_ref'));
+check('the scene picker keeps Wan; Replace offers Wan first, then Seedance (2026-10-14)', array_column(InfluencerConfig::picker_options('scene'), 'key') === array('wan_30_scene_final', 'wan_30_scene_draft')
+    && array_column(InfluencerConfig::picker_options('replace'), 'key') === array('wan_30_ref', 'seedance_20_ref', 'seedance_25_ref'));
+
+/* ---- Seedance, Grok, video enhance (2026-10-14) ---- */
+check('dialogue offers Seedance 2.5 first', array_column(InfluencerConfig::picker_options('dialogue'), 'key') === array('seedance_25_ref', 'seedance_20_ref'));
+$vk = array_column(InfluencerConfig::picker_options('video'), 'key');
+check('video lists the Seedance and Grok models', count(array_intersect(array('seedance_20_fast', 'seedance_20', 'seedance_25', 'grok_video', 'grok_video_lite'), $vk)) === 5);
+$sd = InfluencerConfig::model('seedance_20');
+check('Seedance is priced by resolution and length', Plan::ai_price('video', array('model_key' => 'seedance_20', 'duration' => '5', 'params' => array('overrides' => array('resolution' => '480p')))) === InfluencerConfig::credits_from_usd(0.1345 * 5)
+    && Plan::ai_price('video', array('model_key' => 'seedance_20', 'duration' => '5')) === InfluencerConfig::credits_from_usd(0.3024 * 5));
+check('an unknown resolution falls back to the model default', InfluencerConfig::resolution_for($sd, '8k') === '720p' && InfluencerConfig::resolution_for($sd, '1080p') === '1080p');
+check('a source video is billed too on Replace', Plan::ai_price('replace', array('model_key' => 'seedance_20_ref', 'params' => array('duration' => 5))) === InfluencerConfig::credits_from_usd(0.3024 * 5 * 1.2));
+$opt = array_values(array_filter(InfluencerConfig::picker_options('video'), function ($o) { return $o['key'] === 'seedance_25'; }))[0];
+check('the page gets resolutions, a price table, sound off by default, end frame and plans', $opt['resolutions'] === array('480p', '720p', '1080p') && $opt['credits_table']['720p']['10'] === InfluencerConfig::credits_from_usd(0.473 * 10)
+    && $opt['audio'] === true && $opt['audio_default'] === false && $opt['end_frame'] === true && $opt['plans'] === array('creator', 'studio') && $opt['max_seconds'] === 30);
+check('Seedance 2.5 is for Creator and Studio only', !InfluencerConfig::plan_allows(InfluencerConfig::model('seedance_25'), array('user_id' => 0)) && InfluencerConfig::plan_allows(InfluencerConfig::model('seedance_20'), array('user_id' => 0)));
+check('video enhance is priced per second of the source', Plan::ai_price('enhance', array('model_key' => 'seedvr_video', 'duration' => 6)) === 260 && Plan::ai_price('enhance', array('model_key' => 'topaz_video', 'duration' => 6)) === 250);
+check('Talking Scene lines: one per paragraph', array_column(InfluencerVideoActions::script_lines("Hi there.\n\nSecond line."), 'text') === array('Hi there.', 'Second line.'));
 
 /* ---- 5. frame extraction ---- */
 $f = InfluencerVideoActions::extract_frame($cid, $user, $vid, 1.5);

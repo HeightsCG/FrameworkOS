@@ -906,6 +906,19 @@ a.inf-link:hover{ text-decoration:underline; }
 
 /* canvas pages: the source picture chip (videos), the picker window, facts under the open video */
 .inf-cv__row{ display:flex; gap:10px; align-items:stretch; }
+.inf-cv__row[hidden], .inf-cvchip[hidden], .inf-cv__sep[hidden]{ display:none; }
+/* Generate Video: Animate Image / Talking Scene switch on top of the dock, the scene's setting line under its script */
+.inf-cv__mode{ align-self:flex-start; display:inline-flex; width:auto; }
+/* Generate Video: status, price and the button stay together at the right end, also when the controls wrap */
+.inf-cv__end{ display:inline-flex; align-items:center; gap:12px; margin-left:auto; }
+.inf-cv__end .inf-cv__cost, .inf-cv__end .inf-cv__status{ margin-left:0; }
+.inf-cv__mode .inf-seg__opt{ flex:0 0 auto; width:auto; padding:0 14px; }
+.inf-cv__talk .inf-cv__write{ display:flex; flex-direction:column; gap:6px; }
+.inf .inf-cv__setting{ height:34px; border:0; border-top:1px solid var(--line); border-radius:0; box-shadow:none; padding:4px 6px; font-size:14px; background:transparent; }
+.inf .inf-cv__setting:focus{ box-shadow:none; border-top-color:var(--acc); }
+/* a chip that is a switch (Sound) or holds a choice (End Frame, Voice Sample) */
+.inf-cvchip[aria-pressed="true"]{ border-color:var(--acc); background:var(--vsoft); color:var(--acc-ink); }
+.inf-cvchip[aria-pressed="true"] i{ color:var(--acc-ink); }
 .inf-cv__write{ flex:1 1 auto; min-width:0; }
 .inf-cv__source{ flex:0 0 auto; width:56px; height:70px; padding:0; border:1px dashed var(--muted2); border-radius:2px; background:#FAFAFA; overflow:hidden; cursor:pointer; color:var(--muted); display:flex; align-items:center; justify-content:center; }
 .inf-cv__source img{ width:100%; height:100%; object-fit:cover; display:block; }
@@ -1222,3 +1235,5 @@ select.inf-cvchip--select{ appearance:none; -webkit-appearance:none; padding-rig
 .inf-cv__actions .inf-result__actions{ display:flex; flex-wrap:wrap; }
 .inf-cv__actions .inf-result__actions > .btn{ flex:1 1 120px; }
 .inf-gen__rate-btn.is-working::after, .inf-gen__del.is-working::after, .inf-gen__expand.is-working::after{ border-color:#fff; border-right-color:transparent; }
+@media (max-width:640px){ .inf .inf-cv__setting{ font-size:16px; height:40px; } .inf-cv__mode{ align-self:stretch; } .inf-cv__mode .inf-seg__opt{ flex:1 1 0; } }
+@media (max-width:640px){ #inf_vid_form .inf-cv__bar{ flex-wrap:wrap; overflow-x:visible; } #inf_vid_form .inf-cv__end{ width:100%; justify-content:space-between; } }

@@ -172,10 +172,29 @@ jQuery(function ($) {
             var cur = seg_val('inf_vdur');
             $('#inf_vdur').html(d.map(function (x) { return '<button type="button" class="inf-seg__opt' + (x === cur || (!d.includes(cur) && x === d[0]) ? ' is-on' : '') + '" data-value="' + esc(x) + '" aria-pressed="false"><span>' + esc(x) + 's</span></button>'; }).join(''));
             $('#inf_vdur .inf-seg__opt.is-on').attr('aria-pressed', 'true');
+            extras();
+        }
+        // Quality (resolutions), native sound and an end frame, for a model that offers them (Seedance).
+        var end_frame = null;
+        function extras() {
+            var m = model_opt(model_key()) || {}, res = m.resolutions || [], cur = seg_val('inf_vq');
+            $('#inf_vq').html(res.map(function (r) { var on = (r === cur) || (res.indexOf(cur) < 0 && r === m.resolution); return '<button type="button" class="inf-seg__opt' + (on ? ' is-on' : '') + '" data-value="' + esc(r) + '" aria-pressed="' + on + '"><span>' + esc(r === '4k' ? '4K' : r) + '</span></button>'; }).join(''));
+            $('#inf_vq_chip').prop('hidden', res.length < 2);
+            $('#inf_vaudio').prop('hidden', !m.audio);
+            if (m.audio && $('#inf_vaudio').data('model') !== m.key) { set_audio(!!m.audio_default); $('#inf_vaudio').data('model', m.key); }
+            $('#inf_vend').prop('hidden', !m.end_frame);
+            if (!m.end_frame) { set_end(null); }
             cost();
         }
+        function set_audio(on) {
+            $('#inf_vaudio').attr('aria-pressed', on ? 'true' : 'false').find('i').attr('class', 'fa-solid ' + (on ? 'fa-volume-high' : 'fa-volume-xmark'));
+            $('#inf_vaudio span').text(on ? 'Sound On' : 'Sound Off');
+        }
+        function set_end(a) { end_frame = a; $('#inf_vend_t').text(a ? 'End Frame Set' : 'End Frame'); $('#inf_vend').attr('aria-pressed', a ? 'true' : 'false'); }
         function vprice() {
-            var m = model_opt(model_key()), d = String(seg_val('inf_vdur') || ''), t = m && m.credits_by_duration;
+            var m = model_opt(model_key()), d = String(seg_val('inf_vdur') || ''), r = String(seg_val('inf_vq') || '');
+            if (m && m.credits_table && m.credits_table[r] && m.credits_table[r][d] !== undefined) { return parseInt(m.credits_table[r][d], 10) || 0; }
+            var t = m && m.credits_by_duration;
             if (t && t[d] !== undefined) { return parseInt(t[d], 10) || 0; }
             return (m && m.credits) ? m.credits : ((C.ai_prices || {}).video || 0);
         }
@@ -183,6 +202,12 @@ jQuery(function ($) {
         function busy(t) { $('#inf_vbusy').prop('hidden', false); $('#inf_vbusy_text').text(t); }
         $('#inf_vmodel').on('click', '.inf-opt', function () { $('#inf_vmodel .inf-opt').removeClass('is-on'); $(this).addClass('is-on'); durations(); });
         seg_pick('inf_vdur', cost);
+        seg_pick('inf_vq', cost);
+        $('#inf_vaudio').on('click', function () { set_audio($(this).attr('aria-pressed') !== 'true'); });
+        $('#inf_vend').on('click', function () {
+            if (end_frame) { set_end(null); return; }
+            T.pick_image({ title: 'Choose The End Frame' }, function (a) { if (a) { set_end(a); } });
+        });
         durations();
 
         /* stills: any ready image in the Library, newest first */
@@ -240,7 +265,11 @@ jQuery(function ($) {
             if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
             var $b = $(this).prop('disabled', true);
             busy('Sending');
-            api('media_generate_video', { source_asset_id: still, prompt: prompt, model_key: model_key(), duration: seg_val('inf_vdur') }, function (o) {
+            var m = model_opt(model_key()) || {}, body = { source_asset_id: still, prompt: prompt, model_key: model_key(), duration: seg_val('inf_vdur') };
+            if ((m.resolutions || []).length) { body.resolution = seg_val('inf_vq') || m.resolution; }
+            if (m.audio) { body.audio = $('#inf_vaudio').attr('aria-pressed') === 'true' ? '1' : '0'; }
+            if (m.end_frame && end_frame) { body.end_asset_id = end_frame.id; }
+            api('media_generate_video', body, function (o) {
                 if (!o || !o.success || !o.asset) { err(o); $b.prop('disabled', false); show_current(); return; }
                 T.set_balance(T.get_balance() - (parseInt(o.price, 10) || vprice())); cost();
                 merge(o.asset); render_strip();

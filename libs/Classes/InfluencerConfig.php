@@ -41,6 +41,7 @@ class InfluencerConfig {
         'motion'       => array('fal'),
         'replace'      => array('fal'),
         'scene'        => array('fal'),
+        'dialogue'     => array('fal'),
         'talking'      => array('fal'),
         'video_enhance'=> array('fal'),
     );
@@ -142,6 +143,26 @@ class InfluencerConfig {
             'label' => 'Quick Draft', 'purpose' => 'Grok Imagine Lite, fast and cheap',
             'price_usd' => 0.03, 'price_unit' => 'second',
             'durations' => array('6', '10', '15'), 'params' => array('resolution' => '720p', 'enable_safety_checker' => false), 'credits' => array('6' => 130, '10' => 220, '15' => 320), 'family' => 'grok_video'),
+        // Seedance image-to-video (2026-10-14). fal bills tokens (width x height x seconds x 24 / 1024); `res_usd` is that per second
+        // of output at each resolution, and credits follow resolution and length (run_credits). fal refuses a start frame that shows
+        // a recognisable real-looking face ("likenesses of real people"): the run fails with a plain message and the credits come back.
+        // `audio` = native sound can be switched on (off by default); `end_frame` = an optional last frame.
+        'seedance_20_fast' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/fast/image-to-video'),
+            'label' => 'Fast Realism', 'purpose' => 'Seedance 2.0 Fast', 'price_usd' => 0.2419, 'price_unit' => 'second',
+            'res_usd' => array('480p' => 0.1076, '720p' => 0.2419), 'resolution' => '720p',
+            'durations' => array('4', '5', '6', '8', '10', '12', '15'), 'min_seconds' => 4, 'max_seconds' => 15,
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v'),
+        'seedance_20' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/image-to-video'),
+            'label' => 'Realistic Motion', 'purpose' => 'Seedance 2.0', 'price_usd' => 0.3024, 'price_unit' => 'second',
+            'res_usd' => array('480p' => 0.1345, '720p' => 0.3024, '1080p' => 0.6804, '4k' => 1.5552), 'resolution' => '720p',
+            'durations' => array('4', '5', '6', '8', '10', '12', '15'), 'min_seconds' => 4, 'max_seconds' => 15,
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v'),
+        'seedance_25' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'bytedance/seedance-2.5/image-to-video'),
+            'label' => 'Long Take', 'purpose' => 'Seedance 2.5, up to 30 seconds', 'price_usd' => 0.473, 'price_unit' => 'second',
+            'res_usd' => array('480p' => 0.2205, '720p' => 0.473, '1080p' => 1.164), 'resolution' => '720p',
+            'durations' => array('4', '5', '8', '10', '15', '20', '25', '30'), 'min_seconds' => 4, 'max_seconds' => 30,
+            'params' => array('generate_audio' => false, 'aspect_ratio' => 'auto'), 'audio' => true, 'end_frame' => true, 'family' => 'seedance_i2v',
+            'plans' => array('creator', 'studio')),
         // -- motion control (a reference motion video + a first frame -> video); priced per second of the reference video --
         'kling_v3_motion_std' => array('provider' => 'fal', 'op' => 'motion', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/motion-control'),
             'label' => '720p', 'purpose' => 'Standard quality', 'price_usd' => 0.126, 'price_unit' => 'second', 'quality' => '720p',
@@ -154,10 +175,20 @@ class InfluencerConfig {
             'label' => 'Wan 3.0', 'purpose' => 'Best at keeping the original scene', 'price_usd' => 0.10, 'price_unit' => 'second',
             'params' => array('resolution' => '720p', 'aspect_ratio' => 'adaptive', 'audio' => true, 'enable_prompt_expansion' => false, 'enable_safety_checker' => false),
             'family' => 'wan_ref', 'min_seconds' => 2, 'max_seconds' => 15, 'max_refs' => 6),
-        'seedance_20_ref' => array('provider' => 'fal', 'op' => 'replace', 'endpoints' => array('fal' => 'bytedance/seedance-2.0/reference-to-video'),
-            'label' => 'Seedance 2.0', 'purpose' => 'Stronger likeness, costs more', 'price_usd' => 0.1814, 'price_unit' => 'second',
-            'params' => array('resolution' => '720p', 'aspect_ratio' => 'auto', 'generate_audio' => true),
-            'family' => 'seedance_ref', 'min_seconds' => 2, 'max_seconds' => 15, 'max_refs' => 6),
+        // Seedance reference-to-video: up to 9 images, 3 videos and 3 audio clips, addressed in the prompt as @Image1, @Video1, @Audio1.
+        // It serves Replace (with a source video) and the dialogue purpose (Talking Scene, a 'scene' job). A source video is billed
+        // too (input + output tokens at 0.6): about 1.2x the output price for a same-length source (video_input_factor).
+        'seedance_20_ref' => array('provider' => 'fal', 'op' => 'replace', 'ops' => array('scene'), 'endpoints' => array('fal' => 'bytedance/seedance-2.0/reference-to-video'),
+            'label' => 'Seedance 2.0', 'purpose' => 'Stronger likeness, costs more', 'price_usd' => 0.3024, 'price_unit' => 'second',
+            'res_usd' => array('480p' => 0.1345, '720p' => 0.3024, '1080p' => 0.6804, '4k' => 1.5552), 'resolution' => '720p', 'video_input_factor' => 1.2,
+            'params' => array('aspect_ratio' => 'auto', 'generate_audio' => true), 'audio' => true,
+            'family' => 'seedance_ref', 'aspects' => self::VIDEO_ASPECTS, 'min_seconds' => 4, 'max_seconds' => 15, 'max_refs' => 9),
+        'seedance_25_ref' => array('provider' => 'fal', 'op' => 'scene', 'ops' => array('replace'), 'endpoints' => array('fal' => 'bytedance/seedance-2.5/reference-to-video'),
+            'label' => 'Seedance 2.5', 'purpose' => 'Up to 30 seconds with native sound', 'price_usd' => 0.473, 'price_unit' => 'second',
+            'res_usd' => array('480p' => 0.2205, '720p' => 0.473, '1080p' => 1.164), 'resolution' => '720p', 'video_input_factor' => 1.2,
+            'params' => array('aspect_ratio' => 'auto', 'generate_audio' => true), 'audio' => true,
+            'family' => 'seedance_ref', 'aspects' => self::VIDEO_ASPECTS, 'min_seconds' => 4, 'max_seconds' => 30, 'max_refs' => 9,
+            'plans' => array('creator', 'studio')),
         // -- long dialogue scene in a single take (character references + a script -> video with speech) --
         'wan_30_scene_final' => array('provider' => 'fal', 'op' => 'scene', 'endpoints' => array('fal' => 'alibaba/wan-3.0/reference-to-video'),
             'label' => 'Final', 'purpose' => 'Full quality, 1080p', 'price_usd' => 0.20, 'price_unit' => 'second',
@@ -222,7 +253,7 @@ class InfluencerConfig {
         'reference'    => array('nano_banana_pro_ref', 'flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),   // Nano Banana Pro first = default (2026-10-14)
         'training_set' => array('seedream_45_edit', 'nano_banana_edit'),   // Seedream first (2026-10-07 A/B): real light and grain where Nano Banana returns a glossy render
         'image'        => array('flux_lora_quality', 'flux_lora_fast', 'prompt_match', 'prompt_match_pro'),
-        'video'        => array('hailuo_02', 'kling_v3', 'grok_video', 'grok_video_lite'),
+        'video'        => array('hailuo_02', 'kling_v3', 'seedance_20_fast', 'seedance_20', 'seedance_25', 'grok_video', 'grok_video_lite'),
         'enhance'      => array('clarity_upscaler'),
         'video_enhance'=> array('seedvr_video', 'topaz_video'),
         'training'     => array('flux_lora_fast_training'),
@@ -230,7 +261,8 @@ class InfluencerConfig {
         'edit'         => array('grok_edit', 'nano_banana_edit'),
         'angle'        => array('nano_banana_edit', 'nano_banana_pro_edit'),
         'motion'       => array('kling_v3_motion_std', 'kling_v3_motion_pro'),
-        'replace'      => array('wan_30_ref'),
+        'replace'      => array('wan_30_ref', 'seedance_20_ref', 'seedance_25_ref'),
+        'dialogue'     => array('seedance_25_ref', 'seedance_20_ref'),   // Talking Scene on Generate Video: runs as a 'scene' job
         'scene'        => array('wan_30_scene_final', 'wan_30_scene_draft'),
         'talking'      => array('heygen_avatar4'),
         'speech'       => array('eleven_v3'),
@@ -414,6 +446,52 @@ class InfluencerConfig {
         return self::credits_from_usd((float) ($m['price_usd'] ?? 0) * $units);
     }
 
+    /** The resolution a run of this model renders at: the one asked for when the model offers it, else its default. */
+    public static function resolution_for(array $m, $asked = ''){
+        $res = (array) ($m['res_usd'] ?? array());
+        $asked = strtolower((string) $asked);
+        if ($asked !== '' && isset($res[$asked])) { return $asked; }
+        $def = (string) ($m['resolution'] ?? ($m['params']['resolution'] ?? ''));
+        return isset($res[$def]) ? $def : (string) (array_keys($res)[0] ?? '');
+    }
+
+    /**
+     * AI credits for one run of a model priced per resolution (res_usd: provider dollars per second of output):
+     * $seconds of output at $resolution, times video_input_factor when a source video is sent too. Null when the
+     * model is not priced this way.
+     */
+    public static function run_credits(array $m, $seconds, $resolution = '', $video_input = false){
+        if (empty($m['res_usd'])) { return null; }
+        $res = self::resolution_for($m, $resolution);
+        $usd = (float) ($m['res_usd'][$res] ?? 0) * max(1, (int) $seconds);
+        if ($video_input) { $usd *= (float) ($m['video_input_factor'] ?? 1); }
+        return self::credits_from_usd($usd);
+    }
+
+    /** Credits per length at each resolution, for the page to show the price before a run: [res => [seconds => credits]]. */
+    public static function credits_table(array $m, $video_input = false){
+        $out = array();
+        $durs = array_values((array) ($m['durations'] ?? array()));
+        if (empty($durs)) { for ($d = (int) ($m['min_seconds'] ?? 4); $d <= (int) ($m['max_seconds'] ?? 15); $d++) { $durs[] = (string) $d; } }
+        foreach (array_keys((array) ($m['res_usd'] ?? array())) as $res) {
+            foreach ($durs as $d) { $out[$res][(string) $d] = (int) self::run_credits($m, (int) $d, $res, $video_input); }
+        }
+        return $out;
+    }
+
+    /** May this account run the model? A model with 'plans' is limited to those plan tiers. */
+    public static function plan_allows(array $m, $user){
+        if (empty($m['plans'])) { return true; }
+        return in_array(Plan::tier($user), (array) $m['plans'], true);
+    }
+
+    /** "Creator and Studio": the plans a limited model is on. */
+    public static function plans_label(array $m){
+        $n = array();
+        foreach ((array) ($m['plans'] ?? array()) as $k) { $t = PlanTiers::get($k); if ($t) { $n[] = (string) $t['name']; } }
+        return implode(' and ', $n);
+    }
+
     /**
      * AI credits a model charges per run, or null when it uses its type's default (PlanTiers::AI_PRICES).
      * A video model prices each length ('credits' => ['6' => 200, '10' => 340]: in proportion to its length);
@@ -443,7 +521,17 @@ class InfluencerConfig {
                 'credits_per_second' => ((string) ($m['price_unit'] ?? '') === 'second' && in_array((string) $purpose, self::METERED_OPS, true)) ? (float) $m['price_usd'] * (float) self::get('credits_per_usd', self::CREDITS_PER_USD) : null,
                 'quality'   => (string) ($m['quality'] ?? ''),
                 'max_refs'  => (int) ($m['max_refs'] ?? 0),
-                'credits_by_duration' => (isset($m['credits']) && is_array($m['credits'])) ? array_map('intval', $m['credits']) : null,   // video: price per length
+                'credits_by_duration' => (isset($m['credits']) && is_array($m['credits'])) ? array_map('intval', $m['credits'])
+                    : (!empty($m['res_usd']) ? (self::credits_table($m)[self::resolution_for($m)] ?? null) : null),   // video: price per length (at the default resolution)
+                // Priced per resolution (Seedance): the resolutions offered, the default, and [res => [seconds => credits]].
+                'resolutions' => array_keys((array) ($m['res_usd'] ?? array())),
+                'resolution'  => !empty($m['res_usd']) ? self::resolution_for($m) : '',
+                'credits_table' => !empty($m['res_usd']) ? self::credits_table($m, (string) $purpose === 'replace') : null,
+                'audio'     => !empty($m['audio']),        // native sound can be switched on or off
+                'audio_default' => !empty($m['params']['generate_audio']),
+                'end_frame' => !empty($m['end_frame']),    // takes an optional last frame
+                'plans'     => array_values((array) ($m['plans'] ?? array())),   // empty = every plan with AI
+                'plans_label' => self::plans_label($m),
             );
         }
         return $out;

@@ -67,25 +67,63 @@
                 <div class="inf-pop__h">Length</div>
                 <div class="inf-seg" id="inf_vdur" role="group" aria-label="Duration"></div>
             </div>
+            <div class="inf-pop" id="inf_pop_vq" hidden>
+                <div class="inf-pop__h">Quality</div>
+                <div class="inf-seg" id="inf_vq" role="group" aria-label="Quality"></div>
+            </div>
+            <?php $talk_opts = $brand ? array() : (array) ($cfg['pickers']['dialogue'] ?? array()); ?>
+            <?php if ($talk_opts): ?>
+            <div class="inf-pop" id="inf_pop_tmodel" hidden>
+                <div class="inf-pop__h">Model</div>
+                <div class="inf-opts" id="inf_tmodel">
+                    <?php foreach ($talk_opts as $i => $o): ?>
+                    <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?><?php echo $o['plans_label'] !== '' ? ' · ' . $e($o['plans_label']) . ' plans' : ''; ?></span></button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="inf-seg inf-cv__mode" id="inf_vmode" role="group" aria-label="Mode">
+                <button type="button" class="inf-seg__opt is-on" data-value="animate" aria-pressed="true"><span>Animate Image</span></button>
+                <button type="button" class="inf-seg__opt" data-value="talk" aria-pressed="false"><span>Talking Scene</span></button>
+            </div>
+            <?php endif; ?>
 
-            <div class="inf-cv__row">
+            <div class="inf-cv__row" data-mode="animate">
                 <button type="button" class="inf-cv__source" data-pop="inf_pop_still" aria-expanded="false" aria-label="Choose the image to animate"><img alt="" data-pop-thumb="#inf_stills .inf-photo.is-on img" hidden><span class="inf-cv__sourceph"><i class="fa-regular fa-image" aria-hidden="true"></i><span>Choose Image</span></span></button>
                 <div class="inf-cv__write">
                     <label class="visually-hidden" for="inf_vprompt">How it should move</label>
                     <textarea class="form-control inf-cv__prompt" id="inf_vprompt" rows="2" placeholder="<?php echo $e($gp['video'][0]); ?>"></textarea>
                 </div>
             </div>
+            <?php if (!empty($talk_opts)): ?>
+            <div class="inf-cv__row inf-cv__talk" data-mode="talk" hidden>
+                <div class="inf-cv__write">
+                    <label class="visually-hidden" for="inf_tscript">Script</label>
+                    <textarea class="form-control inf-cv__prompt" id="inf_tscript" rows="2" placeholder="I finally tried the rooftop place everyone posts about."></textarea>
+                    <label class="visually-hidden" for="inf_tsetting">Setting</label>
+                    <input type="text" class="form-control inf-cv__setting" id="inf_tsetting" placeholder="Parked car, afternoon light">
+                </div>
+            </div>
+            <?php endif; ?>
             <div class="inf-cv__bar">
                 <?php if (!$brand): ?>
-                <button type="button" class="inf-cvchip" data-pop="inf_pop_videas" aria-expanded="false"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Ideas</button>
-                <button type="button" class="inf-cvchip" id="inf_vprompt_auto"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write It For Me</button>
-                <span class="inf-cv__sep" aria-hidden="true"></span>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_videas" data-mode="animate" aria-expanded="false"><i class="fa-regular fa-lightbulb" aria-hidden="true"></i> Ideas</button>
+                <button type="button" class="inf-cvchip" id="inf_vprompt_auto" data-mode="animate"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Write It For Me</button>
+                <span class="inf-cv__sep" data-mode="animate" aria-hidden="true"></span>
                 <?php endif; ?>
-                <button type="button" class="inf-cvchip" data-pop="inf_pop_vmodel" aria-expanded="false"><span data-pop-label="#inf_vmodel .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
-                <button type="button" class="inf-cvchip" data-pop="inf_pop_vdur" aria-expanded="false"><span data-pop-label="#inf_vdur .inf-seg__opt.is-on">Length</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_vmodel" data-mode="animate" aria-expanded="false"><span data-pop-label="#inf_vmodel .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_vdur" data-mode="animate" aria-expanded="false"><span data-pop-label="#inf_vdur .inf-seg__opt.is-on">Length</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <?php if (!empty($talk_opts)): ?>
+                <button type="button" class="inf-cvchip" data-pop="inf_pop_tmodel" data-mode="talk" aria-expanded="false" hidden><span data-pop-label="#inf_tmodel .inf-opt.is-on .inf-opt__t">Model</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <button type="button" class="inf-cvchip" id="inf_taudio" data-mode="talk" hidden><i class="fa-solid fa-microphone-lines" aria-hidden="true"></i> <span id="inf_taudio_t">Voice Sample</span></button>
+                <?php endif; ?>
+                <button type="button" class="inf-cvchip" id="inf_vq_chip" data-pop="inf_pop_vq" aria-expanded="false" hidden><span data-pop-label="#inf_vq .inf-seg__opt.is-on">Quality</span> <i class="fa-solid fa-chevron-up" aria-hidden="true"></i></button>
+                <button type="button" class="inf-cvchip" id="inf_vaudio" data-mode="animate" aria-pressed="false" hidden><i class="fa-solid fa-volume-xmark" aria-hidden="true"></i> <span>Sound Off</span></button>
+                <button type="button" class="inf-cvchip" id="inf_vend" data-mode="animate" hidden><i class="fa-regular fa-image" aria-hidden="true"></i> <span id="inf_vend_t">End Frame</span></button>
+                <span class="inf-cv__end">
                 <span class="inf-cv__status" id="inf_vbusy" role="status" hidden><span class="spinner-border spinner-border-sm" aria-hidden="true"></span> <span id="inf_vbusy_text">Generating</span></span>
                 <span class="inf-cv__cost" id="inf_vcost"></span>
                 <button type="button" class="btn btn-primary inf-cv__go" id="inf_vgo" disabled><i class="fa-solid fa-clapperboard"></i> Generate Video</button>
+                </span>
             </div>
         </form>
     </div>

@@ -120,6 +120,7 @@ class ApiRoutes {
         'ApiInfluencerVideosController' => [
             'media_extract_frame', 'influencer_motion_check', 'influencer_motion_first_frame', 'influencer_motion_start',
             'influencer_replace_prepare', 'influencer_replace_start', 'influencer_scene_build', 'influencer_scene_start',
+            'influencer_talking_scene_build', 'influencer_talking_scene_start',
         ],
         'ApiInfluencerVoiceController' => [
             'influencer_voices', 'influencer_voice_suggest', 'influencer_voice_design', 'influencer_voice_save', 'influencer_voice_activate', 'influencer_voice_delete',

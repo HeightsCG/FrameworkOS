@@ -42,6 +42,11 @@ class InfluencerJobService {
         if (!Plan::can_use_creator_features($user)) {
             throw new PlanLimitException('Choose a plan to generate with AI.', array('need_plan' => true));
         }
+        // A model limited to some plans (Seedance 2.5 and Talking Scene: Creator and Studio).
+        $gm = !empty($f['model_key']) ? InfluencerConfig::model((string) $f['model_key']) : null;
+        if ($gm && !InfluencerConfig::plan_allows($gm, $user)) {
+            throw new PlanLimitException($gm['label'] . ' is on the ' . InfluencerConfig::plans_label($gm) . ' plans. Upgrade to use it.', array('need_upgrade' => true));
+        }
         $price = !empty($f['waive_credits']) ? 0 : Plan::ai_price($type, $f);
         if ($price > 0) {
             Plan::grant_monthly($user);
@@ -743,6 +748,8 @@ class InfluencerJobService {
         }
         // Per-job overrides of the catalog's fixed params (steps, guidance, upscale factor...).
         foreach ((array) ($p['overrides'] ?? array()) as $k => $v) { $req['params'][$k] = $v; }
+        // A model priced per resolution renders at the one chosen for this run (overrides), else its default.
+        if (!empty($model['res_usd'])) { $req['params']['resolution'] = InfluencerConfig::resolution_for($model, (string) ($req['params']['resolution'] ?? '')); }
         $ttl = (int) InfluencerConfig::get('input_url_ttl', 1800);
         $mm  = new MediaAssetsModel();
 
@@ -794,6 +801,25 @@ class InfluencerJobService {
             $vu = S3Service::presigned_get_url((string) $v['original_key'], max($ttl, 3600));
             if ($vu === '') { return array('error' => 'Could not sign the source video'); }
             $req['video_url'] = $vu;
+        }
+        if (!empty($p['end_asset_id'])) {   // an optional last frame (Seedance image-to-video)
+            $ea = $mm->get_one($job['creator_id'], (int) $p['end_asset_id']);
+            if (!$ea || (string) $ea['type'] !== 'image' || (string) $ea['status'] !== 'ready') { return array('error' => 'The end frame image is not ready'); }
+            if ((string) $ea['moderation_status'] === 'blocked') { return array('error' => 'That image was blocked by moderation and cannot be used'); }
+            $eu = S3Service::presigned_get_url((string) ($ea['original_key'] ?: $ea['display_key']), $ttl);
+            if ($eu === '') { return array('error' => 'Could not sign the end frame image'); }
+            $req['end_image_url'] = $eu;
+        }
+        if (!empty($p['audio_asset_ids'])) {   // audio clips a reference-to-video model follows (Seedance: @Audio1...)
+            $aus = array();
+            foreach (array_slice((array) $p['audio_asset_ids'], 0, 3) as $auid) {
+                $au = $mm->get_one($job['creator_id'], (int) $auid);
+                if ($au && (string) $au['type'] === 'audio' && (string) $au['status'] === 'ready') {
+                    $u = S3Service::presigned_get_url((string) $au['original_key'], max($ttl, 3600));
+                    if ($u !== '') { $aus[] = $u; }
+                }
+            }
+            if (!empty($aus)) { $req['audio_urls'] = $aus; }
         }
         if ($type === 'talking') {
             $akey = (string) ($p['audio_key'] ?? '');

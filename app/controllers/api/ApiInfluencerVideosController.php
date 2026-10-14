@@ -74,7 +74,9 @@ class ApiInfluencerVideosController extends BaseApiController {
     private function replace_in(){
         return array('video_asset_id' => (int) ($this->post['video_asset_id'] ?? 0), 'subject' => $this->text('subject', InfluencerService::TEXT_MAX),
             'outfit' => ((string) ($this->post['outfit'] ?? 'video') === 'reference') ? 'reference' : 'video',
-            'lock_others' => $this->on('lock_others'), 'remove_text' => $this->on('remove_text'), 'model_key' => (string) ($this->post['model_key'] ?? ''));
+            'lock_others' => $this->on('lock_others'), 'remove_text' => $this->on('remove_text'), 'model_key' => (string) ($this->post['model_key'] ?? ''))
+            + (isset($this->post['resolution']) ? array('resolution' => (string) $this->post['resolution']) : array())
+            + (isset($this->post['audio']) ? array('audio' => $this->on('audio')) : array());
     }
 
     public function influencer_replace_prepareAction(){
@@ -105,6 +107,26 @@ class ApiInfluencerVideosController extends BaseApiController {
     public function influencer_scene_buildAction(){
         $user = $this->ai_user(false);
         $this->answer(InfluencerVideoActions::scene_build((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->scene_in()));
+    }
+
+    /* ---- Talking Scene (Generate Video) ---- */
+
+    private function talking_in(){
+        $in = array('script' => $this->text('script', InfluencerService::TEXT_MAX), 'setting' => $this->text('setting', InfluencerService::TEXT_MAX),
+            'seconds' => (int) ($this->post['seconds'] ?? 0));
+        foreach (['model_key', 'resolution', 'aspect'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        if (isset($this->post['audio_asset_ids']) && is_array($this->post['audio_asset_ids'])) { $in['audio_asset_ids'] = array_map('intval', $this->post['audio_asset_ids']); }
+        return $in;
+    }
+
+    public function influencer_talking_scene_buildAction(){
+        $user = $this->ai_user(false);
+        $this->answer(InfluencerVideoActions::talking_scene_build((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->talking_in()));
+    }
+
+    public function influencer_talking_scene_startAction(){
+        $user = $this->ai_user();
+        $this->answer(InfluencerVideoActions::talking_scene_start((int) $user['user_id'], $this->usable($user, (int) ($this->post['id'] ?? 0)), $this->talking_in(), 'studio'));
     }
 
     public function influencer_scene_startAction(){

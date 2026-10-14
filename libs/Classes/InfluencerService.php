@@ -841,6 +841,8 @@ class InfluencerService {
                 'motion'       => InfluencerConfig::picker_options('motion'),
                 'replace'      => InfluencerConfig::picker_options('replace'),
                 'scene'        => InfluencerConfig::picker_options('scene'),
+                'dialogue'     => InfluencerConfig::picker_options('dialogue'),
+                'video_enhance'=> InfluencerConfig::picker_options('video_enhance'),
                 'training_set' => InfluencerConfig::picker_options('training_set'),
                 'image'        => InfluencerConfig::picker_options('image'),
                 'video'        => InfluencerConfig::picker_options('video'),

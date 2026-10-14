@@ -171,11 +171,19 @@ class FalProvider implements InfluencerProvider {
             return $in;
         }
         if ($family === 'seedance_ref') {
-            // Reference-to-video: references are addressed in the prompt as @Image1, @Video1.
-            if (!empty($images)) { $in['image_urls'] = $images; }
-            if (!empty($videos)) { $in['video_urls'] = $videos; }
+            // Reference-to-video: references are addressed in the prompt as @Image1, @Video1, @Audio1 (up to 9 images, 3 videos, 3 audio).
+            if (!empty($images)) { $in['image_urls'] = array_slice($images, 0, 9); }
+            if (!empty($videos)) { $in['video_urls'] = array_slice($videos, 0, 3); }
+            if (!empty($req['audio_urls'])) { $in['audio_urls'] = array_slice(array_values((array) $req['audio_urls']), 0, 3); }
             $in['duration'] = (string) max(4, min(30, (int) ($req['duration'] ?? 5)));
             if (!empty($req['aspect_value'])) { $in['aspect_ratio'] = (string) $req['aspect_value']; }
+            return $in;
+        }
+        if ($family === 'seedance_i2v') {
+            // Seedance image-to-video: the start frame, an optional last frame, whole seconds as a string (4 to 15, or 30 on 2.5).
+            $in['image_url'] = (string) ($req['image_url'] ?? ($images[0] ?? ''));
+            if (!empty($req['end_image_url'])) { $in['end_image_url'] = (string) $req['end_image_url']; }
+            $in['duration'] = (string) max(4, min(30, (int) ($req['duration'] ?? 5)));
             return $in;
         }
         if ($family === 'seedvr' || $family === 'topaz') {

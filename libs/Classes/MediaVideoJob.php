@@ -6,23 +6,38 @@
  * when the video was requested; any failure gives them back once (refund keyed by the asset).
  *
  * payload: creator_id, asset_id (placeholder video), source_asset_id (the image), model_key,
- *          prompt, duration, credits; later also handle (fal request) and polls. An automation's video also
+ *          prompt, duration, credits, overrides (resolution / generate_audio for a model that offers them),
+ *          end_asset_id (an optional last frame); later also handle (fal request) and polls. An automation's video also
  *          carries auto_post (rule_id, caption): AutoPostService::finish_video publishes it when it lands.
  */
 class MediaVideoJob {
 
     /**
      * Charge the credits, make the placeholder video asset and queue the job. Used by the Studio's
-     * "Generate a video" and by video automations. Returns ['ok', 'asset_id', 'message', 'price', 'balance'].
+     * "Generate a video" and by video automations. $extra['options']: resolution, audio, end_asset_id for a model that
+     * offers them (Seedance). Returns ['ok', 'asset_id', 'message', 'price', 'balance'].
      */
     public static function start(array $user, $source_asset_id, $model_key, $prompt, $duration, array $extra = array()): array {
         $cid   = (int) $user['user_id'];
+        $opts  = (array) ($extra['options'] ?? array()); unset($extra['options']);
         $model = InfluencerConfig::resolve_model('video', (string) $model_key);
         if (!$model) { return array('ok' => false, 'message' => 'No video model is configured.'); }
+        if (!InfluencerConfig::plan_allows($model, $user)) {
+            return array('ok' => false, 'message' => $model['label'] . ' is on the ' . InfluencerConfig::plans_label($model) . ' plans. Upgrade to use it.', 'need_upgrade' => true);
+        }
         $durs = array_values(array_map('strval', (array) ($model['durations'] ?? array())));
         $dur  = (string) $duration;
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = $durs[0]; }
-        $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key'], 'duration' => $dur));
+        $over = array();
+        if (!empty($model['res_usd'])) { $over['resolution'] = InfluencerConfig::resolution_for($model, (string) ($opts['resolution'] ?? '')); }
+        if (!empty($model['audio']) && array_key_exists('audio', $opts)) { $over['generate_audio'] = !empty($opts['audio']) && (string) $opts['audio'] !== '0'; }
+        if (!empty($over)) { $extra['overrides'] = $over; }
+        if (!empty($model['end_frame']) && (int) ($opts['end_asset_id'] ?? 0) > 0) {
+            $ea = (new MediaAssetsModel())->get_one($cid, (int) $opts['end_asset_id']);
+            if (!$ea || (string) $ea['type'] !== 'image' || (string) $ea['status'] !== 'ready') { return array('ok' => false, 'message' => 'Pick a ready image for the end frame.'); }
+            $extra['end_asset_id'] = (int) $ea['id'];
+        }
+        $pay = Plan::charge_ai($user, 'video', 'Video: ' . mb_substr((string) $prompt, 0, 60), array('model_key' => (string) $model['key'], 'duration' => $dur, 'params' => array('overrides' => $over)));
         if (empty($pay['ok'])) { return array('ok' => false, 'message' => $pay['message'], 'need_credits' => true, 'price' => $pay['price'], 'balance' => $pay['balance']); }
         $media = new MediaAssetsModel();
         $aid = (int) $media->add($cid, 'video', 'Generated · ' . mb_substr((string) $prompt, 0, 40) . '.mp4', 'video/mp4', 'processing', 'generated');
@@ -79,10 +94,19 @@ class MediaVideoJob {
             if (!$src || (string) $src['status'] !== 'ready') { return $fail('The source image is not available.'); }
             $url = S3Service::presigned_get_url((string) ($src['original_key'] ?: $src['display_key']), 3600);
             if ($url === '') { return $fail('Could not read the source image.'); }
-            $r = FalProvider::generate_video(array(
-                'endpoint' => InfluencerConfig::endpoint_for($model, 'fal'), 'prompt' => (string) ($payload['prompt'] ?? ''),
-                'duration' => (string) ($payload['duration'] ?? '5'), 'image_url' => $url, 'params' => (array) ($model['params'] ?? array()),
-            ));
+            $params = array_merge((array) ($model['params'] ?? array()), (array) ($payload['overrides'] ?? array()));
+            if (!empty($model['res_usd'])) { $params['resolution'] = InfluencerConfig::resolution_for($model, (string) ($params['resolution'] ?? '')); }
+            $req = array(
+                'endpoint' => InfluencerConfig::endpoint_for($model, 'fal'), 'prompt' => (string) ($payload['prompt'] ?? ''), 'family' => (string) ($model['family'] ?? ''),
+                'duration' => (string) ($payload['duration'] ?? '5'), 'image_url' => $url, 'params' => $params,
+            );
+            if (!empty($payload['end_asset_id'])) {
+                $ea = $media->get_one($cid, (int) $payload['end_asset_id']);
+                $eu = ($ea && (string) $ea['status'] === 'ready') ? S3Service::presigned_get_url((string) ($ea['original_key'] ?: $ea['display_key']), 3600) : '';
+                if ($eu === '') { return $fail('The end frame image is not available.'); }
+                $req['end_image_url'] = $eu;
+            }
+            $r = FalProvider::generate_video($req);
             if (empty($r['ok'])) {
                 // fal briefly refusing the account: try again in 1, 2, then 3 minutes before giving up.
                 $tries = (int) ($payload['unavailable'] ?? 0);

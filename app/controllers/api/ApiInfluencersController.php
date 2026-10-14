@@ -291,7 +291,8 @@ class ApiInfluencersController extends BaseApiController {
         $cid  = (int) $user['user_id'];
         $infl = $this->usable($user, (int) ($this->post['id'] ?? 0));
         $in = array('asset_id' => (int) ($this->post['asset_id'] ?? 0), 'prompt' => $this->text('prompt', InfluencerService::TEXT_MAX));
-        foreach (['model_key', 'duration'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        foreach (['model_key', 'duration', 'resolution', 'audio'] as $k) { if (isset($this->post[$k])) { $in[$k] = (string) $this->post[$k]; } }
+        if (!empty($this->post['end_asset_id'])) { $in['end_asset_id'] = (int) $this->post['end_asset_id']; }
         $this->answer(InfluencerActions::generate_video($cid, $infl, $in, 'studio'));
     }
 

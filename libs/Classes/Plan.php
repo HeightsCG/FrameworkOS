@@ -393,6 +393,14 @@ class Plan {
         $op   = InfluencerJobService::op_for($type);
         $dur  = (string) ($f['duration'] ?? ($f['params']['duration'] ?? ''));
         $n    = in_array($type, array('image', 'replicate', 'edit', 'angle', 'carousel'), true) ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
+        // A model priced per resolution (Seedance): seconds of output at the chosen resolution, more when a source video goes too.
+        if (!empty($f['model_key'])) {
+            $rm = InfluencerConfig::model((string) $f['model_key']);
+            if ($rm && !empty($rm['res_usd'])) {
+                $res = (string) ($f['params']['overrides']['resolution'] ?? ($f['params']['resolution'] ?? ''));
+                return (int) InfluencerConfig::run_credits($rm, max(1, (int) $dur), $res, $op === 'replace');
+            }
+        }
         // Enhancing a video: an 'enhance' job with a video model, priced per second of the source.
         if ($op === 'enhance' && !empty($f['model_key'])) {
             $vm = InfluencerConfig::model((string) $f['model_key']);

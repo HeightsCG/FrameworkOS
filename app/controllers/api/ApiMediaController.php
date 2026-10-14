@@ -132,9 +132,12 @@ class ApiMediaController extends BaseApiController {
             $this->jsonError("You've reached your plan's storage limit. Upgrade or remove files to free up space.", ['need_upgrade' => true]);
         }
 
-        $v = MediaVideoJob::start($user, (int) $src['id'], (string) $model['key'], $prompt, $dur);
+        $opts = array();
+        foreach (['resolution', 'audio'] as $k) { if (isset($this->post[$k])) { $opts[$k] = (string) $this->post[$k]; } }
+        if (!empty($this->post['end_asset_id'])) { $opts['end_asset_id'] = (int) $this->post['end_asset_id']; }
+        $v = MediaVideoJob::start($user, (int) $src['id'], (string) $model['key'], $prompt, $dur, array('options' => $opts));
         if (empty($v['ok'])) {
-            $this->jsonError($v['message'], !empty($v['need_credits']) ? ['need_credits' => true, 'price' => $v['price'], 'balance' => $v['balance']] : []);
+            $this->jsonError($v['message'], !empty($v['need_credits']) ? ['need_credits' => true, 'price' => $v['price'], 'balance' => $v['balance']] : (!empty($v['need_upgrade']) ? ['need_upgrade' => true] : []));
         }
         $a = (new MediaAssetsModel())->get_one($creator_id, (int) $v['asset_id']);
         $this->jsonSuccess(['queued' => true, 'price' => (int) $v['price'], 'asset' => $this->studio_asset_json($a, $creator_id)]);

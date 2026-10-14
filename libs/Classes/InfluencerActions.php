@@ -574,7 +574,10 @@ class InfluencerActions {
         return $text;
     }
 
-    /** Image-to-video from one of her stills. $in: asset_id (required), prompt, model_key, duration. */
+    /**
+     * Image-to-video from one of her stills. $in: asset_id (required), prompt, model_key, duration; for a model that offers them
+     * (Seedance): resolution, audio (native sound on/off), end_asset_id (an optional last frame).
+     */
     public static function generate_video($cid, array $infl, array $in, $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         $aid = (int) ($in['asset_id'] ?? 0);
@@ -590,11 +593,21 @@ class InfluencerActions {
         $durs = array_values((array) ($mk['durations'] ?? array()));
         $dur  = (string) ($in['duration'] ?? ($durs[0] ?? '5'));
         if (!empty($durs) && !in_array($dur, $durs, true)) { $dur = (string) $durs[0]; }
+        $params = array('duration' => $dur, 'user_prompt' => $user_prompt);
+        $over = array();
+        if (!empty($mk['res_usd'])) { $over['resolution'] = InfluencerConfig::resolution_for($mk, (string) ($in['resolution'] ?? '')); }
+        if (!empty($mk['audio']) && array_key_exists('audio', $in)) { $over['generate_audio'] = !empty($in['audio']) && (string) $in['audio'] !== '0'; }
+        if (!empty($over)) { $params['overrides'] = $over; }
+        if (!empty($mk['end_frame']) && (int) ($in['end_asset_id'] ?? 0) > 0) {
+            $ea = (new MediaAssetsModel())->get_one($cid, (int) $in['end_asset_id']);
+            if (!$ea || (string) $ea['type'] !== 'image' || (string) $ea['status'] !== 'ready') { return self::fail('Pick a ready image for the end frame.'); }
+            $params['end_asset_id'] = (int) $ea['id'];
+        }
         try {
             $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'video', array(
                 'origin' => $origin, 'model_key' => (string) $mk['key'], 'model_id' => (int) ($infl['active_model_id'] ?? 0), 'prompt' => $prompt,
                 'negative_prompt' => (string) ($infl['negative_prompt'] ?? ''), 'input_asset_id' => $aid,
-                'params' => array('duration' => $dur, 'user_prompt' => $user_prompt),
+                'params' => $params,
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);

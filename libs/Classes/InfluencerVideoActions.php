@@ -251,7 +251,10 @@ class InfluencerVideoActions {
         $seen = self::replace_subject($cid, $infl, $v, (string) ($in['subject'] ?? ''));
         $secs = (int) ceil($p['duration']);
         $prices = array();
-        foreach (InfluencerConfig::picker('replace') as $m) { $prices[(string) $m['key']] = InfluencerConfig::metered_credits($m, $secs); }
+        foreach (InfluencerConfig::picker('replace') as $m) {   // a model priced per resolution (Seedance): its default resolution, with the source video billed too
+            $rc = InfluencerConfig::run_credits($m, $secs, (string) ($in['resolution'] ?? ''), true);
+            $prices[(string) $m['key']] = $rc !== null ? $rc : InfluencerConfig::metered_credits($m, $secs);
+        }
         $angles = max(0, count($refs) - 1);
         return self::okr(array('seconds' => $secs, 'duration' => round($p['duration'], 2), 'subject' => $seen['subject'], 'people' => $seen['people'], 'errors' => $errors,
             'prompt' => self::replace_prompt($model, $infl, array('subject' => $seen['subject'], 'outfit' => (string) ($in['outfit'] ?? 'video'),
@@ -328,7 +331,9 @@ class InfluencerVideoActions {
                 'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'input_asset_id' => (int) $v['id'],
                 'attested_at' => date('Y-m-d H:i:s'), 'source_hash' => $hash,
                 'params' => array('duration' => $secs, 'image_asset_ids' => $refs, 'subject' => $opts['subject'], 'outfit' => $opts['outfit'],
-                    'lock_others' => $opts['lock_others'], 'remove_text' => $opts['remove_text']),
+                    'lock_others' => $opts['lock_others'], 'remove_text' => $opts['remove_text'])
+                    + (!empty($model['res_usd']) ? array('overrides' => array('resolution' => InfluencerConfig::resolution_for($model, (string) ($in['resolution'] ?? '')))
+                        + (array_key_exists('audio', $in) ? array('generate_audio' => !empty($in['audio'])) : array())) : array()),
             ));
         } catch (PlanLimitException $e) {
             return self::fail($e->getMessage(), $e->limit);
@@ -448,9 +453,71 @@ class InfluencerVideoActions {
         $aspect = Aspect::for_model($model, (string) ($in['aspect'] ?? ''), Aspect::DEFAULT_VIDEO);
         $prices = array();
         foreach (InfluencerConfig::picker('scene') as $m) { $prices[(string) $m['key']] = InfluencerConfig::metered_credits($m, $secs); }
+        if (!isset($prices[(string) $model['key']])) { $prices[(string) $model['key']] = (int) (InfluencerConfig::run_credits($model, $secs) ?? InfluencerConfig::metered_credits($model, $secs)); }
         return self::okr(array('model_key' => (string) $model['key'], 'cast' => $cast, 'lines' => $lines, 'images' => $images, 'seconds' => $secs, 'suggested_seconds' => $suggested,
             'min_seconds' => $min, 'max_seconds' => $max, 'aspect' => $aspect, 'prices' => $prices,
             'prompt' => self::scene_prompt($cast, $lines, (string) ($in['setting'] ?? ''), $secs)));
+    }
+
+    /* =====================================================================
+     * 11. Talking Scene (Generate Video): she says a script in one take, with native sound
+     * =================================================================== */
+
+    /** The script as dialogue lines for one speaker: one line per paragraph. */
+    public static function script_lines($script){
+        $rows = array();
+        foreach (preg_split('/\n\s*\n|\r?\n/', (string) $script) as $para) {
+            $t = self::one_line($para, 500);
+            if ($t !== '') { $rows[] = array('speaker' => 1, 'text' => $t); }
+        }
+        return self::scene_lines($rows, 1);
+    }
+
+    /**
+     * Assemble a Talking Scene without starting it: length (from the script, or as asked), resolution and price.
+     * $in: script, setting, model_key (dialogue picker), resolution, seconds, aspect, audio_asset_ids.
+     */
+    public static function talking_scene_build($cid, array $infl, array $in){
+        $model = InfluencerConfig::model((string) ($in['model_key'] ?? ''));
+        if (!$model || !InfluencerConfig::serves($model, 'scene')) { $model = InfluencerConfig::model(InfluencerConfig::default_model_key('dialogue')); }
+        if (!$model) { return self::fail('No talking scene model is configured.'); }
+        $lines = self::script_lines($in['script'] ?? '');
+        if (empty($lines)) { return self::fail('Write what she says.'); }
+        $b = self::scene_build($cid, $infl, array('lines' => $lines, 'setting' => (string) ($in['setting'] ?? ''), 'second' => 'none',
+            'seconds' => (int) ($in['seconds'] ?? 0), 'aspect' => (string) ($in['aspect'] ?? ''), 'model_key' => (string) $model['key']));
+        if (empty($b['ok'])) { return $b; }
+        $res = InfluencerConfig::resolution_for($model, (string) ($in['resolution'] ?? ''));
+        $b['resolution'] = $res;
+        $b['price'] = (int) InfluencerConfig::run_credits($model, (int) $b['seconds'], $res);
+        $b['plans'] = array_values((array) ($model['plans'] ?? array()));
+        return $b;
+    }
+
+    /** Start a Talking Scene (see talking_scene_build). Native sound is always on: the point is to hear her. */
+    public static function talking_scene_start($cid, array $infl, array $in, $origin = 'studio'){
+        if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
+        $b = self::talking_scene_build($cid, $infl, $in);
+        if (empty($b['ok'])) { return $b; }
+        $audio = array();
+        foreach (array_slice(array_map('intval', (array) ($in['audio_asset_ids'] ?? array())), 0, 3) as $auid) {
+            $au = $auid > 0 ? (new MediaAssetsModel())->get_one($cid, $auid) : null;
+            if ($au && (string) $au['type'] === 'audio' && (string) $au['status'] === 'ready') { $audio[] = $auid; }
+        }
+        $prompt = (string) $b['prompt'];
+        if (!empty($audio)) { $prompt .= ' Her voice and delivery follow @Audio1.'; }
+        try {
+            $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'scene', array(
+                'origin' => $origin, 'model_key' => (string) $b['model_key'], 'prompt' => $prompt,
+                'params' => array('duration' => (int) $b['seconds'], 'aspect' => (string) $b['aspect'], 'image_asset_ids' => $b['images'],
+                    'lines' => $b['lines'], 'cast' => array_column($b['cast'], 'label'), 'setting' => self::one_line($in['setting'] ?? '', 800),
+                    'talking_scene' => 1, 'audio_asset_ids' => $audio,
+                    'overrides' => array('resolution' => (string) $b['resolution'], 'generate_audio' => true)),
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
+        if ($job_id <= 0) { return self::fail('Could not start the talking scene.'); }
+        return self::okr(array('job_id' => $job_id, 'job' => self::job_json($cid, $job_id), 'seconds' => (int) $b['seconds'], 'price' => (int) $b['price']));
     }
 
     /** Start a scene (see scene_build for $in). An edited prompt can be passed as $in['prompt']. */
