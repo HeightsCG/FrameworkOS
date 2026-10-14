@@ -523,6 +523,8 @@ class BillingService {
             $q['today'] = max(0, (int) array_sum(array_column($q['lines'], 1)));
             $q['promo'] = $pr['promo'];
             $q['promo_label'] = $pr['label'];
+            // founding offer: the free first period is TRIAL_DAYS long, not a billing month; renewals run monthly from its end
+            if ($pr['promo']['promo_code'] === Founding::CODE && $q['mode'] === 'subscribe' && strpos((string) $q['lines'][0][0], '(rest of this period)') === false) { $q['next_at'] = Founding::trial_end(); }
         }
         $q['card_needed'] = self::card_needed(self::account($user_id), $q);
         return $q;

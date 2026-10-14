@@ -41,11 +41,13 @@ try {
     check('offer covers every paid plan', Founding::covers('creator') && Founding::covers('studio') && !Founding::covers('free'));
     check('eligible while on Free with spots left', Founding::eligible($a));
 
-    // quote: the FOUNDING promo takes the first month to $0, no payment processor call
+    // quote: the FOUNDING promo takes the first TRIAL_DAYS to $0, no payment processor call
     $q = BillingService::quote_plan($a, Founding::PLAN, Founding::CODE);
     check('quote ok, $0 today', !empty($q['ok']) && (int) $q['today'] === 0);
     check('quote has the founding promo line', !empty($q['lines'][1]) && strpos($q['lines'][1][0], 'Promo ' . Founding::CODE) === 0 && (int) $q['lines'][1][1] === -BillingService::plan_cents(Founding::PLAN));
     check('quote still renews at the plan price', (int) $q['recurring'] === BillingService::plan_cents(Founding::PLAN));
+    $days = (strtotime($q['next_at'] . ' UTC') - time()) / 86400;
+    check('free first period ends ' . Founding::TRIAL_DAYS . ' days after signup', abs($days - Founding::TRIAL_DAYS) < 0.01);
     $qs = BillingService::quote_plan($a, 'studio', Founding::CODE);
     check('founding promo accepted for Studio, $0 today', !empty($qs['ok']) && (int) $qs['today'] === 0);
     Founding::present(false);
@@ -63,6 +65,9 @@ try {
     check('claim active with activated_at', $claim && $claim['status'] === 'active' && !empty($claim['activated_at']));
     check('spots taken went up by one', Founding::taken() === $t0 + 1);
     check('on the Creator plan, active', Plan::tier($ua) === Founding::PLAN);
+    $acct14 = BillingService::account($a);
+    check('first charge is due ' . Founding::TRIAL_DAYS . ' days after signup', abs((strtotime($acct14['next_charge_at'] . ' UTC') - time()) / 86400 - Founding::TRIAL_DAYS) < 0.01);
+    check('the renewal after the free period is a full month', BillingService::add_period($acct14['current_period_end']) > $acct14['current_period_end'] && (strtotime(BillingService::add_period($acct14['current_period_end']) . ' UTC') - strtotime($acct14['current_period_end'] . ' UTC')) / 86400 >= 28);
     $acct = BillingService::account($a); $next = BillingService::next_charge($acct);
     check('promo used up: next charge is the full plan price', $next && (int) $next['total'] === BillingService::plan_cents(Founding::PLAN) && empty($acct['promo_code']));
     check('not eligible a second time', !Founding::eligible($a) && empty(BillingService::quote_plan($a, Founding::PLAN, Founding::CODE)['ok']));

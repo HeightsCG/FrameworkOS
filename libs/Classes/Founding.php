@@ -1,7 +1,8 @@
 <?php
 /**
  * Founding creator offer (/founding). The first SPOTS accounts that start the Creator plan through it get the first
- * month free (the system promo CODE: 100% off one period, no Stripe coupon). That is the whole offer since 2026-10-12
+ * TRIAL_DAYS free (the system promo CODE: 100% off a first period that ends TRIAL_DAYS after signup, then monthly from
+ * that date; no Stripe coupon). That is the whole offer since 2026-10-12
  * (Daniel): FEE_LOCK is off, so new claims pay the Creator plan's own fee. Claims made while the lock was on keep
  * their fee_percent_override for as long as the Creator plan stays active or past due. In return they agree to share a
  * testimonial, to be featured in the directory and on the home page, and to stay listed in the directory.
@@ -17,7 +18,8 @@ class Founding {
     const PLAN  = 'creator';              // the plan the claim link preselects, and the one old fee locks apply to
     const PLANS = array('creator', 'studio');   // every paid plan takes the offer (Daniel 2026-10-12)
     const FEE_FROM = 'studio';   // the tier whose fee is locked in (only while FEE_LOCK is on)
-    const FEE_LOCK = false;      // false: a new claim gets the free first month and nothing else; an override already written is still honoured (fee_override)
+    const FEE_LOCK = false;      // false: a new claim gets the free first TRIAL_DAYS and nothing else; an override already written is still honoured (fee_override)
+    const TRIAL_DAYS = 14;       // the free first period (Daniel 2026-10-14; was one billing month)
     const TESTIMONIAL_DAYS = 14;
     const FULL_MESSAGE = 'All founding spots are taken.';
 
@@ -69,8 +71,14 @@ class Founding {
     /** "3%" (no trailing .00). */
     public static function fee_label(): string { return rtrim(rtrim(number_format(self::fee(), 2), '0'), '.') . '%'; }
 
+    /** "first 14 days free" */
+    public static function free_label(): string { return 'first ' . self::TRIAL_DAYS . ' days free'; }
+
+    /** When the free first period ends for a plan started now. */
+    public static function trial_end(): string { return gmdate('Y-m-d H:i:s', time() + self::TRIAL_DAYS * 86400); }
+
     /** The note on the billing plan tab and the quote line label. */
-    public static function note(): string { return 'Founding offer: first billing period free' . (self::FEE_LOCK ? ', ' . self::fee_label() . ' fee locked' : ''); }
+    public static function note(): string { return 'Founding offer: ' . self::free_label() . (self::FEE_LOCK ? ', ' . self::fee_label() . ' fee locked' : ''); }
 
     public static function taken(): int { return (new FoundingClaimsModel())->taken(); }
 
@@ -111,7 +119,7 @@ class Founding {
         $c = (new FoundingClaimsModel())->for_user((int) $user_id);
         if ($c && (string) $c['status'] !== 'claimed') { return array('ok' => false, 'message' => 'The founding offer can be used once per account.'); }
         if (!$c && !self::open()) { return array('ok' => false, 'message' => self::FULL_MESSAGE); }
-        return array('ok' => true, 'label' => 'first billing period free', 'promo' => array('promo_code' => self::CODE, 'promo_percent' => 100, 'promo_amount_cents' => null, 'promo_periods_left' => 1));
+        return array('ok' => true, 'label' => self::free_label(), 'promo' => array('promo_code' => self::CODE, 'promo_percent' => 100, 'promo_amount_cents' => null, 'promo_periods_left' => 1));
     }
 
     /** Hold a spot before any charge: '' when held, else the message to show (no spot left, or busy). */

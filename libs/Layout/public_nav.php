@@ -12,7 +12,7 @@ $nav_offer = false;
 if (!$nav_links) { try { $nav_offer = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[nav] founding: ' . $ex->getMessage()); } }
 ?>
 <?php if ($nav_offer): ?>
-    <aside class="fb" aria-label="Founding offer"><p class="fb__in"><span class="fb__text">30 days free on <?php echo $nav_e(Founding::plan_names()); ?>.</span> <?php $nav_claim = Founding::claim_link(); ?><a href="<?php echo $nav_e($nav_claim[0]); ?>"<?php echo $nav_claim[1] !== '' ? ' data-auth="' . $nav_e($nav_claim[1]) . '"' : ''; ?>>Claim Your Spot <span aria-hidden="true">&rarr;</span></a></p></aside>
+    <aside class="fb" aria-label="Founding offer"><p class="fb__in"><span class="fb__text"><?php echo (int) Founding::TRIAL_DAYS; ?> days free on <?php echo $nav_e(Founding::plan_names()); ?>.</span> <?php $nav_claim = Founding::claim_link(); ?><a href="<?php echo $nav_e($nav_claim[0]); ?>"<?php echo $nav_claim[1] !== '' ? ' data-auth="' . $nav_e($nav_claim[1]) . '"' : ''; ?>>Claim Your Spot <span aria-hidden="true">&rarr;</span></a></p></aside>
 <?php endif; ?>
     <header class="ld-nav">
         <div class="ld-wrap ld-nav__inner">
