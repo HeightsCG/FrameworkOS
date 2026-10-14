@@ -233,7 +233,10 @@ class InfluencerActions {
 
     /* ---- Path B: reference + training set ---- */
 
-    /** Generate a reference image from her description. $in: source_description?, reference_model_key? */
+    /** Up to this many face photos can be blended into one new reference face. */
+    const BLEND_MAX = 3;
+
+    /** Generate a reference image from her description. $in: source_description?, reference_model_key?, face_asset_ids? (up to BLEND_MAX, for a model that takes faces) */
     public static function reference_generate($cid, array $infl, array $in){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
         if ((string) $infl['path'] !== 'reference') { return self::fail('This influencer is trained from photos.'); }
@@ -247,9 +250,25 @@ class InfluencerActions {
         if ($desc === '') { return self::fail('Describe the face first.'); }
         $model = InfluencerConfig::resolve_model('reference', (string) $infl['reference_model_key']);
         if (!$model) { return self::fail('No reference model is configured.'); }
+        // Face photos to blend: the creator's own ready images, for a model that takes them.
+        $faces = array();
+        if (!empty($model['max_refs']) && !empty($in['face_asset_ids'])) {
+            $mm = new MediaAssetsModel();
+            foreach (array_slice(array_values(array_unique(array_map('intval', (array) $in['face_asset_ids']))), 0, min(self::BLEND_MAX, (int) $model['max_refs'])) as $fid) {
+                $fa = $fid > 0 ? $mm->get_one($cid, $fid) : null;
+                if ($fa && (string) $fa['type'] === 'image' && (string) $fa['status'] === 'ready') { $faces[] = $fid; }
+            }
+        }
+        $prompt = InfluencerService::realistic($desc, (string) $model['key']);   // her description, then the preset's rendering sentence
+        if (!empty($faces)) {
+            $prompt = (count($faces) > 1
+                ? 'Create one new, original person whose face blends features of the ' . count($faces) . ' people in the images; not a copy of any one of them. '
+                : 'Create a new, original person with a face closely resembling the person in the image. ') . $prompt;
+        }
+        $params = array('image_size' => 'square', 'num_images' => 1);
+        if (!empty($faces)) { $params['image_asset_ids'] = $faces; }
         $job_id = InfluencerJobService::create_job($cid, (int) $infl['id'], 'reference', array(
-            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => InfluencerService::realistic($desc, (string) $model['key']),   // her description, then the preset's rendering sentence
-            'params' => array('image_size' => 'square', 'num_images' => 1),
+            'origin' => 'wizard', 'model_key' => (string) $model['key'], 'prompt' => $prompt, 'params' => $params,
         ));
         if ($job_id <= 0) { return self::fail('Could not start the reference image.'); }
         return self::okr(array('job_id' => $job_id));

@@ -42,13 +42,14 @@ class InfluencerConfig {
         'replace'      => array('fal'),
         'scene'        => array('fal'),
         'talking'      => array('fal'),
+        'video_enhance'=> array('fal'),
     );
 
     /**
      * Ops whose AI credit price is worked out from the model's provider cost (credits_from_usd)
      * instead of a flat PlanTiers::AI_PRICES number. A model can still set its own 'credits'.
      */
-    const METERED_OPS = array('replicate', 'edit', 'angle', 'motion', 'talking', 'replace', 'scene', 'speech', 'voice_design');
+    const METERED_OPS = array('replicate', 'edit', 'angle', 'motion', 'talking', 'replace', 'scene', 'speech', 'voice_design', 'video_enhance');
 
     /** AI credits charged per provider dollar, rounded to CREDIT_STEP, never under CREDIT_FLOOR. */
     const CREDITS_PER_USD = 700;
@@ -83,6 +84,12 @@ class InfluencerConfig {
         'flux_ultra_raw' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Most Realistic', 'purpose' => 'Looks like a real photo', 'style' => 'polished',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
+        // Nano Banana Pro (2026-10-14): text-to-image from her description; with one to three face photos the request goes to its edit
+        // endpoint (endpoint_refs) and blends them into one new face. fal: $0.15 per image at 1K/2K.
+        'nano_banana_pro_ref' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/nano-banana-pro'),
+            'endpoint_refs' => 'fal-ai/nano-banana-pro/edit', 'family_refs' => 'nano_banana',
+            'label' => 'Most Realistic', 'purpose' => 'Nano Banana Pro, can blend up to 3 faces', 'style' => 'polished',
+            'price_usd' => 0.15, 'price_unit' => 'image', 'params' => array('resolution' => '2K'), 'family' => 'nano_banana_t2i', 'aspects' => self::RATIO_ASPECTS, 'max_refs' => 3),
         'flux_pro_11' => array('provider' => 'fal', 'op' => 'reference', 'endpoints' => array('fal' => 'fal-ai/flux-pro/v1.1'),
             'label' => 'Polished', 'purpose' => 'Smoother, more retouched look', 'style' => 'polished',
             'price_usd' => 0.04, 'price_unit' => 'image', 'params' => array(), 'family' => 'flux_pro', 'aspects' => self::FLUX_ASPECTS),
@@ -125,6 +132,16 @@ class InfluencerConfig {
             'label' => 'Cinematic', 'purpose' => 'Higher quality, with sound',
             'price_usd' => 0.084, 'price_unit' => 'second',
             'durations' => array('5', '10'), 'params' => array('generate_audio' => true, 'cfg_scale' => 0.5), 'credits' => array('5' => 300, '10' => 600), 'family' => 'kling_i2v'),
+        // Grok Imagine v1.5 (2026-10-14): fal bills per second of output by resolution plus $0.01 per input image; credits per length are
+        // that dollar figure through credits_from_usd (720p: full $0.14/s, Lite $0.03/s).
+        'grok_video' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'xai/grok-imagine-video/v1.5/image-to-video'),
+            'label' => 'Budget', 'purpose' => 'Grok Imagine, 720p',
+            'price_usd' => 0.14, 'price_unit' => 'second',
+            'durations' => array('6', '10', '15'), 'params' => array('resolution' => '720p', 'enable_safety_checker' => false), 'credits' => array('6' => 600, '10' => 990, '15' => 1480), 'family' => 'grok_video'),
+        'grok_video_lite' => array('provider' => 'fal', 'op' => 'video', 'endpoints' => array('fal' => 'xai/grok-imagine-video/v1.5/lite/image-to-video'),
+            'label' => 'Quick Draft', 'purpose' => 'Grok Imagine Lite, fast and cheap',
+            'price_usd' => 0.03, 'price_unit' => 'second',
+            'durations' => array('6', '10', '15'), 'params' => array('resolution' => '720p', 'enable_safety_checker' => false), 'credits' => array('6' => 130, '10' => 220, '15' => 320), 'family' => 'grok_video'),
         // -- motion control (a reference motion video + a first frame -> video); priced per second of the reference video --
         'kling_v3_motion_std' => array('provider' => 'fal', 'op' => 'motion', 'endpoints' => array('fal' => 'fal-ai/kling-video/v3/standard/motion-control'),
             'label' => '720p', 'purpose' => 'Standard quality', 'price_usd' => 0.126, 'price_unit' => 'second', 'quality' => '720p',
@@ -177,6 +194,15 @@ class InfluencerConfig {
             'label' => 'Enhance', 'purpose' => 'Upscale 2x with more detail',
             'price_usd' => 0.03, 'price_unit' => 'image',
             'params' => array('upscale_factor' => 2, 'creativity' => 0.3, 'resemblance' => 0.8), 'family' => 'clarity'),
+        // -- enhance a video (upscale); runs as an 'enhance' job on a video source, priced per second of the source (2026-10-14).
+        //    SeedVR: $0.001 per megapixel of output frames, about $0.062/s at 1080p 30fps. Topaz Precision (Proteus, 2x): $0.10 per
+        //    10s at 720p, $0.20 at 1080p, $0.60 at 4K; 2x of a 720p+ source lands in the 4K tier, so $0.06/s. --
+        'seedvr_video' => array('provider' => 'fal', 'op' => 'video_enhance', 'ops' => array('enhance'), 'endpoints' => array('fal' => 'fal-ai/seedvr/upscale/video'),
+            'label' => 'Enhance Video', 'purpose' => 'Sharper detail, 1080p', 'price_usd' => 0.062, 'price_unit' => 'second',
+            'params' => array('upscale_mode' => 'target', 'target_resolution' => '1080p', 'output_quality' => 'high'), 'family' => 'seedvr', 'min_seconds' => 1, 'max_seconds' => 60),
+        'topaz_video' => array('provider' => 'fal', 'op' => 'video_enhance', 'ops' => array('enhance'), 'endpoints' => array('fal' => 'topaz/upscale/video/precision'),
+            'label' => 'Pro Enhance', 'purpose' => 'Topaz, twice the resolution', 'price_usd' => 0.06, 'price_unit' => 'second',
+            'params' => array('model' => 'Proteus', 'upscale_factor' => 2, 'H264_output' => true), 'family' => 'topaz', 'min_seconds' => 1, 'max_seconds' => 60),
         // -- generation from her reference pictures (no trained weights): follows expressions, props and actions the trained model drops.
         //    Dev test 2026-10-13, three scenes, seven things asked for in each: trained model 25 of 35, Prompt Match 40 of 42, Prompt Match Pro 42 of 42. --
         'prompt_match' => array('provider' => 'fal', 'op' => 'image', 'endpoints' => array('fal' => 'fal-ai/bytedance/seedream/v4.5/edit'),
@@ -193,11 +219,12 @@ class InfluencerConfig {
 
     /** Model keys offered in each picker, in display order (first = default). */
     const PICKERS = array(
-        'reference'    => array('flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),
+        'reference'    => array('nano_banana_pro_ref', 'flux_ultra_raw', 'flux_pro_11', 'flux_schnell'),   // Nano Banana Pro first = default (2026-10-14)
         'training_set' => array('seedream_45_edit', 'nano_banana_edit'),   // Seedream first (2026-10-07 A/B): real light and grain where Nano Banana returns a glossy render
         'image'        => array('flux_lora_quality', 'flux_lora_fast', 'prompt_match', 'prompt_match_pro'),
-        'video'        => array('hailuo_02', 'kling_v3'),
+        'video'        => array('hailuo_02', 'kling_v3', 'grok_video', 'grok_video_lite'),
         'enhance'      => array('clarity_upscaler'),
+        'video_enhance'=> array('seedvr_video', 'topaz_video'),
         'training'     => array('flux_lora_fast_training'),
         'replicate'    => array('nano_banana_pro_edit', 'seedream_45_edit'),
         'edit'         => array('grok_edit', 'nano_banana_edit'),
@@ -219,7 +246,7 @@ class InfluencerConfig {
         'ceiling_reference'           => 300,
         'ceiling_training_set'        => 300,
         'ceiling_image'               => 300,
-        'ceiling_enhance'             => 300,
+        'ceiling_enhance'             => 1800,   // a video upscale (video_enhance models) takes minutes; an image one finishes well inside this
         'ceiling_video'               => 900,
         'ceiling_motion'              => 2400,
         'ceiling_replace'             => 2400,

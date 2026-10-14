@@ -1004,6 +1004,9 @@ jQuery(function ($) {
                 '<div class="inf-field"><div class="inf-label">Render With</div>' + opts_html('inf_ref_model', C.pickers.reference || [], inf.reference_model_key) + '</div>' +
                 '<div class="inf-field"><div class="inf-field__row"><label class="inf-label" for="inf_ref_desc">Face Description</label>' + prebuilt_link('inf_ref_pre', faces) + '</div><textarea class="form-control inf-wiz__desc" id="inf_ref_desc" placeholder="' + esc((faces[0] || {}).text || '') + '">' + esc(inf.source_description) + '</textarea></div>' +
                 prebuilt_pop('inf_ref_pre', faces) +
+                // Faces to blend into the new face: only for a model that takes face photos (max_refs), up to 3.
+                '<div class="inf-field" id="inf_ref_blend_f" hidden><div class="inf-label" id="inf_ref_blend_l">Blend Faces</div>' +
+                '<div class="inf-ref__row inf-ref__blend" id="inf_ref_blend" role="group" aria-labelledby="inf_ref_blend_l"></div></div>' +
                 '</div>' +
                 '<div class="inf-wiz__view inf-face">' +   // the picture on a quiet stage; its versions and the Adjust box sit in a panel beside it once a picture exists
                 '<div class="inf-gen__stage inf-wiz__stage" id="inf_ref_stage"><div class="inf-gen__idle"><i class="fa-regular fa-image"></i><p>The reference appears here.</p></div></div>' +
@@ -1021,6 +1024,25 @@ jQuery(function ($) {
                 '<button type="button" class="btn btn-primary" id="inf_ref_use" hidden><i class="fa-solid fa-check"></i> Use This Reference</button></div>';
             $('#inf_panel').html(html);
             opts_bind('inf_ref_model');
+            var blend = [], BLEND_MAX = 3;
+            function ref_model() { var k = opts_value('inf_ref_model'), m = null; (C.pickers.reference || []).forEach(function (o) { if (o.key === k) { m = o; } }); return m; }
+            function paint_blend() {
+                var m = ref_model(), max = m ? Math.min(BLEND_MAX, parseInt(m.max_refs, 10) || 0) : 0;
+                $('#inf_ref_blend_f').prop('hidden', max === 0);
+                blend = blend.slice(0, Math.max(max, 0));
+                $('#inf_ref_blend').html(blend.map(function (f, i) {
+                    return '<span class="inf-photo inf-ref__face"><img src="' + esc(f.thumb_url) + '" alt="Face ' + (i + 1) + '"><button type="button" class="inf-ref__facex" data-i="' + i + '" aria-label="Remove face ' + (i + 1) + '"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></span>';
+                }).join('') + (blend.length < max ? '<button type="button" class="inf-photo inf-ref__faceadd" id="inf_ref_blend_add"><i class="fa-solid fa-plus" aria-hidden="true"></i><span>Add Face</span></button>' : ''));
+            }
+            $('#inf_ref_model').on('click', '.inf-opt', paint_blend);
+            $('#inf_ref_blend').on('click', '#inf_ref_blend_add', function () {
+                if (!window.AiTools) { return; }
+                AiTools.pick_image({ title: 'Choose a Face' }, function (a) {
+                    if (!a || blend.some(function (f) { return f.id === a.id; })) { return; }
+                    blend.push({ id: a.id, thumb_url: a.thumb_url }); paint_blend();
+                });
+            }).on('click', '.inf-ref__facex', function () { blend.splice(parseInt($(this).data('i'), 10), 1); paint_blend(); });
+            paint_blend();
             $('#inf_panel').off('click.infpre').on('click.infpre', '.inf-chip--text', function () { if (!$(this).closest('#inf_ref_pre').length) { return; } $('#inf_ref_desc').val(faces[$(this).data('i')].text).trigger('input').trigger('focus'); });
             $('#inf_ref_back').on('click', function () { go_back('reference'); });
             var selected = inf.reference_asset_id || 0;
@@ -1052,7 +1074,9 @@ jQuery(function ($) {
                 if (!C.enabled) { toastr.info('Rendering is not configured yet'); return; }
                 $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', true);
                 busy('Generating');
-                api('influencer_reference_generate', { id: inf.id, source_description: desc, reference_model_key: opts_value('inf_ref_model') }, function (o) {
+                var m = ref_model(), body = { id: inf.id, source_description: desc, reference_model_key: opts_value('inf_ref_model') };
+                if (m && parseInt(m.max_refs, 10) > 0 && blend.length) { body.face_asset_ids = blend.map(function (f) { return f.id; }); }
+                api('influencer_reference_generate', body, function (o) {
                     if (!o || !o.success) { err(o); $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', false); api('influencer_images', { id: inf.id, role: 'reference' }, function (o2) { paint((o2 && o2.success) ? o2.images : []); }); return; }
                     ref_stop = poll_job(o.job_id, function (j) { busy(status_text(j)); }, function (j) {
                         $('#inf_ref_gen, #inf_ref_gen_primary, #inf_ref_use').prop('disabled', false); $('#inf_ref_status').text('');
@@ -1631,6 +1655,7 @@ jQuery(function ($) {
             $('#inf_lightbox_meta').text((a.type === 'video' ? 'Video' : 'Image') + (a.width && a.height ? ' · ' + a.width + '×' + a.height : ''));
             $('#inf_lightbox_edit').prop('hidden', a.type !== 'image');   // Edit By Instruction is for images
             $('#inf_lightbox_frame').prop('hidden', a.type !== 'video');  // a video's current frame exports as an image
+            $('#inf_lightbox_enhance').prop('hidden', a.type !== 'video');   // Enhance Video (AiTools); images are enhanced on Generate Images
             $('#inf_lightbox').prop('hidden', false);
         }
         function close_lightbox() { $('#inf_lightbox').prop('hidden', true); var v = document.getElementById('inf_lightbox_video'); v.pause(); }
@@ -1660,6 +1685,13 @@ jQuery(function ($) {
                     customClass: { confirmButton: 'btn btn-primary', cancelButton: 'btn btn-secondary' }, buttonsStyling: false, reverseButtons: true })
                     .then(function (r) { if (r.isConfirmed) { window.location = '/influencers/replicate/' + inf.id + '/' + frame.id; } });
             });
+        });
+        // Enhance Video (AiTools): the enhanced copy is a new video in her gallery, linked to this one, so the grid reloads.
+        $('#inf_lightbox_enhance').on('click', function () {
+            if (!current || !window.AiTools) { return; }
+            var a = current;
+            close_lightbox();
+            AiTools.enhance_video({ id: a.id, video_url: a.video_url, thumb_url: a.thumb_url, name: a.name }, function () { load(); });
         });
         $('#inf_lightbox_delete').on('click', function () {
             if (!current) { return; }

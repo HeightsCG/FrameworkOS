@@ -272,6 +272,96 @@ window.AiTools = (function ($) {
         });
     }
 
+    /* =====================================================================
+     * Enhance Video: enhance_video({ id, video_url, thumb_url, name }, function (new_asset, job) {})
+     * The models with this video's price on each (it follows the video's length); the result is a new Library video.
+     * =================================================================== */
+    var $env = null, env_asset = null, env_models = [], env_cb = null, env_stop = null, env_can = true;
+    function env_build() {
+        if ($env) { return; }
+        $env = $(
+            '<div class="modal fade ai-modal" id="aiEnv" tabindex="-1" aria-labelledby="aiEnvTitle" aria-hidden="true"><div class="modal-dialog modal-lg"><div class="modal-content">' +
+            '<div class="modal-header"><h2 class="modal-title ai-modal__title" id="aiEnvTitle">Enhance Video</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>' +
+            '<div class="modal-body"><div class="ai-edit">' +
+              '<figure class="ai-edit__img"><video id="aiEnvVideo" controls playsinline preload="metadata"></video><div class="ai-edit__busy" id="aiEnvBusy" hidden><span class="spinner-border text-primary" role="status"></span><p id="aiEnvBusyText">Enhancing</p></div></figure>' +
+              '<div class="ai-edit__form">' +
+                '<div class="ai-field"><div class="ai-label" id="aiEnvModelLabel">Model</div><div class="ai-opts" id="aiEnvModels" role="group" aria-labelledby="aiEnvModelLabel"></div>' +
+                '<p class="ai-error" id="aiEnvError" role="alert" hidden></p></div>' +
+              '</div>' +
+            '</div></div>' +
+            '<div class="modal-footer"><span class="ai-cost" id="aiEnvCost"></span>' +
+              '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="aiEnvCancel">Cancel</button>' +
+              '<button type="button" class="btn btn-primary" id="aiEnvGo">Enhance Video</button></div>' +
+            '</div></div></div>').appendTo('body');
+        $env.on('click', '.ai-opt', function () { if ($(this).prop('disabled')) { return; } $('#aiEnvModels .ai-opt').removeClass('is-on').attr('aria-pressed', 'false'); $(this).addClass('is-on').attr('aria-pressed', 'true'); env_cost(); });
+        $env.on('click', '#aiEnvGo', env_run);
+        $env.on('hidden.bs.modal', function () { if (env_stop) { env_stop(); env_stop = null; } var v = $('#aiEnvVideo')[0]; if (v) { v.pause(); } });
+    }
+    function env_model() {
+        var key = $('#aiEnvModels .ai-opt.is-on').data('key'), m = null;
+        $.each(env_models, function (i, x) { if (x.key === key) { m = x; } });
+        return m;
+    }
+    function env_cost() {
+        var m = env_model();
+        if (!env_can) { $('#aiEnvCost').html('<a class="ai-buy" href="/account/billing">Choose a Plan to Enhance</a>'); $('#aiEnvGo').prop('disabled', true); return; }
+        if (m && m.credits == null) { $('#aiEnvCost').text('Videos up to ' + m.max_seconds + ' seconds'); $('#aiEnvGo').prop('disabled', true); return; }
+        $('#aiEnvCost').html(m ? credits_html(m.credits) : '');
+        $('#aiEnvGo').prop('disabled', !m || !can_afford(m.credits));
+    }
+    function env_busy(on, text) {
+        $('#aiEnvBusy').prop('hidden', !on);
+        if (text) { $('#aiEnvBusyText').text(text); }
+        $('#aiEnvModels .ai-opt').prop('disabled', on);
+        $('#aiEnvGo').prop('disabled', on).html(on ? '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Enhancing' : 'Enhance Video');
+        if (!on) { env_cost(); }
+    }
+    function env_fail(msg) { $('#aiEnvError').text(msg).prop('hidden', false); }
+    function env_run() {
+        var m = env_model();
+        if (!m) { return; }
+        $('#aiEnvError').prop('hidden', true);
+        env_busy(true, 'Sending');
+        api('media_enhance_video', { asset_id: env_asset.id, model_key: m.key }, function (o) {
+            if (!o || !o.success) {
+                env_busy(false);
+                if (o && (o.need_credits || o.need_plan || o.need_upgrade)) { err(o); env_cost(); } else { env_fail((o && o.message) || 'Could not start the enhancement. Try again.'); }
+                return;
+            }
+            balance = Math.max(0, balance - (parseInt(m.credits, 10) || 0)); show_balance();
+            env_stop = poll_job(o.job_id, function (j) { $('#aiEnvBusyText').text(j.status === 'running' ? 'Enhancing' : status_text(j)); }, function (j) {
+                env_stop = null;
+                api('media_enhance_video_options', { asset_id: env_asset.id }, function (r) { if (r && r.success) { balance = parseInt(r.ai_credits, 10) || 0; } env_busy(false); });
+                if (j.status !== 'done' || !j.assets || !j.assets.length) { env_busy(false); env_fail((j.error || 'The enhancement failed.') + ' Your AI credits were returned.'); return; }
+                var made = j.assets[0];
+                $('#aiEnvCancel').text('Done');
+                toastr.success('Saved to your Library as a new version');
+                if (env_cb) { env_cb(made, j); }
+            });
+        });
+    }
+    function enhance_video(asset, cb) {
+        env_build();
+        env_asset = asset; env_cb = cb || null;
+        $('#aiEnvVideo').attr('src', asset.video_url || '').attr('poster', asset.thumb_url || '');
+        $('#aiEnvError').prop('hidden', true);
+        $('#aiEnvCancel').text('Cancel');
+        $('#aiEnvModels').html('<span class="ai-cost"><span class="spinner-border spinner-border-sm text-primary"></span> Loading</span>');
+        $('#aiEnvCost').empty(); $('#aiEnvGo').prop('disabled', true).text('Enhance Video');
+        $('#aiEnvBusy').prop('hidden', true);
+        bootstrap.Modal.getOrCreateInstance($env[0]).show();
+        api('media_enhance_video_options', { asset_id: asset.id }, function (o) {
+            if (!o || !o.success) { $('#aiEnvModels').html('<span class="ai-error">Could not load the enhance models. Close and try again.</span>'); return; }
+            env_models = o.models || []; env_can = !!o.can_ai; balance = parseInt(o.ai_credits, 10) || 0;
+            $('#aiEnvModels').html(env_models.map(function (m, i) {
+                var price = m.credits == null ? 'Videos up to ' + m.max_seconds + ' seconds' : Number(m.credits).toLocaleString() + ' AI credits';
+                return '<button type="button" class="ai-opt' + (i === 0 ? ' is-on' : '') + '" aria-pressed="' + (i === 0 ? 'true' : 'false') + '" data-key="' + esc(m.key) + '">' +
+                    '<span class="ai-opt__t">' + esc(m.label) + '</span><span class="ai-opt__p">' + esc(m.purpose) + ' · ' + esc(price) + '</span></button>';
+            }).join(''));
+            env_cost();
+        });
+    }
+
     /* Export the frame at `seconds` of a Library video as a new image: cb(asset) on success, cb(null) on failure (already reported). */
     function export_frame(asset_id, seconds, cb) {
         api('media_extract_frame', { asset_id: asset_id, seconds: Math.max(0, Number(seconds) || 0).toFixed(2) }, function (o) {
@@ -283,7 +373,7 @@ window.AiTools = (function ($) {
     return {
         export_frame: export_frame, clock: clock,
         esc: esc, api: api, err: err, patch_children: patch_children, credits_html: credits_html, can_afford: can_afford, poll_job: poll_job, status_text: status_text,
-        pick_image: pick_image, edit: edit,
+        pick_image: pick_image, edit: edit, enhance_video: enhance_video,
         set_balance: function (n) { balance = parseInt(n, 10) || 0; },
         get_balance: function () { return balance; }
     };

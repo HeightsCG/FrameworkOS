@@ -18,7 +18,15 @@ jQuery(function ($) {
         if (a && a.type === 'video' && a.status === 'ready') {
             // Scrub the player above to a moment, then export it as an image (which opens here with Edit and Replicate).
             $box.html('<label class="form-label cs-dv__label">Frames</label><div class="cs-dv__ai cs-dv__ai--one">' +
-                '<button type="button" class="btn btn-outline-secondary" id="csDvFrame"><i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame</button>' + ((window.TUT_BTN || {})['30'] || '') + '</div>');
+                '<button type="button" class="btn btn-outline-secondary" id="csDvFrame"><i class="fa-regular fa-image" aria-hidden="true"></i> Export This Frame</button>' + ((window.TUT_BTN || {})['30'] || '') + '</div>' +
+                (CFG.can_ai ? '<label class="form-label cs-dv__label">AI Tools</label><div class="cs-dv__ai cs-dv__ai--one">' +
+                    '<button type="button" class="btn btn-outline-secondary" id="csDvEnhance"' + (a.moderation === 'blocked' ? ' disabled' : '') + '><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i> Enhance Video</button></div>' : ''));
+            $('#csDvEnhance').on('click', function () {
+                T.enhance_video({ id: a.id, video_url: a.video_url, thumb_url: a.thumb_url || a.preview_url, name: a.name }, function (made) {
+                    $(document).trigger('cs:asset-added', [made.id]);
+                    $(document).trigger('cs:open-asset', [made.id]);   // the drawer moves to the enhanced copy
+                });
+            });
             $('#csDvFrame').on('click', function () {
                 var $b = $(this).prop('disabled', true), v = $('#csDetailBody video')[0];
                 $b.html('<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Exporting');

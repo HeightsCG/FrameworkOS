@@ -231,7 +231,7 @@ class InfluencerJobService {
             }
             $att['endpoint'] = $endpoint;
             $req['endpoint'] = $endpoint;
-            switch ($type) {
+            switch ($type === 'enhance' && !empty($req['video_url']) ? 'video' : $type) {   // enhancing a video renders a video
                 case 'video': case 'motion': case 'replace': case 'scene': case 'talking':
                                  $r = $class::generate_video($req); break;
                 case 'training': $r = $class::train_model($req);    break;
@@ -820,8 +820,15 @@ class InfluencerJobService {
                 (new InfluencerJobsModel())->transition($job['id'], null, array('params_json' => json_encode($p)));
             }
         }
-        if ($type === 'enhance' && empty($req['image_url'])) { return array('error' => 'A source image is required to enhance'); }
+        if ($type === 'enhance' && empty($req['image_url']) && empty($req['video_url'])) { return array('error' => 'A source image or video is required to enhance'); }
+        if ($type === 'enhance' && !empty($req['video_url'])) { $req['duration'] = (string) max(1, (int) ($p['duration'] ?? 5)); }
         if (in_array($type, array('training_set'), true) && empty($req['image_urls'])) { return array('error' => 'A reference image is required'); }
+        // A text-to-image model with an image-taking sibling (Nano Banana Pro): face photos go to the sibling endpoint.
+        if (!empty($model['endpoint_refs']) && !empty($req['image_urls'])) {
+            $req['endpoint'] = (string) $model['endpoint_refs'];
+            $req['family']   = (string) ($model['family_refs'] ?? $req['family']);
+            if (!empty($model['max_refs']) && count($req['image_urls']) > (int) $model['max_refs']) { $req['image_urls'] = array_slice($req['image_urls'], 0, (int) $model['max_refs']); }
+        }
         return $req;
     }
 

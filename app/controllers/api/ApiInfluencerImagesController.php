@@ -93,6 +93,22 @@ class ApiInfluencerImagesController extends BaseApiController {
             'can_ai' => Plan::can_use_creator_features($user)]);
     }
 
+    /* ---- enhance a video ---- */
+
+    public function media_enhance_videoAction(){
+        $user = $this->ai_user();
+        $this->answer(InfluencerImageActions::enhance_video((int) $user['user_id'], (int) ($this->post['asset_id'] ?? 0), (string) ($this->post['model_key'] ?? ''), 'studio'));
+    }
+
+    /** What the Enhance Video window needs: the models with this video's price on each, the balance. */
+    public function media_enhance_video_optionsAction(){
+        $user = $this->ai_user(false);
+        Plan::grant_monthly($user);
+        $asset = !empty($this->post['asset_id']) ? (new MediaAssetsModel())->get_one((int) $user['user_id'], (int) $this->post['asset_id']) : null;
+        $this->jsonSuccess(['models' => InfluencerImageActions::video_enhance_models($asset), 'ai_credits' => (int) (new AiCreditsModel())->get_balance((int) $user['user_id']),
+            'can_ai' => Plan::can_use_creator_features($user), 'seconds' => $asset ? (int) ceil((float) ($asset['duration_sec'] ?? 0)) : 0]);
+    }
+
     /* ---- carousel sets ---- */
 
     /** Read a chosen seed image into a scene description for the Carousel form. */

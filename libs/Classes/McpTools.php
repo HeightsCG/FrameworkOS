@@ -356,7 +356,7 @@ class McpTools {
         $infl = array('type' => 'object', 'required' => array('influencer_id'), 'properties' => array('influencer_id' => array('type' => 'integer')));
         $t[] = array('name' => 'list_influencers', 'description' => 'List the creator\'s AI influencers with status, trigger word and counts. Status ready = trained and usable.', 'inputSchema' => $none);
         $t[] = array('name' => 'get_influencer', 'description' => 'One influencer: status, path, wizard step, trigger word, prompt defaults, counts, cover image.', 'inputSchema' => $infl);
-        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, replicate, edit, angle, motion, replace, scene), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) how many reference images it accepts (max_refs), and for per-second video models credits_per_second with min_seconds and max_seconds (credits shows the price at the shortest default length). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
+        $t[] = array('name' => 'influencer_model_options', 'description' => 'Model choices per purpose (reference, image, video, enhance, video_enhance, replicate, edit, angle, motion, replace, scene), each with a label, what it is good at, its price in AI credits (credits), durations, the output shapes it renders (aspects; empty means it follows its source image) how many reference images it accepts (max_refs), and for per-second video models credits_per_second with min_seconds and max_seconds (credits shows the price at the shortest default length). Pass model_key values from here to the generate tools. shapes lists every output shape.', 'inputSchema' => $none);
         $t[] = array('name' => 'create_influencer', 'description' => 'Create an influencer. path "photos" = train from 10-50 uploaded photos (add_influencer_photo); path "reference" = describe the face or upload one face photo, generate a reference, then a 10-image training set. gender (woman or man) is required so prompts describe the right person; ask the user rather than assuming.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('name', 'gender'),
             'properties' => array('name' => array('type' => 'string', 'description' => 'Unique per account'),
@@ -385,10 +385,11 @@ class McpTools {
         $t[] = array('name' => 'list_influencer_images', 'description' => 'The influencer\'s images by role (upload, face, reference, training, generated, video, enhanced) with signed preview URLs.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'role' => array('type' => 'string', 'enum' => array('upload', 'face', 'reference', 'training', 'generated', 'video', 'enhanced')))));
-        $t[] = array('name' => 'generate_influencer_reference', 'description' => 'Reference path: generate one reference image from the face description (text input). Returns a job id; poll get_influencer_job, then approve_influencer_reference with the landed asset id.', 'inputSchema' => array(
+        $t[] = array('name' => 'generate_influencer_reference', 'description' => 'Reference path: generate one reference image from the face description (text input), optionally blending up to 3 face photos into one new face (a model with max_refs, e.g. nano_banana_pro_ref). Returns a job id; poll get_influencer_job, then approve_influencer_reference with the landed asset id.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'source_description' => array('type' => 'string', 'description' => 'Face description; saved on the influencer when given.'),
-                'reference_model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.reference; affects only the reference image.'))));
+                'reference_model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.reference; affects only the reference image.'),
+                'face_asset_ids' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => 'Up to 3 Library image ids of faces to blend into the new face (only for a reference model with max_refs).'))));
         $t[] = array('name' => 'approve_influencer_reference', 'description' => 'Approve a reference image (a generated candidate or the face photo) so the training set can be built from it.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
@@ -416,6 +417,9 @@ class McpTools {
         $t[] = array('name' => 'enhance_influencer_image', 'description' => 'Upscale one of the influencer\'s images into a new asset. Returns a job id; poll get_influencer_job.', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id', 'asset_id'),
             'properties' => array('influencer_id' => array('type' => 'integer'), 'asset_id' => array('type' => 'integer'))));
+        $t[] = array('name' => 'enhance_video', 'description' => 'Enhance (upscale) any Library video into a NEW video linked to the original (its parent); the original is kept. Costs AI credits per second of the video (influencer_model_options, purpose video_enhance: credits_per_second, max_seconds). Returns a job id; poll get_influencer_job for the new asset id.', 'inputSchema' => array(
+            'type' => 'object', 'required' => array('asset_id'),
+            'properties' => array('asset_id' => array('type' => 'integer'), 'model_key' => array('type' => 'string', 'description' => 'From influencer_model_options.video_enhance; default Enhance Video'))));
         // ---- images built on her identity references: angle set, replicate, edit, carousel, scene templates ----
         $t[] = array('name' => 'generate_angle_set', 'description' => 'Generate the influencer\'s multi-angle reference set from the approved reference: 3 front close-ups, left profile, right profile, back view, full body front, full body back. Send slots to (re)make specific ones (front_close_1, front_close_2, front_close_3, left_profile, right_profile, back, full_front, full_back); omit it to fill every empty slot. Each image costs AI credits (see influencer_model_options, purpose angle). Returns job ids; poll get_angle_set. Every ready angle is used as an identity input by replicate_influencer_image and generate_carousel (there is no approval step; regenerating a slot replaces its image, with two free redos per slot).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('influencer_id'),
@@ -536,7 +540,7 @@ class McpTools {
 
     /** Tools that generate or train with AI: they need a paid plan (Plan::can_use_ai). */
     const AI_TOOLS = array(
-        'design_voice', 'edit_image', 'enhance_influencer_image', 'generate_angle_set', 'generate_carousel',
+        'design_voice', 'edit_image', 'enhance_influencer_image', 'enhance_video', 'generate_angle_set', 'generate_carousel',
         'generate_from_scene_template', 'generate_image', 'generate_influencer_image', 'generate_influencer_reference',
         'generate_influencer_training_set', 'generate_influencer_video', 'generate_motion_video', 'generate_scene_video', 'generate_speech',
         'generate_talking_video', 'regenerate_carousel_slot', 'replace_character_in_video', 'replicate_influencer_image',
@@ -921,7 +925,7 @@ class McpTools {
             case 'get_influencer':            return InfluencerService::influencer_json($cid, self::influencer($cid, $a));
             case 'influencer_model_options': {
                 $out = array('enabled' => InfluencerConfig::enabled(), 'shapes' => Aspect::options());
-                foreach (array('reference', 'image', 'video', 'enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene', 'talking', 'speech', 'voice_design') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
+                foreach (array('reference', 'image', 'video', 'enhance', 'video_enhance', 'replicate', 'edit', 'angle', 'motion', 'replace', 'scene', 'talking', 'speech', 'voice_design') as $purpose) { $out[$purpose] = InfluencerConfig::picker_options($purpose); }
                 // Flat-priced purposes carry no price of their own on the model: fill in what a run actually costs.
                 foreach (array('image', 'enhance') as $purpose) {
                     foreach ($out[$purpose] as $i => $o) { if ($o['credits'] === null) { $out[$purpose][$i]['credits'] = Plan::ai_price($purpose, array('model_key' => $o['key'])); } }
@@ -952,7 +956,7 @@ class McpTools {
             }
             case 'generate_influencer_reference': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
-                return self::result(InfluencerActions::reference_generate($cid, self::influencer_usable($cid, $a), array_intersect_key($a, array_flip(array('source_description', 'reference_model_key')))));
+                return self::result(InfluencerActions::reference_generate($cid, self::influencer_usable($cid, $a), array_intersect_key($a, array_flip(array('source_description', 'reference_model_key', 'face_asset_ids')))));
             }
             case 'approve_influencer_reference': return self::result(InfluencerActions::reference_pick($cid, self::influencer_usable($cid, $a), (int) ($a['asset_id'] ?? 0)));
             case 'generate_influencer_training_set': {
@@ -1067,6 +1071,10 @@ class McpTools {
             case 'generate_influencer_video': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');
                 return self::result(InfluencerActions::generate_video($cid, self::influencer_usable($cid, $a), $a, 'studio'));
+            }
+            case 'enhance_video': {
+                self::requirePlan($cid, 'ai_tools', 'AI video enhancing requires an active plan');
+                return self::result(InfluencerImageActions::enhance_video($cid, (int) ($a['asset_id'] ?? 0), (string) ($a['model_key'] ?? ''), 'studio'));
             }
             case 'enhance_influencer_image': {
                 self::requirePlan($cid, 'ai_tools', 'AI influencers require an active plan');

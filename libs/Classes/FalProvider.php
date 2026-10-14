@@ -80,6 +80,14 @@ class FalProvider implements InfluencerProvider {
             $in['output_format'] = 'png';
             return $in;
         }
+        if ($family === 'nano_banana_t2i') {
+            // Nano Banana Pro text-to-image: prompt + aspect ratio string; no image input (faces go to the edit endpoint, family nano_banana).
+            $in['num_images']       = $n;
+            $in['aspect_ratio']     = is_string($shape) ? $shape : (string) ($req['aspect_ratio'] ?? '1:1');
+            $in['output_format']    = 'png';
+            $in['safety_tolerance'] = '6';
+            return $in;
+        }
         if ($family === 'seedream') {
             // Multi-image edit: prompt + up to 10 image_urls; explicit width/height.
             $in['image_urls'] = array_values((array) ($req['image_urls'] ?? array()));
@@ -168,6 +176,18 @@ class FalProvider implements InfluencerProvider {
             if (!empty($videos)) { $in['video_urls'] = $videos; }
             $in['duration'] = (string) max(4, min(30, (int) ($req['duration'] ?? 5)));
             if (!empty($req['aspect_value'])) { $in['aspect_ratio'] = (string) $req['aspect_value']; }
+            return $in;
+        }
+        if ($family === 'seedvr' || $family === 'topaz') {
+            // Video upscale: the source in video_url and the catalog's fixed settings; no prompt.
+            $in['video_url'] = (string) ($req['video_url'] ?? '');
+            unset($in['prompt']);
+            return $in;
+        }
+        if ($family === 'grok_video') {
+            // Grok Imagine image-to-video: whole seconds (1 to 15), the first frame from image_url; no seed input.
+            $in['image_url'] = (string) ($req['image_url'] ?? ($images[0] ?? ''));
+            $in['duration']  = max(1, min(15, (int) ($req['duration'] ?? 6)));
             return $in;
         }
         $in['duration'] = (string) ($req['duration'] ?? '5');
@@ -354,7 +374,7 @@ class FalProvider implements InfluencerProvider {
         }
         // Some video models refuse any realistic photo of a person as a reference. Say that, not the provider's wording.
         if (strpos($lc, 'likenesses of real people') !== false) {
-            return self::fail('This model does not accept realistic photos of people as references. Try another model.', 'content_policy', false, $code);
+            return self::fail('The model rejected the content: it does not accept this realistic photo of a person. Try another model or a different photo.', 'content_policy', false, $code);
         }
         // The model's own safety check refused the prompt or one of the images. Say what happened and what to try.
         if (strpos($lc, 'flagged by a content checker') !== false || strpos($lc, 'content checker') !== false) {
@@ -363,7 +383,11 @@ class FalProvider implements InfluencerProvider {
         if ($code === 401 || $code === 403) { return self::fail($msg, 'auth', false, $code); }
         if ($code === 422 || $code === 400) {
             $policy = (strpos($lc, 'content_policy') !== false || strpos($lc, 'nsfw') !== false || strpos($lc, 'safety') !== false || strpos($lc, 'policy') !== false);
-            return self::fail($msg, $policy ? 'content_policy' : 'validation', false, $code);
+            if ($policy) {   // any other content filter refusal: plain words, the provider's text stays in the log
+                error_log('[fal] content refused: ' . $msg);
+                return self::fail('The model rejected the content. Try a different photo, plainer wording, or another model.', 'content_policy', false, $code);
+            }
+            return self::fail($msg, 'validation', false, $code);
         }
         if ($code === 404) { return self::fail($msg, 'validation', false, $code); }
         // 0 (transport), 429, 5xx: try the next provider.

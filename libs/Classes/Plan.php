@@ -393,6 +393,11 @@ class Plan {
         $op   = InfluencerJobService::op_for($type);
         $dur  = (string) ($f['duration'] ?? ($f['params']['duration'] ?? ''));
         $n    = in_array($type, array('image', 'replicate', 'edit', 'angle', 'carousel'), true) ? max(1, min(4, (int) (($f['params']['num_images'] ?? 1)))) : 1;
+        // Enhancing a video: an 'enhance' job with a video model, priced per second of the source.
+        if ($op === 'enhance' && !empty($f['model_key'])) {
+            $vm = InfluencerConfig::model((string) $f['model_key']);
+            if ($vm && (string) ($vm['op'] ?? '') === 'video_enhance') { return InfluencerConfig::metered_credits($vm, max(1, (int) $dur)); }
+        }
         // Metered runs are priced from the model's provider cost (InfluencerConfig::credits_from_usd).
         if (in_array($op, InfluencerConfig::METERED_OPS, true)) {
             $model = InfluencerConfig::resolve_model($op, (string) ($f['model_key'] ?? ''));

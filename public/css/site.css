@@ -577,7 +577,7 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 
 .ai-edit{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:24px; align-items:start; }
 .ai-edit__img{ position:relative; margin:0; background:#111; border-radius:var(--r-sm); overflow:hidden; display:flex; align-items:center; justify-content:center; min-height:240px; }
-.ai-edit__img img{ max-width:100%; max-height:52vh; display:block; object-fit:contain; }
+.ai-edit__img img, .ai-edit__img video{ max-width:100%; max-height:52vh; display:block; object-fit:contain; }
 .ai-edit__busy{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; background:rgba(13,13,13,.62); color:#fff; font-size:14px; }
 .ai-edit__busy p{ margin:0; }
 .ai-edit__form{ display:flex; flex-direction:column; gap:16px; }
@@ -585,7 +585,7 @@ body.is-impersonating .app-sidebar{ height:calc(100vh - 44px); }
 @media (max-width:640px){
     .ai-modal .modal-header, .ai-modal .modal-body, .ai-modal .modal-footer{ padding-left:16px; padding-right:16px; }
     .ai-edit{ grid-template-columns:1fr; gap:16px; }
-    .ai-edit__img img{ max-height:38vh; }
+    .ai-edit__img img, .ai-edit__img video{ max-height:38vh; }
     .ai-picker__grid{ grid-template-columns:repeat(3, minmax(0, 1fr)); }
     .ai-modal .form-control{ font-size:16px; }
     .ai-cost{ width:100%; margin-bottom:4px; }

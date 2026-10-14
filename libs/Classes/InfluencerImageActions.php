@@ -351,6 +351,47 @@ class InfluencerImageActions {
         return array_merge($keep, $reshape);
     }
 
+    /** The video enhance models with what enhancing this video costs on each (a video's price follows its length). */
+    public static function video_enhance_models($asset = null){
+        $secs = ($asset && (int) ($asset['duration_sec'] ?? 0) > 0) ? (int) $asset['duration_sec'] : 0;
+        $out = array();
+        foreach (InfluencerConfig::picker('video_enhance') as $m) {
+            $out[] = array('key' => (string) $m['key'], 'label' => (string) $m['label'], 'purpose' => (string) $m['purpose'],
+                'credits' => $secs > 0 ? Plan::ai_price('enhance', array('model_key' => (string) $m['key'], 'duration' => $secs)) : null,
+                'credits_per_second' => (float) $m['price_usd'] * (float) InfluencerConfig::get('credits_per_usd', InfluencerConfig::CREDITS_PER_USD),
+                'max_seconds' => (int) ($m['max_seconds'] ?? 0));
+        }
+        return $out;
+    }
+
+    /** Enhance (upscale) any Library or Gallery video; the result is a new video whose parent is the source. Priced per second of the source. */
+    public static function enhance_video($cid, $aid, $model_key = '', $origin = 'studio'){
+        if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }
+        $src = (new MediaAssetsModel())->get_one($cid, (int) $aid);
+        if (!$src || (string) $src['type'] !== 'video' || (string) $src['status'] !== 'ready' || (string) $src['moderation_status'] === 'blocked') { return self::fail('Pick a ready video to enhance.'); }
+        $m_err = ''; $model = self::model_for('video_enhance', $model_key, $m_err);
+        if (!$model) { return self::fail($m_err !== '' ? $m_err : 'No video enhance model is configured.'); }
+        $secs = max(1, (int) ceil((float) ($src['duration_sec'] ?? 0)));
+        $max  = (int) ($model['max_seconds'] ?? 0);
+        if ($max > 0 && $secs > $max) { return self::fail('Videos up to ' . $max . ' seconds can be enhanced. Trim this one first.'); }
+        $link = (new InfluencerImagesModel())->influencer_for_asset($cid, (int) $src['id']);   // an enhanced video of hers stays in her gallery
+        $infl_id = 0;
+        if ($link) {
+            $infl = (new InfluencersModel())->get_one($cid, (int) $link['influencer_id']);
+            if ($infl && !Plan::is_locked(InfluencerJobService::user($cid), 'influencers', (int) $infl['id'])) { $infl_id = (int) $infl['id']; }
+        }
+        try {
+            $job_id = InfluencerJobService::create_job($cid, $infl_id, 'enhance', array(
+                'origin' => $origin, 'model_key' => (string) $model['key'], 'prompt' => '', 'input_asset_id' => (int) $src['id'],
+                'params' => array('duration' => $secs),
+            ));
+        } catch (PlanLimitException $e) {
+            return self::fail($e->getMessage(), $e->limit);
+        }
+        if ($job_id <= 0) { return self::fail('Could not start the enhancement.'); }
+        return self::okr(array('job_id' => $job_id, 'job' => self::job_json($cid, $job_id)));
+    }
+
     /** Edit any Library or Gallery image by instruction; the result is a new asset whose parent is the source. */
     public static function edit_image($cid, $aid, $instruction, $model_key = '', $origin = 'studio'){
         if (!InfluencerConfig::enabled()) { return self::fail('Rendering is not configured yet (no provider key).'); }

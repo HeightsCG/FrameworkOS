@@ -157,6 +157,7 @@ class ApiInfluencersController extends BaseApiController {
         $in = array();
         if (isset($this->post['source_description']))  { $in['source_description'] = $this->text('source_description', InfluencerService::BODY_MAX); }
         if (isset($this->post['reference_model_key'])) { $in['reference_model_key'] = (string) $this->post['reference_model_key']; }
+        if (isset($this->post['face_asset_ids']) && is_array($this->post['face_asset_ids'])) { $in['face_asset_ids'] = array_map('intval', $this->post['face_asset_ids']); }
         $this->answer(InfluencerActions::reference_generate($cid, $infl, $in));
     }
 

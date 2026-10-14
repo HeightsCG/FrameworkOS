@@ -282,6 +282,15 @@ button.inf-photo--pick{ padding:0; }
 .inf-ref{ margin-top:1rem; }
 .inf-ref__row{ display:flex; flex-wrap:wrap; gap:.6rem; margin-top:.35rem; }
 .inf-ref__row .inf-photo{ width:132px; }
+/* Blend Faces on the reference step: up to 3 face thumbnails, each removable, and an Add Face tile */
+.inf-ref__blend .inf-photo{ width:88px; }
+.inf-ref__face{ position:relative; }
+.inf-ref__facex{ position:absolute; top:4px; right:4px; width:24px; height:24px; display:flex; align-items:center; justify-content:center; padding:0; border:0; border-radius:50%; background:rgba(17, 17, 17, .7); color:#fff; font-size:12px; cursor:pointer; }
+.inf-ref__facex:hover{ background:rgba(17, 17, 17, .9); }
+.inf-ref__facex:focus-visible{ outline:2px solid var(--acc, #FF6A13); outline-offset:1px; }
+.inf-ref__faceadd{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:4px; aspect-ratio:1/1; border:1px dashed rgba(29, 29, 29, .25); background:transparent; color:var(--muted, #6b6779); font-size:12px; cursor:pointer; }
+.inf-ref__faceadd:hover{ border-color:var(--acc, #FF6A13); color:var(--acc-ink, #CD4C00); }
+.inf-ref__faceadd:focus-visible{ outline:2px solid var(--acc, #FF6A13); outline-offset:1px; }
 .inf-photo--pick{ padding:0; cursor:pointer; }
 .inf-photo.is-on{ outline:2px solid var(--acc); outline-offset:-2px; }
 .inf-stills > .inf-wiz__meta{ grid-column:1 / -1; }   /* the empty-state line spans the picker instead of squeezing into one cell */
