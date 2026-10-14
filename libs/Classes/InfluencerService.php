@@ -339,7 +339,7 @@ class InfluencerService {
         $pronoun_obj = ($pronoun === 'his') ? 'him' : (($pronoun === 'their') ? 'them' : 'her');
         return 'You rewrite a creator\'s description of one photo so an image model can follow it. The model reads only the first 150 words or so, '
             . 'follows the opening words most strongly, and cannot be told what to leave out: anything that is named tends to appear in the picture, even after "no" or "not". '
-            . 'Write one paragraph of at most 90 words, plain present tense. '
+            . 'Write one paragraph, plain present tense, as short as the creator\'s details allow: about 90 words for a simple scene, longer when they gave many details. Never leave out a concrete detail to save space. '
             . 'OPEN with the shot type in the short, standard words photographers use, then where ' . $pronoun . ' face points and where ' . $pronoun . ' eyes look. '
             . 'When the creator wants ' . $pronoun . ' turned sideways, in three-quarter view, looking away, or anything else that is not face-on, the description must begin with exactly this form: '
             . '"Side profile photo of a ' . $noun . ', ' . $pronoun . ' face in profile, looking to the right at someone out of frame, photographed from the side." (or "to the left"). '
@@ -353,7 +353,7 @@ class InfluencerService {
             . 'A friend, partner or photographer the creator mentions is "someone out of frame", never described and never shown. '
             . 'Guests, a crowd or staff the creator asks for are written once, as the last sentence, in exactly this form: "Far behind ' . $pronoun_obj . ', small out-of-focus figures of other guests, seen from behind." (or "other people"). '
             . 'Never place anyone beside or around ' . $pronoun_obj . ', never give them clothes, drinks or faces, and do not use the words crowd, mingling or surrounded. Show a party or a busy place through its setting: tables, glasses, lights, decorations. '
-            . 'Keep every concrete detail the creator gave: clothes, colours, jewellery, place, time of day, props, pose, expression. '
+            . 'Keep every concrete detail the creator gave, each one by name: clothes, colours, jewellery, nails, hair, place, city, time of day, light, props, what each hand does, pose, expression, every object in the background, camera angle. Before you finish, read the creator\'s text again and add any detail you missed. '
             . 'Leave out sentences about how the photo should feel, quality words, and anything said twice. Add nothing the creator did not ask for. '
             . 'Call the subject "the ' . $noun . '" or "a ' . $noun . '". Leave out any name. Output only the rewritten description, no quotes, no preamble.';
     }

@@ -547,11 +547,11 @@ class InfluencerActions {
         $plain = $plain !== '' ? $plain : $scene;
         if (!ClaudeService::configured()) { return $plain; }
         list($pr, $po, $ps) = InfluencerService::pronouns($infl);
-        $r = ClaudeService::chat(InfluencerService::scene_fit_system(InfluencerService::noun($infl), $ps), array(array('role' => 'user', 'content' => $scene)), 400, 20, 'low');
+        $r = ClaudeService::chat(InfluencerService::scene_fit_system(InfluencerService::noun($infl), $ps), array(array('role' => 'user', 'content' => $scene)), 1500, 40, 'low');
         $text = trim((string) preg_replace('/\s+/', ' ', (string) ($r['text'] ?? '')));
         $text = trim($text, " \"'");
-        // too short to be the scene, too long to be read, or a refusal: keep the creator's words without the avoid-lines
-        if (empty($r['ok']) || mb_strlen($text) < 40 || mb_strlen($text) > 900 || preg_match('/^(?:i\'m sorry|i am sorry|i can\'t|i cannot|i won\'t|sorry)/i', $text)) { return $plain; }
+        // too short to be the scene, far longer than what the creator wrote, or a refusal: keep the creator's words without the avoid-lines
+        if (empty($r['ok']) || mb_strlen($text) < 40 || mb_strlen($text) > max(900, (int) (mb_strlen($scene) * 1.3)) || preg_match('/^(?:i\'m sorry|i am sorry|i can\'t|i cannot|i won\'t|sorry)/i', $text)) { return $plain; }
         return $text;
     }
 

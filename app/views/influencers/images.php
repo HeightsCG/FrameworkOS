@@ -60,7 +60,7 @@
                 <div class="inf-pop__h">Model</div>
                 <div class="inf-opts" id="inf_model">
                     <?php foreach ((array) ($cfg['pickers']['image'] ?? array()) as $i => $o): ?>
-                    <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?></span></button>
+                    <button type="button" class="inf-opt<?php echo $i === 0 ? ' is-on' : ''; ?>" data-key="<?php echo $e($o['key']); ?>"><span class="inf-opt__t"><?php echo $e($o['label']); ?></span><span class="inf-opt__p"><?php echo $e($o['purpose']); ?></span><span class="inf-opt__c"><?php echo (int) Plan::ai_price('image', array('model_key' => (string) $o['key'])); ?> credits</span></button>
                     <?php endforeach; ?>
                 </div>
             </div>
