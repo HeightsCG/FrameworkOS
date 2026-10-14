@@ -1317,7 +1317,9 @@ jQuery(function ($) {
             if (stop_poll) { stop_poll(); }
             stop_poll = poll_job(job_id, function (j) { busy(status_text(j)); merge(j); }, function (j) {
                 merge(j); $('#inf_gen_go, #inf_res_again').prop('disabled', false);
-                if (j.status !== 'done' || !j.assets.length) { toastr.error(j.error || 'Generation failed'); show_current(); render_strip(); return; }
+                // A failed run stays on screen until it is closed: a refusal after a minute of waiting must not flash by unseen.
+                if (j.status !== 'done' || !j.assets.length) { toastr.error(j.error || 'Generation failed', 'No Image Was Made', { timeOut: 0, extendedTimeOut: 0, closeButton: true, tapToDismiss: false }); show_current(); render_strip(); return; }
+                if (j.params && j.params.fallback_from && j.params.fallback_from !== j.model_key) { toastr.info(model_label(j.params.fallback_from) + ' refused this one, so it was made with ' + model_label(j.model_key) + '. The price difference is back in your credits.', '', { timeOut: 12000, closeButton: true }); }
                 if (j.quality_note) { toastr.warning('Check this one before posting. ' + j.quality_note, '', { timeOut: 9000 }); }
                 select(j, j.assets[0]); render_strip();
             });

@@ -591,7 +591,11 @@ class InfluencerJobService {
      * that has not been tried for this job. null when there is none (or the type does not fall back).
      */
     public static function fallback_model(array $job){
-        if (!in_array((string) $job['type'], self::MODEL_FALLBACK_TYPES, true)) { return null; }
+        // A picture made from her reference pictures (Prompt Match Pro) falls back too, but only to another model that
+        // works the same way: its prompt has no trigger word, so her trained model could not use it.
+        $cur     = InfluencerConfig::model((string) $job['model_key']);
+        $by_refs = ((string) $job['type'] === 'image' && $cur && ($cur['identity'] ?? '') === 'refs');
+        if (!$by_refs && !in_array((string) $job['type'], self::MODEL_FALLBACK_TYPES, true)) { return null; }
         $p     = InfluencerJobsModel::params($job);
         $tried = array_map('strval', (array) ($p['tried_models'] ?? array()));
         $tried[] = (string) $job['model_key'];
@@ -599,6 +603,7 @@ class InfluencerJobService {
         foreach ((array) (InfluencerConfig::PICKERS[$op] ?? array()) as $key) {
             if (in_array((string) $key, $tried, true)) { continue; }
             $mk = InfluencerConfig::model((string) $key);
+            if ($by_refs && (!$mk || ($mk['identity'] ?? '') !== 'refs')) { continue; }
             if ($mk && InfluencerConfig::serves($mk, $op)) { return $mk; }
         }
         return null;
@@ -663,6 +668,11 @@ class InfluencerJobService {
         if (!$job) { return self::out('failed', true, null, (string) $error); }
         if ((string) $code === 'content_policy' && (self::retry_softened($job, $m, $from) || self::retry_on_next_model($job, $m, $from))) {
             return self::out('queued', false, 0, 'refused by the model, retrying');
+        }
+        // Every Prompt Match model refused: say which choice will make this picture, in the creator's terms.
+        $cur = InfluencerConfig::model((string) $job['model_key']);
+        if ((string) $code === 'content_policy' && (string) $job['type'] === 'image' && $cur && ($cur['identity'] ?? '') === 'refs') {
+            $error = 'Prompt Match refused this one. Its content rules are stricter than Best Quality, and it turned down the prompt or her reference pictures. Your credits are back. Choose Best Quality in the Model menu for this prompt.';
         }
         $n = $m->transition($job['id'], $from, array('status' => 'failed', 'error_code' => mb_substr((string) $code, 0, 32),
             'error' => mb_substr((string) $error, 0, 2000), 'finished_at' => date('Y-m-d H:i:s')));
