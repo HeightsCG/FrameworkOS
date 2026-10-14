@@ -77,6 +77,7 @@ class SchedulerRulesModel extends Model {
         $out['ai_assist']        = (isset($f['ai_assist']) && (string) $f['ai_assist'] === '0') ? 0 : 1;
         $out['caption_text']     = mb_substr(trim((string) ($f['caption_text'] ?? '')), 0, 5000);
         $out['caption_mode']     = BrandService::caption_mode($f['caption_mode'] ?? 'standard');
+        if ($out['caption_mode'] === 'hook_overlay') { $out['caption_mode'] = 'standard'; }   // automations never place the on-video line a Hook Overlay caption follows
         $socials = $f['social_accounts'] ?? array();
         if (is_string($socials)) { $socials = array_filter(array_map('trim', explode(',', $socials)), 'strlen'); }
         $out['social_accounts']  = json_encode(array_values(array_map('strval', (array) $socials)));

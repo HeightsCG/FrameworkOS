@@ -221,7 +221,7 @@ class McpTools {
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
-                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait', 'hook_overlay'), 'description' => 'Kind of AI caption. continuation: carries on from the image. comment_bait: ends on an easy question. hook_overlay: written to follow an on-video hook line. Default standard.'),
+                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait'), 'description' => 'Kind of AI caption: standard, continuation (carries on from the image) or comment_bait (ends on an easy question). Default standard. Automations never use hook_overlay; it is coerced to standard.'),
             )));
         $t[] = array('name' => 'update_automation',    'description' => 'Update an automation. Send the FULL config (unset fields reset to defaults).', 'inputSchema' => array(
             'type' => 'object', 'required' => array('id', 'name', 'topic'),
@@ -237,7 +237,7 @@ class McpTools {
                 'influencer_id' => array('type' => 'integer', 'description' => 'Trained influencer id (see list_influencers). Required when image_source is "influencer".'),
                 'ai_assist' => array('type' => 'boolean', 'description' => 'Default true: Claude distils the scene and writes the caption. false: the topic goes to the image model verbatim and caption_text is posted as written (for content Claude would soften).'),
                 'caption_text' => array('type' => 'string', 'description' => 'Caption to post when ai_assist is false.'),
-                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait', 'hook_overlay'), 'description' => 'Kind of AI caption. continuation: carries on from the image. comment_bait: ends on an easy question. hook_overlay: written to follow an on-video hook line. Default standard.'),
+                'caption_mode' => array('type' => 'string', 'enum' => array('standard', 'continuation', 'comment_bait'), 'description' => 'Kind of AI caption: standard, continuation (carries on from the image) or comment_bait (ends on an easy question). Default standard. Automations never use hook_overlay; it is coerced to standard.'),
                 'days_of_week' => array('type' => 'array', 'items' => array('type' => 'integer'), 'description' => '0-6 (Sun-Sat), for weekly cadence'),
             )));
         $t[] = array('name' => 'set_automation_active','description' => 'Activate/deactivate an automation.', 'inputSchema' => self::idAndActive());
