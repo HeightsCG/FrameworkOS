@@ -53,7 +53,7 @@ class FeaturePages {
                     'title'  => 'Post it, schedule it, or sell it',
                     'text'   => 'Every generation lands in your library, ready for a post on your page, a cross-post to your social accounts, or a pay-per-view unlock.',
                     'points' => array(
-                        'Publish to your page and to nine social networks at once',
+                        'Publish to your page and to ten platforms at once',
                         'Put a price on a post or send it in a paid message',
                         'Automations can generate and publish on a schedule',
                     ),
@@ -358,8 +358,8 @@ class FeaturePages {
 
         'publishing' => array(
             'nav_title'   => 'Publishing',
-            'title'       => 'Post to Nine Social Networks at Once',
-            'description' => 'Publish to your page and nine social networks from one studio, with AI captions in your voice, drafts and scheduling.',
+            'title'       => 'Post to Ten Platforms at Once',
+            'description' => 'Publish to your page and ten platforms from one studio, with AI captions in your voice, drafts and scheduling.',
             'hero' => array(
                 'title' => 'Publish Everywhere from One Studio',
                 'lead'  => 'Publishing on {site} is one upload that goes to your page and your social accounts at the same time. The networks: {networks}. Captions are written in your voice and trimmed for each network.',
@@ -368,7 +368,7 @@ class FeaturePages {
             'related' => array('link-in-bio', 'ai-influencer', 'dm-agent'),
             'rows' => array(
                 array(
-                    'title'  => 'Nine networks, one upload',
+                    'title'  => 'Ten platforms, one upload',
                     'text'   => 'Connect your accounts once. Each post goes to your page and to the networks you pick.',
                     'points' => array(
                         '{networks}',
@@ -406,7 +406,7 @@ class FeaturePages {
                 array('q' => 'Can I schedule posts?', 'a' => 'Yes. Schedule any post for a date and time, keep it as a draft, or publish it now.'),
                 array('q' => 'Who writes the captions?', 'a' => 'You do, or the studio drafts one in your brand voice and trims it for each network. You can edit every caption before it goes out.'),
             ),
-            'cta' => array('title' => 'Post once, everywhere', 'text' => 'Your page and nine networks from one studio.'),
+            'cta' => array('title' => 'Post once, everywhere', 'text' => 'Your page and ten platforms from one studio.'),
         ),
 
         'services-and-events' => array(
@@ -615,7 +615,7 @@ class FeaturePages {
         'ai-ofm-tools' => array(
             'nav_title'   => 'AI OFM tools',
             'title'       => 'AI OFM Tools: Create, Post, Chat and Sell',
-            'description' => 'AI tools for running creator accounts: AI influencers, scheduled posting to nine networks, a DM agent, pay-per-view and payouts in one place.',
+            'description' => 'AI tools for running creator accounts: AI influencers, scheduled posting to ten platforms, a DM agent, pay-per-view and payouts in one place.',
             'hero' => array(
                 'title' => 'AI OFM Tools for Running Creator Accounts',
                 'lead'  => 'AI OFM tools are the software a creator account runs on: generation, posting, inbox replies and selling in one place. Create the content, post it everywhere, answer the inbox and get paid from one account. {site} brings AI influencers, publishing, a DM agent, memberships and pay-per-view together, with team seats for the people who help you.',

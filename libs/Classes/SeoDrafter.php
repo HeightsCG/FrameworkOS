@@ -468,7 +468,7 @@ class SeoDrafter {
         }
         $facts['payout minimum'] = '/' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b[^.]{0,40}\b(?:minimum|payout|cash out|cash-out)|\b(?:minimum|payout|cash out|cash-out)\b[^.]{0,40}' . preg_quote(Price::PAYOUT_MIN_LABEL, '/') . '\b/i';
         $facts['credit rate'] = '/\$1 (?:=|buys|is|equals) ' . (int) Price::CREDITS_PER_DOLLAR . ' credits|\b' . (int) Price::CREDITS_PER_DOLLAR . ' credits (?:per|to the|for a|for every) dollar\b/i';
-        $facts['nine networks'] = '/\bnine (?:social )?networks\b/i';
+        $facts['ten platforms'] = '/\bten (?:social )?(?:networks|platforms)\b/i';
         $facts['credit wallet'] = '/\bcredit wallet\b/i';
         foreach (array('pay-per-view', 'bundles?', 'membership tiers?', 'services and events', 'DM agent', 'AI captions?', 'tracked links?', 'custom domains?', 'welcome messages?', 'broadcasts?') as $f) { $facts['feature ' . $f] = '/\b' . $f . '\b/i'; }
         return $facts;
@@ -480,7 +480,7 @@ class SeoDrafter {
         $hits = array();
         foreach (self::product_facts() as $label => $re) { if (preg_match($re, $body)) { $hits[] = $label; } }
         // feature names alone are generic words; at least one hit must be a number from config (fee, price, credits, storage, influencers, payout, credit rate)
-        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet'; });   // 'nine networks' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
+        $numeric = array_filter($hits, function ($h) { return strpos($h, 'feature ') !== 0 && $h !== 'credit wallet'; });   // 'ten platforms' counts: it is a number from the product, and without it every off-topic piece reached for a plan price or the storage figure (SEO audit 2026-10-12)
         if (count($hits) < self::PRODUCT_FACTS_MIN || count($numeric) < 1) {
             return array('the article needs at least ' . self::PRODUCT_FACTS_MIN . ' exact product facts from the facts sheet, one of them a number (a plan\'s platform fee or price, included AI credits, storage, the payout minimum, the credit rate); got: ' . ($hits ? implode(', ', $hits) : 'none'));
         }
@@ -1205,7 +1205,7 @@ class SeoDrafter {
     /** Facts Claude may use; nothing else is allowed to appear as a number or a claim. */
     private static function context(): string {
         $site = Main::site_name(); $base = SeoMeta::base();
-        $lines = array("Product: $site ($base). A creator platform: one public page at $base/@handle with posts, membership tiers, pay-per-view posts, content bundles, services, events and tracked links; a studio that publishes to nine social networks with AI captions; an inbox with AI replies; payouts to the creator's bank; fans pay memberships by card and everything else with a credit wallet (\$1 = 10 credits).");
+        $lines = array("Product: $site ($base). A creator platform: one public page at $base/@handle with posts, membership tiers, pay-per-view posts, content bundles, services, events and tracked links; a studio that publishes to ten platforms with AI captions; an inbox with AI replies; payouts to the creator's bank; fans pay memberships by card and everything else with a credit wallet (\$1 = 10 credits).");
         foreach (PagesController::our_facts() as $k => $v) { $lines[] = ucfirst($k) . ': ' . $v; }
         // the fee as data, not as a sentence the model can lift: a sentence copied word for word is rejected by content_errors()
         $fee_bits = array(); foreach (PagesController::selling_tiers() as $t) { $fee_bits[] = (int) $t['limits']['fee_percent'] . '% of each sale on ' . $t['name'] . ' ($' . number_format((int) $t['price']) . ' a month)'; }
@@ -1242,7 +1242,7 @@ class SeoDrafter {
             . "Never use an em dash or an en dash; use a comma, a colon or a period. Never mention being an AI. Never name the payment processor (no \"Stripe\"); say \"payouts to your bank\". Mention $site naturally at most three times, only where it genuinely helps, and link to its pages using the relative paths given. "
             . "Sources: cite at least " . self::MIN_CITATIONS . " specific facts from " . self::MIN_CITATIONS . " different independent primary sources on this list (official documentation, government guidance, platform terms and help pages, published studies; never a blog or news piece that summarises one), as full https URLs to pages you know exist; never invent a URL, and cite nothing outside the list: " . implode(', ', self::CITATION_DOMAINS) . ". At most four citations, each where it backs a claim. "
             . "Shape the piece for the question, not for a template. The request names the format and its structure, the heading style, how the section lengths vary and whether there is a FAQ; follow it exactly, so no two pieces share a layout. Whatever the format, at least two \"## \" headings are questions a creator actually asks, ending in a question mark, each answered in the first sentence under it. No obligatory introduction, takeaways, summary or conclusion. Vary transitions as well: never open two sections with the same phrase, and never end a section with a one-line summary of itself. "
-            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's platform fee or price, the included AI credits or storage, the payout minimum, the credit rate, the nine networks, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
+            . "Product facts: the piece must say at least two things only this product can, taken exactly from the context (a plan's platform fee or price, the included AI credits or storage, the payout minimum, the credit rate, the ten platforms, a named feature as it works here), in the article's own words. Pick the facts that belong to the article's own topic: plan prices and storage figures only when the piece is about plans or pricing. A piece that could be published by any platform is rejected. "
             . "Write sentences of 10 to 25 words and paragraphs of at most four sentences, one idea per paragraph. The opening paragraph is a direct answer to the title in 40 to 60 words, starting with a one-sentence definition of its subject in the shape \"X is ...\" (no metaphor or anecdote first); context and caveats come after it. The first sentence of every paragraph names its subject outright (the product, the tool, the number, the timeframe or the reader's role) and contains no pronoun that points back to an earlier paragraph: not \"it\", \"they\", \"this\", \"that\", \"these\", \"those\", \"he\", \"she\" or \"such\". Never reuse a stock sentence from another article; word every point for this piece. The first sentence under each heading names the subject of that section, repeating the heading's key noun, and gives its answer. "
             . "Output ONLY a JSON object with keys: title (30-60 chars, sentence case), slug (lowercase-hyphenated, <=80 chars), meta_description (110-155 chars saying what the reader gets, no adjectives), excerpt (one or two sentences), body_md (Markdown at the length the request gives, the \"## \" sections the request asks for, relative links from the allowed list where they help, no H1, no raw HTML), faq (array: empty unless the request asks for a FAQ, then 2-6 {\"q\",\"a\"} objects answering real search questions), secondary_keywords (array of 3-6 short phrases).";
     }
@@ -1373,7 +1373,7 @@ class SeoDrafter {
     const CTA_TEXTS = array(
         '{site} gives you one public page with memberships, pay-per-view posts, bundles, services and events, and pays out to your bank.',
         'On {site} one page at your handle holds your tiers, paid posts, bundles, bookings and tickets, and every sale lands in one balance.',
-        '{site} publishes each post to nine social networks and sells the paid version from your own page.',
+        '{site} publishes each post to ten platforms and sells the paid version from your own page.',
     );
 
     public static function cta_html(int $article_id = 0): string {

@@ -29,7 +29,7 @@ class SeoMeta {
      */
     public static function brand_tagline(): string {
         $s = 'Sell memberships, posts and services from one page. ' . PagesController::fee_short() . '.';
-        $full = $s . ' Publish to nine social networks with AI and get paid to your bank.';
+        $full = $s . ' Publish to ten platforms with AI and get paid to your bank.';
         return mb_strlen($full) <= 160 ? $full : $s;
     }
 
@@ -40,7 +40,7 @@ class SeoMeta {
     public static function brand_description(bool $with_plans = true): string {
         $host = preg_replace('#^https?://(www\.)?#', '', self::base());
         $plans = array();
-        $lead = self::site() . ' is a creator monetization platform: one public page at ' . $host . '/@handle for memberships, pay-per-view posts, bundles, services and live events, a studio that publishes to nine social networks with AI captions, AI influencers and an AI-assisted inbox, and payouts to your bank.';
+        $lead = self::site() . ' is a creator monetization platform: one public page at ' . $host . '/@handle for memberships, pay-per-view posts, bundles, services and live events, a studio that publishes to ten platforms with AI captions, AI influencers and an AI-assisted inbox, and payouts to your bank.';
         if (!$with_plans) { return $lead; }   // creator profiles show no plan prices
         foreach (PlanTiers::offered() as $t) {   // PlanTiers directly, not PagesController: org() also runs where controllers are not loaded
             $price = (int) ($t['price'] ?? 0);

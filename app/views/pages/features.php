@@ -25,7 +25,7 @@ echo Sections::panel_hero(array(
 echo Sections::open('white', 'How does a post turn into money?', 'The same four steps for every creator, whatever you sell.', 'loop');
 echo '<ol class="fx-steps">'
     . '<li><h3>Upload once</h3><p>Add a photo or a video in the studio. AI drafts the caption in your voice and trims it for each network.</p></li>'
-    . '<li><h3>Publish everywhere</h3><p>The same post goes to your page and to the nine networks you connect, now, on a schedule, or by an automation.</p></li>'
+    . '<li><h3>Publish everywhere</h3><p>The same post goes to your page and to the ten platforms you connect, now, on a schedule, or by an automation.</p></li>'
     . '<li><h3>Fans pay on your page</h3><p>They follow for free, join a tier, unlock a post, buy a bundle or book a session, from one wallet they load once.</p></li>'
     . '<li class="is-last"><h3>Cash out</h3><p>Every sale lands in one balance net of your plan\'s platform fee, ' . $e($fee) . '. Payouts go to your bank on request from ' . $e($min) . '.</p></li>'
     . '</ol>';

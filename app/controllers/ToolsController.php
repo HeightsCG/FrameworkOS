@@ -25,7 +25,7 @@ class ToolsController extends Controller {
             'description' => 'Enter your niche and get 30 to 40 post ideas built from real questions people ask online, plus the communities worth watching. Free, by email.',
             'lead'        => 'The Fan Question Finder is a free tool that reads the recent questions people ask in your niche\'s biggest online communities and emails you 30 to 40 post ideas, grouped by theme. Enter your niche to start.',
             'button'      => 'Find Questions',
-            'pages'       => array(array('/features/publishing', 'publishing to nine networks'), array('/monetize-your-content', 'how to monetize your content')),   // the hub pages that link to this tool, and that it links back to
+            'pages'       => array(array('/features/publishing', 'publishing to ten platforms'), array('/monetize-your-content', 'how to monetize your content')),   // the hub pages that link to this tool, and that it links back to
         ),
         'ai-influencer-persona' => array(
             'source'      => 'persona-tool',

@@ -82,9 +82,9 @@ class AlternativesPages {
     const PAGES = array(
 
         'onlyfans' => array(
-            'us_points'   => array('Sells pay-per-view posts, bundles, services and event tickets beside the subscription.', 'Your audience list and your media export whenever you want them.', 'One post goes to your page and to nine social networks together.'),   // our card on this list: three points chosen for this reader
+            'us_points'   => array('Sells pay-per-view posts, bundles, services and event tickets beside the subscription.', 'Your audience list and your media export whenever you want them.', 'One post goes to your page and to ten platforms together.'),   // our card on this list: three points chosen for this reader
             'us_best'     => 'a creator who sells more than one subscription and wants to own the audience list.',
-            'us_text'     => 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. Unlike a subscription app, it also exports your audience list and publishes every post to nine social networks.',   // our own card on this list, worded for the platform being left
+            'us_text'     => 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. Unlike a subscription app, it also exports your audience list and publishes every post to ten platforms.',   // our own card on this list, worded for the platform being left
             'name'        => 'OnlyFans',
             'description' => 'OnlyFans alternatives compared: what kind of platform each one is and who it suits, from one-page selling to subscription apps. Updated for {year}.',
             'intro'       => 'An OnlyFans alternative is a platform where a creator sells memberships, pay-per-view and services without a single subscription app in the middle. Creators look for one for one of three reasons. They want to keep more of each sale, sell more than one subscription, or own their audience. Here are the main options and what kind of platform each one is, so you can pick the fit for how you sell.',
@@ -142,7 +142,7 @@ class AlternativesPages {
         'patreon' => array(
             'us_points'   => array('Membership tiers with weekly, monthly or yearly billing and optional free trials.', 'Pay-per-view posts and bundles for fans who will never join a tier.', 'Bookings and ticketed live sessions in a built-in video room.'),   // our card on this list: three points chosen for this reader
             'us_best'     => 'a creator whose members would also buy single posts, bundles or sessions.',
-            'us_text'     => 'One public page at your handle that sells membership tiers beside pay-per-view posts, bundles, services and live events. A studio publishes every post to nine social networks, which Patreon leaves to you.',   // our own card on this list, worded for the platform being left
+            'us_text'     => 'One public page at your handle that sells membership tiers beside pay-per-view posts, bundles, services and live events. A studio publishes every post to ten platforms, which Patreon leaves to you.',   // our own card on this list, worded for the platform being left
             'name'        => 'Patreon',
             'description' => 'Patreon alternatives compared: memberships, tips, storefronts and one-page selling, with what each platform is and who it suits. Updated for {year}.',
             'intro'       => 'A Patreon alternative is a platform where a creator charges fans for memberships, posts or products outside Patreon. Creators look for one when they want to sell more than a monthly tier, pay a different fee, or publish to their social accounts from the same place. Here are the main options and what kind of platform each one is.',

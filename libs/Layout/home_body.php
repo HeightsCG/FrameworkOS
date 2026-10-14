@@ -28,7 +28,7 @@ echo Sections::tab_hero(array(
 // What the product is, in sentences that stand alone (SEO audit 2026-10-12: the home page had no definition and never mentioned AI influencers or teams outside the FAQ).
 echo Sections::prose('alt', 'What is ' . $site . '?', array(
     $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
-    $site . ' is a creator monetization platform: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets. A studio publishes each post to nine social networks. The platform fee is ' . PagesController::fee_short() . ', and plan prices are a separate monthly line on the pricing page.',
+    $site . ' is a creator monetization platform: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets. A studio publishes each post to ten platforms. The platform fee is ' . PagesController::fee_short() . ', and plan prices are a separate monthly line on the pricing page.',
     'It also includes an [AI influencer generator](/features/ai-influencer) that creates photos and video of one consistent character, and [team seats for people who run creator accounts](/ai-ofm-tools). To see where it sits among the options, read [best creator monetization platforms](/best-creator-monetization-platforms).',
 ));
 
@@ -44,7 +44,7 @@ echo Sections::close();
 echo Sections::open('alt');
 echo Sections::rows(array(
     array('title' => 'Publish everywhere at once', 'text' => 'Upload once in the studio. AI writes the caption in your brand voice, and the post goes to your page and your social accounts at the same time.',
-          'points' => array('Nine social networks from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
+          'points' => array('Ten platforms from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
     array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's platform fee, and you cash out to your bank anytime.",
           'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice'),
           // the after-state (heycatch D1.5, D2.3) as a schematic drawing of the Analytics dashboard with invented figures, never a screenshot

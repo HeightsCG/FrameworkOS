@@ -234,7 +234,7 @@ class PagesController extends Controller {
             'us_points' => array(
                 'You want to generate your AI influencer and sell the content on the same page',
                 'You want memberships, pay-per-view and paid messages without a second platform',
-                'You want posts published to nine social networks from the same studio',
+                'You want posts published to ten platforms from the same studio',
                 'You want a DM agent that answers fans in your voice, with your approval',
             ),
             'faq'       => array(
@@ -791,7 +791,7 @@ class PagesController extends Controller {
         foreach (self::selling_tiers() as $t) { if ((int) ($t['limits']['influencers'] ?? 0) > 0) { $inf[] = (int) $t['limits']['influencers'] . ' on ' . $t['name']; } }
         return array(
             'fee'          => self::fee_sentence(),
-            'onlyfans'     => $site . ' is an OnlyFans alternative: one page for memberships, pay-per-view posts, bundles, services and live events. It adds a studio that publishes to nine social networks, AI influencers and an AI-assisted inbox. Its platform fee is ' . self::fee_short() . ($of_pct !== '' ? ', against the ' . $of_pct . ' OnlyFans keeps under its terms' : '') . '.',
+            'onlyfans'     => $site . ' is an OnlyFans alternative: one page for memberships, pay-per-view posts, bundles, services and live events. It adds a studio that publishes to ten platforms, AI influencers and an AI-assisted inbox. Its platform fee is ' . self::fee_short() . ($of_pct !== '' ? ', against the ' . $of_pct . ' OnlyFans keeps under its terms' : '') . '.',
             'ai_influencer'=> 'On ' . $site . ' you can create an AI influencer from your photos or a description, generate photos and short videos of the same person, and sell them as pay-per-view posts, paid messages or membership content' . ($inf ? ' (AI influencers included: ' . implode(', ', $inf) . ')' : '') . '.',
             'payouts'      => 'Every sale on ' . $site . ', from memberships and unlocks to bundles, services and events, lands in one balance net of your plan\'s platform fee, and you cash out to your bank whenever you want with no per-payout fee.',
             'events'       => $site . ' sells tickets to live events and 1:1 sessions and hosts the call itself, in a built-in video room with a waiting room, chat, screen share and host controls, so fans join without Zoom or a separate link.',
@@ -804,7 +804,7 @@ class PagesController extends Controller {
             'fee'       => self::fee_short() . ' (Free cannot sell)',
             'payout'    => 'Direct to your bank account',
             'content'   => 'Posts, pay-per-view, bundles, memberships with tiers, services, events, links',
-            'socials'   => 'Publishes to nine social networks from one studio',
+            'socials'   => 'Publishes to ten platforms from one studio',
             'ai'        => 'AI captions, AI inbox replies, AI influencers',
             'ownership' => 'Export your audience and media any time',
         );
@@ -822,7 +822,7 @@ class PagesController extends Controller {
         $c = self::COMPETITORS; $us = self::our_facts(); $site = Main::site_name();
         return array(
             array('q' => 'Which creator platform takes the lowest fee?', 'a' => 'It depends on what you sell. Ko-fi Free charges no service fee on one-time tips and 5% on memberships and shop sales. Stan Store charges no transaction fee but costs $29 or $99 a month. Subscription platforms like OnlyFans and Fansly keep about 20%. ' . $site . ' takes ' . $us['fee'] . '. Card processing fees apply on top almost everywhere.'),
-            array('q' => 'Which platforms publish to my social accounts?', 'a' => 'Linktree\'s Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts. ' . $site . ' publishes to nine networks from one studio. Patreon, Ko-fi, Fansly, OnlyFans, Beacons and Stan Store do not publish automatic posting to your social accounts.'),
+            array('q' => 'Which platforms publish to my social accounts?', 'a' => 'Linktree\'s Social Planner auto-posts to Instagram, TikTok, Facebook, LinkedIn, Pinterest and YouTube Shorts. ' . $site . ' publishes to ten platforms from one studio. Patreon, Ko-fi, Fansly, OnlyFans, Beacons and Stan Store do not publish automatic posting to your social accounts.'),
             array('q' => 'Can I sell memberships and pay-per-view on the same platform?', 'a' => 'Subscription platforms such as OnlyFans and Fansly combine subscriptions with pay-per-view posts and messages. Patreon combines memberships with digital products. ' . $site . ' sells memberships, pay-per-view posts, bundles, services and events from one page.'),
             array('q' => 'Can I export my audience if I leave?', 'a' => 'Patreon, Ko-fi, Linktree, Beacons and Stan Store all let you download your members, supporters or customers as a CSV. OnlyFans and Fansly do not publish an export. ' . $site . ': ' . $us['ownership'] . '.'),
             array('q' => 'Can I use more than one platform?', 'a' => 'Yes. Many creators keep a subscription platform, a link-in-bio page and a membership platform at once. The simplest setup is one page that links or sells everything, with your socials pointing to it.'),
@@ -953,8 +953,8 @@ class PagesController extends Controller {
         $p['title'] = $p['name'] . ' Alternatives for Creators in ' . gmdate('Y');
         $p['us'] = array(
             'name' => $site, 'kind' => 'One page, every way to sell',
-            'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to nine social networks.'),
-            'points' => (array) ($p['us_points'] ?? array('Memberships, pay-per-view, bundles, services and events on one page', 'Publishes to nine social networks from one studio', 'Platform fee: ' . self::fee_short())),
+            'text' => (string) ($p['us_text'] ?? 'One public page at your handle that sells memberships, pay-per-view posts, bundles, services and live events. A studio publishes every post to ten platforms.'),
+            'points' => (array) ($p['us_points'] ?? array('Memberships, pay-per-view, bundles, services and events on one page', 'Publishes to ten platforms from one studio', 'Platform fee: ' . self::fee_short())),
             'note' => '',
             'best_for' => (string) ($p['us_best'] ?? 'creators who sell more than a subscription and want one page, one studio and one balance.'),
         );

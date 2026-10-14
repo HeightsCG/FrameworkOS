@@ -78,7 +78,7 @@ foreach (PlanTiers::addons() as $ad) {
     $trows[] = $tr;
 }
 $every = array('Public page at your handle', 'Unlimited membership tiers', 'Pay-per-view posts', 'Bundles', 'Services and events', 'Paid messages', 'Promo codes and free trials',
-    'Nine social networks, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
+    'Ten platforms, unlimited connections', 'Fanvue cross-posting', 'AI captions', 'AI images (paid with AI credits)', 'Welcome and trigger messages', 'Buy AI credits any time', 'Broadcasts to audience segments',
     'Audience list with tags and notes', 'Analytics and exports', 'Claude connector', 'Payouts to your bank');
 foreach ($every as $label) { $tr = array($e($label)); foreach ($rows as $r) { $tr[] = ($r['tier']['key'] === PlanTiers::FREE_KEY) ? '&mdash;' : $check; } $trows[] = $tr; }
 // Teams and agencies: what Studio adds for people who run accounts with help (SEO audit 2026-10-12: no entry point for that reader).
