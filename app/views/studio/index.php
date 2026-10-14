@@ -604,15 +604,13 @@
                             </div>
                             <input type="hidden" id="csSchedVideoModel" value="">
                             <input type="hidden" id="csSchedVideoDur" value="">
-                            <div class="cs-ae__row">
-                                <div class="cs-ae__field">
-                                    <span class="cs-ae__label" id="csSchedVideoModelLabel">Style</span>
-                                    <div class="cs-seg cs-ae__seg" id="csSchedVideoModels" role="group" aria-labelledby="csSchedVideoModelLabel"></div>
-                                </div>
-                                <div class="cs-ae__field">
-                                    <span class="cs-ae__label" id="csSchedVideoDurLabel">Length</span>
-                                    <div class="cs-seg cs-ae__seg" id="csSchedVideoDurs" role="group" aria-labelledby="csSchedVideoDurLabel"></div>
-                                </div>
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedVideoModelLabel">Style</span>
+                                <div class="cs-seg cs-ae__seg cs-ae__seg--grid" id="csSchedVideoModels" role="group" aria-labelledby="csSchedVideoModelLabel"></div>
+                            </div>
+                            <div class="cs-ae__field">
+                                <span class="cs-ae__label" id="csSchedVideoDurLabel">Length</span>
+                                <div class="cs-seg cs-ae__seg" id="csSchedVideoDurs" role="group" aria-labelledby="csSchedVideoDurLabel"></div>
                             </div>
                         </div>
                     </section>

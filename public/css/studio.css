@@ -570,6 +570,10 @@
 
 /* ---- Automation editor (#csSchedulerModal): shell + fields come from the shared .cs-ae-modal component in site.css; only automation-specific parts here. ---- */
 #csSchedulerModal.modal{ z-index:1600; }   /* above the floating messenger toggle (1500) so the footer is never covered */
+/* video Style: too many options for one segmented row, so they wrap four to a row and the last row stretches to fill (1px gaps draw the dividers) */
+#csSchedulerModal .cs-ae__seg--grid{ flex-wrap:wrap; gap:1px; background:rgba(29, 29, 29, .1); }
+#csSchedulerModal .cs-ae__seg--grid .cs-seg__opt{ flex:1 1 max(140px, calc(25% - 1px)); width:auto; border-left:0; }
+#csSchedulerModal .cs-ae__seg--grid .cs-seg__opt.is-on{ background:linear-gradient(var(--vsoft), var(--vsoft)), #fff; }   /* the soft tint is translucent; keep the gray gap color from showing through */
 /* destinations */
 #csSchedulerModal .cs-ae__desttools{ display:flex; align-items:center; gap:16px; margin-bottom:12px; }
 #csSchedulerModal .cs-ae__destsearch{ max-width:320px; }
