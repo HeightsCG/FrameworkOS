@@ -50,16 +50,16 @@ check('Instagram feed: a downscaled version is made without approval', $feed && 
 check('the version is hidden from the Library and linked to its original', $feed && (string) $feed['source'] === 'variant' && !empty($feed['library_hidden_at']) && (int) $feed['source_asset_id'] === $aid && empty($feed['parent_asset_id']));
 $story = MediaCompliance::make_variant($cid, $asset, false, 'instagram', 'story', 'fit');
 if ($story) { $made[] = (int) $story['id']; }
-check('Instagram Story: a 9:16 version is proposed, waiting for approval', $story && MediaCompliance::variant_state($story) === 'pending' && (int) $story['width'] === 1080 && (int) $story['height'] === 1920);
+check('Instagram Story: a 9:16 version is made without approval', $story && MediaCompliance::variant_state($story) === 'auto' && (int) $story['width'] === 1080 && (int) $story['height'] === 1920);
 $r = MediaCompliance::resolve($cid, $asset, false, 'instagram', 'story');
-check('publishing holds an unapproved Story version', $r['state'] === 'held' && $r['key'] === '');
-$ap = MediaCompliance::approve($cid, (int) $story['id']);
-$r = MediaCompliance::resolve($cid, $asset, false, 'instagram', 'story');
-check('once approved, publishing sends the approved version', !empty($ap['ok']) && $r['state'] === 'approved' && $r['key'] === (string) $story['display_key']);
+check('publishing sends the reshaped Story version directly', $r['state'] === 'adjusted' && $r['key'] === (string) $story['display_key']);
 $crop = MediaCompliance::make_variant($cid, $asset, false, 'instagram', 'story', 'crop', 'top');
 if ($crop) { $made[] = (int) $crop['id']; }
-check('trying a crop replaces the proposal and needs approval again', $crop && MediaCompliance::variant_state($crop) === 'pending' && strpos((string) $crop['tags'], '|m:crop') !== false
-    && MediaCompliance::resolve($cid, $asset, false, 'instagram', 'story')['state'] === 'held' && !$mm->get_variant($cid, (int) $story['id']));
+check('trying a crop replaces the version and is sent directly', $crop && MediaCompliance::variant_state($crop) === 'auto' && strpos((string) $crop['tags'], '|m:crop') !== false
+    && MediaCompliance::resolve($cid, $asset, false, 'instagram', 'story')['state'] === 'adjusted' && !$mm->get_variant($cid, (int) $story['id']));
+$legacy = $crop ? $crop + array() : null;
+if ($legacy) { $legacy['tags'] = str_replace('|s:auto', '|s:pending', (string) $legacy['tags']); }
+check('a version left pending from before is sent as it is', $legacy && MediaCompliance::variant_state($legacy) === 'auto');
 $bs = MediaCompliance::make_variant($cid, $asset, false, 'bluesky', 'feed');
 if ($bs) { $made[] = (int) $bs['id']; }
 check('Bluesky: the version is under its file cap', $bs && (MediaCompliance::variant_state($bs) === 'same' || (int) $bs['bytes'] <= 976000), json_encode($bs ? array($bs['bytes'], $bs['tags']) : null));
@@ -67,7 +67,7 @@ $yt = MediaCompliance::resolve($cid, $asset, false, 'youtube', 'feed');
 check('publishing skips YouTube for an image', $yt['state'] === 'unsupported');
 $items = array(array('asset' => $asset, 'teaser' => false, 'video' => false));
 $chk = MediaCompliance::check($cid, $items, array(array('id' => 'a1', 'platform' => 'instagram', 'placement' => 'story'), array('id' => 'a2', 'platform' => 'youtube', 'placement' => 'feed')), false);
-check('the composer check reports review and unsupported per destination', $chk['destinations'][0]['status'] === 'review' && $chk['destinations'][1]['status'] === 'unsupported' && $chk['review'] === 1, json_encode(array_column($chk['destinations'], 'status')));
+check('the composer check reports adjusted and unsupported per destination, nothing to review', $chk['destinations'][0]['status'] === 'adjusted' && $chk['destinations'][1]['status'] === 'unsupported' && $chk['review'] === 0, json_encode(array_column($chk['destinations'], 'status')));
 
 foreach ($made as $id) { $mm->soft_delete($cid, $id); }
 echo $fail === 0 ? "ALL OK\n" : "$fail FAILED\n";
