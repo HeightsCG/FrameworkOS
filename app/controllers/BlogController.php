@@ -25,6 +25,29 @@ class BlogController extends Controller {
         return 'Guide';
     }
 
+    /**
+     * The next step beside an article (2026-10-15): the free tool and the product page that fit its topic (topic()), so a reader
+     * can put the guide to work. Returns array(tool slug, feature path, feature label).
+     */
+    public static function next_step(array $a): array {
+        $t = self::topic($a);
+        $map = array(
+            'AI'           => array('ai-influencer-persona', '/features/ai-influencer', 'AI influencer'),
+            'Social'       => array('ai-disclosure-caption-checker', '/features/publishing', 'publishing'),
+            'Link in bio'  => array('ai-influencer-bio-generator', '/features/link-in-bio', 'link in bio'),
+            'Pay-per-view' => array('fan-questions', '/features/pay-per-view', 'pay-per-view'),
+            'Memberships'  => array('fan-questions', '/features/memberships', 'memberships'),
+            'Pricing'      => array('fan-questions', '/pricing', 'pricing'),
+            'Bundles'      => array('fan-questions', '/monetize-your-content', 'ways to get paid'),
+            'Services'     => array('fan-questions', '/features/services-and-events', 'services and events'),
+            'Events'       => array('fan-questions', '/features/services-and-events', 'services and events'),
+            'Payouts'      => array('fan-questions', '/features/payouts', 'payouts'),
+            'Platforms'    => array('fan-questions', '/best-creator-monetization-platforms', 'the platform comparison'),
+            'Getting paid' => array('fan-questions', '/monetize-your-content', 'ways to get paid'),
+        );
+        return $map[$t] ?? array('fan-questions', '/features', 'every feature');
+    }
+
     /** Give every <h2> in rendered article HTML an id and return [html, toc]. Headings come from Markdown::render (already escaped). */
     private static function anchor_headings(string $html): array {
         $toc = array(); $used = array();
@@ -86,7 +109,14 @@ class BlogController extends Controller {
         );
         $guides = array();
         foreach (SeoController::public_pages() as $p) { if (in_array($p['path'], array('/monetize-your-content', '/best-creator-monetization-platforms'), true) || strpos($p['path'], '/compare/') === 0) { $guides[] = $p; } }
-        $this->page('blog-index', array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true, 'no_band' => true, 'sections' => true),
+        // The featured guide's cover is the index's largest image on page one (2026-10-15): preload it like an article cover.
+        $pre = array();
+        if ($q === '' && $page === 1 && !empty($rows)) {
+            $fcw = trim((string) ($rows[0]['cover_webp_url'] ?? ''));
+            if ($fcw !== '') { $pre = array('preload_image' => $fcw, 'preload_srcset' => PublicThumbService::cover_small($fcw) . ' 480w, ' . $fcw . ' 960w', 'preload_sizes' => '(max-width: 900px) 100vw, 640px'); }
+            elseif (trim((string) ($rows[0]['cover_image_url'] ?? '')) !== '') { $pre = array('preload_image' => (string) $rows[0]['cover_image_url']); }
+        }
+        $this->page('blog-index', $pre + array('path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'noindex' => ($q !== '' || ($page > 1 && empty($rows))), 'no_guides' => true, 'no_band' => true, 'sections' => true),
             array('articles' => $rows, 'page' => $page, 'pages' => $pages, 'total' => $total, 'guides' => $guides, 'q' => $q));
     }
 

@@ -30,12 +30,20 @@ $upd = !empty($a['updated_at']) ? gmdate('Y-m-d', strtotime($a['updated_at'] . '
 </section>
             <?php endif; ?>
         </article>
+        <?php $ns = BlogController::next_step($a); $ns_tool = ToolsController::TOOLS[$ns[0]] ?? null; ?>
+        <aside class="gd-toc" aria-label="On this page and next steps">
         <?php if (count($toc) > 1): ?>
-        <aside class="gd-toc" aria-labelledby="gd_toc_h">
             <p class="gd-toc__h" id="gd_toc_h">On this page</p>
             <ol class="gd-toc__list"><?php foreach ($toc as $t): ?><li><a href="#<?php echo $e($t['id']); ?>"><?php echo $e($t['text']); ?></a></li><?php endforeach; ?><?php if (!empty($faq)): ?><li><a href="#gd_faq_h">Questions</a></li><?php endif; ?></ol>
-        </aside>
         <?php endif; ?>
+        <?php if ($ns_tool): /* the free tool and product page that fit this topic (BlogController::next_step) */ ?>
+            <div class="gd-next">
+                <p class="gd-next__h">Try It Free</p>
+                <a class="gd-next__tool" href="/tools/<?php echo $e($ns[0]); ?>" data-track="blog_tool_click" data-track-tool="<?php echo $e($ns[0]); ?>"><b><?php echo $e($ns_tool['nav_title']); ?></b><span><?php echo $e(preg_replace('/\s*Free,.*$/', '', (string) $ns_tool['description'])); ?></span></a>
+                <a class="gd-next__more" href="<?php echo $e($ns[1]); ?>" data-track="blog_feature_click" data-track-label="<?php echo $e($ns[2]); ?>">See <?php echo $e($ns[2]); ?> on <?php echo $e(Main::site_name()); ?></a>
+            </div>
+        <?php endif; ?>
+        </aside>
     </div>
 
 <?php if (!empty($related)): ?>

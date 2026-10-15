@@ -77,7 +77,36 @@ class ToolsController extends Controller {
         Session::cache_header(300);
     }
 
-    public function indexAction(){ Errors::page_not_found(); }
+    const HUB_TITLE = 'Free Creator Tools: AI Influencer, Bio and Content Ideas';
+    const HUB_DESC  = 'Free tools for creators: find the questions your fans ask, design an AI influencer persona, generate names and bios, and check AI disclosure in captions.';
+
+    /** The hub's FAQ: what is free, what needs an email, what stays in the browser. One source for the page and its FAQPage markup. */
+    public static function hub_faq(): array {
+        return array(
+            array('q' => 'Are these tools really free?', 'a' => 'Yes. Every tool on this page is free and needs no account and no card.'),
+            array('q' => 'Which tools need my email?', 'a' => 'The Fan Question Finder and the AI Influencer Persona Generator email you their results. The name generator, the bio generator and the disclosure checker run in your browser and show their results on the page.'),
+            array('q' => 'Is what I type sent anywhere?', 'a' => 'Not for the three browser tools: they run on the page, with no call to a server. The two email tools send your niche and answers to us so we can build the results and email them to you.'),
+            array('q' => 'What do I do with the results?', 'a' => 'Use them anywhere. When you want to turn a persona into a character with photos and video, publish the ideas or sell from a page, ' . Main::site_name() . ' does that on the ' . self::paid_plans() . ' plans.'),
+        );
+    }
+
+    /** /tools: the free tools hub (2026-10-15). /tools/<anything else> stays a 404. */
+    public function indexAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $faq = self::hub_faq();
+        $items = array();
+        foreach (self::TOOLS as $slug => $t) { $items[] = array('@type' => 'ListItem', 'position' => count($items) + 1, 'url' => SeoMeta::base() . '/tools/' . $slug, 'name' => $t['nav_title']); }
+        $jsonld = array(
+            array('@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => 'Free creator tools', 'itemListElement' => $items),
+            SeoMeta::faq($faq),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Free Tools', 'url' => '/tools'))),
+            SeoMeta::org(),
+            SeoMeta::webpage(array('url' => SeoMeta::base() . '/tools', 'title' => self::HUB_TITLE, 'description' => self::HUB_DESC)),
+        );
+        $meta = array('url' => SeoMeta::base() . '/tools', 'title' => self::HUB_TITLE, 'description' => self::HUB_DESC, 'type' => 'website', 'jsonld' => $jsonld, 'sections' => true, 'no_band' => true,
+            'preload_image' => SitePhotos::src('toolsport'), 'preload_srcset' => SitePhotos::srcset('toolsport'), 'preload_sizes' => '(max-width: 760px) 100vw, 58vw');
+        $this->view->public_page(Main::app_path() . '/app/views/tools/index.php', $meta, array('faq' => $faq));
+    }
 
     /** /tools/fan-questions (the router lowercases the segment and drops the hyphen). */
     public function fanquestionsAction(){ $this->render_tool('fan-questions'); }

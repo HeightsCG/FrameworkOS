@@ -61,6 +61,10 @@ ob_start();
     <span class="tl-done__ic"><?php echo Sections::icon('inbox', 24); ?></span>
     <h2 class="ct-h">Check Your Inbox</h2>
     <p class="sx-p" id="tl_done_text">Check your inbox in a few minutes.</p>
+    <div class="tl-next tl-next--done"><p class="tl-next__h"><?php echo $e($persona ? 'Your AI influencer concept is on its way. Bring your character to life.' : 'You found what your audience wants. Turn those ideas into content.'); ?></p>
+        <p class="tl-next__p"><?php echo $e($persona ? 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to ten platforms.' : 'Write the posts in ' . $site . ', publish them to ten platforms at once, or let an automation post on a schedule.'); ?></p>
+        <div class="tl-next__acts"><a class="sx-btn sx-btn--primary" href="<?php echo $e($start); ?>" rel="nofollow" data-auth="register" data-track="tool_cta_click" data-track-tool="<?php echo $e($slug); ?>">Start Free<?php echo Sections::icon('arrow-right', 18); ?></a>
+        <a class="sx-btn sx-btn--secondary" href="<?php echo $e($persona ? '/features/ai-influencer' : '/features/publishing'); ?>" data-track="tool_cta_click" data-track-tool="<?php echo $e($slug); ?>"><?php echo $e($persona ? 'See the AI Influencer' : 'See Publishing'); ?></a></div></div>
 </div>
 <?php endif; ?>
 <?php
@@ -92,7 +96,14 @@ $tl_links = array(); foreach ((array) ($tool['pages'] ?? array()) as $tp) { $tl_
 if (!empty($tl_links)) { echo Sections::prose('alt', 'Where does this tool fit?', array('The ' . $tool['nav_title'] . ' is a free part of ' . Main::site_name() . '. It goes with ' . implode(' and ', $tl_links) . ', where the ideas turn into posts on your page.')); }
 echo Sections::faq($faq, 'white');
 ?>
-<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title"><?php echo $e(Sections::tc($persona ? 'Bring your persona to life.' : 'Turn ideas into posts.')); ?></h2>
-    <p class="sx-cta__text"><?php echo $e($persona ? 'Create an AI influencer on ' . $site . ' and generate realistic photos and videos for your posts.' : 'Run Ideas inside ' . $site . ' and turn any idea into a draft post in one click.'); ?></p></div>
-    <div class="sx-acts"><a class="sx-btn sx-btn--light" href="<?php echo $e($start); ?>" rel="nofollow">Start Free</a></div></div></section>
+<?php echo Sections::band($persona ? 'Bring your persona to life.' : 'Turn ideas into posts.', $persona ? 'Create an AI influencer on ' . $site . ' and generate realistic photos and videos for your posts.' : 'Run Ideas inside ' . $site . ' and turn any idea into a draft post in one click.', array('Start Free', $start, 'register'), '', 'tools'); /* keeps ?ref= on the sign-up: the tool is credited */ ?>
 <script defer src="/js/tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/tools.js'); ?>"></script>
+<script>
+/* Tool events (2026-10-15): the submit is the start, the inbox message appearing is the completion. Only the tool name is sent. */
+(function () {
+    var form = document.getElementById('tl_form'), done = document.getElementById('tl_done'), slug = <?php echo json_encode($slug); ?>;
+    var track = function (n) { if (window.CLSTrack) { window.CLSTrack(n, { tool: slug }); } };
+    if (form) { form.addEventListener('submit', function () { track('tool_start'); }); }
+    if (done && window.MutationObserver) { var mo = new MutationObserver(function () { if (!done.hidden) { track('tool_complete'); mo.disconnect(); } }); mo.observe(done, { attributes: true, attributeFilter: ['hidden'] }); }
+})();
+</script>

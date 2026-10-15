@@ -154,6 +154,7 @@ class SeoController extends Controller {
         }
         $pages[] = array('path' => '/alternatives', 'title' => PagesController::AI_ALT_TITLE, 'description' => PagesController::AI_ALT_DESC, 'changefreq' => 'monthly', 'priority' => '0.7');
         $pages[] = array('path' => '/press', 'title' => PagesController::PRESS_TITLE, 'description' => PagesController::PRESS_DESC, 'changefreq' => 'yearly', 'priority' => '0.4');
+        $pages[] = array('path' => '/tools', 'title' => ToolsController::HUB_TITLE, 'description' => ToolsController::HUB_DESC, 'changefreq' => 'monthly', 'priority' => '0.8');   // the free tools hub (2026-10-15)
         foreach (ToolsController::TOOLS as $t_slug => $t) {   // free tools (lead tools and browser-only ones)
             $pages[] = array('path' => '/tools/' . $t_slug, 'title' => $t['title'], 'description' => $t['description'], 'changefreq' => 'monthly', 'priority' => '0.7');
         }

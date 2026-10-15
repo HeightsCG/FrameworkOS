@@ -6,7 +6,7 @@ $paths = array_merge($paths, array('/founding'));
 $paths = array_merge($paths, array('/affiliates'));
 $paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
 $paths = array_merge($paths, array('/author/dr-glauber'));
-$paths = array_merge($paths, array('/features/automations', '/features/analytics'));   // site-wide redesign 2026-10-15: the two new feature pages   // the author page behind every article byline (2026-10-12)
+$paths = array_merge($paths, array('/features/automations', '/features/analytics', '/tools'));   // site-wide redesign 2026-10-15: the two new feature pages   // the author page behind every article byline (2026-10-12)
 $fail  = 0;
 foreach ($paths as $p) {
     $ch = curl_init($base . $p);
@@ -90,7 +90,7 @@ foreach (array('/tools/fan-questions', '/tools/ai-influencer-persona') as $p) {
     $ok = in_array('FAQPage', $types, true) && in_array('WebApplication', $types, true) && count($types) === count($m[1]) && strpos($body, 'href="' . $base . $p . '"') !== false;
     echo ($ok ? 'ok   ' : 'FAIL ') . "$p FAQPage + WebApplication parse\n"; if (!$ok) { $fail++; }
 }
-foreach (array('/tools', '/tools/fanquestions', '/tools/fan-questions/x', '/tools/nope') as $p) {
+foreach (array('/tools/x/y', '/tools/fanquestions', '/tools/fan-questions/x', '/tools/nope') as $p) {   // /tools itself is the hub since 2026-10-15
     $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch);
     $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
     echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }

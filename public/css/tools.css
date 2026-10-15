@@ -82,3 +82,31 @@
 /* A browser tool's results grow the panel: keep the heading at the top instead of re-centring it as the list lengthens. */
 .hx--panel:has(.ft-host) .hx__in { align-items: start; }
 .hx__mod:has(.ft-host) { min-height: 0; justify-content: flex-start; }
+
+/* /tools hub (app/views/tools/index.php), 2026-10-15: one editorial row per tool with an example of its output */
+.tl-hub { display: grid; gap: 96px; }
+.tl-hub__name { margin: 0; }
+.tl-hub__how { margin-top: 16px; max-width: 560px; }
+.tl-hub__meta { display: inline-flex; align-items: center; gap: 8px; margin: 16px 0 28px; font-size: .875rem; font-weight: 600; color: var(--sx-t2); }
+.tl-hub__meta .sx-ic { color: var(--sx-acc); }
+.tl-hub__row .sx-split__copy { display: flex; flex-direction: column; align-items: flex-start; }
+.tl-ex { max-width: 520px; width: 100%; justify-self: center; }
+.tl-ex__q, .tl-ex__checks { list-style: none; margin: 0; padding: 0; }
+.tl-ex__q li { padding: 14px 0; border-bottom: 1px solid var(--sx-line); font-size: .9375rem; line-height: 1.5; color: var(--sx-ink); }
+.tl-ex__q li:last-child { border-bottom: 0; }
+.tl-ex__p { margin: 16px 0; font-size: .9375rem; line-height: 1.55; color: var(--sx-ink); }
+.tl-ex__names { padding-top: 16px; }
+.tl-ex__names span { padding: 6px 12px; font-size: .875rem; color: var(--sx-ink); }
+.tl-ex__meter { height: 4px; border-radius: 2px; background: var(--sx-grey-3); overflow: hidden; }
+.tl-ex__meter i { display: block; height: 100%; background: var(--sx-acc); }
+.tl-ex__checks li { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-bottom: 1px solid var(--sx-line); font-size: .9375rem; color: var(--sx-ink); }
+.tl-ex__checks li:last-child { border-bottom: 0; }
+.tl-ex__checks .sx-ic { color: #22c55e; flex: none; }
+@media (max-width: 760px) { .tl-hub { gap: 64px; } .tl-hub__row .sx-btn { width: 100%; } }
+/* Next step under a tool result (2026-10-15) */
+.tl-next { margin-top: 20px; padding: 20px; border: 1px solid rgba(255, 106, 19, .45); border-radius: var(--sx-r); background: rgba(255, 106, 19, .06); }
+.tl-next__h { margin: 0; font-size: 1.0625rem; font-weight: 700; color: var(--sx-ink); }
+.tl-next__p { margin: 6px 0 0; font-size: .9375rem; line-height: 1.55; color: var(--sx-t2); }
+.tl-next__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.tl-done .tl-next { text-align: left; }
+@media (max-width: 560px) { .tl-next__acts .sx-btn { width: 100%; } }

@@ -35,7 +35,7 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                 </div>
                 <div class="sf__col">
                     <p class="sf__h">Free Tools</p>
-                    <?php foreach (ToolsController::TOOLS as $t_slug => $t): ?><a href="<?php echo $fb; ?>/tools/<?php echo $fl($t_slug); ?>"><?php echo $fl($t['nav_title']); ?></a><?php endforeach; ?><a href="<?php echo $fb; ?>/alternatives">AI influencer tools compared</a>
+                    <a href="<?php echo $fb; ?>/tools">All free tools</a><?php foreach (ToolsController::TOOLS as $t_slug => $t): ?><a href="<?php echo $fb; ?>/tools/<?php echo $fl($t_slug); ?>"><?php echo $fl($t['nav_title']); ?></a><?php endforeach; ?><a href="<?php echo $fb; ?>/alternatives">AI influencer tools compared</a>
                 </div>
                 <div class="sf__col">
                     <p class="sf__h">Press</p>

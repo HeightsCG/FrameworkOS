@@ -16,6 +16,7 @@ class SitePhotos
         'home-final'    => array('home', 'final', array(960, 1440), 1440, 816, 'A creator at her desk at night reviewing photos on a large monitor', '70% 50%'),
 
         // inner pages (public/images/site)
+        'toolsport'     => array('site', 'toolsport', array(640, 960, 1152), 1152, 1440, 'A creator writing ideas in a notebook at his desk at night, smiling into the camera', '50% 22%'),
         'featport'      => array('site', 'featport', array(640, 960, 1152), 1152, 1440, 'A creator with a camera in her home studio, looking into the lens', '50% 22%'),
         'features'      => array('site', 'features', self::WIDE, 1440, 816, 'A creator in her home studio adjusting a softbox light beside a camera on a tripod', '70% 40%'),
         'aichar'        => array('site', 'aichar', self::TALL, 1152, 1440, 'An AI-generated character: a man in a cream sweater by a window, looking into the camera', '55% 25%'),

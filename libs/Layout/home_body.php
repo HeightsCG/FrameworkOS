@@ -142,6 +142,24 @@ if ($trial_open) { echo '<p class="hm-trial">' . Sections::icon('star', 18) . '<
 echo '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="/pricing">Compare Plans</a></div>';
 echo Sections::close();
 
+// 7b. Free tools (2026-10-15, added below the approved sections): for visitors not ready to subscribe. Three tools that need no
+// account, then the hub. A photo beside it, in the home's split layout; the trial stays the page's one orange button.
+$home_tools = array(
+    array('ai-influencer-name-generator', 'tag', 'Twenty names for your character, each with a handle.'),
+    array('ai-influencer-bio-generator', 'page', 'A bio sized for five platforms, with the count against each limit.'),
+    array('fan-questions', 'search', 'Post ideas built from the questions your fans actually ask.'),
+);
+echo Sections::open('alt', '', '', 'free-tools');
+echo '<div class="sx-split"><div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Not ready to subscribe? Start creating for free.')) . '</h2>'
+    . '<p class="sx-lead">Free tools to name your character, write your bio and find what to post next. No account and no card.</p><ul class="sx-list hm-tools">';
+foreach ($home_tools as $ht) {
+    $tt = ToolsController::TOOLS[$ht[0]];
+    echo '<li>' . Sections::icon($ht[1], 20) . '<span><a href="/tools/' . $e($ht[0]) . '" data-track="home_tool_click" data-track-tool="' . $e($ht[0]) . '"><b>' . $e($tt['nav_title']) . '</b></a> ' . $e($ht[2]) . '</span></li>';
+}
+echo '</ul><p class="hm-more"><a href="/tools" data-track="home_tool_click" data-track-label="All free tools">See all free tools</a></p></div>'
+    . '<figure class="sx-split__photo hm-tools__photo">' . Sections::photo('tools', '(max-width: 1100px) 100vw, 640px') . '</figure></div>';
+echo Sections::close();
+
 /* Testimonials (heycatch D3.2): real people's words from /admin/testimonials, shown only once Proof::TESTIMONIALS_MIN are approved. */
 $quotes = array();
 try { $tm = new TestimonialsModel(); if ($tm->approved_count() >= Proof::TESTIMONIALS_MIN) { $quotes = $tm->approved(3); } } catch (\Throwable $ex) { error_log('[home] testimonials: ' . $ex->getMessage()); }

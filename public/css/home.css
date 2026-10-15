@@ -119,3 +119,7 @@
     .hm-final__in { padding-top: 72px; padding-bottom: 72px; }
     .hm-final__in .sx-btn { width: 100%; }
 }
+/* Free tools section (2026-10-15) */
+.hm-tools a { text-decoration: none; }
+.hm-tools a:hover b { text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
+.hm-tools__photo { aspect-ratio: 4 / 3.4; }

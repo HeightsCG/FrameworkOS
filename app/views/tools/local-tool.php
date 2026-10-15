@@ -18,6 +18,19 @@ $embed = '<div data-cls-tool="' . $slug . '"><a href="' . $base . '/tools/' . $s
 <link rel="stylesheet" href="/css/tools.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/tools.css'); ?>">
 <?php
 $panel = '<div class="ft-host" data-ft="' . $e($slug) . '"><noscript><p class="sx-p">This tool runs in your browser and needs JavaScript turned on.</p></noscript></div>';
+// The next step, shown under the result once the tool has run (2026-10-15): what to do with it, tied to a real workflow.
+$trial = Sections::trial_link();
+$next = array(
+    'ai-influencer-name-generator'  => array('Your name is ready. Bring your character to life.', 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to ten platforms.', array('Write the Bio Next', '/tools/ai-influencer-bio-generator')),
+    'ai-influencer-bio-generator'   => array('Your bio is ready. Build the page it links to.', 'Your ' . $site . ' page is where the link in your bio goes: fans follow, subscribe and buy there.', array('See Link in Bio', '/features/link-in-bio')),
+    'ai-disclosure-caption-checker' => array('Your caption is ready. Publish it everywhere.', $site . ' posts it to ten platforms at once and sets TikTok\'s and YouTube\'s own AI label for you.', array('See Publishing', '/features/publishing')),
+);
+if (isset($next[$slug])) {
+    $nx = $next[$slug];
+    $panel .= '<div class="tl-next" id="tl_next" hidden><p class="tl-next__h">' . $e($nx[0]) . '</p><p class="tl-next__p">' . $e($nx[1]) . '</p><div class="tl-next__acts">'
+        . '<a class="sx-btn sx-btn--primary" href="' . $e($trial[1]) . '" rel="nofollow"' . ($trial[2] !== '' ? ' data-auth="' . $e($trial[2]) . '"' : '') . ' data-track="tool_cta_click" data-track-tool="' . $e($slug) . '">' . $e($trial[0]) . Sections::icon('arrow-right', 18) . '</a>'
+        . '<a class="sx-btn sx-btn--secondary" href="' . $e($nx[2][1]) . '" data-track="tool_cta_click" data-track-tool="' . $e($slug) . '">' . $e($nx[2][0]) . '</a></div></div>';
+}
 echo Sections::panel_hero(array('photo' => 'tools', 'variant' => 'panel', 'title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $panel));
 
 echo Sections::open('alt', 'How to use it');
@@ -56,3 +69,21 @@ echo Sections::close();
 echo Sections::trial_cta('Build the character, then publish it.', 'Create an AI influencer on ' . $site . ', make photos and video, and publish to ten platforms from one page.');
 ?>
 <script defer src="/js/free-tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/free-tools.js'); ?>"></script>
+<script>
+/* Tool events and the next step (2026-10-15): the tool's own form submit is the start; a result in .ft-out is the completion. Nothing the visitor typed is sent. */
+(function () {
+    var host = document.querySelector('.ft-host'), next = document.getElementById('tl_next'), slug = <?php echo json_encode($slug); ?>, started = false, done = false;
+    if (!host) { return; }
+    var track = function (n) { if (window.CLSTrack) { window.CLSTrack(n, { tool: slug }); } };
+    host.addEventListener('submit', function () {
+        if (!started) { started = true; track('tool_start'); }
+        setTimeout(function () {
+            var out = host.querySelector('.ft-out');
+            if (!out || out.querySelector('.ft-empty') || out.textContent.trim() === '') { return; }
+            if (!done) { done = true; track('tool_complete'); }
+            if (next) { next.hidden = false; }
+        }, 0);
+    });
+    host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.ft-copy')) { track('tool_copy'); } });
+})();
+</script>

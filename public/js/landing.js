@@ -12,7 +12,7 @@ $(document).ready(function() {
     });
     $(document).on('click', function(e) {
         if ($(e.target).closest('#ld_nav_toggle').length) { return; }
-        if ($(e.target).closest('#ld_nav_links').length && !$(e.target).closest('a, button').length) { return; }
+        if ($(e.target).closest('#ld_nav_links').length && !$(e.target).closest('a, button:not(.mn__top)').length) { return; }   // a menu group button expands its group, it does not close the sheet
         $('#ld_nav_links').removeClass('is-open');
         $('#ld_nav_toggle').attr('aria-expanded', 'false');
     });
