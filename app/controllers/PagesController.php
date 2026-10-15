@@ -33,6 +33,9 @@ class PagesController extends Controller {
         'author'                              => 'author',
         'contact'                             => 'contact',
         'founding'                            => 'founding',
+        'integrations'                        => 'integrations',   // /integrations and /integrations/<platform> (IntegrationPages)
+        'press'                               => 'press',
+        'alternatives'                        => 'alternativesHub',   // the AI influencer tool categories page; the <x>-alternatives pages are alternativesAction
         'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
     );
 
@@ -52,6 +55,9 @@ class PagesController extends Controller {
 
     /** Where legal and privacy requests go (shown on /terms and /privacy). */
     const LEGAL_CONTACT = 'support@creatorlinkstudio.com';
+
+    /** Where press and partnership requests go (shown on /press). */
+    const PRESS_CONTACT = self::LEGAL_CONTACT;
 
     /** Topics on the /contact form (value => label); the contact_send API accepts only these. */
     const CONTACT_TOPICS = array('billing' => 'Billing', 'payouts' => 'Payouts', 'account' => 'Account', 'bug' => 'Bug', 'other' => 'Other');
@@ -959,6 +965,80 @@ class PagesController extends Controller {
             'best_for' => (string) ($p['us_best'] ?? 'creators who sell more than a subscription and want one page, one studio and one balance.'),
         );
         return $p;
+    }
+
+    /** The /integrations index title and description (also listed in SeoController::public_pages). */
+    const INTEGRATIONS_TITLE = 'Integrations: Publish to 10 Platforms From One Editor';
+    const INTEGRATIONS_DESC  = 'Connect LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue, then publish or schedule each post to all of them at once.';
+
+    /** One integration page's title and description. */
+    public static function integration_meta(string $slug): array {
+        $n = IntegrationPages::PAGES[$slug]['name'];
+        return array(
+            'title'       => $n . ' Integration: Publish and Schedule Posts',
+            'description' => $slug === 'fanvue'
+                ? 'Mirror each Creator Link Studio post to Fanvue in full: caption, media into your vault, audience, price and schedule.'
+                : 'Connect ' . $n . ' to Creator Link Studio and publish or schedule each new post there from the editor you already use for your page.',
+        );
+    }
+
+    /** /integrations and /integrations/<platform> (IntegrationPages::PAGES). */
+    public function integrationsAction(){
+        $url = Main::get_url();
+        if (count($url) > 1) {
+            $slug = strtolower(preg_replace('/[^a-z0-9-]/i', '', (string) $url[1]));
+            if (count($url) > 2 || $slug === '' || !isset(IntegrationPages::PAGES[$slug])) { Errors::page_not_found(); return; }
+            $page = IntegrationPages::PAGES[$slug]; $m = self::integration_meta($slug);
+            $path = '/integrations/' . $slug; $faq = IntegrationPages::faq($slug);
+            $jsonld = array(SeoMeta::faq($faq), SeoMeta::breadcrumbs(array(
+                array('name' => 'Home', 'url' => '/'), array('name' => 'Integrations', 'url' => '/integrations'), array('name' => $page['name'], 'url' => $path),
+            )));
+            $this->page('integration', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+                array('page' => $page, 'slug' => $slug, 'faq' => $faq, 'steps' => IntegrationPages::steps($slug)));
+            return;
+        }
+        $faq = array(
+            array('q' => 'Which platforms does Creator Link Studio publish to?', 'a' => 'LinkedIn, Bluesky, X, Facebook, Instagram, Threads, TikTok, YouTube, Pinterest and Fanvue.'),
+            array('q' => 'What gets posted to social networks?', 'a' => 'The public version of each post: the caption and a preview. Paid posts send a blurred preview, so what fans pay for stays on your page. Fanvue gets the full post.'),
+            array('q' => 'Can I schedule posts to every platform?', 'a' => 'Yes. Publish now or pick a time, and every platform you tick goes out with your page post.'),
+            array('q' => 'Where do I connect my accounts?', 'a' => 'In Settings, under Integrations. Each platform connects with its own sign-in, except Bluesky, which uses an app password.'),
+        );
+        $items = array(); $pos = 1;
+        foreach (IntegrationPages::PAGES as $s => $p) { $items[] = array('@type' => 'ListItem', 'position' => $pos++, 'url' => SeoMeta::base() . '/integrations/' . $s, 'name' => $p['name']); }
+        $jsonld = array(
+            array('@context' => 'https://schema.org', '@type' => 'ItemList', 'name' => 'Creator Link Studio integrations', 'itemListElement' => $items),
+            SeoMeta::faq($faq),
+            SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Integrations', 'url' => '/integrations'))),
+        );
+        $this->page('integrations', array('path' => '/integrations', 'title' => self::INTEGRATIONS_TITLE, 'description' => self::INTEGRATIONS_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+            array('faq' => $faq));
+    }
+
+    const PRESS_TITLE = 'Press Kit: Logos, Boilerplate and Brand Colors';
+    const PRESS_DESC  = 'Creator Link Studio press kit: company boilerplate, logo downloads in SVG and PNG, brand colors, product facts and link badges.';
+
+    /** /press: boilerplate, logos, colors, facts, contact, link badges. */
+    public function pressAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $this->page('press', array('path' => '/press', 'title' => self::PRESS_TITLE, 'description' => self::PRESS_DESC, 'no_guides' => true, 'no_band' => true));
+    }
+
+    const AI_ALT_TITLE = 'AI Influencer Tools Compared: Every Category Explained';
+    const AI_ALT_DESC  = 'The kinds of AI influencer tools, from image and video generators to character training and publishing, what each one does, and where Creator Link Studio fits.';
+
+    /** /alternatives: the categories of AI influencer tools and where the studio fits. No competitor is named. */
+    public function alternativesHubAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        $site = Main::site_name();
+        $faq = array(
+            array('q' => 'What do I need to run an AI influencer?', 'a' => 'A consistent character, a way to make photos and video of them, captions, a publishing routine and somewhere fans can follow and pay. Most people stitch several tools together for this.'),
+            array('q' => 'Why does a consistent face matter?', 'a' => 'Followers notice when a character looks different from post to post. Character training on a set of reference photos keeps the same face across images and video.'),
+            array('q' => 'Should AI influencer posts be labelled?', 'a' => 'Yes. Several platforms ask for AI content to be disclosed, and some have their own label for it. ' . $site . ' sets that label on TikTok and YouTube and adds a disclosure line to the caption elsewhere.'),
+            array('q' => 'Where does ' . $site . ' fit?', 'a' => 'It covers the character, images, video, voice, publishing to ten platforms and the page fans pay on, in one account. Picking it depends on whether you want those pieces in one place.'),
+        );
+        $jsonld = array(SeoMeta::faq($faq), SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'AI influencer tools compared', 'url' => '/alternatives'))));
+        $this->page('ai-alternatives', array('path' => '/alternatives', 'title' => self::AI_ALT_TITLE, 'description' => self::AI_ALT_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+            array('faq' => $faq));
     }
 
     public function alternativesAction(){

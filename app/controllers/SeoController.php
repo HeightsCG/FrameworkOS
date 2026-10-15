@@ -147,7 +147,14 @@ class SeoController extends Controller {
         $pages[] = array('path' => '/privacy', 'title' => 'Privacy Policy',   'description' => 'What we collect, how it is used, and your choices.', 'changefreq' => 'yearly', 'priority' => '0.3');
         $pages[] = array('path' => '/about',   'title' => 'About ' . Main::site_name(), 'description' => 'What the platform is, who it is for, the AI influencer tools and how creators get paid.', 'changefreq' => 'monthly', 'priority' => '0.5');
         $pages[] = array('path' => '/contact', 'title' => 'Contact support', 'description' => 'Contact support about billing, payouts, your account or a bug.', 'changefreq' => 'yearly', 'priority' => '0.4');
-        foreach (ToolsController::TOOLS as $t_slug => $t) {   // free lead tools
+        $pages[] = array('path' => '/integrations', 'title' => PagesController::INTEGRATIONS_TITLE, 'description' => PagesController::INTEGRATIONS_DESC, 'changefreq' => 'monthly', 'priority' => '0.8');
+        foreach (array_keys(IntegrationPages::PAGES) as $i_slug) {   // /integrations/<platform>
+            $im = PagesController::integration_meta($i_slug);
+            $pages[] = array('path' => '/integrations/' . $i_slug, 'title' => $im['title'], 'description' => $im['description'], 'changefreq' => 'monthly', 'priority' => '0.7');
+        }
+        $pages[] = array('path' => '/alternatives', 'title' => PagesController::AI_ALT_TITLE, 'description' => PagesController::AI_ALT_DESC, 'changefreq' => 'monthly', 'priority' => '0.7');
+        $pages[] = array('path' => '/press', 'title' => PagesController::PRESS_TITLE, 'description' => PagesController::PRESS_DESC, 'changefreq' => 'yearly', 'priority' => '0.4');
+        foreach (ToolsController::TOOLS as $t_slug => $t) {   // free tools (lead tools and browser-only ones)
             $pages[] = array('path' => '/tools/' . $t_slug, 'title' => $t['title'], 'description' => $t['description'], 'changefreq' => 'monthly', 'priority' => '0.7');
         }
         // Creator directory: only once someone is listed, and only categories that have creators (no empty pages indexed).

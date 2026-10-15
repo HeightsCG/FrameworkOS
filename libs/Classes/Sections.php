@@ -625,6 +625,26 @@ class Sections {
         return $out;
     }
 
+    /**
+     * The trial button: while founding spots remain it starts the free first Founding::TRIAL_DAYS (the claim link),
+     * after that it is the plain sign-up. Returns array(label, href, data-auth). The number always comes from Founding.
+     */
+    public static function trial_link(): array {
+        $open = false;
+        try { $open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[sections] founding: ' . $ex->getMessage()); }
+        if (!$open) { return array('Start Free', '/?auth=register', 'register'); }
+        $c = Founding::claim_link();
+        return array('Start Your ' . (int) Founding::TRIAL_DAYS . '-Day Free Trial', $c[0], $c[1]);
+    }
+
+    /** Closing band with the trial button (integrations, free tools, press, /alternatives). */
+    public static function trial_cta(string $title, string $text = ''): string {
+        $t = self::trial_link();
+        return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
+            . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . self::e($t[2]) . '"' : '') . '>' . self::e($t[0]) . '</a></div></div></section>';
+    }
+
     /** Closing call to action: full-width black band. */
     public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register'): string {
         return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
