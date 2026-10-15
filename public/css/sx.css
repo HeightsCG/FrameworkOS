@@ -1471,7 +1471,7 @@ p.sf__h, p.cos-form-title { display: block; }
 .pp__ends { font-weight: 400; }
 .pp__reg { font-weight: 500; }
 /* Panel heroes: the text is anchored to the top, so a panel that grows (a tool result, the next-step box) never pushes the
-   headline down the page (Daniel 2026-10-15: "make sure the entire page doesn't shift like this"). */
+   headline down the page (2026-10-15). */
 .ph--panel .ph__in { align-items: start; }
 .ph--panel .ph__copy { padding-top: 24px; }
 @media (max-width: 1100px) { .ph--panel .ph__copy { padding-top: 0; } }

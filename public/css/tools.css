@@ -110,3 +110,13 @@
 .tl-next__acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .tl-done .tl-next { text-align: left; }
 @media (max-width: 560px) { .tl-next__acts .sx-btn { width: 100%; } }
+/* Browser tool results (2026-10-15): their own full-width section under the hero, so a long list never stretches the hero */
+.tl-results[hidden] { display: none; }
+.tl-results { scroll-margin-top: 72px; }
+.tl-results__h { margin: 0 0 24px; }
+.tl-results .ft-out { min-width: 0; }
+.tl-results .ft-bios { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; }
+.tl-results .ft-bio { padding: 16px; }
+.tl-results .ft-list { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.tl-results .tl-next { margin-top: 24px; }
+@media (max-width: 640px) { .tl-results .ft-bios, .tl-results .ft-list { grid-template-columns: minmax(0, 1fr); } }

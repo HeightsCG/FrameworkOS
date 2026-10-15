@@ -20,6 +20,7 @@ $embed = '<div data-cls-tool="' . $slug . '"><a href="' . $base . '/tools/' . $s
 $panel = '<div class="ft-host" data-ft="' . $e($slug) . '"><noscript><p class="sx-p">This tool runs in your browser and needs JavaScript turned on.</p></noscript></div>';
 // The next step, shown under the result once the tool has run (2026-10-15): what to do with it, tied to a real workflow.
 $trial = Sections::trial_link();
+$next_html = '';
 $next = array(
     'ai-influencer-name-generator'  => array('Your name is ready. Bring your character to life.', 'Create the character on ' . $site . ', generate photos and video of the same person, and publish them to ten platforms.', array('Write the Bio Next', '/tools/ai-influencer-bio-generator')),
     'ai-influencer-bio-generator'   => array('Your bio is ready. Build the page it links to.', 'Your ' . $site . ' page is where the link in your bio goes: fans follow, subscribe and buy there.', array('See Link in Bio', '/features/link-in-bio')),
@@ -27,11 +28,14 @@ $next = array(
 );
 if (isset($next[$slug])) {
     $nx = $next[$slug];
-    $panel .= '<div class="tl-next" id="tl_next" hidden><p class="tl-next__h">' . $e($nx[0]) . '</p><p class="tl-next__p">' . $e($nx[1]) . '</p><div class="tl-next__acts">'
+    $next_html = '<div class="tl-next" id="tl_next" hidden><p class="tl-next__h">' . $e($nx[0]) . '</p><p class="tl-next__p">' . $e($nx[1]) . '</p><div class="tl-next__acts">'
         . '<a class="sx-btn sx-btn--primary" href="' . $e($trial[1]) . '" rel="nofollow"' . ($trial[2] !== '' ? ' data-auth="' . $e($trial[2]) . '"' : '') . ' data-track="tool_cta_click" data-track-tool="' . $e($slug) . '">' . $e($trial[0]) . Sections::icon('arrow-right', 18) . '</a>'
         . '<a class="sx-btn sx-btn--secondary" href="' . $e($nx[2][1]) . '" data-track="tool_cta_click" data-track-tool="' . $e($slug) . '">' . $e($nx[2][0]) . '</a></div></div>';
 }
 echo Sections::panel_hero(array('photo' => 'tools', 'variant' => 'panel', 'title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $panel));
+// Results get their own full-width section under the hero (2026-10-15): a long result list inside the hero panel stretched
+// the hero and left a tall empty column beside it. The script below moves the tool's .ft-out here once the tool is built.
+echo '<section class="sx tl-results" id="tl_results" aria-label="Results" hidden><div class="ld-wrap sx__in"><h2 class="sx-h2 tl-results__h">Your Results</h2><div class="tl-results__out"></div>' . $next_html . '</div></section>';
 
 echo Sections::open('alt', 'How to use it');
 $st = $steps[$slug] ?? array(); $last = count($st) - 1;
@@ -72,18 +76,32 @@ echo Sections::trial_cta('Build the character, then publish it.', 'Create an AI 
 <script>
 /* Tool events and the next step (2026-10-15): the tool's own form submit is the start; a result in .ft-out is the completion. Nothing the visitor typed is sent. */
 (function () {
-    var host = document.querySelector('.ft-host'), next = document.getElementById('tl_next'), slug = <?php echo json_encode($slug); ?>, started = false, done = false;
+    var host = document.querySelector('.ft-host'), box = document.getElementById('tl_results'), slot = box ? box.querySelector('.tl-results__out') : null;
+    var next = document.getElementById('tl_next'), slug = <?php echo json_encode($slug); ?>, started = false, done = false;
     if (!host) { return; }
     var track = function (n) { if (window.CLSTrack) { window.CLSTrack(n, { tool: slug }); } };
-    host.addEventListener('submit', function () {
-        if (!started) { started = true; track('tool_start'); }
-        setTimeout(function () {
-            var out = host.querySelector('.ft-out');
-            if (!out || out.querySelector('.ft-empty') || out.textContent.trim() === '') { return; }
-            if (!done) { done = true; track('tool_complete'); }
-            if (next) { next.hidden = false; }
-        }, 0);
-    });
-    host.addEventListener('click', function (e) { if (e.target.closest && e.target.closest('.ft-copy')) { track('tool_copy'); } });
+    var out_of = function () { return (slot && slot.querySelector('.ft-out')) || host.querySelector('.ft-out'); };
+    // free-tools.js keeps its own reference to .ft-out, so moving the node keeps every later render landing here
+    var relocate = function () { var o = host.querySelector('.ft-out'); if (o && slot) { slot.appendChild(o); } };
+    if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', relocate); } else { relocate(); }
+    var show = function () {
+        var out = out_of();
+        if (!out || out.querySelector('.ft-empty') || out.textContent.trim() === '') { return; }
+        if (!done) { done = true; track('tool_complete'); }
+        if (next) { next.hidden = false; }
+        if (box && box.hidden) {
+            box.hidden = false;
+            var top = box.getBoundingClientRect().top;
+            if (top > window.innerHeight * 0.6) { box.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' }); }
+        }
+    };
+    host.addEventListener('submit', function () { if (!started) { started = true; track('tool_start'); } setTimeout(show, 0); });
+    host.addEventListener('click', function () { setTimeout(show, 0); });   // Shuffle re-renders without a submit
+    if (box) {
+        box.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('.ft-copy') : null;
+            if (b && window.CLSFreeTools) { window.CLSFreeTools.copy(b.getAttribute('data-copy') || '', b); track('tool_copy'); }
+        });
+    }
 })();
 </script>
