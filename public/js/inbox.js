@@ -193,6 +193,7 @@
             history.replaceState(null, '', '/inbox/thread/' + o.conversation_id);
             applyThread(o, true);
             if (preset && preset.assets && IS_CREATOR && iAmCreator) { if (preset.price > 0) { attachD.price = preset.price; } attachD.set(preset.assets); }
+            else if (preset && preset.assets && preset.assets.length) { toastErr('Media can only be sent to your followers and subscribers.'); }
             if (!convs.some(function (c) { return c.id === o.conversation_id; })) { loadConvs(); }
         });
     }
@@ -372,11 +373,11 @@
     /* ---- people picker ---- */
     var peopleT = null, composePreset = null;
     function loadPeople(q) {
-        api('message_people', { q: q || '' }, function (o) {
+        api('message_people', { q: q || '', media: (composePreset && composePreset.assets && composePreset.assets.length) ? 1 : 0 }, function (o) {
             var h = $('#ibxPeople').empty();
             if (!o || !o.success) { h.html('<p class="ibx__note">' + esc(o ? o.message : 'Could not load people') + '</p>'); return; }
             var list = o.people || [];
-            if (!list.length) { h.html('<p class="ibx__note">' + (o.is_search ? 'No one matches that search.' : 'Follow or subscribe to a creator, or gain a follower, to start a conversation.') + '</p>'); return; }
+            if (!list.length) { h.html('<p class="ibx__note">' + (o.is_search ? 'No one matches that search.' : (o.media ? 'Media can be sent to your followers and subscribers. You have none yet.' : 'Follow or subscribe to a creator, or gain a follower, to start a conversation.')) + '</p>'); return; }
             list.forEach(function (c) {
                 var cb = c.is_creator ? ' <i class="fa-solid fa-circle-check ibx-badge" title="Creator"></i>' : '';
                 h.append('<button type="button" class="ibx-conv" data-pid="' + c.id + '" data-name="' + esc(c.name) + '" data-handle="' + esc(c.handle) + '" data-avatar="' + esc(c.avatar) + '" data-creator="' + (c.is_creator ? 1 : 0) + '">'

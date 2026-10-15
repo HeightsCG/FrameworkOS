@@ -44,7 +44,7 @@ class MessagesModel extends Model {
      * People the viewer can start a conversation with: anyone they follow or subscribe to,
      * plus anyone who follows or subscribes to them (their audience). Optional name/handle filter.
      */
-    public function connections($viewer_id, $q = '', $limit = 50){
+    public function connections($viewer_id, $q = '', $limit = 50, $no_creators = false){
         $vid = (int) $viewer_id;
         $limit = max(1, min(100, (int) $limit));
         $params = array('me1' => $vid, 'me2' => $vid, 'me3' => $vid, 'me4' => $vid, 'me5' => $vid, 'bv1' => $vid, 'bv2' => $vid);
@@ -68,7 +68,7 @@ class MessagesModel extends Model {
                    UNION SELECT creator_id    FROM creator_subscriptions WHERE subscriber_id = :me4
                    UNION SELECT subscriber_id FROM creator_subscriptions WHERE creator_id    = :me5
                )
-               AND " . BlocksModel::exclude_sql('u.user_id', 'bv1', 'bv2') . "$where_q
+               AND " . BlocksModel::exclude_sql('u.user_id', 'bv1', 'bv2') . "$where_q" . ($no_creators && $this->creator_role_id() > 0 ? ' AND u.role_id <> ' . (int) $this->creator_role_id() : '') . "
              ORDER BY name ASC
              LIMIT $limit",
             $params

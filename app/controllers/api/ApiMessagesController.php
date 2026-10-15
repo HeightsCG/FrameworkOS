@@ -126,7 +126,9 @@ class ApiMessagesController extends BaseApiController {
         if ($me <= 0) { echo json_encode(['success' => false, 'need_login' => true]); exit; }
         $q     = trim((string) ($this->post['q'] ?? ''));
         $model = new MessagesModel();
-        $this->jsonSuccess(['people' => $model->connections($me, $q), 'is_search' => ($q !== '')]);
+        // Sending media (a hand-off from another page): only people you'd message as their creator can receive it. With another creator you are the fan side.
+        $media = !empty($this->post['media']);
+        $this->jsonSuccess(['people' => $model->connections($me, $q, 50, $media), 'is_search' => ($q !== ''), 'media' => $media]);
     }
 
     /** Open (find or create) a conversation with a connected account and return its thread. */

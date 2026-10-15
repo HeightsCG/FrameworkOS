@@ -2,6 +2,7 @@
     </div>
 
     <?php if ((int) Session::get('user_id') > 0): ?>
+    <script src="/js/send-media.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/send-media.js'); ?>"></script>
     <!-- Messages live on /inbox. This keeps the sidebar unread count fresh and gives other pages one hook to open a thread. -->
     <script>
     (function () {
@@ -12,7 +13,7 @@
         window.CLSMessenger = window.CLSMessenger || {
             open: function(){ window.location.href = '/inbox'; },
             openWith: function(uid, preset){ uid = parseInt(uid, 10) || 0; if (uid <= 0) { return; } if (preset) { stash(preset); } window.location.href = '/inbox/with/' + uid; },
-            compose: function(preset){ stash(preset); window.location.href = '/inbox/new'; },
+            compose: function(preset){ if (preset && preset.assets && preset.assets.length && window.CLSSendMedia) { window.CLSSendMedia.open(preset.assets); return; } stash(preset); window.location.href = '/inbox/new'; },
             badge: badge
         };
         badge();
