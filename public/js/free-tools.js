@@ -74,6 +74,9 @@
                         last:  ['Quinn', 'Cole', 'Nexus', 'Ray', 'Arc', 'Prime', 'Flux', 'Zenith', 'Sato', 'Kael', 'Vire', 'Lumen', 'Strand', 'Halo', 'Tesla', 'Cypher'] }
     };
 
+    // Combinations that are a well-known real person's name: never suggested.
+    var REAL = { 'Mae West': 1, 'Eli Stone': 1, 'Leo North': 1, 'Kai Cole': 1, 'Jett Black': 1, 'Raven Black': 1, 'Ruby Rose': 1, 'Clara Hayes': 1, 'Storm Steele': 1 };
+
     var name_tool = function (root) {
         var niches = Object.keys(NICHES), vibes = Object.keys(VIBES), round = 0;
         root.innerHTML =
@@ -92,7 +95,7 @@
             var seen = {}, names = [], guard = 0;
             while (names.length < 20 && guard++ < 500) {
                 var first = pick(rnd, v.first), last = pick(rnd, v.last);
-                if (first === last || seen[first + last]) { continue; }
+                if (first === last || seen[first + last] || REAL[first + ' ' + last]) { continue; }
                 seen[first + last] = 1;
                 var f = first.toLowerCase(), l = last.toLowerCase(), w = pick(rnd, words), style = Math.floor(rnd() * 4);
                 var handle = style === 0 ? f + w : style === 1 ? f + '.' + l : style === 2 ? f + l : f + '_' + w;
@@ -162,23 +165,23 @@
             '</form>' +
             '<div class="ft-out" aria-live="polite"><p class="ft-empty">Enter a name and a niche to get five bios, one per platform.</p></div>';
         var form = root.querySelector('form'), out = root.querySelector('.ft-out'), err = root.querySelector('.ft-error');
-        var fill = function (t, name, niche) { return t.replace(/\{name\}/g, name).replace(/\{niche\}/g, niche); };
-        var cap = function (s) { return s.charAt(0).toUpperCase() + s.slice(1); };
+        // fill a template, then start every sentence with a capital (the niche is typed in lower case)
+        var fill = function (t, name, niche) {
+            return t.replace(/\{name\}/g, name).replace(/\{niche\}/g, niche).replace(/(^|[.!?|]\s+)([a-z])/g, function (m, a, b) { return a + b.toUpperCase(); });
+        };
         var run = function () {
             var name_el = root.querySelector('#ftb_name'), niche_el = root.querySelector('#ftb_niche');
             var name = name_el.value.trim(), niche = niche_el.value.trim(), ai = root.querySelector('#ftb_ai').checked;
             name_el.classList.toggle('is-bad', name === ''); niche_el.classList.toggle('is-bad', niche === '');
             if (name === '' || niche === '') { err.textContent = 'Enter a name and a niche.'; err.hidden = false; (name === '' ? name_el : niche_el).focus(); return; }
             err.hidden = true;
-            var list = TONES[root.querySelector('#ftb_tone').value];
+            var list = TONES[root.querySelector('#ftb_tone').value].concat(['{name}. {niche}.', '{name} | {niche}']);   // the short forms fit tight limits (TikTok 80)
             out.innerHTML = '<ul class="ft-bios">' + BIO_LIMITS.map(function (pl) {
-                var limit = pl[1], best = '', shortest = '';
-                // the longest template (and AI line) that fits this platform's limit; the niche starts a sentence when a template opens with it
-                for (var i = 0; i < list.length; i++) {
-                    var body = fill(list[i], name, list[i].indexOf('{niche}') === 0 ? cap(niche) : niche);
-                    var tails = ai ? AI_LINES : [''];
-                    for (var j = 0; j < tails.length; j++) {
-                        var b = body + tails[j];
+                var limit = pl[1], best = '', shortest = '', tails = ai ? AI_LINES : [''];
+                // the clearest AI line that fits wins (AI_LINES is in order of preference), then the longest template with it
+                for (var j = 0; j < tails.length && best === ''; j++) {
+                    for (var i = 0; i < list.length; i++) {
+                        var b = fill(list[i], name, niche) + tails[j];
                         if (shortest === '' || b.length < shortest.length) { shortest = b; }
                         if (b.length <= limit && b.length > best.length) { best = b; }
                     }
@@ -219,10 +222,9 @@
             if (caption === '') { err.textContent = 'Paste a caption to check.'; err.hidden = false; ta.focus(); return; }
             err.hidden = true;
             var good = [], fix = [], m = caption.match(CLEAR), vague = VAGUE.test(caption);
-            var first_line = caption.split(/\n/)[0];
             if (m) {
                 good.push('It says the content is AI: "' + m[0].trim() + '".');
-                if (m.index > PREVIEW && first_line.length < m.index) { fix.push('The disclosure sits after the first ' + PREVIEW + ' characters, so many viewers will not see it before the caption is cut off. Move it to the start.'); }
+                if (m.index > PREVIEW) { fix.push('The disclosure sits after the first ' + PREVIEW + ' characters, so many viewers will not see it before the caption is cut off. Move it to the start.'); }
                 else { good.push('The disclosure is near the start, where viewers see it first.'); }
                 var tail = caption.slice(m.index);
                 if (/^#/.test(m[0].trim()) && /^(#\S+\s*)+$/.test(tail)) { fix.push('The disclosure is only a hashtag in a block of hashtags at the end. Say it in words too.'); }

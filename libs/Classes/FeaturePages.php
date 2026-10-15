@@ -375,6 +375,7 @@ class FeaturePages {
                         'Cross-post to Fanvue as well',
                         'Choose per post whether it also appears on your page',
                     ),
+                    'link'   => array('See All Ten Integrations', '/integrations'),
                 ),
                 array(
                     'title'  => 'AI captions in your voice',

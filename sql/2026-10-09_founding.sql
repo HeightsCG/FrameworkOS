@@ -1,5 +1,5 @@
--- Founding creator offer (/founding): the first Founding::SPOTS creators on the Creator plan get the first month
--- free and the platform fee locked at the Studio rate while their Creator plan stays active or past due.
+-- Founding creator offer (/founding): the first Founding::SPOTS creators on a paid plan get the first Founding::TRIAL_DAYS
+-- (14) free. (When this file was written it was the first month free plus a fee lock; both changed, see Founding.php.)
 -- A claim is held at checkout (claimed), becomes active when the plan starts, lapses when the plan ends or changes.
 ALTER TABLE user_accounts ADD COLUMN is_founding TINYINT(1) NOT NULL DEFAULT 0;
 ALTER TABLE billing_accounts ADD COLUMN fee_percent_override DECIMAL(5,2) NULL;

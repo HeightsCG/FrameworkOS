@@ -5,8 +5,8 @@
  *
  *   signup           -> CompleteRegistration
  *   credits_bought   -> Purchase   (value = dollars paid)
- *   plan_paid        -> Subscribe  (a creator plan bought or upgraded; renewals are not ad conversions and are skipped)
- *   membership_paid  -> Subscribe  (a fan's paid membership)
+ *   plan_paid        -> Purchase   (a creator plan bought or upgraded; renewals are not ad conversions and are skipped)
+ *   membership_paid  -> Purchase   (a fan's paid membership)
  *   follow           -> AddToWishlist (following a creator; FollowsModel::follow calls from_event directly)
  *
  * ViewContent (a creator's page) is sent by the browser pixel from profile/view.php: signed-out profile reads are
@@ -50,38 +50,84 @@ class TikTokEventJob {
                 case 'plan_paid':
                     $kind = strtok($meta, ' ');
                     if (!in_array($kind, array('subscribe', 'upgrade'), true)) { return; }
-                    $ev = 'Subscribe'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Creator plan'); break;
-                case 'membership_paid': $ev = 'Subscribe'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Membership'); break;
+                    $ev = 'Purchase'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Creator plan'); break;
+                case 'membership_paid': $ev = 'Purchase'; $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Membership'); break;
                 case 'follow':          $ev = 'AddToWishlist'; $props = array('content_type' => 'product', 'content_id' => (string) (int) ($opts['creator_id'] ?? 0), 'content_name' => 'Creator'); break;
                 default: return;
             }
 
-            $path    = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
-            $webhook = (bool) preg_match('#^/webhook#', $path);   // Stripe's request: its IP, agent and cookies are not the person's
-            $user = array();
-            if (!$webhook) {
-                $ip = GeoIp::client_ip();
-                if ($ip !== '') { $user['ip'] = $ip; }
-                $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
-                if ($ua !== '') { $user['user_agent'] = mb_substr($ua, 0, 500); }
-                $ttp = (string) ($_COOKIE['_ttp'] ?? '');
-                if ($ttp !== '' && preg_match('/^[A-Za-z0-9._-]{1,200}$/', $ttp)) { $user['ttp'] = $ttp; }
-                $ttclid = (string) ($_COOKIE['cls_ttclid'] ?? '');
-                if ($ttclid !== '' && preg_match('/^[A-Za-z0-9._-]{1,500}$/', $ttclid)) { $user['ttclid'] = $ttclid; }
-            }
-            $page = array();
-            if (!$webhook) {
-                $page['url'] = mb_substr(rtrim(Main::get_base_domain(), '/') . (string) ($_SERVER['REQUEST_URI'] ?? ''), 0, 1000);
-                $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
-                if ($ref !== '') { $page['referrer'] = mb_substr($ref, 0, 1000); }
-            }
-
-            $data = array('event' => $ev, 'event_time' => time(), 'event_id' => 'cls_' . $name . '_' . bin2hex(random_bytes(8)), 'user' => $user);
-            if (!empty($page)) { $data['page'] = $page; }
-            if (!empty($props)) { $data['properties'] = $props; }
-            (new DatabaseJobQueue())->dispatch('tiktok_event', array('user_id' => $user_id, 'data' => $data));
+            self::queue($ev, $name, $user_id, $props);
         } catch (\Throwable $e) {
             error_log('[tiktok_event] ' . $name . ': ' . $e->getMessage());
+        }
+    }
+
+    /** Capture the request's person (IP, agent, TikTok cookies, page) now; the queue sends it. */
+    private static function queue(string $ev, string $name, int $user_id, array $props): void {
+        $path    = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
+        $webhook = (bool) preg_match('#^/webhook#', $path);   // Stripe's request: its IP, agent and cookies are not the person's
+        $user = array();
+        if (!$webhook) {
+            $ip = GeoIp::client_ip();
+            if ($ip !== '') { $user['ip'] = $ip; }
+            $ua = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+            if ($ua !== '') { $user['user_agent'] = mb_substr($ua, 0, 500); }
+            $ttp = (string) ($_COOKIE['_ttp'] ?? '');
+            if ($ttp !== '' && preg_match('/^[A-Za-z0-9._-]{1,200}$/', $ttp)) { $user['ttp'] = $ttp; }
+            $ttclid = (string) ($_COOKIE['cls_ttclid'] ?? '');
+            if ($ttclid !== '' && preg_match('/^[A-Za-z0-9._-]{1,500}$/', $ttclid)) { $user['ttclid'] = $ttclid; }
+        }
+        $page = array();
+        if (!$webhook) {
+            $page['url'] = mb_substr(rtrim(Main::get_base_domain(), '/') . (string) ($_SERVER['REQUEST_URI'] ?? ''), 0, 1000);
+            $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+            if ($ref !== '') { $page['referrer'] = mb_substr($ref, 0, 1000); }
+        }
+
+        $data = array('event' => $ev, 'event_time' => time(), 'event_id' => 'cls_' . $name . '_' . bin2hex(random_bytes(8)), 'user' => $user);
+        if (!empty($page)) { $data['page'] = $page; }
+        if (!empty($props)) { $data['properties'] = $props; }
+        (new DatabaseJobQueue())->dispatch('tiktok_event', array('user_id' => $user_id, 'data' => $data));
+    }
+
+    /** Fan purchases that answer need_credits when the wallet is short: the person wanted it (AddToCart). */
+    const PAYWALL_ACTIONS = array('ppv_unlock' => 'Post', 'bundle_unlock' => 'Bundle', 'message_unlock' => 'Message', 'service_purchase' => 'Service',
+                                  'event_register' => 'Event ticket', 'event_replay_buy' => 'Event replay', 'live_tip' => 'Tip');
+
+    /**
+     * Called from BaseApiController::jsonSuccess/jsonError with the /api/<action> name and the response:
+     *   buy_credits, buy_ai_credits, a paid subscribe_plan, billing_quote for a plan -> InitiateCheckout
+     *   billing_card_save                                                           -> AddPaymentInfo
+     *   a fan purchase short of credits (PAYWALL_ACTIONS + need_credits)            -> AddToCart
+     */
+    public static function from_api(string $action, bool $ok, array $data, array $post): void {
+        try {
+            if (!self::configured() || $action === '') { return; }
+            $credits_usd = function ($credits) { return round(((int) $credits) / Price::CREDITS_PER_DOLLAR, 2); };
+            $ev = ''; $props = array();
+            if ($ok) {
+                if ($action === 'buy_credits' || $action === 'buy_ai_credits') {
+                    $ev = 'InitiateCheckout';
+                    $props = array('currency' => 'USD', 'value' => round(((int) ($data['total_cents'] ?? 0)) / 100, 2), 'content_type' => 'product', 'content_name' => $action === 'buy_credits' ? 'Credits' : 'AI credits');
+                } elseif ($action === 'subscribe_plan' && (string) ($data['url'] ?? '') !== '') {
+                    $ev = 'InitiateCheckout'; $props = array('content_type' => 'product', 'content_name' => 'Membership');
+                } elseif ($action === 'billing_quote' && isset($post['plan']) && (string) ($post['promo_code'] ?? '') === '' && in_array((string) ($data['mode'] ?? ''), array('subscribe', 'upgrade'), true)) {
+                    $ev = 'InitiateCheckout';
+                    $props = array('currency' => 'USD', 'value' => (float) preg_replace('/[^0-9.]/', '', (string) ($data['today'] ?? '0')), 'content_type' => 'product', 'content_name' => 'Creator plan');
+                } elseif ($action === 'billing_card_save') {
+                    $ev = 'AddPaymentInfo';
+                }
+            } elseif (!empty($data['need_credits']) && isset(self::PAYWALL_ACTIONS[$action])) {
+                $ev = 'AddToCart';
+                $props = array('content_type' => 'product', 'content_name' => self::PAYWALL_ACTIONS[$action]);
+                if (isset($data['price'])) { $props += array('currency' => 'USD', 'value' => $credits_usd($data['price'])); }
+            }
+            if ($ev === '') { return; }
+            $uid = (int) Session::get('user_id');
+            if (Analytics::excluded('', $uid)) { return; }
+            self::queue($ev, $action, $uid, $props);
+        } catch (\Throwable $e) {
+            error_log('[tiktok_event] api ' . $action . ': ' . $e->getMessage());
         }
     }
 

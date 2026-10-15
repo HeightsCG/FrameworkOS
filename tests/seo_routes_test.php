@@ -118,6 +118,51 @@ foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) 
     echo ($ok ? 'ok   ' : 'FAIL ') . "$p carries no author name, no author link, no <article>\n"; if (!$ok) { $fail++; }
 }
 $ch = curl_init($base . '/about'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
-$ok = substr_count(strip_tags($body), 'Dr. Glauber') === 1 && stripos($body, 'daniel') === false;
+$ok = substr_count(strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body)), 'Dr. Glauber') === 1 && stripos($body, 'daniel') === false;   // scripts out first: a '<' inside the TikTok pixel confuses strip_tags
 echo ($ok ? 'ok   ' : 'FAIL ') . "/about names Dr. Glauber exactly once\n"; if (!$ok) { $fail++; }
+// Link-earning pages (2026-10-15): /integrations + ten platforms, three browser-only tools, /press, /alternatives.
+// Each answers 200 with one title, description, canonical, og and twitter set, JSON-LD that parses, no founder name, no
+// platform outside the ten; every public_pages() row is in the sitemap with a title and description no other page has.
+$new = array('/integrations', '/press', '/alternatives', '/tools/ai-influencer-name-generator', '/tools/ai-influencer-bio-generator', '/tools/ai-disclosure-caption-checker');
+foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue') as $i) { $new[] = '/integrations/' . $i; }
+$ch = curl_init($base . '/sitemap.xml'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $sitemap = (string) curl_exec($ch); curl_close($ch);
+$seen_t = array(); $seen_d = array();
+foreach ($new as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15)); $body = (string) curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    $one = function ($re) use ($body) { return preg_match_all($re, $body) === 1; };
+    $text = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body));   // what a reader sees
+    preg_match_all('/<script type="application\/ld\+json">(.*?)<\/script>/s', $body, $m); $parsed = 0; $types = array();
+    foreach ($m[1] as $j) { $o = json_decode($j, true); if (is_array($o)) { $parsed++; $types[] = (string) (is_array($o['@type'] ?? '') ? implode(',', $o['@type']) : ($o['@type'] ?? '')); } }
+    $ok = $code === 200 && $one('/<title>[^<]{10,70}<\/title>/') && $one('/<meta name="description" content="[^"]{50,170}"/') && $one('/<link rel="canonical" href="' . preg_quote($base . $p, '/') . '"/')
+        && $one('/<meta property="og:title"/') && $one('/<meta property="og:description"/') && $one('/<meta property="og:url"/') && $one('/<meta property="og:image"/') && $one('/<meta name="twitter:card"/')
+        && count($m[1]) > 0 && $parsed === count($m[1]) && in_array('BreadcrumbList', $types, true) && strpos($body, '<loc>' . $base . $p . '</loc>') === false
+        && strpos($sitemap, '<loc>' . $base . $p . '</loc>') !== false
+        && stripos($body, 'glauber') === false && stripos($body, 'daniel') === false && !preg_match('/\b(Reddit|Discord|Snapchat|30[ -]day)\b/i', $text);
+    if (preg_match('/<details/', $body)) { $ok = $ok && in_array('FAQPage', $types, true); }
+    preg_match('/<title>([^<]*)<\/title>/', $body, $t); preg_match('/<meta name="description" content="([^"]*)"/', $body, $d);
+    if (isset($seen_t[$t[1] ?? '']) || isset($seen_d[$d[1] ?? ''])) { $ok = false; }
+    $seen_t[$t[1] ?? ''] = 1; $seen_d[$d[1] ?? ''] = 1;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$p meta, og, twitter, JSON-LD, sitemap, no founder name ($code)\n"; if (!$ok) { $fail++; }
+}
+foreach (array('/integrations/nope', '/integrations/x/y', '/press/x', '/alternatives/x', '/tools/ai-influencer-name-generator/x') as $p) {
+    $ch = curl_init($base . $p); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+    echo ($code === 404 ? 'ok   ' : 'FAIL ') . "$p → 404 ($code)\n"; if ($code !== 404) { $fail++; }
+}
+// Every sitemap URL: a unique title and description (the whole public set, not only the new pages).
+preg_match_all('/<loc>([^<]+)<\/loc>/', $sitemap, $locs); $titles = array(); $descs = array(); $dupes = array();
+foreach ($locs[1] as $u) {
+    if (strpos($u, '/blog/') !== false || strpos($u, '/@') !== false) { continue; }   // articles and profiles carry their own meta
+    $ch = curl_init($u); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15)); $body = (string) curl_exec($ch); curl_close($ch);
+    preg_match('/<title>([^<]*)<\/title>/', $body, $t); preg_match('/<meta name="description" content="([^"]*)"/', $body, $d);
+    $tt = $t[1] ?? ''; $dd = $d[1] ?? '';
+    if ($tt === '' || $dd === '' || isset($titles[$tt]) || isset($descs[$dd])) { $dupes[] = $u; }
+    $titles[$tt] = 1; $descs[$dd] = 1;
+}
+echo (empty($dupes) ? 'ok   ' : 'FAIL ') . count($locs[1]) . " sitemap URLs, unique titles and descriptions" . (empty($dupes) ? '' : ': ' . implode(', ', $dupes)) . "\n"; if (!empty($dupes)) { $fail++; }
+// The browser-only tools and the embed send nothing anywhere: no fetch, XHR or beacon in either script.
+foreach (array('/js/free-tools.js', '/js/embed.js') as $asset) {
+    $ch = curl_init($base . $asset); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $js = (string) curl_exec($ch); curl_close($ch);
+    $ok = $js !== '' && !preg_match('/\b(fetch\(|XMLHttpRequest|sendBeacon|\$\.ajax|ApiDataSvc)/', $js) && stripos($js, 'daniel') === false;
+    echo ($ok ? 'ok   ' : 'FAIL ') . "$asset makes no network call\n"; if (!$ok) { $fail++; }
+}
 exit($fail ? 1 : 0);

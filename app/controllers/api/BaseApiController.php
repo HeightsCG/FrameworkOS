@@ -14,6 +14,21 @@ class BaseApiController extends Controller {
     protected $loginAttemptsModel;
     protected $billingModel;
 
+    /** Every API answer passes the TikTok funnel hook first (checkout started, card added, paywall hit); it never throws. */
+    protected function jsonSuccess(array $data = [], int $httpCode = 200): void {
+        TikTokEventJob::from_api($this->api_action(), true, $data, (array) $this->post);
+        parent::jsonSuccess($data, $httpCode);
+    }
+
+    protected function jsonError(string $message, array $extra = [], int $httpCode = 200): void {
+        TikTokEventJob::from_api($this->api_action(), false, $extra, (array) $this->post);
+        parent::jsonError($message, $extra, $httpCode);
+    }
+
+    private function api_action(): string {
+        return strtolower(preg_replace('/[^A-Za-z0-9_]/', '', (string) (Main::get_url()[1] ?? '')));
+    }
+
     public function __construct(){
         parent::__construct();
 

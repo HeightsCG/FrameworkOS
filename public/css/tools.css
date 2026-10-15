@@ -78,3 +78,7 @@
     .ft-list { grid-template-columns: minmax(0, 1fr); }
     .ft-acts .sx-btn { flex: 1 1 auto; }
 }
+
+/* A browser tool's results grow the panel: keep the heading at the top instead of re-centring it as the list lengthens. */
+.hx--panel:has(.ft-host) .hx__in { align-items: start; }
+.hx__mod:has(.ft-host) { min-height: 0; justify-content: flex-start; }

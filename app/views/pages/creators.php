@@ -26,6 +26,7 @@ if ($listed > 0) {
     if ($sort !== $sorts[0]) { echo '<input type="hidden" name="sort" value="' . $e($sort) . '">'; }
     echo '<button class="dir-search__btn" type="submit">Search</button>';
     echo '</form>';
+    if ($q !== '') { echo '<script>if (window.ttq) { ttq.track(\'Search\', { search_string: ' . json_encode((string) $q, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . ' }); }</script>'; }   // TikTok: a directory search
     echo '<nav class="dir-sort" aria-label="Sort">';
     foreach (DirectoryService::SORTS as $sk => $sl) {
         $href = PagesController::directory_url($base, 1, $sk === $sorts[0] ? '' : $sk, $q_on ? $q : '');

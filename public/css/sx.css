@@ -754,8 +754,17 @@ body.ld, body.pub { background: var(--sx-bg); color: var(--sx-ink); font-family:
 @media (max-width: 640px) { .lg__title { font-size: 2.5rem; } .sx.lg { padding: 40px 0 64px; } }
 .cos-legal { margin: 14px 0 0; font-size: .8125rem; line-height: 1.5; color: var(--sx-muted) !important; text-align: center; }
 .cos-legal a { color: var(--sx-ink); text-decoration: underline; text-underline-offset: 2px; }
-.sf__cols { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-@media (max-width: 900px) { .sf__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* Six footer columns under the brand block (Product, AI, Compare, Integrations, Free Tools, Press; 2026-10-15). Terms, privacy and the account links sit in the bottom bar. */
+.sf__top { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+.sf__brand { max-width: 640px; }
+.sf__cols { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.sf__bottom > span { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.sf__legal { display: flex; flex-wrap: wrap; gap: 8px 20px; }
+.sf__legal a { color: var(--sx-muted); text-decoration: none; }
+.sf__legal a:hover { color: var(--sx-ink); }
+.sf__legal a:focus-visible { outline: none; box-shadow: var(--sx-ring); border-radius: 4px; }
+@media (max-width: 1100px) { .sf__cols { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .sf__cols { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .sf__social{ display:flex; flex-wrap:wrap; gap:14px; margin:14px 0 0; }
 .sf__social a{ font-size:.86rem; color:var(--sx-muted, #a1a1aa); text-decoration:none; }
 .sf__social a:hover{ color:var(--sx-acc); }

@@ -37,12 +37,12 @@ echo Sections::open('white', 'About ' . $site, 'Use either description as it is.
 ?>
 <div class="gp-copy">
     <div class="gp-copy__item">
-        <div class="gp-copy__head"><h3 class="sx-h3">Short description</h3><span class="gp-copy__count">50 words</span></div>
+        <div class="gp-copy__head"><h3 class="sx-h3"><?php echo $e(Sections::tc("Short description")); ?></h3><span class="gp-copy__count">50 words</span></div>
         <p class="gp-copy__text" id="gp_b50"><?php echo $e($b50); ?></p>
         <button class="sx-btn sx-btn--secondary" type="button" data-copy-from="gp_b50">Copy Text</button>
     </div>
     <div class="gp-copy__item">
-        <div class="gp-copy__head"><h3 class="sx-h3">Long description</h3><span class="gp-copy__count">150 words</span></div>
+        <div class="gp-copy__head"><h3 class="sx-h3"><?php echo $e(Sections::tc("Long description")); ?></h3><span class="gp-copy__count">150 words</span></div>
         <p class="gp-copy__text" id="gp_b150"><?php echo $e($b150); ?></p>
         <button class="sx-btn sx-btn--secondary" type="button" data-copy-from="gp_b150">Copy Text</button>
     </div>

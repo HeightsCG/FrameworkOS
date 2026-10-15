@@ -30,24 +30,25 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
                     <?php foreach (array_keys(AlternativesPages::PAGES) as $alt): ?><a href="<?php echo $fb; ?>/<?php echo $fl($alt); ?>-alternatives">All <?php echo $fl(AlternativesPages::PAGES[$alt]['name']); ?> Alternatives</a><?php endforeach; ?>
                 </div>
                 <div class="sf__col">
-                    <p class="sf__h">Learn</p>
-                    <a href="<?php echo $fb; ?>/founding">Founding creators</a>
-                    <a href="<?php echo $fb; ?>/affiliates">Affiliate program</a>
-                    <a href="<?php echo $fb; ?>/monetize-your-content">Monetize your content</a><a href="<?php echo $fb; ?>/blog/feed.xml">RSS feed</a>
-                    <?php foreach (ToolsController::TOOLS as $t_slug => $t): ?><a href="<?php echo $fb; ?>/tools/<?php echo $fl($t_slug); ?>"><?php echo $fl($t['nav_title']); ?></a><?php endforeach; ?>
+                    <p class="sf__h">Integrations</p>
+                    <a href="<?php echo $fb; ?>/integrations">All integrations</a><?php foreach (IntegrationPages::PAGES as $i_slug => $i): ?><a href="<?php echo $fb; ?>/integrations/<?php echo $fl($i_slug); ?>"><?php echo $fl($i['name']); ?></a><?php endforeach; ?>
                 </div>
                 <div class="sf__col">
-                    <p class="sf__h">Company</p>
-                    <a href="<?php echo $fb; ?>/about">About</a><a href="<?php echo $fb; ?>/contact">Contact</a><a href="<?php echo $fb; ?>/terms">Terms of Service</a><a href="<?php echo $fb; ?>/privacy">Privacy Policy</a>
-<?php /* the account links live here too: five columns fit the footer grid, six wrap */ if ($foot_links): ?>
-                    <a href="<?php echo $fl($foot_links['login']); ?>">Sign in</a><a href="<?php echo $fl($foot_links['register']); ?>">Create an account</a>
-<?php else: ?>
-                    <a href="/?auth=login" rel="nofollow" data-auth="login">Sign in</a><a href="/?auth=register" rel="nofollow" data-auth="register">Create an account</a>
-<?php endif; ?>
+                    <p class="sf__h">Free Tools</p>
+                    <?php foreach (ToolsController::TOOLS as $t_slug => $t): ?><a href="<?php echo $fb; ?>/tools/<?php echo $fl($t_slug); ?>"><?php echo $fl($t['nav_title']); ?></a><?php endforeach; ?><a href="<?php echo $fb; ?>/alternatives">AI influencer tools compared</a>
+                </div>
+                <div class="sf__col">
+                    <p class="sf__h">Press</p>
+                    <a href="<?php echo $fb; ?>/press">Press kit</a><a href="<?php echo $fb; ?>/press#logos">Logos</a><a href="<?php echo $fb; ?>/press#link-to-us">Link to us</a>
+                    <a href="<?php echo $fb; ?>/about">About</a><a href="<?php echo $fb; ?>/contact">Contact</a>
+                    <a href="<?php echo $fb; ?>/founding">Founding creators</a><a href="<?php echo $fb; ?>/affiliates">Affiliate program</a>
+                    <a href="<?php echo $fb; ?>/monetize-your-content">Monetize your content</a><a href="<?php echo $fb; ?>/blog/feed.xml">RSS feed</a>
                 </div>
             </nav>
         </div>
         <div class="ld-wrap sf__bottom">
-            <span>&copy; <?php echo date('Y'); ?> <?php echo $fl($site); ?></span>
+            <span>&copy; <?php echo date('Y'); ?> <?php echo $fl($site); ?>
+                <nav class="sf__legal" aria-label="Legal and account"><a href="<?php echo $fb; ?>/terms">Terms of Service</a><a href="<?php echo $fb; ?>/privacy">Privacy Policy</a><?php if ($foot_links): ?><a href="<?php echo $fl($foot_links['login']); ?>">Sign in</a><a href="<?php echo $fl($foot_links['register']); ?>">Create an account</a><?php else: ?><a href="/?auth=login" rel="nofollow" data-auth="login">Sign in</a><a href="/?auth=register" rel="nofollow" data-auth="register">Create an account</a><?php endif; ?></nav>
+            </span>
         </div>
     </footer>

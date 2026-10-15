@@ -124,8 +124,19 @@ $(document).ready(function() {
         function search(q) {
             ApiDataSvc.apiCall('post', 'search', { q: q }, function (r) {
                 var o = null; try { o = JSON.parse(r); } catch (e) {}
-                if (o && o.success && ($input.val() || '').trim() === q) { render(o, q); }
+                if (o && o.success && ($input.val() || '').trim() === q) { render(o, q); track(q); }
             });
+        }
+
+        // TikTok Search event: once the person stops typing for 1.5s, once per distinct query (not on every keystroke).
+        var track_timer = null, tracked = {};
+        function track(q) {
+            clearTimeout(track_timer);
+            track_timer = setTimeout(function () {
+                if (tracked[q] || ($input.val() || '').trim() !== q) { return; }
+                tracked[q] = true;
+                try { if (window.ttq) { ttq.track('Search', { search_string: q }); } } catch (e) {}
+            }, 1500);
         }
 
         $input.on('input', function () {
