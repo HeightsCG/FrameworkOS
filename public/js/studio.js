@@ -973,7 +973,7 @@ jQuery(function ($) {
         });
     }
     $('#csComposer').on('hidden.bs.modal', function () {
-        clearInterval(pvTimer);
+        clearInterval(pvTimer); peClearHook();
         $('#csComposer .cs-pe').removeClass('is-preview-open'); $('#csPePreviewBtn').attr('aria-pressed', 'false');
         if (peOpener && peOpener.focus) { try { peOpener.focus(); } catch (e) {} } peOpener = null;
     });
@@ -1085,7 +1085,20 @@ jQuery(function ($) {
         return '<div class="' + cls + '"><button type="button" class="cs-pe__mbtn" data-pe-add>Media library</button>' +
                '<button type="button" class="cs-pe__mbtn" data-pe-upload' + (S3_READY ? '' : ' disabled title="Media storage is not set up yet"') + '>Upload</button></div>';
     }
+    // Hook Overlay writes a line to put on a video, so the mode is only offered when the post has one.
+    var $peHookOpt = $('#csPeCaptionMode option[value="hook_overlay"]');
+    function peCaptionModes() {
+        var has_video = composer.assets.some(function (a) { return a.type === 'video'; }), $sel = $('#csPeCaptionMode');
+        if (has_video) { if (!$peHookOpt.parent().length) { $sel.append($peHookOpt); } return; }
+        if ($sel.val() === 'hook_overlay') { $sel.val('standard'); }
+        $peHookOpt.detach();
+        peClearHook();
+    }
+    // The On-Video Text row belongs to the Hook Overlay caption just written: gone when another mode is picked or the editor closes.
+    function peClearHook() { $('#csPeHookText').text(''); $('#csPeHook').prop('hidden', true); }
+    $('#csPeCaptionMode').on('change', function () { if (this.value !== 'hook_overlay') { peClearHook(); } });
     function renderCompMedia() {
+        peCaptionModes();
         var $m = $('#csCompMedia').empty();
         $('#csPeMediaHint').prop('hidden', composer.assets.length < 2);
         if (!composer.assets.length) {

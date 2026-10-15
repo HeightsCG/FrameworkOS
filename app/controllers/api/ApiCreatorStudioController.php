@@ -774,8 +774,10 @@ class ApiCreatorStudioController extends BaseApiController {
         $style = ($aud === 'subscribers' || $aud === 'ppv') ? 'tease' : '';
         // Her persona (when the media is an influencer's) and the kind of caption asked for.
         $infl    = $infl_id > 0 ? (new InfluencersModel())->get_one($creator_id, $infl_id) : null;
+        $mode    = BrandService::caption_mode((string) ($this->post['caption_mode'] ?? 'standard'));
+        if ($mode === 'hook_overlay' && empty($kinds['video'])) { $mode = 'standard'; }   // the on-video line needs a video to sit on
         $caption = BrandService::caption_for($topic, (array) $cb, $style, array(), array(
-            'mode' => (string) ($this->post['caption_mode'] ?? 'standard'), 'persona' => InfluencerService::persona_block($infl)));
+            'mode' => $mode, 'persona' => InfluencerService::persona_block($infl)));
         if ($caption === '') {
             $why = (string) BrandService::$last_error;
             $busy = stripos($why, 'Overloaded') !== false || strpos($why, 'HTTP 529') !== false || strpos($why, 'HTTP 429') !== false;
