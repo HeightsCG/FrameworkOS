@@ -19,6 +19,7 @@ class Session {
      */
     public static function cache_header(int $seconds = 300): void {
         if (headers_sent()) { return; }
+        if (class_exists('CreatorPromo')) { $seconds = CreatorPromo::cap_cache($seconds); }   // no cached page outlives the Founding Creator deadline
         $cookie = false; foreach (headers_list() as $h) { if (stripos($h, 'Set-Cookie:') === 0) { $cookie = true; break; } }
         header('Cache-Control: ' . ((session_status() !== PHP_SESSION_ACTIVE && !$cookie) ? 'public, max-age=' . $seconds : 'private, no-cache'));
         header('Vary: Cookie', false);

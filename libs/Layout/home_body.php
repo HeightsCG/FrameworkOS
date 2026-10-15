@@ -135,6 +135,7 @@ foreach (PagesController::pricing_rows() as $r) {
     $t = $r['tier']; $paid = (int) $t['price'] > 0;
     echo '<li class="hm-plan' . (!empty($t['recommended']) ? ' is-rec' : '') . '"><h3 class="hm-plan__n">' . $e($t['name']) . '</h3><p class="hm-plan__tag">' . $e($t['tagline']) . '</p>'
         . '<p class="hm-plan__p"><b>$' . (int) $t['price'] . '</b><span>/month</span></p>'
+        . (((string) $t['key'] === CreatorPromo::PLAN && CreatorPromo::active()) ? '<p class="hm-plan__promo">Founding Creator price until ' . $e(CreatorPromo::ends_label()) . '. Regular price starting ' . $e(CreatorPromo::regular_from_short()) . ': $' . (int) CreatorPromo::REGULAR . '/month.</p>' : '')
         . '<p class="hm-plan__f">' . ($paid ? $e('Platform fee: ' . (int) $t['limits']['fee_percent'] . '% of sales') : 'Build your page and drafts') . '</p></li>';
 }
 echo '</ul>';

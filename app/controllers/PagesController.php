@@ -500,7 +500,7 @@ class PagesController extends Controller {
 
     /** Answer to "What do the plans cost?" (home FAQ + its schema): prices, Free's take rate and add-ons, from config. */
     public static function plan_cost_answer(): string {
-        return trim(self::plan_price_sentence() . ' ' . self::FREE_LINE . ' Free pays no platform fee because it sells nothing. The platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());
+        return trim(self::plan_price_sentence() . ' ' . CreatorPromo::sentence() . ' ' . self::FREE_LINE . ' Free pays no platform fee because it sells nothing. The platform fee is ' . self::fee_short() . '; Studio also adds more AI influencers and team seats. ' . self::addon_sentence());   // the Founding Creator line drops out by itself after the deadline
     }
 
     /** plan_offers() with availability, as Product markup (/features, /pricing) wants them. */
@@ -524,7 +524,9 @@ class PagesController extends Controller {
         foreach (self::pricing_rows() as $r) {
             $price = number_format($r['amount'] / 100, 2, '.', '');
             $offers[] = array('@type' => 'Offer', 'name' => $r['tier']['name'],
-                'price' => $price, 'priceCurrency' => 'USD', 'availability' => 'https://schema.org/InStock',
+                'price' => $price, 'priceCurrency' => 'USD', 'availability' => 'https://schema.org/InStock')
+                + (((string) $r['tier']['key'] === CreatorPromo::PLAN && CreatorPromo::active()) ? array('priceValidUntil' => substr(CreatorPromo::ENDS, 0, 10)) : array())   // the Founding Creator price has an end date
+                + array(
                 'priceSpecification' => array('@type' => 'UnitPriceSpecification', 'price' => $price, 'priceCurrency' => 'USD', 'billingDuration' => 'P1M', 'unitCode' => 'MON'),
                 'url' => SeoMeta::base() . '/pricing');
         }
@@ -888,7 +890,7 @@ class PagesController extends Controller {
         return array(
             array('q' => 'Who can claim a founding spot?', 'a' => 'Any account starting the ' . $names . ' plan from Free, while spots remain. There are ' . Founding::SPOTS . ' founding spots, one per account, open until they are filled.'),
             array('q' => 'What does it cost?', 'a' => 'Your first ' . Founding::TRIAL_DAYS . ' days on ' . $names . ' are free. After that the plan is ' . $after . ', charged to your card until you cancel.'),
-            array('q' => 'Is the free period always a full month?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date. The free period then runs until that date, and the regular price starts from it.'),
+            array('q' => 'Is the free period always ' . Founding::TRIAL_DAYS . ' days?', 'a' => 'Usually. If your account already renews a monthly AI credit pack, the plan joins that billing date. The free period then runs until that date, and the regular price starts from it.'),
             array('q' => 'How long do the founding terms last?', 'a' => 'The free period is your first ' . Founding::TRIAL_DAYS . ' days. Featured placement lasts for as long as your paid plan stays active, including a short past-due grace period. If you move to Free or the plan lapses, the founding terms end and do not come back.'),
             array('q' => 'What do founding creators agree to?', 'a' => 'To share a short testimonial about their experience, which we ask for after two weeks. To be featured in the creator directory and on the home page, and to stay listed in the directory.'),
             array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),

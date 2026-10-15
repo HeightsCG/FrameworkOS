@@ -123,3 +123,4 @@
 .hm-tools a { text-decoration: none; }
 .hm-tools a:hover b { text-decoration: underline; text-decoration-color: var(--sx-acc); text-underline-offset: 3px; }
 .hm-tools__photo { aspect-ratio: 4 / 3.4; }
+.hm-plan__promo { margin: 8px 0 0; font-size: .8125rem; line-height: 1.5; font-weight: 600; color: var(--sx-ink); }

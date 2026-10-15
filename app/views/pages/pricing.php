@@ -14,13 +14,25 @@ $e = function ($s) { return Sections::e($s); };
 <p class="sx-plans__offer">Founding creators: <?php echo $e(Founding::free_label()); ?> on <?php echo $e(Founding::plan_names()); ?>. <?php $f_claim = Founding::claim_link(); ?><a href="<?php echo $e($f_claim[0]); ?>"<?php echo $f_claim[1] !== '' ? ' data-auth="' . $e($f_claim[1]) . '"' : ''; ?>>Claim a spot</a></p><?php /* across the top of the cards, no spot counts (Daniel 2026-10-12) */ ?>
 <?php endif; ?>
 <div class="sx-plans" id="sx_plans">
-<?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY); ?>
-    <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?>">
+<?php foreach ($rows as $r): $t = $r['tier']; $hi = !empty($t['recommended']); $is_free = ($t['key'] === PlanTiers::FREE_KEY);
+    $promo = ((string) $t['key'] === CreatorPromo::PLAN && CreatorPromo::active());   // Founding Creator price (CreatorPromo, server clock, Eastern deadline) ?>
+    <div class="sx-plan sx-plan--<?php echo $e(preg_replace('/[^a-z0-9]+/', '-', strtolower((string) $t['key']))); ?><?php echo $hi ? ' sx-plan--hi' : ''; ?><?php echo $promo ? ' sx-plan--promo' : ''; ?>">
+        <?php if ($promo): ?><span class="sx-plan__badge">Founding Creator Offer</span><?php endif; ?>
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?></h2><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><p class="sx-plan__role"><?php echo $e($role); ?></p><?php endif; ?>
+        <?php if ($promo): /* the announced regular price sits directly above the offer price, labelled as a future price, never as a former one */ ?>
+        <div class="sx-plan__price sx-plan__price--promo">
+            <p class="pp__reg">Regular price starting <?php echo $e(CreatorPromo::regular_from_short()); ?> <s>$<?php echo (int) CreatorPromo::REGULAR; ?>/month</s></p>
+            <p class="pp__now">$<?php echo (int) CreatorPromo::PRICE; ?> <small>/ month</small></p>
+            <p class="pp__save">Save $<?php echo (int) CreatorPromo::saving(); ?>/month</p>
+            <p class="pp__ends">Offer ends <?php echo $e(CreatorPromo::ends_label()); ?>. Your $<?php echo (int) CreatorPromo::PRICE; ?> stays locked while you stay subscribed.</p>
+        </div>
+        <?php else: ?>
         <div class="sx-plan__price"><?php if ($is_free): ?>$0<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
+        <?php endif; ?>
         <div class="sx-plan__cta">
             <?php $trial_card = (!$is_free && $founding_left > 0 && in_array((string) $t['key'], Founding::PLANS, true)); /* while founding spots remain, a paid card starts the trial (the same ?founding=1 flag the claim link sets) */ ?>
-            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator' . ($trial_card ? '&founding=1' : '')); ?>" rel="nofollow" data-auth="register" data-track="pricing_cta_click" data-track-label="<?php echo $e($t['name']); ?>"><?php echo $trial_card ? 'Start ' . (int) Founding::TRIAL_DAYS . '-Day Free Trial' : 'Start Now'; ?></a>
+            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator' . ($trial_card ? '&founding=1' : '')); ?>" rel="nofollow" data-auth="register" data-track="pricing_cta_click" data-track-label="<?php echo $e($t['name']); ?>"><?php echo $promo ? 'Claim $' . (int) CreatorPromo::PRICE . ' Founding Creator Price' . Sections::icon('arrow-right', 18) : ($trial_card ? 'Start ' . (int) Founding::TRIAL_DAYS . '-Day Free Trial' : 'Start Now'); ?></a>
+            <?php if ($promo && $trial_card): ?><p class="pp__trial">Start with a <?php echo (int) Founding::TRIAL_DAYS; ?>-day free trial.</p><?php endif; ?>
         </div>
         <div class="sx-plan__body">
         <?php if ($is_free): ?>
