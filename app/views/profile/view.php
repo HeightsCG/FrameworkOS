@@ -54,6 +54,7 @@ $pub_links   = array(
 <?php /* icons on this logged-out page come from /css/pf-icons.css (no Font Awesome): map any new fa-* icon there. */ ?>
 <?php include Main::app_path() . '/libs/Layout/heycatch.php'; ?>
 <?php include Main::app_path() . '/libs/Layout/google_analytics.php'; ?>
+    <script>if (window.ttq) { ttq.track('ViewContent', { content_id: '<?php echo (int) ($user['user_id'] ?? 0); ?>', content_type: 'product', content_name: 'Creator' }); }   // TikTok: a creator's page was viewed</script>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" href="/favicon.ico" sizes="any">

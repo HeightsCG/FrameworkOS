@@ -167,6 +167,7 @@ class Analytics {
             $row['host']        = php_sapi_name() === 'cli' ? '' : mb_substr(strtolower((string) ($_SERVER['HTTP_HOST'] ?? '')), 0, 100);
             if (php_sapi_name() !== 'cli') { $row += self::ua((string) ($_SERVER['HTTP_USER_AGENT'] ?? '')); $row['country'] = self::country(); }
             (new SiteAnalyticsModel())->record($row);
+            TikTokEventJob::from_event($name, (int) $row['user_id'], $opts);   // the conversions TikTok ads optimise on
         } catch (\Throwable $e) { error_log('[analytics] event ' . $name . ': ' . $e->getMessage()); }
     }
 

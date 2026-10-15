@@ -21,11 +21,13 @@ class FollowsModel extends Model {
         if ((int) $follower_id === (int) $creator_id || $this->is_following($follower_id, $creator_id)) {
             return true;
         }
-        return parent::insert('follows', array(
+        $ok = parent::insert('follows', array(
             'follower_id' => (int) $follower_id,
             'creator_id'  => (int) $creator_id,
             'created_at'  => date('Y-m-d H:i:s'),
         ));
+        if ($ok) { TikTokEventJob::from_event('follow', (int) $follower_id, array('creator_id' => (int) $creator_id)); }
+        return $ok;
     }
 
     public function unfollow($follower_id, $creator_id){

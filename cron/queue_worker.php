@@ -51,6 +51,7 @@ $handlers = [
     'tool_run'       => 'ToolRunJob',
     'media_variant'  => 'MediaVariantJob',
     'share_held'     => 'ShareHeldJob',
+    'tiktok_event'   => 'TikTokEventJob',
 ];
 
 CronRuns::start('queue_worker');

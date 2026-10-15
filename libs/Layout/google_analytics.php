@@ -90,6 +90,8 @@
     var e=ttq._i[t]||[],n=0;n<ttq.methods.length;n++)ttq.setAndDefer(e,ttq.methods[n]);return e},ttq.load=function(e,n){var r="https://analytics.tiktok.com/i18n/pixel/events.js",o=n&&n.partner;ttq._i=ttq._i||{},ttq._i[e]=[],ttq._i[e]._u=r,ttq._t=ttq._t||{},ttq._t[e]=+new Date,ttq._o=ttq._o||{},ttq._o[e]=n||{};n=document.createElement("script")
     ;n.type="text/javascript",n.async=!0,n.src=r+"?sdkid="+e+"&lib="+t;e=document.getElementsByTagName("script")[0];e.parentNode.insertBefore(n,e)};
 
+      // a TikTok ad click's ttclid, kept 30 days so server-side conversions (TikTokEventJob) match the click
+      try{var tc=new URLSearchParams(location.search).get("ttclid");if(tc){d.cookie="cls_ttclid="+encodeURIComponent(tc.slice(0,500))+"; path=/; max-age="+(30*86400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}}catch(e){}
       // the pixel script is requested after the load event, at idle, like GA and Clarity above
       var go=function(){ttq.load('DB8ESIBC77U937USUOBG');ttq.page();};
       var idle=function(){(w.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});};
