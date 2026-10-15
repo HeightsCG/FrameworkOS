@@ -141,7 +141,7 @@ class SeoMeta {
             '@id'   => self::org_id(),
             'name'  => self::site(),
             'url'   => self::base() . '/',
-            'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/android-chrome-512x512.png', 'width' => 512, 'height' => 512),
+            'logo'  => array('@type' => 'ImageObject', 'url' => self::base() . '/images/logo/logo-mark-512.png', 'width' => 512, 'height' => 512),
             'parentOrganization' => array('@type' => 'Organization', 'name' => 'Heights Consulting Group LLC'),   // stated on /about and /contact
             'description' => self::brand_description(),
             'contactPoint' => array('@type' => 'ContactPoint', 'contactType' => 'customer support', 'email' => 'support@creatorlinkstudio.com', 'availableLanguage' => 'en'),

@@ -34,9 +34,9 @@
     <meta name="twitter:description" content="<?php echo $seo_desc; ?>">
     <meta name="twitter:image" content="<?php echo htmlspecialchars(SeoMeta::default_image(), ENT_QUOTES, 'UTF-8'); ?>">
     <link rel="icon" href="/favicon.ico" sizes="any">
-    <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
-    <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
-    <link rel="apple-touch-icon" href="/images/android-chrome-192x192.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/logo/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/images/logo/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/images/logo/apple-touch-icon.png">
     <?php
         $seo_base_raw = Main::get_base_domain();
         $seo_software = PagesController::software_app('/', Main::site_name(), SeoMeta::brand_description());   // @id /#software, offers from the plans, publisher by reference
