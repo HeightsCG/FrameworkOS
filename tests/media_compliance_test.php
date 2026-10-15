@@ -29,6 +29,7 @@ check('a large square is only downscaled (no approval)',  $C($P(2048, 2048, 9000
 check('over Bluesky\'s file cap: recompressed, no approval', $C($P(1600, 1200, 1500000), 'bluesky')['status'] === 'auto' && in_array('compress', $C($P(1600, 1200, 1500000), 'bluesky')['ops'], true));
 check('a PNG for TikTok is converted, no approval',       in_array('convert', $C($P(1080, 1350, 300000, 'png'), 'tiktok')['ops'], true));
 check('an image for YouTube is unsupported',              $C($P(1080, 1350, 300000), 'youtube')['status'] === 'unsupported');
+check('a video for YouTube is compatible',                 $C($P(1080, 1920, null), 'youtube', 'feed', true)['status'] === 'compatible');
 check('a Story needs 9:16: a square needs approval',      $C($P(1080, 1080, 300000), 'instagram', 'story')['frame'] === array(1080, 1920));
 check('a 9:16 picture is a Story as it is',               $C($P(1080, 1920, 300000), 'facebook', 'story')['status'] === 'compatible');
 check('a 16:9 video for a Story needs approval',          $C($P(1920, 1080), 'instagram', 'story', true)['status'] === 'approval');

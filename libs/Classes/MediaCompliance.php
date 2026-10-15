@@ -7,13 +7,13 @@
  *   compatible   sent unchanged
  *   auto         a safe technical change makes it fit (downscale, re-encode, smaller file): made without asking
  *   approval     the picture itself has to change (its shape: fitted on a blurred fill, or cropped): made in the
- *                background and sent only once the creator approves it
+ *                background and sent as it is, with no approval step (Daniel 2026-10-15: post directly, never ask)
  *   unsupported  the platform cannot take it (an image to YouTube)
  *
  * Prepared versions ("variants") are media rows (source = 'variant', hidden from the Library) linked to their original
  * through source_asset_id. Their tags carry the cache key and state: "v:<key>|s:<auto|same|pending|approved>|m:<fit|crop>|f:<focus>".
  * The key holds the platform, placement, teaser flag and RULES_VERSION, so a rules change starts fresh variants.
- * Publishing re-checks every image (resolve()) and never sends an unapproved or unfitting one.
+ * Publishing re-checks every image (resolve()) and never sends an unfitting one.
  */
 class MediaCompliance {
 
@@ -98,7 +98,7 @@ class MediaCompliance {
      * the shape must change, 'ops' => the technical changes an auto version makes].
      */
     public static function classify(array $props, array $rules, $is_video = false): array {
-        if (array_key_exists('images', $rules) && !$rules['images']) {
+        if (!$is_video && array_key_exists('images', $rules) && !$rules['images']) {   // a video-only destination (YouTube) still takes the video
             return array('status' => 'unsupported', 'reasons' => array('Takes videos only, not images.'), 'frame' => null, 'ops' => array());
         }
         $w = (int) $props['w']; $h = (int) $props['h'];
@@ -171,7 +171,6 @@ class MediaCompliance {
                         if ($start) { self::start_variant((int) $cid, (int) $a['id'], !empty($it['teaser']), $platform, $placement, 'fit', 'center'); }
                     }
                     if ($row['variant'] && $row['variant']['state'] === 'processing') { $busy = true; }
-                    if ($row['status'] === 'approval' && (!$row['variant'] || $row['variant']['state'] !== 'approved')) { $review++; }
                 }
                 $rows[] = $row;
                 $worst = self::worse($worst, self::row_state($row));
@@ -188,8 +187,7 @@ class MediaCompliance {
         if ($row['status'] === 'compatible') { return 'compatible'; }
         $st = $row['variant']['state'] ?? 'processing';
         if ($st === 'processing') { return 'adjusting'; }
-        if ($row['status'] === 'approval') { return $st === 'approved' ? 'approved' : 'review'; }
-        return 'adjusted';
+        return 'adjusted';   // a reshaped version is sent without asking, like a technical one
     }
 
     /** The more urgent of two states (what a destination shows when it has several images). */
@@ -258,12 +256,11 @@ class MediaCompliance {
         $base = 'vault/' . $cid . '/variants/' . (int) $asset['id'] . '/' . str_replace('.', '-', $key) . '-' . substr(md5(uniqid('', true)), 0, 8);
         if (!S3Service::put_private_bytes($base . '.jpg', $bytes, 'image/jpeg') || !S3Service::put_private_bytes($base . '-thumb.jpg', $tbytes, 'image/jpeg')) { return null; }
         if ($old) { $mm->soft_delete($cid, (int) $old['id']); }
-        $state = $c['status'] === 'approval' ? 'pending' : 'auto';
-        return $mm->add_variant($cid, (int) $asset['id'], 'v:' . $key . '|s:' . $state . '|m:' . ($c['frame'] ? ($method === 'crop' ? 'crop' : 'fit') : '') . '|f:' . ($method === 'crop' ? $focus : ''),
+        return $mm->add_variant($cid, (int) $asset['id'], 'v:' . $key . '|s:auto|m:' . ($c['frame'] ? ($method === 'crop' ? 'crop' : 'fit') : '') . '|f:' . ($method === 'crop' ? $focus : ''),
             array('original_key' => $base . '.jpg', 'display_key' => $base . '.jpg', 'thumb_key' => $base . '-thumb.jpg', 'width' => $w, 'height' => $h, 'bytes' => strlen($bytes)), $asset);
     }
 
-    /** A video reshaped for a fixed-shape placement (a Story): the whole video centred on a blurred copy of itself. Needs approval. */
+    /** A video reshaped for a fixed-shape placement (a Story): the whole video centred on a blurred copy of itself. */
     private static function make_video_variant($cid, array $asset, array $rules, $key, MediaAssetsModel $mm) {
         $c = self::classify(self::props_estimate($asset), $rules, true);
         $old = $mm->variant_for($cid, (int) $asset['id'], $key);
@@ -287,7 +284,7 @@ class MediaCompliance {
         @unlink($dst); @unlink($poster);
         if (!$up) { return null; }
         if ($old) { $mm->soft_delete($cid, (int) $old['id']); }
-        return $mm->add_variant($cid, (int) $asset['id'], 'v:' . $key . '|s:pending|m:fit|f:', array('original_key' => $base . '.mp4', 'display_key' => $base . '.mp4',
+        return $mm->add_variant($cid, (int) $asset['id'], 'v:' . $key . '|s:auto|m:fit|f:', array('original_key' => $base . '.mp4', 'display_key' => $base . '.mp4',
             'thumb_key' => $base . '-poster.jpg', 'poster_key' => $base . '-poster.jpg', 'width' => $fw, 'height' => $fh, 'bytes' => $bytes, 'duration_sec' => (int) ($asset['duration_sec'] ?? 0)), $asset, 'video');
     }
 
@@ -321,9 +318,10 @@ class MediaCompliance {
         return $out;
     }
 
-    /** The state in a variant's tags: auto | same | pending | approved. */
+    /** The state in a variant's tags: auto | same | approved. A version made while approval existed ('pending') is sent as auto. */
     public static function variant_state(array $v): string {
-        return preg_match('/\|s:([a-z]+)/', (string) ($v['tags'] ?? ''), $m) ? $m[1] : 'auto';
+        $st = preg_match('/\|s:([a-z]+)/', (string) ($v['tags'] ?? ''), $m) ? $m[1] : 'auto';
+        return $st === 'pending' ? 'auto' : $st;
     }
 
     private static function tag(array $v, $name): string {
@@ -359,7 +357,7 @@ class MediaCompliance {
     /**
      * The file to send for one image to one destination, decided from the file itself. Returns ['key' => S3 key to send,
      * 'state' => compatible | adjusted | approved | held | unsupported, 'reason' => plain words for held / unsupported].
-     * An auto version is made here when the background one is missing; a shape change is only ever sent approved.
+     * A version is made here when the background one is missing; a reshaped one is sent without asking.
      */
     public static function resolve($cid, array $asset, $teaser, $platform, $placement, $is_video = false): array {
         $rules = self::rules($platform, $placement);
@@ -377,15 +375,15 @@ class MediaCompliance {
             if ($st === 'same') { return array('key' => $sent, 'state' => 'compatible', 'reason' => ''); }
             if ($st === 'auto') { return array('key' => (string) $v['display_key'], 'state' => 'adjusted', 'reason' => ''); }
             if ($st === 'approved') { return array('key' => (string) $v['display_key'], 'state' => 'approved', 'reason' => ''); }
-            return array('key' => '', 'state' => 'held', 'reason' => 'the adjusted image is waiting for your approval');
+            return array('key' => (string) $v['display_key'], 'state' => 'adjusted', 'reason' => '');
         }
-        // No version yet: measure the file and make one now (auto) or propose one and hold (shape change).
+        // No version yet: measure the file and make one now.
         $made = self::make_variant((int) $cid, $asset, $teaser, $platform, $placement, 'fit', 'center');
         if (!$made) {
             $c = self::classify(self::props_estimate($asset), $rules);
             if ($c['status'] === 'unsupported') { return array('key' => '', 'state' => 'unsupported', 'reason' => implode(' ', $c['reasons'])); }
             if ($c['status'] === 'compatible') { return array('key' => $sent, 'state' => 'compatible', 'reason' => ''); }
-            return array('key' => '', 'state' => 'held', 'reason' => 'the image could not be prepared');
+            return array('key' => '', 'state' => 'unsupported', 'reason' => 'the image could not be resized for it.');   // nothing to approve: skipped with a note
         }
         return self::resolve($cid, $asset, $teaser, $platform, $placement, false);
     }
