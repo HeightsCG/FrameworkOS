@@ -51,6 +51,20 @@ class SocialPostsModel extends Model {
         return (is_array($rows) && count($rows) === 1) ? (int) $rows[0]['n'] : 0;
     }
 
+    public function get_by_pfm_id($pfm_post_id){
+        $rows = parent::select("SELECT * FROM social_posts WHERE post_for_me_post_id = :p LIMIT 1", array('p' => (string) $pfm_post_id));
+        return is_array($rows) && count($rows) === 1 ? $rows[0] : null;
+    }
+
+    /** Take accounts the platform refused off a cross-post, so the editor no longer counts them as posted. */
+    public function remove_accounts($pfm_post_id, array $account_ids){
+        $row = $this->get_by_pfm_id($pfm_post_id);
+        if (!$row) { return false; }
+        $left = array_values(array_diff(array_map('strval', json_decode((string) $row['target_account_ids'], true) ?: array()), array_map('strval', $account_ids)));
+        return parent::update('social_posts', array('target_account_ids' => json_encode($left), 'platform_count' => count($left), 'updated_at' => date('Y-m-d H:i:s')),
+            'id = :id', array('id' => (int) $row['id']));
+    }
+
     public function update_status($pfm_post_id, $status){
         return parent::update(
             'social_posts',

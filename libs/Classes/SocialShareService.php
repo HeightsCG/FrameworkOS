@@ -128,6 +128,7 @@ class SocialShareService {
                         (int) $user['user_id'], (string) $res['id'], $promo,
                         (string) ($res['status'] ?? 'scheduled'), $scheduled_iso, $plan['accounts'], (int) $post['id']
                     );
+                    SocialResultsJob::queue((int) $user['user_id'], (int) $post['id'], (string) $res['id'], $scheduled_iso);   // a platform that refuses it later is freed to send again
                     $shared = max($shared, count($plan['accounts']));
                 } else {
                     $err = is_array($res) ? (string) ($res['_error'] ?? 'unknown error') : 'no response from Post for Me';

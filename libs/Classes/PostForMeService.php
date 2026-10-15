@@ -160,6 +160,13 @@ class PostForMeService {
         return array('_error' => 'HTTP ' . $code . ': ' . mb_substr((string) $detail, 0, 300));
     }
 
+    /** What each account did with a post: rows of social_account_id, success, error, platform_data. null when the API did not answer. */
+    public static function get_results($post_id)
+    {
+        list($code, $body) = self::request('GET', '/social-post-results?limit=100&post_id=' . urlencode((string) $post_id));
+        return ($code === 200 && is_array($body) && isset($body['data'])) ? (array) $body['data'] : null;
+    }
+
     /** Fetch a post (for status). Returns the post row or null. */
     public static function get_post($id)
     {
