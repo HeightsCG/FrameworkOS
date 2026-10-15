@@ -1,64 +1,160 @@
 <?php
-/** Home page body on the shared section system (libs/Classes/Sections.php). Rendered inside login_form.php. */
+/** Home page body on the shared section system (libs/Classes/Sections.php). Rendered inside login_form.php. Styles: public/css/home.css (hm-*). */
 $site = Main::site_name();
 $home_faq = PagesController::home_faq();   // shared with the FAQPage markup in login_form.php
-$handle = preg_replace('#^https?://#', '', Main::get_base_domain()) . '/@yourhandle';
-/* plan strip under the hero: name, price and role per plan, straight from PlanTiers, each linking to /pricing */
-// Hero (2026-10-13): four things on the left, in this order: the CREATE. SHARE. EARN. wordmark as a small one-line eyebrow, the H1,
-// the fee line from config (what each selling plan keeps, against OnlyFans' sourced rate), and the two buttons. The definition
-// paragraph lives in the "What is" block below; the founding offer is in the announcement bar.
-echo Sections::tab_hero(array(
-    'id' => 'home',
-    'words_eyebrow' => true,
-    'start' => 2,   // the card opens on Earn ("You decide who sees every post.") and then turns through the other two
-    'title' => 'One page to sell your content, and a studio that posts it everywhere.',
-    'sub' => PagesController::fee_wedge_sentence(),
-    'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'tabs' => array(
-        array('word' => 'Create.', 'pane' => Sections::pane('Upload once, use everywhere.', 'Draft it, schedule it, publish now, or let an automation post for you.', Sections::pane_timeline(array(
-            array('Draft', 'Work in progress, visible only to you.'), array('Scheduled', 'Queued for the moment you choose.'), array('Published', 'Live on your page, on your schedule or automatically.'))))),
-        array('word' => 'Share.', 'pane' => Sections::pane('Your page lives at your handle.', 'One page carries everything you are. Every click tracked.', Sections::pane_links($handle, array(
-            array('Latest video', 612), array('Book a session', 389), array('Podcast', 274), array('Shop', 145))))),
-        array('word' => 'Earn.', 'pane' => Sections::pane('You decide who sees every post.', '', Sections::pane_options(array(
-            array('Everyone', 'Anyone can see it.'), array('Subscribers', 'Members only.'), array('Pay-per-view', 'Unlock to view. You set the price.')), 0, 'Who can see this post'))),
-    ),
-));
+$e = function ($s) { return Sections::e($s); };
+$trial = Sections::trial_link();   // "Start Your 14-Day Free Trial" + the founding claim link while spots remain, else "Start Free"
+$trial_open = false; try { $trial_open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[home] founding: ' . $ex->getMessage()); }
+/* One photo as a <picture>: the WebP renditions in public/images/home/<name>-<w>.webp (generated 2026-10-15 with fal, Most Realistic recipe; illustrative, never presented as a customer). */
+$pic = function ($name, array $widths, $w, $h, $alt, $sizes, $class = '', $eager = false) use ($e) {
+    $set = array(); foreach ($widths as $x) { $set[] = '/images/home/' . $name . '-' . $x . '.webp ' . $x . 'w'; }
+    return '<img' . ($class !== '' ? ' class="' . $class . '"' : '') . ' src="/images/home/' . $name . '-' . end($widths) . '.webp" srcset="' . implode(', ', $set) . '" sizes="' . $e($sizes) . '"'
+        . ' width="' . (int) $w . '" height="' . (int) $h . '" alt="' . $e($alt) . '"' . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"') . '>';
+};
+$btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a button, with the arrow drawn as a Lucide icon
+    return '<a class="sx-btn ' . $class . ' hm-btn" href="' . $e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . $e($t[2]) . '"' : '') . '>' . $e($t[0]) . Sections::icon('arrow-right', 18) . '</a>';
+};
 
+// Hero (2026-10-15 redesign, from Daniel's ad; no logo here, the nav already carries it): H1, supporting line, three benefits, the trial CTA; the portrait sits right and fades into the black.
+?>
+<section class="hm-hero" aria-labelledby="hm_title">
+    <div class="hm-hero__media"><?php echo $pic('hero', array(640, 960, 1152), 1152, 1440, 'A content creator sitting on the edge of her bed in warm window light, looking into the camera', '(max-width: 760px) 100vw, 55vw', 'hm-hero__img', true); ?></div>
+    <div class="ld-wrap hm-hero__in">
+        <div class="hm-hero__copy">
+            <h1 class="hm-hero__title" id="hm_title"><span class="hm-hero__l1">Create Stunning Content</span> <span class="hm-hero__l2">Publish Everywhere.</span></h1>
+            <p class="hm-hero__sub">Create AI-powered photos and videos, publish across <?php echo count(IntegrationPages::PAGES); ?> platforms, automate your content, and monetize your audience&mdash;all from one studio.</p>
+            <ul class="hm-hero__pts">
+                <li><?php echo Sections::icon('image', 22); ?>AI Images &amp; Video</li>
+                <li><?php echo Sections::icon('send', 22); ?>Multi-Platform Publishing</li>
+                <li><?php echo Sections::icon('zap', 22); ?>Automation &amp; Monetization</li>
+            </ul>
+            <div class="hm-hero__acts">
+                <?php echo $btn($trial, 'sx-btn--primary hm-btn--lg'); ?>
+                <a class="sx-btn sx-btn--secondary hm-btn--lg" href="/features">Explore the Platform</a>
+            </div>
+        </div>
+    </div>
+</section>
+<?php
 
-// What the product is, in sentences that stand alone (SEO audit 2026-10-12: the home page had no definition and never mentioned AI influencers or teams outside the FAQ).
-echo Sections::prose('alt', 'What is ' . $site . '?', array(
-    $site . ' is a creator platform for monetizing your content: memberships, pay-per-view posts, and tracked links on one public page, with payouts to your bank.',
-    $site . ' is a creator monetization platform: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets. A studio publishes each post to ten platforms. The platform fee is ' . PagesController::fee_short() . ', and plan prices are a separate monthly line on the pricing page.',
-    'It also includes an [AI influencer generator](/features/ai-influencer) that creates photos and video of one consistent character, and [team seats for people who run creator accounts](/ai-ofm-tools). To see where it sits among the options, read [best creator monetization platforms](/best-creator-monetization-platforms).',
-));
+// 1. Four pillars. The lead keeps the "What is" definition (SEO audit 2026-10-12) with its links to the AI influencer and team pages.
+echo Sections::open('white', 'Everything You Need. One Studio.', '', 'studio');
+echo '<p class="hm-def">' . $e($site) . ' is a creator platform for monetizing your content: one public page at your handle that sells memberships, pay-per-view posts, bundles, services and event tickets, with payouts to your bank. It includes an <a href="/features/ai-influencer">AI influencer generator</a> and <a href="/ai-ofm-tools">team seats for people who run creator accounts</a>. See where it sits in <a href="/best-creator-monetization-platforms">the best creator monetization platforms</a>.</p>';
+$pillars = array(
+    array('create-c', 'Create', 'AI photos and video of one consistent character, or of your own brand.', '/features/ai-influencer', 'A woman in a camel coat looking back over her shoulder on a city street at dusk'),
+    array('publish', 'Publish', 'Write a post once and send it to your page and ten platforms, now or on a schedule.', '/integrations', 'A creator filming herself with a phone on a small tripod at home'),
+    array('automate', 'Automate', 'Automations create, caption and post for you every day or on the days you pick.', '/features/publishing', 'A creator working at a laptop under a desk lamp in the evening'),
+    array('monetize', 'Monetize', 'Sell memberships, single posts, bundles, services and events from one page.', '/features/memberships', 'A creator speaking to a camera in a home studio with a softbox light'),
+);
+echo '<ul class="hm-pillars">';
+foreach ($pillars as $pl) {
+    echo '<li class="hm-pillar"><a class="hm-pillar__a" href="' . $e($pl[3]) . '"><span class="hm-pillar__img">' . $pic($pl[0], array(480, 896), 896, 1120, $pl[4], '(max-width: 560px) 100vw, (max-width: 1100px) 50vw, 300px') . '</span>'
+        . '<h3 class="hm-pillar__t">' . $e($pl[1]) . Sections::icon('arrow-right', 18) . '</h3></a><p class="hm-pillar__x">' . $e($pl[2]) . '</p></li>';
+}
+echo '</ul>';
+echo Sections::close();
 
-echo Sections::open('white', 'Everything you sell, on one page', 'One public page at your handle. Fans follow for free, join a tier, or unlock a single post.');
+// 2. Create: the same generated character in three settings shows what "consistent" means. Every point is a real feature (FeaturePages ai-influencer, lora-character-training, consistent-ai-model-face; voice in InfluencerVoiceActions).
+echo Sections::open('alt', '', '', 'create');
+echo '<div class="hm-split">';
+echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Create Without Limits')) . '</h2>'
+    . '<p class="sx-lead">Design an AI influencer once and keep the same face in every photo and video, whatever the outfit, place or style.</p>'
+    . '<ul class="hm-list">'
+    . '<li>' . Sections::icon('users', 20) . '<span><b>AI influencer creation.</b> Start from a description or from 10 to 50 photos.</span></li>'
+    . '<li>' . Sections::icon('face', 20) . '<span><b>A consistent character.</b> <a href="/lora-character-training">Train the face</a> once and it stays the same.</span></li>'
+    . '<li>' . Sections::icon('image', 20) . '<span><b>AI images.</b> New photos of your character from a short prompt.</span></li>'
+    . '<li>' . Sections::icon('video', 20) . '<span><b>AI video.</b> Turn any still into a clip, or a talking video in a voice you design.</span></li>'
+    . '<li>' . Sections::icon('wand', 20) . '<span><b>Creative flexibility.</b> Change the look, the scene and the style without losing the face.</span></li>'
+    . '</ul><p class="hm-more"><a href="/consistent-ai-model-face">How the consistent face works</a></p></div>';
+echo '<figure class="hm-trio">'
+    . $pic('create-a', array(480, 896), 896, 1152, 'The same AI-generated woman at a cafe terrace with a coffee', '(max-width: 760px) 50vw, 240px', 'hm-trio__a')
+    . $pic('create-b', array(480, 896), 896, 1152, 'The same AI-generated woman in a gym', '(max-width: 760px) 50vw, 240px', 'hm-trio__b')
+    . $pic('hero', array(640, 960), 1152, 1440, 'The same AI-generated woman at home in a black cardigan', '(max-width: 760px) 50vw, 240px', 'hm-trio__c')
+    . '<figcaption>One character, three scenes. Illustrative images made with AI.</figcaption></figure>';
+echo '</div>';
+echo Sections::close();
+
+// 3. Ten platforms, straight from IntegrationPages::PAGES so the list can never drift from the integrations the app has.
+echo Sections::open('white', 'One Post. Ten Platforms.', 'Write it once. Your page and every account you tick get it together, with caption limits and AI labels handled.', 'platforms');
+echo '<ul class="hm-nets">';
+foreach (IntegrationPages::PAGES as $slug => $ip) {
+    $mark = IntegrationPages::logo($slug, 28);
+    echo '<li><a class="hm-net" href="/integrations/' . $e($slug) . '">' . ($mark !== '' ? '<span class="hm-net__mark">' . $mark . '</span>' : '<span class="hm-net__mark hm-net__mark--text" aria-hidden="true">' . $e(mb_substr($ip['name'], 0, 1)) . '</span>') . '<span>' . $e($ip['name']) . '</span></a></li>';
+}
+echo '</ul><p class="hm-more"><a href="/integrations">See every integration</a></p>';
+echo Sections::close();
+
+// 4. Automation: a schematic of one rule (invented values, labelled), next to what the scheduler really does (cron/scheduler.php, AutoPostService).
+echo Sections::open('alt', '', '', 'automate');
+echo '<div class="hm-split">';
+echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Put Your Content on Autopilot')) . '</h2>'
+    . '<p class="sx-lead">Plan a week of posts in one sitting, or set an automation and let it keep your page and socials fresh.</p>'
+    . '<ul class="hm-list">'
+    . '<li>' . Sections::icon('calendar', 20) . '<span><b>Scheduled publishing.</b> Pick a time and the post goes out on its own.</span></li>'
+    . '<li>' . Sections::icon('repeat', 20) . '<span><b>Publishing automations.</b> Daily, or on the weekdays you choose, at your local time.</span></li>'
+    . '<li>' . Sections::icon('sparkles', 20) . '<span><b>Less repetitive work.</b> Each run makes the image or video and writes the caption.</span></li>'
+    . '<li>' . Sections::icon('clock', 20) . '<span><b>Consistent delivery.</b> Your audience sees something new on schedule.</span></li>'
+    . '</ul><p class="hm-more"><a href="/features/publishing">More on publishing</a></p></div>';
+echo '<figure class="hm-ui" aria-label="Illustrative example of an automation">'
+    . '<div class="hm-ui__bar"><b>Morning Post</b><span class="hm-ui__on">Active</span></div>'
+    . '<dl class="hm-ui__rows">'
+    . '<div><dt>Runs</dt><dd>Every day at 9:00</dd></div>'
+    . '<div><dt>Source</dt><dd>AI influencer</dd></div>'
+    . '<div><dt>Format</dt><dd>Photo</dd></div>'
+    . '<div><dt>Caption</dt><dd>Written by AI in your brand voice</dd></div>'
+    . '<div><dt>Publish to</dt><dd class="hm-ui__chips"><span>Your page</span><span>Instagram</span><span>TikTok</span><span>X</span></dd></div>'
+    . '<div><dt>Next run</dt><dd>Tomorrow, 9:00</dd></div>'
+    . '</dl><figcaption>Illustrative example</figcaption></figure>';
+echo '</div>';
+echo Sections::close();
+
+// 5. Monetize: the six ways to sell that exist as creator features. No earnings, no fee figures here.
+echo Sections::open('white', 'Turn Your Audience Into Income', 'Fans follow for free, then choose how to support you. You set every price, and payouts go to your bank.', 'monetize');
 echo Sections::index_list(array(
-    array('icon' => 'layers', 'title' => 'Memberships', 'text' => 'Tiers with their own price, trial and perks. Target any post at one tier or several.'),
-    array('icon' => 'lock', 'title' => 'Pay-per-view', 'text' => 'Put a price on your strongest posts. Fans unlock them in one tap from their credit wallet.'),
-    array('icon' => 'package', 'title' => 'Bundles', 'text' => 'Group past media into a set and turn your back catalogue into a product.'),
-    array('icon' => 'ticket', 'title' => 'Services and events', 'text' => 'Take bookings, sell seats to live sessions, and deliver it all from the same page.'),
+    array('icon' => 'layers', 'title' => 'Subscriptions', 'text' => 'Membership tiers with their own price, trial and perks.'),
+    array('icon' => 'lock', 'title' => 'Pay-per-view', 'text' => 'Put a price on single posts that fans unlock in one tap.'),
+    array('icon' => 'package', 'title' => 'Bundles', 'text' => 'Sell a set of past photos and videos as one product.'),
+    array('icon' => 'calendar', 'title' => 'Services', 'text' => 'Take bookings for 1:1 sessions and custom work.'),
+    array('icon' => 'ticket', 'title' => 'Events', 'text' => 'Sell seats to live sessions and video calls.'),
+    array('icon' => 'message', 'title' => 'Direct to fans', 'text' => 'Message fans and send paid posts straight to their inbox.'),
 ));
+echo '<p class="hm-more"><a href="/monetize-your-content">How creators sell on ' . $e($site) . '</a></p>';
 echo Sections::close();
 
-echo Sections::open('alt');
-echo Sections::rows(array(
-    array('title' => 'Publish everywhere at once', 'text' => 'Upload once in the studio. AI writes the caption in your brand voice, and the post goes to your page and your social accounts at the same time.',
-          'points' => array('Ten platforms from one studio', 'Schedule ahead or run automations', 'Engagement from every platform in one view'), 'link' => array('See the studio', '/features')),
-    array('title' => 'Get paid, keep your audience', 'text' => "Fans pay with credits and memberships bill on your schedule. Earnings collect as credits, net of your plan's platform fee, and you cash out to your bank anytime.",
-          'points' => array('Platform fee of ' . PagesController::fee_short(), 'Export your audience and content any time', 'An inbox with AI replies in your voice'),
-          // the after-state (heycatch D1.5, D2.3) as a schematic drawing of the Analytics dashboard with invented figures, never a screenshot
-          'image' => Sections::ui_sketch_url('analytics'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Analytics dashboard, drawn as a schematic.',
-          'image_alt' => 'Schematic of the Analytics dashboard: six cards for revenue, subscribers, followers, views, posts and engagement, a 7, 30 or 90 day switch, and a daily revenue bar chart beneath'),
-));
+// 6. Growth: a schematic of the dashboard (invented figures, labelled; revenue drawn without a number) and what /dashboard really reports.
+$bars = array(38, 52, 45, 61, 57, 72, 66, 80, 74, 90, 84, 96);
+$bars_html = ''; foreach ($bars as $b) { $bars_html .= '<i style="height:' . (int) $b . '%"></i>'; }
+echo Sections::open('alt', '', '', 'growth');
+echo '<div class="hm-split hm-split--rev">';
+echo '<figure class="hm-ui hm-ui--stats" aria-label="Illustrative example of the analytics dashboard">'
+    . '<div class="hm-ui__bar"><b>Analytics</b><span class="hm-ui__seg"><span>7d</span><span class="is-on">30d</span><span>90d</span></span></div>'
+    . '<div class="hm-ui__kpis"><div><small>Views</small><b>12,480</b></div><div><small>Engagement</small><b>6.2%</b></div><div><small>Link clicks</small><b>1,936</b></div><div><small>New followers</small><b>418</b></div></div>'
+    . '<div class="hm-ui__chart"><small>Revenue</small><div class="hm-ui__bars">' . $bars_html . '</div></div>'
+    . '<figcaption>Illustrative figures</figcaption></figure>';
+echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Understand Your Growth')) . '</h2>'
+    . '<p class="sx-lead">One dashboard for your page and every platform you post to, over 7, 30 or 90 days.</p>'
+    . '<ul class="hm-list">'
+    . '<li>' . Sections::icon('chart', 20) . '<span><b>Engagement.</b> Likes, comments and views from your page and your social accounts.</span></li>'
+    . '<li>' . Sections::icon('users', 20) . '<span><b>Audience activity.</b> Follower growth, where visitors come from and when they are active.</span></li>'
+    . '<li>' . Sections::icon('eye', 20) . '<span><b>Content performance.</b> Every post with its views, engagement and sales.</span></li>'
+    . '<li>' . Sections::icon('link', 20) . '<span><b>Clicks.</b> Link clicks, plus tracking links that show which links bring signups and sales.</span></li>'
+    . '<li>' . Sections::icon('wallet', 20) . '<span><b>Revenue reporting.</b> Sales by offering, with an export of recent sales.</span></li>'
+    . '</ul></div>';
+echo '</div>';
 echo Sections::close();
 
-echo Sections::open('white', 'Up and running in an afternoon');
-echo Sections::cards(array(
-    array('icon' => 'page', 'title' => '1. Create your page', 'text' => 'Pick your handle, add your brand, and set up a tier or two.'),
-    array('icon' => 'send', 'title' => '2. Publish from the studio', 'text' => 'Post to your page and your socials together, with the paid version behind the lock.'),
-    array('icon' => 'bank', 'title' => '3. Get paid', 'text' => 'Earnings arrive as credits in your balance. Cash out to your bank whenever you like.'),
-), 3);
+// 7. Plans: the offered tiers from PlanTiers via pricing_rows(). Price and fee each on their own line, never added together; the trial note only while the founding offer runs.
+echo Sections::open('white', 'Start Free. Upgrade When You Sell.', 'Every account starts on Free. Pick a plan when you are ready to sell and publish.', 'plans');
+echo '<ul class="hm-plans">';
+foreach (PagesController::pricing_rows() as $r) {
+    $t = $r['tier']; $paid = (int) $t['price'] > 0;
+    echo '<li class="hm-plan' . (!empty($t['recommended']) ? ' is-rec' : '') . '"><h3 class="hm-plan__n">' . $e($t['name']) . '</h3><p class="hm-plan__tag">' . $e($t['tagline']) . '</p>'
+        . '<p class="hm-plan__p"><b>$' . (int) $t['price'] . '</b><span>/month</span></p>'
+        . '<p class="hm-plan__f">' . ($paid ? $e('Platform fee: ' . (int) $t['limits']['fee_percent'] . '% of sales') : 'Build your page and drafts') . '</p></li>';
+}
+echo '</ul>';
+if ($trial_open) { echo '<p class="hm-trial">' . Sections::icon('star', 18) . '<span>Founding creators get their first ' . (int) Founding::TRIAL_DAYS . ' days free on ' . $e(Founding::plan_names()) . '.</span></p>'; }
+echo '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="/pricing">Compare Plans</a></div>';
 echo Sections::close();
 
 /* Testimonials (heycatch D3.2): real people's words from /admin/testimonials, shown only once Proof::TESTIMONIALS_MIN are approved. */
@@ -127,18 +223,6 @@ if ($tiles !== '') {
     echo Sections::close();
 }
 
-echo Sections::open('alt', 'Free for fans', 'Fans sign up free to follow creators, join memberships and unlock posts. Plans are only for creators.');
-echo Sections::cards(array(
-    array('icon' => 'bell', 'title' => 'Follow for free', 'text' => 'Follow any creator and hear about every new post.'),
-    array('icon' => 'users', 'title' => 'Join a membership', 'text' => 'Subscribe to a tier and see everything it includes.'),
-    array('icon' => 'lock', 'title' => 'Unlock single posts', 'text' => 'Pay for one post in one tap from your credit wallet.'),
-    array('icon' => 'ticket', 'title' => 'Bundles, services and events', 'text' => 'Buy a bundle, book a service, or grab a seat at a live session.'),
-    array('icon' => 'package', 'title' => 'Everything in one place', 'text' => 'Everything you buy is saved in your purchases.'),
-    array('icon' => 'message', 'title' => 'Message creators', 'text' => 'Talk to the creators you follow from your inbox.'),
-), 3);
-echo '<div class="sx-acts"><a class="sx-btn sx-btn--secondary" href="/?auth=register" rel="nofollow" data-auth="register">Join Free</a></div>';
-echo Sections::close();
-
 /* Founding creators (/founding): up to six, listed like the directory, only when there is at least one. Avatar, name and handle; never a screenshot. */
 $founders = array();
 try { $founders = (new CreatorProfileModel())->founding_showcase(gmdate('Y-m-d'), 6); } catch (\Throwable $ex) { error_log('[home] founding row: ' . $ex->getMessage()); }
@@ -176,4 +260,13 @@ if ($grid !== '') {   // a lone listing link made a near-empty band (design revi
 }
 
 echo Sections::faq($home_faq, 'white');
-echo Sections::cta('Create your page today.', 'Memberships, pay-per-view, bundles, services and events, with payouts to your bank.');
+// 8. Final band: dark photo, the closing line and the trial CTA as the one orange button.
+?>
+<section class="hm-final" aria-labelledby="hm_final">
+    <div class="hm-final__media"><?php echo $pic('final', array(960, 1440), 1440, 816, 'A creator at her desk at night reviewing photos on a large monitor', '100vw'); ?></div>
+    <div class="ld-wrap hm-final__in">
+        <h2 class="hm-final__t" id="hm_final"><span>Your Content.</span> <span>Your Audience.</span> <span>Your Business.</span></h2>
+        <div class="hm-hero__acts"><?php echo $btn($trial, 'sx-btn--primary hm-btn--lg'); ?></div>
+    </div>
+</section>
+

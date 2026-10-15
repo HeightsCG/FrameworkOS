@@ -9,7 +9,7 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
     <footer class="ld-foot sf">
         <div class="ld-wrap sf__top">
             <div class="sf__brand">
-                <a class="ld-brand" href="<?php echo $fb; ?>/"><span class="ld-brand__mark" aria-hidden="true"></span><span class="ld-brand__name"><?php echo $fl($site); ?></span></a>
+                <a class="ld-brand" href="<?php echo $fb; ?>/"><img class="ld-brand__logo" src="/images/logo/logo-mark.svg" width="28" height="28" alt=""><span class="ld-brand__name"><?php echo $fl($site); ?></span></a>
                 <p class="sf__blurb"><?php echo $fl(SeoMeta::brand_description(!$foot_links)); ?></p>
                 <?php if (!empty(SeoMeta::SOCIAL_PROFILES)): ?>
                 <p class="sf__social"><?php foreach (SeoMeta::SOCIAL_PROFILES as $s_label => $s_url): ?><a href="<?php echo $fl($s_url); ?>" rel="me noopener" target="_blank"><?php echo $fl($s_label); ?></a><?php endforeach; ?></p>

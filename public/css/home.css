@@ -1,0 +1,162 @@
+/* Home page (libs/Layout/home_body.php), redesigned 2026-10-15 from the photographic ad. Prefix hm-. Built on the sx.css tokens.
+   Photos: public/images/home/*.webp. Phone rules at the end. */
+
+/* ---------- Hero: copy left, portrait right fading into the black ---------- */
+.hm-hero { position: relative; overflow: clip; background: var(--sx-bg); min-height: min(calc(100svh - 64px), 900px); display: flex; align-items: center; }
+.hm-hero__media { position: absolute; top: 0; right: 0; bottom: 0; width: 58%; }
+.hm-hero__img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 22%;
+    -webkit-mask-image: linear-gradient(to right, transparent 0, #000 34%), linear-gradient(to top, transparent 0, #000 18%);
+    mask-image: linear-gradient(to right, transparent 0, #000 34%), linear-gradient(to top, transparent 0, #000 18%);
+    -webkit-mask-composite: source-in; mask-composite: intersect; }
+.hm-hero__in { position: relative; z-index: 1; padding-top: 48px; padding-bottom: 64px; }
+.hm-hero__copy { max-width: 640px; }
+.hm-hero__title { margin: 0; font-size: clamp(2.75rem, 4.7vw, 4.5rem); font-weight: 800; line-height: 1; letter-spacing: -.045em; color: var(--sx-ink); }
+.hm-hero__title span { display: block; }
+.hm-hero__l2 { color: var(--sx-acc); }
+.hm-hero__sub { margin: 24px 0 0; max-width: 520px; font-size: 1.1875rem; line-height: 1.55; color: #d4d4d6; }
+.hm-hero__pts { list-style: none; margin: 28px 0 0; padding: 0; display: grid; gap: 12px; }
+.hm-hero__pts li { display: flex; align-items: center; gap: 14px; font-size: 1.0625rem; font-weight: 500; color: var(--sx-ink); }
+.hm-hero__pts .sx-ic { flex: none; color: var(--sx-ink); }
+.hm-hero__acts { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 36px; }
+.hm-btn { gap: 10px; }
+.hm-btn .sx-ic { transition: transform .2s var(--sx-ease); }
+.hm-btn:hover .sx-ic { transform: translateX(3px); }
+.hm-btn--lg { height: 56px; padding: 0 28px; font-size: 1.0625rem; }
+
+/* one load moment: the copy settles into place. Movement only, never opacity, and nothing on the photo: the portrait is the LCP element and must paint at once. */
+@media (prefers-reduced-motion: no-preference) {
+    .hm-hero__copy { animation: hm-rise .6s var(--sx-ease) both; }
+}
+@keyframes hm-rise { from { transform: translateY(14px); } to { transform: none; } }
+
+/* ---------- Shared bits ---------- */
+.hm-def { max-width: 880px; margin: -16px 0 40px; font-size: 1.0625rem; line-height: 1.65; color: var(--sx-t2); }
+.hm-def a, .hm-list a, .hm-more a { color: var(--sx-ink); text-decoration: underline; text-decoration-color: var(--sx-line-2); text-underline-offset: 3px; }
+.hm-def a:hover, .hm-list a:hover, .hm-more a:hover { text-decoration-color: var(--sx-ink); }
+.hm-more { margin: 32px 0 0; font-size: 1rem; font-weight: 600; }
+.hm-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); gap: 64px; align-items: center; }
+.hm-split--rev { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); }
+.hm-split__copy .sx-lead { max-width: 560px; }
+.hm-list { list-style: none; margin: 32px 0 0; padding: 0; display: grid; gap: 18px; }
+.hm-list li { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 14px; font-size: 1rem; line-height: 1.55; color: var(--sx-t2); }
+.hm-list .sx-ic { margin-top: 2px; color: var(--sx-acc); }
+.hm-list b { font-weight: 600; color: var(--sx-ink); }
+
+/* ---------- Pillars: four tall photos, title as the link ---------- */
+.hm-pillars { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
+.hm-pillar__a { display: block; color: var(--sx-ink); text-decoration: none; border-radius: var(--sx-r); }
+.hm-pillar__a:focus-visible { outline: none; box-shadow: var(--sx-ring); }
+.hm-pillar__img { display: block; aspect-ratio: 4 / 5; overflow: hidden; border-radius: var(--sx-r); background: var(--sx-grey); }
+.hm-pillar__img img { display: block; width: 100%; height: 100%; object-fit: cover; transition: transform .6s var(--sx-ease); }
+.hm-pillar__a:hover .hm-pillar__img img { transform: scale(1.03); }
+.hm-pillar__t { display: flex; align-items: center; gap: 8px; margin: 20px 0 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -.03em; }
+.hm-pillar__t .sx-ic { color: var(--sx-t2); transition: transform .2s var(--sx-ease), color .2s; }
+.hm-pillar__a:hover .hm-pillar__t .sx-ic { transform: translateX(3px); color: var(--sx-ink); }
+.hm-pillar__x { margin: 8px 0 0; font-size: .9375rem; line-height: 1.55; color: var(--sx-t2); }
+
+/* ---------- Create: one character, three scenes, staggered ---------- */
+.hm-trio { position: relative; margin: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: start; }
+.hm-trio img { display: block; width: 100%; height: auto; aspect-ratio: 896 / 1152; object-fit: cover; border-radius: var(--sx-r); background: var(--sx-grey); }
+.hm-trio__b { margin-top: 56px; }
+.hm-trio__c { margin-top: 112px; }
+.hm-trio figcaption { grid-column: 1 / -1; margin-top: 4px; font-size: .8125rem; color: var(--sx-muted); }
+
+/* ---------- Ten platforms ---------- */
+.hm-nets { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.hm-net { display: flex; align-items: center; gap: 14px; height: 72px; padding: 0 20px; border: 1px solid var(--sx-line-2); border-radius: var(--sx-r); color: var(--sx-ink); font-weight: 600; text-decoration: none; transition: border-color .2s, background-color .2s; }
+.hm-net:hover { border-color: var(--sx-muted); background: var(--sx-grey); }
+.hm-net:focus-visible { outline: none; box-shadow: var(--sx-ring); }
+.hm-net__mark { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 28px; height: 28px; color: var(--sx-ink); }
+.hm-net__mark--text { border-radius: var(--sx-r); background: var(--sx-grey-3); font-size: .9375rem; font-weight: 800; }
+
+/* ---------- Schematic panels (invented figures, labelled) ---------- */
+.hm-ui { margin: 0; padding: 24px; border: 1px solid var(--sx-line-2); border-radius: var(--sx-r); background: var(--sx-grey); }
+.hm-ui__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 16px; border-bottom: 1px solid var(--sx-line-2); }
+.hm-ui__bar b { font-size: 1.0625rem; font-weight: 700; color: var(--sx-ink); }
+.hm-ui__on { display: inline-flex; align-items: center; gap: 8px; font-size: .8125rem; font-weight: 600; color: var(--sx-ink); }
+.hm-ui__on::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #22c55e; }
+.hm-ui__rows { margin: 0; }
+.hm-ui__rows > div { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 16px; padding: 14px 0; border-bottom: 1px solid var(--sx-line); }
+.hm-ui__rows dt { font-size: .875rem; color: var(--sx-muted); }
+.hm-ui__rows dd { margin: 0; font-size: .9375rem; color: var(--sx-ink); }
+.hm-ui__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.hm-ui__chips span { padding: 2px 10px; border: 1px solid var(--sx-line-2); border-radius: 999px; font-size: .8125rem; }
+.hm-ui figcaption { margin-top: 16px; font-size: .8125rem; color: var(--sx-muted); }
+.hm-ui__seg { display: inline-flex; padding: 3px; border-radius: var(--sx-r); background: var(--sx-bg); }
+.hm-ui__seg span { padding: 4px 10px; border-radius: 4px; font-size: .8125rem; color: var(--sx-muted); }
+.hm-ui__seg .is-on { background: var(--sx-grey-3); color: var(--sx-ink); }
+.hm-ui__kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; padding: 20px 0; border-bottom: 1px solid var(--sx-line); }
+.hm-ui__kpis small, .hm-ui__chart small { display: block; font-size: .8125rem; color: var(--sx-muted); }
+.hm-ui__kpis b { display: block; margin-top: 6px; font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; color: var(--sx-ink); font-variant-numeric: tabular-nums; }
+.hm-ui__chart { padding-top: 20px; }
+.hm-ui__bars { display: flex; align-items: flex-end; gap: 8px; height: 140px; margin-top: 12px; }
+.hm-ui__bars i { flex: 1; border-radius: 3px 3px 0 0; background: var(--sx-grey-3); }
+.hm-ui__bars i:last-child { background: var(--sx-acc); }
+
+/* ---------- Plans ---------- */
+.hm-plans { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.hm-plan { display: flex; flex-direction: column; height: 100%; padding: 28px; border: 1px solid var(--sx-line-2); border-radius: var(--sx-r); background: var(--sx-grey); }
+.hm-plan.is-rec { border-color: rgba(255, 106, 19, .55); }
+.hm-plan__n { margin: 0; font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; color: var(--sx-ink); }
+.hm-plan__tag { margin: 6px 0 0; font-size: .9375rem; color: var(--sx-t2); }
+.hm-plan__p { margin: 24px 0 0; color: var(--sx-ink); }
+.hm-plan__p b { font-size: 2.5rem; font-weight: 800; letter-spacing: -.03em; }
+.hm-plan__p span { margin-left: 4px; font-size: .9375rem; color: var(--sx-t2); }
+.hm-plan__f { margin: 8px 0 0; font-size: .9375rem; color: var(--sx-t2); }
+.hm-trial { display: flex; align-items: center; gap: 10px; margin: 24px 0 0; font-size: 1rem; color: var(--sx-ink); }
+.hm-trial .sx-ic { color: var(--sx-acc); }
+
+/* ---------- Final band ---------- */
+.hm-final { position: relative; overflow: clip; display: flex; align-items: center; min-height: 560px; background: var(--sx-bg); border-top: 1px solid var(--sx-line-2); }
+.hm-final__media { position: absolute; inset: 0; }
+.hm-final__media img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: 70% 50%; opacity: .7; }
+.hm-final__media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5, 5, 5, .92) 0%, rgba(5, 5, 5, .6) 45%, rgba(5, 5, 5, .15) 100%); }
+.hm-final__in { position: relative; z-index: 1; padding-top: 96px; padding-bottom: 96px; }
+.hm-final__t span { display: block; }
+.hm-final__t { max-width: 720px; margin: 0; font-size: clamp(2.5rem, 4.6vw, 4.25rem); font-weight: 800; line-height: 1; letter-spacing: -.045em; color: var(--sx-ink); }
+
+/* ---------- Tablet ---------- */
+@media (max-width: 1100px) {
+    .hm-pillars { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 20px; }
+    .hm-nets { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .hm-split, .hm-split--rev { grid-template-columns: minmax(0, 1fr); gap: 48px; }
+    .hm-split--rev .hm-ui { order: 2; }
+    .hm-hero__media { width: 62%; }
+    .hm-hero__copy { max-width: 520px; }
+}
+@media (max-width: 900px) {
+    .hm-plans { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- Phones: copy and CTA first, then the photo below it, never text over the face ---------- */
+@media (max-width: 760px) {
+    .hm-hero { display: flex; flex-direction: column; align-items: stretch; min-height: 0; }
+    .hm-hero__in { order: 1; padding-top: 40px; padding-bottom: 32px; }
+    .hm-hero__media { order: 2; position: relative; width: 100%; height: auto; }
+    .hm-hero__img { height: min(78svh, 560px); object-position: 60% 18%;
+        -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 82%, transparent 100%); mask-image: linear-gradient(to bottom, transparent 0, #000 22%, #000 82%, transparent 100%); }
+    .hm-hero__title { font-size: clamp(2.5rem, 11vw, 3.5rem); }
+    .hm-hero__sub { margin-top: 20px; font-size: 1.0625rem; }
+    .hm-hero__pts { margin-top: 24px; gap: 12px; }
+    .hm-hero__acts { margin-top: 28px; }
+    .hm-hero__acts .sx-btn { width: 100%; }
+    .hm-def { margin-top: -8px; }
+    .hm-trio { gap: 8px; }
+    .hm-trio__b { margin-top: 28px; }
+    .hm-trio__c { margin-top: 56px; }
+    .hm-final { min-height: 440px; }
+    .hm-final__media img { object-position: 75% 50%; }
+}
+@media (max-width: 560px) {
+    .hm-pillars { gap: 28px 12px; }
+    .hm-pillar__t { margin-top: 12px; font-size: 1.1875rem; }
+    .hm-pillar__x { font-size: .875rem; }
+    .hm-nets { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .hm-net { height: 60px; padding: 0 14px; gap: 10px; font-size: .9375rem; }
+    .hm-ui { padding: 18px; }
+    .hm-ui__rows > div { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .hm-ui__kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .hm-ui__bars { height: 100px; gap: 5px; }
+    .hm-final__in { padding-top: 72px; padding-bottom: 72px; }
+    .hm-final__in .sx-btn { width: 100%; }
+}

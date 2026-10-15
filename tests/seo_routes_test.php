@@ -120,6 +120,13 @@ foreach (array('/', '/features', '/pricing', '/compare/fanvue', '/blog') as $p) 
 $ch = curl_init($base . '/about'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 $ok = substr_count(strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body)), 'Dr. Glauber') === 1 && stripos($body, 'daniel') === false;   // scripts out first: a '<' inside the TikTok pixel confuses strip_tags
 echo ($ok ? 'ok   ' : 'FAIL ') . "/about names Dr. Glauber exactly once\n"; if (!$ok) { $fail++; }
+// Home redesign (2026-10-15): one H1, the trial CTA opens sign-up, all ten integration pages linked, every photo sized, no platform outside the ten.
+$ch = curl_init($base . '/'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+$vis = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body));
+$nets = 0; foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue') as $i) { if (strpos($body, 'href="/integrations/' . $i . '"') !== false) { $nets++; } }
+$ok = substr_count($body, '<h1') === 1 && preg_match('/class="sx-btn sx-btn--primary[^"]*hm-btn"[^>]*data-auth="register"/', $body) && $nets === 10
+    && !preg_match('#<img(?![^>]*\bwidth=)[^>]*>#', $body) && !preg_match('/Snapchat|Reddit|Discord|30-day|thirty days/i', $vis);
+echo ($ok ? 'ok   ' : 'FAIL ') . "/ home: one H1, trial CTA, ten integrations, sized images, no stray platforms ($nets)\n"; if (!$ok) { $fail++; }
 // Link-earning pages (2026-10-15): /integrations + ten platforms, three browser-only tools, /press, /alternatives.
 // Each answers 200 with one title, description, canonical, og and twitter set, JSON-LD that parses, no founder name, no
 // platform outside the ten; every public_pages() row is in the sitemap with a title and description no other page has.

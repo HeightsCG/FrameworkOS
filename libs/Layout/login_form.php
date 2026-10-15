@@ -68,6 +68,8 @@
     <link rel="stylesheet" href="/css/landing.css?v=<?php echo @filemtime(Main::app_path().'/public/css/landing.css'); ?>">
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
     <link rel="stylesheet" href="/css/sx.css?v=<?php echo @filemtime(Main::app_path().'/public/css/sx.css'); ?>">
+    <link rel="stylesheet" href="/css/home.css?v=<?php echo @filemtime(Main::app_path().'/public/css/home.css'); ?>">
+    <link rel="preload" as="image" type="image/webp" imagesrcset="/images/home/hero-640.webp 640w, /images/home/hero-960.webp 960w, /images/home/hero-1152.webp 1152w" imagesizes="(max-width: 760px) 100vw, 55vw" fetchpriority="high">
 <?php include __DIR__ . '/auth_head.php'; ?>
 </head>
 <body class="ld">

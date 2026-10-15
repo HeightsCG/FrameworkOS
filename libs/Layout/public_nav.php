@@ -17,7 +17,7 @@ if (!$nav_links) { try { $nav_offer = Founding::remaining_cached() > 0; } catch 
     <header class="ld-nav">
         <div class="ld-wrap ld-nav__inner">
             <a class="ld-brand" href="<?php echo $nav_e($nav_base . '/'); ?>">
-                <span class="ld-brand__mark" aria-hidden="true"></span>
+                <img class="ld-brand__logo" src="/images/logo/logo-mark.svg" width="28" height="28" alt="">
                 <span class="ld-brand__name"><?php echo htmlspecialchars(Main::site_name(), ENT_QUOTES, 'UTF-8'); ?></span>
             </a>
             <nav class="ld-nav__links" id="ld_nav_links" aria-label="Site">
