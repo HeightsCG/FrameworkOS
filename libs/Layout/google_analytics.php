@@ -1,10 +1,17 @@
 <?php Analytics::pageview(); /* first-party page view (analytics_events), recorded once per rendered page; GA and Clarity below stay as they are */ ?>
 <?php echo Analytics::beacon_script(); /* a cacheable page reports its own view after load */ ?>    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-KQBG52F6SZ"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
+
+      // gtag.js (and the Clarity tag GA pulls in) is requested after the load event, at idle: loaded up front it pushed the
+      // home hero's paint from 2.0s to 5.8s in Lighthouse (2026-10-15). dataLayer queues every call until it arrives.
+      (function () {
+        var go = function () { var s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=G-KQBG52F6SZ'; document.head.appendChild(s); };
+        var idle = function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 3000 }); };
+        if (document.readyState === 'complete') { idle(); } else { window.addEventListener('load', idle, { once: true }); }
+      })();
 
       gtag('config', 'G-KQBG52F6SZ');
 
