@@ -11,7 +11,7 @@ $gb_h = function ($s) { return htmlspecialchars((string) $s, ENT_QUOTES, 'UTF-8'
         <span class="gbar__name"><?php echo $gb_h(Main::site_name()); ?></span>
     </a>
     <nav class="gbar__actions" aria-label="Account">
-        <a class="gbar__btn" href="/?auth=login&amp;next=<?php echo $gb_h(rawurlencode($gb_next)); ?>">Log In</a>
-        <a class="gbar__btn gbar__btn--primary" href="/?auth=register&amp;next=<?php echo $gb_h(rawurlencode($gb_next)); ?>">Register</a>
+        <a class="gbar__btn" rel="nofollow" href="/?auth=login&amp;next=<?php echo $gb_h(rawurlencode($gb_next)); ?>">Log In</a>
+        <a class="gbar__btn gbar__btn--primary" rel="nofollow" href="/?auth=register&amp;next=<?php echo $gb_h(rawurlencode($gb_next)); ?>">Register</a>
     </nav>
 </header>

@@ -82,7 +82,8 @@ class Sections {
         $h = '<div class="' . $class . '">';
         foreach ($btns as $b) {
             $auth = !empty($b[3]) ? ' data-auth="' . self::e($b[3]) . '"' : '';
-            $h .= '<a class="sx-btn sx-btn--' . self::e($b[2] ?? 'secondary') . '" href="' . self::e($b[1]) . '"' . $auth . '>' . self::e($b[0]) . '</a>';
+            $rel = strpos((string) $b[1], '?') !== false ? ' rel="nofollow"' : '';   // sign-up links carry ?auth= parameters: nofollow keeps them out of the crawl
+            $h .= '<a class="sx-btn sx-btn--' . self::e($b[2] ?? 'secondary') . '" href="' . self::e($b[1]) . '"' . $rel . $auth . '>' . self::e($b[0]) . '</a>';
         }
         return $h . '</div>';
     }
@@ -628,7 +629,7 @@ class Sections {
     public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register'): string {
         return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
             . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($signup) . '" data-auth="register">Start Free</a>'
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($signup) . '" rel="nofollow" data-auth="register">Start Free</a>'
             . ($pricing_link ? '<a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a>' : '') . '</div></div></section>';
     }
 }

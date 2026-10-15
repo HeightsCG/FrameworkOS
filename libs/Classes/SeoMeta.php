@@ -28,8 +28,9 @@ class SeoMeta {
      * 160 characters; the last sentence goes first if the fee text ever makes it longer.
      */
     public static function brand_tagline(): string {
-        $s = 'Sell memberships, posts and services from one page. ' . PagesController::fee_short() . '.';
-        $full = $s . ' Publish to ten platforms with AI and get paid to your bank.';
+        // Leads with the brand and "creator monetization platform" so the description carries the title's keywords (Seobility keyword consistency, 2026-10-15)
+        $s = self::site() . ' is a creator monetization platform: sell memberships, posts and services from one page.';
+        $full = $s . ' Platform fee: ' . PagesController::fee_short() . '.';
         return mb_strlen($full) <= 160 ? $full : $s;
     }
 

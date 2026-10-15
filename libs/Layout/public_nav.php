@@ -12,7 +12,7 @@ $nav_offer = false;
 if (!$nav_links) { try { $nav_offer = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[nav] founding: ' . $ex->getMessage()); } }
 ?>
 <?php if ($nav_offer): ?>
-    <aside class="fb" aria-label="Founding offer"><p class="fb__in"><span class="fb__text"><?php echo (int) Founding::TRIAL_DAYS; ?> days free on <?php echo $nav_e(Founding::plan_names()); ?>.</span> <?php $nav_claim = Founding::claim_link(); ?><a href="<?php echo $nav_e($nav_claim[0]); ?>"<?php echo $nav_claim[1] !== '' ? ' data-auth="' . $nav_e($nav_claim[1]) . '"' : ''; ?>>Claim Your Spot <span aria-hidden="true">&rarr;</span></a></p></aside>
+    <aside class="fb" aria-label="Founding offer"><p class="fb__in"><span class="fb__text"><?php echo (int) Founding::TRIAL_DAYS; ?> days free on <?php echo $nav_e(Founding::plan_names()); ?>.</span> <?php $nav_claim = Founding::claim_link(); ?><a href="<?php echo $nav_e($nav_claim[0]); ?>" rel="nofollow"<?php echo $nav_claim[1] !== '' ? ' data-auth="' . $nav_e($nav_claim[1]) . '"' : ''; ?>>Claim Your Spot <span aria-hidden="true">&rarr;</span></a></p></aside>
 <?php endif; ?>
     <header class="ld-nav">
         <div class="ld-wrap ld-nav__inner">
@@ -25,15 +25,15 @@ if (!$nav_links) { try { $nav_offer = Founding::remaining_cached() > 0; } catch 
                 <a href="<?php echo $nav_e($nav_base . $ni[0]); ?>"<?php echo $on ? ' class="is-active" aria-current="page"' : ''; ?>><?php echo htmlspecialchars($ni[1], ENT_QUOTES, 'UTF-8'); ?></a>
 <?php endforeach; ?>
 <?php if ($nav_links): ?>
-                <a class="ld-nav__signin" href="<?php echo $nav_e($nav_links['login']); ?>">Sign In</a>
+                <a class="ld-nav__signin" href="<?php echo $nav_e($nav_links['login']); ?>" rel="nofollow">Sign In</a>
 <?php else: ?>
                 <button type="button" class="ld-nav__signin" data-auth="login">Sign In</button>
 <?php endif; ?>
             </nav>
             <div class="ld-nav__actions">
 <?php if ($nav_links): ?>
-                <a class="ld-btn ld-btn--quiet" href="<?php echo $nav_e($nav_links['login']); ?>">Sign In</a>
-                <a class="ld-btn ld-nav__cta<?php echo (string) ($nav_links['cta'] ?? '') === 'outline' ? ' ld-nav__cta--outline' : ' ld-btn--primary'; ?>" href="<?php echo $nav_e($nav_links['register']); ?>">Get Started</a>
+                <a class="ld-btn ld-btn--quiet" href="<?php echo $nav_e($nav_links['login']); ?>" rel="nofollow">Sign In</a>
+                <a class="ld-btn ld-nav__cta<?php echo (string) ($nav_links['cta'] ?? '') === 'outline' ? ' ld-nav__cta--outline' : ' ld-btn--primary'; ?>" href="<?php echo $nav_e($nav_links['register']); ?>" rel="nofollow">Get Started</a>
 <?php else: ?>
                 <button type="button" class="ld-btn ld-btn--quiet" data-auth="login">Sign In</button>
                 <button type="button" class="ld-btn ld-btn--primary ld-nav__cta" data-auth="register">Get Started</button>

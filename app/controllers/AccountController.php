@@ -171,6 +171,7 @@ class AccountController extends Controller {
         $inbox_up                        = PlanTiers::lowest_with_feature('inbox_ai');
         $this->view->inbox_ai_upgrade    = $inbox_up ? (string) $inbox_up['name'] : '';
         $this->view->fanvue_configured   = FanvueService::configured();
+        $this->view->eromify             = $can_manage ? (new EromifyAccountsModel())->get_for_user($owner['user_id']) : null;
         $this->view->can_social_post     = $can_post;
         $this->view->platform_meta       = $platform_meta;
         $this->view->notification_meta   = $notification_meta;

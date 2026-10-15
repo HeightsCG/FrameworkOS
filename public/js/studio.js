@@ -2022,7 +2022,7 @@ jQuery(function ($) {
     function schedCard(r) {
         var isMsg = r.kind === 'message';
         var aud = isMsg ? schedTargetsSummary(r) : (r.audience === 'subscribers' ? 'Subscribers only' : 'Everyone');
-        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : r.topic);
+        var body = isMsg ? (r.message_ai ? ('AI: ' + r.topic) : r.message_text) : ((r.image_source === 'influencer' && r.influencer_name) ? (r.influencer_name + ' · ' + r.topic) : ((r.image_source === 'character' && r.character_name) ? (r.character_name + ' · ' + r.topic) : r.topic));
         var lastRun = r.last_status === 'success'
             ? '<span class="cs-sched__metaitem cs-sched__metaitem--ok"><i class="fa-solid fa-circle-check"></i>Last run OK</span>'
             : r.last_status === 'rendering'
@@ -2135,8 +2135,10 @@ jQuery(function ($) {
         var kind = $('#csSchedKind').val() || 'post';
         var $c = $('#csSchedCredits');
         if (kind !== 'post') { $c.removeClass('is-low').text('Scheduled messages don\'t use AI credits.'); return; }
-        var still = (schedIsVideo() && schedForm.image_source === 'influencer' && CFG.ai.inf_video_image_price) ? CFG.ai.inf_video_image_price : CFG.ai.image_price;
+        var still = schedForm.image_source === 'character' ? 0   // the still comes from Eromify, on the creator's Eromify credits
+            : ((schedIsVideo() && schedForm.image_source === 'influencer' && CFG.ai.inf_video_image_price) ? CFG.ai.inf_video_image_price : CFG.ai.image_price);
         var per = (parseInt(still, 10) || 0) + schedVideoCredits();
+        if (per <= 0) { $c.removeClass('is-low').text('Images use your Eromify credits, not AI credits.'); return; }
         var runs = (schedForm.cadence === 'weekly') ? Math.round($('#csSchedDays .cs-ae__day.is-on').length * 52 / 12) : 30;
         var bal = parseInt(CFG.ai.balance, 10) || 0;
         var low = bal < per * runs;
@@ -2148,9 +2150,11 @@ jQuery(function ($) {
     var SCHED_INF_VIDEO = { key: 'kling_v3', dur: '10' };
     function schedVideoModels() {
         var all = (CFG.ai && CFG.ai.video_models) || [];
-        return schedForm.image_source === 'influencer' ? all.filter(function (m) { return m.faces !== false; }) : all;
+        return schedHasFace() ? all.filter(function (m) { return m.faces !== false; }) : all;
     }
     function schedIsVideo() { return schedForm.media_type === 'video'; }
+    // A real-looking face in the picture (a trained influencer or an Eromify character): face-refusing video styles are left out.
+    function schedHasFace() { return schedForm.image_source === 'influencer' || schedForm.image_source === 'character'; }
     function schedVideoCredits() {
         if (!schedIsVideo()) { return 0; }
         var m = schedVideoModels().filter(function (x) { return x.key === $('#csSchedVideoModel').val(); })[0];
@@ -2161,7 +2165,7 @@ jQuery(function ($) {
     function renderSchedVideoModels(key, dur) {
         var models = schedVideoModels();
         if (!models.some(function (m) { return m.key === key; })) {
-            var inf = schedForm.image_source === 'influencer' && models.some(function (m) { return m.key === SCHED_INF_VIDEO.key; });
+            var inf = schedHasFace() && models.some(function (m) { return m.key === SCHED_INF_VIDEO.key; });
             key = inf ? SCHED_INF_VIDEO.key : (models.length ? models[0].key : '');
             if (inf) { dur = SCHED_INF_VIDEO.dur; }
         }
@@ -2207,7 +2211,8 @@ jQuery(function ($) {
         schedCredits();
         var kind = $('#csSchedKind').val() || 'post';
         if (kind === 'post') {
-            var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer') : 'Brand photo';
+            var src = schedForm.image_source === 'influencer' ? (schedInfluencerName(schedForm.influencer_id) || 'Influencer')
+                : (schedForm.image_source === 'character' ? (schedForm.character_name || 'My Character') : 'Brand photo');
             var size = aspectKey($('#csSchedSize').val());
             schedSum('content', src + ' · ' + ((CFG.aspect && CFG.aspect.names[size]) || size) + (schedIsVideo() ? ' · Video' : ''));
             var aud = schedForm.audience === 'subscribers' ? 'Subscribers' : 'Everyone';
@@ -2232,7 +2237,7 @@ jQuery(function ($) {
     $('#csSchedName').on('input', function () { updateSchedTitle(); schedClearError('name'); });
 
     /* validation: inline message under the field + a flag on the section's nav item */
-    var SCHED_ERR_SECTION = { name: 'content', topic: 'content', message: 'content', influencer: 'content', targets: 'destinations', days: 'schedule' };
+    var SCHED_ERR_SECTION = { name: 'content', topic: 'content', message: 'content', influencer: 'content', character: 'content', targets: 'destinations', days: 'schedule' };
     function schedSetError(key, msg) {
         var $p = $('#csSchedErr_' + key).text(msg).prop('hidden', false);
         $('#csSchedErr_' + key).closest('.cs-ae__field').find('.form-control, .form-select').first().addClass('is-invalid');
@@ -2359,12 +2364,14 @@ jQuery(function ($) {
         $('#csSchedTime').val(rule ? rule.run_time : '09:00');
         schedForm.cadence = rule ? rule.cadence : 'daily';
         schedForm.influencer_id = rule ? String(rule.influencer_id || '') : '';
+        schedForm.character_id = rule ? String(rule.character_id || '') : '';
+        schedForm.character_name = rule ? String(rule.character_name || '') : '';
         schedForm.media_type = rule ? (rule.media_type || 'image') : 'image';
         schedForm.video_picked = !!(rule && rule.video_model_key);   // a saved automation keeps its style (unless it refuses her face)
         $('#csSchedVideoPrompt').val(rule ? (rule.video_prompt || '') : '');
         renderSchedVideoModels(rule ? rule.video_model_key : '', rule ? rule.video_duration : '');
         setSchedMedia(schedForm.media_type);
-        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? rule.influencer_id : '');
+        setSchedImageSource(rule ? (rule.image_source || 'brand') : 'brand', rule ? (rule.image_source === 'character' ? rule.character_id : rule.influencer_id) : '');
         setSchedAudience(rule ? rule.audience : 'free', rule ? rule.tier_id : '');
         setSchedCadence(schedForm.cadence);
 
@@ -2405,51 +2412,86 @@ jQuery(function ($) {
         $('#csSchedImageSource .cs-seg__opt').each(function () { $(this).toggleClass('is-on', $(this).data('src') === schedForm.image_source); });
         syncPressed('#csSchedImageSource');
         $('#csSchedInfluencerWrap').prop('hidden', schedForm.image_source !== 'influencer');
-        // the face picker shows the selected influencer
-        var id = String(schedForm.influencer_id || ''), $opt = $('#csSchedInfPanel .cs-ae__pickopt[data-inf="' + id + '"]');
-        $('#csSchedInfPanel .cs-ae__pickopt').each(function () { var on = $(this).attr('data-inf') === id; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false'); });
-        $('#csSchedInfTrigger .cs-ae__srcpic').html($opt.find('.cs-ae__srcpic').html() || '');
-        $('#csSchedInfTrigger .cs-ae__pickname').text($opt.children().last().text().trim() || 'Pick an influencer');
+        $('#csSchedCharacterWrap').prop('hidden', schedForm.image_source !== 'character');
+        schedPickSync('Inf', schedForm.influencer_id, '', 'Pick an influencer');
+        schedPickSync('Char', schedForm.character_id, schedForm.character_name, 'Pick a character');
     }
-    /* Influencer face picker: a listbox panel under the trigger; search appears when there are more than 6 */
-    function schedPickOpen(open) {
-        $('#csSchedInfPanel').prop('hidden', !open);
-        $('#csSchedInfTrigger').attr('aria-expanded', open ? 'true' : 'false');
+    /* Face pickers (Influencer, My Character): a listbox panel under the trigger; search appears when there are more than 6.
+       k is the id part: Inf -> #csSchedInfPick/Panel/Trigger/Search, Char -> #csSchedCharPick/... */
+    var SCHED_PICK_VALUE = { Inf: '#csSchedInfluencer', Char: '#csSchedCharacter' };
+    function schedPickSync(k, id, fallback, none) {
+        id = String(id || '');
+        var $opt = $('#csSched' + k + 'Panel .cs-ae__pickopt[data-id="' + id + '"]');
+        $('#csSched' + k + 'Panel .cs-ae__pickopt').each(function () { var on = $(this).attr('data-id') === id; $(this).toggleClass('is-on', on).attr('aria-selected', on ? 'true' : 'false'); });
+        $('#csSched' + k + 'Trigger .cs-ae__srcpic').html($opt.find('.cs-ae__srcpic').html() || '');
+        $('#csSched' + k + 'Trigger .cs-ae__pickname').text($opt.children().last().text().trim() || (id !== '' && fallback ? fallback : none));
+    }
+    function schedPickOpen(open, k) {
+        if (!k) { ['Inf', 'Char'].forEach(function (x) { schedPickOpen(false, x); }); return; }
+        var $panel = $('#csSched' + k + 'Panel'), $search = $('#csSched' + k + 'Search:not([hidden])');
+        $panel.prop('hidden', !open);
+        $('#csSched' + k + 'Trigger').attr('aria-expanded', open ? 'true' : 'false');
         if (!open) { return; }
-        $('#csSchedInfSearch').val('').trigger('input');
+        $search.val('').trigger('input');
         // fit the panel inside the scrolling section: open upward when there is more room above, and cap the list to the room it has
-        var main = document.getElementById('csSchedMain').getBoundingClientRect(), trig = document.getElementById('csSchedInfTrigger').getBoundingClientRect();
+        var main = document.getElementById('csSchedMain').getBoundingClientRect(), trig = document.getElementById('csSched' + k + 'Trigger').getBoundingClientRect();
         var below = main.bottom - trig.bottom - 12, above = trig.top - main.top - 12, up = below < 240 && above > below;
-        var room = (up ? above : below) - ($('#csSchedInfSearch').outerHeight(true) || 0) - 10;
-        $('#csSchedInfPanel').toggleClass('is-up', up).find('.cs-ae__picklist').css('max-height', Math.max(132, Math.min(264, room)) + 'px');
-        var $f = $('#csSchedInfSearch');
-        ($f.length ? $f : $('#csSchedInfPanel .cs-ae__pickopt.is-on, #csSchedInfPanel .cs-ae__pickopt').first()).trigger('focus');
+        var room = (up ? above : below) - ($search.outerHeight(true) || 0) - 10;
+        $panel.toggleClass('is-up', up).find('.cs-ae__picklist').css('max-height', Math.max(132, Math.min(264, room)) + 'px');
+        ($search.length ? $search : $panel.find('.cs-ae__pickopt.is-on, .cs-ae__pickopt').first()).trigger('focus');
     }
-    function schedPickChoose(id) {
-        $('#csSchedInfluencer').val(String(id)).trigger('change');
-        schedPickOpen(false);
-        $('#csSchedInfTrigger').trigger('focus');
+    function schedPickChoose(k, id) {
+        $(SCHED_PICK_VALUE[k]).val(String(id)).trigger('change');
+        schedPickOpen(false, k);
+        $('#csSched' + k + 'Trigger').trigger('focus');
     }
-    $('#csSchedInfTrigger').on('click', function () { schedPickOpen($('#csSchedInfPanel').prop('hidden')); });
-    $('#csSchedInfPanel').on('click', '.cs-ae__pickopt', function () { schedPickChoose($(this).attr('data-inf')); });
-    $('#csSchedInfSearch').on('input', function () {
-        var q = $(this).val().trim().toLowerCase(), n = 0;
-        $('#csSchedInfPanel .cs-ae__pickopt').each(function () { var hit = q === '' || $(this).attr('data-name').indexOf(q) >= 0; $(this).prop('hidden', !hit); if (hit) { n++; } });
-        $('#csSchedInfPanel .cs-ae__pickempty').prop('hidden', n > 0);
+    function schedPickKey(el) { return $(el).closest('.cs-ae__pick').attr('data-pick'); }
+    $('.cs-ae__picktrigger', '#csSchedulerModal').on('click', function () { var k = schedPickKey(this); schedPickOpen($('#csSched' + k + 'Panel').prop('hidden'), k); });
+    $('.cs-ae__pickpanel', '#csSchedulerModal').on('click', '.cs-ae__pickopt', function () { schedPickChoose(schedPickKey(this), $(this).attr('data-id')); });
+    $('.cs-ae__picksearch', '#csSchedulerModal').on('input', function () {
+        var $panel = $(this).closest('.cs-ae__pickpanel'), q = $(this).val().trim().toLowerCase(), n = 0;
+        $panel.find('.cs-ae__pickopt').each(function () { var hit = q === '' || $(this).attr('data-name').indexOf(q) >= 0; $(this).prop('hidden', !hit); if (hit) { n++; } });
+        $panel.find('.cs-ae__pickempty:not(.cs-ae__picknote)').prop('hidden', n > 0 || !$panel.find('.cs-ae__pickopt').length);
     });
-    $('#csSchedInfPanel').on('keydown', function (e) {
-        var $opts = $('#csSchedInfPanel .cs-ae__pickopt:not([hidden])'), i = $opts.index(document.activeElement);
-        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); schedPickOpen(false); $('#csSchedInfTrigger').trigger('focus'); }
+    $('.cs-ae__pickpanel', '#csSchedulerModal').on('keydown', function (e) {
+        var k = schedPickKey(this), $opts = $(this).find('.cs-ae__pickopt:not([hidden])'), i = $opts.index(document.activeElement);
+        if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); schedPickOpen(false, k); $('#csSched' + k + 'Trigger').trigger('focus'); }
         else if (e.key === 'ArrowDown') { e.preventDefault(); $opts.eq(Math.min(i + 1, $opts.length - 1)).trigger('focus'); }
-        else if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) { $('#csSchedInfSearch').trigger('focus'); } else { $opts.eq(i - 1).trigger('focus'); } }
-        else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); schedPickChoose($opts.eq(i).attr('data-inf')); }
-        else if (e.key === 'Enter' && $opts.length === 1) { e.preventDefault(); schedPickChoose($opts.eq(0).attr('data-inf')); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); if (i <= 0) { $('#csSched' + k + 'Search:not([hidden])').trigger('focus'); } else { $opts.eq(i - 1).trigger('focus'); } }
+        else if ((e.key === 'Enter' || e.key === ' ') && i >= 0) { e.preventDefault(); schedPickChoose(k, $opts.eq(i).attr('data-id')); }
+        else if (e.key === 'Enter' && $opts.length === 1) { e.preventDefault(); schedPickChoose(k, $opts.eq(0).attr('data-id')); }
     });
-    $(document).on('mousedown', function (e) { if (!$('#csSchedInfPanel').prop('hidden') && !$(e.target).closest('#csSchedInfPick').length) { schedPickOpen(false); } });
+    $(document).on('mousedown', function (e) {
+        ['Inf', 'Char'].forEach(function (k) { if (!$('#csSched' + k + 'Panel').prop('hidden') && !$(e.target).closest('#csSched' + k + 'Pick').length) { schedPickOpen(false, k); } });
+    });
+    /* My Character: the creator's Eromify characters, loaded once per page; their reference picture is the face. */
+    var schedCharacters = null, schedCharLoading = false;
+    function loadSchedCharacters() {
+        if (schedCharacters || schedCharLoading) { return; }
+        schedCharLoading = true;
+        var $note = $('#csSchedCharNote').text('Loading…').prop('hidden', false);
+        ApiDataSvc.apiCall('post', 'eromify_characters', {}, function (resp) {
+            schedCharLoading = false;
+            var o = null; try { o = JSON.parse(resp); } catch (e) {}
+            if (!o || !o.success) { $note.text((o && o.message) || 'Could not load your characters.'); return; }
+            schedCharacters = o.characters || [];
+            var $list = $('#csSchedCharPanel .cs-ae__picklist').empty();
+            schedCharacters.forEach(function (c) {
+                var pic = c.reference_image ? '<img src="' + esc(c.reference_image) + '" alt="" loading="lazy">' : esc(String(c.name || '?').charAt(0).toUpperCase());
+                $list.append('<li class="cs-ae__pickopt" role="option" tabindex="-1" aria-selected="false" data-id="' + esc(c.id) + '" data-name="' + esc(String(c.name || '').toLowerCase()) + '"><span class="cs-ae__srcpic" aria-hidden="true">' + pic + '</span><span>' + esc(c.name) + '</span></li>');
+            });
+            $('#csSchedCharSearch').prop('hidden', schedCharacters.length <= 6);
+            if (schedCharacters.length) { $note.prop('hidden', true); } else { $note.text('No characters in your Eromify studio yet'); }
+            // a new automation starts on the first character; a saved one keeps its own
+            if (schedForm.image_source === 'character' && !schedForm.character_id && schedCharacters.length) { $('#csSchedCharacter').val(schedCharacters[0].id).trigger('change'); }
+            else { syncSchedSourceTiles(); }
+        });
+    }
     function setSchedImageSource(src, selectedId) {
         var influencers = (CFG.influencers && CFG.influencers.ready) || [];
         if (src === 'influencer' && !influencers.length) { toastr.info('Train an influencer first.'); src = 'brand'; }
-        schedForm.image_source = (src === 'influencer') ? 'influencer' : 'brand';
+        if (src === 'character' && !(CFG.eromify && CFG.eromify.connected)) { toastr.info('Connect Eromify in Settings > Integrations first.'); src = 'brand'; }
+        schedForm.image_source = (src === 'influencer' || src === 'character') ? src : 'brand';
         var isInf = schedForm.image_source === 'influencer';
         if (isInf) {
             var want = selectedId ? String(selectedId) : (schedForm.influencer_id || '');
@@ -2457,9 +2499,15 @@ jQuery(function ($) {
             $('#csSchedInfluencer').val(want);
             schedForm.influencer_id = want;
         } else { schedClearError('influencer'); }
+        if (schedForm.image_source === 'character') {
+            if (selectedId) { schedForm.character_id = String(selectedId); }
+            $('#csSchedCharacter').val(schedForm.character_id || '');
+            loadSchedCharacters();
+            if (schedCharacters && !schedForm.character_id && schedCharacters.length) { schedForm.character_id = String(schedCharacters[0].id); schedForm.character_name = schedCharacters[0].name || ''; $('#csSchedCharacter').val(schedForm.character_id); }
+        } else { schedClearError('character'); }
         syncSchedSourceTiles();
-        // The styles offered follow the source; an influencer video starts on Cinematic, 10 seconds, until a style is picked.
-        if (isInf && !schedForm.video_picked) { renderSchedVideoModels(SCHED_INF_VIDEO.key, SCHED_INF_VIDEO.dur); }
+        // The styles offered follow the source; a face (influencer or character) video starts on Cinematic, 10 seconds, until a style is picked.
+        if (schedHasFace() && !schedForm.video_picked) { renderSchedVideoModels(SCHED_INF_VIDEO.key, SCHED_INF_VIDEO.dur); }
         else { renderSchedVideoModels($('#csSchedVideoModel').val(), $('#csSchedVideoDur').val()); }
         updateSchedSummaries();
     }
@@ -2470,6 +2518,12 @@ jQuery(function ($) {
         if (parseInt($('#csSchedId').val(), 10) > 0) { return; }
         var inf = ((CFG.influencers && CFG.influencers.ready) || []).filter(function (i) { return String(i.id) === schedForm.influencer_id; })[0];
         if (inf && inf.share_accounts && inf.share_accounts.length) { renderSchedSocial(inf.share_accounts); }
+    });
+    $('#csSchedCharacter').on('change', function () {
+        schedForm.character_id = String(this.value || '');
+        var c = (schedCharacters || []).filter(function (x) { return String(x.id) === schedForm.character_id; })[0];
+        if (c) { schedForm.character_name = c.name || ''; }
+        schedClearError('character'); syncSchedSourceTiles(); updateSchedSummaries();
     });
     // Audience: Everyone or Subscribers; the Tier select only exists for subscribers and remembers its value.
     function setSchedAudience(a, tierId) {
@@ -2507,8 +2561,9 @@ jQuery(function ($) {
             if (!msgAi && msgText === '') { errors.push({ key: 'message', msg: 'Write the message.', focus: '#csSchedMsgText' }); }
             if (!schedTargetsChecked().length) { errors.push({ key: 'targets', msg: 'Pick who gets the message.', focus: '#csSchedTargets input' }); }
         } else {
-            if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source === 'influencer' ? 'Describe the scene.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
+            if (topic === '') { errors.push({ key: 'topic', msg: schedForm.image_source !== 'brand' ? 'Describe the scene.' : 'Describe what to post.', focus: '#csSchedTopic' }); }
             if (schedForm.image_source === 'influencer' && !schedForm.influencer_id) { errors.push({ key: 'influencer', msg: 'Pick an influencer.', focus: '#csSchedInfTrigger' }); }
+            if (schedForm.image_source === 'character' && !schedForm.character_id) { errors.push({ key: 'character', msg: 'Pick a character.', focus: '#csSchedCharTrigger' }); }
         }
         if (schedForm.cadence === 'weekly' && !$('#csSchedDays .cs-ae__day.is-on').length) { errors.push({ key: 'days', msg: 'Pick at least one day of the week.', focus: '#csSchedDays .cs-ae__day' }); }
         errors.forEach(function (e) { schedSetError(e.key, e.msg); });
@@ -2550,6 +2605,7 @@ jQuery(function ($) {
             id: $('#csSchedId').val(), name: name, topic: topic,
             kind: kind, message_ai: msgAi ? '1' : '0', message_text: msgText, message_targets: JSON.stringify(targets),
             image_source: schedForm.image_source || 'brand', influencer_id: influencerId, content_level: 'safe',
+            character_id: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_id || '') : '', character_name: (kind === 'post' && schedForm.image_source === 'character') ? (schedForm.character_name || '') : '',
             media_type: (kind === 'post' && schedIsVideo()) ? 'video' : 'image', video_prompt: $('#csSchedVideoPrompt').val() || '',
             video_model_key: $('#csSchedVideoModel').val() || '', video_duration: $('#csSchedVideoDur').val() || '',
             size: $('#csSchedSize').val(), audience: schedForm.audience,

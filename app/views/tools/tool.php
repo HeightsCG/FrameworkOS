@@ -94,5 +94,5 @@ echo Sections::faq($faq, 'white');
 ?>
 <section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title"><?php echo $e(Sections::tc($persona ? 'Bring your persona to life.' : 'Turn ideas into posts.')); ?></h2>
     <p class="sx-cta__text"><?php echo $e($persona ? 'Create an AI influencer on ' . $site . ' and generate realistic photos and videos for your posts.' : 'Run Ideas inside ' . $site . ' and turn any idea into a draft post in one click.'); ?></p></div>
-    <div class="sx-acts"><a class="sx-btn sx-btn--light" href="<?php echo $e($start); ?>">Start Free</a></div></div></section>
+    <div class="sx-acts"><a class="sx-btn sx-btn--light" href="<?php echo $e($start); ?>" rel="nofollow">Start Free</a></div></div></section>
 <script defer src="/js/tools.js?v=<?php echo @filemtime(Main::app_path() . '/public/js/tools.js'); ?>"></script>

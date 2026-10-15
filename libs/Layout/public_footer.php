@@ -42,7 +42,7 @@ $fb = $foot_links ? $fl((string) $foot_links['base']) : '';
 <?php /* the account links live here too: five columns fit the footer grid, six wrap */ if ($foot_links): ?>
                     <a href="<?php echo $fl($foot_links['login']); ?>">Sign in</a><a href="<?php echo $fl($foot_links['register']); ?>">Create an account</a>
 <?php else: ?>
-                    <a href="/?auth=login" data-auth="login">Sign in</a><a href="/?auth=register" data-auth="register">Create an account</a>
+                    <a href="/?auth=login" rel="nofollow" data-auth="login">Sign in</a><a href="/?auth=register" rel="nofollow" data-auth="register">Create an account</a>
 <?php endif; ?>
                 </div>
             </nav>

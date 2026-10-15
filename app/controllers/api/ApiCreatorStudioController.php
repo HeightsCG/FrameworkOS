@@ -629,8 +629,16 @@ class ApiCreatorStudioController extends BaseApiController {
             if (!$msg_ai && $msg_text === '') { $this->jsonError('Write the message, or let AI write it from a topic.'); }
         } elseif ($topic === '') { $this->jsonError('Describe what to post (the topic).'); }
 
-        $image_source  = (($this->post['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand';
+        $src           = (string) ($this->post['image_source'] ?? 'brand');
+        $image_source  = in_array($src, ['influencer', 'character'], true) ? $src : 'brand';
         $influencer_id = (int) ($this->post['influencer_id'] ?? 0);
+        $character_id  = trim((string) ($this->post['character_id'] ?? ''));
+        if ($kind === 'post' && $image_source === 'character') {
+            if (!(new EromifyAccountsModel())->get_connected_for_user($creator_id)) {
+                $this->jsonError('Connect Eromify in Settings > Integrations to use a character.');
+            }
+            if ($character_id === '') { $this->jsonError('Pick a character.'); }
+        }
         if ($kind === 'post' && $image_source === 'influencer') {
             $infl = $influencer_id > 0 ? (new InfluencersModel())->get_one($creator_id, $influencer_id) : null;
             if (!$infl) { $this->jsonError('Pick an influencer.'); }
@@ -639,6 +647,8 @@ class ApiCreatorStudioController extends BaseApiController {
         $fields = [
             'image_source'     => $image_source,
             'influencer_id'    => $influencer_id,
+            'character_id'     => $character_id,
+            'character_name'   => trim(html_entity_decode((string) ($this->post['character_name'] ?? ''), ENT_QUOTES)),
             'influencer_model_key' => (string) ($this->post['influencer_model_key'] ?? ''),
             'media_type'       => (($this->post['media_type'] ?? 'image') === 'video') ? 'video' : 'image',
             'video_prompt'     => trim(html_entity_decode((string) ($this->post['video_prompt'] ?? ''), ENT_QUOTES)),
@@ -1211,7 +1221,9 @@ class ApiCreatorStudioController extends BaseApiController {
             'credits_per_run'  => $cost['per_run'],     // AI credits each run uses
             'credits_per_month'=> $cost['per_month'],   // at this cadence
             'kind'             => (($r['kind'] ?? 'post') === 'message') ? 'message' : 'post',
-            'image_source'     => (($r['image_source'] ?? 'brand') === 'influencer') ? 'influencer' : 'brand',
+            'image_source'     => in_array($r['image_source'] ?? 'brand', ['influencer', 'character'], true) ? (string) $r['image_source'] : 'brand',
+            'character_id'     => (string) ($r['character_id'] ?? ''),
+            'character_name'   => (string) ($r['character_name'] ?? ''),
             'influencer_id'    => (int) ($r['influencer_id'] ?? 0),
             'influencer_name'  => $this->scheduler_influencer_name($r),
             'influencer_model_key' => (string) ($r['influencer_model_key'] ?? ''),

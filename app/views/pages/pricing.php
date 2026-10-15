@@ -19,7 +19,7 @@ $e = function ($s) { return Sections::e($s); };
         <h2 class="sx-plan__name"><?php echo $e($t['name']); ?></h2><?php $role = PagesController::plan_role((string) $t['key']); if ($role !== ''): ?><p class="sx-plan__role"><?php echo $e($role); ?></p><?php endif; ?>
         <div class="sx-plan__price"><?php if ($is_free): ?>$0<?php elseif ($r['amount'] !== null): ?>$<?php echo number_format($r['amount'] / 100, ($r['amount'] % 100 === 0) ? 0 : 2); ?> <small>/ month</small><?php else: ?><small>Shown when you sign up</small><?php endif; ?></div>
         <div class="sx-plan__cta">
-            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" data-auth="register">Start Now</a>
+            <a class="sx-btn <?php echo $hi ? 'sx-btn--primary' : 'sx-btn--secondary'; ?>" href="<?php echo $is_free ? '/?auth=register' : $e('/?auth=register&plan=' . rawurlencode((string) $t['key']) . '&role=creator'); ?>" rel="nofollow" data-auth="register">Start Now</a>
         </div>
         <div class="sx-plan__body">
         <?php if ($is_free): ?>

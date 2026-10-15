@@ -79,6 +79,8 @@ class StudioController extends Controller {
                 }
             }
             $this->view->influencers = array('all' => $infl_all, 'ready' => $infl_ready);
+            // My Character (Eromify) is offered as an automation source once the creator has connected Eromify.
+            $this->view->eromify_connected = (bool) (new EromifyAccountsModel())->get_connected_for_user((int) ($user['user_id'] ?? 0));
 
             // Automations the plan allows (Free has none): the Scheduler shows an upgrade prompt instead of the form.
             $acap = Plan::check_count($user, 'automations', (new SchedulerRulesModel())->count_for_creator((int) ($user['user_id'] ?? 0)));

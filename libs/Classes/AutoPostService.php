@@ -29,6 +29,7 @@ class AutoPostService {
         if ($image_brief === '') { return self::fail(null, 'This automation has no scene to generate from.'); }
         $size      = Aspect::normalize($rule['size'] ?? '', '1:1');
         $is_inf    = (($rule['image_source'] ?? 'brand') === 'influencer');
+        $is_char   = (($rule['image_source'] ?? 'brand') === 'character');   // the creator's Eromify character
         $is_video  = ((string) ($rule['media_type'] ?? 'image') === 'video');
 
         // No image or video model is ever asked to draw words: they misspell them. The line goes on afterwards in code.
@@ -51,9 +52,34 @@ class AutoPostService {
         if ($overlay !== '' && !TextOverlay::available()) { return self::fail(null, 'On-screen text is not available on this server (no font).'); }
         $meta['image_prompt'] = $image_brief;
 
-        // 1) Generate the image: a trained influencer, or a brand photo (OpenAI).
-        $asset_id = 0; $still_price = 0;
-        if ($is_inf) {
+        // 1) Generate the image: a trained influencer, the creator's Eromify character, or a brand photo.
+        $asset_id = 0; $still_price = 0; $pay = array('price' => 0);
+        if ($is_char) {
+            // Eromify renders the character into the scene, word for word, on the creator's own Eromify credits (no AI credits).
+            $acct = (new EromifyAccountsModel())->get_connected_for_user($creator_id);
+            if (!$acct) { return self::fail(null, 'Eromify is not connected. Connect it in Settings > Integrations.', $meta); }
+            if (trim((string) ($rule['character_id'] ?? '')) === '') { return self::fail(null, 'This automation has no character selected.', $meta); }
+            $level = (($rule['content_level'] ?? 'safe') === 'spicy') ? 'spicy' : 'safe';
+            $er = EromifyService::generate_character_image($acct['api_key'], (string) $rule['character_id'], $image_brief, $size, $level);
+            if (!$er['ok']) {
+                (new EromifyAccountsModel())->set_error($creator_id, $er['error']);
+                return self::fail(null, 'Character image failed: ' . $er['error'], $meta);
+            }
+            if ($er['credits_remaining'] !== null) { (new EromifyAccountsModel())->set_credits($creator_id, $er['credits_remaining']); }
+            $meta['image_model'] = 'eromify:' . (string) ($er['model'] ?? '');
+            error_log('[eromify] rule ' . (int) ($rule['id'] ?? 0) . ' scene: ' . $image_brief . ' (model ' . ($er['model'] ?? '?') . ')');
+            $bytes = self::fetch_bytes($er['url'], 30 * 1024 * 1024);
+            if ($bytes === '') { return self::fail(null, 'Could not download the generated character image.', $meta); }
+            $info = @getimagesizefromstring($bytes);
+            $ext  = ($info && $info[2] === IMAGETYPE_JPEG) ? 'jpg' : (($info && $info[2] === IMAGETYPE_WEBP) ? 'webp' : 'png');
+            $gen  = array('ok' => true, 'bytes' => $bytes, 'ext' => $ext);
+            // A still that will be animated keeps no text (the video gets the line); a posted image gets it now.
+            if ($overlay !== '' && !$is_video) {
+                $burned = TextOverlay::burn_image($gen['bytes'], $overlay);
+                if ($burned === '') { return self::fail(null, 'The on-screen line could not be added to the image.', $meta); }
+                $gen['bytes'] = $burned; $gen['ext'] = 'png';
+            }
+        } elseif ($is_inf) {
             // A video automation starts from Nano Banana Pro drawing her from her approved reference pictures.
             $ir = InfluencerJobService::run_for_rule($rule, $user, $image_brief, $size, $plan ? array('model_key' => self::VIDEO_BASE_MODEL) : array());
             if (empty($ir['ok'])) { return self::fail(null, 'Influencer image failed: ' . (string) $ir['error']); }
@@ -85,6 +111,7 @@ class AutoPostService {
         if ($asset_id <= 0) {
         // The image was paid for; if it can't be stored, give the credits back (once).
         $refund = function () use ($creator_id, $pay) {
+            if ((int) $pay['price'] <= 0) { return; }   // an Eromify still cost no AI credits
             (new AiCreditsModel())->apply_delta($creator_id, (int) $pay['price'], 'refund', 'Refund: automation image could not be saved');
         };
         $tmp = tempnam(sys_get_temp_dir(), 'sched');
@@ -116,7 +143,7 @@ class AutoPostService {
         $cap_infl  = ((int) ($rule['influencer_id'] ?? 0) > 0) ? (new InfluencersModel())->get_one($creator_id, (int) $rule['influencer_id']) : null;
         $cap_opts  = array('mode' => (($rule['caption_mode'] ?? '') === 'hook_overlay' ? 'standard' : (string) ($rule['caption_mode'] ?? 'standard')),   /* rules saved through the connector before hook_overlay was refused */ 'persona' => InfluencerService::persona_block($cap_infl));
         $fixed     = trim((string) ($rule['caption_text'] ?? ''));
-        $style     = (($rule['image_source'] ?? 'brand') === 'influencer') ? 'tease' : '';
+        $style     = in_array(($rule['image_source'] ?? 'brand'), array('influencer', 'character'), true) ? 'tease' : '';
         $cap_scene = $plan ? $plan['image_prompt'] : ($scene !== '' ? $scene : $image_brief);   // a planned run's caption follows the picture it shows
         $caption   = $ai_assist ? AutomationPrompt::clean_caption(BrandService::caption_for($cap_scene, $use_brand ? $cb : array(), $style, $parts['caption'], $cap_opts), $parts['caption'])
                                 : $fixed;
@@ -129,6 +156,11 @@ class AutoPostService {
             if ($plan) {
                 list($vkey, $vdur) = self::influencer_video_model((string) ($rule['video_model_key'] ?? ''), (string) ($rule['video_duration'] ?? ''));
                 $motion = $plan['motion'];
+            } elseif ($is_char) {
+                // An Eromify character is a realistic face too: never a model that refuses one (Seedance).
+                list($vkey, $vdur) = self::influencer_video_model((string) ($rule['video_model_key'] ?? ''), (string) ($rule['video_duration'] ?? ''));
+                $motion = trim((string) ($rule['video_prompt'] ?? ''));
+                if ($motion === '') { $motion = $scene; }
             } else {
                 $vkey = (string) ($rule['video_model_key'] ?? ''); $vdur = (string) ($rule['video_duration'] ?? '');
                 $motion = trim((string) ($rule['video_prompt'] ?? ''));
@@ -141,6 +173,7 @@ class AutoPostService {
                 array('overlay_text' => $overlay, 'auto_post' => array('rule_id' => (int) ($rule['id'] ?? 0), 'caption' => $caption, 'meta' => $meta)));
             if (empty($v['ok'])) {
                 // No video, no post: give back the still's credits too (it stays in the Library).
+                if ($is_char) { return self::fail(null, 'Video failed: ' . (string) $v['message'], $meta); }   // the still was paid with Eromify credits
                 (new AiCreditsModel())->refund_once($creator_id, $still_price > 0 ? $still_price : Plan::ai_price('image', array('params' => array('num_images' => 1))), 'automation still #' . (int) $asset_id);
                 return self::fail(null, 'Video failed: ' . (string) $v['message'] . ' The image credits were returned.', $meta);
             }
@@ -245,6 +278,20 @@ class AutoPostService {
         }
 
         return array('ok' => true, 'post_id' => $post_id, 'message' => $message);
+    }
+
+    /** Download a generated image (https only) into memory, capped. '' on failure. */
+    private static function fetch_bytes($url, $max){
+        if (strpos((string) $url, 'https://') !== 0) { return ''; }
+        $buf = '';
+        $ch = curl_init($url);
+        curl_setopt_array($ch, array(
+            CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 60, CURLOPT_FOLLOWLOCATION => true, CURLOPT_MAXREDIRS => 3,
+            CURLOPT_PROTOCOLS => CURLPROTO_HTTPS, CURLOPT_REDIR_PROTOCOLS => CURLPROTO_HTTPS,
+            CURLOPT_WRITEFUNCTION => function ($c, $chunk) use (&$buf, $max) { $buf .= $chunk; return (strlen($buf) > $max) ? 0 : strlen($chunk); },
+        ));
+        curl_exec($ch); $code = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE); curl_close($ch);
+        return ($code === 200 && strlen($buf) <= $max) ? $buf : '';
     }
 
     private static function fail($post_id, $message, array $meta = array()){

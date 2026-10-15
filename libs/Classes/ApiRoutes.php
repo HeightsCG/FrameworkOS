@@ -45,7 +45,7 @@ class ApiRoutes {
         ],
         'ApiSocialIntegrationsController' => [
             'connect_account', 'disconnect_account', 'social_sync', 'social_disclosure_save', 'fanvue_connect',
-            'fanvue_disconnect',
+            'fanvue_disconnect', 'eromify_connect', 'eromify_disconnect', 'eromify_characters',
         ],
         'ApiSupportController' => [
             'support_create', 'support_reply', 'support_close', 'support_assist', 'contact_send',

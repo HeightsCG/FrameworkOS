@@ -723,7 +723,7 @@ $pub_links   = array(
 
         <?php if (empty($viewer_logged_in)): /* signed-in viewers are already inside the app */ ?>
         <footer class="pf-foot">
-            <a class="pf-foot__brand" href="<?php echo htmlspecialchars($join_href . '&role=creator', ENT_QUOTES, 'UTF-8'); ?>">
+            <a class="pf-foot__brand" href="<?php echo htmlspecialchars($join_href . '&role=creator', ENT_QUOTES, 'UTF-8'); ?>" rel="nofollow">
                 <span class="pf-foot__mark"></span>
                 <span>Create Your Page Free</span>
             </a>
