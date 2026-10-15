@@ -5,7 +5,7 @@ $prices = array(); foreach (Founding::PLANS as $fk) { $ft = PlanTiers::get($fk);
 $after  = implode(' or ', $prices);
 $open   = (int) $left > 0;
 
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'founding', 'variant' => 'panel', 
     'title'   => 'Become a Founding Creator',
     'lead'    => Founding::SPOTS . ' founding spots, open until they are filled. Start the ' . $names . ' plan with your ' . Founding::free_label() . ', and be featured in the creator directory and on the home page.',
     'buttons' => $open ? array(array('Claim a Founding Spot', $claim_url, 'primary', $claim_auth), array('See Pricing', '/pricing', 'secondary'))
@@ -22,7 +22,7 @@ echo Sections::open('white', 'How Do You Claim a Spot?');
 echo '<ol class="fx-steps fx-steps--3">'
     . '<li><h3>1. Create Your Account</h3><p>Press Claim Your Spot and the sign-up form opens right here. The account is free, and you confirm your email to open it.</p></li>'
     . '<li><h3>2. Pick ' . Sections::e($names) . '</h3><p>The Billing page opens with the founding offer already applied. Choose the plan you want.</p></li>'
-    . '<li class="is-last"><h3>3. Add a Card</h3><p>Nothing is charged today. Your first month is free, then the plan is ' . Sections::e($after) . '. Cancel any time before then and you pay nothing.</p></li>'
+    . '<li class="is-last"><h3>3. Add a Card</h3><p>Nothing is charged today. Your first ' . (int) Founding::TRIAL_DAYS . ' days are free, then the plan is ' . Sections::e($after) . '. Cancel any time before then and you pay nothing.</p></li>'
     . '</ol>';
 echo Sections::close();
 

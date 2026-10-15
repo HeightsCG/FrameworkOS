@@ -7,8 +7,42 @@
 class FeaturePages {
 
     /** Footer grouping, in display order: PAGES slugs under "Product"; PAGES slugs then every ROOT page under "AI". */
-    const FOOTER_PRODUCT = array('memberships', 'pay-per-view', 'link-in-bio', 'publishing', 'services-and-events', 'custom-domains', 'payouts');
+    const FOOTER_PRODUCT = array('memberships', 'pay-per-view', 'link-in-bio', 'publishing', 'automations', 'analytics', 'services-and-events', 'custom-domains', 'payouts');
     const FOOTER_AI      = array('ai-influencer', 'dm-agent');
+
+
+    /**
+     * How each feature page looks (site-wide redesign 2026-10-15): its hero photo (SitePhotos key), the hero layout, and the visual
+     * placed in one of its rows: 'ui:<kind>' (Sections::ui schematic), 'trio:<a>,<b>,<c>' (one character in three scenes) or
+     * 'gallery:<keys>' (a training set). Every page has its own photo; the AI pages share their one AI-generated character on purpose.
+     */
+    const LOOK = array(
+        'ai-influencer'            => array('photo' => 'aichar', 'variant' => 'split', 'visual' => 'trio:aichar-a,aichar-b,aichar-c', 'row' => 1, 'caption' => 'One AI character, three scenes. Illustrative images made with AI.'),
+        'dm-agent'                 => array('photo' => 'dmagent', 'variant' => 'split', 'visual' => 'ui:inbox', 'row' => 0),
+        'payouts'                  => array('photo' => 'payouts', 'variant' => 'split', 'visual' => 'ui:payout', 'row' => 0),
+        'memberships'              => array('photo' => 'memberships', 'variant' => 'split', 'visual' => 'ui:offers', 'row' => 0),
+        'pay-per-view'             => array('photo' => 'ppv', 'variant' => 'split'),
+        'link-in-bio'              => array('photo' => 'linkinbio', 'variant' => 'split', 'visual' => 'ui:linkpage', 'row' => 0),
+        'publishing'               => array('photo' => 'publishing', 'variant' => 'full', 'visual' => 'ui:targets', 'row' => 0),
+        'automations'              => array('photo' => 'automations', 'variant' => 'split', 'visual' => 'ui:automation', 'row' => 0),
+        'analytics'                => array('photo' => 'analytics', 'variant' => 'split', 'visual' => 'ui:analytics', 'row' => 0),
+        'services-and-events'      => array('photo' => 'services', 'variant' => 'split'),
+        'custom-domains'           => array('photo' => 'domains', 'variant' => 'split', 'visual' => 'ui:domain', 'row' => 0),
+        'lora-character-training'  => array('photo' => 'train-1', 'variant' => 'split', 'visual' => 'gallery:train-1,train-2,train-3,train-4,train-5,aichar', 'row' => 0, 'caption' => 'A training set: one AI character from six angles. Illustrative images made with AI.'),
+        'consistent-ai-model-face' => array('photo' => 'aichar-c', 'variant' => 'split', 'visual' => 'trio:aichar,aichar-a,aichar-b', 'row' => 0, 'caption' => 'The same face in three scenes. Illustrative images made with AI.'),
+        'ai-ofm-tools'             => array('photo' => 'ofm', 'variant' => 'full', 'visual' => 'ui:schedule', 'row' => 0),
+    );
+
+    /** The visual for one page as trusted HTML, or ''. */
+    public static function visual(string $slug): string {
+        $l = self::LOOK[$slug] ?? array(); $v = (string) ($l['visual'] ?? '');
+        if ($v === '') { return ''; }
+        list($kind, $arg) = array_pad(explode(':', $v, 2), 2, '');
+        if ($kind === 'ui') { return Sections::ui($arg); }
+        $imgs = ''; foreach (explode(',', $arg) as $k) { $imgs .= Sections::photo(trim($k), $kind === 'gallery' ? '(max-width: 560px) 50vw, (max-width: 1100px) 33vw, 200px' : '(max-width: 760px) 33vw, 240px'); }
+        if ($imgs === '') { return ''; }
+        return '<figure class="sx-' . ($kind === 'gallery' ? 'gallery' : 'trio') . '">' . $imgs . (!empty($l['caption']) ? '<figcaption>' . Sections::e($l['caption']) . '</figcaption>' : '') . '</figure>';
+    }
 
     const PAGES = array(
 
@@ -506,6 +540,103 @@ class FeaturePages {
                 array('q' => 'Will fans have to sign in again?', 'a' => 'No. A signed-in fan is handed to your domain with their session, so they can buy and join straight away.'),
             ),
             'cta' => array('title' => 'Put your page on your domain', 'text' => 'Your address, our checkout and payouts.'),
+        ),
+
+        'automations' => array(   // 2026-10-15. Every line traces to cron/scheduler.php, SchedulerRulesModel, AutoPostService, MessageBlastService and InboxAutomationService.
+            'nav_title'   => 'Automations',
+            'title'       => 'Content Automations for Creators: Post and Message on Schedule',
+            'description' => 'Set an automation once and it creates, captions and publishes a post every day or on the days you pick, or sends scheduled messages to the fans you choose.',
+            'hero' => array(
+                'title' => 'Your Content on Autopilot',
+                'lead'  => 'An automation is a rule that runs on a schedule. A post automation makes an image or a short video, writes the caption and publishes it to your page and your social accounts. A message automation sends a message to the fans you pick. You set it once and it runs at your local time.',
+            ),
+            'video'   => '',
+            'related' => array('publishing', 'ai-influencer', 'analytics'),
+            'rows' => array(
+                array(
+                    'title'  => 'Posts that make themselves',
+                    'text'   => 'Each run takes one idea from your list, creates the image from your brand or your AI influencer, writes a caption and publishes it.',
+                    'points' => array(
+                        'Photo, or a short video animated from the photo',
+                        'Captions written by AI in your brand voice, or your own text',
+                        'Free for everyone, or for subscribers or a chosen membership tier',
+                    ),
+                ),
+                array(
+                    'title'  => 'On your schedule',
+                    'text'   => 'Run every day, or only on the weekdays you choose, at the time you set in your own timezone.',
+                    'points' => array(
+                        'Pause and restart any automation',
+                        'Each post also goes to the social accounts you tick',
+                    ),
+                ),
+                array(
+                    'title'  => 'Scheduled messages',
+                    'text'   => 'A message automation sends to everyone, your followers, your subscribers, lapsed subscribers or your buyers, with your text or a message written by AI in your voice.',
+                    'link'   => array('See the AI inbox', '/features/dm-agent'),
+                ),
+            ),
+            'steps' => array(
+                array('Create the Automation', 'Open the Studio, add an automation and choose a post or a message.'),
+                array('Pick What It Makes', 'For a post: the image source, photo or video, the caption and who can see it. For a message: who receives it and the text.'),
+                array('Set the Schedule', 'Choose every day or the weekdays you want and the time. It runs on its own from then on.'),
+            ),
+            'fan_side' => 'Fans see ordinary posts on your page and on your social accounts, published at a steady rhythm, and messages in their inbox. AI-made media carries the AI labels each platform asks for.',
+            'limits'   => array('automations', 'ai_credits'),
+            'faq' => array(
+                array('q' => 'How often can an automation run?', 'a' => 'Once a day, either every day or on the weekdays you choose, at the time you set in your timezone.'),
+                array('q' => 'Can an automation post video?', 'a' => 'Yes. Choose video and each run animates its image into a short clip before publishing.'),
+                array('q' => 'Does it post to my social accounts too?', 'a' => 'Yes. Tick the accounts when you set it up and each run cross-posts there as well as to your page.'),
+                array('q' => 'Which plans include automations?', 'a' => 'Automations are part of the paid plans; the number you can run depends on the plan. Free accounts can build their page and drafts.'),
+            ),
+            'cta' => array('title' => 'Set it once, keep posting', 'text' => 'Automations create, caption and publish on your schedule.'),
+        ),
+
+        'analytics' => array(   // 2026-10-15. Every line traces to DashboardController, app/views/dashboard/index.php, cron/social_metrics.php and GoController.
+            'nav_title'   => 'Analytics',
+            'title'       => 'Creator Analytics: Revenue, Content and Audience in One Dashboard',
+            'description' => 'See revenue, subscribers, views and engagement over 7, 30 or 90 days, with engagement from your social accounts, link clicks and tracking links in one dashboard.',
+            'hero' => array(
+                'title' => 'Know What Works',
+                'lead'  => 'The dashboard shows how your page and your posts are doing over the last 7, 30 or 90 days, each compared with the period before. Revenue, subscribers, followers, views, posts and engagement sit at the top, with a tab each for revenue, content, audience and customers.',
+            ),
+            'video'   => '',
+            'related' => array('publishing', 'automations', 'payouts'),
+            'rows' => array(
+                array(
+                    'title'  => 'Revenue you can trace',
+                    'text'   => 'See revenue by offering and over time, with your recent sales listed and ready to export as a spreadsheet.',
+                ),
+                array(
+                    'title'  => 'Every post and where it went',
+                    'text'   => 'One table lists every post with its views, engagement and sales, and where it was shared. Engagement on the copies you cross-posted comes back from your social accounts.',
+                    'points' => array(
+                        'Delivery status for each platform',
+                        'Social engagement refreshed every few hours',
+                    ),
+                ),
+                array(
+                    'title'  => 'Where your audience comes from',
+                    'text'   => 'Follower growth, the sources and pages that send visitors, link clicks and tracking links that show which links bring signups and sales.',
+                ),
+                array(
+                    'title'  => 'When fans are active',
+                    'text'   => 'A heatmap shows the hours your audience is active, next to your customers, subscribers and the content that earns the most.',
+                ),
+            ),
+            'steps' => array(
+                array('Publish as Usual', 'Post to your page and your social accounts. Every view, like and sale is counted.'),
+                array('Open the Dashboard', 'Pick 7, 30 or 90 days and see each number against the period before.'),
+                array('Follow the Tabs', 'Revenue, content, audience and customers each have their own tab.'),
+            ),
+            'fan_side' => 'Fans see nothing of it. The dashboard is private to your account.',
+            'faq' => array(
+                array('q' => 'Which numbers are at the top of the dashboard?', 'a' => 'Revenue, subscribers, followers, views, posts and engagement, for the period you pick, each compared with the period before.'),
+                array('q' => 'Does it include my social accounts?', 'a' => 'Yes. Engagement on the posts you cross-posted through the studio comes back from the connected accounts and refreshes every few hours.'),
+                array('q' => 'Can I export my sales?', 'a' => 'Yes. Recent sales export as a CSV file from the revenue tab.'),
+                array('q' => 'Can I track where signups come from?', 'a' => 'Yes. Create tracking links and the dashboard shows the clicks, signups and sales each one brings.'),
+            ),
+            'cta' => array('title' => 'See what is working', 'text' => 'Revenue, content and audience in one dashboard.'),
         ),
     );
 

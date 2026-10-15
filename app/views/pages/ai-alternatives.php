@@ -6,7 +6,7 @@
  */
 $e = function ($s) { return Sections::e($s); };
 $site = Main::site_name();
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'aichar-a', 'variant' => 'split', 
     'title' => 'AI influencer tools compared',
     'lead'  => 'Running an AI influencer takes several kinds of tools: something to make the character, something to keep the face the same, something for video and voice, and somewhere to publish and get paid. Here is what each kind does and what to check before you pick one.',
 ));

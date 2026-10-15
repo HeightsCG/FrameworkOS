@@ -12,7 +12,7 @@ $pic = function ($name, array $widths, $w, $h, $alt, $sizes, $class = '', $eager
         . ' width="' . (int) $w . '" height="' . (int) $h . '" alt="' . $e($alt) . '"' . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"') . '>';
 };
 $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a button, with the arrow drawn as a Lucide icon
-    return '<a class="sx-btn ' . $class . ' hm-btn" href="' . $e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . $e($t[2]) . '"' : '') . '>' . $e($t[0]) . Sections::icon('arrow-right', 18) . '</a>';
+    return '<a class="sx-btn ' . $class . '" href="' . $e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . $e($t[2]) . '"' : '') . '>' . $e($t[0]) . Sections::icon('arrow-right', 18) . '</a>';
 };
 
 // Hero (2026-10-15 redesign, from Daniel's ad; no logo here, the nav already carries it): H1, supporting line, three benefits, the trial CTA; the portrait sits right and fades into the black.
@@ -29,8 +29,8 @@ $btn = function (array $t, $class) use ($e) {   // a trial_link() tuple as a but
                 <li><?php echo Sections::icon('zap', 22); ?>Automation &amp; Monetization</li>
             </ul>
             <div class="hm-hero__acts">
-                <?php echo $btn($trial, 'sx-btn--primary hm-btn--lg'); ?>
-                <a class="sx-btn sx-btn--secondary hm-btn--lg" href="/features">Explore the Platform</a>
+                <?php echo $btn($trial, 'sx-btn--primary sx-btn--lg'); ?>
+                <a class="sx-btn sx-btn--secondary sx-btn--lg" href="/features">Explore the Platform</a>
             </div>
         </div>
     </div>
@@ -56,10 +56,10 @@ echo Sections::close();
 
 // 2. Create: the same generated character in three settings shows what "consistent" means. Every point is a real feature (FeaturePages ai-influencer, lora-character-training, consistent-ai-model-face; voice in InfluencerVoiceActions).
 echo Sections::open('alt', '', '', 'create');
-echo '<div class="hm-split">';
-echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Create Without Limits')) . '</h2>'
+echo '<div class="sx-split">';
+echo '<div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Create Without Limits')) . '</h2>'
     . '<p class="sx-lead">Design an AI influencer once and keep the same face in every photo and video, whatever the outfit, place or style.</p>'
-    . '<ul class="hm-list">'
+    . '<ul class="sx-list">'
     . '<li>' . Sections::icon('users', 20) . '<span><b>AI influencer creation.</b> Start from a description or from 10 to 50 photos.</span></li>'
     . '<li>' . Sections::icon('face', 20) . '<span><b>A consistent character.</b> <a href="/lora-character-training">Train the face</a> once and it stays the same.</span></li>'
     . '<li>' . Sections::icon('image', 20) . '<span><b>AI images.</b> New photos of your character from a short prompt.</span></li>'
@@ -86,25 +86,16 @@ echo Sections::close();
 
 // 4. Automation: a schematic of one rule (invented values, labelled), next to what the scheduler really does (cron/scheduler.php, AutoPostService).
 echo Sections::open('alt', '', '', 'automate');
-echo '<div class="hm-split">';
-echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Put Your Content on Autopilot')) . '</h2>'
+echo '<div class="sx-split">';
+echo '<div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Put Your Content on Autopilot')) . '</h2>'
     . '<p class="sx-lead">Plan a week of posts in one sitting, or set an automation and let it keep your page and socials fresh.</p>'
-    . '<ul class="hm-list">'
+    . '<ul class="sx-list">'
     . '<li>' . Sections::icon('calendar', 20) . '<span><b>Scheduled publishing.</b> Pick a time and the post goes out on its own.</span></li>'
     . '<li>' . Sections::icon('repeat', 20) . '<span><b>Publishing automations.</b> Daily, or on the weekdays you choose, at your local time.</span></li>'
     . '<li>' . Sections::icon('sparkles', 20) . '<span><b>Less repetitive work.</b> Each run makes the image or video and writes the caption.</span></li>'
     . '<li>' . Sections::icon('clock', 20) . '<span><b>Consistent delivery.</b> Your audience sees something new on schedule.</span></li>'
     . '</ul><p class="hm-more"><a href="/features/publishing">More on publishing</a></p></div>';
-echo '<figure class="hm-ui" aria-label="Illustrative example of an automation">'
-    . '<div class="hm-ui__bar"><b>Morning Post</b><span class="hm-ui__on">Active</span></div>'
-    . '<dl class="hm-ui__rows">'
-    . '<div><dt>Runs</dt><dd>Every day at 9:00</dd></div>'
-    . '<div><dt>Source</dt><dd>AI influencer</dd></div>'
-    . '<div><dt>Format</dt><dd>Photo</dd></div>'
-    . '<div><dt>Caption</dt><dd>Written by AI in your brand voice</dd></div>'
-    . '<div><dt>Publish to</dt><dd class="hm-ui__chips"><span>Your page</span><span>Instagram</span><span>TikTok</span><span>X</span></dd></div>'
-    . '<div><dt>Next run</dt><dd>Tomorrow, 9:00</dd></div>'
-    . '</dl><figcaption>Illustrative example</figcaption></figure>';
+echo Sections::ui('automation');
 echo '</div>';
 echo Sections::close();
 
@@ -121,19 +112,13 @@ echo Sections::index_list(array(
 echo '<p class="hm-more"><a href="/monetize-your-content">How creators sell on ' . $e($site) . '</a></p>';
 echo Sections::close();
 
-// 6. Growth: a schematic of the dashboard (invented figures, labelled; revenue drawn without a number) and what /dashboard really reports.
-$bars = array(38, 52, 45, 61, 57, 72, 66, 80, 74, 90, 84, 96);
-$bars_html = ''; foreach ($bars as $b) { $bars_html .= '<i style="height:' . (int) $b . '%"></i>'; }
+// 6. Growth: the dashboard schematic (Sections::ui, invented figures, labelled; revenue drawn without a number) and what /dashboard really reports.
 echo Sections::open('alt', '', '', 'growth');
-echo '<div class="hm-split hm-split--rev">';
-echo '<figure class="hm-ui hm-ui--stats" aria-label="Illustrative example of the analytics dashboard">'
-    . '<div class="hm-ui__bar"><b>Analytics</b><span class="hm-ui__seg"><span>7d</span><span class="is-on">30d</span><span>90d</span></span></div>'
-    . '<div class="hm-ui__kpis"><div><small>Views</small><b>12,480</b></div><div><small>Engagement</small><b>6.2%</b></div><div><small>Link clicks</small><b>1,936</b></div><div><small>New followers</small><b>418</b></div></div>'
-    . '<div class="hm-ui__chart"><small>Revenue</small><div class="hm-ui__bars">' . $bars_html . '</div></div>'
-    . '<figcaption>Illustrative figures</figcaption></figure>';
-echo '<div class="hm-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Understand Your Growth')) . '</h2>'
+echo '<div class="sx-split sx-split--rev">';
+echo Sections::ui('analytics');
+echo '<div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc('Understand Your Growth')) . '</h2>'
     . '<p class="sx-lead">One dashboard for your page and every platform you post to, over 7, 30 or 90 days.</p>'
-    . '<ul class="hm-list">'
+    . '<ul class="sx-list">'
     . '<li>' . Sections::icon('chart', 20) . '<span><b>Engagement.</b> Likes, comments and views from your page and your social accounts.</span></li>'
     . '<li>' . Sections::icon('users', 20) . '<span><b>Audience activity.</b> Follower growth, where visitors come from and when they are active.</span></li>'
     . '<li>' . Sections::icon('eye', 20) . '<span><b>Content performance.</b> Every post with its views, engagement and sales.</span></li>'
@@ -266,7 +251,7 @@ echo Sections::faq($home_faq, 'white');
     <div class="hm-final__media"><?php echo $pic('final', array(960, 1440), 1440, 816, 'A creator at her desk at night reviewing photos on a large monitor', '100vw'); ?></div>
     <div class="ld-wrap hm-final__in">
         <h2 class="hm-final__t" id="hm_final"><span>Your Content.</span> <span>Your Audience.</span> <span>Your Business.</span></h2>
-        <div class="hm-hero__acts"><?php echo $btn($trial, 'sx-btn--primary hm-btn--lg'); ?></div>
+        <div class="hm-hero__acts"><?php echo $btn($trial, 'sx-btn--primary sx-btn--lg'); ?></div>
     </div>
 </section>
 

@@ -1,13 +1,12 @@
 <?php
 $site = Main::site_name();
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'monetize', 'variant' => 'panel', 
     'title' => 'How to monetize your content',
     'lead' => 'Five ways creators get paid, what each one is good for, and how to price it. Everything here works on ' . $site . ', and most of it works anywhere.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('Where to start your prices.', 'Start higher than feels comfortable.', Sections::pane_rows(array(
         array('Entry tier', 'The price of a coffee where most of your fans live'), array('Top tier', 'Three to five times the entry tier'),
         array('Pay-per-view', 'A quarter of the entry tier or more'), array('Services', 'Your hourly worth times the real time, plus a third')))),
-    'bg_image' => SiteImages::bg('monetize_hero'),
 ));
 echo Sections::open('white', 'What are the five ways to get paid?', 'The five ways are memberships, pay-per-view posts, bundles, services and events. Each one suits a different kind of work, and all five can run from one page.');
 echo Sections::cards(array(

@@ -7,12 +7,11 @@ foreach (array('onlyfans', 'patreon', 'kofi', 'linktree') as $slug) {
     $cp = PagesController::COMPETITORS[$slug] ?? null;
     if ($cp) { $fee_rows[] = array($cp['name'], (string) ($cp['fee_short'] ?? $cp['fee']['value'])); }
 }
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'alternatives', 'variant' => 'panel', 
     'title' => 'Best creator monetization platforms in ' . date('Y'),
     'lead' => 'A creator monetization platform is a service that lets you charge fans for content, memberships or services and pays you out. There is no single best one; there is the best fit for how you sell. This guide compares the main options on fee, what you can sell, payouts, social publishing and ownership. We build ' . $site . ', and we say so where it matters.',
     'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('Platform fees', 'What each platform keeps from your sales.', Sections::pane_rows($fee_rows)),
-    'bg_image' => SiteImages::bg('best_hero'),
 ));
 echo Sections::open('white', 'How do you judge a creator platform?');
 echo Sections::cards(array(

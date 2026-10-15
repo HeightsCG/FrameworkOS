@@ -9,7 +9,7 @@ $name = (string) $page['name'];
 <link rel="stylesheet" href="/css/growth.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/growth.css'); ?>">
 <?php
 $trial = Sections::trial_link();
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'integration', 'variant' => 'panel', 
     'title'   => $name . ' + ' . $site,
     'lead'    => $page['lead'],
     'buttons' => array(array($trial[0], $trial[1], 'primary', $trial[2]), array('All Integrations', '/integrations', 'ghost')),

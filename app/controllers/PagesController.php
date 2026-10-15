@@ -258,6 +258,13 @@ class PagesController extends Controller {
 
     private function page($view, array $meta, array $vars = array()){
         $meta['url'] = SeoMeta::base() . $meta['path'];
+        // The photo hero is the page's LCP image (site-wide redesign 2026-10-15): preload the same srcset the <img> uses.
+        $hp = (string) ($meta['hero_photo'] ?? ''); unset($meta['hero_photo']);
+        if ($hp !== '' && SitePhotos::has($hp)) {
+            $meta['preload_image'] = SitePhotos::src($hp); $meta['preload_srcset'] = SitePhotos::srcset($hp);
+            $meta['preload_sizes'] = (string) ($meta['hero_sizes'] ?? '100vw');
+        }
+        unset($meta['hero_sizes']);
         if (!self::$embedded && (int) Session::get('user_id') === 0) { Affiliates::capture($this->get_ip_address()); }   // ?aff=<code> on any public page, signed out: cls_aff + a click
         if (!self::$embedded && isset($_GET['aff'])) { Session::cache_header(300); }   // the affiliate cookie was just set: this response is private
         if (!isset($meta['jsonld'])) {
@@ -335,7 +342,9 @@ class PagesController extends Controller {
         foreach ((array) ($page['related'] ?? array_keys($all)) as $k) { if ($k !== $slug && isset($all[$k])) { $siblings[$k] = $all[$k]; } }
         $jsonld = array(SeoMeta::faq((array) ($page['faq'] ?? array())), SeoMeta::breadcrumbs($crumbs));
         $cta = (array) ($page['cta'] ?? array());
-        $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld),
+        $look = FeaturePages::LOOK[$slug] ?? array();
+        $this->page('feature', array('path' => $path, 'title' => $page['title'], 'description' => $page['description'], 'jsonld' => $jsonld,
+                'hero_photo' => (string) ($look['photo'] ?? ''), 'hero_sizes' => ($look['variant'] ?? 'split') === 'split' ? '(max-width: 760px) 100vw, 52vw' : '100vw'),
             array('page' => $page, 'slug' => $slug, 'path' => $path, 'siblings' => $siblings,
                   'cta_title' => $cta['title'] ?? 'Start selling from one page.', 'cta_text' => $cta['text'] ?? ''));
     }
@@ -383,7 +392,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Features', 'url' => '/features'))),
         );
-        $this->page('features', array('path' => '/features', 'title' => 'Creator Platform Features: Memberships, PPV and AI Tools', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
+        $this->page('features', array('hero_photo' => 'featport', 'hero_sizes' => '(max-width: 760px) 100vw, 58vw', 'path' => '/features', 'title' => 'Creator Platform Features: Memberships, PPV and AI Tools', 'description' => 'One creator platform for your public page, memberships, pay-per-view, events, services, links, cross-posting and payouts.', 'type' => 'product', 'jsonld' => $jsonld, 'no_guides' => true), array('faq' => $faq));
     }
     /** One row per tier, in rank order, with the live Stripe monthly price when available. */
     /**
@@ -423,7 +432,7 @@ class PagesController extends Controller {
         );
         $recent = array();
         try { $recent = (new SeoArticlesModel())->published(8, 0); } catch (\Throwable $e) { error_log('[seo] about recent articles: ' . $e->getMessage()); }   // the editorial section lists the latest pieces; the page never breaks on it
-        $this->page('about', array('path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
+        $this->page('about', array('hero_photo' => 'about', 'hero_sizes' => '100vw', 'path' => '/about', 'title' => 'About ' . $site . ': One Page to Sell and Get Paid', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true), array('recent' => $recent));
     }
 
     /** /author/dr-glauber: the author page behind the byline (SeoMeta::AUTHOR_NAME, AUTHOR_BIO, AUTHOR_EXPERIENCE). Linked only from article bylines; not in the nav, the footer or the sitemap. */
@@ -452,7 +461,7 @@ class PagesController extends Controller {
             array('@context' => 'https://schema.org', '@type' => 'ContactPage', 'name' => 'Contact ' . $site, 'description' => $desc, 'url' => SeoMeta::base() . '/contact', 'about' => SeoMeta::org_ref()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Contact', 'url' => '/contact'))),
         );
-        $this->page('contact', array('path' => '/contact', 'title' => 'Contact Support', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true));
+        $this->page('contact', array('hero_photo' => 'contact', 'hero_sizes' => '(max-width: 760px) 100vw, 52vw', 'path' => '/contact', 'title' => 'Contact Support', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true));
     }
 
     public function pricingAction(){
@@ -846,7 +855,7 @@ class PagesController extends Controller {
             SeoMeta::faq(self::best_faq()),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Best creator monetization platforms', 'url' => $path))),
         );
-        $this->page('best-platforms', array('preload_image' => SiteImages::bg('best_hero'), 'path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
+        $this->page('best-platforms', array('hero_photo' => 'alternatives', 'path' => $path, 'title' => 'Best Creator Monetization Platforms (' . gmdate('Y') . ')', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => self::best_faq()));
     }
 
     public function monetizeAction(){
@@ -865,7 +874,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Monetize your content', 'url' => $path))),
         );
-        $this->page('monetize', array('preload_image' => SiteImages::bg('monetize_hero'), 'path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
+        $this->page('monetize', array('hero_photo' => 'monetize', 'path' => $path, 'title' => $title, 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('faq' => $faq));
     }
 
     /** The founding creator offer (/founding): terms, what founding creators agree to, spots left (Founding). */
@@ -898,7 +907,7 @@ class PagesController extends Controller {
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Founding Creators', 'url' => $path))),
         );
         $claim = Founding::claim_link();
-        $this->page('founding', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
+        $this->page('founding', array('hero_photo' => 'founding', 'hero_sizes' => '100vw', 'path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
             array('faq' => $faq, 'left' => Founding::remaining_cached(),
                   'claim_url' => $claim[0], 'claim_auth' => $claim[1]));
     }
@@ -940,7 +949,7 @@ class PagesController extends Controller {
         );
         $signed_in = (int) Session::get('user_id') > 0;
         $mine = $signed_in ? Affiliates::approved_for_user((int) Session::get('user_id')) : null;
-        $this->page('affiliates', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
+        $this->page('affiliates', array('hero_photo' => 'affiliates', 'hero_sizes' => '100vw', 'path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'type' => 'website', 'jsonld' => $jsonld, 'no_band' => true),
             array('faq' => $faq, 'plans' => self::selling_names(),
                   'apply_label' => $mine ? 'Open Your Dashboard' : 'Apply Now',
                   'apply_url' => $mine ? '/affiliates/dashboard' : ($signed_in ? '/affiliates/apply' : '/?auth=register&next=' . rawurlencode('/affiliates/apply'))));   // a full load, so ?next brings them back to the form
@@ -993,7 +1002,7 @@ class PagesController extends Controller {
             $jsonld = array(SeoMeta::faq($faq), SeoMeta::breadcrumbs(array(
                 array('name' => 'Home', 'url' => '/'), array('name' => 'Integrations', 'url' => '/integrations'), array('name' => $page['name'], 'url' => $path),
             )));
-            $this->page('integration', array('path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+            $this->page('integration', array('hero_photo' => 'integration', 'hero_sizes' => '100vw', 'path' => $path, 'title' => $m['title'], 'description' => $m['description'], 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
                 array('page' => $page, 'slug' => $slug, 'faq' => $faq, 'steps' => IntegrationPages::steps($slug)));
             return;
         }
@@ -1010,7 +1019,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'Integrations', 'url' => '/integrations'))),
         );
-        $this->page('integrations', array('path' => '/integrations', 'title' => self::INTEGRATIONS_TITLE, 'description' => self::INTEGRATIONS_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+        $this->page('integrations', array('hero_photo' => 'integrations', 'hero_sizes' => '100vw', 'path' => '/integrations', 'title' => self::INTEGRATIONS_TITLE, 'description' => self::INTEGRATIONS_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
             array('faq' => $faq));
     }
 
@@ -1020,7 +1029,7 @@ class PagesController extends Controller {
     /** /press: boilerplate, logos, colors, facts, contact, link badges. */
     public function pressAction(){
         if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
-        $this->page('press', array('path' => '/press', 'title' => self::PRESS_TITLE, 'description' => self::PRESS_DESC, 'no_guides' => true, 'no_band' => true));
+        $this->page('press', array('hero_photo' => 'press', 'hero_sizes' => '100vw', 'path' => '/press', 'title' => self::PRESS_TITLE, 'description' => self::PRESS_DESC, 'no_guides' => true, 'no_band' => true));
     }
 
     const AI_ALT_TITLE = 'AI Influencer Tools Compared: Every Category Explained';
@@ -1037,7 +1046,7 @@ class PagesController extends Controller {
             array('q' => 'Where does ' . $site . ' fit?', 'a' => 'It covers the character, images, video, voice, publishing to ten platforms and the page fans pay on, in one account. Picking it depends on whether you want those pieces in one place.'),
         );
         $jsonld = array(SeoMeta::faq($faq), SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => 'AI influencer tools compared', 'url' => '/alternatives'))));
-        $this->page('ai-alternatives', array('path' => '/alternatives', 'title' => self::AI_ALT_TITLE, 'description' => self::AI_ALT_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
+        $this->page('ai-alternatives', array('hero_photo' => 'aichar-a', 'hero_sizes' => '(max-width: 760px) 100vw, 52vw', 'path' => '/alternatives', 'title' => self::AI_ALT_TITLE, 'description' => self::AI_ALT_DESC, 'jsonld' => $jsonld, 'no_guides' => true, 'no_band' => true),
             array('faq' => $faq));
     }
 
@@ -1060,7 +1069,7 @@ class PagesController extends Controller {
             SeoMeta::faq($p['faq']),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $p['name'] . ' Alternatives', 'url' => $p['path']))),
         );
-        $this->page('alternatives', array('path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'website', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
+        $this->page('alternatives', array('hero_photo' => 'alternatives', 'hero_sizes' => '100vw', 'path' => $p['path'], 'title' => $p['title'], 'description' => $p['description'], 'type' => 'website', 'jsonld' => $jsonld), array('p' => $p, 'faq' => $p['faq']));
     }
 
     /** "Fanvue runs subscriptions, tips and paid messages. Creator Link Studio runs memberships, pay-per-view, bundles, services and events from one page. Fees and payouts compared." */
@@ -1119,7 +1128,7 @@ class PagesController extends Controller {
             SeoMeta::faq($faq),
             SeoMeta::breadcrumbs(array(array('name' => 'Home', 'url' => '/'), array('name' => $c['name'], 'url' => $path))),
         );
-        $this->page('compare', array('preload_image' => SiteImages::bg('compare_hero'), 'path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
+        $this->page('compare', array('hero_photo' => 'compare', 'path' => $path, 'title' => mb_strlen($title . ': Fees and Features Compared') > SeoMeta::TITLE_MAX ? $title . ': Fees Compared' : $title . ': Fees and Features Compared', 'description' => $desc, 'type' => 'website', 'jsonld' => $jsonld), array('slug' => $slug, 'c' => $c, 'faq' => $faq));
     }
 
     /**

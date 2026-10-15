@@ -4,7 +4,7 @@
  * Plans, fees and the payout minimum come from config (PagesController / Price), never typed here.
  */
 $site = Main::site_name();
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'about', 'variant' => 'editorial', 
     'title'   => 'About ' . $site,
     'lead'    => $site . ' is one page where creators sell memberships, pay-per-view posts, bundles, services and live events, publish to their social accounts and get paid to their bank.',
     'buttons' => array(

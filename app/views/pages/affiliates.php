@@ -2,7 +2,7 @@
 /* /affiliates: the affiliate program (Affiliates). Rate, cookie days and payout minimum come from code, plan names from PlanTiers; no earnings projections. */
 $rate = Affiliates::RATE_PERCENT . '%';
 
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'affiliates', 'variant' => 'panel', 
     'title'   => 'Earn ' . $rate . ' Referring Creators',
     'lead'    => 'Share your link. When someone you refer pays for a ' . $plans . ' plan, you earn ' . $rate . ' of what they pay, on every paid invoice for as long as they stay on a paid plan.',
     'buttons' => array(array($apply_label, $apply_url, 'primary'), array('See Pricing', '/pricing', 'secondary')),

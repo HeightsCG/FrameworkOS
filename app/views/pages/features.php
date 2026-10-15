@@ -8,18 +8,21 @@ $site = Main::site_name(); $e = function ($s) { return Sections::e($s); };
 $facts = PagesController::quotable_facts();
 $fee = PagesController::fee_short(); $min = Price::PAYOUT_MIN_LABEL;
 
-/* The hero as it was: title, lead, the two buttons and the six jump links (now pointing at the rebuilt sections). */
+/* The six jump links under the hero (pointing at the sections below). */
 $jumps = array(array('loop', 'Your Page', 'layers'), array('sell', 'Get Paid', 'wallet'), array('publish', 'Publishing', 'send'), array('inbox', 'Inbox', 'inbox'), array('money', 'Analytics', 'chart'), array('payouts', 'Payouts', 'bank'));
 $jump = '<nav class="sx-jump" aria-label="Feature sections">';
 foreach ($jumps as $j) { $jump .= '<a href="#' . $e($j[0]) . '">' . Sections::icon($j[2], 20) . '<span>' . $e($j[1]) . '</span></a>'; }
 $jump .= '</nav>';
-echo Sections::panel_hero(array(
-    'title' => 'Everything a creator sells, from one page.',
-    'lead' => $site . ' is one public page for memberships, pay-per-view, bundles, services and events, with a studio that publishes to your socials and payouts to your bank behind it.',
-    'buttons' => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
-    'panel' => '',
-    'after_html' => $jump,
+// 2026-10-15: the approved home hero (Sections::premium_hero), same H1 sentence split into a white and an orange line, its own portrait.
+echo Sections::premium_hero(array(
+    'title'     => 'Everything a creator sells,',
+    'highlight' => 'From one page.',
+    'lead'      => $site . ' is one public page for memberships, pay-per-view, bundles, services and events, with a studio that publishes to your socials and payouts to your bank behind it.',
+    'points'    => array(array('layers', 'Memberships, PPV & Bundles'), array('send', 'Publishing to Ten Platforms'), array('chart', 'Inbox, Analytics & Payouts')),
+    'buttons'   => array(array('Get Started', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
+    'photo'     => 'featport',
 ));
+echo '<div class="pm-jumpbar"><div class="ld-wrap">' . $jump . '</div></div>';   // the six jump links as a slim bar under the hero, not boxes over the photo
 
 /* The spine of the page: one post, followed from upload to the bank, as a diagram built from the product's own steps. */
 echo Sections::open('white', 'How does a post turn into money?', 'The same four steps for every creator, whatever you sell.', 'loop');
@@ -44,40 +47,25 @@ echo Sections::table(array('What you sell', 'How fans pay', 'What the fan gets',
 echo '<p class="sx-note">Fans load the wallet once, at ' . $e((string) (int) Price::CREDITS_PER_DOLLAR) . ' credits to the dollar, and spend it across every creator. Memberships are the one thing billed by card.</p>';
 echo Sections::close();
 
-/* Publishing: the explanation beside a schematic of the posts list (a drawing with invented figures, never a screenshot). */
-echo Sections::open('white', 'How does publishing work?', '', 'publish');
-echo Sections::rows(array(
-    array('title' => 'One upload, every network',
-          'text' => 'Upload a photo or a video once and the studio posts it to your page and to X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads and Bluesky, plus Fanvue. AI writes the caption in your brand voice and trims it to each network\'s length. Keep a draft, schedule it for a time, or let an automation publish on the rhythm you set. Engagement from every network comes back into one analytics view.',
-          'link' => array('See publishing', '/features/publishing'),
-          'image' => Sections::ui_sketch_url('posts'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Content Studio posts list, drawn as a schematic.',
-          'image_alt' => 'Schematic of the Content Studio posts list: tabs for Posts, Library, Calendar, Collections and Scheduler, a search bar, and six post rows each with a thumbnail, a caption, a status pill, view and comment counts and an Edit button'),
-));
-echo Sections::close();
-
-/* The inbox beside its own schematic (invented names and messages), then the money view beside the dashboard schematic. */
-echo Sections::open('alt', 'What happens in the inbox?', 'A conversation that sells, and a list that stays yours.', 'inbox');
-echo Sections::rows(array(
-    array('flip' => true, 'title' => 'One inbox, replies in your voice',
-          'text' => 'Every fan message lands in one inbox, whichever network the fan came from. The DM agent drafts a reply in your voice and waits for your approval, or sends on its own once you let it. A welcome message can greet every new fan, with media and a price attached if you want, and a broadcast reaches one segment or all of them at once. Behind the inbox sits your audience list, followers, subscribers and buyers with tags and notes, exportable whenever you want it.',
-          'link' => array('See the DM agent', '/features/dm-agent'),
-          'image' => Sections::ui_sketch_url('inbox'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The inbox with a drafted reply waiting for approval, drawn as a schematic.',
-          'image_alt' => 'Schematic of the Inbox: a list of fan conversations on the left, and on the right one thread with a fan message, a priced media bubble, a reply drafted in the creator\'s voice, and Approve, Edit and Skip buttons'),
-));
-echo Sections::close();
-
-echo Sections::open('alt', 'What do you see once money moves?', 'Numbers first, then the money.', 'money');
-echo Sections::rows(array(
-    array('title' => 'One dashboard for revenue, content and audience',
-          'text' => 'The dashboard shows revenue, content, audience and customers for the last 7, 30 or 90 days. Every post carries its views, shares and conversion, every link on your page its clicks, and your social posts bring their engagement into the same view. Team seats let collaborators work on your account while every sale stays in your balance, and the Claude connector runs posts, messages and analytics from a chat.',
-          'link' => array('See analytics in the dashboard', '/features/payouts'),
-          'image' => Sections::ui_sketch_url('analytics'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Analytics dashboard, drawn as a schematic.',
-          'image_alt' => 'Schematic of the Analytics dashboard: six cards for revenue, subscribers, followers, views, posts and engagement, a 7, 30 or 90 day switch, and a daily revenue bar chart beneath'),
-));
-echo Sections::close();
+/* Publishing, inbox, analytics: the home's split sections (2026-10-15). The question is the H2 beside the schematic (Sections::ui,
+   invented values, never a screenshot); the answer keeps its H3 and full text. Backgrounds alternate white, alt, white. */
+$split = function ($bg, $id, $h2, $lead, $h3, $text, $link, $ui, $rev) use ($e) {
+    $copy = '<div class="sx-split__copy"><h2 class="sx-h2">' . $e(Sections::tc($h2)) . '</h2>' . ($lead !== '' ? '<p class="sx-lead">' . $e($lead) . '</p>' : '')
+        . '<h3 class="sx-h3 fx-split__h3">' . $e(Sections::tc($h3)) . '</h3>' . Sections::paragraphs($text, 'sx-p') . '<a class="sx-more" href="' . $e($link[1]) . '">' . $e($link[0]) . '</a></div>';
+    return Sections::open($bg, '', '', $id) . '<div class="sx-split' . ($rev ? ' sx-split--rev' : '') . '">' . ($rev ? Sections::ui($ui) . $copy : $copy . Sections::ui($ui)) . '</div>' . Sections::close();
+};
+echo $split('white', 'publish', 'How does publishing work?', '', 'One upload, every network',
+    'Upload a photo or a video once and the studio posts it to your page and to X, Instagram, TikTok, Facebook, LinkedIn, Pinterest, YouTube, Threads and Bluesky, plus Fanvue. AI writes the caption in your brand voice and trims it to each network\'s length. Keep a draft, schedule it for a time, or let an automation publish on the rhythm you set. Engagement from every network comes back into one analytics view.',
+    array('See publishing', '/features/publishing'), 'targets', false);
+echo $split('alt', 'inbox', 'What happens in the inbox?', 'A conversation that sells, and a list that stays yours.', 'One inbox, replies in your voice',
+    'Every fan message lands in one inbox, whichever network the fan came from. The DM agent drafts a reply in your voice and waits for your approval, or sends on its own once you let it. A welcome message can greet every new fan, with media and a price attached if you want, and a broadcast reaches one segment or all of them at once. Behind the inbox sits your audience list, followers, subscribers and buyers with tags and notes, exportable whenever you want it.',
+    array('See the DM agent', '/features/dm-agent'), 'inbox', true);
+echo $split('white', 'money', 'What do you see once money moves?', 'Numbers first, then the money.', 'One dashboard for revenue, content and audience',
+    'The dashboard shows revenue, content, audience and customers for the last 7, 30 or 90 days. Every post carries its views, shares and conversion, every link on your page its clicks, and your social posts bring their engagement into the same view. Team seats let collaborators work on your account while every sale stays in your balance, and the Claude connector runs posts, messages and analytics from a chat.',
+    array('See analytics in the dashboard', '/features/analytics'), 'analytics', false);
 
 /* Payouts: the facts, in prose, as the jump target. */
-echo Sections::prose_id('white', 'How do payouts work?', 'payouts', array(
+echo Sections::prose_id('alt', 'How do payouts work?', 'payouts', array(
     'Every sale lands in one balance, net of your plan\'s platform fee, which is ' . $fee . '. Memberships bill the fan\'s card; unlocks, bundles, services and tickets are paid from the fan\'s credit wallet. Earnings from an event are released after the event has taken place.',
     'You cash out to your bank on request from a ' . $min . ' balance, with no platform hold on content, membership or service sales. Earnings from an event are released after the event has taken place. Payouts are available in every country our payment processor supports, and your audience list, media and posts export whenever you want them.',
 ), 'One balance, paid to your bank on request.');
@@ -94,3 +82,4 @@ echo Sections::close();
 
 echo Sections::faq($faq);
 $cta_title = 'Create your page in a few minutes.';
+$cta_photo = 'features';   // the closing band's photo, like the home's final band

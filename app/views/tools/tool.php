@@ -66,7 +66,7 @@ ob_start();
 <?php
 $form = ob_get_clean();
 
-echo Sections::panel_hero(array('title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $form));
+echo Sections::panel_hero(array('photo' => 'tools', 'variant' => 'panel', 'title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $form));
 
 if ($persona) {
     echo Sections::open('alt', 'What You Get', 'Five original characters you can build on, each one ready to brief an AI influencer.');

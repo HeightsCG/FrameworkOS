@@ -18,7 +18,7 @@ $embed = '<div data-cls-tool="' . $slug . '"><a href="' . $base . '/tools/' . $s
 <link rel="stylesheet" href="/css/tools.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/tools.css'); ?>">
 <?php
 $panel = '<div class="ft-host" data-ft="' . $e($slug) . '"><noscript><p class="sx-p">This tool runs in your browser and needs JavaScript turned on.</p></noscript></div>';
-echo Sections::panel_hero(array('title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $panel));
+echo Sections::panel_hero(array('photo' => 'tools', 'variant' => 'panel', 'title' => $tool['h1'], 'lead' => $tool['lead'], 'panel' => $panel));
 
 echo Sections::open('alt', 'How to use it');
 $st = $steps[$slug] ?? array(); $last = count($st) - 1;

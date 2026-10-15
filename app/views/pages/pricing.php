@@ -41,15 +41,14 @@ $e = function ($s) { return Sections::e($s); };
 <?php
 echo Sections::close();
 
-/* What a paid plan unlocks, shown with the screen where it happens: text beside the schematic drawing (invented figures, never a screenshot). */
+/* What a paid plan unlocks, beside a schematic of the page's offers (Sections::ui, invented values, never a screenshot). */
 echo Sections::open('alt', 'What do you set up once you upgrade?');
 echo Sections::rows(array(
     array('title' => 'Tiers, codes and bundles in one place',
           'text' => 'Memberships, discount codes and content bundles live on one Settings screen. Set a tier\'s price and billing interval, switch it on when it is ready, and add a code for a launch. Every sale lands in your balance net of your plan\'s platform fee, and you cash out to your bank from ' . Price::PAYOUT_MIN_LABEL . '.',
           'points' => array('As many tiers as you want, each with its own price, interval and trial', 'Promo codes with a cap or an expiry', 'Bundles built from media already in your library'),
           'link' => array('See memberships', '/features/memberships'),
-          'image' => Sections::ui_sketch_url('plans'), 'image_w' => 960, 'image_h' => 600, 'caption' => 'The Membership Plans screen in Settings, drawn as a schematic.',
-          'image_alt' => 'Schematic of the Membership Plans screen in Settings: three plan rows, each with a drag handle, a name, a price and an on-off switch, with edit and delete controls, above a Discount Codes block with an Add Code button'),
+          'media_html' => Sections::ui('offers')),
 ));
 echo Sections::close();
 
@@ -99,3 +98,4 @@ echo Sections::faq($faq, 'alt');
 $cta_title = 'Start with Free.';
 $cta_text = 'Create your free account. When you want to sell, pick Creator or Studio in Billing.';
 $cta_no_pricing = true;
+$cta_photo = 'pricing';   // the closing band's photo (SitePhotos)

@@ -87,9 +87,12 @@ class Sections {
         if (empty($btns)) { return ''; }
         $h = '<div class="' . $class . '">';
         foreach ($btns as $b) {
+            // Site-wide redesign 2026-10-15: the plain sign-up primary is the trial offer (trial_link(): "Start Your 14-Day Free Trial" while
+            // founding spots remain, else "Start Free"). Sign-ups with their own parameters (?ref=, ?plan=) keep their label and link.
+            if (($b[2] ?? '') === 'primary' && (string) $b[1] === '/?auth=register') { $t = self::trial_link(); $b = array($t[0], $t[1], 'primary', $t[2]); }
             $auth = !empty($b[3]) ? ' data-auth="' . self::e($b[3]) . '"' : '';
             $rel = strpos((string) $b[1], '?') !== false ? ' rel="nofollow"' : '';   // sign-up links carry ?auth= parameters: nofollow keeps them out of the crawl
-            $h .= '<a class="sx-btn sx-btn--' . self::e($b[2] ?? 'secondary') . '" href="' . self::e($b[1]) . '"' . $rel . $auth . '>' . self::e($b[0]) . '</a>';
+            $h .= '<a class="sx-btn sx-btn--' . self::e($b[2] ?? 'secondary') . '" href="' . self::e($b[1]) . '"' . $rel . $auth . '>' . self::e($b[0]) . (($b[2] ?? '') === 'primary' ? self::icon('arrow-right', 18) : '') . '</a>';
         }
         return $h . '</div>';
     }
@@ -192,6 +195,7 @@ class Sections {
      * $h: title, below (trusted HTML right under the title, e.g. a search form), lead, buttons, panel (optional trusted HTML built with the pane_* helpers), bg_image (url shown blurred behind), after_html (trusted HTML under the hero, e.g. jump links).
      */
     public static function panel_hero(array $h): string {
+        if (!empty($h['photo']) || !empty($h['variant'])) { return self::photo_hero($h); }   // 2026-10-15: the photographic heroes
         $panel = (string) ($h['panel'] ?? '');
         $bg = trim((string) ($h['bg_image'] ?? ''));
         $o = '<section class="sx hx hx--panel' . ($panel === '' ? ' hx--solo' : '') . ($bg !== '' ? ' sx--bgimg' : '') . '"' . ($bg !== '' ? ' style="--hero-bg:url(\'' . self::e($bg) . '\')"' : '') . '><div class="hx__in"><div class="hx__left">';
@@ -202,6 +206,130 @@ class Sections {
         $o .= '</div>' . ($panel !== '' ? '<div class="hx__mod">' . $panel . '</div>' : '') . '</div>';
         if (!empty($h['after_html'])) { $o .= '<div class="ld-wrap sx__in hx__after">' . $h['after_html'] . '</div>'; }
         return $o . '</section>';
+    }
+
+    /**
+     * One photo from SitePhotos as an <img> with its WebP srcset, intrinsic size and crop focus. $eager for the hero (the LCP image):
+     * fetchpriority high, never lazy. Returns '' when the photo is missing, so a page never shows a broken image.
+     */
+    public static function photo(string $key, string $sizes, string $class = '', bool $eager = false): string {
+        if (!SitePhotos::has($key)) { return ''; }
+        $p = SitePhotos::PHOTOS[$key];
+        return '<img' . ($class !== '' ? ' class="' . self::e($class) . '"' : '') . ' src="' . self::e(SitePhotos::src($key)) . '" srcset="' . self::e(SitePhotos::srcset($key)) . '" sizes="' . self::e($sizes) . '"'
+            . ' width="' . (int) $p[3] . '" height="' . (int) $p[4] . '" alt="' . self::e($p[5]) . '" style="object-position:' . self::e($p[6]) . '"'
+            . ($eager ? ' fetchpriority="high" decoding="async"' : ' loading="lazy" decoding="async"') . '>';
+    }
+
+    /**
+     * Premium hero: the approved home hero as a shared component (2026-10-15, Features first). Same proportions, type, fade, benefit
+     * list and buttons as libs/Layout/home_body.php (whose own markup stays untouched), with page-specific content.
+     * $h: title (first line, white), highlight (second line, orange; optional), lead, points (array of array(icon, text)), buttons
+     * (see buttons()), photo (SitePhotos key, a tall 4:5 portrait), after_html (trusted HTML under the hero, e.g. jump links).
+     * The H1 reads as one sentence: title then highlight.
+     */
+    public static function premium_hero(array $h): string {
+        $photo = (string) ($h['photo'] ?? '');
+        $img = $photo !== '' ? self::photo($photo, '(max-width: 760px) 100vw, 58vw', 'pm-hero__img', true) : '';
+        $o = '<section class="pm-hero' . ($img === '' ? ' pm-hero--nophoto' : '') . '" aria-labelledby="pm_title">';
+        if ($img !== '') { $o .= '<div class="pm-hero__media">' . $img . '</div>'; }
+        $o .= '<div class="ld-wrap pm-hero__in"><div class="pm-hero__copy"><h1 class="pm-hero__title" id="pm_title"><span>' . self::e(self::tc((string) $h['title'])) . '</span>'
+            . (!empty($h['highlight']) ? ' <span class="pm-hero__hl">' . self::e(self::tc((string) $h['highlight'])) . '</span>' : '') . '</h1>';
+        if (!empty($h['lead'])) { $o .= '<p class="pm-hero__sub">' . self::e((string) $h['lead']) . '</p>'; }
+        if (!empty($h['points'])) {
+            $o .= '<ul class="pm-hero__pts">';
+            foreach ((array) $h['points'] as $pt) { $o .= '<li>' . self::icon((string) $pt[0], 22) . self::e((string) $pt[1]) . '</li>'; }
+            $o .= '</ul>';
+        }
+        $btns = (array) ($h['buttons'] ?? array());
+        foreach ($btns as $i => $b) { $btns[$i][2] = $b[2] ?? 'secondary'; }
+        $o .= str_replace('class="sx-btn ', 'class="sx-btn sx-btn--lg ', self::buttons($btns, 'pm-hero__acts')) . '</div></div>';
+        if (!empty($h['after_html'])) { $o .= '<div class="ld-wrap pm-hero__after">' . $h['after_html'] . '</div>'; }
+        return $o . '</section>';
+    }
+
+    /**
+     * Photographic page hero (site-wide redesign 2026-10-15, from the home hero). Same type, buttons and fade as the home, four layouts so
+     * pages do not all look alike. $h: title, lead, below, buttons, after_html, panel (trusted HTML), photo (SitePhotos key), variant:
+     *   split     text left, the photo right fading into the black (the home's composition, tall photos)
+     *   full      a wide photo across the hero with the subject on the right, text over the dark left side
+     *   editorial headline and lead on top, a wide photo band under them
+     *   panel     text left and the panel right, the wide photo dimmed behind both
+     * On phones every variant stacks: text, photo, panel. Text never sits on a face.
+     */
+    public static function photo_hero(array $h): string {
+        $photo = (string) ($h['photo'] ?? '');
+        if ($photo !== '' && !SitePhotos::has($photo)) { $photo = ''; }
+        $panel = (string) ($h['panel'] ?? '');
+        $v = (string) ($h['variant'] ?? ($panel !== '' ? 'panel' : 'split'));
+        if (!in_array($v, array('split', 'full', 'editorial', 'panel'), true)) { $v = 'split'; }
+        $sizes = $v === 'split' ? '(max-width: 760px) 100vw, 52vw' : '100vw';
+        $img = $photo !== '' ? self::photo($photo, $sizes, 'ph__img', true) : '';
+        $o = '<section class="sx ph ph--' . $v . ($img === '' ? ' ph--nophoto' : '') . ($panel !== '' ? ' ph--haspanel' : '') . '"><div class="ld-wrap ph__in"><div class="ph__copy">';
+        $o .= '<h1 class="ph__title">' . self::e(self::tc($h['title'])) . '</h1>';
+        if (!empty($h['below'])) { $o .= '<div class="hx__below">' . $h['below'] . '</div>'; }
+        if (!empty($h['lead'])) { $o .= self::paragraphs((string) $h['lead'], 'ph__lead'); }
+        $o .= self::buttons((array) ($h['buttons'] ?? array()), 'sx-acts ph__acts') . '</div>';
+        if ($v === 'editorial' && $img !== '') { $o .= '<figure class="ph__band">' . $img . '</figure>'; $img = ''; }
+        if ($panel !== '') { $o .= '<div class="hx__mod ph__panel">' . $panel . '</div>'; }
+        $o .= '</div>';
+        if ($img !== '') { $o .= '<div class="ph__media">' . $img . '</div>'; }
+        if (!empty($h['after_html'])) { $o .= '<div class="ld-wrap ph__after">' . $h['after_html'] . '</div>'; }
+        return $o . '</section>';
+    }
+
+    /**
+     * Product schematics: small drawings of a screen in HTML with invented values, always labelled, never a screenshot (Daniel's rule).
+     * Kinds: automation, analytics, schedule, targets, offers, inbox, linkpage, domain, payout. Every row maps to a real feature.
+     */
+    public static function ui(string $kind): string {
+        $e = function ($s) { return self::e($s); };
+        $rows = function (array $r) use ($e) { $o = '<dl class="sx-ui__rows">'; foreach ($r as $x) { $o .= '<div><dt>' . $e($x[0]) . '</dt><dd' . (isset($x[2]) ? ' class="sx-ui__chips"' : '') . '>' . (isset($x[2]) ? $x[1] : $e($x[1])) . '</dd></div>'; } return $o . '</dl>'; };
+        $chips = function (array $c) use ($e) { $o = ''; foreach ($c as $x) { $o .= '<span>' . $e($x) . '</span>'; } return $o; };
+        $bar = function ($title, $right = '') use ($e) { return '<div class="sx-ui__bar"><b>' . $e($title) . '</b>' . $right . '</div>'; };
+        $on = '<span class="sx-ui__on">Active</span>';
+        $cap = 'Illustrative example';
+        switch ($kind) {
+            case 'automation':
+                $body = $bar('Morning Post', $on) . $rows(array(array('Runs', 'Every day at 9:00'), array('Source', 'AI influencer'), array('Format', 'Photo'), array('Caption', 'Written by AI in your brand voice'),
+                    array('Publish to', $chips(array('Your page', 'Instagram', 'TikTok', 'X')), 1), array('Next run', 'Tomorrow, 9:00')));
+                break;
+            case 'analytics':
+                $bars = ''; foreach (array(38, 52, 45, 61, 57, 72, 66, 80, 74, 90, 84, 96) as $b) { $bars .= '<i style="height:' . (int) $b . '%"></i>'; }
+                $body = $bar('Analytics', '<span class="sx-ui__seg"><span>7d</span><span class="is-on">30d</span><span>90d</span></span>')
+                    . '<div class="sx-ui__kpis"><div><small>Views</small><b>12,480</b></div><div><small>Engagement</small><b>6.2%</b></div><div><small>Link clicks</small><b>1,936</b></div><div><small>New followers</small><b>418</b></div></div>'
+                    . '<div class="sx-ui__chart"><small>Revenue</small><div class="sx-ui__bars">' . $bars . '</div></div>';
+                $cap = 'Illustrative figures';
+                break;
+            case 'schedule':
+                $q = array(array('Mon 9:00', 'Studio tour', 'Instagram, TikTok'), array('Tue 18:30', 'Members-only set', 'Your page'), array('Wed 12:00', 'Behind the scenes', 'X, Threads, Bluesky'), array('Fri 9:00', 'Weekly recap', 'YouTube, Facebook'));
+                $li = ''; foreach ($q as $x) { $li .= '<li><time>' . $e($x[0]) . '</time><b>' . $e($x[1]) . '</b><span>' . $e($x[2]) . '</span></li>'; }
+                $body = $bar('Scheduled', '<span class="sx-ui__count">4 posts</span>') . '<ul class="sx-ui__queue">' . $li . '</ul>';
+                break;
+            case 'targets':
+                $t = array(array('Instagram', '142 / 2,200'), array('TikTok', '142 / 2,200'), array('X', '142 / 280'), array('Threads', '142 / 500'), array('Bluesky', '142 / 300'), array('LinkedIn', '142 / 3,000'));
+                $li = ''; foreach ($t as $x) { $li .= '<li><span class="sx-ui__tick">' . self::icon('check', 14) . '</span><b>' . $e($x[0]) . '</b><small>' . $e($x[1]) . '</small></li>'; }
+                $body = $bar('New Post', '<span class="sx-ui__count">Publish now</span>') . '<p class="sx-ui__cap">New studio setup is finally done. Full tour for members tonight.</p><ul class="sx-ui__targets">' . $li . '</ul>';
+                break;
+            case 'offers':
+                $body = $bar('Your Page') . $rows(array(array('Membership', 'Inner Circle, monthly'), array('Pay-per-view', 'Full studio session, unlock'), array('Bundle', 'Spring set, 24 photos'), array('Service', '1:1 portfolio review, 30 min'), array('Event', 'Live Q&A, Thursday 19:00')));
+                break;
+            case 'inbox':
+                $body = $bar('Inbox', '<span class="sx-ui__count">AI draft</span>') . '<div class="sx-ui__msgs"><p class="is-in">Do you do custom requests?</p><p class="is-out">I do. Book a 1:1 session from my page and tell me what you have in mind.</p></div><div class="sx-ui__acts"><span>Edit</span><span class="is-on">Send</span></div>';
+                break;
+            case 'linkpage':
+                $li = ''; foreach (array('Latest video', 'Join my membership', 'Book a session', 'Shop my presets') as $x) { $li .= '<li>' . $e($x) . '</li>'; }
+                $body = $bar('@yourhandle') . '<ul class="sx-ui__links">' . $li . '</ul>';
+                break;
+            case 'domain':
+                $body = $bar('Custom Domain', '<span class="sx-ui__on">Connected</span>') . $rows(array(array('Domain', 'www.yourname.com'), array('Points to', 'Your page'), array('Security', 'HTTPS on')));
+                break;
+            case 'payout':
+                $body = $bar('Balance') . $rows(array(array('Available', '1,840 credits'), array('Cash out to', 'Your bank account'), array('Status', 'Request sent')));
+                break;
+            default:
+                return '';
+        }
+        return '<figure class="sx-ui sx-ui--' . $e($kind) . '" aria-label="' . $e($cap . ': ' . $kind) . '">' . $body . '<figcaption>' . $e($cap) . '</figcaption></figure>';
     }
 
     /** Panel heading + optional text + body. */
@@ -464,12 +592,14 @@ class Sections {
 
     /** Alternating image/text rows. Each row: title, text, points[] (optional), image (url, optional), link (array(label, href), optional). */
     public static function rows(array $rows): string {
-        $noimg = count(array_filter($rows, function ($r) { return trim((string) ($r['image'] ?? '')) === ''; }));   // text-only rows sit in a grid: three (or six) fill three columns, so no row is left alone under a pair
+        $noimg = count(array_filter($rows, function ($r) { return trim((string) ($r['image'] ?? '')) === '' && (string) ($r['media_html'] ?? '') === ''; }));   // text-only rows sit in a grid: three (or six) fill three columns, so no row is left alone under a pair
         $o = '<div class="sx-rows' . ($noimg === count($rows) && count($rows) > 0 && count($rows) % 3 === 0 ? ' sx-rows--3' : '') . '">'; $n = 0;
         foreach ($rows as $r) {
-            $img = trim((string) ($r['image'] ?? '')); $flip = isset($r['flip']) ? (bool) $r['flip'] : ($n % 2 === 1); $n++;   // 'flip' puts the picture on the right; sections with one row each alternate by setting it
+            $media = (string) ($r['media_html'] ?? '');   // trusted HTML in place of the image (a Sections::ui schematic or a Sections::photo)
+            $img = trim((string) ($r['image'] ?? '')); if ($media !== '') { $img = 'media'; } $flip = isset($r['flip']) ? (bool) $r['flip'] : ($n % 2 === 1); $n++;   // 'flip' puts the picture on the right; sections with one row each alternate by setting it
             $o .= '<div class="sx-row' . ($flip ? ' sx-row--flip' : '') . ($img === '' ? ' sx-row--noimg' : '') . '">';   // a div, not <article>: extractors would take a card for the page's main content
-            if ($img !== '') {   // 'image_alt' describes the picture; 'caption' is a visible line under it (a screenshot's "Example dashboard (demo account)")
+            if ($media !== '') { $o .= '<div class="sx-row__media sx-row__media--ui">' . $media . '</div>'; }
+            elseif ($img !== '') {   // 'image_alt' describes the picture; 'caption' is a visible line under it (a screenshot's "Example dashboard (demo account)")
                 $o .= '<figure class="sx-row__media"><img src="' . self::e($img) . '" alt="' . self::e((string) ($r['image_alt'] ?? '')) . '" loading="lazy" width="' . (int) ($r['image_w'] ?? 1024) . '" height="' . (int) ($r['image_h'] ?? 768) . '">'
                     . (!empty($r['caption']) ? '<figcaption class="sx-figcap">' . self::e($r['caption']) . '</figcaption>' : '') . '</figure>';
             }
@@ -643,19 +773,26 @@ class Sections {
         return array('Start Your ' . (int) Founding::TRIAL_DAYS . '-Day Free Trial', $c[0], $c[1]);
     }
 
-    /** Closing band with the trial button (integrations, free tools, press, /alternatives). */
-    public static function trial_cta(string $title, string $text = ''): string {
-        $t = self::trial_link();
-        return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
-            . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($t[1]) . '" rel="nofollow"' . ($t[2] !== '' ? ' data-auth="' . self::e($t[2]) . '"' : '') . '>' . self::e($t[0]) . '</a></div></div></section>';
+    /**
+     * Closing band (2026-10-15, from the home's final band): a big headline, one line of text and one orange button that follows the
+     * trial offer. $photo (SitePhotos key) puts a darkened photo behind it. Used by trial_cta() and cta().
+     */
+    public static function band(string $title, string $text, array $btn, string $second = '', string $photo = ''): string {
+        $img = $photo !== '' ? self::photo($photo, '100vw', 'sx-band__img') : '';
+        return '<section class="sx sx--cta sx-band' . ($img !== '' ? ' sx-band--photo' : '') . '">' . ($img !== '' ? '<div class="sx-band__media">' . $img . '</div>' : '')
+            . '<div class="ld-wrap sx__in sx-band__in"><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
+            . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '')
+            . '<div class="sx-acts"><a class="sx-btn sx-btn--primary sx-btn--lg" href="' . self::e($btn[1]) . '" rel="nofollow"' . ($btn[2] !== '' ? ' data-auth="' . self::e($btn[2]) . '"' : '') . '>' . self::e($btn[0]) . self::icon('arrow-right', 18) . '</a>' . $second . '</div></div></section>';
     }
 
-    /** Closing call to action: full-width black band. */
-    public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register'): string {
-        return '<section class="sx sx--cta"><div class="ld-wrap sx__in sx-cta"><div><h2 class="sx-cta__title">' . self::e(self::tc($title)) . '</h2>'
-            . ($text !== '' ? '<p class="sx-cta__text">' . self::e($text) . '</p>' : '') . '</div>'
-            . '<div class="sx-acts"><a class="sx-btn sx-btn--light" href="' . self::e($signup) . '" rel="nofollow" data-auth="register">Start Free</a>'
-            . ($pricing_link ? '<a class="sx-btn sx-btn--ghost" href="/pricing">See Pricing</a>' : '') . '</div></div></section>';
+    /** Closing band with the trial button (integrations, free tools, press, /alternatives). */
+    public static function trial_cta(string $title, string $text = '', string $photo = ''): string {
+        return self::band($title, $text, self::trial_link(), '', $photo);
+    }
+
+    /** Closing call to action. The button follows the trial offer unless the page passes its own sign-up link (?ref=, ?plan=). */
+    public static function cta(string $title, string $text = '', bool $pricing_link = true, string $signup = '/?auth=register', string $photo = ''): string {
+        $btn = $signup === '/?auth=register' ? self::trial_link() : array('Start Free', $signup, 'register');
+        return self::band($title, $text, $btn, $pricing_link ? '<a class="sx-btn sx-btn--secondary sx-btn--lg" href="/pricing">See Pricing</a>' : '', $photo);
     }
 }

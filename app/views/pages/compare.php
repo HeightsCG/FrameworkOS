@@ -3,12 +3,11 @@ $e = function ($s) { return Sections::e($s); }; $us = PagesController::our_facts
 $dot = function ($s) { $s = trim((string) $s); return ($s === '' || preg_match('/[.!?]$/', $s)) ? $s : $s . '.'; };   // every cell and point is a sentence, so table text never runs together
 $labels = array('fee' => 'Platform fee', 'payout' => 'Payouts', 'content' => 'What you can sell', 'socials' => 'Social publishing', 'ai' => 'AI tools', 'ownership' => 'Your audience');
 $has_reported = false; foreach ($labels as $k => $l) { if (!empty($c[$k]['reported'])) { $has_reported = true; break; } }
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'compare', 'variant' => 'panel', 
     'title' => $site . ' vs ' . $c['name'],
     'lead' => ($slug === 'onlyfans' ? PagesController::quotable_facts()['onlyfans'] : $c['summary']) . ' ' . (CompareProse::voice($slug, 'hero_tail') ?: 'Here is how the two compare, with sources.'),   // onlyfans: the quotable brand sentence replaces the summary; the tail is worded per competitor
     'buttons' => array(array('Start Free', '/?auth=register', 'primary', 'register'), array('See Pricing', '/pricing', 'secondary')),
     'panel' => Sections::pane('What does ' . $c['name'] . ' charge, and what do we charge?', 'What each platform keeps from your sales.', Sections::pane_versus($site, $us['fee'], $c['name'], (string) ($c['fee_short'] ?? $c['fee']['value']), $c['fee']['source'])),
-    'bg_image' => SiteImages::bg('compare_hero'),
     'after_html' => isset(AlternativesPages::PAGES[$slug]) ? '<a class="sx-more" href="/' . $e($slug) . '-alternatives">See All ' . $e($c['name']) . ' Alternatives</a>' : '',
 ));
 echo Sections::open('alt', 'How do the features compare?', CompareProse::voice($slug, 'checked') !== '' ? str_replace('{date}', date('F j, Y', strtotime($c['checked'])), CompareProse::voice($slug, 'checked')) : $c['name'] . ' details checked on ' . date('F j, Y', strtotime($c['checked'])) . ' from the linked pages.');

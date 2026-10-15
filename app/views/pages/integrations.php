@@ -7,7 +7,7 @@ $site = Main::site_name();
 ?>
 <link rel="stylesheet" href="/css/growth.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/growth.css'); ?>">
 <?php
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'integrations', 'variant' => 'full', 
     'title' => 'Integrations',
     'lead'  => 'Write a post once and send it to ten platforms. Connect your accounts in Settings, tick the ones you want on each post, and publish now or on a schedule.',
 ));

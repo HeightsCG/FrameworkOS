@@ -5,7 +5,7 @@
  */
 $site  = Main::site_name();
 $email = PagesController::LEGAL_CONTACT;
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'contact', 'variant' => 'split', 
     'title' => 'Contact Support',
     'lead'  => 'Questions about billing, payouts, your account or a bug. Send a message and we reply by email.',
 ));

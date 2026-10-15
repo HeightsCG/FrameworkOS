@@ -14,9 +14,9 @@ $b150 = $site . ' is a creator platform that puts everything a creator sells on 
 $platforms = array(); foreach (IntegrationPages::PAGES as $p) { $platforms[] = $p['name']; }
 $trial_open = false; try { $trial_open = Founding::remaining_cached() > 0; } catch (\Throwable $ex) { error_log('[press] founding: ' . $ex->getMessage()); }
 $logos = array(
-    array('Logo mark', 'For app icons, avatars and small spaces.', 'is-dark', '/images/logo/logo-mark.svg', array(array('SVG', '/images/logo/logo-mark.svg'), array('PNG 512', '/images/logo/logo-mark-512.png'), array('PNG 1024', '/images/logo/logo-mark-1024.png'))),
-    array('Logo for dark backgrounds', 'White wordmark with the orange mark.', 'is-dark', '/images/logo/logo-dark-bg.svg', array(array('SVG', '/images/logo/logo-dark-bg.svg'), array('PNG 1600', '/images/logo/logo-dark-bg.png'))),
-    array('Logo for light backgrounds', 'Black wordmark with the orange mark.', 'is-light', '/images/logo/logo-light-bg.svg', array(array('SVG', '/images/logo/logo-light-bg.svg'), array('PNG 1600', '/images/logo/logo-light-bg.png'))),
+    array('Logo mark', 'For app icons, avatars and small spaces.', 'is-dark', '/images/logo/logo-mark.svg', 256, 256, array(array('SVG', '/images/logo/logo-mark.svg'), array('PNG 512', '/images/logo/logo-mark-512.png'), array('PNG 1024', '/images/logo/logo-mark-1024.png'))),
+    array('Logo for dark backgrounds', 'White wordmark with the orange mark.', 'is-dark', '/images/logo/logo-dark-bg.svg', 407, 64, array(array('SVG', '/images/logo/logo-dark-bg.svg'), array('PNG 1600', '/images/logo/logo-dark-bg.png'))),
+    array('Logo for light backgrounds', 'Black wordmark with the orange mark.', 'is-light', '/images/logo/logo-light-bg.svg', 407, 64, array(array('SVG', '/images/logo/logo-light-bg.svg'), array('PNG 1600', '/images/logo/logo-light-bg.png'))),
 );
 $colors = array(array('Orange', '#FF6A13', 'The brand color and primary actions.'), array('Deep orange', '#E85A06', 'Hover and pressed states.'), array('Black', '#050505', 'Backgrounds.'), array('Dark grey', '#161618', 'Panels and cards.'), array('Off-white', '#F5F5F4', 'Text on dark backgrounds.'));
 $badges = array(
@@ -27,7 +27,7 @@ $badges = array(
 <link rel="stylesheet" href="/css/tools.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/tools.css'); ?>">
 <link rel="stylesheet" href="/css/growth.css?v=<?php echo @filemtime(Main::app_path() . '/public/css/growth.css'); ?>">
 <?php
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'press', 'variant' => 'editorial', 
     'title'   => 'Press kit',
     'lead'    => 'Everything you need to write about ' . $site . ' or link to it: a short and a long description, logos, brand colors, product facts and link badges.',
     'buttons' => array(array('Download Logos', '#logos', 'secondary'), array('Get a Link Badge', '#link-to-us', 'ghost')),
@@ -53,9 +53,9 @@ echo Sections::close();
 echo Sections::open('alt', 'Logos', 'Keep the mark and wordmark together as supplied, with clear space around them. Do not recolor or stretch them.', 'logos');
 echo '<div class="gp-logos">';
 foreach ($logos as $l) {
-    echo '<div class="gp-logo"><div class="gp-logo__preview ' . $e($l[2]) . '"><img src="' . $e($l[3]) . '" alt="' . $e($site . ' ' . strtolower($l[0])) . '" loading="lazy"></div>'
+    echo '<div class="gp-logo"><div class="gp-logo__preview ' . $e($l[2]) . '"><img src="' . $e($l[3]) . '" alt="' . $e($site . ' ' . strtolower($l[0])) . '" width="' . (int) $l[4] . '" height="' . (int) $l[5] . '" loading="lazy"></div>'
         . '<h3 class="gp-logo__name">' . $e(Sections::tc($l[0])) . '</h3><p class="gp-logo__text">' . $e($l[1]) . '</p><p class="gp-logo__dl">';
-    foreach ($l[4] as $d) { echo '<a class="hx__chip" href="' . $e($d[1]) . '" download>' . $e($d[0]) . '</a>'; }
+    foreach ($l[6] as $d) { echo '<a class="hx__chip" href="' . $e($d[1]) . '" download>' . $e($d[0]) . '</a>'; }
     echo '</p></div>';
 }
 echo '</div>';

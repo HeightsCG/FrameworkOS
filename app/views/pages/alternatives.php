@@ -7,7 +7,7 @@ $e = function ($s) { return Sections::e($s); }; $site = Main::site_name();
 $signup = '/?auth=register&role=creator';
 $rows = array(array($p['us']['name'], $p['us']['kind'], true));
 foreach ($p['others'] as $o) { $rows[] = array($o['name'], $o['kind']); }
-echo Sections::panel_hero(array(
+echo Sections::panel_hero(array('photo' => 'alternatives', 'variant' => 'panel', 
     'title'   => $p['title'],
     'lead'    => $p['intro'],
     'buttons' => array(array('Start Free', $signup, 'primary', 'register'), array('Compare All Platforms', '/best-creator-monetization-platforms', 'secondary')),

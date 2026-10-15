@@ -5,7 +5,8 @@ $paths = array_merge($paths, array('/onlyfans-alternatives', '/fanvue-alternativ
 $paths = array_merge($paths, array('/founding'));
 $paths = array_merge($paths, array('/affiliates'));
 $paths = array_merge($paths, array('/tools/fan-questions', '/tools/ai-influencer-persona'));
-$paths = array_merge($paths, array('/author/dr-glauber'));   // the author page behind every article byline (2026-10-12)
+$paths = array_merge($paths, array('/author/dr-glauber'));
+$paths = array_merge($paths, array('/features/automations', '/features/analytics'));   // site-wide redesign 2026-10-15: the two new feature pages   // the author page behind every article byline (2026-10-12)
 $fail  = 0;
 foreach ($paths as $p) {
     $ch = curl_init($base . $p);
@@ -124,9 +125,21 @@ echo ($ok ? 'ok   ' : 'FAIL ') . "/about names Dr. Glauber exactly once\n"; if (
 $ch = curl_init($base . '/'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
 $vis = strip_tags(preg_replace('#<(script|style)\b.*?</\1>#si', ' ', $body));
 $nets = 0; foreach (array('linkedin', 'bluesky', 'x', 'facebook', 'instagram', 'threads', 'tiktok', 'youtube', 'pinterest', 'fanvue') as $i) { if (strpos($body, 'href="/integrations/' . $i . '"') !== false) { $nets++; } }
-$ok = substr_count($body, '<h1') === 1 && preg_match('/class="sx-btn sx-btn--primary[^"]*hm-btn"[^>]*data-auth="register"/', $body) && $nets === 10
+$ok = substr_count($body, '<h1') === 1 && preg_match('/class="sx-btn sx-btn--primary sx-btn--lg"[^>]*data-auth="register"/', $body) && $nets === 10
     && !preg_match('#<img(?![^>]*\bwidth=)[^>]*>#', $body) && !preg_match('/Snapchat|Reddit|Discord|30-day|thirty days/i', $vis);
 echo ($ok ? 'ok   ' : 'FAIL ') . "/ home: one H1, trial CTA, ten integrations, sized images, no stray platforms ($nets)\n"; if (!$ok) { $fail++; }
+// Site-wide redesign (2026-10-15): every public page has one H1, sized images that all load, and no "first month free" trial copy.
+$ch = curl_init($base . '/sitemap.xml'); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); preg_match_all('#<loc>([^<]+)</loc>#', (string) curl_exec($ch), $locs); curl_close($ch);
+$bad = array();
+foreach ($locs[1] as $loc) {
+    if (strpos($loc, '/blog/') !== false || strpos($loc, '/@') !== false) { continue; }   // articles and creator profiles have their own templates and checks
+    $ch = curl_init($loc); curl_setopt_array($ch, array(CURLOPT_RETURNTRANSFER => true)); $body = (string) curl_exec($ch); curl_close($ch);
+    if (substr_count($body, '<h1') !== 1 || preg_match('#<img(?![^>]*\bwidth=)[^>]*>#', $body) || stripos(strip_tags($body), 'first month is free') !== false) { $bad[] = str_replace($base, '', $loc); }
+    preg_match_all('#src="(/images/(?:site|home)/[^"]+)"#', $body, $im);
+    foreach (array_unique($im[1]) as $src) { if (!is_file(__DIR__ . '/../public' . $src)) { $bad[] = $src; } }
+}
+$ok = empty($bad);
+echo ($ok ? 'ok   ' : 'FAIL ') . 'public pages: one H1, sized images, photos on disk, no first-month trial copy' . ($ok ? '' : ' (' . implode(', ', array_slice($bad, 0, 8)) . ')') . "\n"; if (!$ok) { $fail++; }
 // Link-earning pages (2026-10-15): /integrations + ten platforms, three browser-only tools, /press, /alternatives.
 // Each answers 200 with one title, description, canonical, og and twitter set, JSON-LD that parses, no founder name, no
 // platform outside the ten; every public_pages() row is in the sitemap with a title and description no other page has.

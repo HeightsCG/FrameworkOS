@@ -5,12 +5,15 @@
  */
 $site = Main::site_name();
 $hero = (array) ($page['hero'] ?? array());
+$look = FeaturePages::LOOK[$slug] ?? array();   // photo, hero layout and the row visual (site-wide redesign 2026-10-15)
 echo Sections::panel_hero(array(
     'title'   => $hero['title'] ?? $page['title'],
     'lead'    => $hero['lead'] ?? ($page['description'] ?? ''),
+    'photo'   => (string) ($look['photo'] ?? ''),
+    'variant' => (string) ($look['variant'] ?? 'split'),
     'buttons' => array(
-        array('Start Free', '/?auth=register', 'primary', 'register'),
-        array('See Pricing', '/pricing', 'ghost'),
+        array('Start Free', '/?auth=register', 'primary', 'register'),   // becomes the trial offer in Sections::buttons()
+        array('See Pricing', '/pricing', 'secondary'),
     ),
 ));
 // screenshot under the hero: /features/<slug> pages only (root keyword pages have no placement); nothing at all while Screenshots is off
@@ -30,7 +33,16 @@ if ($video !== '') {
 
 if (!empty($page['rows'])) {
     echo Sections::open('white', 'What do you get with ' . (string) ($page['nav_title'] ?? 'it') . '?');   // a question heading: the answer is the first row below
-    echo Sections::rows((array) $page['rows']);
+    $rows = array_values((array) $page['rows']);
+    $visual = FeaturePages::visual($slug);   // a schematic or a photo set (FeaturePages::LOOK): its row is lifted out and shown beside it, full width
+    $vi = (int) ($look['row'] ?? 0);
+    if ($visual !== '' && isset($rows[$vi])) {
+        $r = $rows[$vi]; array_splice($rows, $vi, 1);
+        echo '<div class="sx-split sx-split--feature"><div class="sx-split__copy"><h3 class="sx-h3">' . Sections::e(Sections::tc($r['title'])) . '</h3>' . Sections::paragraphs((string) $r['text'], 'sx-p')
+            . (!empty($r['points']) ? Sections::checks((array) $r['points']) : '') . (!empty($r['link']) ? '<a class="sx-more" href="' . Sections::e($r['link'][1]) . '">' . Sections::e($r['link'][0]) . '</a>' : '')
+            . '</div>' . $visual . '</div>';
+    }
+    if (!empty($rows)) { echo Sections::rows($rows); }
     echo Sections::tool_line((string) ($path ?? ''));   // the free tool that goes with this feature, when there is one
     echo Sections::close();
 }
