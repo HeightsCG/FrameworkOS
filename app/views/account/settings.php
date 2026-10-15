@@ -1134,7 +1134,8 @@
                         </div>
                         <div class="integ__actions">
                             <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button>
-                            <?php else: ?><button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button><?php endif; ?>
+                            <?php else: ?><button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button>
+                            <button type="button" class="btn btn-ghost btn-sm" id="eromifyCancel" hidden>Cancel</button><?php endif; ?>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -3405,7 +3406,7 @@ $(function () {
     // Connect sits on the right like every other row: the first click opens the key field, the next one connects.
     $('#eromifyConnect').on('click', function () {
         var $wrap = $('#eromifyKeyWrap');
-        if ($wrap.prop('hidden') || $.trim($('#eromifyKey').val()) === '') { $wrap.prop('hidden', false); $('#eromifyKey').trigger('focus'); return; }
+        if ($wrap.prop('hidden') || $.trim($('#eromifyKey').val()) === '') { $wrap.prop('hidden', false); $('#eromifyCancel').prop('hidden', false); $('#eromifyKey').trigger('focus'); return; }
         var $btn = $(this).prop('disabled', true);
         ApiDataSvc.apiCall('post', 'eromify_connect', { api_key: $('#eromifyKey').val() }, function (data) {
             var o = JSON.parse(data);
@@ -3413,7 +3414,14 @@ $(function () {
             else { toastr.error(o.message); $btn.prop('disabled', false); }
         });
     });
-    $('#eromifyKey').on('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#eromifyConnect').trigger('click'); } });
+    $('#eromifyKey').on('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); $('#eromifyConnect').trigger('click'); }
+        else if (e.key === 'Escape') { e.preventDefault(); $('#eromifyCancel').trigger('click'); }
+    });
+    $('#eromifyCancel').on('click', function () {
+        $('#eromifyKey').val(''); $('#eromifyKeyWrap').prop('hidden', true); $(this).prop('hidden', true);
+        $('#eromifyConnect').prop('disabled', false).trigger('focus');
+    });
     $('#eromifyDisconnect').on('click', function () {
         ApiDataSvc.apiCall('post', 'eromify_disconnect', {}, function (data) {
             var o = JSON.parse(data);

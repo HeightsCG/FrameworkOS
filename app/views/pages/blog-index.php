@@ -7,7 +7,7 @@ $starter = null; foreach ($guides as $g) { if ($g['path'] === '/monetize-your-co
 
 ?>
 <?php
-$topic_links = ''; foreach (array('Pricing', 'Memberships', 'Pay-per-view', 'Payouts', 'Bundles', 'Services', 'Events', 'Social') as $tp) { $topic_links .= '<a class="hx__chip" href="/blog?q=' . $e(rawurlencode(strtolower($tp))) . '">' . $e($tp) . '</a>'; }
+$topic_links = ''; /* topic chips open a search, which is noindex: nofollow keeps Google from crawling them (GSC "Excluded by noindex", 2026-10-15) */ foreach (array('Pricing', 'Memberships', 'Pay-per-view', 'Payouts', 'Bundles', 'Services', 'Events', 'Social') as $tp) { $topic_links .= '<a class="hx__chip" href="/blog?q=' . $e(rawurlencode(strtolower($tp))) . '" rel="nofollow">' . $e($tp) . '</a>'; }
 $search_form = '<form class="bl-search" action="/blog" method="get" role="search"><label class="bl-search__label" for="bl_q">Search posts</label>'
     . '<svg class="bl-search__ic" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>'
     . '<input class="bl-search__input" type="search" id="bl_q" name="q" value="' . $e($q) . '" placeholder="Pricing, payouts, pay-per-view" maxlength="80" autocomplete="off">'
