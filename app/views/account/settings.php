@@ -1126,15 +1126,15 @@
                                 <?php endif; ?>
                             </div>
                             <?php if (!$er_on): ?>
-                            <div class="integ__inline">
-                                <input type="text" class="form-control form-control-sm" id="eromifyKey" placeholder="API key from eromify.com/studio/api" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
-                                <button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button>
+                            <div class="integ__reveal" id="eromifyKeyWrap" hidden>
+                                <input type="text" class="form-control form-control-sm" id="eromifyKey" placeholder="API key from eromify.com/studio/api" aria-label="Eromify API key" autocomplete="off" autocapitalize="off" spellcheck="false" data-1p-ignore data-lpignore="true">
                             </div>
                             <?php endif; ?>
                             <?php if ($er_on && !empty($er['last_error'])): ?><div class="integ__error"><?php echo htmlspecialchars($er['last_error'], ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
                         </div>
                         <div class="integ__actions">
-                            <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button><?php endif; ?>
+                            <?php if ($er_on): ?><button type="button" class="btn btn-ghost btn-sm" id="eromifyDisconnect">Disconnect</button>
+                            <?php else: ?><button type="button" class="btn btn-secondary btn-sm" id="eromifyConnect">Connect</button><?php endif; ?>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -3402,7 +3402,10 @@ $(function () {
         });
     });
 
+    // Connect sits on the right like every other row: the first click opens the key field, the next one connects.
     $('#eromifyConnect').on('click', function () {
+        var $wrap = $('#eromifyKeyWrap');
+        if ($wrap.prop('hidden') || $.trim($('#eromifyKey').val()) === '') { $wrap.prop('hidden', false); $('#eromifyKey').trigger('focus'); return; }
         var $btn = $(this).prop('disabled', true);
         ApiDataSvc.apiCall('post', 'eromify_connect', { api_key: $('#eromifyKey').val() }, function (data) {
             var o = JSON.parse(data);
