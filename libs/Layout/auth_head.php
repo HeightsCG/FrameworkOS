@@ -230,6 +230,7 @@
             }, function(data) {
                 var obj = JSON.parse(data);
                 if (obj.success) {
+                    if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(obj.tt_registration); }   // TikTok CompleteRegistration: the account exists (server-confirmed, once)
                     // Account created but not yet usable: the link in the email signs them in. Back to Sign In meanwhile.
                     $('#register_form').hide();
                     $('#forgot_form').hide();

@@ -353,7 +353,6 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         if (!/[^A-Za-z0-9]/.test(p)) { return 'Add a symbol, like ! or #, to your password.'; }
         return '';
     };
-    var event_id = function () { var a = new Uint8Array(12); (window.crypto || window.msCrypto).getRandomValues(a); return 'cls_reg_' + [].map.call(a, function (b) { return ('0' + b.toString(16)).slice(-2); }).join(''); };
 
     form.addEventListener('submit', function (e) {
         e.preventDefault();
@@ -365,16 +364,15 @@ $cols = array(array($wall[0], $wall[3], $wall[6]), array($wall[1], $wall[4], $wa
         err.hidden = true; [email, pw].forEach(function (x) { x.classList.remove('is-bad'); x.setAttribute('aria-invalid', 'false'); });
         if (trial) { set_cookie('cls_founding', '1', 30); }   // the trial offer, read on the billing plan tab in this browser
         busy = true; btn.disabled = true; btn.classList.add('is-busy'); btn.textContent = 'Creating Account…';
-        var eid = event_id();
         post('register', {
             user_email: em, p_word: p, p_word_confirm: p, company: document.getElementById('st_company').value,
-            plan: 'creator', role: 'creator', ref: '', founding: trial ? '1' : '', 'return': '/setup?plan=creator', tt_event_id: eid
+            plan: 'creator', role: 'creator', ref: '', founding: trial ? '1' : '', 'return': '/setup?plan=creator'
         }).then(function (o) {
             busy = false; btn.disabled = false; btn.classList.remove('is-busy'); btn.textContent = 'Create Account';
             if (!o || !o.success) { fail((o && o.message) || 'Something went wrong. Try again.', /email/i.test((o && o.message) || '') ? email : null); return; }
             track('signup_completed', { method: 'email', page: '/start' });
             track('sign_up', { method: 'email' });   // GA's standard sign-up event, as on every other signup
-            tt('CompleteRegistration', { content_name: 'Creator account' }, { event_id: eid });
+            if (window.CLSTikTokRegistration) { window.CLSTikTokRegistration(o.tt_registration); }   // TikTok identify + CompleteRegistration, once, with the server's event id
             done_email = em;
             document.getElementById('st_done_email').textContent = em;
             var warn = document.getElementById('st_done_warn');

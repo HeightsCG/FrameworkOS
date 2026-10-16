@@ -98,5 +98,26 @@
       var idle=function(){setTimeout(function(){(w.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});},w.CLS_TAG_DELAY||0);};
       if(d.readyState==="complete"){idle();}else{w.addEventListener("load",idle,{once:true});}
     }(window, document, 'ttq');
+
+    // CompleteRegistration, the one time an account is created (2026-10-16). Every signup path hands this the server's
+    // confirmation: the email signup's /api/register reply, a Google signup's next page (below), an accepted team invite's
+    // /api/reset reply. The server gives each account's event out once (UsersModel::claim_tt_registration), and the
+    // event id is shared with the Events API copy (TikTokEventJob), so TikTok counts one signup. Email and id arrive hashed.
+    window.CLSTikTokRegistration = function (p) {
+      if (!p || !p.event_id || !window.ttq) { return; }
+      try { if (sessionStorage.getItem('cls_ttreg_' + p.event_id)) { return; } sessionStorage.setItem('cls_ttreg_' + p.event_id, '1'); } catch (e) {}
+      var who = {}; if (p.email) { who.email = p.email; } if (p.external_id) { who.external_id = p.external_id; }
+      ttq.identify(who);
+      ttq.track('CompleteRegistration', { content_name: 'creator_signup', value: 0, currency: 'USD' }, { event_id: p.event_id });
+    };
+<?php
+    // A Google signup lands here signed in (AccountController::google_callbackAction set tt_reg_pending): fire it on this page, once.
+    $tt_pending = (int) (Session::get('tt_reg_pending') ?? 0);
+    if ($tt_pending > 0) {
+        Session::destroyValue('tt_reg_pending');
+        $tt_reg = ((int) Session::get('user_id') === $tt_pending) ? (new UsersModel())->claim_tt_registration($tt_pending) : null;
+        if ($tt_reg) { echo '    window.CLSTikTokRegistration(' . json_encode($tt_reg, JSON_HEX_TAG | JSON_HEX_AMP | JSON_UNESCAPED_SLASHES) . ");\n"; }
+    }
+?>
     </script>
     <!-- TikTok Pixel Code End -->

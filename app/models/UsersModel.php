@@ -504,6 +504,32 @@ class UsersModel extends Model {
         parent::update('user_accounts', $f, 'user_id = :uid', array('uid' => (int) $user_id));
     }
 
+    /**
+     * TikTok CompleteRegistration (2026-10-16): a new account gets its event id here (email signup, Google signup, team
+     * invite). The same id goes to the browser pixel and to the server Events API copy, so TikTok counts the signup once.
+     */
+    public function start_tt_registration($user_id): string {
+        $id = 'cls_reg_' . bin2hex(random_bytes(12));
+        parent::update('user_accounts', array('tt_reg_event_id' => $id), 'user_id = :uid', array('uid' => (int) $user_id));
+        return $id;
+    }
+
+    /**
+     * The one time the browser is handed the event: marks it sent and returns what the pixel needs (event id, SHA-256 of
+     * the lowercase trimmed email, SHA-256 of the account id), or null when there is nothing to send: an account from
+     * before this change, or one already handed out (a refresh, a later sign-in, a second tab).
+     */
+    public function claim_tt_registration($user_id): ?array {
+        $uid = (int) $user_id;
+        if ($uid <= 0) { return null; }
+        $n = parent::update('user_accounts', array('tt_reg_sent_at' => gmdate('Y-m-d H:i:s')), 'user_id = :uid AND tt_reg_event_id IS NOT NULL AND tt_reg_sent_at IS NULL', array('uid' => $uid));
+        if ((int) $n !== 1) { return null; }
+        $rows = parent::select('SELECT tt_reg_event_id, user_email FROM user_accounts WHERE user_id = :uid', array('uid' => $uid));
+        if (!is_array($rows) || count($rows) !== 1) { return null; }
+        $email = strtolower(trim((string) $rows[0]['user_email']));
+        return array('event_id' => (string) $rows[0]['tt_reg_event_id'], 'email' => $email !== '' ? hash('sha256', $email) : '', 'external_id' => hash('sha256', (string) $uid));
+    }
+
     /** The signup came with the founding trial offer (?founding=1 / cls_founding): verify_email hands the flag to whichever browser opens the link. */
     public function set_signup_founding($user_id){
         return parent::update('user_accounts', array('signup_founding' => 1), 'user_id = :uid', array('uid' => (int) $user_id));

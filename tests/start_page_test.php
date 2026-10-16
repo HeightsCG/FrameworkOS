@@ -47,7 +47,7 @@ $ok(preg_match_all('#<video class="st-clip"[^>]*data-src="[^"]+"[^>]*preload="no
 preg_match_all('#<img [^>]*>#', $html, $all_img); $eager = array_filter($all_img[0], function ($i) { return strpos($i, 'loading="lazy"') === false && strpos($i, 'logo-mark') === false; });
 $ok(count($eager) === 0, 'every image below the hero is lazy');
 $ok(strpos($html, "track('landing_view'") !== false && strpos($html, "track('cta_click'") !== false && strpos($html, "track('signup_started'") !== false && strpos($html, "track('signup_completed'") !== false, 'GA events wired: landing_view, cta_click, signup_started, signup_completed');
-$ok(strpos($html, "tt('ViewContent'") !== false && strpos($html, "tt('CompleteRegistration', { content_name: 'Creator account' }, { event_id: eid })") !== false && strpos($html, 'tt_event_id: eid') !== false, 'TikTok ViewContent on load; CompleteRegistration with the event_id the server also gets');
+$ok(strpos($html, "tt('ViewContent'") !== false && strpos($html, 'window.CLSTikTokRegistration(o.tt_registration)') !== false && strpos($html, "tt('CompleteRegistration'") === false, 'TikTok ViewContent on load; CompleteRegistration only through the shared server-confirmed helper');
 
 // the in-app check in the page script, against real user agents
 preg_match('#var inapp = /(.*?)/i\.test#', $html, $rx); $re = '/' . ($rx[1] ?? 'x^') . '/i';

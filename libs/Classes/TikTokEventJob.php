@@ -45,7 +45,7 @@ class TikTokEventJob {
             $value = round(((int) ($opts['value_cents'] ?? 0)) / 100, 2);
             $meta  = (string) ($opts['meta'] ?? '');
             switch ($name) {
-                case 'signup':          $ev = 'CompleteRegistration'; $props = array(); break;
+                case 'signup':          $ev = 'CompleteRegistration'; $props = array('content_name' => 'creator_signup', 'value' => 0, 'currency' => 'USD'); break;   // the same properties as the browser pixel (CLSTikTokRegistration)
                 case 'credits_bought':  $ev = 'Purchase';  $props = array('currency' => 'USD', 'value' => $value, 'content_type' => 'product', 'content_name' => 'Credits'); break;
                 case 'plan_paid':
                     $kind = strtok($meta, ' ');

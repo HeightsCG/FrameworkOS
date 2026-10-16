@@ -56,6 +56,8 @@
                 var response = JSON.parse(data);
                 if (response.success) {
                     toastr.success(response.message);
+                    // an accepted team invite is that person's signup: TikTok CompleteRegistration, then a moment for the pixel to send
+                    if (response.tt_registration && window.CLSTikTokRegistration) { window.CLSTikTokRegistration(response.tt_registration); setTimeout(function () { window.location = '/'; }, 800); return; }
                     window.location = '/';
                 } else {
                     toastr.error(response.message);

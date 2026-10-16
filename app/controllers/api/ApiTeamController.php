@@ -33,6 +33,7 @@ class ApiTeamController extends BaseApiController {
         $member_id = (int) $this->userModel->create_user($u_name, $enc, $first, $last, $email, $owner_id, $owner_id);
         if ($member_id <= 0) { $this->jsonError('Could not create the account.'); }
         $team->mark_as_member($member_id, $role);
+        $this->userModel->start_tt_registration($member_id);   // TikTok CompleteRegistration fires in the invitee's browser when they set their password (resetAction), not here in the owner's
 
         $token = $this->userModel->set_reset_token($member_id, '+7 days');   // an invite, not a reset: a week to accept
         $link  = Main::get_base_domain() . '/account/reset?token=' . urlencode($token);
