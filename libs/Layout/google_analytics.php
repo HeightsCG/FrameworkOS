@@ -94,7 +94,8 @@
       // a TikTok ad click's ttclid, kept 30 days so server-side conversions (TikTokEventJob) match the click
       try{var tc=new URLSearchParams(location.search).get("ttclid");if(tc){d.cookie="cls_ttclid="+encodeURIComponent(tc.slice(0,500))+"; path=/; max-age="+(30*86400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}}catch(e){}
       // the pixel script is requested after the load event, at idle, like GA and Clarity above
-      var go=function(){ttq.load('DB8ESIBC77U937USUOBG');ttq.page();};
+      var go=function(){if(w.CLS_TTQ_LOADED){return;}w.CLS_TTQ_LOADED=1;ttq.load('DB8ESIBC77U937USUOBG');ttq.page();};
+      w.CLSTikTokLoadNow=go;   // a conversion that must not wait for idle (CLSTikTokRegistration) loads the pixel at once; loads once either way
       var idle=function(){setTimeout(function(){(w.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});},w.CLS_TAG_DELAY||0);};
       if(d.readyState==="complete"){idle();}else{w.addEventListener("load",idle,{once:true});}
     }(window, document, 'ttq');
@@ -108,6 +109,7 @@
       try { if (sessionStorage.getItem('cls_ttreg_' + p.event_id)) { return; } sessionStorage.setItem('cls_ttreg_' + p.event_id, '1'); } catch (e) {}
       var who = {}; if (p.email) { who.email = p.email; } if (p.external_id) { who.external_id = p.external_id; }
       ttq.identify(who);
+      if (window.CLSTikTokLoadNow) { window.CLSTikTokLoadNow(); }   // don't wait for idle: the person may leave this page any second
       ttq.track('CompleteRegistration', { content_name: 'creator_signup', value: 0, currency: 'USD' }, { event_id: p.event_id });
     };
 <?php
