@@ -9,7 +9,8 @@
       // home hero's paint from 2.0s to 5.8s in Lighthouse (2026-10-15). dataLayer queues every call until it arrives.
       (function () {
         var go = function () { var s = document.createElement('script'); s.async = true; s.src = 'https://www.googletagmanager.com/gtag/js?id=G-KQBG52F6SZ'; document.head.appendChild(s); };
-        var idle = function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 3000 }); };
+        // window.CLS_TAG_DELAY (ms, set by a page before this file; /start uses it): wait that long after load first. 0 elsewhere.
+        var idle = function () { setTimeout(function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 3000 }); }, window.CLS_TAG_DELAY || 0); };
         if (document.readyState === 'complete') { idle(); } else { window.addEventListener('load', idle, { once: true }); }
       })();
 
@@ -78,7 +79,7 @@
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};   // calls queue until the tag has loaded
         // loaded after the load event, at idle (2026-10-12): the tag is never requested while the page is still loading
         var go=function(){var t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i+"?ref=bwt";var y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);};
-        var idle=function(){(c.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});};
+        var idle=function(){setTimeout(function(){(c.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});},c.CLS_TAG_DELAY||0);};
         if(l.readyState==="complete"){idle();}else{c.addEventListener("load",idle,{once:true});}
     })(window, document, "clarity", "script", "ymy03mkngt");
     </script>
@@ -94,7 +95,7 @@
       try{var tc=new URLSearchParams(location.search).get("ttclid");if(tc){d.cookie="cls_ttclid="+encodeURIComponent(tc.slice(0,500))+"; path=/; max-age="+(30*86400)+"; SameSite=Lax"+(location.protocol==="https:"?"; Secure":"");}}catch(e){}
       // the pixel script is requested after the load event, at idle, like GA and Clarity above
       var go=function(){ttq.load('DB8ESIBC77U937USUOBG');ttq.page();};
-      var idle=function(){(w.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});};
+      var idle=function(){setTimeout(function(){(w.requestIdleCallback||function(f){setTimeout(f,1);})(go,{timeout:4000});},w.CLS_TAG_DELAY||0);};
       if(d.readyState==="complete"){idle();}else{w.addEventListener("load",idle,{once:true});}
     }(window, document, 'ttq');
     </script>

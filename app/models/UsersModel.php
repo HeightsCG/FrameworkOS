@@ -484,6 +484,31 @@ class UsersModel extends Model {
         ));
     }
 
+    /**
+     * The paid-ad touch behind a signup (2026-10-16): the cls_ad cookie /start sets from its own URL (utm_* and ttclid,
+     * last ad landing wins), else just the TikTok click id the pixel block keeps in cls_ttclid. Kept apart from acq_*.
+     */
+    public function record_ad_touch($user_id){
+        $ad = json_decode((string) ($_COOKIE['cls_ad'] ?? ''), true);
+        $ad = is_array($ad) ? $ad : array();
+        $tt = trim((string) ($ad['tt'] ?? '')); if ($tt === '') { $tt = trim((string) ($_COOKIE['cls_ttclid'] ?? '')); }
+        $f = array();
+        foreach (array('ad_source' => array('s', 100), 'ad_medium' => array('m', 100), 'ad_campaign' => array('c', 150), 'ad_content' => array('n', 150), 'ad_term' => array('t', 150), 'ad_landing' => array('l', 255)) as $col => $k) {
+            $v = trim(is_string($ad[$k[0]] ?? null) ? $ad[$k[0]] : '');
+            $f[$col] = $v === '' ? null : mb_substr($v, 0, $k[1]);
+        }
+        $f['ad_ttclid'] = ($tt !== '' && preg_match('/^[A-Za-z0-9._-]{1,500}$/', $tt)) ? $tt : null;
+        if (count(array_filter($f, function ($v) { return $v !== null; })) === 0) { return; }
+        $seen = strtotime((string) ($ad['at'] ?? ''));
+        $f['ad_seen'] = $seen ? gmdate('Y-m-d H:i:s', $seen) : null;
+        parent::update('user_accounts', $f, 'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
+    /** The signup came with the founding trial offer (?founding=1 / cls_founding): verify_email hands the flag to whichever browser opens the link. */
+    public function set_signup_founding($user_id){
+        return parent::update('user_accounts', array('signup_founding' => 1), 'user_id = :uid', array('uid' => (int) $user_id));
+    }
+
     /** First-touch attribution for a new account (the cls_ft cookie), saved once at signup. */
     public function set_acquisition($user_id, array $a){
         $f = array();

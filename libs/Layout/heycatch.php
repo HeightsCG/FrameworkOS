@@ -24,7 +24,7 @@ if (!HeyCatch::ENABLED) { return; }
     <script type="module">
       // after the load event, at idle: the SDK never competes with the page for the network or the main thread
       await new Promise(function (go) {
-        var idle = function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 4000 }); };
+        var idle = function () { setTimeout(function () { (window.requestIdleCallback || function (f) { setTimeout(f, 1); })(go, { timeout: 4000 }); }, window.CLS_TAG_DELAY || 0); };   // CLS_TAG_DELAY: see google_analytics.php
         if (document.readyState === 'complete') { idle(); } else { window.addEventListener('load', idle, { once: true }); }
       });
       const { analytics } = await import('/js/heycatch-sdk-<?php echo HeyCatch::SDK_VERSION; ?>.js');

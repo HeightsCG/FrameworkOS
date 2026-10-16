@@ -69,13 +69,17 @@ class ApiAuthController extends BaseApiController {
 
         // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
         $this->userModel->record_first_touch($user_id);
+        $this->userModel->record_ad_touch($user_id);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)
+        if ((string) ($this->post['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1') { $this->userModel->set_signup_founding($user_id); }
         TrackingLinks::attribute(0, 'signup', $user_id);   // came in through a creator's tracking link (cls_tl)
         try { $this->userModel->record_signup_params($user_id, $signup, true); }
         catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
         Affiliates::attribute_signup($user_id);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
         UsersModel::clear_signup_cookie();
         SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
-        Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email'));
+        // tt_event_id: the id the page gives its own CompleteRegistration pixel event, so TikTok merges the browser and server events
+        $tt_event = (string) ($this->post['tt_event_id'] ?? '');
+        Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email', 'event_id' => preg_match('/^[A-Za-z0-9_-]{8,64}$/', $tt_event) ? $tt_event : ''));
 
         // Email verification is required before the account can sign in.
         $token       = $this->userModel->set_email_verify_token($user_id);
@@ -274,6 +278,10 @@ class ApiAuthController extends BaseApiController {
         $return = CustomDomains::safe_path((string) Session::get('signup_return'));   // set by registerAction in this browser, if it is the same one
         Session::destroyValue('signup_return');
         $done = LoginGate::finish($user);
+        // signed up with the founding trial offer: this browser may not be the one they signed up in (an ad's in-app browser), so it gets the flag too
+        if ((int) ($user['signup_founding'] ?? 0) === 1) {
+            setcookie('cls_founding', '1', array('expires' => time() + 30 * 86400, 'path' => '/', 'secure' => strpos(Main::get_base_domain(), 'https:') === 0, 'httponly' => false, 'samesite' => 'Lax'));
+        }
         // user_id + email let the page identify the new person to analytics before it reports the completed sign-up (libs/Layout/heycatch.php).
         $who  = ['user_id' => (int) $user['user_id'], 'email' => (string) ($user['user_email'] ?? '')];
         if (isset($done['mfa'])) {

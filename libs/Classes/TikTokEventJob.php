@@ -56,14 +56,16 @@ class TikTokEventJob {
                 default: return;
             }
 
-            self::queue($ev, $name, $user_id, $props);
+            // the browser pixel sent the same event under this id (/start's CompleteRegistration): TikTok keeps one of the two
+            $eid = (string) ($opts['event_id'] ?? '');
+            self::queue($ev, $name, $user_id, $props, preg_match('/^[A-Za-z0-9_-]{8,64}$/', $eid) ? $eid : '');
         } catch (\Throwable $e) {
             error_log('[tiktok_event] ' . $name . ': ' . $e->getMessage());
         }
     }
 
     /** Capture the request's person (IP, agent, TikTok cookies, page) now; the queue sends it. */
-    private static function queue(string $ev, string $name, int $user_id, array $props): void {
+    private static function queue(string $ev, string $name, int $user_id, array $props, string $event_id = ''): void {
         $path    = parse_url((string) ($_SERVER['REQUEST_URI'] ?? ''), PHP_URL_PATH) ?: '';
         $webhook = (bool) preg_match('#^/webhook#', $path);   // Stripe's request: its IP, agent and cookies are not the person's
         $user = array();
@@ -81,10 +83,12 @@ class TikTokEventJob {
         if (!$webhook) {
             $page['url'] = mb_substr(rtrim(Main::get_base_domain(), '/') . (string) ($_SERVER['REQUEST_URI'] ?? ''), 0, 1000);
             $ref = (string) ($_SERVER['HTTP_REFERER'] ?? '');
+            // an /api/ call (register, checkout): the page the person was on is the referrer, not the API URL
+            if (strpos($path, '/api/') === 0 && $ref !== '' && (string) parse_url($ref, PHP_URL_HOST) === (string) parse_url(Main::get_base_domain(), PHP_URL_HOST)) { $page['url'] = mb_substr($ref, 0, 1000); $ref = ''; }
             if ($ref !== '') { $page['referrer'] = mb_substr($ref, 0, 1000); }
         }
 
-        $data = array('event' => $ev, 'event_time' => time(), 'event_id' => 'cls_' . $name . '_' . bin2hex(random_bytes(8)), 'user' => $user);
+        $data = array('event' => $ev, 'event_time' => time(), 'event_id' => $event_id !== '' ? $event_id : 'cls_' . $name . '_' . bin2hex(random_bytes(8)), 'user' => $user);
         if (!empty($page)) { $data['page'] = $page; }
         if (!empty($props)) { $data['properties'] = $props; }
         (new DatabaseJobQueue())->dispatch('tiktok_event', array('user_id' => $user_id, 'data' => $data));

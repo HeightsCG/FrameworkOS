@@ -37,6 +37,7 @@ class PagesController extends Controller {
         'press'                               => 'press',
         'alternatives'                        => 'alternativesHub',   // the AI influencer tool categories page; the <x>-alternatives pages are alternativesAction
         'affiliates'                          => 'affiliates',   // /affiliates (public); /affiliates/apply and /affiliates/dashboard go on to AffiliatesController
+        'start'                               => 'start',   // the TikTok ads landing page (StartPage), noindex, its own document
     );
 
     /** The fee wedge in one line, from config: what each selling plan keeps, against OnlyFans' sourced rate ("Keep 90% of every sale on Creator, 97% on Studio. OnlyFans keeps 20%."). */
@@ -896,6 +897,26 @@ class PagesController extends Controller {
             array('q' => 'Do I need a card?', 'a' => 'Yes. Nothing is charged today, but the card is kept for the monthly charge that starts after the free period. Cancel any time from Billing before then and you will not be charged.'),
             array('q' => 'How do I get paid?', 'a' => 'Every sale lands in one balance, net of your plan\'s platform fee. You cash out to your bank on request, with a ' . Price::PAYOUT_MIN_LABEL . ' minimum and no platform hold. Earnings from an event are released after the event has taken place.'),
         );
+    }
+
+    /**
+     * /start (2026-10-16): the paid-traffic landing page for TikTok ads. Its own standalone document (app/views/pages/start.php):
+     * no site nav or footer, signup in a sheet on the page. noindex: it is an ad destination, not a search page.
+     */
+    public function startAction(){
+        if (count(Main::get_url()) > 1) { Errors::page_not_found(); return; }
+        if (!self::$embedded) { Session::cache_header(60); }   // the trial line follows the founding spots, at most a minute old
+        $hero = StartPage::HERO;
+        $meta = array(
+            'title' => 'Make Your Own AI Influencer',
+            'description' => 'Design her face once. Make her photos and videos. Post her everywhere: ten platforms from one place.',
+            'url' => SeoMeta::base() . '/start', 'type' => 'website', 'noindex' => true,
+            'preload_image' => $hero['poster'],   // the video's poster is the first paint of the hero
+            'image' => SeoMeta::base() . $hero['poster'],
+        );
+        $signed_in = (int) Session::get('user_id') > 0;
+        $trial = StartPage::trial_open();
+        require Main::app_path() . '/app/views/pages/start.php';
     }
 
     public function foundingAction(){
