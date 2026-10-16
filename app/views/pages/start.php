@@ -40,6 +40,7 @@ $icon_mail  = '<svg viewBox="0 0 24 24" width="24" height="24" fill="none" strok
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#050505">
     <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/png" sizes="32x32" href="/images/logo/favicon-32x32.png">
     <link rel="apple-touch-icon" sizes="180x180" href="/images/logo/apple-touch-icon.png">
 <?php echo SeoMeta::head($meta); ?>
     <link rel="preload" href="/fonts/inter-latin-var.woff2" as="font" type="font/woff2" crossorigin>
