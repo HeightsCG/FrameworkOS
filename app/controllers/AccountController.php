@@ -400,16 +400,21 @@ class AccountController extends Controller {
             $uid = (int) $users->create_user($users->neutral_username(), password_hash(bin2hex(random_bytes(18)), PASSWORD_DEFAULT), $first, $last, $g['email']);
             if ($uid <= 0) { error_log('[google] create_user returned no id for ' . $g['email']); $fail('google'); }
             $users->link_google($uid, $g['sub']);
-            $users->record_first_touch($uid);
-            $users->record_ad_touch($uid);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)
-            if ((string) ($_COOKIE['cls_founding'] ?? '') === '1') { $users->set_signup_founding($uid); }
+            SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details (first, so nothing below can stop it)
+            try {
+                $users->record_first_touch($uid);
+                $users->record_ad_touch($uid);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)
+                if ((string) ($_COOKIE['cls_founding'] ?? '') === '1') { $users->set_signup_founding($uid); }
+            } catch (\Throwable $e) { error_log('[google] attribution user_id=' . $uid . ': ' . $e->getMessage()); }   // attribution never blocks signing in
             TrackingLinks::attribute(0, 'signup', $uid);   // came in through a creator's tracking link (cls_tl)
             try { $users->record_signup_params($uid, UsersModel::signup_params($flow['signup'] ?? array()), false); }   // Google: stays a User with signup_role creator; /setup sends them to Become a Creator, the agreement comes at checkout
             catch (\Throwable $e) { error_log('[google] record_signup_params user_id=' . $uid . ': ' . $e->getMessage()); }
             Affiliates::attribute_signup($uid);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
             UsersModel::clear_signup_cookie();
-            SignupAlertJob::queue($uid, 'google');   // admins get an email with the new account's details
-            Analytics::event('signup', array('user_id' => $uid, 'meta' => 'google', 'event_id' => $users->start_tt_registration($uid)));
+            $tt_event = '';
+            try { $tt_event = $users->start_tt_registration($uid); }
+            catch (\Throwable $e) { error_log('[google] tt registration user_id=' . $uid . ': ' . $e->getMessage()); }
+            Analytics::event('signup', array('user_id' => $uid, 'meta' => 'google', 'event_id' => $tt_event));
             Session::set('tt_reg_pending', $uid);   // the next page this browser renders fires the pixel's CompleteRegistration, once (google_analytics.php)
             $new = true;
             $rows = $users->get_user_by_id($uid);

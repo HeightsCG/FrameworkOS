@@ -32,12 +32,14 @@ class SignupAlertJob {
         $ref = $d($u['acq_referrer'] ?? '');
         $came = $src !== '' ? $src . ($med !== '' ? ' / ' . $med : '') : ($ref !== '' ? (parse_url($ref, PHP_URL_HOST) ?: $ref) : 'Direct');
 
-        $sent = 0;
+        $sent = 0; $tried = 0; $failed = array();
         $mail = new NotificationsModel();
-        foreach ($users->admin_ids() as $aid) {
+        $admins = $users->admin_ids();
+        foreach ($admins as $aid) {
             $ar = $users->get_user_by_id((int) $aid);
             $a  = (is_array($ar) && count($ar) === 1) ? $ar[0] : null;
             if (!$a || (string) ($a['user_email'] ?? '') === '' || (int) $aid === $uid) { continue; }
+            $tried++;
             $tz = (string) ($a['content_timezone'] ?? '') !== '' ? (string) $a['content_timezone'] : 'America/New_York';
             try { $when = (new DateTime((string) $u['created_at'], new DateTimeZone('UTC')))->setTimezone(new DateTimeZone($tz))->format('M j, Y \a\t g:i A T'); }
             catch (\Throwable $e) { $when = (string) $u['created_at'] . ' UTC'; }
@@ -56,8 +58,10 @@ class SignupAlertJob {
                 'Someone just created an account on ' . Main::site_name() . '.', $lines, '',
                 'View in Admin', rtrim(Main::get_base_domain(), '/') . '/admin/user/' . $uid,
                 'You get this email because you\'re an admin on ' . Main::site_name() . '.');
-            if ($ok) { $sent++; }
+            if ($ok) { $sent++; } else { $failed[] = (string) $a['user_email']; }
         }
-        return 'sent to ' . $sent . ' admin(s)';
+        // Say why nothing went out, so the queue log shows it (the mailer logs Postmark's own reply as [postmark]).
+        if ($sent === 0) { error_log('[signup_alert] user ' . $uid . ': ' . count($admins) . ' admin account(s), ' . $tried . ' with an email' . ($failed ? ', send failed for ' . implode(', ', $failed) : '')); }
+        return 'sent to ' . $sent . ' admin(s)' . ($tried > $sent ? ' (' . ($tried - $sent) . ' failed)' : '') . ($tried === 0 ? ' (no admin with an email: ' . count($admins) . ' admin account(s))' : '');
     }
 }

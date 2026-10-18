@@ -67,18 +67,22 @@ class ApiAuthController extends BaseApiController {
             $this->jsonError('Could not create an account with those details');
         }
 
-        // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php).
-        $this->userModel->record_first_touch($user_id);
-        $this->userModel->record_ad_touch($user_id);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)
-        if ((string) ($this->post['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1') { $this->userModel->set_signup_founding($user_id); }
+        SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details (first, so nothing below can stop it; the job reads attribution when it runs)
+        // Where they came from (first touch, from the cls_ft cookie set by google_analytics.php). Attribution never blocks the verification email.
+        try {
+            $this->userModel->record_first_touch($user_id);
+            $this->userModel->record_ad_touch($user_id);   // the paid ad behind it (cls_ad from /start, else cls_ttclid)
+            if ((string) ($this->post['founding'] ?? '') === '1' || (string) ($_COOKIE['cls_founding'] ?? '') === '1') { $this->userModel->set_signup_founding($user_id); }
+        } catch (\Throwable $e) { error_log('[register] attribution user_id=' . $user_id . ': ' . $e->getMessage()); }
         TrackingLinks::attribute(0, 'signup', $user_id);   // came in through a creator's tracking link (cls_tl)
         try { $this->userModel->record_signup_params($user_id, $signup, true); }
         catch (\Throwable $e) { error_log('[register] record_signup_params user_id=' . $user_id . ': ' . $e->getMessage()); }   // never block the verification email
         Affiliates::attribute_signup($user_id);   // came in through an affiliate link (cls_aff) or an approved affiliate's ?ref=
         UsersModel::clear_signup_cookie();
-        SignupAlertJob::queue($user_id, 'email');   // admins get an email with the new account's details
         // TikTok CompleteRegistration: one event id for the server copy (Analytics -> TikTokEventJob) and the browser pixel (tt_registration below)
-        $tt_event = $this->userModel->start_tt_registration($user_id);
+        $tt_event = '';
+        try { $tt_event = $this->userModel->start_tt_registration($user_id); }
+        catch (\Throwable $e) { error_log('[register] tt registration user_id=' . $user_id . ': ' . $e->getMessage()); }
         Analytics::event('signup', array('user_id' => $user_id, 'meta' => 'email', 'event_id' => $tt_event));
 
         // Email verification is required before the account can sign in.
